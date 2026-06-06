@@ -45,14 +45,10 @@ const PAYPAL_BASE = "https://api-m.paypal.com";
 // which a caller can spoof — that would be an open-redirect).
 const APP_URL = (functions.config().app && functions.config().app.url) || "https://crypto-idea.web.app";
 
-// Admin allowlist — keep in sync with ADMIN_EMAILS in src/CryptoIdea.jsx and isAdmin() in firestore.rules.
-// Robust alternative: set an { admin: true } custom claim via the Admin SDK and check token.admin here.
-const ADMIN_EMAILS = ["nrenre62@gmail.com"];
-
+// Admin is a verified Firebase custom claim ({ admin: true }), set via the Admin SDK
+// (setAdminClaim below, or functions/scripts/set-admin.js for the first admin).
 function isAdminToken(token) {
-  return !!token
-    && token.email_verified === true
-    && ADMIN_EMAILS.includes(String(token.email || "").toLowerCase());
+  return !!token && token.admin === true;
 }
 
 async function getPayPalToken() {
@@ -217,4 +213,22 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     freeUsers,
     estimatedRevenue: proUsers * 9.99 + premiumUsers * 49.99,
   };
+});
+
+// ─── Grant / revoke admin (admins only) ───
+// Sets the { admin: true|false } custom claim on another user by email.
+// The FIRST admin must be bootstrapped with functions/scripts/set-admin.js
+// (run locally with a service account), since this requires an existing admin.
+exports.setAdminClaim = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const email = data && data.email;
+  const makeAdmin = !!(data && data.admin);
+  if (!email) {
+    throw new functions.https.HttpsError("invalid-argument", "email is required.");
+  }
+  const userRecord = await admin.auth().getUserByEmail(email);
+  await admin.auth().setCustomUserClaims(userRecord.uid, { admin: makeAdmin });
+  return { success: true, uid: userRecord.uid, admin: makeAdmin };
 });

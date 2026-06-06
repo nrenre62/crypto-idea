@@ -17,7 +17,7 @@
 import {
   collection, doc, setDoc, getDoc, getDocs,
   deleteDoc, updateDoc, query, orderBy,
-  serverTimestamp, writeBatch
+  serverTimestamp, writeBatch, increment
 } from "firebase/firestore";
 import { db } from "./firebase.config.js";
 
@@ -39,15 +39,20 @@ export async function getPortfolios(uid) {
   }
 }
 
-// Create a new portfolio
+// Create a new portfolio (atomically bumps the user's portfolioCount so the
+// tier-limit rule can enforce the cap).
 export async function createPortfolio(uid, name, order = 0) {
   try {
     const ref = doc(collection(db, "users", uid, "portfolios"));
-    await setDoc(ref, {
+    const batch = writeBatch(db);
+    batch.set(ref, {
       name,
       created: serverTimestamp(),
-      order
+      order,
+      coinCount: 0
     });
+    batch.update(doc(db, "users", uid), { portfolioCount: increment(1) });
+    await batch.commit();
     return { success: true, id: ref.id };
   } catch (error) {
     return { success: false, error: error.message };
@@ -81,8 +86,9 @@ export async function deletePortfolio(uid, portfolioId) {
       batch.delete(coinDoc.ref);
     }
 
-    // Delete the portfolio itself
+    // Delete the portfolio itself and decrement the user's portfolio counter
     batch.delete(doc(db, "users", uid, "portfolios", portfolioId));
+    batch.update(doc(db, "users", uid), { portfolioCount: increment(-1) });
     await batch.commit();
     return { success: true };
   } catch (error) {
@@ -122,16 +128,20 @@ export async function getCoins(uid, portfolioId) {
   }
 }
 
-// Add a coin to a portfolio
+// Add a coin to a portfolio (atomically bumps the portfolio's coinCount).
 export async function addCoin(uid, portfolioId, coinData) {
   try {
     const ref = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinData.id);
-    await setDoc(ref, {
+    const batch = writeBatch(db);
+    batch.set(ref, {
       symbol: coinData.symbol,
       name: coinData.name,
       thumb: coinData.thumb || "",
-      addedAt: serverTimestamp()
+      addedAt: serverTimestamp(),
+      txCount: 0
     });
+    batch.update(doc(db, "users", uid, "portfolios", portfolioId), { coinCount: increment(1) });
+    await batch.commit();
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -149,8 +159,9 @@ export async function removeCoin(uid, portfolioId, coinId) {
     );
     txSnap.docs.forEach(tx => batch.delete(tx.ref));
 
-    // Delete the coin
+    // Delete the coin and decrement the portfolio's coin counter
     batch.delete(doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId));
+    batch.update(doc(db, "users", uid, "portfolios", portfolioId), { coinCount: increment(-1) });
     await batch.commit();
     return { success: true };
   } catch (error) {
@@ -163,19 +174,22 @@ export async function removeCoin(uid, portfolioId, coinId) {
 // TRANSACTIONS (within a coin)
 // ════════════════════════════════════════
 
-// Add a transaction (buy or sell)
+// Add a transaction (buy or sell) — atomically bumps the coin's txCount.
 export async function addTransaction(uid, portfolioId, coinId, txData) {
   try {
     const ref = doc(
       collection(db, "users", uid, "portfolios", portfolioId, "coins", coinId, "transactions")
     );
-    await setDoc(ref, {
+    const batch = writeBatch(db);
+    batch.set(ref, {
       type: txData.type || "buy",     // "buy" or "sell"
       amount: txData.amount,           // number of coins
       priceAtBuy: txData.priceAtBuy,   // price per coin at time of tx
       date: txData.date,               // ISO datetime string
       createdAt: serverTimestamp()
     });
+    batch.update(doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId), { txCount: increment(1) });
+    await batch.commit();
     return { success: true, id: ref.id };
   } catch (error) {
     return { success: false, error: error.message };
@@ -200,12 +214,15 @@ export async function updateTransaction(uid, portfolioId, coinId, txId, txData) 
   }
 }
 
-// Delete a transaction
+// Delete a transaction — atomically decrements the coin's txCount.
 export async function deleteTransaction(uid, portfolioId, coinId, txId) {
   try {
-    await deleteDoc(
+    const batch = writeBatch(db);
+    batch.delete(
       doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId, "transactions", txId)
     );
+    batch.update(doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId), { txCount: increment(-1) });
+    await batch.commit();
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

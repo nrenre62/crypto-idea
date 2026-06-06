@@ -12,7 +12,7 @@ import {
   onAuthStateChanged,
   updateProfile
 } from "firebase/auth";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { auth, db } from "./firebase.config.js";
 
 
@@ -26,25 +26,31 @@ export async function registerUser(email, password, name) {
     // Set display name
     await updateProfile(user, { displayName: name });
 
-    // Create user profile in Firestore
+    // Create user profile in Firestore (portfolioCount starts at 0)
     await setDoc(doc(db, "users", user.uid), {
       email: email,
       name: name,
       tier: "free",           // "free" or "pro"
       joined: serverTimestamp(),
       lastLogin: serverTimestamp(),
+      portfolioCount: 0,
       settings: {
         currency: "usd",
         theme: "light"
       }
     });
 
-    // Create default portfolio
-    await setDoc(doc(db, "users", user.uid, "portfolios", "default"), {
+    // Create the default portfolio in a batch that bumps portfolioCount to 1,
+    // so it satisfies the counter-based tier-limit rule.
+    const batch = writeBatch(db);
+    batch.set(doc(db, "users", user.uid, "portfolios", "default"), {
       name: "My Portfolio",
       created: serverTimestamp(),
-      order: 0
+      order: 0,
+      coinCount: 0
     });
+    batch.update(doc(db, "users", user.uid), { portfolioCount: increment(1) });
+    await batch.commit();
 
     return { success: true, user };
   } catch (error) {

@@ -40,9 +40,9 @@ const db = {
 const APP_NAME = "Crypto Idea";
 const APP_VERSION = "4.1.0";
 
-// Admin allowlist — these emails get the admin dashboard + tier-testing controls.
-// IMPORTANT: keep this in sync with isAdmin() in firestore.rules.
-const ADMIN_EMAILS = ["nrenre62@gmail.com"];
+// Admin is determined by a Firebase custom claim ({ admin: true }) set server-side
+// via the Admin SDK — see functions/index.js (setAdminClaim) and functions/scripts/set-admin.js.
+// There is intentionally no email allowlist here; the client only reads the verified token claim.
 const FREE_COIN_LIMIT = 10;
 const MAX_COINS = 200;
 
@@ -584,6 +584,7 @@ export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
   const[user,setUser]=useState(null);
   const[dataLoaded,setDataLoaded]=useState(false);
+  const[isAdmin,setIsAdmin]=useState(false);  // set from the Firebase { admin: true } custom claim
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
   const[authPass,setAuthPass]=useState("");
@@ -615,7 +616,6 @@ export default function CryptoIdea(){
   const[err,setErr]=useState("");
   const isPro=user?.tier==="pro"||user?.tier==="premium";
   const isPremium=user?.tier==="premium";
-  const isAdmin=!!user&&ADMIN_EMAILS.includes((user.email||"").toLowerCase());
   const[api,setApi]=useState("demo");
   const[eAmt,setEAmt]=useState("");
   const[ePrice,setEPrice]=useState("");
@@ -692,12 +692,17 @@ export default function CryptoIdea(){
           email:fbUser.email,
           name:fbUser.displayName||profile.name||(fbUser.email?fbUser.email.split("@")[0]:""),
         };
+        // Admin status comes from the verified Firebase custom claim, not an email list
+        let adminClaim=false;
+        try{const tr=await fbUser.getIdTokenResult();adminClaim=!!(tr.claims&&tr.claims.admin===true);}catch(e){}
+        setIsAdmin(adminClaim);
         await loadPortfolios();
         // Check if subscription expired or payment failed
         const checked=await checkSubscriptionStatus(baseUser);
         setUser(checked);
         setScreen("portfolio");
       }else{
+        setIsAdmin(false);
         setUser(null);
         setScreen("login");
       }

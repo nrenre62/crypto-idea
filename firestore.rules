@@ -2,18 +2,22 @@
 // =========================================
 // Deploy: firebase deploy --only firestore:rules
 //
-// These rules ensure:
-// - Users can only read/write their own data
+// What these rules enforce:
+// - Users can only read/write their own data; admins can read/manage everyone
+// - Admin = a verified Firebase custom claim ({ admin: true }) set via the Admin
+//   SDK (functions/index.js setAdminClaim + functions/scripts/set-admin.js).
+//   No email allowlist.
 // - Users CANNOT change their own tier (no paying-for-free Pro) — only an admin can
-// - Admins can read/manage every user
-// - Data is validated on writes
+// - Tier limits (max portfolios / coins / transactions) enforced via maintained
+//   counters: every create must atomically increment a counter on its parent, and
+//   the post-write counter must stay within the tier limit. See firebase-database.js
+//   (writeBatch + increment) which keeps these counters in sync.
 //
-// NOTE on tier limits: Firestore rules cannot count documents, so exact
-// per-tier limits (max portfolios/coins) are enforced in the app, not here.
-// To enforce them server-side, keep a counter field on the user doc and check
-// it in these rules, or enforce via a Cloud Function. The previous version of
-// this file CLAIMED server-side enforcement but always returned true — that was
-// misleading, so it has been removed.
+// NOTE: Premium *custom* limits (per-user premiumLimits) are checked client-side;
+// these rules use the premium defaults (50/500/5000) as the hard ceiling.
+//
+// IMPORTANT: test changes with the Firebase emulator (firebase emulators:start)
+// before deploying — counter logic is easy to get subtly wrong.
 
 rules_version = '2';
 service cloud.firestore {
@@ -26,60 +30,113 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    // Admin allowlist — keep in sync with ADMIN_EMAILS in src/CryptoIdea.jsx.
-    // For extra safety in production, also require request.auth.token.email_verified == true.
+    // Admin via verified custom claim — set server-side with the Admin SDK.
     function isAdmin() {
-      return isSignedIn()
-             && request.auth.token.email in ['nrenre62@gmail.com'];
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // ─── Tier limits ───
+    function tierOf(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.tier;
+    }
+    function maxPortfolios(userId) {
+      let t = tierOf(userId);
+      return t == 'premium' ? 50 : t == 'pro' ? 10 : 1;
+    }
+    function maxCoins(userId) {
+      let t = tierOf(userId);
+      return t == 'premium' ? 500 : t == 'pro' ? 200 : 10;
+    }
+    function maxTx(userId) {
+      let t = tierOf(userId);
+      return t == 'premium' ? 5000 : t == 'pro' ? 2000 : 50;
+    }
+
+    // Counter changes (made by clients to keep aggregates in sync) must move by at
+    // most 1 per write, so they can't be reset to smuggle past a limit in one shot.
+    function counterDeltaOk(field) {
+      let oldVal = resource.data.get(field, 0);
+      let newVal = request.resource.data.get(field, 0);
+      return newVal >= oldVal - 1 && newVal <= oldVal + 1;
     }
 
     // ─── User Profile ───
     match /users/{userId} {
 
-      // Read: the owner, or any admin
       allow read: if isOwner(userId) || isAdmin();
 
-      // Create: only yourself, and you must start on the free tier
+      // Create yourself, on the free tier, with a zeroed portfolio counter
       allow create: if isOwner(userId)
-                    && request.resource.data.tier == 'free';
+                    && request.resource.data.tier == 'free'
+                    && request.resource.data.get('portfolioCount', 0) == 0;
 
-      // Update: admins can change anything (e.g. grant a paid tier after payment).
-      // Owners can update their own profile but may NOT change 'tier' or 'joined'
-      // — this blocks a user from making themselves Pro/Premium for free.
+      // Admins can change anything (e.g. grant a paid tier after payment).
+      // Owners may update their profile but NOT 'tier'/'joined', and may only
+      // nudge portfolioCount by ±1 (kept in sync with portfolio create/delete).
       allow update: if isAdmin() || (
                       isOwner(userId)
                       && !request.resource.data.diff(resource.data)
                             .affectedKeys().hasAny(['tier', 'joined'])
+                      && counterDeltaOk('portfolioCount')
                     );
 
-      // Delete: only admins (normal users cannot delete profiles)
       allow delete: if isAdmin();
 
       // ─── Portfolios ───
       match /portfolios/{portfolioId} {
+        function userRef() {
+          return /databases/$(database)/documents/users/$(userId);
+        }
 
         allow read: if isOwner(userId) || isAdmin();
 
-        allow create: if isOwner(userId) && validPortfolioData();
-        allow update: if isOwner(userId) && validPortfolioData();
+        // Create requires: valid data, zeroed coin counter, and the parent user's
+        // portfolioCount incremented by exactly 1 and still within the tier limit.
+        allow create: if isOwner(userId)
+                      && validPortfolioData()
+                      && request.resource.data.get('coinCount', 0) == 0
+                      && getAfter(userRef()).data.portfolioCount == get(userRef()).data.get('portfolioCount', 0) + 1
+                      && getAfter(userRef()).data.portfolioCount <= maxPortfolios(userId);
+
+        // Update (incl. coinCount maintenance) — coinCount may move by ±1 only
+        allow update: if (isOwner(userId) && validPortfolioData() && counterDeltaOk('coinCount'))
+                      || isAdmin();
+
         allow delete: if isOwner(userId) || isAdmin();
 
         // ─── Coins ───
         match /coins/{coinId} {
+          function portfolioRef() {
+            return /databases/$(database)/documents/users/$(userId)/portfolios/$(portfolioId);
+          }
 
           allow read: if isOwner(userId) || isAdmin();
 
-          allow create: if isOwner(userId) && validCoinData();
-          allow update: if isOwner(userId);
+          allow create: if isOwner(userId)
+                        && validCoinData()
+                        && request.resource.data.get('txCount', 0) == 0
+                        && getAfter(portfolioRef()).data.coinCount == get(portfolioRef()).data.get('coinCount', 0) + 1
+                        && getAfter(portfolioRef()).data.coinCount <= maxCoins(userId);
+
+          allow update: if (isOwner(userId) && counterDeltaOk('txCount')) || isAdmin();
+
           allow delete: if isOwner(userId) || isAdmin();
 
           // ─── Transactions ───
           match /transactions/{txId} {
+            function coinRef() {
+              return /databases/$(database)/documents/users/$(userId)/portfolios/$(portfolioId)/coins/$(coinId);
+            }
 
             allow read: if isOwner(userId) || isAdmin();
 
-            allow create: if isOwner(userId) && validTransactionData();
-            allow update: if isOwner(userId) && validTransactionData();
+            allow create: if isOwner(userId)
+                          && validTransactionData()
+                          && getAfter(coinRef()).data.txCount == get(coinRef()).data.get('txCount', 0) + 1
+                          && getAfter(coinRef()).data.txCount <= maxTx(userId);
+
+            allow update: if (isOwner(userId) && validTransactionData()) || isAdmin();
+
             allow delete: if isOwner(userId) || isAdmin();
           }
         }
