@@ -17,6 +17,10 @@
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
 
+// Firebase Authentication — passwords are handled by Firebase and never stored on the device.
+import { registerUser, loginUser, logoutUser, resetPassword, onAuthChange } from "./firebase-auth.js";
+import AdminDashboard from "./admin-dashboard.jsx";
+
 // ═══ Persistent Storage Helpers ═══
 const db = {
   async get(key) {
@@ -35,6 +39,10 @@ const db = {
 
 const APP_NAME = "Crypto Idea";
 const APP_VERSION = "4.1.0";
+
+// Admin allowlist — these emails get the admin dashboard + tier-testing controls.
+// IMPORTANT: keep this in sync with isAdmin() in firestore.rules.
+const ADMIN_EMAILS = ["nrenre62@gmail.com"];
 const FREE_COIN_LIMIT = 10;
 const MAX_COINS = 200;
 
@@ -607,6 +615,7 @@ export default function CryptoIdea(){
   const[err,setErr]=useState("");
   const isPro=user?.tier==="pro"||user?.tier==="premium";
   const isPremium=user?.tier==="premium";
+  const isAdmin=!!user&&ADMIN_EMAILS.includes((user.email||"").toLowerCase());
   const[api,setApi]=useState("demo");
   const[eAmt,setEAmt]=useState("");
   const[ePrice,setEPrice]=useState("");
@@ -639,10 +648,9 @@ export default function CryptoIdea(){
 
   useEffect(()=>{const m={};TOP_COINS.forEach(c=>{m[c.id]={usd:c.mockPrice,usd_24h_change:c.mockChange,usd_market_cap:c.mockMcap}});setPrices(m)},[]);
 
-  // ═══ Load saved data on startup ═══
+  // ═══ Watch Firebase auth state + load saved data on startup ═══
   useEffect(()=>{
-    (async()=>{
-      const savedUser=await db.get("ci-user");
+    const loadPortfolios=async()=>{
       const savedPortList=await db.get("ci-port-list");
       let savedPorts=null;
       if(savedPortList){
@@ -666,25 +674,42 @@ export default function CryptoIdea(){
         if(legacy)savedPorts=legacy;
       }
       const savedActivePort=await db.get("ci-active-port");
-      if(savedUser&&!savedUser.loggedOut){
-        // Set portfolios first so trim function has data to work with
-        if(savedPorts)setPortfolios(savedPorts);
-        if(savedActivePort)setActivePortId(savedActivePort);
-        // Then check if subscription expired or payment failed
-        const checked=await checkSubscriptionStatus(savedUser);
+      // Set portfolios first so the trim function has data to work with
+      if(savedPorts)setPortfolios(savedPorts);
+      if(savedActivePort)setActivePortId(savedActivePort);
+    };
+    // Firebase is the source of truth for who is logged in. The password lives
+    // in Firebase Auth and is never stored on the device.
+    const unsub=onAuthChange(async(fbUser)=>{
+      if(fbUser){
+        // Non-sensitive profile (tier, subscription, settings) kept locally, keyed by uid
+        const profile=await db.get("ci-profile-"+fbUser.uid)||{};
+        const baseUser={
+          tier:"free",
+          joined:new Date().toISOString().split("T")[0],
+          ...profile,
+          uid:fbUser.uid,
+          email:fbUser.email,
+          name:fbUser.displayName||profile.name||(fbUser.email?fbUser.email.split("@")[0]:""),
+        };
+        await loadPortfolios();
+        // Check if subscription expired or payment failed
+        const checked=await checkSubscriptionStatus(baseUser);
         setUser(checked);
         setScreen("portfolio");
       }else{
+        setUser(null);
         setScreen("login");
       }
       setDataLoaded(true);
-    })();
+    });
+    return ()=>{ if(typeof unsub==="function") unsub(); };
   },[]);
 
-  // ═══ Auto-save user when it changes ═══
+  // ═══ Auto-save user profile when it changes (never stores a password) ═══
   useEffect(()=>{
     if(!dataLoaded)return;
-    if(user&&!user.loggedOut){db.set("ci-user",user)}
+    if(user&&user.uid){saveProfile(user)}
   },[user,dataLoaded]);
 
   // ═══ Auto-save portfolios when they change ═══
@@ -720,6 +745,14 @@ export default function CryptoIdea(){
 
   const showErr=(m)=>{setErr(m);setTimeout(()=>setErr(""),3000)};
 
+  // Persist only non-sensitive profile data (tier, subscription, settings),
+  // keyed by Firebase uid. Passwords are handled by Firebase Auth, never stored here.
+  const saveProfile=async(u)=>{
+    if(!u||!u.uid)return;
+    const {uid,pass,loggedOut,...rest}=u;
+    await db.set("ci-profile-"+uid,rest);
+  };
+
   const handleAuth=async()=>{
     const emailRegex=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const nameRegex=/^[a-zA-Z\s]{2,30}$/;
@@ -738,42 +771,26 @@ export default function CryptoIdea(){
     }
     if(authMode==="register"){
       const em=authEmail.toLowerCase().trim();
-      const existing=await db.get("ci-user");
-      if(existing&&existing.email===em&&existing.pass){setAuthErr("Email already registered. Try logging in.");return}
-      const newUser={email:em,name:authName.trim()||em.split("@")[0],tier:"free",joined:new Date().toISOString().split("T")[0],pass:authPass};
+      // Create the account in Firebase Auth (password is stored securely by Firebase, never locally)
+      const res=await registerUser(em,authPass,authName.trim());
+      if(!res.success){setAuthErr(res.error||"Could not create account");return}
+      const newUser={uid:res.user.uid,email:em,name:authName.trim()||em.split("@")[0],tier:"free",joined:new Date().toISOString().split("T")[0]};
       setUser(newUser);
-      await db.set("ci-user",newUser);
+      await saveProfile(newUser);
       setAuthErr("");setShowPlan(true);setUpgradeStep("pickPlan");
     }else{
-      // Login: check saved user
+      // Login: verify credentials against Firebase Auth
       const em=authEmail.toLowerCase().trim();
-      const saved=await db.get("ci-user");
-      if(!saved||!saved.pass||saved.email!==em){setAuthErr("No account found with this email");return}
-      if(saved.pass!==authPass){setAuthErr("Incorrect password");return}
-      // Restore user (remove loggedOut flag)
-      const restored={...saved,loggedOut:false};
-      setUser(restored);
-      await db.set("ci-user",restored);
-      // Load saved portfolios
-      const savedPortList=await db.get("ci-port-list");
-      if(savedPortList){
-        const loadedPorts=[];
-        for(const p of savedPortList){
-          const meta=await db.get("ci-port-meta-"+p.id);
-          let coins=[];
-          if(meta&&meta.chunks){for(let i=0;i<meta.chunks;i++){const chunk=await db.get("ci-port-"+p.id+"-c"+i);if(chunk)coins=[...coins,...chunk]}}
-          loadedPorts.push({id:p.id,name:p.name,coins});
-        }
-        if(loadedPorts.length>0)setPortfolios(loadedPorts);
-      }
-      const savedActive=await db.get("ci-active-port");
-      if(savedActive)setActivePortId(savedActive);
-      setAuthErr("");setScreen("portfolio");
+      const res=await loginUser(em,authPass);
+      if(!res.success){setAuthErr(res.error||"Could not log in");return}
+      setAuthErr("");
+      // onAuthChange (above) loads the profile + portfolios and navigates to the portfolio.
     }};
 
   const logout=async()=>{
-    // Mark as logged out but KEEP credentials
-    if(user){await db.set("ci-user",{...user,loggedOut:true})}setUser(null);setPortfolios([{id:"default",name:"My Portfolio",coins:[]}]);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("")};
+    // Sign out of Firebase; onAuthChange will clear the session. No credentials are kept on the device.
+    await logoutUser();
+    setUser(null);setPortfolios([{id:"default",name:"My Portfolio",coins:[]}]);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("")};
   const startUpgrade=(toTier)=>{setUpgradeFlow(toTier);setUpgradeStep("billing");setShowPlan(true)};
   const startDowngrade=(toTier)=>{setDowngradeTo(toTier)};
   const confirmDowngrade=async()=>{
@@ -781,11 +798,21 @@ export default function CryptoIdea(){
     // For demo: mark as cancelled, keep current tier until endDate
     const updated={...user,subscription:{...(user.subscription||{}),cancelled:true,downgradeTo}};
     setUser(updated);
-    await db.set("ci-user",updated);
+    await saveProfile(updated);
     setDowngradeTo(null);
   };
   const upgradePro=()=>startUpgrade("pro");
   const downgradeFree=()=>startDowngrade("free");
+  // Admin-only: instantly switch your own tier for visual testing (skips the payment flow).
+  // This only changes the locally-stored profile; real tier changes go through Firebase/backend.
+  const adminSetTier=(tier)=>{
+    if(!isAdmin)return;
+    if(tier==="free"){setUser(u=>({...u,tier:"free",subscription:null}));}
+    else{
+      const endDate=calcEndDate("yearly");
+      setUser(u=>({...u,tier,subscription:{billing:"yearly",startDate:new Date().toISOString(),endDate,cancelled:false},...(tier==="premium"?{premiumLimits:u?.premiumLimits||{portfolios:50,coins:500,transactions:5000}}:{})}));
+    }
+  };
   const premLimits=user?.premiumLimits||{};
   const maxPortfolios=isPremium?(premLimits.portfolios||50):isPro?10:1;
   const maxCoinsPerPort=isPremium?(premLimits.coins||500):isPro?200:10;
@@ -973,7 +1000,7 @@ const hdr=(left,title,right)=>(<div style={{padding:"14px 18px 6px",display:"fle
         // Force downgrade to free
         trimToTier("free");
         const updated={...u,tier:"free",subscription:null};
-        await db.set("ci-user",updated);
+        await saveProfile(updated);
         return updated;
       }
     }
@@ -983,7 +1010,7 @@ const hdr=(left,title,right)=>(<div style={{padding:"14px 18px 6px",display:"fle
       const target=sub.downgradeTo||"free";
       trimToTier(target);
       const updated={...u,tier:target,subscription:null};
-      await db.set("ci-user",updated);
+      await saveProfile(updated);
       return updated;
     }
 
@@ -1130,7 +1157,7 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
                 const endDate=calcEndDate(upgradeBilling);
                 const updated={...user,tier:newTier,subscription:{billing:upgradeBilling,startDate:new Date().toISOString(),endDate,cancelled:false}};
                 setUser(updated);
-                await db.set("ci-user",updated);
+                await saveProfile(updated);
                 setShowWelcome(newTier);
                 setUpgradeStep("welcome");
               },2000);
@@ -1188,8 +1215,10 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
       const emailRegex=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if(!fpEmail){setFpErr("Enter your email");return}
       if(!emailRegex.test(fpEmail)){setFpErr("Enter a valid email");return}
-      const saved=await db.get("ci-user");
-      if(!saved||saved.email!==fpEmail.toLowerCase().trim()){setFpErr("No account found with this email");return}
+      // Firebase sends the reset email. We always show success so an attacker
+      // can't use this form to discover which emails have accounts.
+      const res=await resetPassword(fpEmail.toLowerCase().trim());
+      if(!res.success&&res.error&&res.error.indexOf("Network")!==-1){setFpErr(res.error);return}
       setResetSent(true);setFpErr("");
     };
     if(resetSent)return(<div style={{padding:"40px 24px",display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",justifyContent:"center"}}>
@@ -1354,6 +1383,20 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
         <button onClick={addPortfolio} style={{padding:"10px 16px",borderRadius:12,border:"none",background:c.txt,color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>+ Add</button>
       </div>
     </div>
+
+    {/* Admin panel — only visible to admin accounts */}
+    {isAdmin&&(
+    <div style={{margin:"12px 18px",padding:"16px",background:c.card,borderRadius:16,border:"1px solid #FFD60A66"}}>
+      <div style={{fontSize:13,fontWeight:700,marginBottom:4}}>🛠 Admin · Testing</div>
+      <div style={{fontSize:11,color:c.dim,marginBottom:12,lineHeight:1.5}}>Instantly switch your tier to preview the app. Admin only — normal users never see this.</div>
+      <div style={{display:"flex",gap:6,marginBottom:12}}>
+        {["free","pro","premium"].map(t=>(
+          <button key={t} onClick={()=>adminSetTier(t)} style={{flex:1,padding:"9px",borderRadius:8,border:(user?.tier===t)?"2px solid "+c.ac:"1px solid #E8E8ED",background:(user?.tier===t)?c.acd:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",color:c.txt,textTransform:"uppercase"}}>{t}</button>
+        ))}
+      </div>
+      <button onClick={()=>setScreen("admin")} style={{width:"100%",padding:"11px",borderRadius:12,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:13,fontWeight:600,cursor:"pointer"}}>Open Admin Dashboard</button>
+    </div>
+    )}
 
     <div style={{padding:"20px 18px"}}>
       <button onClick={logout} style={{width:"100%",padding:"13px",borderRadius:12,border:"1px solid "+c.red,background:c.redd,color:c.red,fontSize:14,fontWeight:600,cursor:"pointer"}}>Logout</button>
@@ -1650,6 +1693,12 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
         </div>
       </div>);
     })()}
+    {screen==="admin"&&isAdmin&&(
+      <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"#F5F5F5",zIndex:9000,maxWidth:430,margin:"0 auto",overflowY:"auto"}}>
+        <button onClick={()=>setScreen("account")} style={{position:"sticky",top:10,zIndex:10,margin:"10px",padding:"8px 14px",borderRadius:10,border:"1px solid #E8E8ED",background:"#fff",fontSize:13,fontWeight:600,cursor:"pointer"}}>← Back</button>
+        <AdminDashboard/>
+      </div>
+    )}
     {screen==="account"&&Account()}
     {screen==="portfolio"&&Portfolio()}
     {screen==="search"&&Search()}

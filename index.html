@@ -60,14 +60,14 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('/service-worker.js')
           .then(reg => console.log('SW registered:', reg.scope))
           .catch(err => console.log('SW registration failed:', err));
       });
     }
   </script>
 
-  <!-- React app bundle (built by Vite/Webpack) -->
+  <!-- React app bundle (built by Vite) -->
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
