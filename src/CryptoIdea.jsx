@@ -19,6 +19,16 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, onAuthChange } from "./firebase-auth.js";
+import {
+  getPortfolios, getCoins,
+  createPortfolio as dbCreatePortfolio,
+  deletePortfolio as dbDeletePortfolio,
+  addCoin as dbAddCoin,
+  removeCoin as dbRemoveCoin,
+  addTransaction as dbAddTransaction,
+  updateTransaction as dbUpdateTransaction,
+  deleteTransaction as dbDeleteTransaction,
+} from "./firebase-database.js";
 import AdminDashboard from "./admin-dashboard.jsx";
 
 // ═══ Persistent Storage Helpers ═══
@@ -650,33 +660,22 @@ export default function CryptoIdea(){
 
   // ═══ Watch Firebase auth state + load saved data on startup ═══
   useEffect(()=>{
-    const loadPortfolios=async()=>{
-      const savedPortList=await db.get("ci-port-list");
-      let savedPorts=null;
-      if(savedPortList){
-        savedPorts=[];
-        for(const p of savedPortList){
-          const meta=await db.get("ci-port-meta-"+p.id);
-          let coins=[];
-          if(meta&&meta.chunks){
-            for(let i=0;i<meta.chunks;i++){
-              const chunk=await db.get("ci-port-"+p.id+"-c"+i);
-              if(chunk)coins=[...coins,...chunk];
-            }
-          }else{
-            const legacy=await db.get("ci-port-"+p.id);
-            if(legacy)coins=legacy;
-          }
-          savedPorts.push({id:p.id,name:p.name,coins});
-        }
-      } else {
-        const legacy=await db.get("ci-portfolios");
-        if(legacy)savedPorts=legacy;
+    const loadPortfolios=async(uid)=>{
+      // Load portfolios (and their coins + transactions) from Firestore so data
+      // syncs across devices. The counters live on these docs and are enforced by rules.
+      const res=await getPortfolios(uid);
+      if(!res.success)return;
+      const ports=[];
+      for(const p of res.portfolios){
+        const cr=await getCoins(uid,p.id);
+        ports.push({id:p.id,name:p.name,coins:cr.success?cr.coins:[]});
       }
-      const savedActivePort=await db.get("ci-active-port");
-      // Set portfolios first so the trim function has data to work with
-      if(savedPorts)setPortfolios(savedPorts);
-      if(savedActivePort)setActivePortId(savedActivePort);
+      if(ports.length>0){
+        setPortfolios(ports);
+        // Restore last active portfolio if it still exists, else use the first one
+        const savedActive=await db.get("ci-active-port");
+        setActivePortId(ports.find(p=>p.id===savedActive)?savedActive:ports[0].id);
+      }
     };
     // Firebase is the source of truth for who is logged in. The password lives
     // in Firebase Auth and is never stored on the device.
@@ -696,7 +695,7 @@ export default function CryptoIdea(){
         let adminClaim=false;
         try{const tr=await fbUser.getIdTokenResult();adminClaim=!!(tr.claims&&tr.claims.admin===true);}catch(e){}
         setIsAdmin(adminClaim);
-        await loadPortfolios();
+        await loadPortfolios(fbUser.uid);
         // Check if subscription expired or payment failed
         const checked=await checkSubscriptionStatus(baseUser);
         setUser(checked);
@@ -717,28 +716,11 @@ export default function CryptoIdea(){
     if(user&&user.uid){saveProfile(user)}
   },[user,dataLoaded]);
 
-  // ═══ Auto-save portfolios when they change ═══
-  useEffect(()=>{
-    if(!dataLoaded)return;
-    // Save portfolio list (names/ids only, small)
-    const portList=portfolios.map(p=>({id:p.id,name:p.name}));
-    db.set("ci-port-list",portList);
-    // Save portfolio data in chunks
-    let totalBytes=0;
-    portfolios.forEach(p=>{
-      const chunkSize=20;
-      const totalChunks=Math.ceil(p.coins.length/chunkSize)||1;
-      db.set("ci-port-meta-"+p.id,{chunks:totalChunks,coinCount:p.coins.length});
-      for(let i=0;i<totalChunks;i++){
-        const chunk=p.coins.slice(i*chunkSize,(i+1)*chunkSize);
-        const data=JSON.stringify(chunk);
-        totalBytes+=data.length;
-        db.set("ci-port-"+p.id+"-c"+i,chunk);
-      }
-    });
-  },[portfolios,dataLoaded]);
+  // Portfolios/coins/transactions are now persisted to Firestore per-mutation
+  // (see addPortfolio/deletePortfolio/addCoin/remCoin/addEntry/remEntry), so the
+  // old bulk local-storage save effect has been removed.
 
-  // ═══ Auto-save active portfolio ═══
+  // ═══ Remember which portfolio is active (local UI preference) ═══
   useEffect(()=>{
     if(!dataLoaded)return;
     db.set("ci-active-port",activePortId);
@@ -825,28 +807,41 @@ export default function CryptoIdea(){
   const maxDCAPerDay=isPro?999999:20;
   
 
-  const addPortfolio=()=>{
+  const addPortfolio=async()=>{
     if(portfolios.length>=maxPortfolios){showErr(isPro?"Max 10 portfolios":"Free: 1 portfolio. Upgrade to Pro for 10!");return}
     if(!newPortName.trim()){showErr("Enter a portfolio name");return}
-    const np={id:uid(),name:newPortName.trim(),coins:[]};
-    setPortfolios(prev=>[...prev,np]);setActivePortId(np.id);setNewPortName("")};
+    if(!user?.uid){showErr("Please sign in again");return}
+    const res=await dbCreatePortfolio(user.uid,newPortName.trim(),portfolios.length);
+    if(!res.success){showErr("Couldn't create portfolio. Check your connection.");return}
+    const np={id:res.id,name:newPortName.trim(),coins:[]};
+    setPortfolios(prev=>[...prev,np]);setActivePortId(res.id);setNewPortName("")};
 
   const deletePortfolio=async(pid)=>{
     if(portfolios.length<=1){showErr("Need at least 1 portfolio");return}
-    const delMeta=await db.get("ci-port-meta-"+pid);
-    if(delMeta&&delMeta.chunks){for(let i=0;i<delMeta.chunks;i++){db.del("ci-port-"+pid+"-c"+i)}}
-    db.del("ci-port-meta-"+pid);
-    db.del("ci-port-"+pid);
+    if(!user?.uid){showErr("Please sign in again");return}
+    const res=await dbDeletePortfolio(user.uid,pid);
+    if(!res.success){showErr("Couldn't delete portfolio. Check your connection.");return}
     setPortfolios(prev=>prev.filter(p=>p.id!==pid));
     if(activePortId===pid){setActivePortId(portfolios.find(p=>p.id!==pid)?.id||"default")}};
 
-  const addCoin=(c)=>{if(portfolio.find(x=>x.id===c.id)){showErr("Already added");return}const lim=maxCoinsPerPort;if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Free: "+maxCoinsPerPort+" coins. Upgrade to Pro for "+200+"!");return}setPortfolio(p=>[...p,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb,entries:[]}]);setScreen("portfolio");setSq("")};
-  const remCoin=(id)=>{setPortfolio(p=>p.filter(c=>c.id!==id));if(sel?.id===id){setSel(null);setScreen("portfolio")}};
-  const addEntry=()=>{if(!eAmt||!ePrice)return;
+  const addCoin=async(c)=>{
+    if(portfolio.find(x=>x.id===c.id)){showErr("Already added");return}
+    const lim=maxCoinsPerPort;
+    if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Free: "+maxCoinsPerPort+" coins. Upgrade to Pro for "+200+"!");return}
+    if(!user?.uid){showErr("Please sign in again");return}
+    const res=await dbAddCoin(user.uid,activePortId,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb});
+    if(!res.success){showErr("Couldn't add coin. Check your connection.");return}
+    setPortfolio(p=>[...p,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb,entries:[]}]);setScreen("portfolio");setSq("")};
+  const remCoin=async(id)=>{
+    if(!user?.uid){showErr("Please sign in again");return}
+    const res=await dbRemoveCoin(user.uid,activePortId,id);
+    if(!res.success){showErr("Couldn't remove coin. Check your connection.");return}
+    setPortfolio(p=>p.filter(c=>c.id!==id));if(sel?.id===id){setSel(null);setScreen("portfolio")}};
+  const addEntry=async()=>{if(!eAmt||!ePrice)return;
     if(sel){
       const currentTxCount=sel.entries.filter(e=>!editEntry||e.id!==editEntry.id).length;
       if(currentTxCount>=maxTxPerCoin){showErr("Max "+maxTxPerCoin+" transactions per coin"+(isPro?"":" · Upgrade to Pro for 2,000!"));return}
-      
+
     }
     if(eTxType==="sell"&&sel){
       const sellDate=new Date(eDate);
@@ -864,21 +859,31 @@ export default function CryptoIdea(){
         return;
       }
     }
+    if(!user?.uid){showErr("Please sign in again");return}
     if(editEntry){
-      const updated={...editEntry,amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate,type:eTxType};
+      const txData={type:eTxType,amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate};
+      const res=await dbUpdateTransaction(user.uid,activePortId,sel.id,editEntry.id,txData);
+      if(!res.success){showErr("Couldn't save transaction. Check your connection.");return}
+      const updated={...editEntry,...txData};
       setPortfolio(p=>p.map(c=>c.id===sel.id?{...c,entries:c.entries.map(e=>e.id===editEntry.id?updated:e)}:c));
       setSel(p=>({...p,entries:p.entries.map(e=>e.id===editEntry.id?updated:e)}));
     }else{
-      const en={id:uid(),amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate,type:eTxType};
+      const txData={type:eTxType,amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate};
+      const res=await dbAddTransaction(user.uid,activePortId,sel.id,txData);
+      if(!res.success){showErr("Couldn't add transaction. Check your connection.");return}
+      const en={id:res.id,...txData};
       setPortfolio(p=>p.map(c=>c.id===sel.id?{...c,entries:[...c.entries,en]}:c));
       setSel(p=>({...p,entries:[...p.entries,en]}));
     }
     setEAmt("");setEPrice("");setEditEntry(null);setScreen("detail")};
-  const remEntry=(cid,eid)=>{
+  const remEntry=async(cid,eid)=>{
     const coin=portfolio.find(c=>c.id===cid);if(!coin)return;
     const remaining=coin.entries.filter(e=>e.id!==eid).sort((a,b)=>new Date(a.date)-new Date(b.date));
     let bal=0;for(const e of remaining){bal=e.type==="sell"?bal-e.amount:bal+e.amount;
       if(bal<-0.00000001){showErr("Can\'t delete — a sell on "+e.date.split("T")[0]+" depends on it");return}}
+    if(!user?.uid){showErr("Please sign in again");return}
+    const res=await dbDeleteTransaction(user.uid,activePortId,cid,eid);
+    if(!res.success){showErr("Couldn't delete transaction. Check your connection.");return}
     setPortfolio(p=>p.map(c=>c.id===cid?{...c,entries:c.entries.filter(e=>e.id!==eid)}:c));setSel(p=>p?{...p,entries:p.entries.filter(e=>e.id!==eid)}:p)};
 
   const calcDCA=async()=>{if(!dcaCoin||!dcaAmt)return;

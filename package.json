@@ -8,8 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build && firebase deploy",
-    "emulators": "firebase emulators:start",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-crypto-idea \"node --test tests/firestore-rules.test.js\""
+    "emulators": "firebase emulators:start --project crypto-idea",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-crypto-idea \"node --test tests/firestore-rules.test.js\"",
+    "test:integration": "firebase emulators:exec --only auth,firestore --project crypto-idea \"node --test --test-force-exit tests/data-layer.test.js\""
   },
   "dependencies": {
     "firebase": "^12.14.0",

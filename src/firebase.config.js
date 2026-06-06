@@ -19,8 +19,8 @@
  */
 
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 // ═══════════════════════════════════════════
 // REPLACE WITH YOUR FIREBASE CONFIG
@@ -38,4 +38,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// In local development, talk to the Firebase emulators instead of real services.
+// Start them first with:  npm run emulators   (Auth on 9099, Firestore on 8080)
+// This lets you run the whole app locally without a real Firebase project.
+if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV) {
+  try {
+    connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+    connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    console.info("[firebase] Using local emulators (Auth :9099, Firestore :8080)");
+  } catch (e) {
+    console.warn("[firebase] Could not connect to emulators:", e);
+  }
+}
+
 export default app;
