@@ -1,0 +1,39 @@
+# ═══ Crypto Idea — .gitignore ═══
+
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Build output
+dist/
+.vite/
+
+# Environment variables (NEVER commit these)
+.env
+.env.local
+.env.production
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes

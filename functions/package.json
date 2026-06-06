@@ -1,0 +1,16 @@
+{
+  "name": "crypto-idea-backend",
+  "version": "4.0.0",
+  "description": "Firebase backend for Crypto Idea portfolio tracker",
+  "type": "module",
+  "dependencies": {
+    "firebase": "^10.12.0"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.0.0"
+  },
+  "scripts": {
+    "deploy-rules": "firebase deploy --only firestore:rules",
+    "deploy-hosting": "firebase deploy --only hosting"
+  }
+}
