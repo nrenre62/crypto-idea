@@ -232,3 +232,84 @@ exports.setAdminClaim = functions.https.onCall(async (data, context) => {
   await admin.auth().setCustomUserClaims(userRecord.uid, { admin: makeAdmin });
   return { success: true, uid: userRecord.uid, admin: makeAdmin };
 });
+
+// ─────────────────────────────────────────────────────────────
+// CoinGecko proxy  (prices / search / history)
+// Hides the API key server-side and caches responses so many users share
+// a few upstream calls. Reached at /api/prices, /api/search, /api/history
+// (Firebase Hosting rewrite in prod; Vite dev proxy locally).
+// Set the key with:  firebase functions:config:set coingecko.demo_key="YOUR_DEMO_KEY"
+// (or COINGECKO_DEMO_KEY env var for the emulator). Works without a key too
+// (falls back to CoinGecko's public endpoint, lower limits).
+// ─────────────────────────────────────────────────────────────
+const CG_BASE = "https://api.coingecko.com/api/v3";
+const CG_KEY = (functions.config().coingecko && functions.config().coingecko.demo_key) || process.env.COINGECKO_DEMO_KEY || "";
+const cgHeaders = () => (CG_KEY ? { "x-cg-demo-api-key": CG_KEY } : {});
+
+// Simple per-instance in-memory cache.
+const _cache = {};
+function cacheGet(key, ttlMs) {
+  const e = _cache[key];
+  return e && (Date.now() - e.at) < ttlMs ? e.data : null;
+}
+function cacheSet(key, data) { _cache[key] = { at: Date.now(), data }; }
+
+exports.api = functions.https.onRequest(async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  const action = String(req.path || "").split("/").filter(Boolean).pop();
+  try {
+    if (action === "prices") {
+      const ids = String(req.query.ids || "").slice(0, 4000);
+      if (!ids) { res.status(400).json({ error: "ids required" }); return; }
+      const key = "prices:" + ids;
+      const hit = cacheGet(key, 60 * 1000);
+      if (hit) { res.set("Cache-Control", "public, max-age=60"); res.json(hit); return; }
+      const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: cgHeaders() });
+      if (!r.ok) { res.status(502).json({ error: "upstream " + r.status }); return; }
+      const data = await r.json();
+      cacheSet(key, data);
+      res.set("Cache-Control", "public, max-age=60");
+      res.json(data);
+      return;
+    }
+    if (action === "search") {
+      const q = String(req.query.q || "").trim().slice(0, 100);
+      if (!q) { res.json({ coins: [] }); return; }
+      const key = "search:" + q.toLowerCase();
+      const hit = cacheGet(key, 60 * 60 * 1000);
+      if (hit) { res.set("Cache-Control", "public, max-age=3600"); res.json(hit); return; }
+      const r = await fetch(`${CG_BASE}/search?query=${encodeURIComponent(q)}`, { headers: cgHeaders() });
+      if (!r.ok) { res.status(502).json({ error: "upstream " + r.status }); return; }
+      const data = await r.json();
+      const coins = (data.coins || []).slice(0, 25).map((c) => ({
+        id: c.id, symbol: String(c.symbol || "").toUpperCase(), name: c.name,
+        thumb: c.thumb || c.large || "", rank: c.market_cap_rank || null,
+      }));
+      const out = { coins };
+      cacheSet(key, out);
+      res.set("Cache-Control", "public, max-age=3600");
+      res.json(out);
+      return;
+    }
+    if (action === "history") {
+      const id = String(req.query.id || "").slice(0, 100);
+      const from = String(req.query.from || ""), to = String(req.query.to || "");
+      if (!id || !from || !to) { res.status(400).json({ error: "id, from, to required" }); return; }
+      const key = `history:${id}:${from}:${to}`;
+      const hit = cacheGet(key, 6 * 60 * 60 * 1000);
+      if (hit) { res.set("Cache-Control", "public, max-age=21600"); res.json(hit); return; }
+      const r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart/range?vs_currency=usd&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { headers: cgHeaders() });
+      if (!r.ok) { res.status(502).json({ error: "upstream " + r.status }); return; }
+      const data = await r.json();
+      const out = { prices: data.prices || [] };
+      cacheSet(key, out);
+      res.set("Cache-Control", "public, max-age=21600");
+      res.json(out);
+      return;
+    }
+    res.status(404).json({ error: "unknown action — use /api/prices, /api/search, or /api/history" });
+  } catch (e) {
+    console.error("api error:", e);
+    res.status(500).json({ error: "server error" });
+  }
+});

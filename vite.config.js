@@ -53,5 +53,14 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    // Forward /api/* to the local Functions emulator (the CoinGecko proxy).
+    // In production, Firebase Hosting rewrites /api/** to the same function.
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:5001",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, "/demo-crypto-idea/us-central1/api"),
+      },
+    },
   },
 });

@@ -587,7 +587,7 @@ function getHistoricalPrice(coinId, date) {
   return before.price + (after.price - before.price) * ratio;
 }
 
-async function fetchHist(id,s,e){try{const from=Math.floor(new Date(s).getTime()/1000),to=Math.floor(new Date(e).getTime()/1000);const r=await fetch(`https://api.coingecko.com/api/v3/coins/${id}/market_chart/range?vs_currency=usd&from=${from}&to=${to}`);if(!r.ok)return null;const d=await r.json();return d.prices}catch{return null}}
+async function fetchHist(id,s,e){try{const from=Math.floor(new Date(s).getTime()/1000),to=Math.floor(new Date(e).getTime()/1000);const r=await fetch(`/api/history?id=${encodeURIComponent(id)}&from=${from}&to=${to}`);if(!r.ok)return null;const d=await r.json();return d.prices}catch{return null}}
 
 // ── Main App ──
 export default function CryptoIdea(){
@@ -622,6 +622,7 @@ export default function CryptoIdea(){
   const setPortfolio=(fn)=>{setPortfolios(prev=>prev.map(p=>p.id===activePortId?{...p,coins:typeof fn==="function"?fn(p.coins):fn}:p))};
   const[prices,setPrices]=useState({});
   const[sq,setSq]=useState("");
+  const[liveCoins,setLiveCoins]=useState([]);  // live CoinGecko search results (any coin)
   const[sel,setSel]=useState(null);
   const[err,setErr]=useState("");
   const isPro=user?.tier==="pro"||user?.tier==="premium";
@@ -726,9 +727,29 @@ export default function CryptoIdea(){
     db.set("ci-active-port",activePortId);
   },[activePortId,dataLoaded]);
 
-  useEffect(()=>{if(!portfolio.length)return;const ids=portfolio.map(c=>c.id).join(",");const f=()=>fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`).then(r=>r.ok?r.json():null).then(d=>{if(d){setPrices(p=>({...p,...d}));setApi("live")}}).catch(()=>{});f();const iv=setInterval(f,60000);return()=>clearInterval(iv)},[portfolio]);
+  useEffect(()=>{if(!portfolio.length)return;const ids=portfolio.map(c=>c.id).join(",");const f=()=>fetch(`/api/prices?ids=${encodeURIComponent(ids)}`).then(r=>r.ok?r.json():null).then(d=>{if(d){setPrices(p=>({...p,...d}));setApi("live")}}).catch(()=>{});f();const iv=setInterval(f,60000);return()=>clearInterval(iv)},[portfolio]);
 
   const sr=useMemo(()=>{if(sq.length<1)return[];const q=sq.toLowerCase();return TOP_COINS.filter(c=>c.name.toLowerCase().startsWith(q)||c.symbol.toLowerCase().startsWith(q)).slice(0,25)},[sq]);
+
+  // ═══ Live coin search via the /api proxy (any coin on CoinGecko) ═══
+  useEffect(()=>{
+    const q=sq.trim();
+    if(q.length<2){setLiveCoins([]);return}
+    let cancelled=false;
+    const t=setTimeout(()=>{
+      fetch(`/api/search?q=${encodeURIComponent(q)}`)
+        .then(r=>r.ok?r.json():null)
+        .then(d=>{if(!cancelled&&d&&Array.isArray(d.coins))setLiveCoins(d.coins)})
+        .catch(()=>{});
+    },300);
+    return()=>{cancelled=true;clearTimeout(t)};
+  },[sq]);
+
+  // Local top-coin matches first, then any other live results (deduped)
+  const searchResults=useMemo(()=>{
+    const seen=new Set(sr.map(c=>c.id));
+    return [...sr,...liveCoins.filter(c=>!seen.has(c.id))];
+  },[sr,liveCoins]);
 
   const showErr=(m)=>{setErr(m);setTimeout(()=>setErr(""),3000)};
 
@@ -1427,7 +1448,7 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
   const Search=()=>(<>
     {hdr(<button onClick={()=>{setScreen("portfolio");setSq("")}} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>{Ic.back}</button>,"Add Coin")}
     <div style={{padding:"6px 18px 10px"}}><input type="text" value={sq} onChange={e=>setSq(e.target.value)} placeholder="Search coins... (Bitcoin, ETH, SOL...)" style={inp_s} autoFocus/></div>
-    {sr.length>0?sr.map(coin=>{const ad=portfolio.find(x=>x.id===coin.id);return(<div key={coin.id} style={{display:"flex",alignItems:"center",padding:"10px 18px",gap:11,opacity:ad?0.4:1}}><CI thumb={coin.thumb} symbol={coin.symbol} size={36}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{coin.name}</div><div style={{fontSize:11,color:c.dim}}>{coin.symbol} · #{coin.rank}</div></div><span style={{fontSize:12,fontWeight:600,marginRight:6}}>{fmtP(coin.mockPrice)}</span><button onClick={()=>!ad&&addCoin(coin)} disabled={ad} style={sb(ad?c.inp:c.ac,ad?c.dim:c.bg)}>{ad?"Added":"+ Add"}</button></div>)}):sq.length>=1?(<div style={{textAlign:"center",padding:"36px",color:c.dim,fontSize:13}}>No results for "{sq}"</div>):(<div style={{textAlign:"center",padding:"44px 36px",color:c.dim}}><div style={{fontSize:38,marginBottom:10}}>🔍</div><div style={{fontSize:14,fontWeight:500,color:c.txt,marginBottom:5}}>Search any coin</div><div style={{fontSize:12,lineHeight:1.5}}>Type to find coins with live icons</div></div>)}
+    {searchResults.length>0?searchResults.map(coin=>{const ad=portfolio.find(x=>x.id===coin.id);return(<div key={coin.id} style={{display:"flex",alignItems:"center",padding:"10px 18px",gap:11,opacity:ad?0.4:1}}><CI thumb={coin.thumb} symbol={coin.symbol} size={36}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{coin.name}</div><div style={{fontSize:11,color:c.dim}}>{coin.symbol}{coin.rank?" · #"+coin.rank:""}</div></div>{coin.mockPrice!=null&&<span style={{fontSize:12,fontWeight:600,marginRight:6}}>{fmtP(coin.mockPrice)}</span>}<button onClick={()=>!ad&&addCoin(coin)} disabled={ad} style={sb(ad?c.inp:c.ac,ad?c.dim:c.bg)}>{ad?"Added":"+ Add"}</button></div>)}):sq.length>=1?(<div style={{textAlign:"center",padding:"36px",color:c.dim,fontSize:13}}>No results for "{sq}"</div>):(<div style={{textAlign:"center",padding:"44px 36px",color:c.dim}}><div style={{fontSize:38,marginBottom:10}}>🔍</div><div style={{fontSize:14,fontWeight:500,color:c.txt,marginBottom:5}}>Search any coin</div><div style={{fontSize:12,lineHeight:1.5}}>Type to find any coin, live</div></div>)}
   </>);
 
   // ── Detail ──
