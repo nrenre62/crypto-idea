@@ -1,48 +1,56 @@
 /**
- * Crypto Idea - Firebase Backend
+ * Crypto Idea - Firebase setup
  * ================================
- * 
- * SETUP INSTRUCTIONS:
- * 
- * 1. Go to https://console.firebase.google.com
- * 2. Create a new project called "crypto-idea"
- * 3. Enable Authentication → Email/Password
- * 4. Enable Cloud Firestore → Start in production mode
- * 5. Copy your config from Project Settings → Web App
- * 6. Replace the firebaseConfig below with your values
- * 7. Install: npm install firebase
- * 
- * COST: $0 on free Spark plan (covers ~50,000 daily users)
- * - Auth: 10,000 logins/month free
- * - Firestore: 50,000 reads, 20,000 writes/day free
- * - Hosting: 10 GB storage, 360 MB/day transfer free
+ * Production config is read from environment variables (see .env.example).
+ * Copy .env.example to .env and fill in your values from:
+ *   Firebase Console -> Project Settings -> Your apps -> Web app (SDK config)
+ *
+ * In local dev (`npm run dev`) the app ignores the real config and talks to the
+ * local emulators instead, so you can develop without touching production.
+ *
+ * NOTE: the Firebase web config (apiKey etc.) is NOT a secret — it ships in the
+ * client bundle by design. Security comes from the Firestore rules, not from
+ * hiding these values. We keep them in .env mainly for tidiness/per-environment.
  */
-
 import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
-// ═══════════════════════════════════════════
-// REPLACE WITH YOUR FIREBASE CONFIG
-// Get this from Firebase Console → Project Settings → Web App
-// ═══════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "crypto-idea.firebaseapp.com",
-  projectId: "crypto-idea",
-  storageBucket: "crypto-idea.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+// Vite injects import.meta.env from .env at build time; it's undefined under Node.
+const env = (typeof import.meta !== "undefined" && import.meta.env) || {};
+const isDev = env.DEV === true;
+
+const realConfig = {
+  apiKey: env.VITE_FIREBASE_API_KEY,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+// Throwaway config used by the emulators (dev + tests). Never hits production.
+const demoConfig = {
+  apiKey: "demo-api-key",
+  authDomain: "demo-crypto-idea.firebaseapp.com",
+  projectId: "demo-crypto-idea",
+  storageBucket: "demo-crypto-idea.appspot.com",
+  messagingSenderId: "000000000000",
+  appId: "demo-app-id",
+};
+
+// Use the real project only for production builds that actually have a config.
+const useReal = !isDev && !!realConfig.apiKey;
+if (!useReal && !isDev) {
+  console.warn("[firebase] No VITE_FIREBASE_* env vars — using demo config. Create .env for production.");
+}
+
+const app = initializeApp(useReal ? realConfig : demoConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// In local development, talk to the Firebase emulators instead of real services.
-// Start them first with:  npm run emulators   (Auth on 9099, Firestore on 8080)
-// This lets you run the whole app locally without a real Firebase project.
-if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV) {
+// Local development -> use the emulators (start them with `npm run emulators`).
+if (isDev) {
   try {
     connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
     connectFirestoreEmulator(db, "127.0.0.1", 8080);
