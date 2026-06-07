@@ -7,8 +7,8 @@
  * Place this file at the ROOT of your hosting directory (dist/sw.js)
  */
 
-const CACHE_NAME = "crypto-idea-v3";
-const STATIC_CACHE = "crypto-idea-static-v3";
+const CACHE_NAME = "crypto-idea-v4";
+const STATIC_CACHE = "crypto-idea-static-v4";
 const API_CACHE = "crypto-idea-api-v1";
 
 // Files to cache immediately on install (app shell)
@@ -86,10 +86,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // App shell: Cache first, network fallback
+  // App shell / page navigations: NETWORK FIRST, fall back to cache when offline.
+  // (Cache-first served stale pages after every deploy — network-first means users
+  // always get the latest HTML while still working offline.)
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request);
-    })
+    fetch(event.request)
+      .then((response) => {
+        const clone = response.clone();
+        caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
