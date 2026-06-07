@@ -15,6 +15,7 @@ const API_CACHE = "crypto-idea-api-v1";
 const APP_SHELL = [
   "/",
   "/index.html",
+  "/app.html",
   "/manifest.json",
 ];
 

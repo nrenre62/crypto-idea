@@ -1,73 +1,563 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#FFFFFF" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Crypto Idea" />
-  <meta name="description" content="Crypto portfolio tracker and DCA calculator" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Crypto Idea — Build your portfolio. Own your edge.</title>
+<meta name="description" content="A clean, private crypto portfolio tracker for retail investors. Track everything in one place, see your real position, and invest with clarity and confidence." />
 
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="/manifest.json" />
+<!-- Open Graph -->
+<meta property="og:title" content="Crypto Idea — Build your portfolio. Own your edge." />
+<meta property="og:description" content="A clean, private crypto portfolio tracker for retail investors." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://cryptoidea.com" />
 
-  <!-- Apple Touch Icons (generate these at 180x180px) -->
-  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96.png" />
+<!-- Icons / PWA -->
+<meta name="theme-color" content="#fbfbf8" />
+<link rel="icon" type="image/png" sizes="96x96" href="/icons/icon-96.png" />
+<link rel="apple-touch-icon" href="/icons/icon-192.png" />
+<link rel="manifest" href="/manifest.json" />
 
-  <title>Crypto Idea</title>
+<style>
+  :root {
+    --ink: #0e0f0d;
+    --ink-soft: #4a4d47;
+    --ink-faint: #8a8d85;
+    --paper: #fbfbf8;
+    --paper-2: #ffffff;
+    --line: #e9e8e1;
+    --line-strong: #d9d8cf;
+    --accent: #0b6b4f;       /* deep, restrained green */
+    --accent-soft: #e7f1ec;
+    --accent-ink: #084d39;
+    --radius: 18px;
+    --radius-sm: 12px;
+    --shadow: 0 1px 2px rgba(14,15,13,.04), 0 12px 40px -16px rgba(14,15,13,.12);
+    --shadow-lg: 0 1px 2px rgba(14,15,13,.05), 0 30px 70px -28px rgba(14,15,13,.22);
+    --maxw: 1120px;
+    --display: "Fraunces", Georgia, serif;
+    --body: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
+  }
 
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-      background: #FFFFFF;
-      color: #1A1A1A;
-      -webkit-font-smoothing: antialiased;
-      /* Safe area for iPhone notch */
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: var(--body);
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: var(--accent); color: #fff; }
+
+  .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- Header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(251,251,248,.78);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid transparent;
+    transition: border-color .3s, background .3s;
+  }
+  header.scrolled { border-bottom-color: var(--line); }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 19px; letter-spacing: -.01em; }
+  .brand .mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--ink); color: var(--paper);
+    display: grid; place-items: center;
+    font-family: var(--display); font-size: 17px; font-weight: 600;
+  }
+  .nav-links { display: flex; align-items: center; gap: 34px; }
+  .nav-links a.link { font-size: 15px; color: var(--ink-soft); font-weight: 500; transition: color .2s; }
+  .nav-links a.link:hover { color: var(--ink); }
+  .nav-cta { display: flex; align-items: center; gap: 14px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: var(--body); font-weight: 600; font-size: 15px;
+    padding: 11px 20px; border-radius: 999px; cursor: pointer; border: 1px solid transparent;
+    transition: transform .15s ease, background .2s, color .2s, border-color .2s, box-shadow .2s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px -10px rgba(14,15,13,.5); }
+  .btn-ghost { color: var(--ink); border-color: var(--line-strong); background: transparent; }
+  .btn-ghost:hover { border-color: var(--ink); background: var(--paper-2); }
+  .btn-lg { padding: 15px 28px; font-size: 16px; }
+
+  .menu-toggle { display: none; background: none; border: 0; cursor: pointer; width: 40px; height: 40px; }
+  .menu-toggle span { display: block; width: 22px; height: 2px; background: var(--ink); margin: 5px auto; transition: .25s; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 88px 0 72px; position: relative; }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background:
+      radial-gradient(60% 50% at 78% 8%, rgba(11,107,79,.06), transparent 70%),
+      radial-gradient(40% 40% at 10% 30%, rgba(14,15,13,.03), transparent 70%);
+  }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--accent-ink); background: var(--accent-soft);
+    padding: 7px 14px; border-radius: 999px; margin-bottom: 26px;
+  }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-family: var(--display); font-weight: 500;
+    font-size: clamp(42px, 5.6vw, 70px); line-height: 1.02; letter-spacing: -.02em;
+    margin-bottom: 22px;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+  .hero p.lead {
+    font-size: clamp(17px, 1.5vw, 19px); color: var(--ink-soft);
+    max-width: 30em; margin-bottom: 32px;
+  }
+  .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .hero-note { font-size: 13.5px; color: var(--ink-faint); margin-top: 18px; }
+
+  /* App preview card */
+  .preview {
+    background: var(--paper-2); border: 1px solid var(--line);
+    border-radius: 24px; box-shadow: var(--shadow-lg); padding: 22px;
+    position: relative;
+  }
+  .preview-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .preview-top .pt-label { font-size: 13px; color: var(--ink-faint); font-weight: 500; }
+  .balance { font-family: var(--display); font-size: 40px; font-weight: 500; letter-spacing: -.02em; }
+  .balance-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .chip-up { font-size: 13px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 10px; border-radius: 999px; }
+  .balance-sub { font-size: 13.5px; color: var(--ink-faint); margin-bottom: 18px; }
+
+  .spark { width: 100%; height: 90px; margin-bottom: 20px; display: block; }
+
+  .holding { display: flex; align-items: center; gap: 14px; padding: 13px 4px; border-top: 1px solid var(--line); }
+  .holding:first-of-type { border-top: 0; }
+  .coin {
+    width: 36px; height: 36px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-weight: 700; font-size: 14px; color: #fff;
+  }
+  .coin.btc { background: #f7931a; }
+  .coin.eth { background: #4b6ef5; }
+  .coin.sol { background: #11b886; }
+  .holding .h-name { font-weight: 600; font-size: 15px; }
+  .holding .h-amt { font-size: 12.5px; color: var(--ink-faint); }
+  .holding .h-right { margin-left: auto; text-align: right; }
+  .holding .h-val { font-weight: 600; font-size: 15px; }
+  .holding .h-chg { font-size: 12.5px; font-weight: 600; }
+  .pos { color: var(--accent); }
+  .neg { color: #c0492f; }
+
+  /* ---------- Section shells ---------- */
+  section { padding: 88px 0; }
+  .section-head { max-width: 38em; margin-bottom: 52px; }
+  .kicker { font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  h2 { font-family: var(--display); font-weight: 500; font-size: clamp(30px, 3.6vw, 44px); line-height: 1.08; letter-spacing: -.02em; }
+  h2 + p { color: var(--ink-soft); font-size: 17px; margin-top: 16px; }
+
+  /* Benefits */
+  .benefits { background: var(--paper-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .bgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .bcard { background: var(--paper-2); padding: 34px 30px; transition: background .25s; }
+  .bcard:hover { background: var(--paper); }
+  .bicon { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink); display: grid; place-items: center; margin-bottom: 20px; }
+  .bcard h3 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 9px; }
+  .bcard p { font-size: 15px; color: var(--ink-soft); }
+
+  /* Steps */
+  .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 36px; }
+  .step .num { font-family: var(--display); font-size: 15px; color: var(--accent); font-weight: 600; border: 1px solid var(--accent); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 18px; }
+  .step h3 { font-size: 19px; font-weight: 600; margin-bottom: 8px; letter-spacing: -.01em; }
+  .step p { color: var(--ink-soft); font-size: 15px; }
+
+  /* Pricing */
+  .pricing { background: var(--paper-2); border-top: 1px solid var(--line); }
+  .toggle { display: inline-flex; align-items: center; gap: 4px; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px; margin: 28px auto 0; }
+  .toggle button { font-family: var(--body); border: 0; background: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ink-soft); padding: 9px 20px; border-radius: 999px; transition: .2s; }
+  .toggle button.active { background: var(--ink); color: var(--paper); }
+  .save-tag { font-size: 12px; color: var(--accent); font-weight: 600; margin-left: 8px; }
+
+  .plans { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; margin-top: 48px; align-items: start; }
+  .plan { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px 28px; position: relative; transition: transform .2s, box-shadow .2s; }
+  .plan.featured { border-color: var(--ink); box-shadow: var(--shadow); }
+  .plan.featured::after { content: "Most popular"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
+  .plan:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+  .plan h3 { font-size: 16px; font-weight: 600; letter-spacing: .01em; }
+  .plan .price { font-family: var(--display); font-weight: 500; font-size: 46px; letter-spacing: -.02em; margin: 14px 0 2px; }
+  .plan .price span { font-family: var(--body); font-size: 15px; font-weight: 500; color: var(--ink-faint); letter-spacing: 0; }
+  .plan .pdesc { font-size: 14px; color: var(--ink-soft); min-height: 40px; margin-bottom: 22px; }
+  .plan ul { list-style: none; margin-bottom: 26px; }
+  .plan li { font-size: 14.5px; color: var(--ink-soft); padding: 8px 0 8px 26px; position: relative; }
+  .plan li::before { content: "✓"; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
+  .plan .btn { width: 100%; }
+
+  /* Education teaser */
+  .edu { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+  .edu-card { background: var(--ink); color: var(--paper); border-radius: var(--radius); padding: 40px; }
+  .edu-card .principle { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid rgba(255,255,255,.12); }
+  .edu-card .principle:first-child { border-top: 0; padding-top: 0; }
+  .edu-card .pn { font-family: var(--display); color: #9fd4c2; font-size: 15px; flex: none; }
+  .edu-card .pt { font-size: 15px; color: rgba(255,255,255,.82); }
+
+  /* Subscribe / footer */
+  .cta-band { text-align: center; }
+  .subscribe { display: flex; gap: 10px; max-width: 440px; margin: 28px auto 0; }
+  .subscribe input { flex: 1; font-family: var(--body); font-size: 15px; padding: 14px 18px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--paper-2); color: var(--ink); outline: none; transition: border-color .2s; }
+  .subscribe input:focus { border-color: var(--ink); }
+  .sub-msg { font-size: 13.5px; color: var(--accent); margin-top: 14px; min-height: 20px; font-weight: 500; }
+
+  footer { border-top: 1px solid var(--line); padding: 48px 0 56px; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .foot-links { display: flex; gap: 26px; }
+  .foot-links a { font-size: 14px; color: var(--ink-soft); transition: color .2s; }
+  .foot-links a:hover { color: var(--ink); }
+  .foot small { color: var(--ink-faint); font-size: 13px; }
+  .disclaimer { font-size: 12px; color: var(--ink-faint); max-width: 60em; margin-top: 22px; line-height: 1.5; }
+
+  /* ---------- Reveal animation ---------- */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; } }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 920px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 44px; }
+    .preview { max-width: 440px; }
+    .bgrid, .steps, .plans { grid-template-columns: 1fr; }
+    .bgrid { gap: 1px; }
+    .edu { grid-template-columns: 1fr; gap: 32px; }
+    .nav-links { display: none; }
+    .menu-toggle { display: block; }
+    .nav-cta .btn-ghost { display: none; }
+    header.menu-open .nav-links {
+      display: flex; flex-direction: column; position: absolute; top: 72px; left: 0; right: 0;
+      background: var(--paper); border-bottom: 1px solid var(--line); padding: 20px 24px; gap: 18px;
     }
-    #root { max-width: 430px; margin: 0 auto; min-height: 100vh; }
-
-    /* Loading screen before React loads */
-    .app-loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      gap: 12px;
-    }
-    .app-loading h1 { font-size: 28px; font-weight: 200; letter-spacing: -0.5px; }
-    .app-loading h1 span { font-weight: 700; }
-    .app-loading p { font-size: 13px; color: #999; }
-  </style>
+  }
+  @media (max-width: 540px) {
+    section { padding: 64px 0; }
+    .hero { padding: 56px 0 48px; }
+    .subscribe { flex-direction: column; }
+    .subscribe input, .subscribe .btn { width: 100%; }
+  }
+</style>
 </head>
 <body>
-  <div id="root">
-    <!-- Shown while React loads -->
-    <div class="app-loading">
-      <h1>Crypto <span>Idea</span></h1>
-      <p>Loading...</p>
+
+<header id="header">
+  <div class="wrap nav">
+    <a href="#top" class="brand"><span class="mark">C</span> Crypto Idea</a>
+    <nav class="nav-links" id="navLinks">
+      <a class="link" href="#product">Product</a>
+      <a class="link" href="#pricing">Pricing</a>
+      <a class="link" href="#edge">Education</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="/app">Open app</a>
+      <a class="btn btn-primary" href="#pricing">Get started</a>
+      <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
     </div>
   </div>
+</header>
 
-  <!-- Register service worker -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js')
-          .then(reg => console.log('SW registered:', reg.scope))
-          .catch(err => console.log('SW registration failed:', err));
-      });
-    }
-  </script>
+<main id="top">
 
-  <!-- React app bundle (built by Vite) -->
-  <script type="module" src="/src/main.jsx"></script>
+  <!-- HERO -->
+  <section class="hero" id="product">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow reveal"><span class="dot"></span> Portfolio tracker for retail investors</span>
+        <h1 class="reveal">Build your portfolio.<br><em>Own your edge.</em></h1>
+        <p class="lead reveal">Every coin, every wallet, every move — in one calm, private place. Crypto Idea gives you the clarity and confidence to manage your portfolio like you actually know what you hold.</p>
+        <div class="hero-actions reveal">
+          <a class="btn btn-primary btn-lg" href="#pricing">Start tracking free</a>
+          <a class="btn btn-ghost btn-lg" href="#edge">See how it works</a>
+        </div>
+        <p class="hero-note reveal">No card to start · Your data stays yours · Works on iPhone &amp; web</p>
+      </div>
+
+      <!-- App preview -->
+      <div class="preview reveal" aria-hidden="true">
+        <div class="preview-top">
+          <span class="pt-label">Total balance</span>
+          <span class="pt-label">30D</span>
+        </div>
+        <div class="balance-row">
+          <span class="balance">$48,920</span>
+          <span class="chip-up">▲ 12.4%</span>
+        </div>
+        <div class="balance-sub">+$5,410 this month</div>
+
+        <svg class="spark" viewBox="0 0 320 90" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(11,107,79,.22)" />
+              <stop offset="100%" stop-color="rgba(11,107,79,0)" />
+            </linearGradient>
+          </defs>
+          <path d="M0,68 C30,60 50,72 80,55 C110,40 130,50 160,38 C195,24 220,40 250,26 C280,14 300,20 320,10"
+                fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M0,68 C30,60 50,72 80,55 C110,40 130,50 160,38 C195,24 220,40 250,26 C280,14 300,20 320,10 L320,90 L0,90 Z"
+                fill="url(#g)" stroke="none"/>
+        </svg>
+
+        <div class="holding">
+          <div class="coin btc">₿</div>
+          <div><div class="h-name">Bitcoin</div><div class="h-amt">0.42 BTC</div></div>
+          <div class="h-right"><div class="h-val">$28,140</div><div class="h-chg pos">+3.1%</div></div>
+        </div>
+        <div class="holding">
+          <div class="coin eth">Ξ</div>
+          <div><div class="h-name">Ethereum</div><div class="h-amt">5.8 ETH</div></div>
+          <div class="h-right"><div class="h-val">$15,920</div><div class="h-chg pos">+1.8%</div></div>
+        </div>
+        <div class="holding">
+          <div class="coin sol">◎</div>
+          <div><div class="h-name">Solana</div><div class="h-amt">31 SOL</div></div>
+          <div class="h-right"><div class="h-val">$4,860</div><div class="h-chg neg">−0.6%</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENEFITS -->
+  <section class="benefits">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="kicker">Why Crypto Idea</div>
+        <h2>Clarity first. Confidence follows.</h2>
+        <p>No noise, no hype, no dashboards you'll never use. Just the few things that actually tell you how your portfolio is doing.</p>
+      </div>
+      <div class="bgrid reveal">
+        <div class="bcard">
+          <div class="bicon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+          </div>
+          <h3>One real number</h3>
+          <p>See your true total balance and 30-day change across every coin and wallet — not scattered across ten apps.</p>
+        </div>
+        <div class="bcard">
+          <div class="bicon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+          <h3>Track in seconds</h3>
+          <p>Add holdings and transactions with quick swipe-to-edit gestures. Your portfolio stays current without the busywork.</p>
+        </div>
+        <div class="bcard">
+          <div class="bicon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Private by default</h3>
+          <p>Your portfolio is yours. We don't sell your data or clutter the app with ads — the page you read is the page you get.</p>
+        </div>
+        <div class="bcard">
+          <div class="bicon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+          </div>
+          <h3>Built to learn</h3>
+          <p>The Education section turns market behavior into simple principles, so every decision sharpens your edge.</p>
+        </div>
+        <div class="bcard">
+          <div class="bicon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M2 9h20M7 14h6"/></svg>
+          </div>
+          <h3>Plans that scale</h3>
+          <p>Start free, upgrade when you grow. Clear limits, fair pricing, and no surprises at renewal.</p>
+        </div>
+        <div class="bcard">
+          <div class="bicon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg>
+          </div>
+          <h3>iPhone &amp; web</h3>
+          <p>A fast, install-anywhere app that feels native on your phone and lives just as comfortably in your browser.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEPS -->
+  <section>
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="kicker">How it works</div>
+        <h2>From scattered to settled in three steps.</h2>
+      </div>
+      <div class="steps">
+        <div class="step reveal"><div class="num">1</div><h3>Add your holdings</h3><p>Enter the coins and amounts you hold. Crypto Idea pulls live prices and builds your portfolio instantly.</p></div>
+        <div class="step reveal"><div class="num">2</div><h3>See your real position</h3><p>One balance, one chart, one truth. Watch your 30-day performance and know exactly where you stand.</p></div>
+        <div class="step reveal"><div class="num">3</div><h3>Sharpen your edge</h3><p>Use the Education principles to make calmer, better decisions — and let confidence replace the guesswork.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section class="pricing" id="pricing">
+    <div class="wrap" style="text-align:center;">
+      <div class="reveal" style="max-width:36em;margin:0 auto;">
+        <div class="kicker">Pricing</div>
+        <h2>Simple plans. Honest limits.</h2>
+        <p style="margin-left:auto;margin-right:auto;">Start free and upgrade only when your portfolio outgrows the plan. Cancel anytime.</p>
+      </div>
+
+      <div class="toggle reveal" role="group" aria-label="Billing period">
+        <button id="btnMonthly" class="active" onclick="setBilling('monthly')">Monthly</button>
+        <button id="btnYearly" onclick="setBilling('yearly')">Yearly <span class="save-tag">−20%</span></button>
+      </div>
+
+      <div class="plans">
+        <div class="plan reveal">
+          <h3>Starter</h3>
+          <div class="price" data-m="$0" data-y="$0">$0<span>/mo</span></div>
+          <p class="pdesc">For getting your first portfolio off the ground.</p>
+          <ul>
+            <li>Up to 5 coins</li>
+            <li>Manual transactions</li>
+            <li>Live prices &amp; 30-day chart</li>
+            <li>Web &amp; iPhone access</li>
+          </ul>
+          <a class="btn btn-ghost" href="/app">Start free</a>
+        </div>
+
+        <div class="plan featured reveal">
+          <h3>Pro</h3>
+          <div class="price" data-m="$6" data-y="$4.80">$6<span>/mo</span></div>
+          <p class="pdesc">For active investors who want the full picture.</p>
+          <ul>
+            <li>Up to 50 coins</li>
+            <li>Unlimited transactions</li>
+            <li>Full performance history</li>
+            <li>Priority price updates</li>
+            <li>Education library</li>
+          </ul>
+          <a class="btn btn-primary" href="/app">Choose Pro</a>
+        </div>
+
+        <div class="plan reveal">
+          <h3>Premium</h3>
+          <div class="price" data-m="$12" data-y="$9.60">$12<span>/mo</span></div>
+          <p class="pdesc">For serious portfolios that need room to grow.</p>
+          <ul>
+            <li>Unlimited coins</li>
+            <li>Expanded storage limits</li>
+            <li>Advanced portfolio insights</li>
+            <li>Everything in Pro</li>
+            <li>Early access to new features</li>
+          </ul>
+          <a class="btn btn-ghost" href="/app">Choose Premium</a>
+        </div>
+      </div>
+      <p class="hero-note reveal" style="margin-top:28px;">Payments handled securely through PayPal.</p>
+    </div>
+  </section>
+
+  <!-- EDUCATION -->
+  <section id="edge">
+    <div class="wrap edu">
+      <div class="reveal">
+        <div class="kicker">Education</div>
+        <h2>Own your edge — built on principles, not predictions.</h2>
+        <p style="color:var(--ink-soft);font-size:17px;margin:16px 0 26px;">Markets are noisy. Your strategy doesn't have to be. The Education section distills investing into a handful of clear principles you can actually use.</p>
+        <a class="btn btn-primary btn-lg" href="/edge">Read the guide</a>
+      </div>
+      <div class="edu-card reveal">
+        <div class="principle"><span class="pn">01</span><span class="pt">Know what you hold before you act on it.</span></div>
+        <div class="principle"><span class="pn">02</span><span class="pt">Time in the market beats timing the market.</span></div>
+        <div class="principle"><span class="pn">03</span><span class="pt">Position size is risk management, not ambition.</span></div>
+        <div class="principle"><span class="pn">04</span><span class="pt">A plan you can keep beats a perfect one you can't.</span></div>
+        <div class="principle"><span class="pn">05</span><span class="pt">Track the process, not just the price.</span></div>
+        <div class="principle"><span class="pn">06</span><span class="pt">Your edge is discipline, repeated.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SUBSCRIBE -->
+  <section class="benefits">
+    <div class="wrap cta-band reveal">
+      <div class="kicker" style="justify-content:center;">Stay in the loop</div>
+      <h2 style="margin:0 auto;max-width:18em;">Get clearer about crypto, one email at a time.</h2>
+      <p style="margin:14px auto 0;max-width:34em;">Occasional notes on portfolio thinking and new features. No spam, unsubscribe anytime.</p>
+      <div class="subscribe">
+        <input type="email" id="emailInput" placeholder="you@email.com" aria-label="Email address" />
+        <button class="btn btn-primary" onclick="subscribe()">Subscribe</button>
+      </div>
+      <div class="sub-msg" id="subMsg"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <a href="#top" class="brand"><span class="mark">C</span> Crypto Idea</a>
+      <div class="foot-links">
+        <a href="#product">Product</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#edge">Education</a>
+        <a href="/app">Open app</a>
+      </div>
+      <small>© <span id="year"></span> Crypto Idea</small>
+    </div>
+    <p class="disclaimer">Crypto Idea is a portfolio tracking tool for informational purposes only. Nothing here is financial, investment, or trading advice. Cryptocurrency is volatile and you can lose money. Always do your own research.</p>
+  </div>
+</footer>
+
+<script>
+  // Header shadow on scroll
+  const header = document.getElementById('header');
+  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
+  window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+  // Mobile menu
+  const toggle = document.getElementById('menuToggle');
+  toggle.addEventListener('click', () => header.classList.toggle('menu-open'));
+  document.querySelectorAll('#navLinks a').forEach(a =>
+    a.addEventListener('click', () => header.classList.remove('menu-open')));
+
+  // Pricing toggle
+  function setBilling(period) {
+    const monthly = period === 'monthly';
+    document.getElementById('btnMonthly').classList.toggle('active', monthly);
+    document.getElementById('btnYearly').classList.toggle('active', !monthly);
+    document.querySelectorAll('.plan .price').forEach(el => {
+      const val = monthly ? el.dataset.m : el.dataset.y;
+      const free = val === '$0';
+      el.innerHTML = val + '<span>' + (free ? '/mo' : (monthly ? '/mo' : '/mo, billed yearly')) + '</span>';
+    });
+  }
+
+  // Email capture (front-end demo — wire to your backend / PayPal flow later)
+  function subscribe() {
+    const input = document.getElementById('emailInput');
+    const msg = document.getElementById('subMsg');
+    const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim());
+    if (!ok) { msg.style.color = '#c0492f'; msg.textContent = 'Please enter a valid email.'; return; }
+    msg.style.color = 'var(--accent)';
+    msg.textContent = "You're on the list — thanks!";
+    input.value = '';
+  }
+  document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') subscribe(); });
+
+  // Year
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // Reveal on scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e, i) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach((el, i) => {
+    el.style.transitionDelay = (Math.min(i % 6, 5) * 70) + 'ms';
+    io.observe(el);
+  });
+</script>
 </body>
 </html>

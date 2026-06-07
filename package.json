@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build && firebase deploy",
+    "icons": "node scripts/generate-icons.js",
     "emulators": "firebase emulators:start --project demo-crypto-idea",
     "test:rules": "firebase emulators:exec --only firestore --project demo-crypto-idea \"node --test tests/firestore-rules.test.js\"",
     "test:integration": "firebase emulators:exec --only auth,firestore --project demo-crypto-idea \"node --test --test-force-exit tests/data-layer.test.js\""
@@ -21,6 +22,7 @@
     "@firebase/rules-unit-testing": "^5.0.1",
     "@vitejs/plugin-react": "^4.3.0",
     "firebase-tools": "^13.0.0",
+    "sharp": "^0.34.5",
     "terser": "^5.31.0",
     "vite": "^5.4.0"
   }
