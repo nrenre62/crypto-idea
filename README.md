@@ -158,7 +158,7 @@ The app never calls CoinGecko directly. It calls the same-origin `/api/*` endpoi
 
 | Endpoint | What it does | Caching |
 |----------|--------------|---------|
-| `GET /api/prices?ids=a,b,c` | Live prices for held coins | Served from a single shared `cache/markets` Firestore doc (top-N coins, refreshed every 5 min). Coins outside the top-N use a rare on-demand call. |
+| `GET /api/prices?ids=a,b,c` | Live prices for held coins | Top-N coins come from a shared `cache/markets` doc (refreshed every 5 min). Coins outside the top-N ("long tail") come from a shared `cache/longtail` doc refreshed every 20 min — so even obscure-coin prices are shared across all users and stay flat in cost. |
 | `GET /api/search?q=term` | Search any of the top-N coins | Reads `cache/markets` — **zero per-search upstream calls**. Only established (top-ranked) coins appear, which naturally excludes brand-new micro-caps. |
 | `GET /api/history?id=coin` | Full daily price history (for DCA) | Cached per-coin in `historyCache/{coin}` for 7 days — fetched **once per coin**, reused for every date range and every user. |
 
@@ -166,8 +166,10 @@ The app never calls CoinGecko directly. It calls the same-origin `/api/*` endpoi
 A single CoinGecko endpoint — `coins/markets` — returns the coin **list + prices + images + rank** together. One call covers 250 coins. `refreshMarkets()` stores that in the shared `cache/markets` doc, so both prices and search read from it. On the free tier this also auto-refreshes on demand if the scheduled function isn't running.
 
 ### Tunables (top of the CoinGecko section in `functions/index.js`)
-- `MARKET_PAGES` — coins covered. `1` = top 250 (1 call/refresh), `4` = top 1000 (4 calls/refresh).
-- `MARKETS_TTL` — price freshness (default 5 min).
+- `MARKET_PAGES` — coins covered for live prices. `1` = top 250 (1 call/refresh).
+- `LIST_PAGES` — coins covered for **search** (default `12` = ~3,000), refreshed daily.
+- `MARKETS_TTL` — top-N price freshness (default 5 min).
+- `LONGTAIL_TTL` — held coins outside the top-N: shared refresh interval (default 20 min).
 - `HISTORY_TTL` — per-coin history refresh (default 7 days).
 
 ### The API key

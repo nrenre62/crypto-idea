@@ -254,7 +254,9 @@ const cgHeaders = () => (CG_KEY ? { "x-cg-demo-api-key": CG_KEY } : {});
 const MARKET_PAGES = 1;                          // 1 page = top 250 coins (1 call/refresh)
 const MARKETS_TTL = 5 * 60 * 1000;               // prices/list freshness: 5 minutes
 const HISTORY_TTL = 7 * 24 * 60 * 60 * 1000;     // per-coin history refresh: 7 days
+const LONGTAIL_TTL = 20 * 60 * 1000;             // held coins outside the top-N: refresh every 20 min
 const MARKETS_DOC = "cache/markets";
+const LONGTAIL_DOC = "cache/longtail";
 
 // Fetch the top-N coins (list + price + image + rank, all in one endpoint) and
 // store them in one shared Firestore doc. This single dataset powers prices AND
@@ -349,12 +351,41 @@ exports.api = functions.https.onRequest(async (req, res) => {
         if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc };
         else missing.push(id);
       }
-      // Coins outside the top-N: one on-demand batched call (rare).
+      // Coins outside the top-N ("long tail"): served from a SHARED Firestore
+      // cache refreshed at most every LONGTAIL_TTL (20 min) per coin — so the
+      // cost is flat (driven by how many distinct obscure coins are held across
+      // ALL users, not by user/request count).
       if (missing.length) {
-        try {
-          const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(missing.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: cgHeaders() });
-          if (r.ok) { const d = await r.json(); for (const id of missing) if (d[id]) out[id] = d[id]; }
-        } catch (e) { /* ignore */ }
+        const now = Date.now();
+        let lt = {};
+        try { const s = await db.doc(LONGTAIL_DOC).get(); lt = (s.exists && s.data().coins) || {}; } catch (e) { /* ignore */ }
+        const toFetch = [];
+        for (const id of missing) {
+          const c = lt[id];
+          if (c && (now - (c.at || 0)) < LONGTAIL_TTL) {
+            out[id] = { usd: c.p, usd_24h_change: c.ch, usd_market_cap: c.mc };
+          } else {
+            toFetch.push(id);
+          }
+        }
+        if (toFetch.length) {
+          try {
+            const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(toFetch.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: cgHeaders() });
+            if (r.ok) {
+              const d = await r.json();
+              const upd = { coins: {} };
+              for (const id of toFetch) {
+                if (d[id]) {
+                  out[id] = d[id];
+                  upd.coins[id] = { p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: now };
+                }
+              }
+              if (Object.keys(upd.coins).length) {
+                try { await db.doc(LONGTAIL_DOC).set(upd, { merge: true }); } catch (e) { /* ignore */ }
+              }
+            }
+          } catch (e) { /* ignore */ }
+        }
       }
       res.set("Cache-Control", "public, max-age=120");
       res.json(out);
