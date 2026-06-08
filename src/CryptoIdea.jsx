@@ -587,7 +587,7 @@ function getHistoricalPrice(coinId, date) {
   return before.price + (after.price - before.price) * ratio;
 }
 
-async function fetchHist(id,s,e){try{const from=Math.floor(new Date(s).getTime()/1000),to=Math.floor(new Date(e).getTime()/1000);const r=await fetch(`/api/history?id=${encodeURIComponent(id)}&from=${from}&to=${to}`);if(!r.ok)return null;const d=await r.json();return d.prices}catch{return null}}
+async function fetchHist(id){try{const r=await fetch(`/api/history?id=${encodeURIComponent(id)}`);if(!r.ok)return null;const d=await r.json();return d.prices}catch{return null}}
 
 // ── Main App ──
 export default function CryptoIdea(){
@@ -911,7 +911,7 @@ export default function CryptoIdea(){
     const today=new Date().toISOString().split("T")[0];
     if(dcaLastDate!==today){setDcaUsesToday(0);setDcaLastDate(today)}
     if(dcaUsesToday>=maxDCAPerDay){showErr("Free: "+maxDCAPerDay+" DCA calculations per day. Upgrade to Pro for unlimited!");return}
-    setDcaUsesToday(p=>p+1);setDcaCalc(true);const coin=TOP_COINS.find(c=>c.id===dcaCoin.id);const amt=parseFloat(dcaAmt);const effectiveStart=coin&&new Date(dcaStart)<new Date(coin.launch)?coin.launch:dcaStart;const dates=genDCADates(effectiveStart,dcaEnd,dcaFreq);const el=timeBetween(effectiveStart,dcaEnd);let hist=await fetchHist(dcaCoin.id,dcaStart,dcaEnd);let tc=0,ti=0;const buys=[];
+    setDcaUsesToday(p=>p+1);setDcaCalc(true);const coin=TOP_COINS.find(c=>c.id===dcaCoin.id);const amt=parseFloat(dcaAmt);const effectiveStart=coin&&new Date(dcaStart)<new Date(coin.launch)?coin.launch:dcaStart;const dates=genDCADates(effectiveStart,dcaEnd,dcaFreq);const el=timeBetween(effectiveStart,dcaEnd);let hist=await fetchHist(dcaCoin.id);let tc=0,ti=0;const buys=[];
   for(const date of dates){let price;if(hist){const ts=date.getTime();let cl=hist[0],md=Infinity;for(const[t,p]of hist){if(Math.abs(t-ts)<md){md=Math.abs(t-ts);cl=[t,p]}}price=cl[1]}else{price=getHistoricalPrice(dcaCoin.id,date)}if(price&&price>0){const cb=amt/price;tc+=cb;ti+=amt;buys.push({date:date.toISOString().split("T")[0],price,cb,inv:amt})}}
   const cp=prices[dcaCoin.id]?.usd||TOP_COINS.find(x=>x.id===dcaCoin.id)?.mockPrice||0;const cv=tc*cp;const pf=cv-ti;const pp=ti>0?(pf/ti)*100:0;const ab=tc>0?ti/tc:0;
   setDcaRes({coin:dcaCoin,start:effectiveStart,end:dcaEnd,el,freq:dcaFreq,amt,np:buys.length,ti,tc,ab,cp,cv,pf,pp,src:hist?"live":"historical"});setDcaCalc(false)};

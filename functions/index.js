@@ -233,78 +233,133 @@ exports.setAdminClaim = functions.https.onCall(async (data, context) => {
   return { success: true, uid: userRecord.uid, admin: makeAdmin };
 });
 
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
 // CoinGecko proxy  (prices / search / history)
-// Hides the API key server-side and caches responses so many users share
-// a few upstream calls. Reached at /api/prices, /api/search, /api/history
-// (Firebase Hosting rewrite in prod; Vite dev proxy locally).
-// Set the key with:  firebase functions:config:set coingecko.demo_key="YOUR_DEMO_KEY"
-// (or COINGECKO_DEMO_KEY env var for the emulator). Works without a key too
-// (falls back to CoinGecko's public endpoint, lower limits).
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
+// Cost model: upstream calls are SHARED across all users and do NOT scale with
+// the number of users. One refresh of the top-N coin list (1 call per 250 coins)
+// serves everyone's prices AND search. Each coin's full history is fetched once
+// and reused for every DCA calc by every user. See README "CoinGecko proxy".
+//
+// API key lives server-side only:
+//   firebase functions:config:set coingecko.demo_key="YOUR_DEMO_KEY"
+//   (or COINGECKO_DEMO_KEY env var for the emulator)
+// Without a key it uses the public endpoint (lower limits, history limited to
+// the last 365 days — the app then falls back to its built-in estimates).
 const CG_BASE = "https://api.coingecko.com/api/v3";
 const CG_KEY = (functions.config().coingecko && functions.config().coingecko.demo_key) || process.env.COINGECKO_DEMO_KEY || "";
 const cgHeaders = () => (CG_KEY ? { "x-cg-demo-api-key": CG_KEY } : {});
 
-// Simple per-instance in-memory cache.
-const _cache = {};
-function cacheGet(key, ttlMs) {
-  const e = _cache[key];
-  return e && (Date.now() - e.at) < ttlMs ? e.data : null;
+// Tunables (raise pages for more coins, raise TTLs for fewer upstream calls).
+const MARKET_PAGES = 1;                          // 1 page = top 250 coins (1 call/refresh)
+const MARKETS_TTL = 5 * 60 * 1000;               // prices/list freshness: 5 minutes
+const HISTORY_TTL = 7 * 24 * 60 * 60 * 1000;     // per-coin history refresh: 7 days
+const MARKETS_DOC = "cache/markets";
+
+// Fetch the top-N coins (list + price + image + rank, all in one endpoint) and
+// store them in one shared Firestore doc. This single dataset powers prices AND
+// search for ALL users. Only coins big enough to be in the top-N appear — which
+// naturally excludes brand-new micro-cap coins.
+async function refreshMarkets() {
+  const coins = {};
+  for (let page = 1; page <= MARKET_PAGES; page++) {
+    const r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&price_change_percentage=24h`, { headers: cgHeaders() });
+    if (!r.ok) throw new Error("markets " + r.status);
+    const arr = await r.json();
+    for (const c of arr) {
+      coins[c.id] = {
+        s: String(c.symbol || "").toUpperCase(), n: c.name, img: c.image || "",
+        rank: c.market_cap_rank || null, p: c.current_price,
+        ch: c.price_change_percentage_24h, mc: c.market_cap,
+      };
+    }
+  }
+  await db.doc(MARKETS_DOC).set({ updatedAt: Date.now(), coins });
+  return coins;
 }
-function cacheSet(key, data) { _cache[key] = { at: Date.now(), data }; }
+
+// Read the shared market cache; refresh it on demand if missing/stale (so it
+// works even without the scheduled function, e.g. in the emulator).
+async function getMarkets() {
+  let data = null;
+  try { const snap = await db.doc(MARKETS_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
+  if (!data || (Date.now() - (data.updatedAt || 0)) > MARKETS_TTL) {
+    try { return await refreshMarkets(); } catch (e) { if (data) return data.coins; throw e; }
+  }
+  return data.coins;
+}
+
+// Scheduled keep-warm (production only; needs the Blaze plan). The on-demand
+// refresh in getMarkets() covers everything if this isn't running.
+exports.refreshMarkets = functions.pubsub.schedule("every 5 minutes").onRun(async () => {
+  try { await refreshMarkets(); } catch (e) { console.error("refreshMarkets:", e); }
+  return null;
+});
 
 exports.api = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   const action = String(req.path || "").split("/").filter(Boolean).pop();
   try {
     if (action === "prices") {
-      const ids = String(req.query.ids || "").slice(0, 4000);
-      if (!ids) { res.status(400).json({ error: "ids required" }); return; }
-      const key = "prices:" + ids;
-      const hit = cacheGet(key, 60 * 1000);
-      if (hit) { res.set("Cache-Control", "public, max-age=60"); res.json(hit); return; }
-      const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: cgHeaders() });
-      if (!r.ok) { res.status(502).json({ error: "upstream " + r.status }); return; }
-      const data = await r.json();
-      cacheSet(key, data);
-      res.set("Cache-Control", "public, max-age=60");
-      res.json(data);
+      const ids = String(req.query.ids || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 500);
+      if (!ids.length) { res.status(400).json({ error: "ids required" }); return; }
+      const markets = await getMarkets();
+      const out = {};
+      const missing = [];
+      for (const id of ids) {
+        const m = markets[id];
+        if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc };
+        else missing.push(id);
+      }
+      // Coins outside the top-N: one on-demand batched call (rare).
+      if (missing.length) {
+        try {
+          const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(missing.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: cgHeaders() });
+          if (r.ok) { const d = await r.json(); for (const id of missing) if (d[id]) out[id] = d[id]; }
+        } catch (e) { /* ignore */ }
+      }
+      res.set("Cache-Control", "public, max-age=120");
+      res.json(out);
       return;
     }
     if (action === "search") {
-      const q = String(req.query.q || "").trim().slice(0, 100);
+      const q = String(req.query.q || "").trim().toLowerCase();
       if (!q) { res.json({ coins: [] }); return; }
-      const key = "search:" + q.toLowerCase();
-      const hit = cacheGet(key, 60 * 60 * 1000);
-      if (hit) { res.set("Cache-Control", "public, max-age=3600"); res.json(hit); return; }
-      const r = await fetch(`${CG_BASE}/search?query=${encodeURIComponent(q)}`, { headers: cgHeaders() });
-      if (!r.ok) { res.status(502).json({ error: "upstream " + r.status }); return; }
-      const data = await r.json();
-      const coins = (data.coins || []).slice(0, 25).map((c) => ({
-        id: c.id, symbol: String(c.symbol || "").toUpperCase(), name: c.name,
-        thumb: c.thumb || c.large || "", rank: c.market_cap_rank || null,
-      }));
-      const out = { coins };
-      cacheSet(key, out);
-      res.set("Cache-Control", "public, max-age=3600");
-      res.json(out);
+      const markets = await getMarkets();   // no per-search upstream call
+      const matches = [];
+      for (const id in markets) {
+        const m = markets[id];
+        if (id.includes(q) || String(m.n || "").toLowerCase().includes(q) || String(m.s || "").toLowerCase().includes(q)) {
+          matches.push({ id, symbol: m.s, name: m.n, thumb: m.img, rank: m.rank });
+        }
+      }
+      matches.sort((a, b) => (a.rank || 99999) - (b.rank || 99999));
+      res.set("Cache-Control", "public, max-age=300");
+      res.json({ coins: matches.slice(0, 25) });
       return;
     }
     if (action === "history") {
       const id = String(req.query.id || "").slice(0, 100);
-      const from = String(req.query.from || ""), to = String(req.query.to || "");
-      if (!id || !from || !to) { res.status(400).json({ error: "id, from, to required" }); return; }
-      const key = `history:${id}:${from}:${to}`;
-      const hit = cacheGet(key, 6 * 60 * 60 * 1000);
-      if (hit) { res.set("Cache-Control", "public, max-age=21600"); res.json(hit); return; }
-      const r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart/range?vs_currency=usd&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { headers: cgHeaders() });
-      if (!r.ok) { res.status(502).json({ error: "upstream " + r.status }); return; }
-      const data = await r.json();
-      const out = { prices: data.prices || [] };
-      cacheSet(key, out);
-      res.set("Cache-Control", "public, max-age=21600");
-      res.json(out);
+      if (!id) { res.status(400).json({ error: "id required" }); return; }
+      const ref = db.doc("historyCache/" + id.replace(/[^a-zA-Z0-9_-]/g, "_"));
+      let data = null;
+      try { const snap = await ref.get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
+      if (!data || (Date.now() - (data.updatedAt || 0)) > HISTORY_TTL) {
+        // Daily history in ONE call; reused for every date range + every user.
+        // Public API allows only the last 365 days; a Demo/paid key extends it.
+        // (Don't pass interval=daily — that's Enterprise-only; granularity is
+        // automatically daily for ranges > 90 days.)
+        try {
+          const days = CG_KEY ? "max" : "365";
+          let r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=${days}`, { headers: cgHeaders() });
+          if (!r.ok && days !== "365") {
+            r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=365`, { headers: cgHeaders() });
+          }
+          if (r.ok) { const d = await r.json(); data = { updatedAt: Date.now(), prices: d.prices || [] }; await ref.set(data); }
+        } catch (e) { /* ignore */ }
+      }
+      res.set("Cache-Control", "public, max-age=86400");
+      res.json({ prices: (data && data.prices) || [] });
       return;
     }
     res.status(404).json({ error: "unknown action — use /api/prices, /api/search, or /api/history" });

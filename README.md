@@ -132,3 +132,69 @@ This handles roughly 10,000+ active users before you need to upgrade ($25/month 
 5. Set up a webhook to update user tier in Firestore when payment succeeds
 
 Stripe takes ~3% per transaction (much less than Apple's 30%).
+
+> Note: payments are implemented with **PayPal** (see `functions/index.js`), not Stripe.
+
+---
+
+# Cloud Functions
+
+All backend functions live in `functions/index.js` (Node 20, deployed with `firebase deploy --only functions`). **Deploying functions requires the Blaze (pay-as-you-go) plan** — it has a generous always-free monthly allowance, but a card must be on file. The local emulator runs them for free.
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `api` | HTTP | CoinGecko proxy — `/api/prices`, `/api/search`, `/api/history` (see below) |
+| `refreshMarkets` | Scheduled (every 5 min) | Keeps the shared price/coin cache warm in production |
+| `paypalWebhook` | HTTP | Verifies PayPal signatures and updates a user's tier |
+| `createSubscription` / `cancelSubscription` | Callable | Start/cancel a PayPal subscription (auth-enforced) |
+| `getStats` | Callable | Admin-only usage/revenue stats |
+| `setAdminClaim` | Callable | Admin-only: grant/revoke the `{admin:true}` custom claim |
+
+## CoinGecko proxy (`api`)
+
+The app never calls CoinGecko directly. It calls the same-origin `/api/*` endpoints, which Firebase Hosting rewrites to the `api` function in production (`vite.config.js` proxies them to the emulator in dev). The API key stays **server-side only**.
+
+**The point: upstream CoinGecko calls are SHARED across all users and do NOT scale with user count.**
+
+| Endpoint | What it does | Caching |
+|----------|--------------|---------|
+| `GET /api/prices?ids=a,b,c` | Live prices for held coins | Served from a single shared `cache/markets` Firestore doc (top-N coins, refreshed every 5 min). Coins outside the top-N use a rare on-demand call. |
+| `GET /api/search?q=term` | Search any of the top-N coins | Reads `cache/markets` — **zero per-search upstream calls**. Only established (top-ranked) coins appear, which naturally excludes brand-new micro-caps. |
+| `GET /api/history?id=coin` | Full daily price history (for DCA) | Cached per-coin in `historyCache/{coin}` for 7 days — fetched **once per coin**, reused for every date range and every user. |
+
+### How prices + search share one dataset
+A single CoinGecko endpoint — `coins/markets` — returns the coin **list + prices + images + rank** together. One call covers 250 coins. `refreshMarkets()` stores that in the shared `cache/markets` doc, so both prices and search read from it. On the free tier this also auto-refreshes on demand if the scheduled function isn't running.
+
+### Tunables (top of the CoinGecko section in `functions/index.js`)
+- `MARKET_PAGES` — coins covered. `1` = top 250 (1 call/refresh), `4` = top 1000 (4 calls/refresh).
+- `MARKETS_TTL` — price freshness (default 5 min).
+- `HISTORY_TTL` — per-coin history refresh (default 7 days).
+
+### The API key
+```bash
+# Production:
+firebase functions:config:set coingecko.demo_key="YOUR_DEMO_KEY"
+# Local emulator:
+$env:COINGECKO_DEMO_KEY = "YOUR_DEMO_KEY"   # PowerShell (optional)
+```
+Without a key it uses CoinGecko's public endpoint: lower rate limit, and **history limited to the last 365 days** (the app falls back to built-in estimates for older dates). A free Demo key extends the range. Get one at coingecko.com/en/api.
+
+## Upstream call budget (independent of user count)
+
+With the defaults (top 250 coins, 5-min refresh):
+
+| Source | Upstream CoinGecko calls | Scales with users? |
+|--------|--------------------------|--------------------|
+| Prices + search | ~1 call / 5 min = **~290/day** | **No** |
+| DCA history | ~1 call per coin per 7 days (e.g. 250 coins → **~36/day**) | **No** |
+| Out-of-top-250 coins held | small, on-demand | slightly |
+| **Total** | **~325/day ≈ ~10k/month** | **flat** |
+
+So **100 users, 1,000 users, and 10,000 users cost roughly the same** (~10k calls/month), which fits CoinGecko's free Demo plan (10,000/month). For more coins or faster refresh, raise `MARKET_PAGES`/lower `MARKETS_TTL` and move to the Lite plan (100k/month, $35).
+
+## Storage
+
+Tiny — all within Firebase's free tier (1 GiB Firestore):
+- `cache/markets`: ~250 coins × ~120 bytes ≈ **~30 KB** (one doc).
+- `historyCache/{coin}`: ~365 daily points × ~25 bytes ≈ **~9 KB/coin**; 250 coins ≈ **~2 MB** total.
+- Firestore **reads** per request are minimized by CDN `Cache-Control` headers (repeat identical requests are served from Firebase's edge, never hitting the function or Firestore).
