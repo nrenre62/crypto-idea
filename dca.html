@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Free Crypto DCA Calculator — Dollar-Cost Averaging Returns | Crypto Idea</title>
+<meta name="description" content="Free dollar-cost averaging (DCA) calculator. See what investing a fixed amount in Bitcoin, Ethereum, or any crypto on a regular schedule would have returned. No sign-up." />
+
+<meta property="og:title" content="Free Crypto DCA Calculator | Crypto Idea" />
+<meta property="og:description" content="See what dollar-cost averaging into any crypto would have returned. Free, no sign-up." />
+<meta property="og:type" content="website" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<meta name="theme-color" content="#fbfbf8" />
+<link rel="icon" type="image/png" sizes="96x96" href="/icons/icon-96.png" />
+<link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+<style>
+  :root{
+    --ink:#0e0f0d; --ink-soft:#4a4d47; --ink-faint:#8a8d85;
+    --paper:#fbfbf8; --paper-2:#ffffff; --line:#e9e8e1; --line-strong:#d9d8cf;
+    --accent:#0b6b4f; --accent-soft:#e7f1ec; --accent-ink:#084d39; --red:#c0492f;
+    --radius:18px; --radius-sm:12px;
+    --shadow:0 1px 2px rgba(14,15,13,.04),0 12px 40px -16px rgba(14,15,13,.12);
+    --display:"Fraunces",Georgia,serif; --body:"Hanken Grotesk",-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);background:var(--paper);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--accent);color:#fff}
+  .wrap{width:100%;max-width:760px;margin:0 auto;padding:0 22px}
+
+  header{border-bottom:1px solid var(--line);background:rgba(251,251,248,.85);backdrop-filter:saturate(180%) blur(12px);position:sticky;top:0;z-index:10}
+  .nav{display:flex;align-items:center;justify-content:space-between;height:66px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:18px;letter-spacing:-.01em}
+  .brand .mark{width:27px;height:27px;border-radius:8px;background:var(--ink);color:var(--paper);display:grid;place-items:center;font-family:var(--display);font-size:16px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--body);font-weight:600;font-size:15px;padding:11px 20px;border-radius:999px;cursor:pointer;border:1px solid transparent;transition:transform .15s,background .2s,border-color .2s}
+  .btn-primary{background:var(--ink);color:var(--paper)}
+  .btn-primary:hover{transform:translateY(-1px)}
+  .btn-ghost{color:var(--ink);border-color:var(--line-strong);background:transparent}
+  .btn-ghost:hover{border-color:var(--ink)}
+
+  .hero{text-align:center;padding:54px 0 8px}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent-ink);background:var(--accent-soft);padding:6px 13px;border-radius:999px;margin-bottom:18px}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  h1{font-family:var(--display);font-weight:500;font-size:clamp(32px,5.4vw,48px);line-height:1.05;letter-spacing:-.02em;margin-bottom:14px}
+  h1 em{font-style:italic;color:var(--accent)}
+  .sub{font-size:17px;color:var(--ink-soft);max-width:34em;margin:0 auto}
+
+  .card{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px;margin:30px 0}
+  label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:7px}
+  input,select{width:100%;font-family:var(--body);font-size:15px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--paper-2);color:var(--ink);outline:none}
+  input:focus,select:focus{border-color:var(--ink)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .field{margin-bottom:16px}
+  .seg{display:flex;gap:4px;background:var(--paper);border:1px solid var(--line-strong);border-radius:999px;padding:4px}
+  .seg button{flex:1;border:0;background:none;cursor:pointer;font-family:var(--body);font-size:13px;font-weight:600;color:var(--ink-soft);padding:9px 6px;border-radius:999px;transition:.15s}
+  .seg button.active{background:var(--ink);color:var(--paper)}
+
+  /* coin picker */
+  .picker{position:relative}
+  .selected{display:flex;align-items:center;gap:10px}
+  .selected img{width:28px;height:28px;border-radius:50%}
+  .selected .csym{font-size:12px;color:var(--ink-faint)}
+  .dropdown{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow);max-height:280px;overflow:auto;z-index:5}
+  .opt{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
+  .opt:hover{background:var(--paper)}
+  .opt img{width:24px;height:24px;border-radius:50%}
+  .opt .n{font-size:14px;font-weight:600}
+  .opt .s{font-size:11px;color:var(--ink-faint)}
+
+  .go{width:100%;margin-top:6px}
+  .msg{font-size:13.5px;color:var(--red);margin-top:12px;min-height:18px;text-align:center}
+
+  /* results */
+  .results{display:none}
+  .results.show{display:block}
+  .big{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px}
+  .stat .k{font-size:12px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
+  .stat .v{font-family:var(--display);font-size:26px;font-weight:500;letter-spacing:-.01em}
+  .pos{color:var(--accent)} .neg{color:var(--red)}
+  .rows{border-top:1px solid var(--line);margin-top:6px}
+  .row{display:flex;justify-content:space-between;padding:9px 2px;font-size:14px;border-bottom:1px solid var(--line)}
+  .row span:first-child{color:var(--ink-soft)}
+  .row span:last-child{font-weight:600}
+
+  .ctaband{text-align:center;margin:34px 0 8px}
+  .ctaband h2{font-family:var(--display);font-weight:500;font-size:26px;letter-spacing:-.01em;margin-bottom:6px}
+  .ctaband p{color:var(--ink-soft);margin-bottom:18px}
+  .disclaimer{font-size:12px;color:var(--ink-faint);text-align:center;line-height:1.5;margin:18px auto 0;max-width:40em}
+  footer{border-top:1px solid var(--line);padding:30px 0;text-align:center;font-size:13px;color:var(--ink-faint);margin-top:40px}
+  @media(max-width:560px){.grid2,.big{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a href="/" class="brand"><span class="mark">C</span> Crypto Idea</a>
+    <a class="btn btn-ghost" href="/app">Open app</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="eyebrow"><span class="dot"></span> Free tool · No sign-up</span>
+    <h1>Crypto <em>DCA</em> Calculator</h1>
+    <p class="sub">See what dollar-cost averaging — investing a fixed amount on a regular schedule — would have returned for any coin.</p>
+  </section>
+
+  <section class="card">
+    <div class="field picker">
+      <label>Coin</label>
+      <div id="coinBox">
+        <input type="text" id="coinInput" placeholder="Search a coin (Bitcoin, ETH, SOL...)" autocomplete="off" />
+        <div id="dropdown" class="dropdown" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="field">
+        <label>Amount each time (USD)</label>
+        <input type="number" id="amount" value="100" min="1" inputmode="decimal" />
+      </div>
+      <div class="field">
+        <label>How often</label>
+        <div class="seg" id="freq">
+          <button data-f="daily">Daily</button>
+          <button data-f="weekly" class="active">Weekly</button>
+          <button data-f="biweekly">2 weeks</button>
+          <button data-f="monthly">Monthly</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="field">
+        <label>Start date</label>
+        <input type="date" id="start" />
+      </div>
+      <div class="field">
+        <label>End date</label>
+        <input type="date" id="end" />
+      </div>
+    </div>
+
+    <button class="btn btn-primary go" id="calcBtn">Calculate returns</button>
+    <div class="msg" id="msg"></div>
+  </section>
+
+  <section class="card results" id="results">
+    <div class="big">
+      <div class="stat"><div class="k">Total invested</div><div class="v" id="rInvested">$0</div></div>
+      <div class="stat"><div class="k">Value today</div><div class="v" id="rValue">$0</div></div>
+    </div>
+    <div class="big">
+      <div class="stat"><div class="k">Profit / Loss</div><div class="v" id="rProfit">$0</div></div>
+      <div class="stat"><div class="k">Return</div><div class="v" id="rRoi">0%</div></div>
+    </div>
+    <div class="rows">
+      <div class="row"><span>Coin</span><span id="rCoin">—</span></div>
+      <div class="row"><span>Number of buys</span><span id="rBuys">0</span></div>
+      <div class="row"><span>Total accumulated</span><span id="rCoins">0</span></div>
+      <div class="row"><span>Average buy price</span><span id="rAvg">$0</span></div>
+      <div class="row"><span>Price today</span><span id="rNow">$0</span></div>
+    </div>
+  </section>
+
+  <section class="ctaband">
+    <h2>Track your real portfolio.</h2>
+    <p>Crypto Idea keeps your actual holdings, prices, and P/L in one place.</p>
+    <a class="btn btn-primary" href="/app">Open Crypto Idea — free</a>
+  </section>
+
+  <p class="disclaimer">For information only — not financial advice. Historical results don't guarantee future returns. Crypto is volatile and you can lose money. Prices via CoinGecko; very old date ranges may be limited.</p>
+</main>
+
+<footer>
+  <a href="/">Crypto Idea</a> · © <span id="year"></span>
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // ── Dates ──
+  function iso(d){ return d.toISOString().split('T')[0]; }
+  (function initDates(){
+    var end = new Date();
+    var start = new Date(); start.setFullYear(start.getFullYear() - 3);
+    document.getElementById('end').value = iso(end);
+    document.getElementById('start').value = iso(start);
+  })();
+
+  function genDates(start, end, freq){
+    var dates = [], c = new Date(start), e = new Date(end);
+    while (c <= e){
+      dates.push(new Date(c));
+      if (freq === 'daily') c.setDate(c.getDate()+1);
+      else if (freq === 'weekly') c.setDate(c.getDate()+7);
+      else if (freq === 'biweekly') c.setDate(c.getDate()+14);
+      else c.setMonth(c.getMonth()+1);
+    }
+    return dates;
+  }
+  function money(n){
+    if (n == null || isNaN(n)) return '$0';
+    var abs = Math.abs(n);
+    if (abs >= 1000) return '$' + n.toLocaleString('en-US',{maximumFractionDigits:0});
+    if (abs >= 1) return '$' + n.toFixed(2);
+    return '$' + n.toFixed(abs < 0.0001 ? 8 : 4);
+  }
+
+  // ── Frequency selector ──
+  var freq = 'weekly';
+  document.querySelectorAll('#freq button').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#freq button').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active'); freq = b.dataset.f;
+    });
+  });
+
+  // ── Coin picker (live search via /api/search) ──
+  var selected = { id:'bitcoin', symbol:'BTC', name:'Bitcoin', thumb:'/icons/icon-96.png' };
+  var input = document.getElementById('coinInput');
+  var dropdown = document.getElementById('dropdown');
+  input.value = 'Bitcoin (BTC)';
+
+  var t;
+  input.addEventListener('input', function(){
+    var q = input.value.trim();
+    clearTimeout(t);
+    if (q.length < 2){ dropdown.style.display='none'; return; }
+    t = setTimeout(function(){
+      fetch('/api/search?q=' + encodeURIComponent(q))
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(d){
+          if (!d || !d.coins) return;
+          dropdown.innerHTML = '';
+          d.coins.slice(0,8).forEach(function(c){
+            var el = document.createElement('div');
+            el.className = 'opt';
+            el.innerHTML = '<img src="'+(c.thumb||'')+'" alt="" onerror="this.style.visibility=\'hidden\'"/>'
+              + '<div><div class="n">'+c.name+'</div><div class="s">'+c.symbol+(c.rank?' · #'+c.rank:'')+'</div></div>';
+            el.addEventListener('click', function(){
+              selected = { id:c.id, symbol:c.symbol, name:c.name, thumb:c.thumb };
+              input.value = c.name + ' (' + c.symbol + ')';
+              dropdown.style.display = 'none';
+            });
+            dropdown.appendChild(el);
+          });
+          dropdown.style.display = d.coins.length ? 'block' : 'none';
+        }).catch(function(){});
+    }, 300);
+  });
+  document.addEventListener('click', function(e){
+    if (!document.getElementById('coinBox').contains(e.target)) dropdown.style.display='none';
+  });
+
+  // ── Calculate ──
+  var btn = document.getElementById('calcBtn');
+  var msg = document.getElementById('msg');
+
+  btn.addEventListener('click', function(){ run(); });
+
+  function run(){
+    msg.textContent = '';
+    var amount = parseFloat(document.getElementById('amount').value);
+    var start = document.getElementById('start').value;
+    var end = document.getElementById('end').value;
+    if (!selected){ msg.textContent = 'Pick a coin first.'; return; }
+    if (!amount || amount <= 0){ msg.textContent = 'Enter an amount.'; return; }
+    if (!start || !end || new Date(start) >= new Date(end)){ msg.textContent = 'Pick a valid date range.'; return; }
+
+    btn.textContent = 'Calculating...'; btn.disabled = true;
+
+    Promise.all([
+      fetch('/api/history?id=' + encodeURIComponent(selected.id)).then(function(r){ return r.ok ? r.json() : {prices:[]}; }),
+      fetch('/api/prices?ids=' + encodeURIComponent(selected.id)).then(function(r){ return r.ok ? r.json() : {}; })
+    ]).then(function(out){
+      var hist = (out[0] && out[0].prices) || [];
+      var nowPrice = out[1] && out[1][selected.id] ? out[1][selected.id].usd : null;
+      finish(hist, nowPrice, amount, start, end);
+    }).catch(function(){
+      msg.textContent = 'Could not load price data. Try again.';
+    }).then(function(){ btn.textContent = 'Calculate returns'; btn.disabled = false; });
+  }
+
+  function finish(hist, nowPrice, amount, start, end){
+    if (!hist.length){ msg.textContent = 'No historical data for this coin/range. Try a more recent start date.'; return; }
+    var startMs = new Date(start).getTime();
+    // CoinGecko returns the last ~365 days on the free tier; clamp start if needed.
+    var earliest = hist[0][0];
+    if (startMs < earliest){ startMs = earliest; }
+    var dates = genDates(new Date(Math.max(startMs, earliest)), new Date(end), freq);
+
+    var coins = 0, invested = 0, buys = 0;
+    for (var i=0;i<dates.length;i++){
+      var ts = dates[i].getTime();
+      var best = hist[0], bd = Infinity;
+      for (var j=0;j<hist.length;j++){
+        var diff = Math.abs(hist[j][0]-ts);
+        if (diff < bd){ bd = diff; best = hist[j]; }
+      }
+      var price = best[1];
+      if (price > 0){ coins += amount/price; invested += amount; buys++; }
+    }
+    if (!buys){ msg.textContent = 'No price points in that range.'; return; }
+    var now = nowPrice || hist[hist.length-1][1];
+    var value = coins * now;
+    var profit = value - invested;
+    var roi = invested > 0 ? (profit/invested)*100 : 0;
+    var avg = coins > 0 ? invested/coins : 0;
+
+    document.getElementById('rInvested').textContent = money(invested);
+    document.getElementById('rValue').textContent = money(value);
+    var p = document.getElementById('rProfit');
+    p.textContent = (profit>=0?'+':'') + money(profit); p.className = 'v ' + (profit>=0?'pos':'neg');
+    var rr = document.getElementById('rRoi');
+    rr.textContent = (roi>=0?'+':'') + roi.toFixed(1) + '%'; rr.className = 'v ' + (roi>=0?'pos':'neg');
+    document.getElementById('rCoin').textContent = selected.name + ' (' + selected.symbol + ')';
+    document.getElementById('rBuys').textContent = buys.toLocaleString();
+    document.getElementById('rCoins').textContent = coins.toLocaleString('en-US',{maximumFractionDigits:6}) + ' ' + selected.symbol;
+    document.getElementById('rAvg').textContent = money(avg);
+    document.getElementById('rNow').textContent = money(now);
+    document.getElementById('results').classList.add('show');
+    document.getElementById('results').scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+</script>
+</body>
+</html>
