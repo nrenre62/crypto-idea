@@ -296,6 +296,44 @@ exports.refreshMarkets = functions.pubsub.schedule("every 5 minutes").onRun(asyn
   return null;
 });
 
+// ─── Larger coin list for SEARCH (covers ~3,000 coins) ───
+// The list (names/symbols/icons/rank) changes slowly, so it's refreshed daily —
+// cheap (LIST_PAGES calls/day) and independent of user count. Live prices for a
+// held coin still come from /api/prices (top-N cache or on-demand), so this only
+// needs to be fresh enough for search/discovery.
+const LIST_PAGES = 12;                          // 12 × 250 = ~3,000 coins
+const LIST_TTL = 24 * 60 * 60 * 1000;           // refresh daily
+const COINLIST_DOC = "cache/coinlist";
+
+async function refreshCoinList() {
+  const coins = {};
+  for (let page = 1; page <= LIST_PAGES; page++) {
+    const r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}`, { headers: cgHeaders() });
+    if (!r.ok) { if (page === 1) throw new Error("coinlist " + r.status); break; }
+    const arr = await r.json();
+    if (!arr.length) break;
+    for (const c of arr) {
+      coins[c.id] = { s: String(c.symbol || "").toUpperCase(), n: c.name, img: c.image || "", rank: c.market_cap_rank || null };
+    }
+  }
+  await db.doc(COINLIST_DOC).set({ updatedAt: Date.now(), coins });
+  return coins;
+}
+
+async function getCoinList() {
+  let data = null;
+  try { const snap = await db.doc(COINLIST_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
+  if (!data || (Date.now() - (data.updatedAt || 0)) > LIST_TTL) {
+    try { return await refreshCoinList(); } catch (e) { if (data) return data.coins; throw e; }
+  }
+  return data.coins;
+}
+
+exports.refreshCoinList = functions.pubsub.schedule("every 24 hours").onRun(async () => {
+  try { await refreshCoinList(); } catch (e) { console.error("refreshCoinList:", e); }
+  return null;
+});
+
 exports.api = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   const action = String(req.path || "").split("/").filter(Boolean).pop();
@@ -325,10 +363,10 @@ exports.api = functions.https.onRequest(async (req, res) => {
     if (action === "search") {
       const q = String(req.query.q || "").trim().toLowerCase();
       if (!q) { res.json({ coins: [] }); return; }
-      const markets = await getMarkets();   // no per-search upstream call
+      const list = await getCoinList();   // ~3,000 coins, no per-search upstream call
       const matches = [];
-      for (const id in markets) {
-        const m = markets[id];
+      for (const id in list) {
+        const m = list[id];
         if (id.includes(q) || String(m.n || "").toLowerCase().includes(q) || String(m.s || "").toLowerCase().includes(q)) {
           matches.push({ id, symbol: m.s, name: m.n, thumb: m.img, rank: m.rank });
         }
