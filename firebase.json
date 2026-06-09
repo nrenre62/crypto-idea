@@ -7,7 +7,6 @@
       { "source": "/app", "destination": "/app.html" },
       { "source": "/edge", "destination": "/app.html" },
       { "source": "/pro-success", "destination": "/app.html" },
-      { "source": "/dca", "destination": "/dca.html" },
       { "source": "**", "destination": "/index.html" }
     ],
     "headers": [

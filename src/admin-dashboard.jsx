@@ -33,6 +33,10 @@ export default function AdminDashboard() {
   const [selUser, setSelUser] = useState(null);
   const [editLimits, setEditLimits] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  // Settings forms (scaffold — wire to the admin-only saveConfig Cloud Function once Firebase is live)
+  const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "" });
+  const [mail, setMail] = useState({ provider: "none", apiKey: "", fromEmail: "", listId: "" });
+  const [savedMsg, setSavedMsg] = useState("");
 
   const free = users.filter(u => u.tier === "free");
   const pro = users.filter(u => u.tier === "pro");
@@ -114,7 +118,7 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:14, background:c.w, borderRadius:12, padding:4, border:`1px solid ${c.bd}` }}>
-        {["overview","users"].map(tb => (
+        {["overview","users","settings"].map(tb => (
           <button key={tb} onClick={() => { setTab(tb); setSelUser(null); setEditLimits(null); }}
             style={{ flex:1, padding:10, borderRadius:10, border:"none", fontSize:13, fontWeight:600, cursor:"pointer", background:tab===tb?c.tx:"transparent", color:tab===tb?"#fff":c.dm }}>
             {tb.charAt(0).toUpperCase()+tb.slice(1)}
@@ -357,6 +361,65 @@ export default function AdminDashboard() {
             </div>
           ))}
         </div>
+      </>)}
+
+      {/* ═══ SETTINGS ═══ */}
+      {tab === "settings" && (<>
+        <div style={{ background:"#FFF8E1", border:"1px solid #FFE082", borderRadius:12, padding:"12px 14px", marginBottom:14, fontSize:12, color:"#8a6d00", lineHeight:1.5 }}>
+          Scaffold: these save locally for now. To make them live, wire to an admin-only <b>saveConfig</b> Cloud Function that writes to a protected Firestore config doc; the price proxy + PayPal functions then read from it. See README → "Admin settings".
+        </div>
+
+        {/* API Keys */}
+        <div style={{ background:c.w, borderRadius:14, padding:16, border:`1px solid ${c.bd}`, marginBottom:12 }}>
+          <div style={{ fontSize:13, fontWeight:700, marginBottom:4 }}>API Keys</div>
+          <div style={{ fontSize:11, color:c.dm, marginBottom:14 }}>For the price / DCA calculator (CoinGecko) and payments (PayPal). Stored server-side — never sent to users.</div>
+          {[
+            ["CoinGecko Demo key","coingecko","cg-demo-..."],
+            ["PayPal Client ID","paypalClientId","A..."],
+            ["PayPal Secret","paypalSecret","E..."],
+            ["PayPal Webhook ID","paypalWebhookId","WH-..."],
+          ].map(([label,key,ph]) => (
+            <div key={key} style={{ marginBottom:10 }}>
+              <label style={{ fontSize:11, color:c.dm, display:"block", marginBottom:4 }}>{label}</label>
+              <input type={(key.toLowerCase().includes("ecret")||key==="coingecko")?"password":"text"} value={keys[key]} placeholder={ph}
+                onChange={e => setKeys({ ...keys, [key]: e.target.value })}
+                style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:13, outline:"none", boxSizing:"border-box" }} />
+            </div>
+          ))}
+          <button onClick={() => { setSavedMsg("API keys saved (scaffold)"); setTimeout(()=>setSavedMsg(""),2500); }}
+            style={{ marginTop:6, padding:"9px 16px", borderRadius:8, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>Save keys</button>
+        </div>
+
+        {/* Email / Integrations */}
+        <div style={{ background:c.w, borderRadius:14, padding:16, border:`1px solid ${c.bd}` }}>
+          <div style={{ fontSize:13, fontWeight:700, marginBottom:4 }}>Email &amp; Integrations</div>
+          <div style={{ fontSize:11, color:c.dm, marginBottom:14 }}>Connect an email service for the landing-page subscribe form and transactional emails.</div>
+          <label style={{ fontSize:11, color:c.dm, display:"block", marginBottom:4 }}>Provider</label>
+          <select value={mail.provider} onChange={e => setMail({ ...mail, provider:e.target.value })}
+            style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:13, marginBottom:10, boxSizing:"border-box" }}>
+            <option value="none">None</option>
+            <option value="mailchimp">Mailchimp</option>
+            <option value="sendgrid">SendGrid</option>
+            <option value="resend">Resend</option>
+            <option value="brevo">Brevo (Sendinblue)</option>
+          </select>
+          {[
+            ["API key","apiKey","provider API key"],
+            ["From email","fromEmail","hello@yourdomain.com"],
+            ["List / Audience ID","listId","optional"],
+          ].map(([label,key,ph]) => (
+            <div key={key} style={{ marginBottom:10 }}>
+              <label style={{ fontSize:11, color:c.dm, display:"block", marginBottom:4 }}>{label}</label>
+              <input type={key==="apiKey"?"password":"text"} value={mail[key]} placeholder={ph}
+                onChange={e => setMail({ ...mail, [key]: e.target.value })}
+                style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:13, outline:"none", boxSizing:"border-box" }} />
+            </div>
+          ))}
+          <button onClick={() => { setSavedMsg("Email settings saved (scaffold)"); setTimeout(()=>setSavedMsg(""),2500); }}
+            style={{ marginTop:6, padding:"9px 16px", borderRadius:8, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>Save email settings</button>
+        </div>
+
+        {savedMsg && <div style={{ textAlign:"center", marginTop:12, fontSize:12, color:c.gr, fontWeight:600 }}>{savedMsg}</div>}
       </>)}
 
       <div style={{ textAlign:"center", padding:"18px 0", fontSize:10, color:c.dm }}>

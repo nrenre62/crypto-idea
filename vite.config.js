@@ -21,15 +21,12 @@ const r = (p) => fileURLToPath(new URL(p, import.meta.url));
 //   /app, /edge, /pro-success → app.html (React tracker)
 //   /dca                       → dca.html (static free DCA calculator)
 const appRoutes = ["/app", "/edge", "/pro-success"];
-const staticRoutes = { "/dca": "/dca.html" };
 const cleanUrlsDev = {
   name: "clean-urls-dev",
   configureServer(server) {
     server.middlewares.use((req, _res, next) => {
       const [path, query] = (req.url || "").split("?");
-      const suffix = query ? "?" + query : "";
-      if (appRoutes.includes(path)) req.url = "/app.html" + suffix;
-      else if (staticRoutes[path]) req.url = staticRoutes[path] + suffix;
+      if (appRoutes.includes(path)) req.url = "/app.html" + (query ? "?" + query : "");
       next();
     });
   },
@@ -45,7 +42,6 @@ export default defineConfig({
       input: {
         main: r("./index.html"),
         app: r("./app.html"),
-        dca: r("./dca.html"),
       },
       output: {
         manualChunks: {

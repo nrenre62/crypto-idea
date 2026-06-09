@@ -250,6 +250,37 @@
     .subscribe { flex-direction: column; }
     .subscribe input, .subscribe .btn { width: 100%; }
   }
+
+  /* ---------- DCA calculator (embedded section) ---------- */
+  #dca .lead{font-size:17px;color:var(--ink-soft);max-width:34em;margin:14px auto 0}
+  #dca .calc{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px;max-width:680px;margin:26px auto 0;text-align:left}
+  #dca label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:7px}
+  #dca input,#dca select{width:100%;font-family:var(--body);font-size:15px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--paper-2);color:var(--ink);outline:none}
+  #dca input:focus{border-color:var(--ink)}
+  #dca .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  #dca .fld{margin-bottom:16px}
+  #dca .seg{display:flex;gap:4px;background:var(--paper);border:1px solid var(--line-strong);border-radius:999px;padding:4px}
+  #dca .seg button{flex:1;border:0;background:none;cursor:pointer;font-family:var(--body);font-size:13px;font-weight:600;color:var(--ink-soft);padding:9px 4px;border-radius:999px}
+  #dca .seg button.active{background:var(--ink);color:var(--paper)}
+  #dca .picker{position:relative}
+  #dca .dd{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow);max-height:280px;overflow:auto;z-index:5}
+  #dca .opt{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
+  #dca .opt:hover{background:var(--paper)}
+  #dca .opt img{width:24px;height:24px;border-radius:50%}
+  #dca .opt .n{font-size:14px;font-weight:600}#dca .opt .s{font-size:11px;color:var(--ink-faint)}
+  #dca .msg{font-size:13.5px;color:#c0492f;margin-top:12px;min-height:18px;text-align:center}
+  #dca .res{display:none;margin-top:18px}
+  #dca .res.show{display:block}
+  #dca .big{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  #dca .stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px}
+  #dca .stat .k{font-size:12px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
+  #dca .stat .v{font-family:var(--display);font-size:24px;font-weight:500;letter-spacing:-.01em}
+  #dca .pos{color:var(--accent)}#dca .neg{color:#c0492f}
+  #dca .rows{border-top:1px solid var(--line);margin-top:6px}
+  #dca .row{display:flex;justify-content:space-between;padding:9px 2px;font-size:14px;border-bottom:1px solid var(--line)}
+  #dca .row span:first-child{color:var(--ink-soft)}#dca .row span:last-child{font-weight:600}
+  #dca .note{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:14px}
+  @media(max-width:560px){#dca .g2,#dca .big{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -261,7 +292,7 @@
       <a class="link" href="#product">Product</a>
       <a class="link" href="#pricing">Pricing</a>
       <a class="link" href="#edge">Education</a>
-      <a class="link" href="/dca">DCA Calculator</a>
+      <a class="link" href="#dca">DCA Calculator</a>
     </nav>
     <div class="nav-cta">
       <a class="btn btn-ghost" href="/app">Open app</a>
@@ -327,6 +358,56 @@
           <div><div class="h-name">Solana</div><div class="h-amt">31 SOL</div></div>
           <div class="h-right"><div class="h-val">$4,860</div><div class="h-chg neg">−0.6%</div></div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DCA CALCULATOR (free, embedded) -->
+  <section id="dca">
+    <div class="wrap" style="text-align:center;">
+      <div class="reveal" style="max-width:40em;margin:0 auto;">
+        <div class="kicker">Free tool · No sign-up</div>
+        <h2>Crypto DCA Calculator</h2>
+        <p class="lead">See what investing a fixed amount on a regular schedule would have returned — for any of 3,000+ coins.</p>
+      </div>
+      <div class="calc reveal">
+        <div class="fld picker">
+          <label>Coin</label>
+          <input type="text" id="dcaCoin" placeholder="Search a coin (Bitcoin, ETH, SOL...)" autocomplete="off" />
+          <div id="dcaDD" class="dd" style="display:none"></div>
+        </div>
+        <div class="g2">
+          <div class="fld"><label>Amount each time (USD)</label><input type="number" id="dcaAmt" value="100" min="1" inputmode="decimal" /></div>
+          <div class="fld"><label>How often</label>
+            <div class="seg" id="dcaFreq">
+              <button data-f="daily">Daily</button><button data-f="weekly" class="active">Weekly</button><button data-f="biweekly">2 wks</button><button data-f="monthly">Monthly</button>
+            </div>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="fld"><label>Start date</label><input type="date" id="dcaStart" /></div>
+          <div class="fld"><label>End date</label><input type="date" id="dcaEnd" /></div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" id="dcaBtn">Calculate returns</button>
+        <div class="msg" id="dcaMsg"></div>
+        <div class="res" id="dcaRes">
+          <div class="big">
+            <div class="stat"><div class="k">Total invested</div><div class="v" id="dcaInvested">$0</div></div>
+            <div class="stat"><div class="k">Value today</div><div class="v" id="dcaValue">$0</div></div>
+          </div>
+          <div class="big">
+            <div class="stat"><div class="k">Profit / Loss</div><div class="v" id="dcaProfit">$0</div></div>
+            <div class="stat"><div class="k">Return</div><div class="v" id="dcaRoi">0%</div></div>
+          </div>
+          <div class="rows">
+            <div class="row"><span>Coin</span><span id="dcaRCoin">—</span></div>
+            <div class="row"><span>Number of buys</span><span id="dcaRBuys">0</span></div>
+            <div class="row"><span>Total accumulated</span><span id="dcaRCoins">0</span></div>
+            <div class="row"><span>Average buy price</span><span id="dcaRAvg">$0</span></div>
+            <div class="row"><span>Price today</span><span id="dcaRNow">$0</span></div>
+          </div>
+        </div>
+        <div class="note">For information only — not financial advice. Past results don't guarantee future returns.</div>
       </div>
     </div>
   </section>
@@ -505,7 +586,7 @@
         <a href="#product">Product</a>
         <a href="#pricing">Pricing</a>
         <a href="#edge">Education</a>
-        <a href="/dca">DCA Calculator</a>
+        <a href="#dca">DCA Calculator</a>
         <a href="/app">Open app</a>
       </div>
       <small>© <span id="year"></span> Crypto Idea</small>
@@ -561,6 +642,78 @@
     el.style.transitionDelay = (Math.min(i % 6, 5) * 70) + 'ms';
     io.observe(el);
   });
+
+  // ── Free DCA calculator (uses the cached /api proxy) ──
+  (function(){
+    var input = document.getElementById('dcaCoin');
+    if (!input) return;
+    var dd = document.getElementById('dcaDD');
+    var sel = { id:'bitcoin', symbol:'BTC', name:'Bitcoin', thumb:'/icons/icon-96.png' };
+    var freq = 'weekly';
+    input.value = 'Bitcoin (BTC)';
+    function iso(d){ return d.toISOString().split('T')[0]; }
+    var endEl = document.getElementById('dcaEnd'), startEl = document.getElementById('dcaStart');
+    var e0 = new Date(), s0 = new Date(); s0.setFullYear(s0.getFullYear()-3);
+    endEl.value = iso(e0); startEl.value = iso(s0);
+    document.querySelectorAll('#dcaFreq button').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.querySelectorAll('#dcaFreq button').forEach(function(x){x.classList.remove('active')});
+        b.classList.add('active'); freq = b.dataset.f;
+      });
+    });
+    var t;
+    input.addEventListener('input', function(){
+      var q = input.value.trim(); clearTimeout(t);
+      if (q.length < 2){ dd.style.display='none'; return; }
+      t = setTimeout(function(){
+        fetch('/api/search?q=' + encodeURIComponent(q)).then(function(r){return r.ok?r.json():null;}).then(function(d){
+          if(!d||!d.coins) return; dd.innerHTML='';
+          d.coins.slice(0,8).forEach(function(c){
+            var el=document.createElement('div'); el.className='opt';
+            el.innerHTML='<img src="'+(c.thumb||'')+'" alt="" onerror="this.style.visibility=\'hidden\'"/><div><div class="n">'+c.name+'</div><div class="s">'+c.symbol+(c.rank?' · #'+c.rank:'')+'</div></div>';
+            el.addEventListener('click', function(){ sel={id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb}; input.value=c.name+' ('+c.symbol+')'; dd.style.display='none'; });
+            dd.appendChild(el);
+          });
+          dd.style.display = d.coins.length ? 'block':'none';
+        }).catch(function(){});
+      }, 300);
+    });
+    document.addEventListener('click', function(ev){ if(!input.parentNode.contains(ev.target)) dd.style.display='none'; });
+    function money(n){ if(n==null||isNaN(n)) return '$0'; var a=Math.abs(n); if(a>=1000) return '$'+n.toLocaleString('en-US',{maximumFractionDigits:0}); if(a>=1) return '$'+n.toFixed(2); return '$'+n.toFixed(a<0.0001?8:4); }
+    function genDates(start,end,f){ var d=[],c=new Date(start),e=new Date(end); while(c<=e){ d.push(new Date(c)); if(f==='daily')c.setDate(c.getDate()+1); else if(f==='weekly')c.setDate(c.getDate()+7); else if(f==='biweekly')c.setDate(c.getDate()+14); else c.setMonth(c.getMonth()+1);} return d; }
+    var btn=document.getElementById('dcaBtn'), msg=document.getElementById('dcaMsg');
+    btn.addEventListener('click', function(){
+      msg.textContent='';
+      var amount=parseFloat(document.getElementById('dcaAmt').value), start=startEl.value, end=endEl.value;
+      if(!sel){ msg.textContent='Pick a coin first.'; return; }
+      if(!amount||amount<=0){ msg.textContent='Enter an amount.'; return; }
+      if(!start||!end||new Date(start)>=new Date(end)){ msg.textContent='Pick a valid date range.'; return; }
+      btn.textContent='Calculating...'; btn.disabled=true;
+      Promise.all([
+        fetch('/api/history?id='+encodeURIComponent(sel.id)).then(function(r){return r.ok?r.json():{prices:[]};}),
+        fetch('/api/prices?ids='+encodeURIComponent(sel.id)).then(function(r){return r.ok?r.json():{};})
+      ]).then(function(out){
+        var hist=(out[0]&&out[0].prices)||[]; var now=out[1]&&out[1][sel.id]?out[1][sel.id].usd:null;
+        if(!hist.length){ msg.textContent='No historical data for this coin/range. Try a more recent start date.'; return; }
+        var startMs=new Date(start).getTime(), earliest=hist[0][0]; if(startMs<earliest)startMs=earliest;
+        var dates=genDates(new Date(startMs), new Date(end), freq);
+        var coins=0,invested=0,buys=0;
+        for(var i=0;i<dates.length;i++){ var ts=dates[i].getTime(), best=hist[0], bd=Infinity; for(var j=0;j<hist.length;j++){ var diff=Math.abs(hist[j][0]-ts); if(diff<bd){bd=diff;best=hist[j];} } var price=best[1]; if(price>0){coins+=amount/price; invested+=amount; buys++;} }
+        if(!buys){ msg.textContent='No price points in that range.'; return; }
+        var nowP=now||hist[hist.length-1][1], value=coins*nowP, profit=value-invested, roi=invested>0?(profit/invested)*100:0, avg=coins>0?invested/coins:0;
+        document.getElementById('dcaInvested').textContent=money(invested);
+        document.getElementById('dcaValue').textContent=money(value);
+        var p=document.getElementById('dcaProfit'); p.textContent=(profit>=0?'+':'')+money(profit); p.className='v '+(profit>=0?'pos':'neg');
+        var rr=document.getElementById('dcaRoi'); rr.textContent=(roi>=0?'+':'')+roi.toFixed(1)+'%'; rr.className='v '+(roi>=0?'pos':'neg');
+        document.getElementById('dcaRCoin').textContent=sel.name+' ('+sel.symbol+')';
+        document.getElementById('dcaRBuys').textContent=buys.toLocaleString();
+        document.getElementById('dcaRCoins').textContent=coins.toLocaleString('en-US',{maximumFractionDigits:6})+' '+sel.symbol;
+        document.getElementById('dcaRAvg').textContent=money(avg);
+        document.getElementById('dcaRNow').textContent=money(nowP);
+        document.getElementById('dcaRes').classList.add('show');
+      }).catch(function(){ msg.textContent='Could not load price data. Try again.'; }).then(function(){ btn.textContent='Calculate returns'; btn.disabled=false; });
+    });
+  })();
 </script>
 </body>
 </html>

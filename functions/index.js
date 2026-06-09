@@ -250,6 +250,23 @@ const CG_BASE = "https://api.coingecko.com/api/v3";
 const CG_KEY = (functions.config().coingecko && functions.config().coingecko.demo_key) || process.env.COINGECKO_DEMO_KEY || "";
 const cgHeaders = () => (CG_KEY ? { "x-cg-demo-api-key": CG_KEY } : {});
 
+// ─── Bot/abuse protection: per-IP rate limit on the public API ───
+// In-memory sliding window per function instance. Caps how fast any single
+// visitor (incl. the public DCA calculator) can hit the API. Heavy upstream
+// work is already cached, so this mainly stops scraping/DoS-style bursts.
+const RATE_LIMIT = 60;            // max requests
+const RATE_WINDOW = 60 * 1000;   // per 60 seconds, per IP
+const _rl = {};
+function rateLimited(req) {
+  const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip || "unknown";
+  const now = Date.now();
+  if (Object.keys(_rl).length > 10000) { for (const k in _rl) delete _rl[k]; } // guard against unbounded growth
+  let e = _rl[ip];
+  if (!e || now > e.resetAt) { e = { count: 0, resetAt: now + RATE_WINDOW }; _rl[ip] = e; }
+  e.count++;
+  return e.count > RATE_LIMIT;
+}
+
 // Tunables (raise pages for more coins, raise TTLs for fewer upstream calls).
 const MARKET_PAGES = 1;                          // 1 page = top 250 coins (1 call/refresh)
 const MARKETS_TTL = 5 * 60 * 1000;               // prices/list freshness: 5 minutes
@@ -338,6 +355,7 @@ exports.refreshCoinList = functions.pubsub.schedule("every 24 hours").onRun(asyn
 
 exports.api = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
+  if (rateLimited(req)) { res.status(429).json({ error: "Too many requests — please slow down." }); return; }
   const action = String(req.path || "").split("/").filter(Boolean).pop();
   try {
     if (action === "prices") {
