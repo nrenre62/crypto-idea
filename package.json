@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/stamp-sw.js",
     "preview": "vite preview",
     "deploy": "npm run build && firebase deploy",
     "icons": "node scripts/generate-icons.js",

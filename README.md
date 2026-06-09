@@ -283,3 +283,16 @@ The admin **Settings** tab saves to a **locked** Firestore doc `config/app` via 
 - **App Check:** create a reCAPTCHA v3 key (Firebase Console → App Check), set `VITE_RECAPTCHA_SITE_KEY` in `.env`, and turn on **enforcement** for Auth/Firestore/Functions in the console.
 - **Test the CSP** on the deployed site and loosen a directive only if something legitimate is blocked (open the browser console).
 - **Email sending:** the Settings store the provider config; add a function that actually calls the provider (Mailchimp/SendGrid/Resend/Brevo) for the subscribe form + transactional email.
+
+---
+
+# Deploys & instant updates (no stale cache for users)
+
+Every `firebase deploy` reaches **all users immediately** — no one is stuck on an old cached version:
+
+- **HTML is never cached** (`Cache-Control: no-cache` on all pages + `/service-worker.js`), so every page load fetches the latest. The CDN is purged on each deploy automatically.
+- **JS/CSS/images are content-hashed** (`app-AbC123.js`) and cached forever (`immutable`). A new build = new filenames, so there's never a stale-asset problem and repeat visits stay fast.
+- **The service worker is network-first** for pages (never serves stale HTML online) and is **auto-stamped with a unique build id** each build (`npm run build` → `scripts/stamp-sw.js`), so it updates on every deploy.
+- **Open tabs auto-refresh:** when a new version is detected, the tab reloads itself (skipping the first install); it also checks for updates when you switch back to the tab.
+
+So after you deploy: a user who reloads or navigates is instantly on the new version, and a user with the app already open gets auto-refreshed. Just run `npm run deploy`.

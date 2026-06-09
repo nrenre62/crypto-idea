@@ -7,8 +7,11 @@
  * Place this file at the ROOT of your hosting directory (dist/sw.js)
  */
 
-const CACHE_NAME = "crypto-idea-v4";
-const STATIC_CACHE = "crypto-idea-static-v4";
+// __BUILD__ is replaced with a unique id at deploy (scripts/stamp-sw.js), so the
+// service worker changes every build → browsers detect the update → tabs refresh.
+const BUILD = "__BUILD__";
+const CACHE_NAME = "crypto-idea-" + BUILD;
+const STATIC_CACHE = "crypto-idea-static-" + BUILD;
 const API_CACHE = "crypto-idea-api-v1";
 
 // Files to cache immediately on install (app shell)

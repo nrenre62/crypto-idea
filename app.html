@@ -59,9 +59,24 @@
         if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); });
       } else {
         window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/service-worker.js')
-            .then(function (reg) { console.log('SW registered:', reg.scope); })
-            .catch(function (err) { console.log('SW registration failed:', err); });
+          navigator.serviceWorker.register('/service-worker.js').then(function (reg) {
+            // When a NEW version is deployed, auto-refresh this tab (skip first install).
+            reg.addEventListener('updatefound', function () {
+              var nw = reg.installing;
+              if (!nw) return;
+              nw.addEventListener('statechange', function () {
+                if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                  window.location.reload();
+                }
+              });
+            });
+          }).catch(function (err) { console.log('SW registration failed:', err); });
+          // Check for a new version whenever the tab becomes visible again.
+          document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') {
+              navigator.serviceWorker.getRegistration().then(function (reg) { if (reg) reg.update(); });
+            }
+          });
         });
       }
     })();
