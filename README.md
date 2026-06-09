@@ -256,3 +256,30 @@ The landing + DCA are **static files served by Firebase's CDN**, so traffic scal
 # Adding coins (the ~3,000 list)
 
 Search covers the **top ~3,000 coins by market cap** (`LIST_PAGES = 12`). So users can find and add coins at rank **#800, #1,200, #2,500**, etc. — just search the name or symbol. To cover more, raise `LIST_PAGES` in `functions/index.js`. (Anything outside the list can still be priced on-demand if held.)
+
+---
+
+# Security
+
+Defense in depth across the whole app:
+
+| Layer | Protection |
+|-------|-----------|
+| **Auth** | Firebase Auth (no plaintext passwords). Password reset doesn't reveal whether an account exists. |
+| **Admin** | A verified Firebase **custom claim** (`{admin:true}`), set server-side — not an email list. |
+| **Firestore rules** | Owner-only access; users can't change their own `tier`; counter-based plan limits; `/config` is server-only (no client read/write). Verified by `npm run test:rules`. |
+| **Functions** | Callable functions enforce auth and act on the caller's uid (no IDOR). The PayPal webhook verifies signatures. |
+| **Secrets** | API keys live only in the Cloud Function (env / `functions.config()` / the locked `config/app` doc). The Firebase web config is public by design. |
+| **Bot / abuse** | `/api` has a **per-IP rate limit** (60/min). **Firebase App Check** (reCAPTCHA v3) protects Auth/Firestore/callable Functions when `VITE_RECAPTCHA_SITE_KEY` is set + enforcement is on. The landing email form has a honeypot. |
+| **HTTP headers** | `firebase.json` sets CSP, `X-Frame-Options: DENY` (clickjacking), `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, and HSTS on every response. |
+| **XSS** | The React app auto-escapes (JSX); the static landing builds DOM with `textContent`, never `innerHTML`, for API data. |
+| **Dependencies** | Production `npm audit` = 0 vulnerabilities. |
+
+## Admin settings (API keys & email) — `saveConfig`
+
+The admin **Settings** tab saves to a **locked** Firestore doc `config/app` via the admin-only `saveConfig` Cloud Function. Clients can never read it (rules deny `/config`); the proxy and PayPal functions read it server-side (`getConfig`, cached 5 min, with `functions.config()`/env fallback). So you can rotate the CoinGecko/PayPal keys and pick an email provider from the dashboard without redeploying.
+
+## To finish for production
+- **App Check:** create a reCAPTCHA v3 key (Firebase Console → App Check), set `VITE_RECAPTCHA_SITE_KEY` in `.env`, and turn on **enforcement** for Auth/Firestore/Functions in the console.
+- **Test the CSP** on the deployed site and loosen a directive only if something legitimate is blocked (open the browser console).
+- **Email sending:** the Settings store the provider config; add a function that actually calls the provider (Mailchimp/SendGrid/Resend/Brevo) for the subscribe form + transactional email.
