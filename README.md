@@ -200,3 +200,59 @@ Tiny — all within Firebase's free tier (1 GiB Firestore):
 - `cache/markets`: ~250 coins × ~120 bytes ≈ **~30 KB** (one doc).
 - `historyCache/{coin}`: ~365 daily points × ~25 bytes ≈ **~9 KB/coin**; 250 coins ≈ **~2 MB** total.
 - Firestore **reads** per request are minimized by CDN `Cache-Control` headers (repeat identical requests are served from Firebase's edge, never hitting the function or Firestore).
+
+---
+
+# Pages & routes
+
+Multi-page app (Vite build + Firebase Hosting rewrites):
+
+| Route | File | What |
+|-------|------|------|
+| `/` | `index.html` | Static marketing landing. **Section 2 is the free DCA calculator** (`#dca`). |
+| `/app` | `app.html` → React | The tracker (auth, portfolios, coins, transactions, account, admin). |
+| `/edge` | React | Education guide. |
+| `/pro-success` | React | PayPal return / upgrade confirmation. |
+| `/api/*` | `api` function | CoinGecko proxy (prices/search/history). |
+
+The free DCA calculator lives **inline on the landing** (no login, no separate page). It searches ~3,000 coins via `/api/search`, computes returns from `/api/history`, and shows live value from `/api/prices` — all from the cached proxy, so unlimited public visitors add ~0 upstream calls.
+
+# Admin dashboard (`src/admin-dashboard.jsx`)
+
+Opened from the app's Account screen by an **admin** (Firebase `{admin:true}` custom claim). Tabs:
+- **Overview** — user/tier counts, estimated revenue, plan limits.
+- **Users** — search users, view usage vs limits, change tier, edit premium custom limits. *(currently mock data; wire to Firestore + the `getStats` function to go live.)*
+- **Settings** — **API Keys** (CoinGecko, PayPal) and **Email & Integrations** (provider + key + from-address + list). *Scaffold:* to make these persist, add an admin-only `saveConfig` Cloud Function that writes to a protected Firestore `config/*` doc, and have the proxy/PayPal functions read from it instead of `functions.config()`.
+
+# Bot / abuse protection
+
+The `api` function applies a **per-IP rate limit** (`RATE_LIMIT` = 60 requests / minute / IP; returns `429` when exceeded). Because all heavy work is cached, this mainly stops scraping/DoS bursts on the public calculator. For stronger protection later: **Firebase App Check** (reCAPTCHA) or a CDN (Cloudflare) in front.
+
+# How the API is used in the app
+
+The app and the public calculator **never call CoinGecko directly** — they call same-origin `/api/*`, which the `api` function serves from cache:
+- **Live prices** (`/api/prices`) — the portfolio screen polls every 60s for held coins; the DCA tool fetches the current price once.
+- **Search** (`/api/search`) — the Add-Coin screen and the DCA coin picker (debounced).
+- **History** (`/api/history`) — the DCA calculation (full daily series, sliced client-side per date).
+- The app keeps a small hardcoded `TOP_COINS` list as an instant/offline fallback.
+
+# Performance & scale
+
+The landing + DCA are **static files served by Firebase's CDN**, so traffic scales effortlessly:
+- **Page weight:** ~30 KB HTML + fonts + a few KB of inline JS. **Loads in well under 1 second** on a normal connection; **a few hundred KB** of browser memory per visitor.
+- **1,000 or 10,000 simultaneous visitors:** the CDN serves the static page with no per-user server cost. The React tracker bundle (`/app`) is ~600 KB (gzip ~145 KB), cached after first load.
+
+**CoinGecko upstream calls do NOT scale with users** (everything is shared-cached):
+
+| Action | Upstream CoinGecko calls |
+|--------|--------------------------|
+| Prices (top 250) | ~290/day total — same for 1k or 10k users |
+| Prices (long tail) | flat, by distinct coins held (20-min shared cache) |
+| Search (~3,000 coins) | ~12/day total (daily list refresh) — **0 per search** |
+| DCA history | ~1 per coin per 7 days |
+
+**Searching 10–20 coins per user:** each search is debounced and reads the **cached** coin list, so it makes **0 CoinGecko calls**. 10,000 users × 15 searches = 150,000 *search requests*, but these hit Firebase (function + Firestore read, CDN-cached 5 min), **not** CoinGecko — so CoinGecko search cost stays ~0. The only Firebase cost is cheap function invocations / Firestore reads, heavily reduced by the CDN.
+
+# Adding coins (the ~3,000 list)
+
+Search covers the **top ~3,000 coins by market cap** (`LIST_PAGES = 12`). So users can find and add coins at rank **#800, #1,200, #2,500**, etc. — just search the name or symbol. To cover more, raise `LIST_PAGES` in `functions/index.js`. (Anything outside the list can still be priced on-demand if held.)
