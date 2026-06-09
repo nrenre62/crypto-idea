@@ -52,7 +52,10 @@ function isAdminToken(token) {
 }
 
 async function getPayPalToken() {
-  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_SECRET}`).toString("base64");
+  const cfg = await getConfig();
+  const clientId = (cfg.paypal && cfg.paypal.clientId) || PAYPAL_CLIENT_ID;
+  const secret = (cfg.paypal && cfg.paypal.secret) || PAYPAL_SECRET;
+  const auth = Buffer.from(`${clientId}:${secret}`).toString("base64");
   const res = await fetch(`${PAYPAL_BASE}/v1/oauth2/token`, {
     method: "POST",
     headers: { "Authorization": `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
@@ -118,7 +121,9 @@ exports.cancelSubscription = functions.https.onCall(async (data, context) => {
 // ─── Verify a PayPal webhook signature ───
 // Returns true only if PayPal confirms the event is authentic.
 async function verifyPayPalWebhook(req) {
-  if (!PAYPAL_WEBHOOK_ID) return false; // fail closed if not configured
+  const cfg = await getConfig();
+  const webhookId = (cfg.paypal && cfg.paypal.webhookId) || PAYPAL_WEBHOOK_ID;
+  if (!webhookId) return false; // fail closed if not configured
   const token = await getPayPalToken();
   const res = await fetch(`${PAYPAL_BASE}/v1/notifications/verify-webhook-signature`, {
     method: "POST",
@@ -129,7 +134,7 @@ async function verifyPayPalWebhook(req) {
       transmission_id: req.headers["paypal-transmission-id"],
       transmission_sig: req.headers["paypal-transmission-sig"],
       transmission_time: req.headers["paypal-transmission-time"],
-      webhook_id: PAYPAL_WEBHOOK_ID,
+      webhook_id: webhookId,
       webhook_event: req.body,
     }),
   });
@@ -233,6 +238,36 @@ exports.setAdminClaim = functions.https.onCall(async (data, context) => {
   return { success: true, uid: userRecord.uid, admin: makeAdmin };
 });
 
+// ─── Save app config / API keys (admins only) ───
+// Writes the admin dashboard's Settings (CoinGecko + PayPal keys, email provider)
+// to the LOCKED config/app Firestore doc that the proxy + PayPal functions read.
+// Clients can never read this doc (firestore.rules deny all access to /config).
+exports.saveConfig = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const k = (data && data.keys) || {};
+  const m = (data && data.email) || {};
+  const cfg = {
+    coingecko: String(k.coingecko || ""),
+    paypal: {
+      clientId: String(k.paypalClientId || ""),
+      secret: String(k.paypalSecret || ""),
+      webhookId: String(k.paypalWebhookId || ""),
+    },
+    email: {
+      provider: String(m.provider || "none"),
+      apiKey: String(m.apiKey || ""),
+      fromEmail: String(m.fromEmail || ""),
+      listId: String(m.listId || ""),
+    },
+    updatedAt: Date.now(),
+  };
+  await db.doc("config/app").set(cfg, { merge: true });
+  _cfg = null; // invalidate cache so the new values are used immediately
+  return { success: true };
+});
+
 // ═════════════════════════════════════════════════════════════
 // CoinGecko proxy  (prices / search / history)
 // ═════════════════════════════════════════════════════════════
@@ -248,7 +283,22 @@ exports.setAdminClaim = functions.https.onCall(async (data, context) => {
 // the last 365 days — the app then falls back to its built-in estimates).
 const CG_BASE = "https://api.coingecko.com/api/v3";
 const CG_KEY = (functions.config().coingecko && functions.config().coingecko.demo_key) || process.env.COINGECKO_DEMO_KEY || "";
-const cgHeaders = () => (CG_KEY ? { "x-cg-demo-api-key": CG_KEY } : {});
+// Admin-managed config (API keys / email) lives in a LOCKED Firestore doc
+// (config/app) written by the saveConfig function. Falls back to
+// functions.config()/env. Cached 5 min. Clients can never read it (rules).
+let _cfg = null, _cfgAt = 0;
+async function getConfig() {
+  if (_cfg && (Date.now() - _cfgAt) < 5 * 60 * 1000) return _cfg;
+  try { const s = await db.doc("config/app").get(); _cfg = s.exists ? (s.data() || {}) : {}; }
+  catch (e) { _cfg = _cfg || {}; }
+  _cfgAt = Date.now();
+  return _cfg;
+}
+async function cgHeaders() {
+  const cfg = await getConfig();
+  const key = (cfg && cfg.coingecko) || CG_KEY;
+  return key ? { "x-cg-demo-api-key": key } : {};
+}
 
 // ─── Bot/abuse protection: per-IP rate limit on the public API ───
 // In-memory sliding window per function instance. Caps how fast any single
@@ -282,7 +332,7 @@ const LONGTAIL_DOC = "cache/longtail";
 async function refreshMarkets() {
   const coins = {};
   for (let page = 1; page <= MARKET_PAGES; page++) {
-    const r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&price_change_percentage=24h`, { headers: cgHeaders() });
+    const r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&price_change_percentage=24h`, { headers: await cgHeaders() });
     if (!r.ok) throw new Error("markets " + r.status);
     const arr = await r.json();
     for (const c of arr) {
@@ -327,7 +377,7 @@ const COINLIST_DOC = "cache/coinlist";
 async function refreshCoinList() {
   const coins = {};
   for (let page = 1; page <= LIST_PAGES; page++) {
-    const r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}`, { headers: cgHeaders() });
+    const r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}`, { headers: await cgHeaders() });
     if (!r.ok) { if (page === 1) throw new Error("coinlist " + r.status); break; }
     const arr = await r.json();
     if (!arr.length) break;
@@ -388,7 +438,7 @@ exports.api = functions.https.onRequest(async (req, res) => {
         }
         if (toFetch.length) {
           try {
-            const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(toFetch.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: cgHeaders() });
+            const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(toFetch.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: await cgHeaders() });
             if (r.ok) {
               const d = await r.json();
               const upd = { coins: {} };
@@ -438,9 +488,9 @@ exports.api = functions.https.onRequest(async (req, res) => {
         // automatically daily for ranges > 90 days.)
         try {
           const days = CG_KEY ? "max" : "365";
-          let r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=${days}`, { headers: cgHeaders() });
+          let r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=${days}`, { headers: await cgHeaders() });
           if (!r.ok && days !== "365") {
-            r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=365`, { headers: cgHeaders() });
+            r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=365`, { headers: await cgHeaders() });
           }
           if (r.ok) { const d = await r.json(); data = { updatedAt: Date.now(), prices: d.prices || [] }; await ref.set(data); }
         } catch (e) { /* ignore */ }

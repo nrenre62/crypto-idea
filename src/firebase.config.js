@@ -15,6 +15,8 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 // Vite injects import.meta.env from .env at build time; it's undefined under Node.
 const env = (typeof import.meta !== "undefined" && import.meta.env) || {};
@@ -46,15 +48,33 @@ if (!useReal && !isDev) {
 }
 
 const app = initializeApp(useReal ? realConfig : demoConfig);
+
+// App Check (bot/abuse protection for Auth, Firestore, and callable Functions).
+// Enable in production by setting VITE_RECAPTCHA_SITE_KEY (reCAPTCHA v3 site key
+// from the Firebase Console → App Check), then turn on enforcement there.
+const recaptchaKey = env.VITE_RECAPTCHA_SITE_KEY;
+if (!isDev && recaptchaKey) {
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(recaptchaKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+  } catch (e) {
+    console.warn("[firebase] App Check init failed:", e);
+  }
+}
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const functions = getFunctions(app);
 
 // Local development -> use the emulators (start them with `npm run emulators`).
 if (isDev) {
   try {
     connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
     connectFirestoreEmulator(db, "127.0.0.1", 8080);
-    console.info("[firebase] Using local emulators (Auth :9099, Firestore :8080)");
+    connectFunctionsEmulator(functions, "127.0.0.1", 5001);
+    console.info("[firebase] Using local emulators (Auth :9099, Firestore :8080, Functions :5001)");
   } catch (e) {
     console.warn("[firebase] Could not connect to emulators:", e);
   }

@@ -35,6 +35,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.admin == true;
     }
 
+    // ─── Server-only config (API keys, email settings) ───
+    // No client can read or write this — only the Admin SDK (Cloud Functions:
+    // saveConfig writes it; the proxy/PayPal functions read it).
+    match /config/{document=**} {
+      allow read, write: if false;
+    }
+
     // ─── Tier limits ───
     function tierOf(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data.tier;

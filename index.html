@@ -570,6 +570,7 @@
       <h2 style="margin:0 auto;max-width:18em;">Get clearer about crypto, one email at a time.</h2>
       <p style="margin:14px auto 0;max-width:34em;">Occasional notes on portfolio thinking and new features. No spam, unsubscribe anytime.</p>
       <div class="subscribe">
+        <input type="text" id="hpField" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" />
         <input type="email" id="emailInput" placeholder="you@email.com" aria-label="Email address" />
         <button class="btn btn-primary" onclick="subscribe()">Subscribe</button>
       </div>
@@ -621,6 +622,9 @@
 
   // Email capture (front-end demo — wire to your backend / PayPal flow later)
   function subscribe() {
+    // Honeypot: real users never fill this hidden field — bots do. Silently drop.
+    var hp = document.getElementById('hpField');
+    if (hp && hp.value) { return; }
     const input = document.getElementById('emailInput');
     const msg = document.getElementById('subMsg');
     const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value.trim());
@@ -667,10 +671,15 @@
       if (q.length < 2){ dd.style.display='none'; return; }
       t = setTimeout(function(){
         fetch('/api/search?q=' + encodeURIComponent(q)).then(function(r){return r.ok?r.json():null;}).then(function(d){
-          if(!d||!d.coins) return; dd.innerHTML='';
+          if(!d||!d.coins) return; dd.textContent='';
           d.coins.slice(0,8).forEach(function(c){
+            // Build with textContent (NOT innerHTML) so coin names can't inject HTML/JS.
             var el=document.createElement('div'); el.className='opt';
-            el.innerHTML='<img src="'+(c.thumb||'')+'" alt="" onerror="this.style.visibility=\'hidden\'"/><div><div class="n">'+c.name+'</div><div class="s">'+c.symbol+(c.rank?' · #'+c.rank:'')+'</div></div>';
+            var img=document.createElement('img'); img.alt=''; if(c.thumb) img.src=c.thumb; img.onerror=function(){this.style.visibility='hidden';};
+            var box=document.createElement('div');
+            var n=document.createElement('div'); n.className='n'; n.textContent=c.name;
+            var s=document.createElement('div'); s.className='s'; s.textContent=c.symbol+(c.rank?' · #'+c.rank:'');
+            box.appendChild(n); box.appendChild(s); el.appendChild(img); el.appendChild(box);
             el.addEventListener('click', function(){ sel={id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb}; input.value=c.name+' ('+c.symbol+')'; dd.style.display='none'; });
             dd.appendChild(el);
           });

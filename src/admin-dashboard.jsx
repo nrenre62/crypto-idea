@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "./firebase.config.js";
 
 const TIERS = {
   free:    { label:"Free",    color:"#FF9500", limits:{ portfolios:1, coins:10, transactions:50 }, storage:"5 MB", price:"$0" },
@@ -37,6 +39,16 @@ export default function AdminDashboard() {
   const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "" });
   const [mail, setMail] = useState({ provider: "none", apiKey: "", fromEmail: "", listId: "" });
   const [savedMsg, setSavedMsg] = useState("");
+  const saveConfig = async () => {
+    setSavedMsg("Saving…");
+    try {
+      await httpsCallable(functions, "saveConfig")({ keys, email: mail });
+      setSavedMsg("Saved ✓");
+    } catch (e) {
+      setSavedMsg("Save failed: " + (e && e.message ? e.message : "error") + " (needs the deployed saveConfig function)");
+    }
+    setTimeout(() => setSavedMsg(""), 4000);
+  };
 
   const free = users.filter(u => u.tier === "free");
   const pro = users.filter(u => u.tier === "pro");
@@ -365,8 +377,8 @@ export default function AdminDashboard() {
 
       {/* ═══ SETTINGS ═══ */}
       {tab === "settings" && (<>
-        <div style={{ background:"#FFF8E1", border:"1px solid #FFE082", borderRadius:12, padding:"12px 14px", marginBottom:14, fontSize:12, color:"#8a6d00", lineHeight:1.5 }}>
-          Scaffold: these save locally for now. To make them live, wire to an admin-only <b>saveConfig</b> Cloud Function that writes to a protected Firestore config doc; the price proxy + PayPal functions then read from it. See README → "Admin settings".
+        <div style={{ background:"#E7F1EC", border:"1px solid #b9d8c9", borderRadius:12, padding:"12px 14px", marginBottom:14, fontSize:12, color:"#084d39", lineHeight:1.5 }}>
+          Saved securely via the admin-only <b>saveConfig</b> function to a locked Firestore <code>config/app</code> doc — clients can never read it; the price proxy + PayPal functions read it server-side. Requires the functions deployed (Blaze plan).
         </div>
 
         {/* API Keys */}
@@ -386,7 +398,7 @@ export default function AdminDashboard() {
                 style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:13, outline:"none", boxSizing:"border-box" }} />
             </div>
           ))}
-          <button onClick={() => { setSavedMsg("API keys saved (scaffold)"); setTimeout(()=>setSavedMsg(""),2500); }}
+          <button onClick={saveConfig}
             style={{ marginTop:6, padding:"9px 16px", borderRadius:8, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>Save keys</button>
         </div>
 
@@ -415,7 +427,7 @@ export default function AdminDashboard() {
                 style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:13, outline:"none", boxSizing:"border-box" }} />
             </div>
           ))}
-          <button onClick={() => { setSavedMsg("Email settings saved (scaffold)"); setTimeout(()=>setSavedMsg(""),2500); }}
+          <button onClick={saveConfig}
             style={{ marginTop:6, padding:"9px 16px", borderRadius:8, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>Save email settings</button>
         </div>
 
