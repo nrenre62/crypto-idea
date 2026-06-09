@@ -282,7 +282,7 @@ The admin **Settings** tab saves to a **locked** Firestore doc `config/app` via 
 ## To finish for production
 - **App Check:** create a reCAPTCHA v3 key (Firebase Console → App Check), set `VITE_RECAPTCHA_SITE_KEY` in `.env`, and turn on **enforcement** for Auth/Firestore/Functions in the console.
 - **Test the CSP** on the deployed site and loosen a directive only if something legitimate is blocked (open the browser console).
-- **Email sending:** the Settings store the provider config; add a function that actually calls the provider (Mailchimp/SendGrid/Resend/Brevo) for the subscribe form + transactional email.
+- **Email capture:** the landing subscribe form POSTs to `/api/subscribe`, which adds the contact to **ActiveCampaign** or **GetResponse** using the key from the admin Settings (server-side — the key never reaches the browser). To enable: open the admin **Settings** → Email, pick the provider, and paste the **API key**, the **List/Campaign ID**, and (ActiveCampaign only) the **API URL** (`https://youracct.api-us1.com`). Mailchimp/SendGrid/Resend/Brevo appear in the dropdown but aren't implemented in the function yet.
 
 ---
 

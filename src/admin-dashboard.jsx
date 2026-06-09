@@ -37,7 +37,7 @@ export default function AdminDashboard() {
   const [confirm, setConfirm] = useState(null);
   // Settings forms (scaffold — wire to the admin-only saveConfig Cloud Function once Firebase is live)
   const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "" });
-  const [mail, setMail] = useState({ provider: "none", apiKey: "", fromEmail: "", listId: "" });
+  const [mail, setMail] = useState({ provider: "none", apiKey: "", apiUrl: "", fromEmail: "", listId: "" });
   const [savedMsg, setSavedMsg] = useState("");
   const saveConfig = async () => {
     setSavedMsg("Saving…");
@@ -410,6 +410,8 @@ export default function AdminDashboard() {
           <select value={mail.provider} onChange={e => setMail({ ...mail, provider:e.target.value })}
             style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:13, marginBottom:10, boxSizing:"border-box" }}>
             <option value="none">None</option>
+            <option value="activecampaign">ActiveCampaign</option>
+            <option value="getresponse">GetResponse</option>
             <option value="mailchimp">Mailchimp</option>
             <option value="sendgrid">SendGrid</option>
             <option value="resend">Resend</option>
@@ -417,8 +419,9 @@ export default function AdminDashboard() {
           </select>
           {[
             ["API key","apiKey","provider API key"],
+            ["API URL (ActiveCampaign only)","apiUrl","https://youracct.api-us1.com"],
+            ["List / Campaign ID","listId","list or campaign id"],
             ["From email","fromEmail","hello@yourdomain.com"],
-            ["List / Audience ID","listId","optional"],
           ].map(([label,key,ph]) => (
             <div key={key} style={{ marginBottom:10 }}>
               <label style={{ fontSize:11, color:c.dm, display:"block", marginBottom:4 }}>{label}</label>

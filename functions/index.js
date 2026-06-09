@@ -258,6 +258,7 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
     email: {
       provider: String(m.provider || "none"),
       apiKey: String(m.apiKey || ""),
+      apiUrl: String(m.apiUrl || ""),
       fromEmail: String(m.fromEmail || ""),
       listId: String(m.listId || ""),
     },
@@ -405,6 +406,12 @@ exports.refreshCoinList = functions.pubsub.schedule("every 24 hours").onRun(asyn
 
 exports.api = functions.https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") {
+    res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.status(204).send("");
+    return;
+  }
   if (rateLimited(req)) { res.status(429).json({ error: "Too many requests — please slow down." }); return; }
   const action = String(req.path || "").split("/").filter(Boolean).pop();
   try {
@@ -499,7 +506,61 @@ exports.api = functions.https.onRequest(async (req, res) => {
       res.json({ prices: (data && data.prices) || [] });
       return;
     }
-    res.status(404).json({ error: "unknown action — use /api/prices, /api/search, or /api/history" });
+    if (action === "subscribe") {
+      // Public email capture from the landing form → forward to the configured
+      // email provider (ActiveCampaign / GetResponse). Key stays server-side.
+      const email = String((req.body && req.body.email) || req.query.email || "").trim().toLowerCase();
+      const hp = String((req.body && req.body.hp) || "");
+      if (hp) { res.json({ success: true }); return; }                 // honeypot: accept + drop
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
+        res.status(400).json({ error: "invalid email" }); return;
+      }
+      const cfg = await getConfig();
+      const e = (cfg && cfg.email) || {};
+      if (!e.provider || e.provider === "none" || !e.apiKey) {
+        res.status(503).json({ error: "email not configured" }); return;
+      }
+      try {
+        let ok = false;
+        if (e.provider === "getresponse") {
+          const r = await fetch("https://api.getresponse.com/v3/contacts", {
+            method: "POST",
+            headers: { "X-Auth-Token": "api-key " + e.apiKey, "Content-Type": "application/json" },
+            body: JSON.stringify(e.listId ? { email, campaign: { campaignId: e.listId } } : { email }),
+          });
+          ok = r.ok || r.status === 202 || r.status === 409; // 409 = already on the list
+        } else if (e.provider === "activecampaign") {
+          const base = String(e.apiUrl || "").replace(/\/+$/, "");
+          if (!base) { res.status(503).json({ error: "missing ActiveCampaign API URL" }); return; }
+          const cr = await fetch(base + "/api/3/contact/sync", {
+            method: "POST",
+            headers: { "Api-Token": e.apiKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ contact: { email } }),
+          });
+          if (cr.ok) {
+            const cd = await cr.json().catch(() => ({}));
+            const contactId = cd && cd.contact && cd.contact.id;
+            if (contactId && e.listId) {
+              await fetch(base + "/api/3/contactLists", {
+                method: "POST",
+                headers: { "Api-Token": e.apiKey, "Content-Type": "application/json" },
+                body: JSON.stringify({ contactList: { list: e.listId, contact: contactId, status: 1 } }),
+              });
+            }
+            ok = true;
+          }
+        } else {
+          res.status(501).json({ error: "provider not implemented" }); return;
+        }
+        if (ok) res.json({ success: true });
+        else res.status(502).json({ error: "subscribe failed" });
+      } catch (err) {
+        console.error("subscribe error:", err);
+        res.status(500).json({ error: "server error" });
+      }
+      return;
+    }
+    res.status(404).json({ error: "unknown action — use /api/prices, /api/search, /api/history, or /api/subscribe" });
   } catch (e) {
     console.error("api error:", e);
     res.status(500).json({ error: "server error" });
