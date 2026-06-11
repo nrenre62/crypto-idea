@@ -203,6 +203,37 @@ Tiny — all within Firebase's free tier (1 GiB Firestore):
 
 ---
 
+# Running locally (one command)
+
+```bash
+npm run start:all
+```
+
+This runs **the whole stack in one lifecycle** (start one → start all; stop one → stop all):
+
+| Service | URL / port | Purpose |
+|---------|-----------|---------|
+| Vite dev server | http://localhost:3000 | the app you develop against (hot reload) |
+| Hosting emulator | http://localhost:5000 | the built `dist/` served like production |
+| Functions emulator | :5001 | the `/api/*` proxy + PayPal/admin callables |
+| Firestore / Auth | :8080 / :9099 | database + login |
+| Pub/Sub | :8085 | lets the scheduled cache-refresh functions register |
+| Emulator UI | http://localhost:4000 | inspect data, trigger functions |
+
+Under the hood it's `firebase emulators:exec --ui "npm run dev"`, so Ctrl-C stops everything together. (`npm run dev` alone runs only Vite — the app loads but `/api/*` calls fail with `ECONNREFUSED :5001`.) Other emulators (Realtime Database, Storage) are intentionally off — the app doesn't use them.
+
+> Note: the scheduled functions (`refreshMarkets`, `refreshCoinList`) **register** in the emulator but don't auto-fire on their cron; trigger them from the Emulator UI if needed. In production (Blaze) Cloud Scheduler fires them for real. The on-demand cache fill means the app works regardless.
+
+# Frontend vs backend (what ships to users)
+
+Only the built `dist/` folder reaches the browser. **No backend code or secret ever ships.**
+
+| Ships to the browser (`dist/`) | Backend only (never downloaded) |
+|--------------------------------|---------------------------------|
+| `index.html`, `app.html`, hashed `assets/*.js`, `icons/`, `manifest.json`, `service-worker.js` | `functions/` (the `api` proxy, PayPal, **all API keys**), `firestore.rules`, `firebase.json`, `vite.config.js`, `scripts/`, `tests/` |
+
+The only config in the bundle is the **public** Firebase web config (`VITE_FIREBASE_*`) — safe by design; security is enforced by the rules, not by hiding it.
+
 # Pages & routes
 
 Multi-page app (Vite build + Firebase Hosting rewrites):
@@ -240,7 +271,8 @@ The app and the public calculator **never call CoinGecko directly** — they cal
 
 The landing + DCA are **static files served by Firebase's CDN**, so traffic scales effortlessly:
 - **Page weight:** ~30 KB HTML + fonts + a few KB of inline JS. **Loads in well under 1 second** on a normal connection; **a few hundred KB** of browser memory per visitor.
-- **1,000 or 10,000 simultaneous visitors:** the CDN serves the static page with no per-user server cost. The React tracker bundle (`/app`) is ~600 KB (gzip ~145 KB), cached after first load.
+- **1,000 or 10,000 simultaneous visitors:** the CDN serves the static page with no per-user server cost.
+- **The React tracker (`/app`) is code-split** for fast first loads. The initial entry chunk is ~3 KB and paints a loading shell immediately; the app code (~120 KB), the Firebase SDK (~499 KB, gzip ~115 KB), and React (~144 KB) then stream in as **separate cached chunks**. The Firebase chunk and React stay cached across deploys, so an update only re-downloads the small app chunk. The admin dashboard and the `/edge` & `/pro-success` routes are lazy-loaded — regular users never download them. (Wins come from `manualChunks` in `vite.config.js` + `React.lazy`/`Suspense` in `main.jsx` and `CryptoIdea.jsx`.)
 
 **CoinGecko upstream calls do NOT scale with users** (everything is shared-cached):
 
