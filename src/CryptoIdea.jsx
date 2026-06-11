@@ -15,7 +15,7 @@
  *   v1.0.1 (2026-04-04) - Fixed search for sandbox, datetime with seconds
  *   v1.0.0 (2026-04-04) - Initial release: portfolio, search, DCA, price tracking
  */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, onAuthChange } from "./firebase-auth.js";
@@ -29,7 +29,8 @@ import {
   updateTransaction as dbUpdateTransaction,
   deleteTransaction as dbDeleteTransaction,
 } from "./firebase-database.js";
-import AdminDashboard from "./admin-dashboard.jsx";
+// Admin-only — code-split so regular users never download it.
+const AdminDashboard = lazy(() => import("./admin-dashboard.jsx"));
 
 // ═══ Persistent Storage Helpers ═══
 const db = {
@@ -1727,7 +1728,7 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
     {screen==="admin"&&isAdmin&&(
       <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"#F5F5F5",zIndex:9000,maxWidth:430,margin:"0 auto",overflowY:"auto"}}>
         <button onClick={()=>setScreen("account")} style={{position:"sticky",top:10,zIndex:10,margin:"10px",padding:"8px 14px",borderRadius:10,border:"1px solid #E8E8ED",background:"#fff",fontSize:13,fontWeight:600,cursor:"pointer"}}>← Back</button>
-        <AdminDashboard/>
+        <Suspense fallback={<div style={{padding:"40px 20px",textAlign:"center",color:"#888",fontSize:14}}>Loading dashboard…</div>}><AdminDashboard/></Suspense>
       </div>
     )}
     {screen==="account"&&Account()}

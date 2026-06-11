@@ -44,8 +44,13 @@ export default defineConfig({
         app: r("./app.html"),
       },
       output: {
-        manualChunks: {
-          vendor: ["react", "react-dom"],
+        // Split big, rarely-changing deps into their own chunks so they load in
+        // parallel and stay cached across deploys (your app code changes far more
+        // often than the React/Firebase SDKs do).
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("@firebase") || id.includes("/firebase/")) return "firebase";
+          return "vendor"; // react, react-dom, and the rest
         },
       },
     },
