@@ -358,7 +358,7 @@ export default function AdminDashboard() {
           </div>
           {filtered.map(u => (
             <div key={u.id} onClick={() => { setSelUser(u); setEditLimits(null); }}
-              style={{ display:"flex", alignItems:"center", padding:"10px 0", borderBottom:`1px solid ${c.bd}20`, gap:10, cursor:"pointer",
+              style={{ display:"flex", alignItems:"center", borderBottom:`1px solid ${c.bd}20`, gap:10, cursor:"pointer",
                 background: selUser?.id === u.id ? c.bg : "transparent", margin: selUser?.id === u.id ? "0 -14px" : 0, padding: selUser?.id === u.id ? "10px 14px" : "10px 0" }}>
               <div style={{ width:32, height:32, borderRadius:16, background:c.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:600, color:c.dm, flexShrink:0 }}>{u.name.charAt(0)}</div>
               <div style={{ flex:1, minWidth:0 }}>
