@@ -212,12 +212,22 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     else freeUsers++;
     totalPortfolios += d.portfolioCount || 0;
   });
+  // Total coins tracked across everyone — a cheap collection-group COUNT
+  // (counts index entries, does NOT read each coin document). Failsafe to 0.
+  let totalCoins = 0;
+  try {
+    const coinsCount = await db.collectionGroup("coins").count().get();
+    totalCoins = coinsCount.data().count;
+  } catch (e) {
+    totalCoins = 0;
+  }
   return {
     totalUsers: usersSnap.size,
     proUsers,
     premiumUsers,
     freeUsers,
     totalPortfolios,
+    totalCoins,
     estimatedRevenue: proUsers * 9.99 + premiumUsers * 49.99,
   };
 });

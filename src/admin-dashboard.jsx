@@ -10,7 +10,7 @@ const TIERS = {
 
 // No fake/personal user list. The dashboard shows REAL combined usage only,
 // loaded from the admin-only getStats Cloud Function (see useEffect below).
-const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, estimatedRevenue: 0 };
+const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0 };
 
 // Estimate storage in MB: (coins × (142 + transactions × 109)) bytes
 const estStorage = (u) => {
@@ -178,13 +178,21 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Combined usage (no personal data) */}
+        {/* Combined usage — aggregate engagement, no personal data */}
         <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}`, marginBottom:10 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <span style={{ fontSize:13, fontWeight:600 }}>Total Portfolios</span>
-            <span style={{ fontSize:18, fontWeight:800, color:c.bl }}>{s.totalPortfolios}</span>
+          <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>Combined Usage <span style={{ fontWeight:400, color:c.dm }}>· no personal data</span></div>
+          <div style={{ display:"flex", gap:6 }}>
+            {[
+              [s.totalPortfolios, "Portfolios", (s.totalUsers ? s.totalPortfolios / s.totalUsers : 0).toFixed(1)],
+              [s.totalCoins, "Coins tracked", (s.totalUsers ? s.totalCoins / s.totalUsers : 0).toFixed(1)],
+            ].map(([total, label, avg]) => (
+              <div key={label} style={{ flex:1, background:c.bg, borderRadius:10, padding:"10px", textAlign:"center" }}>
+                <div style={{ fontSize:20, fontWeight:800, color:c.bl }}>{total}</div>
+                <div style={{ fontSize:9, color:c.dm, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.5px", marginTop:2 }}>{label}</div>
+                <div style={{ fontSize:10, color:c.dm, marginTop:4 }}>avg {avg}/user</div>
+              </div>
+            ))}
           </div>
-          <div style={{ fontSize:10, color:c.dm, marginTop:4 }}>Combined across all {s.totalUsers} users</div>
         </div>
 
         {/* Tier Breakdown */}
