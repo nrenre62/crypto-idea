@@ -19,6 +19,8 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, onAuthChange } from "./firebase-auth.js";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "./firebase.config.js";
 import {
   getPortfolios, getCoins,
   createPortfolio as dbCreatePortfolio,
@@ -800,6 +802,31 @@ export default function CryptoIdea(){
     // Sign out of Firebase; onAuthChange will clear the session. No credentials are kept on the device.
     await logoutUser();
     setUser(null);setPortfolios([{id:"default",name:"My Portfolio",coins:[]}]);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("")};
+
+  // ── Self-service privacy (GDPR/CCPA): export + delete your own data ──
+  const [acctBusy,setAcctBusy]=useState(false);
+  const [acctMsg,setAcctMsg]=useState("");
+  const [delConfirm,setDelConfirm]=useState(false);
+  const downloadMyData=async()=>{
+    setAcctBusy(true);setAcctMsg("");
+    try{
+      const r=await httpsCallable(functions,"exportMyData")();
+      const blob=new Blob([JSON.stringify(r.data,null,2)],{type:"application/json"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");a.href=url;a.download="crypto-idea-my-data.json";a.click();
+      URL.revokeObjectURL(url);
+      setAcctMsg("Downloaded ✓");
+    }catch(e){setAcctMsg((e&&e.message)||"Export failed");}
+    setAcctBusy(false);
+  };
+  const deleteMyAccount=async()=>{
+    setAcctBusy(true);setAcctMsg("");
+    try{
+      await httpsCallable(functions,"deleteMyAccount")();
+      await logoutUser();
+      setUser(null);setScreen("login");
+    }catch(e){setAcctMsg((e&&e.message)||"Delete failed");setAcctBusy(false);}
+  };
   const startUpgrade=(toTier)=>{setUpgradeFlow(toTier);setUpgradeStep("billing");setShowPlan(true)};
   const startDowngrade=(toTier)=>{setDowngradeTo(toTier)};
   const confirmDowngrade=async()=>{
@@ -1429,6 +1456,22 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
       <button onClick={()=>setScreen("admin")} style={{width:"100%",padding:"11px",borderRadius:12,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:13,fontWeight:600,cursor:"pointer"}}>Open Admin Dashboard</button>
     </div>
     )}
+
+    {/* Privacy & your data (GDPR/CCPA self-service) */}
+    <div style={{margin:"12px 18px",padding:"16px",background:c.card,borderRadius:16,border:"1px solid #E8E8ED"}}>
+      <div style={{fontSize:13,fontWeight:700,marginBottom:4}}>Privacy & your data</div>
+      <div style={{fontSize:11,color:c.dim,marginBottom:12,lineHeight:1.5}}>Download everything we hold about you, or permanently delete your account and all your data.</div>
+      <button onClick={downloadMyData} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:8}}>{acctBusy?"…":"Download my data"}</button>
+      {delConfirm?(
+        <button onClick={deleteMyAccount} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:c.red,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>Yes, permanently delete my account</button>
+      ):(
+        <button onClick={()=>setDelConfirm(true)} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"1px solid "+c.red,background:c.redd,color:c.red,fontSize:13,fontWeight:600,cursor:"pointer"}}>Delete my account</button>
+      )}
+      {acctMsg&&<div style={{textAlign:"center",marginTop:10,fontSize:12,color:c.dim,fontWeight:600}}>{acctMsg}</div>}
+      <div style={{fontSize:11,marginTop:12,textAlign:"center"}}>
+        <a href="/privacy.html" style={{color:c.ac,textDecoration:"none"}}>Privacy Policy</a> · <a href="/terms.html" style={{color:c.ac,textDecoration:"none"}}>Terms</a>
+      </div>
+    </div>
 
     <div style={{padding:"20px 18px"}}>
       <button onClick={logout} style={{width:"100%",padding:"13px",borderRadius:12,border:"1px solid "+c.red,background:c.redd,color:c.red,fontSize:14,fontWeight:600,cursor:"pointer"}}>Logout</button>

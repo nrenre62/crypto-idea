@@ -42,6 +42,8 @@ export default defineConfig({
       input: {
         main: r("./index.html"),
         app: r("./app.html"),
+        privacy: r("./privacy.html"),
+        terms: r("./terms.html"),
       },
       output: {
         // Split big, rarely-changing deps into their own chunks so they load in

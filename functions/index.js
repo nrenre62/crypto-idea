@@ -325,6 +325,44 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   return { success: true, uid };
 });
 
+// ─── Self-service: a user deletes THEIR OWN account (GDPR/CCPA erasure) ───
+// Any signed-in user; acts only on their own uid (no IDOR).
+exports.deleteMyAccount = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  }
+  const uid = context.auth.uid;
+  await db.recursiveDelete(db.collection("users").doc(uid));
+  await admin.auth().deleteUser(uid);
+  return { success: true };
+});
+
+// ─── Self-service: a user exports THEIR OWN data (GDPR/CCPA right to access) ───
+exports.exportMyData = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  }
+  const uid = context.auth.uid;
+  const userSnap = await db.collection("users").doc(uid).get();
+  const portfolios = [];
+  const pSnap = await db.collection("users").doc(uid).collection("portfolios").get();
+  for (const p of pSnap.docs) {
+    const coins = [];
+    const cSnap = await p.ref.collection("coins").get();
+    for (const co of cSnap.docs) {
+      const txSnap = await co.ref.collection("transactions").get();
+      coins.push({ id: co.id, ...co.data(), transactions: txSnap.docs.map((t) => ({ id: t.id, ...t.data() })) });
+    }
+    portfolios.push({ id: p.id, ...p.data(), coins });
+  }
+  return {
+    exportedAt: new Date().toISOString(),
+    account: { uid, email: context.auth.token.email || "" },
+    profile: userSnap.exists ? userSnap.data() : {},
+    portfolios,
+  };
+});
+
 // ─── Save app config / API keys (admins only) ───
 // Writes the admin dashboard's Settings (CoinGecko + PayPal keys, email provider)
 // to the LOCKED config/app Firestore doc that the proxy + PayPal functions read.
