@@ -147,8 +147,12 @@ All backend functions live in `functions/index.js` (Node 20, deployed with `fire
 | `refreshMarkets` | Scheduled (every 5 min) | Keeps the shared price/coin cache warm in production |
 | `paypalWebhook` | HTTP | Verifies PayPal signatures and updates a user's tier |
 | `createSubscription` / `cancelSubscription` | Callable | Start/cancel a PayPal subscription (auth-enforced) |
-| `getStats` | Callable | Admin-only usage/revenue stats |
+| `getStats` | Callable | Admin-only **combined** usage/revenue stats (no personal data) |
 | `setAdminClaim` | Callable | Admin-only: grant/revoke the `{admin:true}` custom claim |
+| `lookupUser` | Callable | Admin-only: look up one user by email (tier/status/usage) for support |
+| `setUserTier` / `suspendUser` / `deleteUser` | Callable | Admin-only: change tier / suspend / delete-with-erasure (blocks self-target) |
+| `deleteMyAccount` / `exportMyData` | Callable | Self-service GDPR/CCPA: a user erases or exports **their own** data |
+| `saveConfig` | Callable | Admin-only: write API keys to the locked `config/app` doc |
 
 ## CoinGecko proxy (`api`)
 
@@ -251,9 +255,21 @@ The free DCA calculator lives **inline on the landing** (no login, no separate p
 # Admin dashboard (`src/admin-dashboard.jsx`)
 
 Opened from the app's Account screen by an **admin** (Firebase `{admin:true}` custom claim). Tabs:
-- **Overview** — user/tier counts, estimated revenue, plan limits.
-- **Users** — search users, view usage vs limits, change tier, edit premium custom limits. *(currently mock data; wire to Firestore + the `getStats` function to go live.)*
-- **Settings** — **API Keys** (CoinGecko, PayPal) and **Email & Integrations** (provider + key + from-address + list). *Scaffold:* to make these persist, add an admin-only `saveConfig` Cloud Function that writes to a protected Firestore `config/*` doc, and have the proxy/PayPal functions read from it instead of `functions.config()`.
+- **Overview** — **real combined usage** from the admin-only `getStats` function: total users, tier breakdown, total portfolios + coins, **avg per user**, and estimated revenue. **No personal data** — aggregate only (privacy by design).
+- **Users** — **on-demand lookup of ONE user by email** for support/moderation (`lookupUser`): shows tier, status, and usage counts (never their holdings), with **change tier** (`setUserTier`), **suspend/un-suspend** (`suspendUser`), and **delete** (`deleteUser`, full GDPR erasure). There is intentionally **no browse-all-users list** — for the full user list use the **Firebase Console → Authentication** tab (owner-only, audited).
+- **Settings** — **API Keys** (CoinGecko, PayPal) and **Email & Integrations**, saved server-side via the admin-only `saveConfig` function to the locked `config/app` doc.
+
+**Seeding test data (emulator):** `node functions/scripts/seed-emulator.js` creates an admin (`admin@test.com` / `test1234`) + a couple of test users with portfolios/coins. Re-run anytime; the emulator's data is in-memory.
+
+## User privacy & data rights (GDPR/CCPA)
+Self-service, from the app's **Account → "Privacy & your data"** card (acts only on the caller's own account — no IDOR):
+- **Download my data** (`exportMyData`) — JSON of their profile + portfolios/coins/transactions (right to access).
+- **Delete my account** (`deleteMyAccount`) — wipes all their data + Auth account (right to erasure).
+- **Privacy Policy / Terms** links → `privacy.html` / `terms.html`. These are built static pages with a clearly-marked placeholder — paste your **Termly** embed snippet into the marked block and re-deploy. Linked from the landing footer too.
+
+## Signup hardening
+- **Email verification** is sent on registration (anti-abuse + confirms a real inbox).
+- **App Check** (reCAPTCHA v3) is wired in `firebase.config.js` (prod-only, via `VITE_RECAPTCHA_SITE_KEY`) — this is the standard bot/abuse protection for signup; enable enforcement in the Firebase console at deploy. (Firebase signup is client-side, so per-IP rate-limiting isn't applicable without re-architecting; App Check is the right tool.)
 
 # Bot / abuse protection
 

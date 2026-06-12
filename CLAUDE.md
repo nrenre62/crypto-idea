@@ -37,7 +37,18 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - **Every change must be production-ready.**
 - Reusable patterns live in user skills: `firebase-saas-starter`, `landing-page-design`, `secure-by-design`.
 
+## Admin & privacy (functions/index.js)
+- Admin-only callables: `getStats` (combined usage, no personal data), `lookupUser`, `setUserTier`, `suspendUser`, `deleteUser` (GDPR erasure; blocks self-target). Admin = `{admin:true}` claim.
+- Self-service GDPR callables (act on caller's own uid, no IDOR): `deleteMyAccount`, `exportMyData` — wired into the app's Account → "Privacy & your data" card.
+- Admin Users tab = on-demand lookup of ONE user by email (no browse-all; full list is in Firebase Console → Authentication). Overview shows aggregate only.
+- `privacy.html` / `terms.html` are static pages (vite inputs) with a Termly placeholder to paste the embed snippet into later.
+- **Seed test data:** `node functions/scripts/seed-emulator.js` → admin `admin@test.com` / `test1234` + test users (emulator is in-memory; re-run after a restart). New function exports need a stack restart to register (emulator hot-reloads edits, not new triggers).
+
 ## Known notes
 - `/api/prices` (top-250 markets) gets CoinGecko free-tier `429`s without a Demo key — upstream rate-limiting, not a bug. Add a free CoinGecko Demo key to fix.
 - Pub/Sub scheduled functions register in the emulator but don't auto-fire on cron (trigger from the UI); Cloud Scheduler fires them in prod.
 - Repo is local-only (no GitHub remote yet).
+- Deploy-time config (no code): set `VITE_RECAPTCHA_SITE_KEY` + enable App Check enforcement in console; paste Termly snippets into privacy/terms pages; add a CoinGecko Demo key.
+
+## TODO (next session)
+- **Build a 2nd admin account as backup** (so admin access isn't a single point of failure): create a backup account + promote it via `setAdminClaim` (or seed it). Store creds in a password manager.
