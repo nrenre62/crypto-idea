@@ -27,6 +27,11 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - Output encoding: React auto-escapes; the static landing uses `textContent`, never `innerHTML`, for API data.
 
 ## Conventions
+- **KISS by design:** build the simplest thing that works — plain readable code, fewer moving
+  parts, no new dependency when a few lines do, no premature optimization. Simple = fewer bugs,
+  faster loads, easier fixes, smaller attack surface. Pairs with security-first below.
+- **Security by design:** keep secrets server-side, deny-by-default rules, validate input, encode
+  output (see the "Security model" section above + the `secure-by-design` skill).
 - **Commit every change** to git with a clear message — don't wait to be asked.
 - **On finishing a session:** commit everything, update README + skills if relevant, shut down emulators + dev server, confirm a clean tree.
 - **Every change must be production-ready.**
