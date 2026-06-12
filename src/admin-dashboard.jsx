@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "./firebase.config.js";
 
@@ -8,18 +8,9 @@ const TIERS = {
   premium: { label:"Premium", color:"#AF52DE", limits:{ portfolios:50, coins:500, transactions:5000 }, storage:"15 GB", price:"$49.99/mo" },
 };
 
-const MOCK_USERS = [
-  { id:"u1",name:"Alex Morgan",email:"alex@gmail.com",tier:"pro",joined:"2025-12-01",ports:3,coins:45,txs:120 },
-  { id:"u2",name:"Sarah Chen",email:"sarah@outlook.com",tier:"premium",joined:"2025-11-15",ports:12,coins:187,txs:2940,premiumLimits:{portfolios:30,coins:400,transactions:8000} },
-  { id:"u3",name:"James Wilson",email:"james@yahoo.com",tier:"free",joined:"2026-01-10",ports:1,coins:8,txs:42 },
-  { id:"u4",name:"Maria Lopez",email:"maria@gmail.com",tier:"free",joined:"2026-02-03",ports:1,coins:10,txs:28 },
-  { id:"u5",name:"David Kim",email:"david@proton.me",tier:"pro",joined:"2025-10-20",ports:8,coins:100,txs:520 },
-  { id:"u6",name:"Emma Brown",email:"emma@icloud.com",tier:"free",joined:"2026-03-01",ports:1,coins:5,txs:10 },
-  { id:"u7",name:"Lucas Silva",email:"lucas@gmail.com",tier:"free",joined:"2026-03-15",ports:1,coins:9,txs:65 },
-  { id:"u8",name:"Olivia Park",email:"olivia@me.com",tier:"premium",joined:"2025-09-05",ports:22,coins:340,txs:4100,premiumLimits:{portfolios:50,coins:500,transactions:5000} },
-  { id:"u9",name:"Noah Taylor",email:"noah@gmail.com",tier:"free",joined:"2026-04-01",ports:1,coins:2,txs:3 },
-  { id:"u10",name:"Ava Johnson",email:"ava@outlook.com",tier:"pro",joined:"2025-08-12",ports:6,coins:72,txs:280 },
-];
+// No fake/personal user list. The dashboard shows REAL combined usage only,
+// loaded from the admin-only getStats Cloud Function (see useEffect below).
+const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, estimatedRevenue: 0 };
 
 // Estimate storage in MB: (coins × (142 + transactions × 109)) bytes
 const estStorage = (u) => {
@@ -29,7 +20,9 @@ const estStorage = (u) => {
 };
 
 export default function AdminDashboard() {
-  const [users, setUsers] = useState(MOCK_USERS);
+  const [users, setUsers] = useState([]);
+  const [stats, setStats] = useState(null);   // real combined usage from getStats (admin-only)
+  const [statsErr, setStatsErr] = useState("");
   const [sq, setSq] = useState("");
   const [tab, setTab] = useState("overview");
   const [selUser, setSelUser] = useState(null);
@@ -49,6 +42,14 @@ export default function AdminDashboard() {
     }
     setTimeout(() => setSavedMsg(""), 4000);
   };
+
+  // Load real combined usage once, from the admin-only backend function.
+  useEffect(() => {
+    httpsCallable(functions, "getStats")()
+      .then(r => setStats(r.data))
+      .catch(e => setStatsErr((e && e.message) || "Could not load stats"));
+  }, []);
+  const s = stats || EMPTY_STATS;
 
   const free = users.filter(u => u.tier === "free");
   const pro = users.filter(u => u.tier === "pro");
@@ -123,14 +124,14 @@ export default function AdminDashboard() {
           <div style={{ fontSize:11, color:c.dm, marginTop:2 }}>Admin Dashboard</div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-          <div style={{ width:6, height:6, borderRadius:3, background:c.gr }} />
-          <span style={{ fontSize:10, color:c.dm }}>Mock Data</span>
+          <div style={{ width:6, height:6, borderRadius:3, background: statsErr ? c.rd : stats ? c.gr : c.or }} />
+          <span style={{ fontSize:10, color:c.dm }}>{statsErr ? "Error" : stats ? "Live Data" : "Loading…"}</span>
         </div>
       </div>
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:14, background:c.w, borderRadius:12, padding:4, border:`1px solid ${c.bd}` }}>
-        {["overview","users","settings"].map(tb => (
+        {["overview","settings"].map(tb => (
           <button key={tb} onClick={() => { setTab(tb); setSelUser(null); setEditLimits(null); }}
             style={{ flex:1, padding:10, borderRadius:10, border:"none", fontSize:13, fontWeight:600, cursor:"pointer", background:tab===tb?c.tx:"transparent", color:tab===tb?"#fff":c.dm }}>
             {tb.charAt(0).toUpperCase()+tb.slice(1)}
@@ -158,7 +159,7 @@ export default function AdminDashboard() {
       {tab === "overview" && (<>
         {/* Stats */}
         <div style={{ display:"flex", gap:6, marginBottom:10 }}>
-          {[[users.length,"Total",c.tx],[free.length,"Free",c.or],[pro.length,"Pro",c.gr],[premium.length,"Premium",c.pr]].map(([val,label,color]) => (
+          {[[s.totalUsers,"Total",c.tx],[s.freeUsers,"Free",c.or],[s.proUsers,"Pro",c.gr],[s.premiumUsers,"Premium",c.pr]].map(([val,label,color]) => (
             <div key={label} style={{ background:c.w, borderRadius:14, padding:"14px 10px", border:`1px solid ${c.bd}`, textAlign:"center", flex:1 }}>
               <div style={{ fontSize:24, fontWeight:700, letterSpacing:"-1px", color }}>{val}</div>
               <div style={{ fontSize:8, color:c.dm, marginTop:2, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.5px" }}>{label}</div>
@@ -170,25 +171,34 @@ export default function AdminDashboard() {
         <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}`, marginBottom:10 }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
             <span style={{ fontSize:13, fontWeight:600 }}>Est. Monthly Revenue</span>
-            <span style={{ fontSize:18, fontWeight:800, color:c.gr }}>${rev.toFixed(0)}</span>
+            <span style={{ fontSize:18, fontWeight:800, color:c.gr }}>${s.estimatedRevenue.toFixed(0)}</span>
           </div>
           <div style={{ fontSize:10, color:c.dm }}>
-            {pro.length} Pro × $9.99 = ${(pro.length*9.99).toFixed(0)} · {premium.length} Premium × $49.99 = ${(premium.length*49.99).toFixed(0)}
+            {s.proUsers} Pro × $9.99 = ${(s.proUsers*9.99).toFixed(0)} · {s.premiumUsers} Premium × $49.99 = ${(s.premiumUsers*49.99).toFixed(0)}
           </div>
+        </div>
+
+        {/* Combined usage (no personal data) */}
+        <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}`, marginBottom:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:13, fontWeight:600 }}>Total Portfolios</span>
+            <span style={{ fontSize:18, fontWeight:800, color:c.bl }}>{s.totalPortfolios}</span>
+          </div>
+          <div style={{ fontSize:10, color:c.dm, marginTop:4 }}>Combined across all {s.totalUsers} users</div>
         </div>
 
         {/* Tier Breakdown */}
         <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}`, marginBottom:10 }}>
           <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>Tier Breakdown</div>
           <div style={{ display:"flex", height:28, borderRadius:6, overflow:"hidden" }}>
-            {[[free,"free"],[pro,"pro"],[premium,"premium"]].map(([arr,key]) => arr.length > 0 && (
-              <div key={key} style={{ width:`${arr.length/users.length*100}%`, background:TIERS[key].color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", minWidth:20 }}>{arr.length}</div>
+            {[[s.freeUsers,"free"],[s.proUsers,"pro"],[s.premiumUsers,"premium"]].map(([n,key]) => n > 0 && (
+              <div key={key} style={{ width:`${s.totalUsers > 0 ? n/s.totalUsers*100 : 0}%`, background:TIERS[key].color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", minWidth:20 }}>{n}</div>
             ))}
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", marginTop:6, fontSize:9, fontWeight:600 }}>
-            <span style={{ color:c.or }}>Free ({free.length})</span>
-            <span style={{ color:c.gr }}>Pro ({pro.length})</span>
-            <span style={{ color:c.pr }}>Premium ({premium.length})</span>
+            <span style={{ color:c.or }}>Free ({s.freeUsers})</span>
+            <span style={{ color:c.gr }}>Pro ({s.proUsers})</span>
+            <span style={{ color:c.pr }}>Premium ({s.premiumUsers})</span>
           </div>
         </div>
 
@@ -216,17 +226,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Recent */}
-        <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}` }}>
-          <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>Recent Signups</div>
-          {[...users].sort((a,b) => b.joined.localeCompare(a.joined)).slice(0,5).map(u => (
-            <div key={u.id} style={{ display:"flex", alignItems:"center", padding:"7px 0", gap:8, borderBottom:`1px solid ${c.bd}20` }}>
-              <div style={{ width:26, height:26, borderRadius:13, background:c.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:600, color:c.dm }}>{u.name.charAt(0)}</div>
-              <div style={{ flex:1 }}><div style={{ fontSize:12, fontWeight:600 }}>{u.name}</div><div style={{ fontSize:9, color:c.dm }}>{u.joined}</div></div>
-              <Bdg tier={u.tier} />
-            </div>
-          ))}
-        </div>
       </>)}
 
       {/* ═══ USERS ═══ */}

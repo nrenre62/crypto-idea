@@ -204,18 +204,20 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("permission-denied", "Admins only.");
   }
   const usersSnap = await db.collection("users").get();
-  let proUsers = 0, premiumUsers = 0, freeUsers = 0;
+  let proUsers = 0, premiumUsers = 0, freeUsers = 0, totalPortfolios = 0;
   usersSnap.forEach((doc) => {
-    const tier = doc.data().tier;
-    if (tier === "pro") proUsers++;
-    else if (tier === "premium") premiumUsers++;
+    const d = doc.data();
+    if (d.tier === "pro") proUsers++;
+    else if (d.tier === "premium") premiumUsers++;
     else freeUsers++;
+    totalPortfolios += d.portfolioCount || 0;
   });
   return {
     totalUsers: usersSnap.size,
     proUsers,
     premiumUsers,
     freeUsers,
+    totalPortfolios,
     estimatedRevenue: proUsers * 9.99 + premiumUsers * 49.99,
   };
 });
