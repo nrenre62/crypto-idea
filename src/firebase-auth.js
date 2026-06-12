@@ -10,7 +10,8 @@ import {
   signOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  sendEmailVerification
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { auth, db } from "./firebase.config.js";
@@ -25,6 +26,10 @@ export async function registerUser(email, password, name) {
 
     // Set display name
     await updateProfile(user, { displayName: name });
+
+    // Send a verification email (anti-abuse + confirms a real inbox).
+    // Non-fatal: a transient email error must not break account creation.
+    try { await sendEmailVerification(user); } catch (e) { /* ignore */ }
 
     // Create user profile in Firestore (portfolioCount starts at 0)
     await setDoc(doc(db, "users", user.uid), {
