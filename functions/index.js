@@ -250,6 +250,81 @@ exports.setAdminClaim = functions.https.onCall(async (data, context) => {
   return { success: true, uid: userRecord.uid, admin: makeAdmin };
 });
 
+// ─── Admin: look up ONE user for support / moderation (admins only) ───
+// Returns operational data only (tier, status, usage counts) — NOT holdings.
+exports.lookupUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const email = data && data.email;
+  if (!email) throw new functions.https.HttpsError("invalid-argument", "email is required.");
+  let rec;
+  try { rec = await admin.auth().getUserByEmail(String(email).trim()); }
+  catch (e) { throw new functions.https.HttpsError("not-found", "No user with that email."); }
+  const snap = await db.collection("users").doc(rec.uid).get();
+  const d = snap.exists ? snap.data() : {};
+  let coinCount = 0;
+  const ports = await db.collection("users").doc(rec.uid).collection("portfolios").get();
+  ports.forEach((p) => { coinCount += (p.data().coinCount || 0); });
+  return {
+    uid: rec.uid,
+    email: rec.email || "",
+    name: d.name || rec.displayName || "",
+    tier: d.tier || "free",
+    disabled: !!rec.disabled,
+    isAdmin: !!(rec.customClaims && rec.customClaims.admin),
+    portfolioCount: d.portfolioCount || 0,
+    coinCount,
+  };
+});
+
+// ─── Admin: change a user's tier (admins only) ───
+exports.setUserTier = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const uid = data && data.uid;
+  const tier = data && data.tier;
+  if (!uid || !["free", "pro", "premium"].includes(tier)) {
+    throw new functions.https.HttpsError("invalid-argument", "uid and a valid tier are required.");
+  }
+  await db.collection("users").doc(uid).update({ tier });
+  return { success: true, uid, tier };
+});
+
+// ─── Admin: suspend / un-suspend a user (admins only) — reversible ───
+// Disables the Auth account so they can't sign in.
+exports.suspendUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const uid = data && data.uid;
+  const disabled = !!(data && data.disabled);
+  if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  if (uid === context.auth.uid) {
+    throw new functions.https.HttpsError("failed-precondition", "You cannot suspend your own admin account.");
+  }
+  await admin.auth().updateUser(uid, { disabled });
+  return { success: true, uid, disabled };
+});
+
+// ─── Admin: delete a user + ALL their data (admins only) — GDPR/CCPA erasure ───
+exports.deleteUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const uid = data && data.uid;
+  if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  if (uid === context.auth.uid) {
+    throw new functions.https.HttpsError("failed-precondition", "You cannot delete your own admin account.");
+  }
+  // Wipe Firestore data (the user doc + all nested portfolios/coins/transactions),
+  // then remove the Auth account.
+  await db.recursiveDelete(db.collection("users").doc(uid));
+  await admin.auth().deleteUser(uid);
+  return { success: true, uid };
+});
+
 // ─── Save app config / API keys (admins only) ───
 // Writes the admin dashboard's Settings (CoinGecko + PayPal keys, email provider)
 // to the LOCKED config/app Firestore doc that the proxy + PayPal functions read.

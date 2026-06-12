@@ -8,27 +8,15 @@ const TIERS = {
   premium: { label:"Premium", color:"#AF52DE", limits:{ portfolios:50, coins:500, transactions:5000 }, storage:"15 GB", price:"$49.99/mo" },
 };
 
-// No fake/personal user list. The dashboard shows REAL combined usage only,
-// loaded from the admin-only getStats Cloud Function (see useEffect below).
+// All admin data is REAL and combined (no fake/personal data on the Overview).
 const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0 };
 
-// Estimate storage in MB: (coins × (142 + transactions × 109)) bytes
-const estStorage = (u) => {
-  const txPerCoin = u.coins > 0 ? u.txs / u.coins : 0;
-  const bytes = u.coins * (142 + txPerCoin * 109);
-  return bytes / (1024 * 1024);
-};
-
 export default function AdminDashboard() {
-  const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);   // real combined usage from getStats (admin-only)
   const [statsErr, setStatsErr] = useState("");
-  const [sq, setSq] = useState("");
   const [tab, setTab] = useState("overview");
-  const [selUser, setSelUser] = useState(null);
-  const [editLimits, setEditLimits] = useState(null);
-  const [confirm, setConfirm] = useState(null);
-  // Settings forms (scaffold — wire to the admin-only saveConfig Cloud Function once Firebase is live)
+
+  // Settings forms (saved via the admin-only saveConfig Cloud Function).
   const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "" });
   const [mail, setMail] = useState({ provider: "none", apiKey: "", apiUrl: "", fromEmail: "", listId: "" });
   const [savedMsg, setSavedMsg] = useState("");
@@ -43,6 +31,14 @@ export default function AdminDashboard() {
     setTimeout(() => setSavedMsg(""), 4000);
   };
 
+  // Users tab — on-demand lookup of ONE user for support / moderation.
+  const [lookupEmail, setLookupEmail] = useState("");
+  const [found, setFound] = useState(null);
+  const [lookupMsg, setLookupMsg] = useState("");
+  const [actionMsg, setActionMsg] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+
   // Load real combined usage once, from the admin-only backend function.
   useEffect(() => {
     httpsCallable(functions, "getStats")()
@@ -51,32 +47,31 @@ export default function AdminDashboard() {
   }, []);
   const s = stats || EMPTY_STATS;
 
-  const free = users.filter(u => u.tier === "free");
-  const pro = users.filter(u => u.tier === "pro");
-  const premium = users.filter(u => u.tier === "premium");
-  const rev = pro.length * 9.99 + premium.length * 49.99;
-
-  const filtered = sq ? users.filter(u =>
-    u.name.toLowerCase().includes(sq.toLowerCase()) || u.email.toLowerCase().includes(sq.toLowerCase())
-  ) : users;
-
-  const changeTier = (uid, newTier) => {
-    setUsers(prev => prev.map(u => {
-      if (u.id !== uid) return u;
-      const updated = { ...u, tier: newTier };
-      if (newTier === "premium" && !u.premiumLimits) {
-        updated.premiumLimits = { portfolios: 50, coins: 500, transactions: 5000 };
-      }
-      return updated;
-    }));
-    setConfirm(null);
-    setSelUser(prev => prev ? { ...prev, tier: newTier, premiumLimits: newTier === "premium" ? (prev.premiumLimits || { portfolios: 50, coins: 500, transactions: 5000 }) : prev.premiumLimits } : null);
+  const callFn = (name, data) => httpsCallable(functions, name)(data);
+  const lookup = async () => {
+    if (!lookupEmail.trim()) return;
+    setBusy(true); setLookupMsg(""); setActionMsg(""); setConfirmDelete(false); setFound(null);
+    try { const r = await callFn("lookupUser", { email: lookupEmail.trim() }); setFound(r.data); }
+    catch (e) { setLookupMsg((e && e.message) || "Lookup failed"); }
+    setBusy(false);
   };
-
-  const saveLimits = (uid, limits) => {
-    setUsers(prev => prev.map(u => u.id === uid ? { ...u, premiumLimits: limits } : u));
-    setSelUser(prev => prev ? { ...prev, premiumLimits: limits } : null);
-    setEditLimits(null);
+  const changeTier = async (tier) => {
+    setBusy(true); setActionMsg("");
+    try { await callFn("setUserTier", { uid: found.uid, tier }); setFound({ ...found, tier }); setActionMsg("Tier updated ✓"); }
+    catch (e) { setActionMsg((e && e.message) || "Failed"); }
+    setBusy(false);
+  };
+  const toggleSuspend = async () => {
+    setBusy(true); setActionMsg("");
+    try { const d = !found.disabled; await callFn("suspendUser", { uid: found.uid, disabled: d }); setFound({ ...found, disabled: d }); setActionMsg(d ? "Suspended ✓" : "Un-suspended ✓"); }
+    catch (e) { setActionMsg((e && e.message) || "Failed"); }
+    setBusy(false);
+  };
+  const doDelete = async () => {
+    setBusy(true); setActionMsg("");
+    try { await callFn("deleteUser", { uid: found.uid }); setActionMsg("Account deleted ✓"); setFound(null); setConfirmDelete(false); setLookupEmail(""); }
+    catch (e) { setActionMsg((e && e.message) || "Failed"); }
+    setBusy(false);
   };
 
   const c = { bg:"#F5F5F5", w:"#fff", tx:"#1A1A1A", dm:"#999", bd:"#E8E8ED", gr:"#34C759", or:"#FF9500", bl:"#007AFF", rd:"#FF3B30", pr:"#AF52DE" };
@@ -84,34 +79,6 @@ export default function AdminDashboard() {
   const Bdg = ({ tier }) => {
     const t = TIERS[tier] || TIERS.free;
     return <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:20, background:t.color+"18", color:t.color }}>{t.label.toUpperCase()}</span>;
-  };
-
-  const StorageBar = ({ used, max, unit }) => {
-    const pct = max > 0 ? Math.min(100, (used / max) * 100) : 0;
-    return (
-      <div style={{ marginTop: 6 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, marginBottom:3 }}>
-          <span style={{ color:c.dm }}>Storage used</span>
-          <span style={{ fontWeight:600, color: pct > 85 ? c.rd : c.tx }}>{used.toFixed(1)} {unit} / {max} {unit} ({pct.toFixed(0)}%)</span>
-        </div>
-        <div style={{ height:5, background:"#F0F0F0", borderRadius:3, overflow:"hidden" }}>
-          <div style={{ width:`${pct}%`, height:"100%", background: pct > 85 ? c.rd : pct > 60 ? c.or : c.gr, borderRadius:3 }} />
-        </div>
-      </div>
-    );
-  };
-
-  const LimitRow = ({ label, used, max, color }) => {
-    const pct = max > 0 ? Math.round((used / max) * 100) : 0;
-    return (
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:`1px solid ${c.bd}20` }}>
-        <span style={{ fontSize:11, color:c.dm }}>{label}</span>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:11, fontWeight:700 }}>{used.toLocaleString()} / {max.toLocaleString()}</span>
-          <span style={{ fontSize:9, fontWeight:600, padding:"2px 6px", borderRadius:4, background: pct >= 90 ? c.rd+"15" : pct >= 70 ? c.or+"15" : c.gr+"15", color: pct >= 90 ? c.rd : pct >= 70 ? c.or : c.gr }}>{pct}%</span>
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -131,31 +98,15 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:14, background:c.w, borderRadius:12, padding:4, border:`1px solid ${c.bd}` }}>
-        {["overview","settings"].map(tb => (
-          <button key={tb} onClick={() => { setTab(tb); setSelUser(null); setEditLimits(null); }}
+        {["overview","users","settings"].map(tb => (
+          <button key={tb} onClick={() => { setTab(tb); }}
             style={{ flex:1, padding:10, borderRadius:10, border:"none", fontSize:13, fontWeight:600, cursor:"pointer", background:tab===tb?c.tx:"transparent", color:tab===tb?"#fff":c.dm }}>
             {tb.charAt(0).toUpperCase()+tb.slice(1)}
           </button>
         ))}
       </div>
 
-      {/* Confirm Modal */}
-      {confirm && (
-        <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:999, padding:20 }}>
-          <div style={{ background:c.w, borderRadius:20, padding:24, maxWidth:300, width:"100%", textAlign:"center" }}>
-            <div style={{ fontSize:15, fontWeight:700, marginBottom:8 }}>Change tier?</div>
-            <div style={{ fontSize:13, color:c.dm, marginBottom:20 }}>
-              Move <strong>{confirm.name}</strong> to <strong style={{ color:TIERS[confirm.to].color }}>{TIERS[confirm.to].label}</strong>?
-            </div>
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={() => setConfirm(null)} style={{ flex:1, padding:11, borderRadius:12, border:`1px solid ${c.bd}`, background:c.w, fontSize:13, fontWeight:600, cursor:"pointer", color:c.dm }}>Cancel</button>
-              <button onClick={() => changeTier(confirm.uid, confirm.to)} style={{ flex:1, padding:11, borderRadius:12, border:"none", background:TIERS[confirm.to].color, fontSize:13, fontWeight:600, cursor:"pointer", color:"#fff" }}>Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ OVERVIEW ═══ */}
+      {/* ═══ OVERVIEW (real, combined, no personal data) ═══ */}
       {tab === "overview" && (<>
         {/* Stats */}
         <div style={{ display:"flex", gap:6, marginBottom:10 }}>
@@ -233,153 +184,84 @@ export default function AdminDashboard() {
             })}
           </div>
         </div>
-
       </>)}
 
-      {/* ═══ USERS ═══ */}
+      {/* ═══ USERS — on-demand lookup for support / moderation ═══ */}
       {tab === "users" && (<>
-        <input type="text" value={sq} onChange={e => setSq(e.target.value)} placeholder="Search by name or email..."
-          style={{ width:"100%", padding:"12px 14px", background:c.w, border:`1px solid ${c.bd}`, borderRadius:12, fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:12 }} />
+        <div style={{ fontSize:11, color:c.dm, marginBottom:10, lineHeight:1.5 }}>
+          Look up <b>one</b> user by email for support or moderation. Shows account status &amp; usage only — never their portfolio contents.
+        </div>
+        <form onSubmit={(e) => { e.preventDefault(); lookup(); }} style={{ display:"flex", gap:6, marginBottom:12 }}>
+          <input type="email" value={lookupEmail} onChange={e => setLookupEmail(e.target.value)} placeholder="user@email.com"
+            style={{ flex:1, padding:"12px 14px", background:c.w, border:`1px solid ${c.bd}`, borderRadius:12, fontSize:14, outline:"none", boxSizing:"border-box" }} />
+          <button type="submit" disabled={busy}
+            style={{ padding:"0 18px", borderRadius:12, border:"none", background:c.tx, color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer", opacity:busy?0.6:1 }}>
+            {busy ? "…" : "Look up"}
+          </button>
+        </form>
 
-        {/* Selected User Detail */}
-        {selUser && (
-          <div style={{ background:c.w, borderRadius:16, padding:16, border:`1px solid ${c.bd}`, marginBottom:12 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ width:38, height:38, borderRadius:19, background:c.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:700, color:c.dm }}>{selUser.name.charAt(0)}</div>
-                <div>
-                  <div style={{ fontSize:15, fontWeight:700 }}>{selUser.name}</div>
-                  <div style={{ fontSize:11, color:c.dm }}>{selUser.email}</div>
-                </div>
+        {lookupMsg && <div style={{ fontSize:12, color:c.rd, marginBottom:10 }}>{lookupMsg}</div>}
+
+        {found && (
+          <div style={{ background:c.w, borderRadius:16, padding:16, border:`1px solid ${c.bd}` }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+              <div>
+                <div style={{ fontSize:15, fontWeight:700 }}>{found.name || found.email}</div>
+                <div style={{ fontSize:11, color:c.dm }}>{found.email}</div>
               </div>
-              <button onClick={() => { setSelUser(null); setEditLimits(null); }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, color:c.dm }}>✕</button>
+              <div style={{ display:"flex", gap:5, alignItems:"center", flexWrap:"wrap", justifyContent:"flex-end" }}>
+                <Bdg tier={found.tier} />
+                {found.disabled && <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:20, background:c.rd+"18", color:c.rd }}>SUSPENDED</span>}
+                {found.isAdmin && <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:20, background:c.tx+"18", color:c.tx }}>ADMIN</span>}
+              </div>
             </div>
 
-            <Bdg tier={selUser.tier} />
-            <span style={{ fontSize:11, color:c.dm, marginLeft:8 }}>Joined {selUser.joined}</span>
-
-            {/* Usage vs Limits */}
-            <div style={{ marginTop:14, padding:12, background:c.bg, borderRadius:12 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:c.dm, letterSpacing:1, marginBottom:8 }}>USAGE vs LIMITS</div>
-              {(() => {
-                const lim = selUser.tier === "premium" ? (selUser.premiumLimits || TIERS.premium.limits) : TIERS[selUser.tier]?.limits || TIERS.free.limits;
-                const storageMB = estStorage(selUser);
-                const maxStorageMB = selUser.tier === "premium" ? 15360 : selUser.tier === "pro" ? 500 : 5;
-                return (<>
-                  <LimitRow label="Portfolios" used={selUser.ports} max={lim.portfolios} />
-                  <LimitRow label="Coins (total)" used={selUser.coins} max={lim.portfolios * lim.coins} />
-                  <LimitRow label="Transactions" used={selUser.txs} max={lim.portfolios * lim.coins * lim.transactions} />
-                  <StorageBar used={storageMB} max={maxStorageMB} unit="MB" />
-                </>);
-              })()}
+            {/* Usage (counts only — never holdings) */}
+            <div style={{ display:"flex", gap:6, marginBottom:14 }}>
+              {[[found.portfolioCount,"Portfolios"],[found.coinCount,"Coins"]].map(([v,l]) => (
+                <div key={l} style={{ flex:1, background:c.bg, borderRadius:10, padding:"10px", textAlign:"center" }}>
+                  <div style={{ fontSize:18, fontWeight:800 }}>{v}</div>
+                  <div style={{ fontSize:9, color:c.dm, fontWeight:600, textTransform:"uppercase" }}>{l}</div>
+                </div>
+              ))}
             </div>
 
-            {/* Tier Buttons */}
-            <div style={{ fontSize:10, fontWeight:700, color:c.dm, letterSpacing:1, marginTop:14, marginBottom:8 }}>CHANGE TIER</div>
-            <div style={{ display:"flex", gap:6 }}>
+            {/* Change tier (manual upgrade / refund) */}
+            <div style={{ fontSize:10, fontWeight:700, color:c.dm, letterSpacing:1, marginBottom:8 }}>CHANGE TIER</div>
+            <div style={{ display:"flex", gap:6, marginBottom:14 }}>
               {["free","pro","premium"].map(t => (
-                <button key={t}
-                  onClick={() => selUser.tier !== t && setConfirm({ uid:selUser.id, name:selUser.name, to:t })}
-                  style={{
-                    flex:1, padding:"9px", borderRadius:8,
-                    border: selUser.tier === t ? `2px solid ${TIERS[t].color}` : `1px solid ${c.bd}`,
-                    fontSize:10, fontWeight:700, cursor: selUser.tier === t ? "default" : "pointer",
-                    background: selUser.tier === t ? TIERS[t].color+"15" : c.w,
-                    color: TIERS[t].color,
-                    opacity: selUser.tier === t ? 1 : 0.6,
-                  }}>
+                <button key={t} disabled={busy || found.tier === t} onClick={() => changeTier(t)}
+                  style={{ flex:1, padding:"9px", borderRadius:8,
+                    border: found.tier === t ? `2px solid ${TIERS[t].color}` : `1px solid ${c.bd}`,
+                    fontSize:10, fontWeight:700, cursor: found.tier === t ? "default" : "pointer",
+                    background: found.tier === t ? TIERS[t].color+"15" : c.w, color:TIERS[t].color, opacity: found.tier === t ? 1 : 0.6 }}>
                   {TIERS[t].label.toUpperCase()}
                 </button>
               ))}
             </div>
 
-            {/* Premium Limits Editor */}
-            {selUser.tier === "premium" && (
-              <div style={{ marginTop:14, padding:14, background:c.pr+"08", borderRadius:12, border:`1px solid ${c.pr}20` }}>
-                <div style={{ fontSize:10, fontWeight:700, color:c.pr, letterSpacing:1, marginBottom:10 }}>PREMIUM CUSTOM LIMITS</div>
-                <div style={{ fontSize:9, color:c.dm, marginBottom:10 }}>Max storage: 15 GB · Full usage at defaults = 12.7 GB (85%)</div>
-
-                {editLimits ? (
-                  <div>
-                    {[
-                      ["Portfolios","portfolios",50,1,100],
-                      ["Coins per portfolio","coins",500,10,1000],
-                      ["Transactions per coin","transactions",5000,100,20000],
-                    ].map(([label,key,def,min,max]) => (
-                      <div key={key} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:`1px solid ${c.bd}20` }}>
-                        <span style={{ fontSize:12, color:c.dm }}>{label}</span>
-                        <input type="number" min={min} max={max} value={editLimits[key]||def}
-                          onChange={e => setEditLimits({...editLimits, [key]:parseInt(e.target.value)||0})}
-                          style={{ width:80, padding:"6px 8px", borderRadius:6, border:`1px solid ${c.bd}`, fontSize:12, textAlign:"right", outline:"none" }} />
-                      </div>
-                    ))}
-                    {/* Storage estimate */}
-                    {(() => {
-                      const estGB = (editLimits.portfolios||50) * (editLimits.coins||500) * (142 + (editLimits.transactions||5000) * 109) / (1024**3);
-                      const pct = (estGB / 15 * 100);
-                      return (
-                        <div style={{ marginTop:10, padding:10, background:c.w, borderRadius:8 }}>
-                          <div style={{ display:"flex", justifyContent:"space-between", fontSize:11 }}>
-                            <span style={{ color:c.dm }}>Estimated max storage</span>
-                            <span style={{ fontWeight:700, color: pct > 100 ? c.rd : c.tx }}>{estGB.toFixed(1)} GB / 15 GB ({pct.toFixed(0)}%)</span>
-                          </div>
-                          <div style={{ height:5, background:"#F0F0F0", borderRadius:3, overflow:"hidden", marginTop:4 }}>
-                            <div style={{ width:`${Math.min(100,pct)}%`, height:"100%", background: pct > 100 ? c.rd : pct > 85 ? c.or : c.gr, borderRadius:3 }} />
-                          </div>
-                          {pct > 100 && <div style={{ fontSize:10, color:c.rd, fontWeight:600, marginTop:4 }}>⚠ Exceeds 15 GB limit. Reduce values.</div>}
-                        </div>
-                      );
-                    })()}
-                    <div style={{ display:"flex", gap:6, marginTop:12 }}>
-                      <button onClick={() => setEditLimits(null)} style={{ flex:1, padding:9, borderRadius:8, border:`1px solid ${c.bd}`, background:c.w, fontSize:11, fontWeight:600, cursor:"pointer", color:c.dm }}>Cancel</button>
-                      <button onClick={() => saveLimits(selUser.id, editLimits)} style={{ flex:1, padding:9, borderRadius:8, border:"none", background:c.pr, fontSize:11, fontWeight:600, cursor:"pointer", color:"#fff" }}>Save Limits</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    {[
-                      ["Portfolios", selUser.premiumLimits?.portfolios || 50],
-                      ["Coins per portfolio", selUser.premiumLimits?.coins || 500],
-                      ["Transactions per coin", selUser.premiumLimits?.transactions || 5000],
-                    ].map(([k,v]) => (
-                      <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"6px 0", fontSize:12, borderBottom:`1px solid ${c.bd}10` }}>
-                        <span style={{ color:c.dm }}>{k}</span>
-                        <span style={{ fontWeight:700 }}>{v.toLocaleString()}</span>
-                      </div>
-                    ))}
-                    <button onClick={() => setEditLimits(selUser.premiumLimits || { portfolios:50, coins:500, transactions:5000 })}
-                      style={{ marginTop:10, width:"100%", padding:9, borderRadius:8, border:`1px solid ${c.pr}`, background:c.pr+"10", fontSize:11, fontWeight:600, cursor:"pointer", color:c.pr }}>
-                      Edit Limits
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Moderation */}
+            <div style={{ display:"flex", gap:6 }}>
+              <button disabled={busy} onClick={toggleSuspend}
+                style={{ flex:1, padding:"10px", borderRadius:10, border:`1px solid ${c.or}`, background:c.or+"10", color:c.or, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                {found.disabled ? "Un-suspend" : "Suspend"}
+              </button>
+              {confirmDelete ? (
+                <button disabled={busy} onClick={doDelete}
+                  style={{ flex:1, padding:"10px", borderRadius:10, border:"none", background:c.rd, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                  Confirm delete?
+                </button>
+              ) : (
+                <button disabled={busy} onClick={() => setConfirmDelete(true)}
+                  style={{ flex:1, padding:"10px", borderRadius:10, border:`1px solid ${c.rd}`, background:c.rd+"10", color:c.rd, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                  Delete account
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize:9, color:c.dm, marginTop:8 }}>Delete permanently removes the account + all their data (GDPR/CCPA erasure). Cannot be undone.</div>
+            {actionMsg && <div style={{ textAlign:"center", marginTop:10, fontSize:12, color:c.gr, fontWeight:600 }}>{actionMsg}</div>}
           </div>
         )}
-
-        {/* User List */}
-        <div style={{ background:c.w, borderRadius:14, padding:"4px 14px", border:`1px solid ${c.bd}` }}>
-          <div style={{ padding:"10px 0", fontSize:11, fontWeight:600, color:c.dm, borderBottom:`1px solid ${c.bd}` }}>
-            {filtered.length} user{filtered.length !== 1 ? "s" : ""} {sq && `· "${sq}"`}
-          </div>
-          {filtered.map(u => (
-            <div key={u.id} onClick={() => { setSelUser(u); setEditLimits(null); }}
-              style={{ display:"flex", alignItems:"center", borderBottom:`1px solid ${c.bd}20`, gap:10, cursor:"pointer",
-                background: selUser?.id === u.id ? c.bg : "transparent", margin: selUser?.id === u.id ? "0 -14px" : 0, padding: selUser?.id === u.id ? "10px 14px" : "10px 0" }}>
-              <div style={{ width:32, height:32, borderRadius:16, background:c.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:600, color:c.dm, flexShrink:0 }}>{u.name.charAt(0)}</div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:13, fontWeight:600 }}>{u.name}</div>
-                <div style={{ fontSize:10, color:c.dm, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{u.email}</div>
-              </div>
-              <Bdg tier={u.tier} />
-              <div style={{ textAlign:"right", flexShrink:0 }}>
-                <div style={{ fontSize:10, fontWeight:600 }}>{u.ports}p · {u.coins}c</div>
-                <div style={{ fontSize:8, color:c.dm }}>{u.txs.toLocaleString()} tx</div>
-              </div>
-            </div>
-          ))}
-        </div>
       </>)}
 
       {/* ═══ SETTINGS ═══ */}
@@ -445,7 +327,7 @@ export default function AdminDashboard() {
       </>)}
 
       <div style={{ textAlign:"center", padding:"18px 0", fontSize:10, color:c.dm }}>
-        Crypto Idea Admin · v4.2.0
+        Crypto Idea Admin · v4.3.0
       </div>
     </div>
   );
