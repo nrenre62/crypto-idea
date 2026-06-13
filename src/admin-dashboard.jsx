@@ -11,6 +11,9 @@ const TIERS = {
 // All admin data is REAL and combined (no fake/personal data on the Overview).
 const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0 };
 
+// Friendly labels for audit-log action codes.
+const ACTION_LABELS = { setUserTier: "Changed tier", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", grantAdmin: "Granted admin", revokeAdmin: "Revoked admin", saveConfig: "Saved settings" };
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);   // real combined usage from getStats (admin-only)
   const [statsErr, setStatsErr] = useState("");
@@ -78,6 +81,10 @@ export default function AdminDashboard() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
+  // Audit tab.
+  const [audit, setAudit] = useState(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditMsg, setAuditMsg] = useState("");
 
   const callFn = (name, data) => httpsCallable(functions, name)(data);
 
@@ -98,6 +105,14 @@ export default function AdminDashboard() {
   };
   // Load the user list the first time the Users tab is opened.
   useEffect(() => { if (tab === "users" && userList === null && !listLoading) loadUserList(); }, [tab]);
+
+  const loadAudit = async () => {
+    setAuditLoading(true); setAuditMsg("");
+    try { const r = await callFn("listAudit", { limit: 100 }); setAudit((r.data && r.data.entries) || []); }
+    catch (e) { setAuditMsg((e && e.message) || "Could not load the audit log"); setAudit([]); }
+    setAuditLoading(false);
+  };
+  useEffect(() => { if (tab === "audit" && audit === null && !auditLoading) loadAudit(); }, [tab]);
 
   const lookup = async () => {
     if (!lookupEmail.trim()) return;
@@ -159,7 +174,7 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:14, background:c.w, borderRadius:12, padding:4, border:`1px solid ${c.bd}` }}>
-        {["overview","users","settings"].map(tb => (
+        {["overview","users","settings","audit"].map(tb => (
           <button key={tb} onClick={() => { setTab(tb); }}
             style={{ flex:1, padding:10, borderRadius:10, border:"none", fontSize:13, fontWeight:600, cursor:"pointer", background:tab===tb?c.tx:"transparent", color:tab===tb?"#fff":c.dm }}>
             {tb.charAt(0).toUpperCase()+tb.slice(1)}
@@ -486,6 +501,31 @@ export default function AdminDashboard() {
         </div>
 
         {savedMsg && <div style={{ textAlign:"center", marginTop:12, fontSize:12, color:c.gr, fontWeight:600 }}>{savedMsg}</div>}
+      </>)}
+
+      {/* ═══ AUDIT LOG ═══ */}
+      {tab === "audit" && (<>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:10 }}>
+          <div style={{ fontSize:11, color:c.dm, lineHeight:1.5 }}>Recent admin actions — tier changes, suspensions, deletes, admin grants, settings saves.</div>
+          <button onClick={loadAudit} disabled={auditLoading} style={{ padding:"7px 14px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, fontSize:13, fontWeight:600, cursor:"pointer", opacity:auditLoading?0.6:1, flexShrink:0 }}>{auditLoading ? "…" : "Refresh"}</button>
+        </div>
+        {auditMsg && <div style={{ fontSize:12, color:c.rd, marginBottom:10 }}>{auditMsg}</div>}
+        {auditLoading && !audit ? <div style={{ textAlign:"center", color:c.dm, fontSize:13, padding:"24px 0" }}>Loading…</div> :
+         audit && (audit.length === 0
+          ? <div style={{ background:c.w, border:`1px solid ${c.bd}`, borderRadius:14, padding:"20px", textAlign:"center", color:c.dm, fontSize:13 }}>No admin actions logged yet.</div>
+          : <div style={{ background:c.w, border:`1px solid ${c.bd}`, borderRadius:14, overflow:"hidden" }}>
+              {audit.map((e, i) => (
+                <div key={e.id} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"11px 14px", borderTop: i ? `1px solid ${c.bd}` : "none" }}>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600 }}>{ACTION_LABELS[e.action] || e.action}</div>
+                    <div style={{ fontSize:11, color:c.dm, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      by {e.actorEmail || "—"}{(e.targetEmail || e.targetUid) ? " → " + (e.targetEmail || e.targetUid) : ""}{e.details ? " · " + e.details : ""}
+                    </div>
+                  </div>
+                  <div style={{ fontSize:10, color:c.dm, whiteSpace:"nowrap", flexShrink:0 }}>{e.atMs ? new Date(e.atMs).toLocaleString() : ""}</div>
+                </div>
+              ))}
+            </div>)}
       </>)}
 
       <div style={{ textAlign:"center", padding:"18px 0", fontSize:10, color:c.dm }}>

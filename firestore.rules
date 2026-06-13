@@ -42,6 +42,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ─── Server-only audit log (admin actions) ───
+    // Written by Cloud Functions via the Admin SDK; no client can read or write it.
+    match /audit/{document=**} {
+      allow read, write: if false;
+    }
+
     // ─── Tier limits ───
     function tierOf(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data.tier;

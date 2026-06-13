@@ -69,6 +69,22 @@ async function countAdmins() {
   return count;
 }
 
+// Append an admin action to the server-only `audit` collection. Best-effort:
+// audit logging must NEVER break the action it's recording.
+async function writeAudit(context, action, info) {
+  try {
+    await db.collection("audit").add({
+      actorUid: (context.auth && context.auth.uid) || "",
+      actorEmail: (context.auth && context.auth.token && context.auth.token.email) || "",
+      action,
+      targetUid: (info && info.targetUid) || "",
+      targetEmail: (info && info.targetEmail) || "",
+      details: (info && info.details) || "",
+      at: Date.now(),   // server-side ms; avoids admin.firestore.FieldValue (undefined in the emulator)
+    });
+  } catch (e) { console.error("writeAudit failed:", e && e.message); }
+}
+
 async function getPayPalToken() {
   const cfg = await getConfig();
   const clientId = (cfg.paypal && cfg.paypal.clientId) || PAYPAL_CLIENT_ID;
@@ -271,6 +287,7 @@ exports.setAdminClaim = functions.https.onCall(async (data, context) => {
     }
   }
   await admin.auth().setCustomUserClaims(userRecord.uid, { admin: makeAdmin });
+  await writeAudit(context, makeAdmin ? "grantAdmin" : "revokeAdmin", { targetUid: userRecord.uid, targetEmail: email });
   return { success: true, uid: userRecord.uid, admin: makeAdmin };
 });
 
@@ -313,6 +330,7 @@ exports.setUserTier = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "uid and a valid tier are required.");
   }
   await db.collection("users").doc(uid).update({ tier });
+  await writeAudit(context, "setUserTier", { targetUid: uid, details: "tier=" + tier });
   return { success: true, uid, tier };
 });
 
@@ -329,6 +347,7 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("failed-precondition", "You cannot suspend your own admin account.");
   }
   await admin.auth().updateUser(uid, { disabled });
+  await writeAudit(context, disabled ? "suspendUser" : "unsuspendUser", { targetUid: uid });
   return { success: true, uid, disabled };
 });
 
@@ -353,6 +372,7 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   // then remove the Auth account.
   await db.recursiveDelete(db.collection("users").doc(uid));
   await admin.auth().deleteUser(uid);
+  await writeAudit(context, "deleteUser", { targetUid: uid, targetEmail: (targetRec && targetRec.email) || "" });
   return { success: true, uid };
 });
 
@@ -433,6 +453,30 @@ exports.listUsers = functions.https.onCall(async (data, context) => {
   return { users, total: users.length, capped: users.length >= CAP };
 });
 
+// ─── Admin: read the recent audit log (admins only) ───
+exports.listAudit = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const limit = Math.min(Math.max(parseInt((data && data.limit) || 100, 10) || 100, 1), 500);
+  let snap;
+  try { snap = await db.collection("audit").orderBy("at", "desc").limit(limit).get(); }
+  catch (e) { return { entries: [] }; }
+  const entries = snap.docs.map((d) => {
+    const x = d.data();
+    return {
+      id: d.id,
+      actorEmail: x.actorEmail || "",
+      action: x.action || "",
+      targetUid: x.targetUid || "",
+      targetEmail: x.targetEmail || "",
+      details: x.details || "",
+      atMs: typeof x.at === "number" ? x.at : (x.at && typeof x.at.toMillis === "function" ? x.at.toMillis() : null),
+    };
+  });
+  return { entries };
+});
+
 // ─── Admin: read current saved config to pre-fill the Settings form ───
 // Secrets are NOT returned in full — only whether each is set — so the admin can
 // see what's configured and replace it without the secret reaching the client.
@@ -501,6 +545,7 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   };
   await db.doc("config/app").set(cfg, { merge: true });
   _cfg = null; // invalidate cache so the new values are used immediately
+  await writeAudit(context, "saveConfig", { details: "updated app config" });
   return { success: true };
 });
 
