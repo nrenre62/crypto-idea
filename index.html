@@ -662,7 +662,14 @@
     io.observe(el);
   });
 
-  // ── Free DCA calculator (uses the cached /api proxy) ──
+  // ── Free DCA calculator ──
+  // Cost design: the ~3,000-coin list is fetched ONCE (then cached on Firebase's
+  // CDN for a day) and ALL searching happens in the browser — typing never hits the
+  // backend. Calculating fetches only the coin's history (also CDN-cached, and price
+  // history doesn't change), and uses its latest point as "today's price" — so no
+  // live-price call. Net: thousands of visitors add ~0 Cloud Function invocations;
+  // the scheduled jobs refresh the data at most daily. (CDN caching applies on the
+  // deployed site, not the local dev server.)
   (function(){
     var input = document.getElementById('dcaCoin');
     if (!input) return;
@@ -680,27 +687,44 @@
         b.classList.add('active'); freq = b.dataset.f;
       });
     });
-    var t;
+
+    // Load the full coin list once; search is then 100% client-side.
+    var COINS = null, coinsReq = null;
+    function loadCoins(){
+      if (COINS) return Promise.resolve(COINS);
+      if (coinsReq) return coinsReq;
+      coinsReq = fetch('/api/coinlist').then(function(r){return r.ok?r.json():{coins:[]};})
+        .then(function(d){ COINS = (d && d.coins) || []; return COINS; })
+        .catch(function(){ COINS = []; return COINS; });
+      return coinsReq;
+    }
+    function render(list){
+      dd.textContent = '';
+      list.slice(0,8).forEach(function(c){
+        // Build with textContent (NOT innerHTML) so coin names can't inject HTML/JS.
+        var el=document.createElement('div'); el.className='opt';
+        var img=document.createElement('img'); img.alt=''; if(c.thumb) img.src=c.thumb; img.onerror=function(){this.style.visibility='hidden';};
+        var box=document.createElement('div');
+        var n=document.createElement('div'); n.className='n'; n.textContent=c.name;
+        var s=document.createElement('div'); s.className='s'; s.textContent=c.symbol+(c.rank?' · #'+c.rank:'');
+        box.appendChild(n); box.appendChild(s); el.appendChild(img); el.appendChild(box);
+        el.addEventListener('click', function(){ sel={id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb}; input.value=c.name+' ('+c.symbol+')'; dd.style.display='none'; });
+        dd.appendChild(el);
+      });
+      dd.style.display = list.length ? 'block':'none';
+    }
+    input.addEventListener('focus', loadCoins);   // warm the list on first focus
     input.addEventListener('input', function(){
-      var q = input.value.trim(); clearTimeout(t);
+      var q = input.value.trim().toLowerCase();
       if (q.length < 2){ dd.style.display='none'; return; }
-      t = setTimeout(function(){
-        fetch('/api/search?q=' + encodeURIComponent(q)).then(function(r){return r.ok?r.json():null;}).then(function(d){
-          if(!d||!d.coins) return; dd.textContent='';
-          d.coins.slice(0,8).forEach(function(c){
-            // Build with textContent (NOT innerHTML) so coin names can't inject HTML/JS.
-            var el=document.createElement('div'); el.className='opt';
-            var img=document.createElement('img'); img.alt=''; if(c.thumb) img.src=c.thumb; img.onerror=function(){this.style.visibility='hidden';};
-            var box=document.createElement('div');
-            var n=document.createElement('div'); n.className='n'; n.textContent=c.name;
-            var s=document.createElement('div'); s.className='s'; s.textContent=c.symbol+(c.rank?' · #'+c.rank:'');
-            box.appendChild(n); box.appendChild(s); el.appendChild(img); el.appendChild(box);
-            el.addEventListener('click', function(){ sel={id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb}; input.value=c.name+' ('+c.symbol+')'; dd.style.display='none'; });
-            dd.appendChild(el);
-          });
-          dd.style.display = d.coins.length ? 'block':'none';
-        }).catch(function(){});
-      }, 300);
+      loadCoins().then(function(all){
+        var m = [];
+        for (var i=0;i<all.length && m.length<40;i++){
+          var c = all[i];
+          if (c.id.indexOf(q)>=0 || (c.name||'').toLowerCase().indexOf(q)>=0 || (c.symbol||'').toLowerCase().indexOf(q)>=0) m.push(c);
+        }
+        render(m);   // list is already rank-sorted from the server
+      });
     });
     document.addEventListener('click', function(ev){ if(!input.parentNode.contains(ev.target)) dd.style.display='none'; });
     function money(n){ if(n==null||isNaN(n)) return '$0'; var a=Math.abs(n); if(a>=1000) return '$'+n.toLocaleString('en-US',{maximumFractionDigits:0}); if(a>=1) return '$'+n.toFixed(2); return '$'+n.toFixed(a<0.0001?8:4); }
@@ -713,18 +737,16 @@
       if(!amount||amount<=0){ msg.textContent='Enter an amount.'; return; }
       if(!start||!end||new Date(start)>=new Date(end)){ msg.textContent='Pick a valid date range.'; return; }
       btn.textContent='Calculating...'; btn.disabled=true;
-      Promise.all([
-        fetch('/api/history?id='+encodeURIComponent(sel.id)).then(function(r){return r.ok?r.json():{prices:[]};}),
-        fetch('/api/prices?ids='+encodeURIComponent(sel.id)).then(function(r){return r.ok?r.json():{};})
-      ]).then(function(out){
-        var hist=(out[0]&&out[0].prices)||[]; var now=out[1]&&out[1][sel.id]?out[1][sel.id].usd:null;
+      // Only the (CDN-cached) history is needed; its latest point is "today's price".
+      fetch('/api/history?id='+encodeURIComponent(sel.id)).then(function(r){return r.ok?r.json():{prices:[]};}).then(function(out){
+        var hist=(out&&out.prices)||[];
         if(!hist.length){ msg.textContent='No historical data for this coin/range. Try a more recent start date.'; return; }
         var startMs=new Date(start).getTime(), earliest=hist[0][0]; if(startMs<earliest)startMs=earliest;
         var dates=genDates(new Date(startMs), new Date(end), freq);
         var coins=0,invested=0,buys=0;
         for(var i=0;i<dates.length;i++){ var ts=dates[i].getTime(), best=hist[0], bd=Infinity; for(var j=0;j<hist.length;j++){ var diff=Math.abs(hist[j][0]-ts); if(diff<bd){bd=diff;best=hist[j];} } var price=best[1]; if(price>0){coins+=amount/price; invested+=amount; buys++;} }
         if(!buys){ msg.textContent='No price points in that range.'; return; }
-        var nowP=now||hist[hist.length-1][1], value=coins*nowP, profit=value-invested, roi=invested>0?(profit/invested)*100:0, avg=coins>0?invested/coins:0;
+        var nowP=hist[hist.length-1][1], value=coins*nowP, profit=value-invested, roi=invested>0?(profit/invested)*100:0, avg=coins>0?invested/coins:0;
         document.getElementById('dcaInvested').textContent=money(invested);
         document.getElementById('dcaValue').textContent=money(value);
         var p=document.getElementById('dcaProfit'); p.textContent=(profit>=0?'+':'')+money(profit); p.className='v '+(profit>=0?'pos':'neg');

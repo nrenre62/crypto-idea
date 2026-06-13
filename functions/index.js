@@ -642,6 +642,18 @@ exports.api = functions.https.onRequest(async (req, res) => {
       res.json({ coins: matches.slice(0, 25) });
       return;
     }
+    if (action === "coinlist") {
+      // Full ~3,000-coin list (names/symbols/icons/rank — NO prices) for the landing
+      // DCA calculator's CLIENT-SIDE search. The page fetches this ONCE and is served
+      // from Firebase's CDN for a day, so thousands of visitors add ~0 function calls.
+      const list = await getCoinList();
+      const coins = [];
+      for (const id in list) { const m = list[id]; coins.push({ id, symbol: m.s, name: m.n, thumb: m.img, rank: m.rank }); }
+      coins.sort((a, b) => (a.rank || 99999) - (b.rank || 99999));
+      res.set("Cache-Control", "public, max-age=86400, s-maxage=86400");
+      res.json({ coins });
+      return;
+    }
     if (action === "history") {
       const id = String(req.query.id || "").slice(0, 100);
       if (!id) { res.status(400).json({ error: "id required" }); return; }
