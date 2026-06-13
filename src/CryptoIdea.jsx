@@ -770,17 +770,18 @@ export default function CryptoIdea(){
     if(!authEmail){setAuthErr("Enter your email");return}
     if(!emailRegex.test(authEmail)){setAuthErr("Enter a valid email (e.g. name@email.com)");return}
     if(!authPass){setAuthErr("Enter your password");return}
-    if(authPass.length<8){setAuthErr("Password must be at least 8 characters");return}
-    if(authPass.length>50){setAuthErr("Password is too long");return}
-    if(!/[A-Z]/.test(authPass)){setAuthErr("Password needs at least 1 uppercase letter (A-Z)");return}
-    if(!/[a-z]/.test(authPass)){setAuthErr("Password needs at least 1 lowercase letter (a-z)");return}
-    if(!/[0-9]/.test(authPass)){setAuthErr("Password needs at least 1 number (0-9)");return}
-    if(!/[!@#$%^&*()_+\-={}|;:,.<>?]/.test(authPass)){setAuthErr("Password needs at least 1 special character (!@#$%...)");return}
     if(authMode==="register"){
+      // Password strength is enforced ONLY at registration. Login just checks the password
+      // is correct (Firebase does that) — re-validating composition on login would lock out
+      // any valid account whose password predates a rule change, and leaks the policy for no gain.
+      if(authPass.length<8){setAuthErr("Password must be at least 8 characters");return}
+      if(authPass.length>50){setAuthErr("Password is too long");return}
+      if(!/[A-Z]/.test(authPass)){setAuthErr("Password needs at least 1 uppercase letter (A-Z)");return}
+      if(!/[a-z]/.test(authPass)){setAuthErr("Password needs at least 1 lowercase letter (a-z)");return}
+      if(!/[0-9]/.test(authPass)){setAuthErr("Password needs at least 1 number (0-9)");return}
+      if(!/[!@#$%^&*()_+\-={}|;:,.<>?]/.test(authPass)){setAuthErr("Password needs at least 1 special character (!@#$%...)");return}
       if(!authName){setAuthErr("Enter your name");return}
       if(!nameRegex.test(authName.trim())){setAuthErr("Name: letters only, 2-30 characters");return}
-    }
-    if(authMode==="register"){
       const em=authEmail.toLowerCase().trim();
       // Create the account in Firebase Auth (password is stored securely by Firebase, never locally)
       const res=await registerUser(em,authPass,authName.trim());
