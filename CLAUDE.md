@@ -48,6 +48,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - **Seed test data:** `node functions/scripts/seed-emulator.js` → admins `admin@test.com` + `admin2@test.com` / `test1234` + test users (emulator is in-memory; re-run after a restart). New function exports need a stack restart to register (emulator hot-reloads edits, not new triggers).
 
 ## Known notes
+- **Landing DCA calculator** (`index.html` `#dca`) is the ONLY DCA calc (removed from the app). It adds ~0 backend calls per visitor: loads the ~3,000-coin list ONCE from `/api/coinlist` (CDN-cached 24h) and searches client-side; a calc fetches only `/api/history` (CDN-cached) and uses its last point as today's price (no `/api/prices`). CDN caching is a deployed-Hosting behavior — the local dev server invokes the function each time, so test the "no per-visitor calls" effect after deploy.
 - `/api/prices` (top-250 markets) gets CoinGecko free-tier `429`s without a Demo key — upstream rate-limiting, not a bug. Add a free CoinGecko Demo key to fix.
 - Pub/Sub scheduled functions register in the emulator but don't auto-fire on cron (trigger from the UI); Cloud Scheduler fires them in prod.
 - Repo is local-only (no GitHub remote yet).

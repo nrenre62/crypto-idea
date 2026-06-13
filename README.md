@@ -249,9 +249,9 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 | `/admin` | `admin.html` → React | **Separate** admin app (own login + `{admin:true}` check). Not in the user bundle. |
 | `/edge` | React | Education guide. |
 | `/pro-success` | React | PayPal return / upgrade confirmation. |
-| `/api/*` | `api` function | CoinGecko proxy (prices/search/history). |
+| `/api/*` | `api` function | CoinGecko proxy: `prices` / `search` / `history` / `coinlist` (cached, CDN-friendly). |
 
-The free DCA calculator lives **inline on the landing** (no login, no separate page). It searches ~3,000 coins via `/api/search`, computes returns from `/api/history`, and shows live value from `/api/prices` — all from the cached proxy, so unlimited public visitors add ~0 upstream calls.
+The free DCA calculator lives **inline on the landing** (no login, no separate page) — it is **not** in the app. It's built so visitors add **~0 backend calls**: it fetches the full ~3,000-coin list **once** from `/api/coinlist` (CDN-cached 24h) and searches **client-side** (no per-keystroke calls), then a calculation fetches only that coin's `/api/history` (CDN-cached; price history is immutable) and uses its latest point as "today's price" — no per-calc `/api/prices` call. So thousands of visitors share a couple of cached responses; scheduled jobs refresh the data at most daily. (CDN caching applies on the deployed site, not the local dev server.)
 
 # Admin app (`/admin` — `admin.html` / `src/admin-main.jsx` / `src/admin-dashboard.jsx`)
 
