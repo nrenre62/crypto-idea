@@ -51,6 +51,24 @@ function isAdminToken(token) {
   return !!token && token.admin === true;
 }
 
+// The app must always keep at least this many admins, so admin access can never
+// become a single point of failure or be wiped out entirely.
+const MIN_ADMINS = 2;
+
+// Counts accounts that currently hold the { admin: true } claim. Paginates through
+// all users (fine at our scale) — used by the guard below before any action that
+// would remove an admin (delete / demote / admin self-delete).
+async function countAdmins() {
+  let count = 0;
+  let pageToken;
+  do {
+    const res = await admin.auth().listUsers(1000, pageToken);
+    res.users.forEach((u) => { if (u.customClaims && u.customClaims.admin === true) count += 1; });
+    pageToken = res.pageToken;
+  } while (pageToken);
+  return count;
+}
+
 async function getPayPalToken() {
   const cfg = await getConfig();
   const clientId = (cfg.paypal && cfg.paypal.clientId) || PAYPAL_CLIENT_ID;
@@ -246,6 +264,12 @@ exports.setAdminClaim = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "email is required.");
   }
   const userRecord = await admin.auth().getUserByEmail(email);
+  // Safety: don't let demoting an admin drop the app below MIN_ADMINS admins.
+  if (!makeAdmin && userRecord.customClaims && userRecord.customClaims.admin === true) {
+    if ((await countAdmins()) <= MIN_ADMINS) {
+      throw new functions.https.HttpsError("failed-precondition", `Can't remove admin — the app must keep at least ${MIN_ADMINS} admins. Promote another admin first.`);
+    }
+  }
   await admin.auth().setCustomUserClaims(userRecord.uid, { admin: makeAdmin });
   return { success: true, uid: userRecord.uid, admin: makeAdmin };
 });
@@ -318,6 +342,13 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   if (uid === context.auth.uid) {
     throw new functions.https.HttpsError("failed-precondition", "You cannot delete your own admin account.");
   }
+  // Safety: never let deleting an admin drop the app below MIN_ADMINS admins.
+  let targetRec;
+  try { targetRec = await admin.auth().getUser(uid); }
+  catch (e) { throw new functions.https.HttpsError("not-found", "No such user."); }
+  if (targetRec.customClaims && targetRec.customClaims.admin === true && (await countAdmins()) <= MIN_ADMINS) {
+    throw new functions.https.HttpsError("failed-precondition", `Can't delete this admin — the app must keep at least ${MIN_ADMINS} admins. Promote another admin first.`);
+  }
   // Wipe Firestore data (the user doc + all nested portfolios/coins/transactions),
   // then remove the Auth account.
   await db.recursiveDelete(db.collection("users").doc(uid));
@@ -332,6 +363,10 @@ exports.deleteMyAccount = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
   const uid = context.auth.uid;
+  // Safety: an admin can't self-delete the app below MIN_ADMINS admins.
+  if (context.auth.token.admin === true && (await countAdmins()) <= MIN_ADMINS) {
+    throw new functions.https.HttpsError("failed-precondition", `As one of the last ${MIN_ADMINS} admins you can't delete your account yet — promote another admin first.`);
+  }
   await db.recursiveDelete(db.collection("users").doc(uid));
   await admin.auth().deleteUser(uid);
   return { success: true };
