@@ -25,6 +25,9 @@ export default function AdminDashboard() {
   const [cfgAt, setCfgAt] = useState(null);
   // Public app controls (maintenance mode, signups on/off).
   const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true });
+  // Analytics + legal IDs (public, non-secret).
+  const [analytics, setAnalytics] = useState({ ga4: "", plausible: "" });
+  const [legal, setLegal] = useState({ termlyUuid: "", termlyPrivacyId: "", termlyTermsId: "", cookieBanner: false });
 
   // Pre-fill the Settings form from the saved config (secrets are never returned —
   // only whether they're set), so you can SEE what's configured and persisted.
@@ -36,13 +39,15 @@ export default function AdminDashboard() {
       setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "" });
       setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet) });
       setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false) });
+      setAnalytics({ ga4: d.analytics?.ga4 || "", plausible: d.analytics?.plausible || "" });
+      setLegal({ termlyUuid: d.legal?.termlyUuid || "", termlyPrivacyId: d.legal?.termlyPrivacyId || "", termlyTermsId: d.legal?.termlyTermsId || "", cookieBanner: !!(d.legal && d.legal.cookieBanner) });
       setCfgAt(d.updatedAt || null);
     } catch (e) { /* function not deployed yet (dev): leave the form empty */ }
   };
   const saveConfig = async () => {
     setSavedMsg("Saving…");
     try {
-      await httpsCallable(functions, "saveConfig")({ keys, email: mail, flags: controls });
+      await httpsCallable(functions, "saveConfig")({ keys, email: mail, flags: controls, analytics, legal });
       await loadConfig();             // re-read so the saved state is visible immediately
       setSavedMsg("Saved ✓");
     } catch (e) {
@@ -450,6 +455,34 @@ export default function AdminDashboard() {
           ))}
           <button onClick={saveConfig}
             style={{ marginTop:6, padding:"9px 16px", borderRadius:8, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>Save email settings</button>
+        </div>
+
+        {/* Analytics & Legal (public IDs injected on the landing + app) */}
+        <div style={{ background:c.w, borderRadius:14, padding:16, border:`1px solid ${c.bd}`, marginTop:12 }}>
+          <div style={{ fontSize:13, fontWeight:700, marginBottom:4 }}>Analytics &amp; Legal</div>
+          <div style={{ fontSize:11, color:c.dm, marginBottom:14 }}>Public IDs injected on the landing + app. Leave blank to disable. (Changes apply within ~1 min.)</div>
+          {[
+            ["Google Analytics 4 ID","ga4","G-XXXXXXXXXX",analytics,setAnalytics],
+            ["Plausible domain","plausible","yourdomain.com",analytics,setAnalytics],
+            ["Termly website UUID","termlyUuid","xxxxxxxx-xxxx-xxxx-…",legal,setLegal],
+            ["Termly Privacy doc ID","termlyPrivacyId","privacy document id",legal,setLegal],
+            ["Termly Terms doc ID","termlyTermsId","terms document id",legal,setLegal],
+          ].map(([label,key,ph,obj,setter]) => (
+            <div key={key} style={{ marginBottom:10 }}>
+              <label style={{ fontSize:11, color:c.dm, display:"block", marginBottom:4 }}>{label}</label>
+              <input type="text" value={obj[key]} placeholder={ph} onChange={e => setter({ ...obj, [key]: e.target.value })}
+                style={{ width:"100%", padding:"10px 12px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:13, outline:"none", boxSizing:"border-box" }} />
+            </div>
+          ))}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, padding:"6px 0 10px" }}>
+            <div style={{ fontSize:13, fontWeight:600 }}>Cookie consent banner <span style={{ fontSize:11, color:c.dm, fontWeight:400 }}>· needs the Termly UUID</span></div>
+            <button onClick={() => setLegal({ ...legal, cookieBanner: !legal.cookieBanner })}
+              style={{ width:46, height:26, borderRadius:20, border:"none", cursor:"pointer", flexShrink:0, position:"relative", background: legal.cookieBanner ? c.gr : "#D8D8DE" }}>
+              <span style={{ position:"absolute", top:3, left: legal.cookieBanner ? 23 : 3, width:20, height:20, borderRadius:"50%", background:"#fff" }} />
+            </button>
+          </div>
+          <button onClick={saveConfig}
+            style={{ padding:"9px 16px", borderRadius:8, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>Save analytics &amp; legal</button>
         </div>
 
         {savedMsg && <div style={{ textAlign:"center", marginTop:12, fontSize:12, color:c.gr, fontWeight:600 }}>{savedMsg}</div>}

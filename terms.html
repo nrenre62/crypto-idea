@@ -29,13 +29,21 @@
     <h1>Terms of Service</h1>
     <p class="muted">The terms for using Crypto Idea.</p>
 
-    <!-- ▼▼▼ PASTE YOUR TERMLY TERMS OF SERVICE HTML SNIPPET BETWEEN THESE LINES ▼▼▼ -->
-    <!-- Termly → your Terms & Conditions → "Embed" → copy the HTML code → paste it here. -->
+    <!-- Auto-embeds the Termly Terms document using the ID set in admin Settings
+         → Analytics & Legal (Termly Terms doc ID). No code edits needed. -->
     <div id="termly-terms">
-      <p>Our terms of service are being finalized. Paste your Termly embed code in
-      <code>terms.html</code> (look for the marked block) to publish it here.</p>
+      <p>Our terms of service are being finalized. Set the <b>Termly Terms doc ID</b> in
+      the admin dashboard (Settings → Analytics &amp; Legal) to publish it here.</p>
     </div>
-    <!-- ▲▲▲ END TERMLY SNIPPET ▲▲▲ -->
+    <script>
+      fetch('/api/config').then(function(r){return r.ok?r.json():null;}).then(function(c){
+        var id = c && c.legal && c.legal.termlyTermsId;
+        if(!id) return;
+        var host = document.getElementById('termly-terms'); host.textContent='';
+        var d = document.createElement('div'); d.setAttribute('name','termly-embed'); d.setAttribute('data-id',id); d.setAttribute('data-type','iframe'); host.appendChild(d);
+        var s = document.createElement('script'); s.src='https://app.termly.io/embed-policy.min.js'; s.id='termly-jssdk'; document.body.appendChild(s);
+      }).catch(function(){});
+    </script>
 
     <footer>
       <a href="/">Home</a> · <a href="/privacy.html">Privacy Policy</a>

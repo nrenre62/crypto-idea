@@ -442,12 +442,14 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
   }
   let cfg = {};
   try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* ignore */ }
-  const pp = cfg.paypal || {}, em = cfg.email || {}, fl = cfg.flags || {};
+  const pp = cfg.paypal || {}, em = cfg.email || {}, fl = cfg.flags || {}, an = cfg.analytics || {}, lg = cfg.legal || {};
   return {
     coingeckoSet: !!cfg.coingecko,
     paypal: { clientId: pp.clientId || "", secretSet: !!pp.secret, webhookId: pp.webhookId || "" },
     email: { provider: em.provider || "none", apiKeySet: !!em.apiKey, apiUrl: em.apiUrl || "", fromEmail: em.fromEmail || "", listId: em.listId || "" },
     flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false },
+    analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
+    legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
     updatedAt: cfg.updatedAt || null,
   };
 });
@@ -468,9 +470,11 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   try { const s = await db.doc("config/app").get(); existing = (s.exists && s.data()) || {}; } catch (e) { /* ignore */ }
   const exPp = existing.paypal || {}, exEm = existing.email || {};
   const keep = (incoming, current) => { const v = String(incoming || ""); return v ? v : String(current || ""); };
-  // Public flags (mirrored to config/public so the app/landing can read them).
+  // Public flags + non-secret analytics/legal IDs (exposed via /api/config).
   const f = (data && data.flags) || existing.flags || {};
   const flags = { maintenance: !!f.maintenance, signupsEnabled: f.signupsEnabled !== false };
+  const an = (data && data.analytics) || existing.analytics || {};
+  const lg = (data && data.legal) || existing.legal || {};
   const cfg = {
     coingecko: keep(k.coingecko, existing.coingecko),
     paypal: {
@@ -486,6 +490,13 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
       listId: String(m.listId || ""),
     },
     flags,
+    analytics: { ga4: String(an.ga4 || ""), plausible: String(an.plausible || "") },
+    legal: {
+      termlyUuid: String(lg.termlyUuid || ""),
+      termlyPrivacyId: String(lg.termlyPrivacyId || ""),
+      termlyTermsId: String(lg.termlyTermsId || ""),
+      cookieBanner: !!lg.cookieBanner,
+    },
     updatedAt: Date.now(),
   };
   await db.doc("config/app").set(cfg, { merge: true });
@@ -723,12 +734,15 @@ exports.api = functions.https.onRequest(async (req, res) => {
       // signups on/off, and later analytics/legal IDs). Never includes API keys.
       // Read fresh (not the 5-min getConfig cache) so toggles apply promptly; the
       // short CDN cache below still caps invocations to ~1/min in production.
-      let fl = {};
-      try { const s = await db.doc("config/app").get(); fl = (s.exists && s.data() && s.data().flags) || {}; } catch (e) { /* ignore */ }
+      let d = {};
+      try { const s = await db.doc("config/app").get(); d = (s.exists && s.data()) || {}; } catch (e) { /* ignore */ }
+      const fl = d.flags || {}, an = d.analytics || {}, lg = d.legal || {};
       res.set("Cache-Control", "public, max-age=60, s-maxage=60");
       res.json({
         maintenance: !!fl.maintenance,
         signupsEnabled: fl.signupsEnabled !== false,
+        analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
+        legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
       });
       return;
     }
