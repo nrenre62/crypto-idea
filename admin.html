@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Never index the admin panel. (Defense in depth — the real gate is the
+       server-side {admin:true} claim, not this tag.) -->
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#FFFFFF" />
+  <title>Crypto Idea — Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: #F7F7FB; color: #1A1A1A; -webkit-font-smoothing: antialiased;
+    }
+    #root { min-height: 100vh; }
+    .app-loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; color: #999; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div id="root"><div class="app-loading">Loading admin…</div></div>
+  <!-- Separate entry: the admin code is NOT bundled into the user app. No service
+       worker here — the admin panel is a plain page, not an installable PWA. -->
+  <script type="module" src="/src/admin-main.jsx"></script>
+</body>
+</html>

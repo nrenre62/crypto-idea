@@ -15,7 +15,7 @@
  *   v1.0.1 (2026-04-04) - Fixed search for sandbox, datetime with seconds
  *   v1.0.0 (2026-04-04) - Initial release: portfolio, search, DCA, price tracking
  */
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, onAuthChange } from "./firebase-auth.js";
@@ -31,8 +31,9 @@ import {
   updateTransaction as dbUpdateTransaction,
   deleteTransaction as dbDeleteTransaction,
 } from "./firebase-database.js";
-// Admin-only — code-split so regular users never download it.
-const AdminDashboard = lazy(() => import("./admin-dashboard.jsx"));
+// NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
+// at /admin — its code is intentionally NOT imported here, so the user bundle never
+// contains admin functionality.
 
 // ═══ Persistent Storage Helpers ═══
 const db = {
@@ -597,7 +598,6 @@ export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
   const[user,setUser]=useState(null);
   const[dataLoaded,setDataLoaded]=useState(false);
-  const[isAdmin,setIsAdmin]=useState(false);  // set from the Firebase { admin: true } custom claim
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
   const[authPass,setAuthPass]=useState("");
@@ -695,17 +695,12 @@ export default function CryptoIdea(){
           email:fbUser.email,
           name:fbUser.displayName||profile.name||(fbUser.email?fbUser.email.split("@")[0]:""),
         };
-        // Admin status comes from the verified Firebase custom claim, not an email list
-        let adminClaim=false;
-        try{const tr=await fbUser.getIdTokenResult();adminClaim=!!(tr.claims&&tr.claims.admin===true);}catch(e){}
-        setIsAdmin(adminClaim);
         await loadPortfolios(fbUser.uid);
         // Check if subscription expired or payment failed
         const checked=await checkSubscriptionStatus(baseUser);
         setUser(checked);
         setScreen("portfolio");
       }else{
-        setIsAdmin(false);
         setUser(null);
         setScreen("login");
       }
@@ -840,16 +835,6 @@ export default function CryptoIdea(){
   };
   const upgradePro=()=>startUpgrade("pro");
   const downgradeFree=()=>startDowngrade("free");
-  // Admin-only: instantly switch your own tier for visual testing (skips the payment flow).
-  // This only changes the locally-stored profile; real tier changes go through Firebase/backend.
-  const adminSetTier=(tier)=>{
-    if(!isAdmin)return;
-    if(tier==="free"){setUser(u=>({...u,tier:"free",subscription:null}));}
-    else{
-      const endDate=calcEndDate("yearly");
-      setUser(u=>({...u,tier,subscription:{billing:"yearly",startDate:new Date().toISOString(),endDate,cancelled:false},...(tier==="premium"?{premiumLimits:u?.premiumLimits||{portfolios:50,coins:500,transactions:5000}}:{})}));
-    }
-  };
   const premLimits=user?.premiumLimits||{};
   const maxPortfolios=isPremium?(premLimits.portfolios||50):isPro?10:1;
   const maxCoinsPerPort=isPremium?(premLimits.coins||500):isPro?200:10;
@@ -1444,19 +1429,7 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
       </div>
     </div>
 
-    {/* Admin panel — only visible to admin accounts */}
-    {isAdmin&&(
-    <div style={{margin:"12px 18px",padding:"16px",background:c.card,borderRadius:16,border:"1px solid #FFD60A66"}}>
-      <div style={{fontSize:13,fontWeight:700,marginBottom:4}}>🛠 Admin · Testing</div>
-      <div style={{fontSize:11,color:c.dim,marginBottom:12,lineHeight:1.5}}>Instantly switch your tier to preview the app. Admin only — normal users never see this.</div>
-      <div style={{display:"flex",gap:6,marginBottom:12}}>
-        {["free","pro","premium"].map(t=>(
-          <button key={t} onClick={()=>adminSetTier(t)} style={{flex:1,padding:"9px",borderRadius:8,border:(user?.tier===t)?"2px solid "+c.ac:"1px solid #E8E8ED",background:(user?.tier===t)?c.acd:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",color:c.txt,textTransform:"uppercase"}}>{t}</button>
-        ))}
-      </div>
-      <button onClick={()=>setScreen("admin")} style={{width:"100%",padding:"11px",borderRadius:12,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:13,fontWeight:600,cursor:"pointer"}}>Open Admin Dashboard</button>
-    </div>
-    )}
+    {/* Admin lives in a separate app at /admin (admin.html) — intentionally not in the user app. */}
 
     {/* Privacy & your data (GDPR/CCPA self-service) */}
     <div style={{margin:"12px 18px",padding:"16px",background:c.card,borderRadius:16,border:"1px solid #E8E8ED"}}>
@@ -1769,12 +1742,6 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
         </div>
       </div>);
     })()}
-    {screen==="admin"&&isAdmin&&(
-      <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"#F5F5F5",zIndex:9000,maxWidth:430,margin:"0 auto",overflowY:"auto"}}>
-        <button onClick={()=>setScreen("account")} style={{position:"sticky",top:10,zIndex:10,margin:"10px",padding:"8px 14px",borderRadius:10,border:"1px solid #E8E8ED",background:"#fff",fontSize:13,fontWeight:600,cursor:"pointer"}}>← Back</button>
-        <Suspense fallback={<div style={{padding:"40px 20px",textAlign:"center",color:"#888",fontSize:14}}>Loading dashboard…</div>}><AdminDashboard/></Suspense>
-      </div>
-    )}
     {screen==="account"&&Account()}
     {screen==="portfolio"&&Portfolio()}
     {screen==="search"&&Search()}

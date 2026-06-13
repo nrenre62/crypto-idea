@@ -27,6 +27,7 @@ const cleanUrlsDev = {
     server.middlewares.use((req, _res, next) => {
       const [path, query] = (req.url || "").split("?");
       if (appRoutes.includes(path)) req.url = "/app.html" + (query ? "?" + query : "");
+      else if (path === "/admin") req.url = "/admin.html" + (query ? "?" + query : "");
       next();
     });
   },
@@ -42,6 +43,7 @@ export default defineConfig({
       input: {
         main: r("./index.html"),
         app: r("./app.html"),
+        admin: r("./admin.html"),
         privacy: r("./privacy.html"),
         terms: r("./terms.html"),
       },
