@@ -149,7 +149,9 @@ All backend functions live in `functions/index.js` (Node 20, deployed with `fire
 | `createSubscription` / `cancelSubscription` | Callable | Start/cancel a PayPal subscription (auth-enforced) |
 | `getStats` | Callable | Admin-only **combined** usage/revenue stats (no personal data) |
 | `setAdminClaim` | Callable | Admin-only: grant/revoke the `{admin:true}` custom claim |
+| `listUsers` | Callable | Admin-only: full users list (Auth+profile merge, operational data only, capped 5000) |
 | `lookupUser` | Callable | Admin-only: look up one user by email (tier/status/usage) for support |
+| `getAdminConfig` | Callable | Admin-only: read saved config to pre-fill Settings (secrets returned as set-flags only) |
 | `setUserTier` / `suspendUser` / `deleteUser` | Callable | Admin-only: change tier / suspend / delete-with-erasure (blocks self-target) |
 | `deleteMyAccount` / `exportMyData` | Callable | Self-service GDPR/CCPA: a user erases or exports **their own** data |
 | `saveConfig` | Callable | Admin-only: write API keys to the locked `config/app` doc |
@@ -257,7 +259,7 @@ The free DCA calculator lives **inline on the landing** (no login, no separate p
 
 A **separate app** from the user-facing one, served at **`/admin`**. It has its own login that verifies the Firebase `{admin:true}` custom claim and **signs out any non-admin**. The admin code is **not** bundled into the user app, so regular users never download it. A different URL is *not* the security boundary — the claim check (enforced server-side in every admin function, re-checked in the admin app) is; the split additionally keeps admin code off users' devices. **2FA for admins is deferred to go-live** (needs Blaze + Identity Platform MFA). Tabs:
 - **Overview** — **real combined usage** from the admin-only `getStats` function: total users, tier breakdown, total portfolios + coins, **avg per user**, and estimated revenue. **No personal data** — aggregate only (privacy by design).
-- **Users** — **on-demand lookup of ONE user by email** for support/moderation (`lookupUser`): shows tier, status, and usage counts (never their holdings), with **change tier** (`setUserTier`), **suspend/un-suspend** (`suspendUser`), and **delete** (`deleteUser`, full GDPR erasure). There is intentionally **no browse-all-users list** — for the full user list use the **Firebase Console → Authentication** tab (owner-only, audited).
+- **Users** — **full users list** (`listUsers`), **searched + paginated 50/page** client-side. Shows email, name, tier, status (admin/suspended), and portfolio count — **operational data only, never holdings**. Click a row to manage: **change tier** (`setUserTier`), **suspend/un-suspend** (`suspendUser`), **delete** (`deleteUser`, full GDPR erasure). The list merges Auth (email/name/disabled/admin) with the Firestore profile (tier, counts), capped at 5,000.
 - **Settings** — **API Keys** (CoinGecko, PayPal) and **Email & Integrations**, saved server-side via the admin-only `saveConfig` function to the locked `config/app` doc.
 
 **Two admins, always:** admin is the `{admin:true}` claim, so keep at least two. A `MIN_ADMINS=2` guard (`countAdmins()`) blocks `deleteUser`/`setAdminClaim` demotion/`deleteMyAccount` whenever the action would leave fewer than 2 admins — admin access can't be wiped out.
@@ -328,7 +330,7 @@ Defense in depth across the whole app:
 
 ## Admin settings (API keys & email) — `saveConfig`
 
-The admin **Settings** tab saves to a **locked** Firestore doc `config/app` via the admin-only `saveConfig` Cloud Function. Clients can never read it (rules deny `/config`); the proxy and PayPal functions read it server-side (`getConfig`, cached 5 min, with `functions.config()`/env fallback). So you can rotate the CoinGecko/PayPal keys and pick an email provider from the dashboard without redeploying.
+The admin **Settings** tab saves to a **locked** Firestore doc `config/app` via the admin-only `saveConfig` Cloud Function. Clients can never read it (rules deny `/config`); the proxy and PayPal functions read it server-side (`getConfig`, cached 5 min, with `functions.config()`/env fallback). So you can rotate the CoinGecko/PayPal keys and pick an email provider from the dashboard without redeploying. The form pre-fills from `getAdminConfig` on open (non-secret values shown; secrets shown only as a "saved" placeholder), and a blank secret field on save **keeps** the stored value — so re-saving never wipes a key.
 
 ## To finish for production
 - **App Check:** create a reCAPTCHA v3 key (Firebase Console → App Check), set `VITE_RECAPTCHA_SITE_KEY` in `.env`, and turn on **enforcement** for Auth/Firestore/Functions in the console.
