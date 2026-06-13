@@ -32,13 +32,15 @@ async function makeUser(email, password, tier, portfolios, isAdmin) {
 }
 
 (async () => {
-  await makeUser("admin@test.com", "test1234", "free", [2],    true);   // 1 portfolio, 2 coins
-  await makeUser("free@test.com",  "test1234", "free", [3],    false);  // 1 portfolio, 3 coins
-  await makeUser("pro@test.com",   "test1234", "pro",  [6, 4], false);  // 2 portfolios, 10 coins
+  await makeUser("admin@test.com",  "test1234", "free", [2],    true);   // 1 portfolio, 2 coins
+  await makeUser("admin2@test.com", "test1234", "free", [],     true);   // backup admin (no data)
+  await makeUser("free@test.com",   "test1234", "free", [3],    false);  // 1 portfolio, 3 coins
+  await makeUser("pro@test.com",    "test1234", "pro",  [6, 4], false);  // 2 portfolios, 10 coins
   console.log("Seeded the emulator:");
-  console.log("  ADMIN  -> admin@test.com / test1234   (can open the admin panel)");
-  console.log("  user   -> free@test.com  / test1234");
-  console.log("  user   -> pro@test.com   / test1234");
-  console.log("Expected: 3 users (2 free, 1 pro) | 4 portfolios | 15 coins | avg 1.3 portfolios & 5.0 coins/user.");
+  console.log("  ADMIN  -> admin@test.com  / test1234   (can open the admin panel)");
+  console.log("  ADMIN  -> admin2@test.com / test1234   (backup admin)");
+  console.log("  user   -> free@test.com   / test1234");
+  console.log("  user   -> pro@test.com    / test1234");
+  console.log("Expected: 4 users (3 free, 1 pro) | 4 portfolios | 15 coins | avg 1.0 portfolios & 3.8 coins/user.");
   process.exit(0);
 })();
