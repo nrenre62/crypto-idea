@@ -152,6 +152,7 @@ All backend functions live in `functions/index.js` (Node 20, deployed with `fire
 | `listUsers` | Callable | Admin-only: full users list (Auth+profile merge, operational data only, capped 5000) |
 | `lookupUser` | Callable | Admin-only: look up one user by email (tier/status/usage) for support |
 | `getAdminConfig` | Callable | Admin-only: read saved config to pre-fill Settings (secrets returned as set-flags only) |
+| `listAudit` | Callable | Admin-only: recent admin-action audit log |
 | `setUserTier` / `suspendUser` / `deleteUser` | Callable | Admin-only: change tier / suspend / delete-with-erasure (blocks self-target) |
 | `deleteMyAccount` / `exportMyData` | Callable | Self-service GDPR/CCPA: a user erases or exports **their own** data |
 | `saveConfig` | Callable | Admin-only: write API keys to the locked `config/app` doc |
@@ -333,6 +334,10 @@ Defense in depth across the whole app:
 The admin **Settings** tab saves to a **locked** Firestore doc `config/app` via the admin-only `saveConfig` Cloud Function. Clients can never read it (rules deny `/config`); the proxy and PayPal functions read it server-side (`getConfig`, cached 5 min, with `functions.config()`/env fallback). So you can rotate the CoinGecko/PayPal keys and pick an email provider from the dashboard without redeploying. The form pre-fills from `getAdminConfig` on open (non-secret values shown; secrets shown only as a "saved" placeholder), and a blank secret field on save **keeps** the stored value — so re-saving never wipes a key.
 
 **App Controls (public flags).** The Settings tab also has instant-save toggles for **Maintenance mode** and **Allow new signups**, stored in `config/app.flags`. The app reads them from the public **`/api/config`** endpoint (non-secret only, CDN-cached ~60s) on load: maintenance shows a "we'll be right back" screen for everyone; signups-off disables the Register tab. Changes apply within ~60s. (Signups-off is a client gate; for hard enforcement add an Auth `beforeCreate` blocking function at go-live.)
+
+**More Settings sections.** *Analytics & Legal* — GA4 / Plausible IDs + Termly UUID/doc-IDs + cookie-banner toggle; `public/site-meta.js` injects them on the landing + app and the policy pages auto-embed Termly. *Plans & Pricing* — edit each tier's price + limits; prices drive the revenue estimate and the landing/app price display, and **limits are enforced by `firestore.rules`** (which read `config/app.plans` with a fallback to the defaults — verified by `npm run test:rules`).
+
+**Audit tab.** Every admin action (tier change, suspend, delete, admin grant, settings save) is logged to a server-only `audit` collection and shown in the dashboard **Audit** tab.
 
 ## To finish for production
 - **App Check:** create a reCAPTCHA v3 key (Firebase Console → App Check), set `VITE_RECAPTCHA_SITE_KEY` in `.env`, and turn on **enforcement** for Auth/Firestore/Functions in the console.
