@@ -103,6 +103,24 @@ test("free tier allows exactly 1 portfolio (counter-enforced)", async () => {
   await assertFails(b2.commit());
 });
 
+test("configured limits override the defaults (admin raises free to 2 portfolios)", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "config", "app"), { plans: { free: { portfolios: 2 } } });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+  });
+  const db = aliceDb();
+  // 2nd portfolio: count 1 -> 2, within the CONFIGURED free limit of 2 -> allowed
+  const b1 = writeBatch(db);
+  b1.set(doc(db, "users", "alice", "portfolios", "p2"), { name: "Two", coinCount: 0 });
+  b1.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
+  await assertSucceeds(b1.commit());
+  // 3rd portfolio: count 2 -> 3, exceeds the configured limit of 2 -> rejected
+  const b2 = writeBatch(db);
+  b2.set(doc(db, "users", "alice", "portfolios", "p3"), { name: "Three", coinCount: 0 });
+  b2.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
+  await assertFails(b2.commit());
+});
+
 test("pro tier allows a 2nd portfolio where free would fail", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "bob"), { tier: "pro", portfolioCount: 1 });

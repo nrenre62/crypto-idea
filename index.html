@@ -624,6 +624,19 @@
     });
   }
 
+  // Pull live plan prices from admin config (falls back to the hardcoded data-* values).
+  fetch('/api/config').then(function(r){return r.ok?r.json():null;}).then(function(c){
+    if(!c||!c.plans) return;
+    var cards=document.querySelectorAll('.plan .price'); // order: free, pro, premium
+    ['free','pro','premium'].forEach(function(tier,i){
+      var p=c.plans[tier]; if(!cards[i]||!p||p.price==null) return;
+      var y=Math.round(p.price*8/12*100)/100;   // ~33% yearly discount, matching the design
+      cards[i].dataset.m='$'+p.price; cards[i].dataset.y='$'+y;
+    });
+    var yEl=document.getElementById('btnYearly');
+    setBilling(yEl && yEl.classList.contains('active') ? 'yearly' : 'monthly');
+  }).catch(function(){});
+
   // Email capture (front-end demo — wire to your backend / PayPal flow later)
   function subscribe() {
     var hp = document.getElementById('hpField');

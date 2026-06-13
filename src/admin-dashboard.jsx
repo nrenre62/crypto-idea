@@ -9,7 +9,7 @@ const TIERS = {
 };
 
 // All admin data is REAL and combined (no fake/personal data on the Overview).
-const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0 };
+const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0, proPrice: 9.99, premiumPrice: 49.99 };
 
 // Friendly labels for audit-log action codes.
 const ACTION_LABELS = { setUserTier: "Changed tier", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", grantAdmin: "Granted admin", revokeAdmin: "Revoked admin", saveConfig: "Saved settings" };
@@ -31,6 +31,13 @@ export default function AdminDashboard() {
   // Analytics + legal IDs (public, non-secret).
   const [analytics, setAnalytics] = useState({ ga4: "", plausible: "" });
   const [legal, setLegal] = useState({ termlyUuid: "", termlyPrivacyId: "", termlyTermsId: "", cookieBanner: false });
+  // Editable plan prices + limits (mirrors functions DEFAULT_PLANS / firestore.rules).
+  const DEFAULT_PLANS = {
+    free:    { price: 0,     portfolios: 1,  coins: 10,  transactions: 50 },
+    pro:     { price: 9.99,  portfolios: 10, coins: 200, transactions: 2000 },
+    premium: { price: 49.99, portfolios: 50, coins: 500, transactions: 5000 },
+  };
+  const [plans, setPlans] = useState(DEFAULT_PLANS);
 
   // Pre-fill the Settings form from the saved config (secrets are never returned —
   // only whether they're set), so you can SEE what's configured and persisted.
@@ -44,13 +51,14 @@ export default function AdminDashboard() {
       setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false) });
       setAnalytics({ ga4: d.analytics?.ga4 || "", plausible: d.analytics?.plausible || "" });
       setLegal({ termlyUuid: d.legal?.termlyUuid || "", termlyPrivacyId: d.legal?.termlyPrivacyId || "", termlyTermsId: d.legal?.termlyTermsId || "", cookieBanner: !!(d.legal && d.legal.cookieBanner) });
+      if (d.plans) setPlans(d.plans);
       setCfgAt(d.updatedAt || null);
     } catch (e) { /* function not deployed yet (dev): leave the form empty */ }
   };
   const saveConfig = async () => {
     setSavedMsg("Saving…");
     try {
-      await httpsCallable(functions, "saveConfig")({ keys, email: mail, flags: controls, analytics, legal });
+      await httpsCallable(functions, "saveConfig")({ keys, email: mail, flags: controls, analytics, legal, plans });
       await loadConfig();             // re-read so the saved state is visible immediately
       setSavedMsg("Saved ✓");
     } catch (e) {
@@ -204,7 +212,7 @@ export default function AdminDashboard() {
             <span style={{ fontSize:18, fontWeight:800, color:c.gr }}>${s.estimatedRevenue.toFixed(0)}</span>
           </div>
           <div style={{ fontSize:10, color:c.dm }}>
-            {s.proUsers} Pro × $9.99 = ${(s.proUsers*9.99).toFixed(0)} · {s.premiumUsers} Premium × $49.99 = ${(s.premiumUsers*49.99).toFixed(0)}
+            {s.proUsers} Pro × ${s.proPrice} = ${(s.proUsers*s.proPrice).toFixed(0)} · {s.premiumUsers} Premium × ${s.premiumPrice} = ${(s.premiumUsers*s.premiumPrice).toFixed(0)}
           </div>
         </div>
 
@@ -248,18 +256,20 @@ export default function AdminDashboard() {
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:1, background:c.bd, borderRadius:10, overflow:"hidden" }}>
             {["free","pro","premium"].map(tier => {
               const t = TIERS[tier];
+              const p = plans[tier] || t.limits;   // live configured values
+              const price = (plans[tier] && plans[tier].price != null) ? (plans[tier].price ? "$" + plans[tier].price + "/mo" : "$0") : t.price;
               return (
                 <div key={tier} style={{ background:c.w, padding:"12px 10px", textAlign:"center" }}>
                   <div style={{ fontSize:10, fontWeight:700, color:t.color, marginBottom:8 }}>{t.label.toUpperCase()}</div>
                   <div style={{ fontSize:9, color:c.dm, marginBottom:3 }}>Portfolios</div>
-                  <div style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>{t.limits.portfolios}</div>
+                  <div style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>{p.portfolios}</div>
                   <div style={{ fontSize:9, color:c.dm, marginBottom:3 }}>Coins</div>
-                  <div style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>{t.limits.coins}</div>
+                  <div style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>{p.coins}</div>
                   <div style={{ fontSize:9, color:c.dm, marginBottom:3 }}>Tx/coin</div>
-                  <div style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>{t.limits.transactions.toLocaleString()}</div>
+                  <div style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>{(p.transactions||0).toLocaleString()}</div>
                   <div style={{ fontSize:9, color:c.dm, marginBottom:3 }}>Storage</div>
                   <div style={{ fontSize:12, fontWeight:700 }}>{t.storage}</div>
-                  <div style={{ fontSize:9, color:c.dm, marginTop:6, fontWeight:600 }}>{t.price}</div>
+                  <div style={{ fontSize:9, color:c.dm, marginTop:6, fontWeight:600 }}>{price}</div>
                 </div>
               );
             })}
@@ -470,6 +480,29 @@ export default function AdminDashboard() {
           ))}
           <button onClick={saveConfig}
             style={{ marginTop:6, padding:"9px 16px", borderRadius:8, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>Save email settings</button>
+        </div>
+
+        {/* Plans & Pricing (prices = display/revenue; limits enforced by firestore.rules) */}
+        <div style={{ background:c.w, borderRadius:14, padding:16, border:`1px solid ${c.bd}`, marginTop:12 }}>
+          <div style={{ fontSize:13, fontWeight:700, marginBottom:4 }}>Plans &amp; Pricing</div>
+          <div style={{ fontSize:11, color:c.dm, marginBottom:14 }}>Prices drive the revenue estimate + what users see; limits are enforced server-side by Firestore rules.</div>
+          {["free","pro","premium"].map(t => (
+            <div key={t} style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:(TIERS[t]||{}).color, textTransform:"uppercase", marginBottom:6 }}>{t}</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:6 }}>
+                {[["price","Price $"],["portfolios","Portfolios"],["coins","Coins"],["transactions","Tx/coin"]].map(([k,lbl]) => (
+                  <div key={k}>
+                    <label style={{ fontSize:9, color:c.dm, display:"block", marginBottom:3 }}>{lbl}</label>
+                    <input type="number" min="0" step={k==="price"?"0.01":"1"} value={(plans[t] && plans[t][k] != null) ? plans[t][k] : ""}
+                      onChange={e => setPlans({ ...plans, [t]: { ...plans[t], [k]: e.target.value === "" ? 0 : Number(e.target.value) } })}
+                      style={{ width:"100%", padding:"8px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:12, outline:"none", boxSizing:"border-box" }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button onClick={saveConfig}
+            style={{ padding:"9px 16px", borderRadius:8, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>Save plans</button>
         </div>
 
         {/* Analytics & Legal (public IDs injected on the landing + app) */}

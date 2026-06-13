@@ -597,7 +597,7 @@ export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
   const[user,setUser]=useState(null);
   const[dataLoaded,setDataLoaded]=useState(false);
-  const[site,setSite]=useState({maintenance:false,signupsEnabled:true});  // public flags from /api/config
+  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,plans:null});  // public config from /api/config
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
   const[authPass,setAuthPass]=useState("");
@@ -653,7 +653,7 @@ export default function CryptoIdea(){
   useEffect(()=>{const m={};TOP_COINS.forEach(c=>{m[c.id]={usd:c.mockPrice,usd_24h_change:c.mockChange,usd_market_cap:c.mockMcap}});setPrices(m)},[]);
 
   // Public app flags (maintenance / signups) set by an admin — read once on load.
-  useEffect(()=>{fetch("/api/config").then(r=>r.ok?r.json():null).then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false})}).catch(()=>{})},[]);
+  useEffect(()=>{fetch("/api/config").then(r=>r.ok?r.json():null).then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,plans:d.plans||null})}).catch(()=>{})},[]);
 
   // ═══ Watch Firebase auth state + load saved data on startup ═══
   useEffect(()=>{
@@ -830,9 +830,12 @@ export default function CryptoIdea(){
   const upgradePro=()=>startUpgrade("pro");
   const downgradeFree=()=>startDowngrade("free");
   const premLimits=user?.premiumLimits||{};
-  const maxPortfolios=isPremium?(premLimits.portfolios||50):isPro?10:1;
-  const maxCoinsPerPort=isPremium?(premLimits.coins||500):isPro?200:10;
-  const maxTxPerCoin=isPremium?(premLimits.transactions||10000):isPro?2000:50;
+  // Admin-configured tier limits (from /api/config); fall back to built-in defaults.
+  const _tierKey=isPremium?"premium":isPro?"pro":"free";
+  const _planLim=(key,def)=>{const p=site.plans&&site.plans[_tierKey];return (p&&p[key]!=null)?p[key]:def;};
+  const maxPortfolios=isPremium?(premLimits.portfolios||_planLim("portfolios",50)):_planLim("portfolios",isPro?10:1);
+  const maxCoinsPerPort=isPremium?(premLimits.coins||_planLim("coins",500)):_planLim("coins",isPro?200:10);
+  const maxTxPerCoin=isPremium?(premLimits.transactions||_planLim("transactions",5000)):_planLim("transactions",isPro?2000:50);
 
 
   const addPortfolio=async()=>{

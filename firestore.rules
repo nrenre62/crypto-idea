@@ -52,18 +52,20 @@ service cloud.firestore {
     function tierOf(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data.tier;
     }
-    function maxPortfolios(userId) {
+    // Admin-editable tier limits live in config/app.plans (written by saveConfig).
+    // Rules read them here so the configured limit is the ENFORCED ceiling; when
+    // nothing is configured we fall back to the built-in defaults. config/app is
+    // unreadable by clients, but get()/exists() inside rules may still read it.
+    function configuredLimit(userId, key, defFree, defPro, defPrem) {
       let t = tierOf(userId);
-      return t == 'premium' ? 50 : t == 'pro' ? 10 : 1;
+      let fallback = t == 'premium' ? defPrem : t == 'pro' ? defPro : defFree;
+      let cfgPath = /databases/$(database)/documents/config/app;
+      let plan = exists(cfgPath) ? get(cfgPath).data.get('plans', {}).get(t, {}) : {};
+      return plan.get(key, fallback);
     }
-    function maxCoins(userId) {
-      let t = tierOf(userId);
-      return t == 'premium' ? 500 : t == 'pro' ? 200 : 10;
-    }
-    function maxTx(userId) {
-      let t = tierOf(userId);
-      return t == 'premium' ? 5000 : t == 'pro' ? 2000 : 50;
-    }
+    function maxPortfolios(userId) { return configuredLimit(userId, 'portfolios', 1, 10, 50); }
+    function maxCoins(userId)      { return configuredLimit(userId, 'coins', 10, 200, 500); }
+    function maxTx(userId)         { return configuredLimit(userId, 'transactions', 50, 2000, 5000); }
 
     // Counter changes (made by clients to keep aggregates in sync) must move by at
     // most 1 per write, so they can't be reset to smuggle past a limit in one shot.

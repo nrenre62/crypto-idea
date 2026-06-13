@@ -85,6 +85,31 @@ async function writeAudit(context, action, info) {
   } catch (e) { console.error("writeAudit failed:", e && e.message); }
 }
 
+// Default plan prices + tier limits. Editable from admin Settings (stored in
+// config/app.plans); these are the fallback when nothing is configured and MUST
+// match the defaults in firestore.rules (where the limit ceiling is enforced).
+const DEFAULT_PLANS = {
+  free:    { price: 0,     portfolios: 1,  coins: 10,  transactions: 50 },
+  pro:     { price: 9.99,  portfolios: 10, coins: 200, transactions: 2000 },
+  premium: { price: 49.99, portfolios: 50, coins: 500, transactions: 5000 },
+};
+// Validate + fill any missing plan fields from the defaults (never trust raw input).
+function mergePlans(saved) {
+  const s = saved || {};
+  const num = (x, def) => (typeof x === "number" && isFinite(x) && x >= 0 ? x : def);
+  const out = {};
+  for (const t of ["free", "pro", "premium"]) {
+    const d = DEFAULT_PLANS[t], v = s[t] || {};
+    out[t] = {
+      price: num(v.price, d.price),
+      portfolios: Math.round(num(v.portfolios, d.portfolios)),
+      coins: Math.round(num(v.coins, d.coins)),
+      transactions: Math.round(num(v.transactions, d.transactions)),
+    };
+  }
+  return out;
+}
+
 async function getPayPalToken() {
   const cfg = await getConfig();
   const clientId = (cfg.paypal && cfg.paypal.clientId) || PAYPAL_CLIENT_ID;
@@ -255,6 +280,7 @@ exports.getStats = functions.https.onCall(async (data, context) => {
   } catch (e) {
     totalCoins = 0;
   }
+  const plans = mergePlans((await getConfig()).plans);
   return {
     totalUsers: usersSnap.size,
     proUsers,
@@ -262,7 +288,9 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     freeUsers,
     totalPortfolios,
     totalCoins,
-    estimatedRevenue: proUsers * 9.99 + premiumUsers * 49.99,
+    proPrice: plans.pro.price,
+    premiumPrice: plans.premium.price,
+    estimatedRevenue: proUsers * plans.pro.price + premiumUsers * plans.premium.price,
   };
 });
 
@@ -492,6 +520,7 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     paypal: { clientId: pp.clientId || "", secretSet: !!pp.secret, webhookId: pp.webhookId || "" },
     email: { provider: em.provider || "none", apiKeySet: !!em.apiKey, apiUrl: em.apiUrl || "", fromEmail: em.fromEmail || "", listId: em.listId || "" },
     flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false },
+    plans: mergePlans(cfg.plans),
     analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
     legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
     updatedAt: cfg.updatedAt || null,
@@ -534,6 +563,7 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
       listId: String(m.listId || ""),
     },
     flags,
+    plans: mergePlans((data && data.plans) || existing.plans),
     analytics: { ga4: String(an.ga4 || ""), plausible: String(an.plausible || "") },
     legal: {
       termlyUuid: String(lg.termlyUuid || ""),
@@ -786,6 +816,7 @@ exports.api = functions.https.onRequest(async (req, res) => {
       res.json({
         maintenance: !!fl.maintenance,
         signupsEnabled: fl.signupsEnabled !== false,
+        plans: mergePlans(d.plans),
         analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
         legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
       });
