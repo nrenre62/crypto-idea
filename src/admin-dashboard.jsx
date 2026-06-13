@@ -23,6 +23,8 @@ export default function AdminDashboard() {
   // Which secrets are already saved (so the form shows "saved" without exposing them).
   const [setFlags, setSetFlags] = useState({ coingecko: false, paypalSecret: false, apiKey: false });
   const [cfgAt, setCfgAt] = useState(null);
+  // Public app controls (maintenance mode, signups on/off).
+  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true });
 
   // Pre-fill the Settings form from the saved config (secrets are never returned —
   // only whether they're set), so you can SEE what's configured and persisted.
@@ -33,19 +35,28 @@ export default function AdminDashboard() {
       setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "" });
       setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "" });
       setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet) });
+      setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false) });
       setCfgAt(d.updatedAt || null);
     } catch (e) { /* function not deployed yet (dev): leave the form empty */ }
   };
   const saveConfig = async () => {
     setSavedMsg("Saving…");
     try {
-      await httpsCallable(functions, "saveConfig")({ keys, email: mail });
+      await httpsCallable(functions, "saveConfig")({ keys, email: mail, flags: controls });
       await loadConfig();             // re-read so the saved state is visible immediately
       setSavedMsg("Saved ✓");
     } catch (e) {
       setSavedMsg("Save failed: " + (e && e.message ? e.message : "error") + " (needs the deployed saveConfig function)");
     }
     setTimeout(() => setSavedMsg(""), 4000);
+  };
+  // Toggles save instantly (pass the next value so we don't save stale state).
+  const saveControls = async (next) => {
+    setControls(next);
+    setSavedMsg("Saving…");
+    try { await httpsCallable(functions, "saveConfig")({ keys, email: mail, flags: next }); setSavedMsg("Saved ✓"); }
+    catch (e) { setSavedMsg("Save failed: " + ((e && e.message) || "error")); await loadConfig(); }
+    setTimeout(() => setSavedMsg(""), 3000);
   };
 
   // Users tab — on-demand lookup of ONE user for support / moderation.
@@ -359,6 +370,31 @@ export default function AdminDashboard() {
       {tab === "settings" && (<>
         <div style={{ background:"#E7F1EC", border:"1px solid #b9d8c9", borderRadius:12, padding:"12px 14px", marginBottom:14, fontSize:12, color:"#084d39", lineHeight:1.5 }}>
           Saved securely via the admin-only <b>saveConfig</b> function to a locked Firestore <code>config/app</code> doc — clients can never read it; the price proxy + PayPal functions read it server-side. Requires the functions deployed (Blaze plan).
+        </div>
+
+        {/* App controls (public flags — take effect within ~1 min via /api/config) */}
+        <div style={{ background:c.w, borderRadius:14, padding:16, border:`1px solid ${c.bd}`, marginBottom:12 }}>
+          <div style={{ fontSize:13, fontWeight:700, marginBottom:4 }}>App Controls</div>
+          <div style={{ fontSize:11, color:c.dm, marginBottom:14 }}>Live switches the app reads on load. Changes apply within about a minute.</div>
+          {[
+            ["maintenance", "Maintenance mode", "Show a maintenance notice and pause the app for everyone."],
+            ["signupsEnabled", "Allow new signups", "When off, the Register tab is disabled (stops new account creation)."],
+          ].map(([key, label, desc]) => {
+            const on = key === "signupsEnabled" ? controls.signupsEnabled !== false : !!controls[key];
+            return (
+              <div key={key} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, padding:"8px 0", borderTop:`1px solid ${c.bd}` }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:600 }}>{label}</div>
+                  <div style={{ fontSize:11, color:c.dm, marginTop:2 }}>{desc}</div>
+                </div>
+                <button onClick={() => saveControls({ ...controls, [key]: !on })}
+                  style={{ width:46, height:26, borderRadius:20, border:"none", cursor:"pointer", flexShrink:0, position:"relative",
+                    background: on ? (key==="maintenance"?c.or:c.gr) : "#D8D8DE", transition:"background .15s" }}>
+                  <span style={{ position:"absolute", top:3, left: on ? 23 : 3, width:20, height:20, borderRadius:"50%", background:"#fff", transition:"left .15s" }} />
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         {/* API Keys */}

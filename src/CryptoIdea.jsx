@@ -597,6 +597,7 @@ export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
   const[user,setUser]=useState(null);
   const[dataLoaded,setDataLoaded]=useState(false);
+  const[site,setSite]=useState({maintenance:false,signupsEnabled:true});  // public flags from /api/config
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
   const[authPass,setAuthPass]=useState("");
@@ -650,6 +651,9 @@ export default function CryptoIdea(){
   },[]);
 
   useEffect(()=>{const m={};TOP_COINS.forEach(c=>{m[c.id]={usd:c.mockPrice,usd_24h_change:c.mockChange,usd_market_cap:c.mockMcap}});setPrices(m)},[]);
+
+  // Public app flags (maintenance / signups) set by an admin — read once on load.
+  useEffect(()=>{fetch("/api/config").then(r=>r.ok?r.json():null).then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false})}).catch(()=>{})},[]);
 
   // ═══ Watch Firebase auth state + load saved data on startup ═══
   useEffect(()=>{
@@ -754,6 +758,7 @@ export default function CryptoIdea(){
     if(!authEmail){setAuthErr("Enter your email");return}
     if(!emailRegex.test(authEmail)){setAuthErr("Enter a valid email (e.g. name@email.com)");return}
     if(!authPass){setAuthErr("Enter your password");return}
+    if(authMode==="register"&&!site.signupsEnabled){setAuthErr("New signups are currently paused. Please check back soon.");return}
     if(authMode==="register"){
       // Password strength is enforced ONLY at registration. Login just checks the password
       // is correct (Firebase does that) — re-validating composition on login would lock out
@@ -1222,8 +1227,9 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
       <div style={{width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",gap:0,borderRadius:14,overflow:"hidden",border:"1px solid #E8E8ED"}}>
           <button onClick={()=>{setAuthMode("login");setAuthErr("")}} style={{flex:1,padding:"11px",border:"none",fontSize:14,fontWeight:600,cursor:"pointer",background:authMode==="login"?c.txt:"#F5F5F7",color:authMode==="login"?"#fff":c.dim}}>Login</button>
-          <button onClick={()=>{setAuthMode("register");setAuthErr("")}} style={{flex:1,padding:"11px",border:"none",fontSize:14,fontWeight:600,cursor:"pointer",background:authMode==="register"?c.txt:"#F5F5F7",color:authMode==="register"?"#fff":c.dim}}>Register</button>
+          <button disabled={!site.signupsEnabled} onClick={()=>{if(!site.signupsEnabled)return;setAuthMode("register");setAuthErr("")}} title={site.signupsEnabled?"":"Signups are paused"} style={{flex:1,padding:"11px",border:"none",fontSize:14,fontWeight:600,cursor:site.signupsEnabled?"pointer":"not-allowed",background:authMode==="register"?c.txt:"#F5F5F7",color:authMode==="register"?"#fff":c.dim,opacity:site.signupsEnabled?1:0.5}}>Register</button>
         </div>
+        {!site.signupsEnabled&&<div style={{fontSize:11,color:c.dim,textAlign:"center"}}>New signups are paused right now.</div>}
         {authMode==="register"&&<input type="text" value={authName} onChange={e=>setAuthName(e.target.value.replace(/[^a-zA-Z\s]/g,""))} placeholder="First and last name" autoComplete="name" style={inp_s}/>}
         <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="name@email.com" autoComplete="email" inputMode="email" style={inp_s}/>
         <input type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} placeholder="Min 8: Aa1 + special (!@#)" autoComplete={authMode==="login"?"current-password":"new-password"} style={inp_s}/>
@@ -1618,6 +1624,12 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
   };
 
   const at=(screen==="addEntry"||screen==="detail"||screen==="coinInfo"||screen==="account")?"portfolio":screen;
+
+  if(site.maintenance) return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
+    <div style={{fontSize:40,marginBottom:14}}>🛠️</div>
+    <div style={{fontSize:24,fontWeight:700,marginBottom:8}}>We'll be right back</div>
+    <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5}}>Crypto Idea is briefly down for maintenance. Your data is safe — please check back in a little while.</div>
+  </div>);
 
   return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:430,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {err&&<div style={{margin:"8px 16px",padding:"10px 14px",background:"#FFF0F0",color:c.red,borderRadius:12,fontSize:12,fontWeight:500,border:"1px solid #FFD0D0"}}>{err}</div>}
