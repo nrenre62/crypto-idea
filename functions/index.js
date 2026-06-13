@@ -398,6 +398,59 @@ exports.exportMyData = functions.https.onCall(async (data, context) => {
   };
 });
 
+// ─── Admin: full users list for the Users tab (operational data only) ───
+// Merges the Auth record (email / name / disabled / admin) with the Firestore
+// profile (tier, portfolioCount, joined). NEVER returns holdings. Capped; the
+// dashboard paginates + searches client-side.
+exports.listUsers = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const CAP = 5000;
+  const prof = {};
+  try { const snap = await db.collection("users").get(); snap.forEach((d) => { prof[d.id] = d.data(); }); } catch (e) { /* ignore */ }
+  const users = [];
+  let pageToken;
+  do {
+    const res = await admin.auth().listUsers(1000, pageToken);
+    for (const u of res.users) {
+      const p = prof[u.uid] || {};
+      const joinedMs = p.joined && typeof p.joined.toMillis === "function" ? p.joined.toMillis() : null;
+      users.push({
+        uid: u.uid,
+        email: u.email || "",
+        name: p.name || u.displayName || "",
+        tier: p.tier || "free",
+        disabled: !!u.disabled,
+        isAdmin: !!(u.customClaims && u.customClaims.admin),
+        portfolioCount: p.portfolioCount || 0,
+        joinedMs,
+      });
+    }
+    pageToken = res.pageToken;
+  } while (pageToken && users.length < CAP);
+  users.sort((a, b) => (b.joinedMs || 0) - (a.joinedMs || 0)); // newest first
+  return { users, total: users.length, capped: users.length >= CAP };
+});
+
+// ─── Admin: read current saved config to pre-fill the Settings form ───
+// Secrets are NOT returned in full — only whether each is set — so the admin can
+// see what's configured and replace it without the secret reaching the client.
+exports.getAdminConfig = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  let cfg = {};
+  try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* ignore */ }
+  const pp = cfg.paypal || {}, em = cfg.email || {};
+  return {
+    coingeckoSet: !!cfg.coingecko,
+    paypal: { clientId: pp.clientId || "", secretSet: !!pp.secret, webhookId: pp.webhookId || "" },
+    email: { provider: em.provider || "none", apiKeySet: !!em.apiKey, apiUrl: em.apiUrl || "", fromEmail: em.fromEmail || "", listId: em.listId || "" },
+    updatedAt: cfg.updatedAt || null,
+  };
+});
+
 // ─── Save app config / API keys (admins only) ───
 // Writes the admin dashboard's Settings (CoinGecko + PayPal keys, email provider)
 // to the LOCKED config/app Firestore doc that the proxy + PayPal functions read.
@@ -408,16 +461,22 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   }
   const k = (data && data.keys) || {};
   const m = (data && data.email) || {};
+  // Read existing so a blank SECRET field means "keep the saved value" — the form
+  // never shows secrets back, so re-saving without re-typing them must not wipe them.
+  let existing = {};
+  try { const s = await db.doc("config/app").get(); existing = (s.exists && s.data()) || {}; } catch (e) { /* ignore */ }
+  const exPp = existing.paypal || {}, exEm = existing.email || {};
+  const keep = (incoming, current) => { const v = String(incoming || ""); return v ? v : String(current || ""); };
   const cfg = {
-    coingecko: String(k.coingecko || ""),
+    coingecko: keep(k.coingecko, existing.coingecko),
     paypal: {
       clientId: String(k.paypalClientId || ""),
-      secret: String(k.paypalSecret || ""),
+      secret: keep(k.paypalSecret, exPp.secret),
       webhookId: String(k.paypalWebhookId || ""),
     },
     email: {
       provider: String(m.provider || "none"),
-      apiKey: String(m.apiKey || ""),
+      apiKey: keep(m.apiKey, exEm.apiKey),
       apiUrl: String(m.apiUrl || ""),
       fromEmail: String(m.fromEmail || ""),
       listId: String(m.listId || ""),
