@@ -59,9 +59,8 @@ function AdminApp() {
             <button onClick={logoutUser} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8E8ED", background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Log out</button>
           </div>
         </header>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <AdminDashboard />
-        </div>
+        {/* AdminDashboard centers itself (maxWidth ~1040); no extra cap here. */}
+        <AdminDashboard />
       </div>
     );
   }

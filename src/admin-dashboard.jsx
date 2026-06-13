@@ -82,7 +82,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div style={{ fontFamily:"'SF Pro Display',-apple-system,sans-serif", background:c.bg, minHeight:"100vh", padding:16, maxWidth:600, margin:"0 auto" }}>
+    <div style={{ fontFamily:"'SF Pro Display',-apple-system,sans-serif", background:c.bg, minHeight:"100vh", padding:"20px clamp(16px, 4vw, 32px)", maxWidth:1040, margin:"0 auto" }}>
 
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:18 }}>
@@ -118,8 +118,11 @@ export default function AdminDashboard() {
           ))}
         </div>
 
+        {/* On desktop these three sit side-by-side; on mobile auto-fit collapses to one column. */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:10, alignItems:"start", marginBottom:10 }}>
+
         {/* Revenue */}
-        <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}`, marginBottom:10 }}>
+        <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}` }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
             <span style={{ fontSize:13, fontWeight:600 }}>Est. Monthly Revenue</span>
             <span style={{ fontSize:18, fontWeight:800, color:c.gr }}>${s.estimatedRevenue.toFixed(0)}</span>
@@ -130,7 +133,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Combined usage — aggregate engagement, no personal data */}
-        <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}`, marginBottom:10 }}>
+        <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}` }}>
           <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>Combined Usage <span style={{ fontWeight:400, color:c.dm }}>· no personal data</span></div>
           <div style={{ display:"flex", gap:6 }}>
             {[
@@ -147,7 +150,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tier Breakdown */}
-        <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}`, marginBottom:10 }}>
+        <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}` }}>
           <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>Tier Breakdown</div>
           <div style={{ display:"flex", height:28, borderRadius:6, overflow:"hidden" }}>
             {[[s.freeUsers,"free"],[s.proUsers,"pro"],[s.premiumUsers,"premium"]].map(([n,key]) => n > 0 && (
@@ -160,6 +163,8 @@ export default function AdminDashboard() {
             <span style={{ color:c.pr }}>Premium ({s.premiumUsers})</span>
           </div>
         </div>
+
+        </div>{/* end overview grid — Plan Limits below spans full width */}
 
         {/* Tier Limits Reference */}
         <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}`, marginBottom:10 }}>
