@@ -15,7 +15,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - `npm run deploy` — build + `firebase deploy` (needs the Blaze plan for functions).
 
 ## Architecture
-- **Multi-page Vite:** `index.html` = static marketing landing (`#dca` = free DCA calculator); `app.html` = React app (`main.jsx` routes `/app`, `/edge`, `/pro-success` by pathname).
+- **Multi-page Vite:** `index.html` = static marketing landing (`#dca` = free DCA calculator); `app.html` = React user app (`main.jsx` routes `/app`, `/edge`, `/pro-success`); `admin.html` = SEPARATE admin app (`admin-main.jsx`) served at `/admin` — its code is NOT in the user bundle.
 - **Code-split for fast first loads:** `main.jsx` lazy-loads routes; `vite.config.js` `manualChunks` isolates Firebase into its own cached chunk. Keep the entry chunk small.
 - **Backend = `functions/index.js`** (Node 20, CommonJS). `api` HTTP function proxies CoinGecko with shared, cached Firestore docs so upstream cost is FLAT regardless of user count. PayPal + admin callables also live here.
 - **Data layer:** Firestore via `firebase-database.js` / `firebase-auth.js`; counters maintained with `writeBatch` + `increment`.
@@ -38,6 +38,8 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - Reusable patterns live in user skills: `firebase-saas-starter`, `landing-page-design`, `secure-by-design`.
 
 ## Admin & privacy (functions/index.js)
+- **Admin is a SEPARATE app at `/admin`** (`admin.html` / `src/admin-main.jsx`), not part of the user app. It has its own login that verifies the `{admin:true}` claim and signs out non-admins. The user bundle contains no admin code. A different URL is NOT the security boundary — the claim check (server-side in every admin function, re-checked in the admin app) is. **2FA for admins is deferred to go-live** (needs Blaze + Identity Platform MFA).
+- **Min 2 admins (can't be wiped out):** `MIN_ADMINS=2` + `countAdmins()` block `deleteUser`/`setAdminClaim` demotion/`deleteMyAccount` when they'd leave fewer than 2 admins. Keep ≥2 admins.
 - Admin-only callables: `getStats` (combined usage, no personal data), `lookupUser`, `setUserTier`, `suspendUser`, `deleteUser` (GDPR erasure; blocks self-target). Admin = `{admin:true}` claim.
 - Self-service GDPR callables (act on caller's own uid, no IDOR): `deleteMyAccount`, `exportMyData` — wired into the app's Account → "Privacy & your data" card.
 - Admin Users tab = on-demand lookup of ONE user by email (no browse-all; full list is in Firebase Console → Authentication). Overview shows aggregate only.
@@ -49,4 +51,4 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - `/api/prices` (top-250 markets) gets CoinGecko free-tier `429`s without a Demo key — upstream rate-limiting, not a bug. Add a free CoinGecko Demo key to fix.
 - Pub/Sub scheduled functions register in the emulator but don't auto-fire on cron (trigger from the UI); Cloud Scheduler fires them in prod.
 - Repo is local-only (no GitHub remote yet).
-- Deploy-time config (no code): set `VITE_RECAPTCHA_SITE_KEY` + enable App Check enforcement in console; paste Termly snippets into privacy/terms pages; add a CoinGecko Demo key; create + promote a real backup admin (see "Two admins" above) and store both admins' creds in a password manager.
+- Deploy-time config (no code): set `VITE_RECAPTCHA_SITE_KEY` + enable App Check enforcement in console; paste Termly snippets into privacy/terms pages; add a CoinGecko Demo key; create + promote a real backup admin (see "Two admins" above) and store both admins' creds in a password manager; enable Identity Platform MFA (2FA) for admin accounts and add the enrollment/challenge flow to the admin app.

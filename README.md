@@ -245,21 +245,24 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 | Route | File | What |
 |-------|------|------|
 | `/` | `index.html` | Static marketing landing. **Section 2 is the free DCA calculator** (`#dca`). |
-| `/app` | `app.html` → React | The tracker (auth, portfolios, coins, transactions, account, admin). |
+| `/app` | `app.html` → React | The tracker (auth, portfolios, coins, transactions, account). |
+| `/admin` | `admin.html` → React | **Separate** admin app (own login + `{admin:true}` check). Not in the user bundle. |
 | `/edge` | React | Education guide. |
 | `/pro-success` | React | PayPal return / upgrade confirmation. |
 | `/api/*` | `api` function | CoinGecko proxy (prices/search/history). |
 
 The free DCA calculator lives **inline on the landing** (no login, no separate page). It searches ~3,000 coins via `/api/search`, computes returns from `/api/history`, and shows live value from `/api/prices` — all from the cached proxy, so unlimited public visitors add ~0 upstream calls.
 
-# Admin dashboard (`src/admin-dashboard.jsx`)
+# Admin app (`/admin` — `admin.html` / `src/admin-main.jsx` / `src/admin-dashboard.jsx`)
 
-Opened from the app's Account screen by an **admin** (Firebase `{admin:true}` custom claim). Tabs:
+A **separate app** from the user-facing one, served at **`/admin`**. It has its own login that verifies the Firebase `{admin:true}` custom claim and **signs out any non-admin**. The admin code is **not** bundled into the user app, so regular users never download it. A different URL is *not* the security boundary — the claim check (enforced server-side in every admin function, re-checked in the admin app) is; the split additionally keeps admin code off users' devices. **2FA for admins is deferred to go-live** (needs Blaze + Identity Platform MFA). Tabs:
 - **Overview** — **real combined usage** from the admin-only `getStats` function: total users, tier breakdown, total portfolios + coins, **avg per user**, and estimated revenue. **No personal data** — aggregate only (privacy by design).
 - **Users** — **on-demand lookup of ONE user by email** for support/moderation (`lookupUser`): shows tier, status, and usage counts (never their holdings), with **change tier** (`setUserTier`), **suspend/un-suspend** (`suspendUser`), and **delete** (`deleteUser`, full GDPR erasure). There is intentionally **no browse-all-users list** — for the full user list use the **Firebase Console → Authentication** tab (owner-only, audited).
 - **Settings** — **API Keys** (CoinGecko, PayPal) and **Email & Integrations**, saved server-side via the admin-only `saveConfig` function to the locked `config/app` doc.
 
-**Seeding test data (emulator):** `node functions/scripts/seed-emulator.js` creates an admin (`admin@test.com` / `test1234`) + a couple of test users with portfolios/coins. Re-run anytime; the emulator's data is in-memory.
+**Two admins, always:** admin is the `{admin:true}` claim, so keep at least two. A `MIN_ADMINS=2` guard (`countAdmins()`) blocks `deleteUser`/`setAdminClaim` demotion/`deleteMyAccount` whenever the action would leave fewer than 2 admins — admin access can't be wiped out.
+
+**Seeding test data (emulator):** `node functions/scripts/seed-emulator.js` creates two admins (`admin@test.com` + `admin2@test.com` / `test1234`) + a couple of test users with portfolios/coins. Re-run anytime; the emulator's data is in-memory.
 
 ## User privacy & data rights (GDPR/CCPA)
 Self-service, from the app's **Account → "Privacy & your data"** card (acts only on the caller's own account — no IDOR):
