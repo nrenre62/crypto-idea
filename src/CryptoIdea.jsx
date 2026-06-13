@@ -522,7 +522,6 @@ function fmtDT(d){if(!d)return"";const x=new Date(d);return x.toLocaleDateString
 
 function timeBetween(s,e){const a=new Date(s),b=new Date(e);let y=b.getFullYear()-a.getFullYear(),m=b.getMonth()-a.getMonth(),d=b.getDate()-a.getDate();if(d<0){m--;d+=new Date(b.getFullYear(),b.getMonth(),0).getDate()}if(m<0){y--;m+=12}const td=Math.floor((b-a)/(864e5));return{years:y,months:m,days:d,totalDays:td}}
 
-function genDCADates(s,e,f){const dates=[],c=new Date(s),end=new Date(e);while(c<=end){dates.push(new Date(c));if(f==="daily")c.setDate(c.getDate()+1);else if(f==="weekly")c.setDate(c.getDate()+7);else if(f==="biweekly")c.setDate(c.getDate()+14);else c.setMonth(c.getMonth()+1)}return dates}
 
 // Interpolate real historical price from milestones
 function getHistoricalPrice(coinId, date) {
@@ -634,7 +633,6 @@ export default function CryptoIdea(){
   const[eAmt,setEAmt]=useState("");
   const[ePrice,setEPrice]=useState("");
   const[eDate,setEDate]=useState(new Date().toISOString().slice(0,16));
-  const[dcaCoin,setDcaCoin]=useState(null);
   const[confirmDel,setConfirmDel]=useState(false);
   const[swipeId,setSwipeId]=useState(null);
   const[swipeX,setSwipeX]=useState(0);
@@ -642,15 +640,6 @@ export default function CryptoIdea(){
   const[editEntry,setEditEntry]=useState(null);
   const[infoCoin,setInfoCoin]=useState(null);
   const[eTxType,setETxType]=useState("buy");
-  const[dcaSearch,setDcaSearch]=useState("");
-  const[dcaAmt,setDcaAmt]=useState("100");
-  const[dcaFreq,setDcaFreq]=useState("weekly");
-  const[dcaStart,setDcaStart]=useState("2021-01-01");
-  const[dcaEnd,setDcaEnd]=useState(new Date().toISOString().split("T")[0]);
-  const[dcaRes,setDcaRes]=useState(null);
-  const[dcaCalc,setDcaCalc]=useState(false);
-  const[dcaUsesToday,setDcaUsesToday]=useState(0);
-  const[dcaLastDate,setDcaLastDate]=useState("");
 
 
   useEffect(()=>{
@@ -839,8 +828,7 @@ export default function CryptoIdea(){
   const maxPortfolios=isPremium?(premLimits.portfolios||50):isPro?10:1;
   const maxCoinsPerPort=isPremium?(premLimits.coins||500):isPro?200:10;
   const maxTxPerCoin=isPremium?(premLimits.transactions||10000):isPro?2000:50;
-  const maxDCAPerDay=isPro?999999:20;
-  
+
 
   const addPortfolio=async()=>{
     if(portfolios.length>=maxPortfolios){showErr(isPro?"Max 10 portfolios":"Free: 1 portfolio. Upgrade to Pro for 10!");return}
@@ -921,14 +909,6 @@ export default function CryptoIdea(){
     if(!res.success){showErr("Couldn't delete transaction. Check your connection.");return}
     setPortfolio(p=>p.map(c=>c.id===cid?{...c,entries:c.entries.filter(e=>e.id!==eid)}:c));setSel(p=>p?{...p,entries:p.entries.filter(e=>e.id!==eid)}:p)};
 
-  const calcDCA=async()=>{if(!dcaCoin||!dcaAmt)return;
-    const today=new Date().toISOString().split("T")[0];
-    if(dcaLastDate!==today){setDcaUsesToday(0);setDcaLastDate(today)}
-    if(dcaUsesToday>=maxDCAPerDay){showErr("Free: "+maxDCAPerDay+" DCA calculations per day. Upgrade to Pro for unlimited!");return}
-    setDcaUsesToday(p=>p+1);setDcaCalc(true);const coin=TOP_COINS.find(c=>c.id===dcaCoin.id);const amt=parseFloat(dcaAmt);const effectiveStart=coin&&new Date(dcaStart)<new Date(coin.launch)?coin.launch:dcaStart;const dates=genDCADates(effectiveStart,dcaEnd,dcaFreq);const el=timeBetween(effectiveStart,dcaEnd);let hist=await fetchHist(dcaCoin.id);let tc=0,ti=0;const buys=[];
-  for(const date of dates){let price;if(hist){const ts=date.getTime();let cl=hist[0],md=Infinity;for(const[t,p]of hist){if(Math.abs(t-ts)<md){md=Math.abs(t-ts);cl=[t,p]}}price=cl[1]}else{price=getHistoricalPrice(dcaCoin.id,date)}if(price&&price>0){const cb=amt/price;tc+=cb;ti+=amt;buys.push({date:date.toISOString().split("T")[0],price,cb,inv:amt})}}
-  const cp=prices[dcaCoin.id]?.usd||TOP_COINS.find(x=>x.id===dcaCoin.id)?.mockPrice||0;const cv=tc*cp;const pf=cv-ti;const pp=ti>0?(pf/ti)*100:0;const ab=tc>0?ti/tc:0;
-  setDcaRes({coin:dcaCoin,start:effectiveStart,end:dcaEnd,el,freq:dcaFreq,amt,np:buys.length,ti,tc,ab,cp,cv,pf,pp,src:hist?"live":"historical"});setDcaCalc(false)};
 
   const tv=portfolio.reduce((s,c)=>{const p=prices[c.id]?.usd||0;return s+c.entries.reduce((a,e)=>a+e.amount,0)*p},0);
   const tinv=portfolio.reduce((s,c)=>{const b=c.entries.filter(e=>e.type!=="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0);const sl=c.entries.filter(e=>e.type==="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0);return s+(b-sl)},0);
@@ -948,7 +928,6 @@ export default function CryptoIdea(){
     clock:<svg width="12" height="12" fill="none" stroke={c.dim} strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
     port:(a)=><svg width="21" height="21" fill="none" stroke={a?c.ac:c.dim} strokeWidth="1.8" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
     srch:(a)=><svg width="21" height="21" fill="none" stroke={a?c.ac:c.dim} strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-    dca:(a)=><svg width="21" height="21" fill="none" stroke={a?c.ac:c.dim} strokeWidth="1.8" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
   };
 
   const CI=({thumb,symbol,size=38})=>{const[e,setE]=useState(false);const colors={"BTC":"#F7931A","ETH":"#627EEA","BNB":"#F3BA2F","SOL":"#9945FF","XRP":"#23292F","ADA":"#0D1E30","DOGE":"#C2A633","USDT":"#26A17B","USDC":"#2775CA","DOT":"#E6007A","AVAX":"#E84142","LINK":"#2A5ADA","UNI":"#FF007A","MATIC":"#8247E5","SHIB":"#FFA409","LTC":"#BFBBBB","ATOM":"#2E3148","NEAR":"#00C08B","TRX":"#FF0013","FTM":"#1969FF","INJ":"#00F2FE","SUI":"#4DA2FF","ARB":"#28A0F0","OP":"#FF0420","AAVE":"#B6509E","MKR":"#1AAB9B","TAO":"#000","PEPE":"#479F51"};const bg=colors[symbol]||"#"+((symbol||"XX").charCodeAt(0)*123456).toString(16).slice(0,6);return(<div style={{width:size,height:size,borderRadius:size/2,background:thumb&&!e?c.inp:bg+"30",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.32,fontWeight:700,flexShrink:0,color:thumb&&!e?c.dim:bg,border:thumb&&!e?"none":`1.5px solid ${bg}30`}}>{thumb&&!e?<img src={thumb} alt="" style={{width:size,height:size}} onError={()=>setE(true)}/>:(symbol||"?").slice(0,2)}</div>)};
@@ -1155,9 +1134,9 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
       // ── Welcome screens (after payment or registration) ──
       if(upgradeStep==="welcome"){
         const benefits={
-          free:["1 portfolio","10 coins","50 transactions per coin","20 DCA calculations per day","Live prices · Full P/L tracking"],
-          pro:["10 portfolios","200 coins per portfolio","2,000 transactions per coin","Unlimited DCA calculations","Live prices · Full P/L tracking"],
-          premium:["50 portfolios","500 coins per portfolio","5,000 transactions per coin","Unlimited DCA calculations","Priority support · Custom limits"],
+          free:["1 portfolio","10 coins","50 transactions per coin","Live prices · Full P/L tracking"],
+          pro:["10 portfolios","200 coins per portfolio","2,000 transactions per coin","Live prices · Full P/L tracking"],
+          premium:["50 portfolios","500 coins per portfolio","5,000 transactions per coin","Priority support · Custom limits"],
         };
         const list=benefits[showWelcome||"free"];
         return(<div style={{padding:"40px 24px",display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",justifyContent:"center"}}>
@@ -1638,57 +1617,6 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
     </>);
   };
 
-  // ── DCA ──
-  const DCA=()=>{const cd=dcaCoin?TOP_COINS.find(x=>x.id===dcaCoin.id):null;const minD=cd?.launch||"2013-04-28";
-  return(<>
-    <div style={{padding:"14px 18px 6px",display:"flex",alignItems:"center",gap:9}}>
-      <div style={{fontSize:22,fontWeight:300,color:c.txt,letterSpacing:"-0.5px"}}>📊</div>
-      <span style={{fontSize:19,fontWeight:700}}>DCA Calculator</span>
-    </div>
-    <div style={{padding:"10px 18px",display:"flex",flexDirection:"column",gap:12}}>
-      <div><label style={lbl_s}>Select Coin</label>
-        <div style={{position:"relative"}}>
-          <input type="text" value={dcaSearch} onChange={e=>{const v=e.target.value;setDcaSearch(v);setDcaRes(null);if(dcaCoin&&v!==dcaCoin.name+" ("+dcaCoin.symbol+")"){setDcaCoin(null)}}} placeholder="Search any coin... (BTC, Ethereum...)" style={inp_s}/>
-          {dcaSearch.length>=1&&!dcaCoin&&(()=>{const q=dcaSearch.toLowerCase();const res=TOP_COINS.filter(x=>x.name.toLowerCase().includes(q)||x.symbol.toLowerCase().includes(q)).slice(0,8);return res.length>0?(<div style={{position:"absolute",top:"100%",left:0,right:0,background:c.card,border:`1px solid ${c.bdr}`,borderRadius:12,marginTop:4,zIndex:50,maxHeight:240,overflowY:"auto"}}>{res.map(x=>(<div key={x.id} onClick={()=>{setDcaCoin(x);setDcaSearch(x.name+" ("+x.symbol+")");setDcaRes(null);const coinLaunch=x.launch||"2013-04-28";if(new Date(dcaStart)<new Date(coinLaunch)){setDcaStart(coinLaunch)}}} style={{display:"flex",alignItems:"center",padding:"10px 14px",gap:10,cursor:"pointer",borderBottom:"1px solid #F0F0F0"}}><CI thumb={x.thumb} symbol={x.symbol} size={28}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{x.name}</div><div style={{fontSize:11,color:c.dim}}>{x.symbol} · #{x.rank}</div></div><div style={{fontSize:12,fontWeight:600}}>{fmtP(x.mockPrice)}</div></div>))}</div>):null})()}
-          {dcaCoin&&(<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:6}}><div style={{display:"flex",alignItems:"center",gap:6}}><CI thumb={dcaCoin.thumb} symbol={dcaCoin.symbol} size={24}/><span style={{fontSize:13,fontWeight:600}}>{dcaCoin.name}</span></div><button onClick={()=>{setDcaCoin(null);setDcaSearch("");setDcaRes(null);setDcaStart("2021-01-01");setDcaEnd(new Date().toISOString().split("T")[0]);setDcaAmt("100");setDcaFreq("weekly")}} style={{fontSize:11,color:c.red,background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Clear All</button></div>)}
-        </div>
-        {cd&&<div style={{fontSize:11,color:c.dim,marginTop:4}}>Historical data from: {cd.launch}</div>}
-      </div>
-      <div><label style={lbl_s}>Amount per purchase (USD)</label><input type="number" value={dcaAmt} onChange={e=>setDcaAmt(e.target.value)} placeholder="100" style={inp_s}/></div>
-      <div><label style={lbl_s}>Frequency</label><div style={{display:"flex",gap:5}}>{["daily","weekly","biweekly","monthly"].map(f=>(<button key={f} onClick={()=>setDcaFreq(f)} style={{flex:1,padding:"9px 2px",borderRadius:10,border:`1px solid ${dcaFreq===f?c.ac:c.bdr}`,background:dcaFreq===f?c.ac:c.inp,color:dcaFreq===f?c.bg:c.dim,fontSize:11,fontWeight:600,cursor:"pointer"}}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>))}</div></div>
-      <div><label style={lbl_s}>Start Date (first buy)</label><input type="date" value={dcaStart} min={minD} max={dcaEnd} onChange={e=>{setDcaStart(e.target.value);setDcaRes(null)}} style={inp_s}/></div>
-      <div><label style={lbl_s}>End Date (sell / check)</label><input type="date" value={dcaEnd} min={dcaStart} max={new Date().toISOString().split("T")[0]} onChange={e=>{setDcaEnd(e.target.value);setDcaRes(null)}} style={inp_s}/></div>
-
-      {dcaStart&&dcaEnd&&new Date(dcaEnd)>new Date(dcaStart)&&(()=>{const prevStart=(cd&&new Date(dcaStart)<new Date(cd.launch))?cd.launch:dcaStart;const el=timeBetween(prevStart,dcaEnd);return(<div style={{padding:"10px 14px",background:c.blud,borderRadius:12,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>⏱️</span><div style={{fontSize:13}}><strong style={{color:c.blu}}>{el.years>0?`${el.years}y `:""}{el.months>0?`${el.months}m `:""}{el.days}d</strong><span style={{color:c.dim,marginLeft:6}}>({el.totalDays.toLocaleString()} days)</span></div></div>)})()}
-
-      <button onClick={calcDCA} disabled={!dcaCoin||dcaCalc} style={{padding:"14px",borderRadius:12,border:"none",fontSize:15,fontWeight:700,cursor:"pointer",width:"100%",background:c.txt,color:c.bg,opacity:!dcaCoin?0.4:1,marginTop:2}}>{dcaCalc?"Calculating...":"Calculate DCA"}</button>
-      {!isPro&&<div style={{fontSize:10,color:c.dim,textAlign:"center",marginTop:4}}>{maxDCAPerDay-dcaUsesToday} calculations left today</div>}
-
-      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2}}>
-        <StatusDot small/>
-        <span style={{fontSize:10,color:c.dim}}>{api==="live"?"Using real historical prices":"Using historical price data"}</span>
-      </div>
-
-      {dcaRes&&(<div style={{background:c.card,borderRadius:16,padding:"18px",border:"1px solid #E8E8ED",marginTop:4}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}><CI thumb={dcaRes.coin.thumb} symbol={dcaRes.coin.symbol} size={28}/><span style={{fontSize:15,fontWeight:700,color:c.yel}}>DCA Results</span></div>
-          <StatusDot live={dcaRes.src==="live"} small/>
-        </div>
-        <div style={{padding:"10px 12px",background:c.blud,borderRadius:10,marginBottom:12}}>
-          <div style={{fontSize:11,color:c.dim}}>Time Period</div>
-          <div style={{fontSize:14,fontWeight:600,marginTop:2}}>{dcaRes.el.years>0?`${dcaRes.el.years} years `:""}{dcaRes.el.months>0?`${dcaRes.el.months} months `:""}{dcaRes.el.days} days<span style={{color:c.dim,fontWeight:400}}> ({dcaRes.el.totalDays.toLocaleString()} days)</span></div>
-          <div style={{fontSize:11,color:c.dim,marginTop:3}}>{dcaRes.start} → {dcaRes.end}</div>
-        </div>
-        {[["Frequency",dcaRes.freq.charAt(0).toUpperCase()+dcaRes.freq.slice(1)],["Per purchase","$"+dcaRes.amt.toLocaleString()],["Total purchases",dcaRes.np.toLocaleString()],["Total invested","$"+dcaRes.ti.toLocaleString("en-US",{minimumFractionDigits:2})],["Coins accumulated",dcaRes.tc.toLocaleString("en-US",{maximumFractionDigits:6})+" "+dcaRes.coin.symbol],["Avg buy price",fmtP(dcaRes.ab)],["Current price",fmtP(dcaRes.cp)]].map(([k,v])=>(<div key={k} style={{display:"flex",justifyContent:"space-between",marginBottom:7}}><span style={{color:c.dim,fontSize:12}}>{k}</span><span style={{fontWeight:600,fontSize:13}}>{v}</span></div>))}
-        <div style={{padding:"12px",background:dcaRes.pf>=0?c.acd:c.redd,borderRadius:12,marginTop:8}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:c.dim}}>Current value</span><span style={{fontSize:15,fontWeight:700}}>${dcaRes.cv.toLocaleString("en-US",{minimumFractionDigits:2})}</span></div>
-          <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:c.dim}}>Profit / Loss</span><span style={{fontSize:15,fontWeight:700,color:dcaRes.pf>=0?c.ac:c.red}}>{dcaRes.pf>=0?"+":""}${Math.abs(dcaRes.pf).toLocaleString("en-US",{minimumFractionDigits:2})} ({fmtPct(dcaRes.pp)})</span></div>
-        </div>
-        {dcaRes.src==="none"&&<div style={{fontSize:10,color:c.dim,marginTop:10,lineHeight:1.5,textAlign:"center"}}>Prices based on historical market data.</div>}
-      </div>)}
-    </div>
-  </>)};
-
   const at=(screen==="addEntry"||screen==="detail"||screen==="coinInfo"||screen==="account")?"portfolio":screen;
 
   return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:430,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
@@ -1748,9 +1676,8 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
     {screen==="detail"&&Detail()}
     {screen==="addEntry"&&AddEntry()}
     {screen==="coinInfo"&&CoinInfo()}
-    {screen==="dca"&&DCA()}
     {screen!=="login"&&screen!=="loading"&&screen!=="forgotPass"&&screen!=="contact"&&<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,display:"flex",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid #E8E8ED",padding:"6px 0 22px",zIndex:100}}>
-      {[{id:"portfolio",label:"Portfolio",icon:Ic.port},{id:"search",label:"Search",icon:Ic.srch},{id:"dca",label:"DCA",icon:Ic.dca}].map(tab=>(<button key={tab.id} onClick={()=>setScreen(tab.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"7px 0",cursor:"pointer",border:"none",background:"none",fontSize:10,fontWeight:600,color:at===tab.id?c.ac:c.dim}}>{tab.icon(at===tab.id)}{tab.label}</button>))}
+      {[{id:"portfolio",label:"Portfolio",icon:Ic.port},{id:"search",label:"Search",icon:Ic.srch}].map(tab=>(<button key={tab.id} onClick={()=>setScreen(tab.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"7px 0",cursor:"pointer",border:"none",background:"none",fontSize:10,fontWeight:600,color:at===tab.id?c.ac:c.dim}}>{tab.icon(at===tab.id)}{tab.label}</button>))}
     </div>}
   </div>);
 }
