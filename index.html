@@ -684,7 +684,7 @@
     document.querySelectorAll('#dcaFreq button').forEach(function(b){
       b.addEventListener('click', function(){
         document.querySelectorAll('#dcaFreq button').forEach(function(x){x.classList.remove('active')});
-        b.classList.add('active'); freq = b.dataset.f;
+        b.classList.add('active'); freq = b.dataset.f; calculate();
       });
     });
 
@@ -708,7 +708,7 @@
         var n=document.createElement('div'); n.className='n'; n.textContent=c.name;
         var s=document.createElement('div'); s.className='s'; s.textContent=c.symbol+(c.rank?' · #'+c.rank:'');
         box.appendChild(n); box.appendChild(s); el.appendChild(img); el.appendChild(box);
-        el.addEventListener('click', function(){ sel={id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb}; input.value=c.name+' ('+c.symbol+')'; dd.style.display='none'; });
+        el.addEventListener('click', function(){ sel={id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb}; input.value=c.name+' ('+c.symbol+')'; dd.style.display='none'; calculate(); });
         dd.appendChild(el);
       });
       dd.style.display = list.length ? 'block':'none';
@@ -729,18 +729,30 @@
     document.addEventListener('click', function(ev){ if(!input.parentNode.contains(ev.target)) dd.style.display='none'; });
     function money(n){ if(n==null||isNaN(n)) return '$0'; var a=Math.abs(n); if(a>=1000) return '$'+n.toLocaleString('en-US',{maximumFractionDigits:0}); if(a>=1) return '$'+n.toFixed(2); return '$'+n.toFixed(a<0.0001?8:4); }
     function genDates(start,end,f){ var d=[],c=new Date(start),e=new Date(end); while(c<=e){ d.push(new Date(c)); if(f==='daily')c.setDate(c.getDate()+1); else if(f==='weekly')c.setDate(c.getDate()+7); else if(f==='biweekly')c.setDate(c.getDate()+14); else c.setMonth(c.getMonth()+1);} return d; }
-    var btn=document.getElementById('dcaBtn'), msg=document.getElementById('dcaMsg');
-    btn.addEventListener('click', function(){
+    var btn=document.getElementById('dcaBtn'), msg=document.getElementById('dcaMsg'), amtEl=document.getElementById('dcaAmt');
+
+    // History is cached PER COIN, so changing the amount/frequency/dates recomputes
+    // instantly with no new request; only switching coins fetches (and that's CDN-cached).
+    var histCache = {};
+    function getHistory(id){
+      if (histCache[id]) return Promise.resolve(histCache[id]);
+      return fetch('/api/history?id='+encodeURIComponent(id)).then(function(r){return r.ok?r.json():{prices:[]};})
+        .then(function(d){ histCache[id]=(d&&d.prices)||[]; return histCache[id]; })
+        .catch(function(){ histCache[id]=[]; return histCache[id]; });
+    }
+
+    // ONE calculation path — called by the button AND by every input change, so the
+    // result always reflects the current coin / amount / frequency / dates.
+    function calculate(){
       msg.textContent='';
-      var amount=parseFloat(document.getElementById('dcaAmt').value), start=startEl.value, end=endEl.value;
+      var amount=parseFloat(amtEl.value), start=startEl.value, end=endEl.value;
       if(!sel){ msg.textContent='Pick a coin first.'; return; }
       if(!amount||amount<=0){ msg.textContent='Enter an amount.'; return; }
-      if(!start||!end||new Date(start)>=new Date(end)){ msg.textContent='Pick a valid date range.'; return; }
+      if(!start||!end||new Date(start)>=new Date(end)){ msg.textContent='Pick a valid date range (start before end).'; return; }
       btn.textContent='Calculating...'; btn.disabled=true;
       // Only the (CDN-cached) history is needed; its latest point is "today's price".
-      fetch('/api/history?id='+encodeURIComponent(sel.id)).then(function(r){return r.ok?r.json():{prices:[]};}).then(function(out){
-        var hist=(out&&out.prices)||[];
-        if(!hist.length){ msg.textContent='No historical data for this coin/range. Try a more recent start date.'; return; }
+      getHistory(sel.id).then(function(hist){
+        if(!hist.length){ msg.textContent='No historical data for this coin. Try another coin or a more recent start date.'; return; }
         var startMs=new Date(start).getTime(), earliest=hist[0][0]; if(startMs<earliest)startMs=earliest;
         var dates=genDates(new Date(startMs), new Date(end), freq);
         var coins=0,invested=0,buys=0;
@@ -758,7 +770,13 @@
         document.getElementById('dcaRNow').textContent=money(nowP);
         document.getElementById('dcaRes').classList.add('show');
       }).catch(function(){ msg.textContent='Could not load price data. Try again.'; }).then(function(){ btn.textContent='Calculate returns'; btn.disabled=false; });
-    });
+    }
+
+    // Recalculate live on every input change (amount is debounced while typing).
+    btn.addEventListener('click', calculate);
+    var amtT; amtEl.addEventListener('input', function(){ clearTimeout(amtT); amtT=setTimeout(calculate, 350); });
+    startEl.addEventListener('change', calculate);
+    endEl.addEventListener('change', calculate);
   })();
 </script>
 </body>
