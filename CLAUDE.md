@@ -17,7 +17,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 ## Architecture
 - **Multi-page Vite:** `index.html` = static marketing landing (`#dca` = free DCA calculator); `app.html` = React user app (`main.jsx` routes `/app`, `/edge`, `/pro-success`); `admin.html` = SEPARATE admin app (`admin-main.jsx`) served at `/admin` — its code is NOT in the user bundle.
 - **Code-split for fast first loads:** `main.jsx` lazy-loads routes; `vite.config.js` `manualChunks` isolates Firebase into its own cached chunk. Keep the entry chunk small.
-- **Backend = `functions/index.js`** (Node 20, CommonJS). `api` HTTP function proxies CoinGecko with shared, cached Firestore docs so upstream cost is FLAT regardless of user count. PayPal + admin callables also live here.
+- **Backend = `functions/index.js`** (Node 22, CommonJS). `api` HTTP function proxies CoinGecko with shared, cached Firestore docs so upstream cost is FLAT regardless of user count. PayPal + admin callables also live here.
 - **Data layer:** Firestore via `firebase-database.js` / `firebase-auth.js`; counters maintained with `writeBatch` + `increment`.
 
 ## Security model (don't break these)
