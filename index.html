@@ -715,7 +715,7 @@
     }
     function render(list){
       dd.textContent = '';
-      list.slice(0,8).forEach(function(c){
+      list.slice(0,50).forEach(function(c){
         // Build with textContent (NOT innerHTML) so coin names can't inject HTML/JS.
         var el=document.createElement('div'); el.className='opt';
         var img=document.createElement('img'); img.alt=''; if(c.thumb) img.src=c.thumb; img.onerror=function(){this.style.visibility='hidden';};
@@ -731,14 +731,19 @@
     input.addEventListener('focus', loadCoins);   // warm the list on first focus
     input.addEventListener('input', function(){
       var q = input.value.trim().toLowerCase();
-      if (q.length < 2){ dd.style.display='none'; return; }
+      if (q.length < 1){ dd.style.display='none'; return; }
       loadCoins().then(function(all){
-        var m = [];
-        for (var i=0;i<all.length && m.length<40;i++){
+        // Two buckets: coins that START WITH the typed letters come first (what you'd
+        // expect when typing "t" → "te" …), then "contains" matches. Each bucket stays
+        // in the server's rank order, so the most established coins float to the top.
+        var pre = [], sub = [];
+        for (var i=0;i<all.length;i++){
           var c = all[i];
-          if (c.id.indexOf(q)>=0 || (c.name||'').toLowerCase().indexOf(q)>=0 || (c.symbol||'').toLowerCase().indexOf(q)>=0) m.push(c);
+          var name=(c.name||'').toLowerCase(), sym=(c.symbol||'').toLowerCase(), id=(c.id||'').toLowerCase();
+          if (sym.indexOf(q)===0 || name.indexOf(q)===0 || id.indexOf(q)===0){ if (pre.length<50) pre.push(c); }
+          else if (sym.indexOf(q)>=0 || name.indexOf(q)>=0 || id.indexOf(q)>=0){ if (sub.length<50) sub.push(c); }
         }
-        render(m);   // list is already rank-sorted from the server
+        render(pre.concat(sub));
       });
     });
     document.addEventListener('click', function(ev){ if(!input.parentNode.contains(ev.target)) dd.style.display='none'; });
