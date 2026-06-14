@@ -139,7 +139,7 @@ Stripe takes ~3% per transaction (much less than Apple's 30%).
 
 # Cloud Functions
 
-All backend functions live in `functions/index.js` (Node 20, deployed with `firebase deploy --only functions`). **Deploying functions requires the Blaze (pay-as-you-go) plan** — it has a generous always-free monthly allowance, but a card must be on file. The local emulator runs them for free.
+All backend functions live in `functions/index.js` (Node 22, deployed with `firebase deploy --only functions`). **Deploying functions requires the Blaze (pay-as-you-go) plan** — it has a generous always-free monthly allowance, but a card must be on file. The local emulator runs them for free.
 
 | Function | Type | Purpose |
 |----------|------|---------|
@@ -211,6 +211,8 @@ Tiny — all within Firebase's free tier (1 GiB Firestore):
 ---
 
 # Running locally (one command)
+
+> **Prerequisite: Node.js 22** — this matches the Cloud Functions production runtime (`functions/package.json` → `engines.node: "22"`). Keeping your local Node on 22 means the emulator behaves like deploy. Check with `node -v`; get it from [nodejs.org](https://nodejs.org/dist/latest-v22.x/).
 
 ```bash
 npm run start:all
