@@ -9,12 +9,12 @@ a static marketing landing, a React user app, a separate admin app, and Cloud Fu
 crypto-idea/
 ├── index.html / app.html / admin.html / privacy.html / terms.html   ← multi-page Vite entries
 ├── src/                          ← frontend (layered — see src/ARCHITECTURE.md)
-│   ├── CryptoIdea.jsx            ← main user-app shell (mid-refactor: see NEXT-STEPS.md)
+│   ├── CryptoIdea.jsx            ← user-app shell: effects + handlers + ctx + router (all screens extracted)
 │   ├── main.jsx / admin-main.jsx ← React entries
-│   ├── api/                      ← data fetching (firebase auth/db/config, coingecko, config)
-│   ├── hooks/                    ← state + business logic (useCoinSearch, useLivePrices, app-context)
-│   ├── components/               ← UI (page UIs + shared ui.jsx/StatusDot + extracted screens)
-│   └── utils/                    ← pure helpers (format, coins+DCA model, theme tokens)
+│   ├── api/                      ← data fetching (firebase auth/db/config, coingecko, config, account)
+│   ├── hooks/                    ← state + logic (useAuthSession, usePortfolios, useCoinSearch, useLivePrices, app-context)
+│   ├── components/               ← UI: every user screen (Login/Portfolio/Account/Detail/…) + shared ui.jsx/StatusDot
+│   └── utils/                    ← pure helpers (format, coins+DCA model, theme tokens, storage)
 ├── functions/index.js           ← Cloud Functions (CoinGecko proxy, PayPal, admin/GDPR callables)
 ├── firestore.rules              ← security rules
 ├── tests/                       ← rules + data-layer (node:test) and unit/ (Vitest)
@@ -22,10 +22,11 @@ crypto-idea/
 └── NEXT-STEPS.md                ← what's left to do (refactor, known bug, go-live)
 ```
 
-> **Frontend architecture is layered** (`api` / `hooks` / `components` / `utils`) and being
-> migrated out of the historically-monolithic `CryptoIdea.jsx`. The rules, current state, and
-> known layer violations live in [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md); the to-do list
-> lives in [`NEXT-STEPS.md`](NEXT-STEPS.md).
+> **Frontend architecture is layered** (`api` / `hooks` / `components` / `utils`). The
+> historically-monolithic `CryptoIdea.jsx` (~1,560 lines) has been peeled into per-screen
+> components + hooks; it now holds only the auth/data effects, mutation handlers, shared context,
+> and the router shell. The rules, current state, and remaining layer violations live in
+> [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md); the to-do list lives in [`NEXT-STEPS.md`](NEXT-STEPS.md).
 
 ## Tests
 
