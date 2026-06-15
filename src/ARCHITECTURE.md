@@ -23,18 +23,24 @@ src/
     (`fetchPrices`, `searchCoins`) and `config.js` (`fetchSiteConfig`). `CryptoIdea.jsx`
     no longer calls `fetch()` directly.
   - `utils/` — `format.js` (pure formatters: `fmtP`, `fmtMc`, `fmtPct`, `uid`, `fmtDT`,
-    `timeBetween`) and `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
-    price model `getHistoricalPrice`).
+    `timeBetween`), `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
+    price model `getHistoricalPrice`), and `theme.js` (visual tokens `c`, `inp_s`,
+    `lbl_s`, `sb`).
   - `hooks/` — `useCoinSearch(sq)` (Add Coin search: built-in matches + debounced live
     results) and `useLivePrices(portfolio)` (mock-seeded prices, then 60s polling).
-  - `components/` — the standalone page UIs: `education-page.jsx`, `pro-success.jsx`,
-    `admin-dashboard.jsx`. `src/` root now holds only the Vite entries (`main.jsx`,
+  - `components/` — standalone page UIs (`education-page.jsx`, `pro-success.jsx`,
+    `admin-dashboard.jsx`) + shared primitives `ui.jsx` (`Ic` icons, `CI` coin icon,
+    `hdr` header row). `src/` root now holds only the Vite entries (`main.jsx`,
     `admin-main.jsx`) and the main app shell `CryptoIdea.jsx`.
-- **Not yet split (the hard core):** `CryptoIdea.jsx` (~1.07k lines, down from ~1.56k)
+  - **Test net:** `tests/unit/` (Vitest) — both hooks + a `CryptoIdea` smoke test that
+    renders the logged-out (login) and logged-in (portfolio) screens with `api/` mocked.
+    Run `npm run test:unit`. This guards the remaining screen extractions.
+- **Not yet split (the hard core):** `CryptoIdea.jsx` (~1.0k lines, down from ~1.56k)
   still holds the auth/data-load + profile-save effects, portfolio CRUD, the upgrade
-  flow, and every screen rendered as an inline closure. These are tightly coupled to
-  shared state (`user`, `screen`, `portfolios`, `activePortId`, `dataLoaded`) used
-  throughout the render, so further extraction (`useAuthSession`, `usePortfolios`, and
-  splitting the screens into `components/`) is real surgery, not a mechanical move —
-  do it screen-by-screen with browser verification, ideally behind a test net.
+  flow, `StatusDot` (reads `api`), and every screen rendered as an inline closure
+  (Login, Portfolio, AddEntry, CoinInfo, Account, …). These are tightly coupled to
+  shared state (`user`, `screen`, `portfolios`, `activePortId`, `dataLoaded`), so
+  splitting them into `components/` and extracting `useAuthSession`/`usePortfolios` is
+  real surgery — do it screen-by-screen, running `npm run test:unit` after each, and
+  pass shared state down as props (or via context if prop-drilling gets deep).
 - Multi-page Vite entries (`main.jsx`, `admin-main.jsx`) stay at the `src/` root.
