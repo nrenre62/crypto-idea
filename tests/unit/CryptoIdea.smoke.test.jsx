@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock the entire api/ + firebase boundary so the component renders without any
@@ -40,6 +40,14 @@ describe("CryptoIdea (smoke)", () => {
     onAuthChange.mockImplementation((cb) => { cb(null); return () => {}; });
     render(<CryptoIdea />);
     expect(await screen.findByText(/Track your investments/i)).toBeInTheDocument();
+  });
+
+  it("navigates from login to the password-reset screen (ForgotPass via context)", async () => {
+    onAuthChange.mockImplementation((cb) => { cb(null); return () => {}; });
+    render(<CryptoIdea />);
+    fireEvent.click(await screen.findByText(/Forgot password/i));
+    // Exact match -> the heading only (not the "...reset your password." sentence).
+    expect(await screen.findByText("Reset your password")).toBeInTheDocument();
   });
 
   it("renders the portfolio screen when logged in (exercises hdr/Ic/StatusDot)", async () => {
