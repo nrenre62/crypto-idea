@@ -27,7 +27,8 @@ src/
     price model `getHistoricalPrice`), and `theme.js` (visual tokens `c`, `inp_s`,
     `lbl_s`, `sb`).
   - `hooks/` — `useCoinSearch(sq)`, `useLivePrices(portfolio)`, `useAuthSession(...)` (auth
-    watch + profile save; owns `user`/`dataLoaded`), and `app-context.js` (`AppContext` + `useApp()`).
+    watch + profile save; owns `user`/`dataLoaded`), `usePortfolios()` (owns `portfolios`/
+    `activePortId` + `portfolio`/`setPortfolio`), and `app-context.js` (`AppContext` + `useApp()`).
   - `utils/storage.js` — `db` key/value wrapper over `window.storage` (JSON, error-swallowing).
   - `components/` — standalone page UIs (`education-page.jsx`, `pro-success.jsx`,
     `admin-dashboard.jsx`); shared primitives `ui.jsx` (`Ic`, `CI`, `hdr`) + `StatusDot.jsx`;

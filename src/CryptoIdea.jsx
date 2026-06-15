@@ -34,6 +34,7 @@ import { fetchSiteConfig } from "./api/config.js";
 import { useCoinSearch } from "./hooks/useCoinSearch.js";
 import { useLivePrices } from "./hooks/useLivePrices.js";
 import { useAuthSession } from "./hooks/useAuthSession.js";
+import { usePortfolios, DEFAULT_PORTFOLIOS } from "./hooks/usePortfolios.js";
 import { db } from "./utils/storage.js";
 import { c } from "./utils/theme.js";
 import { Ic } from "./components/ui.jsx";
@@ -84,12 +85,9 @@ export default function CryptoIdea(){
   const[downgradeTo,setDowngradeTo]=useState(null);  // null | "free" | "pro"
   const[showWelcome,setShowWelcome]=useState(null);  // null | "free" | "pro" | "premium"
   const[showPaymentFailedSim,setShowPaymentFailedSim]=useState(false);
-  const[portfolios,setPortfolios]=useState([{id:"default",name:"My Portfolio",coins:[]}]);
-  const[activePortId,setActivePortId]=useState("default");
+  const {portfolios,setPortfolios,activePortId,setActivePortId,portfolio,setPortfolio}=usePortfolios();
   const[showPortManager,setShowPortManager]=useState(false);
   const[newPortName,setNewPortName]=useState("");
-  const portfolio=portfolios.find(p=>p.id===activePortId)?.coins||[];
-  const setPortfolio=(fn)=>{setPortfolios(prev=>prev.map(p=>p.id===activePortId?{...p,coins:typeof fn==="function"?fn(p.coins):fn}:p))};
   // Auth session: owns user/dataLoaded + the auth-watch & profile-save effects.
   // Collaborators are passed as thin wrappers so functions defined lower in this
   // component (saveProfile, checkSubscriptionStatus) are referenced lazily.
@@ -191,7 +189,7 @@ export default function CryptoIdea(){
   const logout=async()=>{
     // Sign out of Firebase; onAuthChange will clear the session. No credentials are kept on the device.
     await logoutUser();
-    setUser(null);setPortfolios([{id:"default",name:"My Portfolio",coins:[]}]);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("")};
+    setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("")};
 
   // ── Self-service privacy (GDPR/CCPA): export + delete your own data ──
   const [acctBusy,setAcctBusy]=useState(false);
