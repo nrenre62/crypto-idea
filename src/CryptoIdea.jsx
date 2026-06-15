@@ -43,6 +43,7 @@ import { AppContext } from "./hooks/app-context.js";
 import { StatusDot } from "./components/StatusDot.jsx";
 import { ForgotPass } from "./components/ForgotPass.jsx";
 import { Contact } from "./components/Contact.jsx";
+import { Search } from "./components/Search.jsx";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -820,11 +821,7 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
   ):null;
 
   // ── Search ──
-  const Search=()=>(<>
-    {hdr(<button onClick={()=>{setScreen("portfolio");setSq("")}} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>{Ic.back}</button>,"Add Coin")}
-    <div style={{padding:"6px 18px 10px"}}><input type="text" value={sq} onChange={e=>setSq(e.target.value)} placeholder="Search coins... (Bitcoin, ETH, SOL...)" style={inp_s} autoFocus/></div>
-    {searchResults.length>0?searchResults.map(coin=>{const ad=portfolio.find(x=>x.id===coin.id);return(<div key={coin.id} style={{display:"flex",alignItems:"center",padding:"10px 18px",gap:11,opacity:ad?0.4:1}}><CI thumb={coin.thumb} symbol={coin.symbol} size={36}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{coin.name}</div><div style={{fontSize:11,color:c.dim}}>{coin.symbol}{coin.rank?" · #"+coin.rank:""}</div></div>{coin.mockPrice!=null&&<span style={{fontSize:12,fontWeight:600,marginRight:6}}>{fmtP(coin.mockPrice)}</span>}<button onClick={()=>!ad&&addCoin(coin)} disabled={ad} style={sb(ad?c.inp:c.ac,ad?c.dim:c.bg)}>{ad?"Added":"+ Add"}</button></div>)}):sq.length>=1?(<div style={{textAlign:"center",padding:"36px",color:c.dim,fontSize:13}}>No results for "{sq}"</div>):(<div style={{textAlign:"center",padding:"44px 36px",color:c.dim}}><div style={{fontSize:38,marginBottom:10}}>🔍</div><div style={{fontSize:14,fontWeight:500,color:c.txt,marginBottom:5}}>Search any coin</div><div style={{fontSize:12,lineHeight:1.5}}>Type to find any coin, live</div></div>)}
-  </>);
+  // ── Add Coin / Search Screen → components/Search.jsx (reads context) ──
 
   // ── Detail ──
   const Detail=()=>{if(!sel)return null;const coin=portfolio.find(x=>x.id===sel.id)||sel;const p=prices[coin.id];const pr=p?.usd;const ch=p?.usd_24h_change;const mc=p?.usd_market_cap;const h=Math.max(0,coin.entries.reduce((s,e)=>e.type==="sell"?s-e.amount:s+e.amount,0));const buysCost=coin.entries.filter(e=>e.type!=="sell").reduce((s,e)=>s+e.amount*e.priceAtBuy,0);const sellsGain=coin.entries.filter(e=>e.type==="sell").reduce((s,e)=>s+e.amount*e.priceAtBuy,0);const inv=buysCost-sellsGain;const v=h*(pr||0);const pnl=v-inv;const pp=inv>0?(pnl/inv)*100:0;const totalPnl=(v+sellsGain)-buysCost;const totalPnlPct=buysCost>0?((v+sellsGain-buysCost)/buysCost)*100:0;
@@ -1005,7 +1002,8 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
 
   // Shared state + handlers for extracted screens (grows as screens migrate).
   const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,
-    user,contactMsg,setContactMsg,contactSent,setContactSent};
+    user,contactMsg,setContactMsg,contactSent,setContactSent,
+    sq,setSq,searchResults,portfolio,addCoin};
   return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:430,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {err&&<div style={{margin:"8px 16px",padding:"10px 14px",background:"#FFF0F0",color:c.red,borderRadius:12,fontSize:12,fontWeight:500,border:"1px solid #FFD0D0"}}>{err}</div>}
     {showPlan&&screen!=="login"&&(()=>{
@@ -1059,7 +1057,7 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
     })()}
     {screen==="account"&&Account()}
     {screen==="portfolio"&&Portfolio()}
-    {screen==="search"&&Search()}
+    {screen==="search"&&<Search/>}
     {screen==="detail"&&Detail()}
     {screen==="addEntry"&&AddEntry()}
     {screen==="coinInfo"&&CoinInfo()}

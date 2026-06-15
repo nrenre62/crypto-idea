@@ -60,4 +60,17 @@ describe("CryptoIdea (smoke)", () => {
     render(<CryptoIdea />);
     expect(await screen.findByText(/My Assets/i)).toBeInTheDocument();
   });
+
+  it("navigates from portfolio to the Add-Coin search screen (Search via context)", async () => {
+    onAuthChange.mockImplementation((cb) => {
+      cb({ uid: "u1", email: "pro@test.com", displayName: "Pro" });
+      return () => {};
+    });
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    // Bottom-nav "Search" tab -> screen "search" -> <Search/> renders its empty state.
+    fireEvent.click(screen.getByText("Search"));
+    expect(await screen.findByText("Add Coin")).toBeInTheDocument();
+    expect(screen.getByText("Search any coin")).toBeInTheDocument();
+  });
 });

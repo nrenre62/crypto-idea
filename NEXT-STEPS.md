@@ -27,7 +27,7 @@ JSX to `src/components/<Screen>.jsx` reading them via `useApp()` → render `<Sc
 
 Remaining (rough size order):
 - [x] `Contact` (~17 lines) — extracted to `components/Contact.jsx` (reads context); 4 isolated tests
-- [ ] `Search` (~35) — reachable by clicking "Add" on the logged-in portfolio (testable)
+- [x] `Search` (~35) — extracted to `components/Search.jsx`; real nav test (login → Search tab → Add-Coin)
 - [ ] `AddEntry` (~42)
 - [ ] `CoinInfo` (~35), `Detail` — need a coin in the test portfolio to render
 - [ ] `Account` (~148) — reachable via the tier badge on portfolio (testable)
