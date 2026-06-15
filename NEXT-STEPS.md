@@ -26,7 +26,7 @@ JSX to `src/components/<Screen>.jsx` reading them via `useApp()` → render `<Sc
 (not `Screen()`) → add/extend a navigation test → `npm run test:unit`.
 
 Remaining (rough size order):
-- [ ] `Contact` (~17 lines) — small, good next one
+- [x] `Contact` (~17 lines) — extracted to `components/Contact.jsx` (reads context); 4 isolated tests
 - [ ] `Search` (~35) — reachable by clicking "Add" on the logged-in portfolio (testable)
 - [ ] `AddEntry` (~42)
 - [ ] `CoinInfo` (~35), `Detail` — need a coin in the test portfolio to render
