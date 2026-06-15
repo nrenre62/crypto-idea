@@ -30,7 +30,7 @@ src/
     (`AppContext` + `useApp()`).
   - `components/` — standalone page UIs (`education-page.jsx`, `pro-success.jsx`,
     `admin-dashboard.jsx`); shared primitives `ui.jsx` (`Ic`, `CI`, `hdr`) + `StatusDot.jsx`;
-    and extracted screens `Loading.jsx`, `ForgotPass.jsx`, `Contact.jsx`, `Search.jsx`, `AddEntry.jsx`, `CoinInfo.jsx`, `Detail.jsx`, `Portfolio.jsx`+`PortfolioBar.jsx`. `src/` root now holds only the
+    and extracted screens `Loading.jsx`, `ForgotPass.jsx`, `Contact.jsx`, `Search.jsx`, `AddEntry.jsx`, `CoinInfo.jsx`, `Detail.jsx`, `Portfolio.jsx`+`PortfolioBar.jsx`, `Account.jsx`. `src/` root now holds only the
     Vite entries (`main.jsx`, `admin-main.jsx`) and the main app shell `CryptoIdea.jsx`.
   - **Context for screens:** `CryptoIdea.jsx` wraps its render in `<AppContext.Provider value={ctx}>`;
     extracted screens read shared state/handlers via `useApp()` instead of 25+ props each. The
@@ -47,7 +47,7 @@ must be a real element, not a conditional function call) → add/extend a naviga
 
 - **Not yet split (the hard core):** `CryptoIdea.jsx` (~1.0k lines, down from ~1.56k) still
   holds the auth/data-load + profile-save effects, portfolio CRUD, the upgrade flow, and most
-  screens as inline closures (`Login`, `Account`).
+  screens as inline closures (`Login`, incl. the upgrade/plan overlay).
   **See [`../NEXT-STEPS.md`](../NEXT-STEPS.md) for the
   full remaining checklist.**
 - Multi-page Vite entries (`main.jsx`, `admin-main.jsx`) stay at the `src/` root.

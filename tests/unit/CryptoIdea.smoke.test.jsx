@@ -73,4 +73,17 @@ describe("CryptoIdea (smoke)", () => {
     expect(await screen.findByText("Add Coin")).toBeInTheDocument();
     expect(screen.getByText("Search any coin")).toBeInTheDocument();
   });
+
+  it("navigates from portfolio to the Account screen via the tier badge (Account via context)", async () => {
+    onAuthChange.mockImplementation((cb) => {
+      cb({ uid: "u1", email: "free@test.com", displayName: "Free" });
+      return () => {};
+    });
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    // Header tier badge (free user -> "STARTER") -> screen "account" -> <Account/>.
+    fireEvent.click(screen.getByText("STARTER"));
+    expect(await screen.findByText("Your Plan Usage")).toBeInTheDocument();
+    expect(screen.getByText("Privacy & your data")).toBeInTheDocument();
+  });
 });
