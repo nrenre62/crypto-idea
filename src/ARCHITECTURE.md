@@ -25,9 +25,11 @@ src/
   - `utils/` — `format.js` (pure formatters: `fmtP`, `fmtMc`, `fmtPct`, `uid`, `fmtDT`,
     `timeBetween`) and `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
     price model `getHistoricalPrice`).
-- **Not yet split:** `CryptoIdea.jsx` (~1.1k lines, down from ~1.5k) still mixes UI +
-  business logic (state, portfolio math, screen rendering). It will be peeled into
-  `hooks/` (stateful logic) and `components/` (presentational screens) over subsequent
-  commits. `admin-dashboard.jsx`, `education-page.jsx`, `pro-success.jsx` are UI that
-  will move into `components/`.
+  - `hooks/` — `useCoinSearch(sq)` (Add Coin search: built-in matches + debounced live
+    results) and `useLivePrices(portfolio)` (mock-seeded prices, then 60s polling).
+- **Not yet split:** `CryptoIdea.jsx` (~1.07k lines, down from ~1.56k) still mixes UI +
+  remaining business logic (auth/data-load, portfolio mutations, upgrade flow) with
+  screen rendering. Further `hooks/` (e.g. `useAuthSession`, `usePortfolios`) and the
+  `components/` split (presentational screens; plus moving `admin-dashboard.jsx`,
+  `education-page.jsx`, `pro-success.jsx`) are the remaining work.
 - Multi-page Vite entries (`main.jsx`, `admin-main.jsx`) stay at the `src/` root.
