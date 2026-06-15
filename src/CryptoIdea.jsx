@@ -31,10 +31,11 @@ import {
   updateTransaction as dbUpdateTransaction,
   deleteTransaction as dbDeleteTransaction,
 } from "./api/firebase-database.js";
-import { fetchPrices, searchCoins } from "./api/coingecko.js";
+import { fetchPrices } from "./api/coingecko.js";
 import { fetchSiteConfig } from "./api/config.js";
 import { fmtP, fmtMc, fmtPct, uid, fmtDT, timeBetween } from "./utils/format.js";
 import { TOP_COINS, PRICE_HISTORY, getHistoricalPrice } from "./utils/coins.js";
+import { useCoinSearch } from "./hooks/useCoinSearch.js";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -97,7 +98,6 @@ export default function CryptoIdea(){
   const setPortfolio=(fn)=>{setPortfolios(prev=>prev.map(p=>p.id===activePortId?{...p,coins:typeof fn==="function"?fn(p.coins):fn}:p))};
   const[prices,setPrices]=useState({});
   const[sq,setSq]=useState("");
-  const[liveCoins,setLiveCoins]=useState([]);  // live CoinGecko search results (any coin)
   const[sel,setSel]=useState(null);
   const[err,setErr]=useState("");
   const isPro=user?.tier==="pro"||user?.tier==="premium";
@@ -192,24 +192,8 @@ export default function CryptoIdea(){
 
   useEffect(()=>{if(!portfolio.length)return;const ids=portfolio.map(c=>c.id).join(",");const f=()=>fetchPrices(ids).then(d=>{if(d){setPrices(p=>({...p,...d}));setApi("live")}});f();const iv=setInterval(f,60000);return()=>clearInterval(iv)},[portfolio]);
 
-  const sr=useMemo(()=>{if(sq.length<1)return[];const q=sq.toLowerCase();return TOP_COINS.filter(c=>c.name.toLowerCase().startsWith(q)||c.symbol.toLowerCase().startsWith(q)).slice(0,25)},[sq]);
-
-  // ═══ Live coin search via the /api proxy (any coin on CoinGecko) ═══
-  useEffect(()=>{
-    const q=sq.trim();
-    if(q.length<2){setLiveCoins([]);return}
-    let cancelled=false;
-    const t=setTimeout(()=>{
-      searchCoins(q).then(coins=>{if(!cancelled&&coins)setLiveCoins(coins)});
-    },300);
-    return()=>{cancelled=true;clearTimeout(t)};
-  },[sq]);
-
-  // Local top-coin matches first, then any other live results (deduped)
-  const searchResults=useMemo(()=>{
-    const seen=new Set(sr.map(c=>c.id));
-    return [...sr,...liveCoins.filter(c=>!seen.has(c.id))];
-  },[sr,liveCoins]);
+  // Coin search for the Add Coin screen (built-in matches + debounced live results).
+  const searchResults=useCoinSearch(sq);
 
   const showErr=(m)=>{setErr(m);setTimeout(()=>setErr(""),3000)};
 
