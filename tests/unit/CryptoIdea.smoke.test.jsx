@@ -1,13 +1,13 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock the entire api/ + firebase boundary so the component renders without any
-// network/Firebase. This is the regression anchor for the upcoming screen
-// extractions: if a refactor breaks the render, this test fails.
+// network/Firebase. This is the regression anchor for the screen extractions:
+// if a refactor breaks a screen render, these tests fail.
 vi.mock("firebase/functions", () => ({ httpsCallable: () => vi.fn() }));
 vi.mock("../../src/api/firebase.config.js", () => ({ functions: {} }));
 vi.mock("../../src/api/firebase-auth.js", () => ({
-  onAuthChange: (cb) => { cb(null); return () => {}; }, // logged out -> login screen
+  onAuthChange: vi.fn(),
   registerUser: vi.fn(),
   loginUser: vi.fn(),
   logoutUser: vi.fn(),
@@ -30,11 +30,26 @@ vi.mock("../../src/api/coingecko.js", () => ({
 }));
 vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn().mockResolvedValue(null) }));
 
+import { onAuthChange } from "../../src/api/firebase-auth.js";
 import CryptoIdea from "../../src/CryptoIdea.jsx";
 
 describe("CryptoIdea (smoke)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("renders the login screen when logged out", async () => {
+    onAuthChange.mockImplementation((cb) => { cb(null); return () => {}; });
     render(<CryptoIdea />);
     expect(await screen.findByText(/Track your investments/i)).toBeInTheDocument();
+  });
+
+  it("renders the portfolio screen when logged in (exercises hdr/Ic/StatusDot)", async () => {
+    // A user with no subscription -> checkSubscriptionStatus returns immediately,
+    // so no callable runs. Empty portfolios -> the default empty portfolio screen.
+    onAuthChange.mockImplementation((cb) => {
+      cb({ uid: "u1", email: "pro@test.com", displayName: "Pro" });
+      return () => {};
+    });
+    render(<CryptoIdea />);
+    expect(await screen.findByText(/My Assets/i)).toBeInTheDocument();
   });
 });
