@@ -15,8 +15,8 @@ import ReactDOM from "react-dom/client";
 // then stream in as a separate chunk. NOTE: this only changes how *our* code imports
 // things — no Firebase/Google package file is modified, so npm updates stay clean.
 const CryptoIdea = lazy(() => import("./CryptoIdea.jsx"));
-const Education = lazy(() => import("./education-page.jsx"));
-const ProSuccess = lazy(() => import("./pro-success.jsx"));
+const Education = lazy(() => import("./components/education-page.jsx"));
+const ProSuccess = lazy(() => import("./components/pro-success.jsx"));
 
 function Loading() {
   return (

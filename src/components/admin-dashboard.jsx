@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "./api/firebase.config.js";
+import { functions } from "../api/firebase.config.js";
 
 const TIERS = {
   free:    { label:"Free",    color:"#FF9500", limits:{ portfolios:1, coins:10, transactions:50 }, storage:"5 MB", price:"$0" },

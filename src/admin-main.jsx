@@ -14,7 +14,7 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { onAuthChange, loginUser, logoutUser } from "./api/firebase-auth.js";
 import { auth } from "./api/firebase.config.js";
-import AdminDashboard from "./admin-dashboard.jsx";
+import AdminDashboard from "./components/admin-dashboard.jsx";
 
 const wrap = { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 };
 const card = { width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12, background: "#fff", border: "1px solid #E8E8ED", borderRadius: 16, padding: 24, boxShadow: "0 6px 30px #0000000d" };
