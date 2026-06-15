@@ -55,7 +55,7 @@ Most state + logic still lives in the `CryptoIdea.jsx` component. Pull into hook
 - [ ] `useUpgrade` — `startUpgrade`, downgrade flow, `trimToTier`, `getTrimImpact`, `calcEndDate`
 
 ### 1c. Move backend calls out of components (closes audit rule 1)
-- [ ] `CryptoIdea.jsx` calls `httpsCallable(functions, "exportMyData"/"deleteMyAccount")` directly. Move into `src/api/account.js` (e.g. `exportMyData()`, `deleteMyAccount()`), call from a hook.
+- [x] `CryptoIdea.jsx` calls `httpsCallable(functions, "exportMyData"/"deleteMyAccount")` directly. → Moved into `src/api/account.js` (`exportMyData()`, `deleteMyAccount()`); component imports them, no longer touches `httpsCallable`/`functions`. 2 tests.
 - [ ] `components/admin-dashboard.jsx` calls Cloud Functions via `httpsCallable` directly. Move those into an `api/admin.js` and have the dashboard consume a hook.
 - [ ] `components/pro-success.jsx` defines a local `c` theme — import `utils/theme.js` instead.
 

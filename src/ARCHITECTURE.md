@@ -56,8 +56,9 @@ must be a real element, not a conditional function call) → add/extend a naviga
 
 ## Known layer violations (audit)
 The layered rules aren't fully satisfied yet — these are the gaps the migration is closing:
-1. **Components doing fetch/logic:** `CryptoIdea.jsx` (calls `httpsCallable` for PayPal/GDPR;
-   holds most state/logic) and `admin-dashboard.jsx` (calls Cloud Functions directly).
+1. **Components doing fetch/logic:** PARTIALLY CLOSED — `CryptoIdea.jsx` no longer calls
+   `httpsCallable` directly (GDPR export/delete now in `api/account.js`). Still: it holds most
+   state/logic, and `admin-dashboard.jsx` calls Cloud Functions directly (→ future `api/admin.js`).
 2. **State/logic not in hooks:** PARTIALLY CLOSED — the auth session (`user`/`dataLoaded` + auth
    effects) now lives in `useAuthSession`. Still in `CryptoIdea.jsx`: portfolio CRUD + the upgrade
    flow (next: `usePortfolios`, `useUpgrade`).

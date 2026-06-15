@@ -19,8 +19,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser } from "./api/firebase-auth.js";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "./api/firebase.config.js";
+import { exportMyData, deleteMyAccount as apiDeleteMyAccount } from "./api/account.js";
 import {
   createPortfolio as dbCreatePortfolio,
   deletePortfolio as dbDeletePortfolio,
@@ -198,8 +197,8 @@ export default function CryptoIdea(){
   const downloadMyData=async()=>{
     setAcctBusy(true);setAcctMsg("");
     try{
-      const r=await httpsCallable(functions,"exportMyData")();
-      const blob=new Blob([JSON.stringify(r.data,null,2)],{type:"application/json"});
+      const data=await exportMyData();
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
       const url=URL.createObjectURL(blob);
       const a=document.createElement("a");a.href=url;a.download="crypto-idea-my-data.json";a.click();
       URL.revokeObjectURL(url);
@@ -210,7 +209,7 @@ export default function CryptoIdea(){
   const deleteMyAccount=async()=>{
     setAcctBusy(true);setAcctMsg("");
     try{
-      await httpsCallable(functions,"deleteMyAccount")();
+      await apiDeleteMyAccount();
       await logoutUser();
       setUser(null);setScreen("login");
     }catch(e){setAcctMsg((e&&e.message)||"Delete failed");setAcctBusy(false);}
