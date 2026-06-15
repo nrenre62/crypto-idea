@@ -34,7 +34,7 @@ Remaining (rough size order):
 - [x] `CoinInfo` (~95) — extracted to `components/CoinInfo.jsx`; 4 isolated tests (held/not-held branches). Dropped dead `milestones` var.
 - [x] `Detail` — extracted to `components/Detail.jsx`; 3 isolated tests (P/L summary, tx list, empty). Dropped dead `inv`/`pnl`/`pp` + orphaned format/coins imports.
 - [ ] `Account` (~148) — reachable via the tier badge on portfolio (testable)
-- [ ] `PortfolioBar` (~10, helper) + `Portfolio` (~55) — Portfolio is covered by the logged-in smoke test
+- [x] `PortfolioBar` (~10, helper) + `Portfolio` (~55) — extracted to `components/`; 6 isolated tests (asset list, upgrade nudge, switcher branches) + smoke test. Cleaned 6 now-orphaned shell imports (fmtP/fmtPct/sb/CI/hdr/StatusDot).
 - [ ] `Login` (~110, biggest — includes the upgrade/plan overlay) — covered logged-out
 
 ### 1b. Extract business logic into hooks (closes audit rules 1 & 2)
