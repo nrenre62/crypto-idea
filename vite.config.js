@@ -60,8 +60,10 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
-    open: true,
+    // Honor a PORT override (e.g. a second instance / preview runner) and only
+    // auto-open a browser for the default local dev run.
+    port: process.env.PORT ? Number(process.env.PORT) : 3000,
+    open: !process.env.PORT,
     // Forward /api/* to the local Functions emulator (the CoinGecko proxy).
     // In production, Firebase Hosting rewrites /api/** to the same function.
     proxy: {
