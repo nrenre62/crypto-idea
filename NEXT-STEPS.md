@@ -59,15 +59,22 @@ want explicit MVC separation:**
 
 ---
 
-## 3. Known bug to investigate
+## 3. Known bug — FIXED (seed/schema mismatch, not an app bug)
 
-- [ ] **Seeded portfolios don't load / adding a coin silently fails.** Logging in as
-  `pro@test.com` (seeded with portfolios + coins) shows **0 coins**, and adding a coin
-  to the unloaded local `"default"` portfolio fails: `addCoin` only updates the UI when
-  `dbAddCoin` succeeds, but the Firestore counter/ownership write is rejected because that
-  portfolio doc doesn't exist for the user. Check `loadPortfolios` / `getPortfolios(uid)`
-  path vs. what `seed-emulator.js` writes. (Found during refactor verification; unrelated
-  to the refactor. May be a seed/path mismatch or a real load bug — confirm which.)
+- [x] **Seeded portfolios don't load / adding a coin silently fails.** Root cause: a
+  **seed/schema mismatch**, confirmed not an app bug. `getPortfolios()` queries
+  `orderBy("order")`, and Firestore **excludes any document missing the ordered field**.
+  Real registration (`firebase-auth.js`) creates portfolios *with* `order` + `created`, but
+  `seed-emulator.js` wrote `{ name, coinCount, createdAt }` with **no `order`** — so the
+  seeded portfolios were dropped from the query, the app fell back to its in-memory
+  `"default"` portfolio (which has no Firestore doc for that uid), and adding a coin then
+  `update()`d a non-existent doc → "Couldn't add coin." Fix: `seed-emulator.js` now writes
+  `order` + `created` (matching the app schema) and seeds real coins (BTC/ETH/SOL/…) so
+  `pro@test.com` loads 2 portfolios with 6 + 4 coins. Verified by running the identical
+  `orderBy("order")` query against the emulator (returned 2 portfolios, was 0).
+  - Latent (out of scope, pre-existing): if `getPortfolios` ever returns empty for a
+    logged-in user, the phantom local `"default"` would still fail on coin-add. Real users
+    never hit this (registration always creates the default with `order`).
 
 ---
 

@@ -11,6 +11,21 @@ const auth = admin.auth();
 const db = admin.firestore();
 const now = admin.firestore.FieldValue.serverTimestamp();
 
+// Pool of real coins so seeded portfolios render like real data in the app.
+// Field shape MUST match what the app writes (see api/firebase-database.js addCoin).
+const COIN_POOL = [
+  { id: "bitcoin",      symbol: "BTC",   name: "Bitcoin" },
+  { id: "ethereum",     symbol: "ETH",   name: "Ethereum" },
+  { id: "solana",       symbol: "SOL",   name: "Solana" },
+  { id: "cardano",      symbol: "ADA",   name: "Cardano" },
+  { id: "polkadot",     symbol: "DOT",   name: "Polkadot" },
+  { id: "chainlink",    symbol: "LINK",  name: "Chainlink" },
+  { id: "avalanche-2",  symbol: "AVAX",  name: "Avalanche" },
+  { id: "ripple",       symbol: "XRP",   name: "XRP" },
+  { id: "dogecoin",     symbol: "DOGE",  name: "Dogecoin" },
+  { id: "litecoin",     symbol: "LTC",   name: "Litecoin" },
+];
+
 // portfolios: array of coin-counts, e.g. [6, 4] = two portfolios with 6 and 4 coins.
 async function makeUser(email, password, tier, portfolios, isAdmin) {
   let u;
@@ -24,9 +39,14 @@ async function makeUser(email, password, tier, portfolios, isAdmin) {
   for (let i = 0; i < portfolios.length; i++) {
     const coinCount = portfolios[i];
     const pRef = userRef.collection("portfolios").doc(`p${i + 1}`);
-    await pRef.set({ name: `Portfolio ${i + 1}`, coinCount, createdAt: now });
+    // `order` + `created` MUST match the app's schema: getPortfolios() queries
+    // orderBy("order"), and Firestore drops any doc missing that field.
+    await pRef.set({ name: `Portfolio ${i + 1}`, order: i, created: now, coinCount });
     for (let j = 0; j < coinCount; j++) {
-      await pRef.collection("coins").doc(`coin${j}`).set({ symbol: `C${j}`, txCount: 0 });
+      const coin = COIN_POOL[j % COIN_POOL.length];
+      await pRef.collection("coins").doc(coin.id).set({
+        symbol: coin.symbol, name: coin.name, thumb: "", addedAt: now, txCount: 0
+      });
     }
   }
 }
