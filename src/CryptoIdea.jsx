@@ -33,6 +33,7 @@ import {
 } from "./api/firebase-database.js";
 import { fetchPrices, searchCoins } from "./api/coingecko.js";
 import { fetchSiteConfig } from "./api/config.js";
+import { fmtP, fmtMc, fmtPct, uid, fmtDT, timeBetween } from "./utils/format.js";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -513,16 +514,6 @@ const PRICE_HISTORY = {
     [2024,3,0.7],[2024,12,0.45],
     [2025,4,0.58]]
 };
-
-
-// ── Helpers ──
-function fmtP(p){if(p==null)return"—";if(p>=1)return"$"+p.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});if(p>=0.01)return"$"+p.toFixed(4);if(p>=0.0001)return"$"+p.toFixed(6);return"$"+p.toFixed(10)}
-function fmtMc(m){if(!m)return"—";if(m>=1e12)return"$"+(m/1e12).toFixed(2)+"T";if(m>=1e9)return"$"+(m/1e9).toFixed(2)+"B";if(m>=1e6)return"$"+(m/1e6).toFixed(2)+"M";return"$"+m.toLocaleString()}
-function fmtPct(v){if(v==null)return"—";return(v>=0?"+":"")+v.toFixed(2)+"%"}
-function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
-function fmtDT(d){if(!d)return"";const x=new Date(d);return x.toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"})+" "+x.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
-
-function timeBetween(s,e){const a=new Date(s),b=new Date(e);let y=b.getFullYear()-a.getFullYear(),m=b.getMonth()-a.getMonth(),d=b.getDate()-a.getDate();if(d<0){m--;d+=new Date(b.getFullYear(),b.getMonth(),0).getDate()}if(m<0){y--;m+=12}const td=Math.floor((b-a)/(864e5));return{years:y,months:m,days:d,totalDays:td}}
 
 
 // Interpolate real historical price from milestones
