@@ -1,10 +1,12 @@
-# Crypto Idea — Next Steps / What's Left
+# Crypto Idea — Product Backlog (Next Steps)
 
-> Status snapshot. Last updated end of the architecture-refactor session.
-> The app is feature-complete and runs locally; the work below is (1) finishing
-> an in-progress architecture refactor, (2) a known bug, and (3) go-live tasks.
+> This is the **prioritized product backlog** for our [Agile workflow](AGILE.md): top = next.
+> Each item is a small, shippable increment finished to the **Definition of Done** in AGILE.md.
+> The app is feature-complete and runs locally; the work below is (1) finishing an in-progress
+> architecture refactor, (2) a known bug, and (3) go-live tasks.
 
-See also: [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md) (layer rules + migration detail),
+See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
+[`src/ARCHITECTURE.md`](src/ARCHITECTURE.md) (layer rules + migration detail),
 [`README.md`](README.md) (backend/proxy/deploy), [`CLAUDE.md`](CLAUDE.md) (conventions).
 
 ---

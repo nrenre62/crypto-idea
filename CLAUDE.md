@@ -27,6 +27,10 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - Output encoding: React auto-escapes; the static landing uses `textContent`, never `innerHTML`, for API data.
 
 ## Conventions
+- **Agile workflow ([`AGILE.md`](AGILE.md)):** work the prioritized backlog (`NEXT-STEPS.md`) one
+  small, shippable increment at a time; every increment meets the **Definition of Done** (KISS +
+  secure, tests green, verified, committed, docs updated). Retrospective = Kaizen (leave it better,
+  log new opportunities).
 - **KISS by design:** build the simplest thing that works — plain readable code, fewer moving
   parts, no new dependency when a few lines do, no premature optimization. Simple = fewer bugs,
   faster loads, easier fixes, smaller attack surface. Pairs with security-first below.
