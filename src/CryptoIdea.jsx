@@ -36,6 +36,7 @@ import { fmtP, fmtMc, fmtPct, uid, fmtDT, timeBetween } from "./utils/format.js"
 import { TOP_COINS, PRICE_HISTORY, getHistoricalPrice } from "./utils/coins.js";
 import { useCoinSearch } from "./hooks/useCoinSearch.js";
 import { useLivePrices } from "./hooks/useLivePrices.js";
+import { c, inp_s, lbl_s, sb } from "./utils/theme.js";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -372,11 +373,6 @@ export default function CryptoIdea(){
   const totalBuys=portfolio.reduce((s,c)=>s+c.entries.filter(e=>e.type!=="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0),0);
   const totalSells=portfolio.reduce((s,c)=>s+c.entries.filter(e=>e.type==="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0),0);
   const tpnl=(tv+totalSells)-totalBuys;const tpp=totalBuys>0?((tv+totalSells-totalBuys)/totalBuys)*100:0;
-
-  const c={bg:"#FFFFFF",card:"#F8F9FA",ac:"#34C759",acd:"#34C75915",red:"#FF3B30",redd:"#FF3B3012",yel:"#FF9500",yeld:"#FF950012",txt:"#1A1A1A",dim:"#999",bdr:"#F0F0F0",inp:"#F5F5F7",blu:"#007AFF",blud:"#007AFF12"};
-  const inp_s={width:"100%",padding:"14px 16px",background:c.inp,border:"1px solid #E8E8ED",borderRadius:14,color:c.txt,fontSize:15,outline:"none",boxSizing:"border-box"};
-  const lbl_s={fontSize:12,color:c.dim,display:"block",marginBottom:5,fontWeight:500};
-  const sb=(bg,cl)=>({padding:"8px 14px",borderRadius:12,border:"none",fontSize:12,fontWeight:600,cursor:"pointer",background:bg,color:cl,display:"inline-flex",alignItems:"center",gap:4});
 
   const Ic={
     back:<svg width="22" height="22" fill="none" stroke={c.txt} strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>,
