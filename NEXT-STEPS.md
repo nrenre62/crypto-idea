@@ -31,7 +31,8 @@ Remaining (rough size order):
 - [x] `Contact` (~17 lines) — extracted to `components/Contact.jsx` (reads context); 4 isolated tests
 - [x] `Search` (~35) — extracted to `components/Search.jsx`; real nav test (login → Search tab → Add-Coin)
 - [x] `AddEntry` (~42) — extracted to `components/AddEntry.jsx`; 4 isolated tests (new/edit/disabled/submit)
-- [ ] `CoinInfo` (~35), `Detail` — need a coin in the test portfolio to render
+- [x] `CoinInfo` (~95) — extracted to `components/CoinInfo.jsx`; 4 isolated tests (held/not-held branches). Dropped dead `milestones` var.
+- [ ] `Detail` — needs a coin in the test portfolio to render
 - [ ] `Account` (~148) — reachable via the tier badge on portfolio (testable)
 - [ ] `PortfolioBar` (~10, helper) + `Portfolio` (~55) — Portfolio is covered by the logged-in smoke test
 - [ ] `Login` (~110, biggest — includes the upgrade/plan overlay) — covered logged-out
