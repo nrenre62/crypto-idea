@@ -31,6 +31,8 @@ import {
   updateTransaction as dbUpdateTransaction,
   deleteTransaction as dbDeleteTransaction,
 } from "./api/firebase-database.js";
+import { fetchPrices, searchCoins } from "./api/coingecko.js";
+import { fetchSiteConfig } from "./api/config.js";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -590,8 +592,6 @@ function getHistoricalPrice(coinId, date) {
   return before.price + (after.price - before.price) * ratio;
 }
 
-async function fetchHist(id){try{const r=await fetch(`/api/history?id=${encodeURIComponent(id)}`);if(!r.ok)return null;const d=await r.json();return d.prices}catch{return null}}
-
 // ── Main App ──
 export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
@@ -653,7 +653,7 @@ export default function CryptoIdea(){
   useEffect(()=>{const m={};TOP_COINS.forEach(c=>{m[c.id]={usd:c.mockPrice,usd_24h_change:c.mockChange,usd_market_cap:c.mockMcap}});setPrices(m)},[]);
 
   // Public app flags (maintenance / signups) set by an admin — read once on load.
-  useEffect(()=>{fetch("/api/config").then(r=>r.ok?r.json():null).then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,plans:d.plans||null})}).catch(()=>{})},[]);
+  useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,plans:d.plans||null})})},[]);
 
   // ═══ Watch Firebase auth state + load saved data on startup ═══
   useEffect(()=>{
@@ -718,7 +718,7 @@ export default function CryptoIdea(){
     db.set("ci-active-port",activePortId);
   },[activePortId,dataLoaded]);
 
-  useEffect(()=>{if(!portfolio.length)return;const ids=portfolio.map(c=>c.id).join(",");const f=()=>fetch(`/api/prices?ids=${encodeURIComponent(ids)}`).then(r=>r.ok?r.json():null).then(d=>{if(d){setPrices(p=>({...p,...d}));setApi("live")}}).catch(()=>{});f();const iv=setInterval(f,60000);return()=>clearInterval(iv)},[portfolio]);
+  useEffect(()=>{if(!portfolio.length)return;const ids=portfolio.map(c=>c.id).join(",");const f=()=>fetchPrices(ids).then(d=>{if(d){setPrices(p=>({...p,...d}));setApi("live")}});f();const iv=setInterval(f,60000);return()=>clearInterval(iv)},[portfolio]);
 
   const sr=useMemo(()=>{if(sq.length<1)return[];const q=sq.toLowerCase();return TOP_COINS.filter(c=>c.name.toLowerCase().startsWith(q)||c.symbol.toLowerCase().startsWith(q)).slice(0,25)},[sq]);
 
@@ -728,10 +728,7 @@ export default function CryptoIdea(){
     if(q.length<2){setLiveCoins([]);return}
     let cancelled=false;
     const t=setTimeout(()=>{
-      fetch(`/api/search?q=${encodeURIComponent(q)}`)
-        .then(r=>r.ok?r.json():null)
-        .then(d=>{if(!cancelled&&d&&Array.isArray(d.coins))setLiveCoins(d.coins)})
-        .catch(()=>{});
+      searchCoins(q).then(coins=>{if(!cancelled&&coins)setLiveCoins(coins)});
     },300);
     return()=>{cancelled=true;clearTimeout(t)};
   },[sq]);
