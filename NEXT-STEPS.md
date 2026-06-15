@@ -35,7 +35,10 @@ Remaining (rough size order):
 - [x] `Detail` — extracted to `components/Detail.jsx`; 3 isolated tests (P/L summary, tx list, empty). Dropped dead `inv`/`pnl`/`pp` + orphaned format/coins imports.
 - [x] `Account` (~148) — extracted to `components/Account.jsx`; 5 isolated tests (sub states, delete-confirm, logout) + a real nav smoke test (badge → Account). Dropped dead `totalCoinsAllPorts`.
 - [x] `PortfolioBar` (~10, helper) + `Portfolio` (~55) — extracted to `components/`; 6 isolated tests (asset list, upgrade nudge, switcher branches) + smoke test. Cleaned 6 now-orphaned shell imports (fmtP/fmtPct/sb/CI/hdr/StatusDot).
-- [ ] `Login` (~110, biggest — includes the upgrade/plan overlay) — covered logged-out
+- [x] `Login` (~110, incl. the upgrade/plan overlay reused as a shell overlay) — extracted to `components/Login.jsx`; 5 isolated tests (form, signups-paused, billing, plan picker) + smoke. **Fixed a real bug:** auth error used `c.rd` (undefined) → now `c.red`, so errors actually render red.
+
+**✅ Section 1a complete — all user-app screens are now extracted components.** `CryptoIdea.jsx`
+is now just the auth/data effects, handlers, the `ctx` object, and the router shell. Next: §1b (hooks).
 
 ### 1b. Extract business logic into hooks (closes audit rules 1 & 2)
 Most state + logic still lives in the `CryptoIdea.jsx` component. Pull into hooks:
