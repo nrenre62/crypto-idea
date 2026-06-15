@@ -26,8 +26,9 @@ src/
     `timeBetween`), `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
     price model `getHistoricalPrice`), and `theme.js` (visual tokens `c`, `inp_s`,
     `lbl_s`, `sb`).
-  - `hooks/` — `useCoinSearch(sq)`, `useLivePrices(portfolio)`, and `app-context.js`
-    (`AppContext` + `useApp()`).
+  - `hooks/` — `useCoinSearch(sq)`, `useLivePrices(portfolio)`, `useAuthSession(...)` (auth
+    watch + profile save; owns `user`/`dataLoaded`), and `app-context.js` (`AppContext` + `useApp()`).
+  - `utils/storage.js` — `db` key/value wrapper over `window.storage` (JSON, error-swallowing).
   - `components/` — standalone page UIs (`education-page.jsx`, `pro-success.jsx`,
     `admin-dashboard.jsx`); shared primitives `ui.jsx` (`Ic`, `CI`, `hdr`) + `StatusDot.jsx`;
     and extracted screens `Loading.jsx`, `ForgotPass.jsx`, `Contact.jsx`, `Search.jsx`, `AddEntry.jsx`, `CoinInfo.jsx`, `Detail.jsx`, `Portfolio.jsx`+`PortfolioBar.jsx`, `Account.jsx`, `Login.jsx` (**all screens now extracted**). `src/` root now holds only the
@@ -56,7 +57,9 @@ must be a real element, not a conditional function call) → add/extend a naviga
 The layered rules aren't fully satisfied yet — these are the gaps the migration is closing:
 1. **Components doing fetch/logic:** `CryptoIdea.jsx` (calls `httpsCallable` for PayPal/GDPR;
    holds most state/logic) and `admin-dashboard.jsx` (calls Cloud Functions directly).
-2. **State/logic not in hooks:** most `useState` + handlers live in `CryptoIdea.jsx`, not hooks.
+2. **State/logic not in hooks:** PARTIALLY CLOSED — the auth session (`user`/`dataLoaded` + auth
+   effects) now lives in `useAuthSession`. Still in `CryptoIdea.jsx`: portfolio CRUD + the upgrade
+   flow (next: `usePortfolios`, `useUpgrade`).
 3. **`api/` not fetch-only:** `firebase-database.js`/`firebase-auth.js` also run counter/limit
    logic (`writeBatch`+`increment`) — really a data/model layer, not thin fetchers.
 4. **Backend has no controller/service/model split:** `functions/index.js` colocates HTTP

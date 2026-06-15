@@ -18,11 +18,10 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
-import { registerUser, loginUser, logoutUser, onAuthChange } from "./api/firebase-auth.js";
+import { registerUser, loginUser, logoutUser } from "./api/firebase-auth.js";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "./api/firebase.config.js";
 import {
-  getPortfolios, getCoins,
   createPortfolio as dbCreatePortfolio,
   deletePortfolio as dbDeletePortfolio,
   addCoin as dbAddCoin,
@@ -34,6 +33,8 @@ import {
 import { fetchSiteConfig } from "./api/config.js";
 import { useCoinSearch } from "./hooks/useCoinSearch.js";
 import { useLivePrices } from "./hooks/useLivePrices.js";
+import { useAuthSession } from "./hooks/useAuthSession.js";
+import { db } from "./utils/storage.js";
 import { c } from "./utils/theme.js";
 import { Ic } from "./components/ui.jsx";
 import { Loading } from "./components/Loading.jsx";
@@ -51,22 +52,6 @@ import { Login } from "./components/Login.jsx";
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
 
-// ═══ Persistent Storage Helpers ═══
-const db = {
-  async get(key) {
-    try { const r = await window.storage.get(key); return r ? JSON.parse(r.value) : null; }
-    catch { return null; }
-  },
-  async set(key, value) {
-    try { await window.storage.set(key, JSON.stringify(value)); return true; }
-    catch { return false; }
-  },
-  async del(key) {
-    try { await window.storage.delete(key); return true; }
-    catch { return false; }
-  }
-};
-
 const APP_NAME = "Crypto Idea";
 const APP_VERSION = "4.1.0";
 
@@ -79,8 +64,6 @@ const MAX_COINS = 200;
 // ── Main App ──
 export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
-  const[user,setUser]=useState(null);
-  const[dataLoaded,setDataLoaded]=useState(false);
   const[site,setSite]=useState({maintenance:false,signupsEnabled:true,plans:null});  // public config from /api/config
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
@@ -107,6 +90,14 @@ export default function CryptoIdea(){
   const[newPortName,setNewPortName]=useState("");
   const portfolio=portfolios.find(p=>p.id===activePortId)?.coins||[];
   const setPortfolio=(fn)=>{setPortfolios(prev=>prev.map(p=>p.id===activePortId?{...p,coins:typeof fn==="function"?fn(p.coins):fn}:p))};
+  // Auth session: owns user/dataLoaded + the auth-watch & profile-save effects.
+  // Collaborators are passed as thin wrappers so functions defined lower in this
+  // component (saveProfile, checkSubscriptionStatus) are referenced lazily.
+  const {user,setUser,dataLoaded}=useAuthSession({
+    setScreen,setPortfolios,setActivePortId,
+    checkSubscriptionStatus:(u)=>checkSubscriptionStatus(u),
+    saveProfile:(u)=>saveProfile(u),
+  });
   // Live prices for the held coins (seeded with mock prices, then polled).
   const {prices,api}=useLivePrices(portfolio);
   const[sq,setSq]=useState("");
@@ -136,58 +127,7 @@ export default function CryptoIdea(){
   // Public app flags (maintenance / signups) set by an admin — read once on load.
   useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,plans:d.plans||null})})},[]);
 
-  // ═══ Watch Firebase auth state + load saved data on startup ═══
-  useEffect(()=>{
-    const loadPortfolios=async(uid)=>{
-      // Load portfolios (and their coins + transactions) from Firestore so data
-      // syncs across devices. The counters live on these docs and are enforced by rules.
-      const res=await getPortfolios(uid);
-      if(!res.success)return;
-      const ports=[];
-      for(const p of res.portfolios){
-        const cr=await getCoins(uid,p.id);
-        ports.push({id:p.id,name:p.name,coins:cr.success?cr.coins:[]});
-      }
-      if(ports.length>0){
-        setPortfolios(ports);
-        // Restore last active portfolio if it still exists, else use the first one
-        const savedActive=await db.get("ci-active-port");
-        setActivePortId(ports.find(p=>p.id===savedActive)?savedActive:ports[0].id);
-      }
-    };
-    // Firebase is the source of truth for who is logged in. The password lives
-    // in Firebase Auth and is never stored on the device.
-    const unsub=onAuthChange(async(fbUser)=>{
-      if(fbUser){
-        // Non-sensitive profile (tier, subscription, settings) kept locally, keyed by uid
-        const profile=await db.get("ci-profile-"+fbUser.uid)||{};
-        const baseUser={
-          tier:"free",
-          joined:new Date().toISOString().split("T")[0],
-          ...profile,
-          uid:fbUser.uid,
-          email:fbUser.email,
-          name:fbUser.displayName||profile.name||(fbUser.email?fbUser.email.split("@")[0]:""),
-        };
-        await loadPortfolios(fbUser.uid);
-        // Check if subscription expired or payment failed
-        const checked=await checkSubscriptionStatus(baseUser);
-        setUser(checked);
-        setScreen("portfolio");
-      }else{
-        setUser(null);
-        setScreen("login");
-      }
-      setDataLoaded(true);
-    });
-    return ()=>{ if(typeof unsub==="function") unsub(); };
-  },[]);
-
-  // ═══ Auto-save user profile when it changes (never stores a password) ═══
-  useEffect(()=>{
-    if(!dataLoaded)return;
-    if(user&&user.uid){saveProfile(user)}
-  },[user,dataLoaded]);
+  // Auth watch + profile auto-save now live in useAuthSession (above).
 
   // Portfolios/coins/transactions are now persisted to Firestore per-mutation
   // (see addPortfolio/deletePortfolio/addCoin/remCoin/addEntry/remEntry), so the

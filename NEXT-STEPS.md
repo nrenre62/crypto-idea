@@ -42,7 +42,11 @@ is now just the auth/data effects, handlers, the `ctx` object, and the router sh
 
 ### 1b. Extract business logic into hooks (closes audit rules 1 & 2)
 Most state + logic still lives in the `CryptoIdea.jsx` component. Pull into hooks:
-- [ ] `useAuthSession` — the `onAuthChange` effect, `loadPortfolios`, profile auto-save, `checkSubscriptionStatus`
+- [x] `useAuthSession` — extracted to `hooks/useAuthSession.js`: owns `user`/`dataLoaded` + the
+  `onAuthChange` watch (incl. `loadPortfolios`) and profile auto-save effects; collaborators
+  (`setScreen`/portfolio setters/`checkSubscriptionStatus`/`saveProfile`) injected via a ref so the
+  listener subscribes once. Also moved the `db` storage helper to `utils/storage.js`. 4 hook tests
+  (`renderHook`) + the existing login/logout smoke tests guard it.
 - [ ] `usePortfolios` — CRUD: `addPortfolio`, `deletePortfolio`, `addCoin`, `remCoin`, `addEntry`, edit/delete tx, `setActivePortId`
 - [ ] `useUpgrade` — `startUpgrade`, downgrade flow, `trimToTier`, `getTrimImpact`, `calcEndDate`
 
