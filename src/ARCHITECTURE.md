@@ -26,21 +26,39 @@ src/
     `timeBetween`), `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
     price model `getHistoricalPrice`), and `theme.js` (visual tokens `c`, `inp_s`,
     `lbl_s`, `sb`).
-  - `hooks/` — `useCoinSearch(sq)` (Add Coin search: built-in matches + debounced live
-    results) and `useLivePrices(portfolio)` (mock-seeded prices, then 60s polling).
+  - `hooks/` — `useCoinSearch(sq)`, `useLivePrices(portfolio)`, and `app-context.js`
+    (`AppContext` + `useApp()`).
   - `components/` — standalone page UIs (`education-page.jsx`, `pro-success.jsx`,
-    `admin-dashboard.jsx`) + shared primitives `ui.jsx` (`Ic` icons, `CI` coin icon,
-    `hdr` header row). `src/` root now holds only the Vite entries (`main.jsx`,
-    `admin-main.jsx`) and the main app shell `CryptoIdea.jsx`.
-  - **Test net:** `tests/unit/` (Vitest) — both hooks + a `CryptoIdea` smoke test that
-    renders the logged-out (login) and logged-in (portfolio) screens with `api/` mocked.
-    Run `npm run test:unit`. This guards the remaining screen extractions.
-- **Not yet split (the hard core):** `CryptoIdea.jsx` (~1.0k lines, down from ~1.56k)
-  still holds the auth/data-load + profile-save effects, portfolio CRUD, the upgrade
-  flow, `StatusDot` (reads `api`), and every screen rendered as an inline closure
-  (Login, Portfolio, AddEntry, CoinInfo, Account, …). These are tightly coupled to
-  shared state (`user`, `screen`, `portfolios`, `activePortId`, `dataLoaded`), so
-  splitting them into `components/` and extracting `useAuthSession`/`usePortfolios` is
-  real surgery — do it screen-by-screen, running `npm run test:unit` after each, and
-  pass shared state down as props (or via context if prop-drilling gets deep).
+    `admin-dashboard.jsx`); shared primitives `ui.jsx` (`Ic`, `CI`, `hdr`) + `StatusDot.jsx`;
+    and extracted screens `Loading.jsx`, `ForgotPass.jsx`. `src/` root now holds only the
+    Vite entries (`main.jsx`, `admin-main.jsx`) and the main app shell `CryptoIdea.jsx`.
+  - **Context for screens:** `CryptoIdea.jsx` wraps its render in `<AppContext.Provider value={ctx}>`;
+    extracted screens read shared state/handlers via `useApp()` instead of 25+ props each. The
+    `ctx` object grows as each screen migrates.
+  - **Test net:** `tests/unit/` (Vitest, `npm run test:unit`) — both hooks + a `CryptoIdea`
+    smoke test that renders the logged-out (login) and logged-in (portfolio) screens and the
+    login→reset navigation, with `api/` mocked. Guards the remaining screen extractions.
+
+## Screen-migration pattern (for each remaining screen)
+Add the screen's deps to `ctx` in `CryptoIdea.jsx` → move its JSX to `components/<Screen>.jsx`
+reading them via `useApp()` → render `<Screen/>` (NOT `Screen()` — a component using a hook
+must be a real element, not a conditional function call) → add/extend a navigation test →
+`npm run test:unit`.
+
+- **Not yet split (the hard core):** `CryptoIdea.jsx` (~1.0k lines, down from ~1.56k) still
+  holds the auth/data-load + profile-save effects, portfolio CRUD, the upgrade flow, and most
+  screens as inline closures (`Login`, `Portfolio`, `Account`, `Search`, `AddEntry`, `CoinInfo`,
+  `Detail`, `Contact`, `PortfolioBar`). **See [`../NEXT-STEPS.md`](../NEXT-STEPS.md) for the
+  full remaining checklist.**
 - Multi-page Vite entries (`main.jsx`, `admin-main.jsx`) stay at the `src/` root.
+
+## Known layer violations (audit)
+The layered rules aren't fully satisfied yet — these are the gaps the migration is closing:
+1. **Components doing fetch/logic:** `CryptoIdea.jsx` (calls `httpsCallable` for PayPal/GDPR;
+   holds most state/logic) and `admin-dashboard.jsx` (calls Cloud Functions directly).
+2. **State/logic not in hooks:** most `useState` + handlers live in `CryptoIdea.jsx`, not hooks.
+3. **`api/` not fetch-only:** `firebase-database.js`/`firebase-auth.js` also run counter/limit
+   logic (`writeBatch`+`increment`) — really a data/model layer, not thin fetchers.
+4. **Backend has no controller/service/model split:** `functions/index.js` colocates HTTP
+   routing + external API calls + Firestore access in one file (a defensible serverless choice;
+   split only if MVC separation is wanted — see NEXT-STEPS §2).

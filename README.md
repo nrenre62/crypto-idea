@@ -1,15 +1,38 @@
-# Crypto Idea — Firebase Backend
+# Crypto Idea
 
-## What's Included
+Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.** Full-stack:
+a static marketing landing, a React user app, a separate admin app, and Cloud Functions.
+
+## Project structure
 
 ```
-firebase-backend/
-├── README.md              ← You're here
-├── firebase.config.js     ← Firebase initialization (add your keys)
-├── auth.js                ← Login, Register, Logout, Password Reset
-├── database.js            ← Portfolios, Coins, Transactions CRUD
-├── firestore.rules        ← Security rules (deploy to Firebase)
-└── package.json           ← Dependencies
+crypto-idea/
+├── index.html / app.html / admin.html / privacy.html / terms.html   ← multi-page Vite entries
+├── src/                          ← frontend (layered — see src/ARCHITECTURE.md)
+│   ├── CryptoIdea.jsx            ← main user-app shell (mid-refactor: see NEXT-STEPS.md)
+│   ├── main.jsx / admin-main.jsx ← React entries
+│   ├── api/                      ← data fetching (firebase auth/db/config, coingecko, config)
+│   ├── hooks/                    ← state + business logic (useCoinSearch, useLivePrices, app-context)
+│   ├── components/               ← UI (page UIs + shared ui.jsx/StatusDot + extracted screens)
+│   └── utils/                    ← pure helpers (format, coins+DCA model, theme tokens)
+├── functions/index.js           ← Cloud Functions (CoinGecko proxy, PayPal, admin/GDPR callables)
+├── firestore.rules              ← security rules
+├── tests/                       ← rules + data-layer (node:test) and unit/ (Vitest)
+├── ARCHITECTURE.md (src/)       ← the layer rules + migration status
+└── NEXT-STEPS.md                ← what's left to do (refactor, known bug, go-live)
+```
+
+> **Frontend architecture is layered** (`api` / `hooks` / `components` / `utils`) and being
+> migrated out of the historically-monolithic `CryptoIdea.jsx`. The rules, current state, and
+> known layer violations live in [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md); the to-do list
+> lives in [`NEXT-STEPS.md`](NEXT-STEPS.md).
+
+## Tests
+
+```bash
+npm run test:unit         # Vitest: component/hook tests in jsdom (api/ mocked) — fast, no emulator
+npm run test:rules        # Firestore security-rules tests (runs against the emulator)
+npm run test:integration  # data-layer tests: real auth+db code vs the emulator
 ```
 
 ## Setup Guide (15 minutes)
