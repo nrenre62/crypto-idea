@@ -31,11 +31,11 @@ import {
   updateTransaction as dbUpdateTransaction,
   deleteTransaction as dbDeleteTransaction,
 } from "./api/firebase-database.js";
-import { fetchPrices } from "./api/coingecko.js";
 import { fetchSiteConfig } from "./api/config.js";
 import { fmtP, fmtMc, fmtPct, uid, fmtDT, timeBetween } from "./utils/format.js";
 import { TOP_COINS, PRICE_HISTORY, getHistoricalPrice } from "./utils/coins.js";
 import { useCoinSearch } from "./hooks/useCoinSearch.js";
+import { useLivePrices } from "./hooks/useLivePrices.js";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -96,13 +96,13 @@ export default function CryptoIdea(){
   const[newPortName,setNewPortName]=useState("");
   const portfolio=portfolios.find(p=>p.id===activePortId)?.coins||[];
   const setPortfolio=(fn)=>{setPortfolios(prev=>prev.map(p=>p.id===activePortId?{...p,coins:typeof fn==="function"?fn(p.coins):fn}:p))};
-  const[prices,setPrices]=useState({});
+  // Live prices for the held coins (seeded with mock prices, then polled).
+  const {prices,api}=useLivePrices(portfolio);
   const[sq,setSq]=useState("");
   const[sel,setSel]=useState(null);
   const[err,setErr]=useState("");
   const isPro=user?.tier==="pro"||user?.tier==="premium";
   const isPremium=user?.tier==="premium";
-  const[api,setApi]=useState("demo");
   const[eAmt,setEAmt]=useState("");
   const[ePrice,setEPrice]=useState("");
   const[eDate,setEDate]=useState(new Date().toISOString().slice(0,16));
@@ -121,8 +121,6 @@ export default function CryptoIdea(){
     document.head.appendChild(style);
     return()=>document.head.removeChild(style);
   },[]);
-
-  useEffect(()=>{const m={};TOP_COINS.forEach(c=>{m[c.id]={usd:c.mockPrice,usd_24h_change:c.mockChange,usd_market_cap:c.mockMcap}});setPrices(m)},[]);
 
   // Public app flags (maintenance / signups) set by an admin — read once on load.
   useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,plans:d.plans||null})})},[]);
@@ -189,8 +187,6 @@ export default function CryptoIdea(){
     if(!dataLoaded)return;
     db.set("ci-active-port",activePortId);
   },[activePortId,dataLoaded]);
-
-  useEffect(()=>{if(!portfolio.length)return;const ids=portfolio.map(c=>c.id).join(",");const f=()=>fetchPrices(ids).then(d=>{if(d){setPrices(p=>({...p,...d}));setApi("live")}});f();const iv=setInterval(f,60000);return()=>clearInterval(iv)},[portfolio]);
 
   // Coin search for the Add Coin screen (built-in matches + debounced live results).
   const searchResults=useCoinSearch(sq);
