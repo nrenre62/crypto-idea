@@ -27,7 +27,7 @@ export function ForgotPass() {
     <div style={{width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:14}}>
       <div style={{fontSize:14,color:c.dim,lineHeight:1.5,textAlign:"center"}}>Enter your email and we'll send you a link to reset your password.</div>
       <input type="email" value={fpEmail} onChange={e=>setFpEmail(e.target.value)} placeholder="name@email.com" autoComplete="email" inputMode="email" style={inp_s}/>
-      {fpErr&&<div style={{padding:"10px",background:"#FFF0F0",color:c.rd,borderRadius:10,fontSize:12,textAlign:"center"}}>{fpErr}</div>}
+      {fpErr&&<div style={{padding:"10px",background:"#FFF0F0",color:c.red,borderRadius:10,fontSize:12,textAlign:"center"}}>{fpErr}</div>}
       <button onClick={handleReset} style={{padding:"14px",borderRadius:14,border:"none",fontSize:15,fontWeight:600,cursor:"pointer",background:c.txt,color:"#fff"}}>Send Reset Link</button>
       <div style={{textAlign:"center",marginTop:4}}><span onClick={()=>setScreen("login")} style={{fontSize:12,color:c.ac,cursor:"pointer",fontWeight:500}}>Back to Login</span></div>
     </div>
