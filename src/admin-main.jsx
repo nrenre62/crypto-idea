@@ -12,8 +12,8 @@
  */
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
-import { onAuthChange, loginUser, logoutUser } from "./firebase-auth.js";
-import { auth } from "./firebase.config.js";
+import { onAuthChange, loginUser, logoutUser } from "./api/firebase-auth.js";
+import { auth } from "./api/firebase.config.js";
 import AdminDashboard from "./admin-dashboard.jsx";
 
 const wrap = { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 };

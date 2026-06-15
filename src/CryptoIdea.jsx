@@ -18,9 +18,9 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
-import { registerUser, loginUser, logoutUser, resetPassword, onAuthChange } from "./firebase-auth.js";
+import { registerUser, loginUser, logoutUser, resetPassword, onAuthChange } from "./api/firebase-auth.js";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "./firebase.config.js";
+import { functions } from "./api/firebase.config.js";
 import {
   getPortfolios, getCoins,
   createPortfolio as dbCreatePortfolio,
@@ -30,7 +30,7 @@ import {
   addTransaction as dbAddTransaction,
   updateTransaction as dbUpdateTransaction,
   deleteTransaction as dbDeleteTransaction,
-} from "./firebase-database.js";
+} from "./api/firebase-database.js";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.

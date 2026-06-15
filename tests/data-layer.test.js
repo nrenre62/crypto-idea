@@ -8,14 +8,14 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import { auth, db } from "../src/firebase.config.js";
+import { auth, db } from "../src/api/firebase.config.js";
 import { connectAuthEmulator } from "firebase/auth";
 import { connectFirestoreEmulator } from "firebase/firestore";
-import { registerUser } from "../src/firebase-auth.js";
+import { registerUser } from "../src/api/firebase-auth.js";
 import {
   getPortfolios, createPortfolio, getCoins,
   addCoin, addTransaction, deleteTransaction,
-} from "../src/firebase-database.js";
+} from "../src/api/firebase-database.js";
 
 // Point the SDK at the local emulators (DEV auto-connect only happens under Vite).
 connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
