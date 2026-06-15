@@ -30,7 +30,7 @@ JSX to `src/components/<Screen>.jsx` reading them via `useApp()` → render `<Sc
 Remaining (rough size order):
 - [x] `Contact` (~17 lines) — extracted to `components/Contact.jsx` (reads context); 4 isolated tests
 - [x] `Search` (~35) — extracted to `components/Search.jsx`; real nav test (login → Search tab → Add-Coin)
-- [ ] `AddEntry` (~42)
+- [x] `AddEntry` (~42) — extracted to `components/AddEntry.jsx`; 4 isolated tests (new/edit/disabled/submit)
 - [ ] `CoinInfo` (~35), `Detail` — need a coin in the test portfolio to render
 - [ ] `Account` (~148) — reachable via the tier badge on portfolio (testable)
 - [ ] `PortfolioBar` (~10, helper) + `Portfolio` (~55) — Portfolio is covered by the logged-in smoke test

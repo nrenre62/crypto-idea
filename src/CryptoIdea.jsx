@@ -36,7 +36,7 @@ import { fmtP, fmtMc, fmtPct, uid, fmtDT, timeBetween } from "./utils/format.js"
 import { TOP_COINS, PRICE_HISTORY, getHistoricalPrice } from "./utils/coins.js";
 import { useCoinSearch } from "./hooks/useCoinSearch.js";
 import { useLivePrices } from "./hooks/useLivePrices.js";
-import { c, inp_s, lbl_s, sb } from "./utils/theme.js";
+import { c, inp_s, sb } from "./utils/theme.js";
 import { Ic, CI, hdr } from "./components/ui.jsx";
 import { Loading } from "./components/Loading.jsx";
 import { AppContext } from "./hooks/app-context.js";
@@ -44,6 +44,7 @@ import { StatusDot } from "./components/StatusDot.jsx";
 import { ForgotPass } from "./components/ForgotPass.jsx";
 import { Contact } from "./components/Contact.jsx";
 import { Search } from "./components/Search.jsx";
+import { AddEntry } from "./components/AddEntry.jsx";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -852,46 +853,7 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
   </>)};
 
   // ── Add Entry ──
-  const AddEntry=()=>{
-    const coinData=sel?TOP_COINS.find(x=>x.id===sel.id):null;
-    const launchDate=coinData?.launch||"2013-04-28";
-    const launchDateTime=launchDate+"T00:00";
-    const fmtPriceInput=(p)=>{if(!p||p<=0)return"";if(p>=1)return p.toFixed(2);if(p>=0.0001)return p.toFixed(6);if(p>=0.0000001)return p.toFixed(10);return p.toFixed(12)};
-    const onDateChange=(newDate)=>{
-      if(!newDate)return;
-      const picked=new Date(newDate);
-      const launch=new Date(launchDate);
-      if(picked<launch){
-        setEDate(launchDateTime);
-        const hp=getHistoricalPrice(sel.id,launch);
-        const formatted=fmtPriceInput(hp);
-        if(formatted){setEPrice(formatted)}
-        return;
-      }
-      setEDate(newDate);
-      if(sel){const hp=getHistoricalPrice(sel.id,new Date(newDate));const fmt=fmtPriceInput(hp);if(fmt){setEPrice(fmt)}}
-    };
-    const histPrice=sel?getHistoricalPrice(sel.id,new Date(eDate)):null;
-    const priceIsHist=histPrice&&ePrice&&Math.abs(parseFloat(ePrice)-histPrice)/histPrice<0.15;
-    const isBeforeLaunch=eDate&&new Date(eDate)<new Date(launchDate);
-    return(<>
-    {hdr(<button onClick={()=>{setScreen("detail");setEditEntry(null)}} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>{Ic.back}</button>,editEntry?"Edit Transaction":"New Transaction")}
-    <div style={{padding:"12px 18px",display:"flex",flexDirection:"column",gap:14}}>
-      <div style={{display:"flex",gap:6}}>
-        <button onClick={()=>setETxType("buy")} style={{flex:1,padding:"11px",borderRadius:12,border:`1px solid ${eTxType==="buy"?c.ac:c.bdr}`,background:eTxType==="buy"?c.ac:c.inp,color:eTxType==="buy"?c.bg:c.dim,fontSize:14,fontWeight:700,cursor:"pointer"}}>Buy</button>
-        <button onClick={()=>setETxType("sell")} style={{flex:1,padding:"11px",borderRadius:12,border:`1px solid ${eTxType==="sell"?c.red:c.bdr}`,background:eTxType==="sell"?c.red:c.inp,color:eTxType==="sell"?"#fff":c.dim,fontSize:14,fontWeight:700,cursor:"pointer"}}>Sell</button>
-      </div>
-      <div><label style={lbl_s}>Amount ({sel?.symbol})</label><input type="number" step="any" value={eAmt} onChange={e=>setEAmt(e.target.value)} placeholder="0.00" style={inp_s}/></div>
-      <div><label style={lbl_s}>Price per coin (USD) {histPrice?<span style={{color:c.ac,fontWeight:600}}>· auto-filled</span>:""}</label><input type="number" step="any" value={ePrice} onChange={e=>setEPrice(e.target.value)} placeholder="0.00" style={inp_s}/>
-        {histPrice&&!priceIsHist&&<div style={{fontSize:10,color:c.yel,marginTop:4}}>Suggested price: {fmtP(histPrice)}</div>}
-      </div>
-      <div><label style={lbl_s}>Date & Time <span style={{color:c.dim,fontWeight:400}}>· available from {launchDate}</span></label><input type="datetime-local" step="1" value={eDate} min={launchDateTime} onChange={e=>onDateChange(e.target.value)} style={inp_s}/>
-        {isBeforeLaunch&&<div style={{fontSize:11,color:c.yel,marginTop:5,display:"flex",alignItems:"center",gap:5}}><span style={{fontSize:14}}>⚠️</span>{sel?.name} launched on {launchDate}. Date adjusted to earliest available.</div>}
-      </div>
-      {eAmt&&ePrice&&(<div style={{padding:"10px 14px",background:c.acd,borderRadius:12,fontSize:13}}>{eTxType==="sell"?"Sell value":"Total cost"}: <strong>${(parseFloat(eAmt||0)*parseFloat(ePrice||0)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>)}
-      <button onClick={addEntry} disabled={!eAmt||!ePrice} style={{padding:"13px",borderRadius:12,border:"none",fontSize:15,fontWeight:600,cursor:"pointer",width:"100%",background:eTxType==="sell"?c.red:c.ac,color:eTxType==="sell"?"#fff":c.bg,opacity:(!eAmt||!ePrice)?0.4:1}}>{editEntry?"Save Changes":eTxType==="sell"?"Add Sell":"Add Buy"}</button>
-    </div>
-  </>);};
+  // ── Add/Edit Transaction Screen → components/AddEntry.jsx (reads context) ──
 
   // ── Coin Info ──
   const CoinInfo=()=>{
@@ -1003,7 +965,8 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
   // Shared state + handlers for extracted screens (grows as screens migrate).
   const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,
     user,contactMsg,setContactMsg,contactSent,setContactSent,
-    sq,setSq,searchResults,portfolio,addCoin};
+    sq,setSq,searchResults,portfolio,addCoin,
+    sel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry};
   return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:430,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {err&&<div style={{margin:"8px 16px",padding:"10px 14px",background:"#FFF0F0",color:c.red,borderRadius:12,fontSize:12,fontWeight:500,border:"1px solid #FFD0D0"}}>{err}</div>}
     {showPlan&&screen!=="login"&&(()=>{
@@ -1059,7 +1022,7 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
     {screen==="portfolio"&&Portfolio()}
     {screen==="search"&&<Search/>}
     {screen==="detail"&&Detail()}
-    {screen==="addEntry"&&AddEntry()}
+    {screen==="addEntry"&&<AddEntry/>}
     {screen==="coinInfo"&&CoinInfo()}
     {screen!=="login"&&screen!=="loading"&&screen!=="forgotPass"&&screen!=="contact"&&<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,display:"flex",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid #E8E8ED",padding:"6px 0 22px",zIndex:100}}>
       {[{id:"portfolio",label:"Portfolio",icon:Ic.port},{id:"search",label:"Search",icon:Ic.srch}].map(tab=>(<button key={tab.id} onClick={()=>setScreen(tab.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"7px 0",cursor:"pointer",border:"none",background:"none",fontSize:10,fontWeight:600,color:at===tab.id?c.ac:c.dim}}>{tab.icon(at===tab.id)}{tab.label}</button>))}
