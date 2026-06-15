@@ -72,4 +72,12 @@ export default defineConfig({
       },
     },
   },
+  // Vitest unit tests (component/hook regression net). Scoped to tests/unit/ so it
+  // never picks up the node:test files in tests/ (firestore-rules, data-layer).
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: "./tests/unit/setup.js",
+    include: ["tests/unit/**/*.test.{js,jsx}"],
+  },
 });

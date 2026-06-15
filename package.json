@@ -12,7 +12,8 @@
     "emulators": "firebase emulators:start --project demo-crypto-idea",
     "start:all": "firebase emulators:exec --project demo-crypto-idea --ui \"npm run dev\"",
     "test:rules": "firebase emulators:exec --only firestore --project demo-crypto-idea \"node --test tests/firestore-rules.test.js\"",
-    "test:integration": "firebase emulators:exec --only auth,firestore --project demo-crypto-idea \"node --test --test-force-exit tests/data-layer.test.js\""
+    "test:integration": "firebase emulators:exec --only auth,firestore --project demo-crypto-idea \"node --test --test-force-exit tests/data-layer.test.js\"",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "firebase": "^12.14.0",
@@ -21,10 +22,14 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^4.3.0",
     "firebase-tools": "^13.0.0",
+    "jsdom": "^29.1.1",
     "sharp": "^0.34.5",
     "terser": "^5.31.0",
-    "vite": "^5.4.0"
+    "vite": "^5.4.0",
+    "vitest": "^4.1.8"
   }
 }
