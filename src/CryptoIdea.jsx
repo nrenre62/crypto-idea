@@ -39,6 +39,8 @@ import { useLivePrices } from "./hooks/useLivePrices.js";
 import { c, inp_s, lbl_s, sb } from "./utils/theme.js";
 import { Ic, CI, hdr } from "./components/ui.jsx";
 import { Loading } from "./components/Loading.jsx";
+import { AppContext } from "./hooks/app-context.js";
+import { StatusDot } from "./components/StatusDot.jsx";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -375,21 +377,6 @@ export default function CryptoIdea(){
   const totalBuys=portfolio.reduce((s,c)=>s+c.entries.filter(e=>e.type!=="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0),0);
   const totalSells=portfolio.reduce((s,c)=>s+c.entries.filter(e=>e.type==="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0),0);
   const tpnl=(tv+totalSells)-totalBuys;const tpp=totalBuys>0?((tv+totalSells-totalBuys)/totalBuys)*100:0;
-
-  // ── Live/Offline Status Indicator ──
-  const StatusDot=({live,small})=>{
-    const size=small?6:8;
-    const isLive=live||api==="live";
-    return(
-      <div style={{display:"inline-flex",alignItems:"center",gap:small?4:6,padding:small?"3px 8px":"4px 10px",borderRadius:20,background:isLive?c.acd:c.yeld,border:`1px solid ${isLive?"#34C75930":"#FF950030"}`}}>
-        <div style={{position:"relative",width:size,height:size}}>
-          <div style={{width:size,height:size,borderRadius:"50%",background:isLive?c.ac:c.yel}}/>
-          {isLive&&<div style={{position:"absolute",top:-1,left:-1,width:size+2,height:size+2,borderRadius:"50%",background:isLive?c.ac:c.yel,opacity:0.4,animation:"pulse 2s infinite"}}/>}
-        </div>
-        <span style={{fontSize:small?9:10,fontWeight:600,color:isLive?c.ac:c.yel,letterSpacing:"0.3px"}}>{isLive?"LIVE":"OFFLINE"}</span>
-      </div>
-    );
-  };
 
   // ── Usage Calculation ──
   const totalCoinsUsed=portfolio.length;
@@ -1061,7 +1048,9 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
     <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5}}>Crypto Idea is briefly down for maintenance. Your data is safe — please check back in a little while.</div>
   </div>);
 
-  return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:430,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
+  // Shared state + handlers for extracted screens (grows as screens migrate).
+  const ctx={api};
+  return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:430,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {err&&<div style={{margin:"8px 16px",padding:"10px 14px",background:"#FFF0F0",color:c.red,borderRadius:12,fontSize:12,fontWeight:500,border:"1px solid #FFD0D0"}}>{err}</div>}
     {showPlan&&screen!=="login"&&(()=>{
       // Reuse the Login() flow rendering for upgrade overlay
@@ -1121,5 +1110,5 @@ transform:`translateX(${swipeId===coin.id?swipeX:0}px)`,transition:touchStart?"n
     {screen!=="login"&&screen!=="loading"&&screen!=="forgotPass"&&screen!=="contact"&&<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,display:"flex",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid #E8E8ED",padding:"6px 0 22px",zIndex:100}}>
       {[{id:"portfolio",label:"Portfolio",icon:Ic.port},{id:"search",label:"Search",icon:Ic.srch}].map(tab=>(<button key={tab.id} onClick={()=>setScreen(tab.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"7px 0",cursor:"pointer",border:"none",background:"none",fontSize:10,fontWeight:600,color:at===tab.id?c.ac:c.dim}}>{tab.icon(at===tab.id)}{tab.label}</button>))}
     </div>}
-  </div>);
+  </div></AppContext.Provider>);
 }
