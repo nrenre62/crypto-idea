@@ -27,9 +27,14 @@ src/
     price model `getHistoricalPrice`).
   - `hooks/` — `useCoinSearch(sq)` (Add Coin search: built-in matches + debounced live
     results) and `useLivePrices(portfolio)` (mock-seeded prices, then 60s polling).
-- **Not yet split:** `CryptoIdea.jsx` (~1.07k lines, down from ~1.56k) still mixes UI +
-  remaining business logic (auth/data-load, portfolio mutations, upgrade flow) with
-  screen rendering. Further `hooks/` (e.g. `useAuthSession`, `usePortfolios`) and the
-  `components/` split (presentational screens; plus moving `admin-dashboard.jsx`,
-  `education-page.jsx`, `pro-success.jsx`) are the remaining work.
+  - `components/` — the standalone page UIs: `education-page.jsx`, `pro-success.jsx`,
+    `admin-dashboard.jsx`. `src/` root now holds only the Vite entries (`main.jsx`,
+    `admin-main.jsx`) and the main app shell `CryptoIdea.jsx`.
+- **Not yet split (the hard core):** `CryptoIdea.jsx` (~1.07k lines, down from ~1.56k)
+  still holds the auth/data-load + profile-save effects, portfolio CRUD, the upgrade
+  flow, and every screen rendered as an inline closure. These are tightly coupled to
+  shared state (`user`, `screen`, `portfolios`, `activePortId`, `dataLoaded`) used
+  throughout the render, so further extraction (`useAuthSession`, `usePortfolios`, and
+  splitting the screens into `components/`) is real surgery, not a mechanical move —
+  do it screen-by-screen with browser verification, ideally behind a test net.
 - Multi-page Vite entries (`main.jsx`, `admin-main.jsx`) stay at the `src/` root.
