@@ -10,9 +10,13 @@ vi.mock("../../src/api/admin.js", () => ({
     proPrice: 9.99, premiumPrice: 49.99,
   })),
   getAdminConfig: vi.fn(() => Promise.resolve({})),
-  listUsers: vi.fn(() => Promise.resolve([])),
+  listUsers: vi.fn(() => Promise.resolve([
+    { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1 },
+  ])),
   listAudit: vi.fn(() => Promise.resolve([])),
-  lookupUser: vi.fn(() => Promise.resolve(null)),
+  lookupUser: vi.fn(() => Promise.resolve(
+    { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1, coinCount: 3 },
+  )),
   setUserTier: vi.fn(() => Promise.resolve()),
   suspendUser: vi.fn(() => Promise.resolve()),
   deleteUser: vi.fn(() => Promise.resolve()),
@@ -46,5 +50,15 @@ describe("admin-dashboard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Audit" }));
     await waitFor(() => expect(listAudit).toHaveBeenCalled());
+  });
+
+  it("opens a user's detail panel on row click with moderation actions", async () => {
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    const row = await screen.findByText("Alice");   // list row (after listUsers resolves)
+    fireEvent.click(row);
+    await screen.findByText("CHANGE TIER");          // detail panel (after lookupUser resolves)
+    expect(screen.getByRole("button", { name: "Suspend" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete account" })).toBeInTheDocument();
   });
 });
