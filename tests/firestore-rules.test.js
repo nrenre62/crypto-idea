@@ -141,3 +141,40 @@ test("creating a portfolio WITHOUT bumping the counter is rejected", async () =>
     setDoc(doc(aliceDb(), "users", "alice", "portfolios", "p1"), { name: "Sneaky", coinCount: 0 })
   );
 });
+
+test("coin create enforces symbol/name length bounds", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 0 });
+  });
+  const db = aliceDb();
+  // Valid coin: coinCount 0 -> 1
+  const ok = writeBatch(db);
+  ok.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0 });
+  ok.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertSucceeds(ok.commit());
+  // Oversized name (>64 chars) -> rejected by validCoinData, even though the counter math is valid
+  const bad = writeBatch(db);
+  bad.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "eth"), { symbol: "ETH", name: "E".repeat(100), txCount: 0 });
+  bad.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(bad.commit());
+});
+
+test("transaction create enforces amount/price/date bounds", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0 });
+  });
+  const db = aliceDb();
+  // Valid transaction: txCount 0 -> 1
+  const ok = writeBatch(db);
+  ok.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t1"), { type: "buy", amount: 1.5, priceAtBuy: 40000, date: "2024-01-15T10:00" });
+  ok.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
+  await assertSucceeds(ok.commit());
+  // Absurd amount (> 1e15) -> rejected by validTransactionData
+  const bad = writeBatch(db);
+  bad.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t2"), { type: "buy", amount: 1e308, priceAtBuy: 1, date: "2024-01-15T10:00" });
+  bad.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
+  await assertFails(bad.commit());
+});

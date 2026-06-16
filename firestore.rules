@@ -169,8 +169,9 @@ service cloud.firestore {
 
     function validCoinData() {
       let data = request.resource.data;
-      return data.symbol is string
-             && data.name is string;
+      return data.symbol is string && data.symbol.size() > 0 && data.symbol.size() <= 20
+             && data.name is string && data.name.size() > 0 && data.name.size() <= 64
+             && (!('thumb' in data) || (data.thumb is string && data.thumb.size() <= 512));
     }
 
     function validTransactionData() {
@@ -178,9 +179,13 @@ service cloud.firestore {
       return data.type in ['buy', 'sell']
              && data.amount is number
              && data.amount > 0
+             && data.amount <= 1000000000000000
              && data.priceAtBuy is number
              && data.priceAtBuy >= 0
-             && data.date is string;
+             && data.priceAtBuy <= 1000000000
+             && data.date is string
+             && data.date.size() > 0
+             && data.date.size() <= 40;
     }
   }
 }
