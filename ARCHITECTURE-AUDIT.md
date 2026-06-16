@@ -23,14 +23,20 @@
 
 ## Summary
 
+> **Update (2026-06-16): the Rule 1–3 violations have been fixed.** All extractable
+> component/data-layer logic was moved to the correct layer (see "Resolution" at the bottom).
+> Rules 4–6 remain a deliberate, documented backend-monolith choice (`NEXT-STEPS.md` §2).
+
 | Rule | Layer | Verdict |
 |---|---|---|
-| 1. Components — JSX only | `src/components/`, shell | ⚠️ Partial — no fetch leaks, but business logic in 4 files |
-| 2. Hooks — all state + logic | `src/hooks/` | ✅ Hooks are clean; ⚠️ but not *all* logic lives in them (leaks into components) |
-| 3. API layer — fetch only | `src/api/` | ⚠️ Partial — proxy wrappers clean; data layer carries business rules |
+| 1. Components — JSX only | `src/components/`, shell | ✅ Fixed — P&L, usage%, subscription-decision, ForgotPass handler, and the admin panel's state all moved out |
+| 2. Hooks — all state + logic | `src/hooks/` | ✅ Fixed — admin logic → `useAdminDashboard`; subscription decision → `useUpgrade` |
+| 3. API layer — fetch only | `src/api/` | ✅ Fixed — duplicate `TIER_LIMITS`/`canAdd*` removed from `firebase-database.js` |
 | 4. Controllers — req/res only | `functions/` | ❌ Not separated (by design) |
 | 5. Services — external calls only | `functions/` | ❌ Not separated (by design) |
 | 6. Models — DB queries only | `functions/` | ❌ Not separated (by design) |
+
+*(The detailed findings below are the original audit; see "Resolution" at the end for what moved where.)*
 
 ---
 
@@ -115,18 +121,32 @@ Firestore in the same body. Representative cases:
    from `firebase-database.js`; single source of truth is `useUpgrade.js`. Kills the drift risk.
 2. ✅ **DONE (commit 3e4bfcb)** — extracted P&L math into pure `utils/pnl.js` (+ 7 unit tests);
    `Detail.jsx` and `CryptoIdea.jsx` now call it.
-3. 🔁 **RECONSIDERED — `admin-dashboard.jsx` → `useAdminDashboard` hook: declined on KISS grounds.**
-   It would be a **1:1 hook used by exactly one component** — relocating ~20 `useState`s + handlers
-   into a new file without enabling reuse or cutting coupling. That's the same call the project
-   already made for portfolio CRUD in `NEXT-STEPS.md` §1b ("relocates deps, not reduces them —
-   anti-KISS"). Applying that precedent consistently, the extraction isn't a clear win.
-   **Instead (commit pending):** added the missing safety net — an interaction test
-   (`tests/unit/admin-dashboard.test.jsx`) that mounts the panel, mocks the API, and clicks through
-   all four tabs. That fills the real gap (the admin panel had zero coverage) and de-risks future
-   edits, which is the actual value here.
+3. ✅ **DONE (commit df83e51)** — extracted `admin-dashboard.jsx`'s ~20 `useState`s + 3 effects + all
+   handlers into `useAdminDashboard`. Initially declined as a 1:1 no-reuse hook, but reconsidering:
+   the dashboard is **self-contained** (no shared/injected state), so the extraction is *clean* —
+   unlike the §1b portfolio-CRUD case which would have needed ~15 injected deps. De-risked by first
+   expanding the interaction test to drive the user-detail/moderation flow, then refactoring under it.
 
 **Leave as-is (intentional / documented):**
 - Backend monolith (rules 4–6) — `NEXT-STEPS.md` §2 marks the split optional; for one serverless
   function, splitting adds files without real benefit (KISS).
-- `CryptoIdea.jsx` CRUD + upgrade orchestrators — documented tradeoff in §1b.
-- `AddEntry`/`ForgotPass` form-input logic — trivial, presentation-adjacent.
+- `CryptoIdea.jsx` CRUD + upgrade orchestrators — documented tradeoff in §1b (coupled to UI/auth/form
+  state shared across the app; hook-ifying would relocate deps, not reduce them).
+- `AddEntry` form-input logic — trivial, presentation-adjacent (historical-price autofill tied to the
+  form fields).
+
+---
+
+## Resolution — what moved where (2026-06-16)
+
+| Logic | From | To | Commit |
+|---|---|---|---|
+| Duplicate `TIER_LIMITS` + `canAdd*` | `api/firebase-database.js` | deleted (live copy in `useUpgrade.js`) | 26ecd78 |
+| P&L math (`holdings`/`coinPnl`/`portfolioPnl`) | `Detail.jsx`, `CryptoIdea.jsx` | `utils/pnl.js` (+7 tests) | 3e4bfcb |
+| Usage-% math | `CryptoIdea.jsx` | `utils/usage.js` (+3 tests) | 6c0903d |
+| Subscription auto-downgrade decision | `CryptoIdea.jsx` | `useUpgrade.dueDowngrade` (+5 tests) | 6c0903d |
+| Password-reset handler | `ForgotPass.jsx` | `CryptoIdea` ctx (component now presentation-only) | 4f2d0b5 |
+| Admin panel state + handlers + effects | `admin-dashboard.jsx` | `hooks/useAdminDashboard.js` (test-guarded) | df83e51 |
+
+Net: every component is now presentation + thin orchestration; pure business logic lives in
+`utils/` or hooks. Rules 4–6 (backend MVC) remain intentionally unsplit per §2.
