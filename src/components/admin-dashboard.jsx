@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../api/firebase.config.js";
+import { getStats, listUsers, listAudit, lookupUser, setUserTier, suspendUser, deleteUser, getAdminConfig, saveConfig as saveConfigFn } from "../api/admin.js";
 
 const TIERS = {
   free:    { label:"Free",    color:"#FF9500", limits:{ portfolios:1, coins:10, transactions:50 }, storage:"5 MB", price:"$0" },
@@ -43,8 +42,7 @@ export default function AdminDashboard() {
   // only whether they're set), so you can SEE what's configured and persisted.
   const loadConfig = async () => {
     try {
-      const r = await httpsCallable(functions, "getAdminConfig")();
-      const d = r.data || {};
+      const d = await getAdminConfig();
       setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "" });
       setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "" });
       setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet) });
@@ -58,7 +56,7 @@ export default function AdminDashboard() {
   const saveConfig = async () => {
     setSavedMsg("Saving…");
     try {
-      await httpsCallable(functions, "saveConfig")({ keys, email: mail, flags: controls, analytics, legal, plans });
+      await saveConfigFn({ keys, email: mail, flags: controls, analytics, legal, plans });
       await loadConfig();             // re-read so the saved state is visible immediately
       setSavedMsg("Saved ✓");
     } catch (e) {
@@ -70,7 +68,7 @@ export default function AdminDashboard() {
   const saveControls = async (next) => {
     setControls(next);
     setSavedMsg("Saving…");
-    try { await httpsCallable(functions, "saveConfig")({ keys, email: mail, flags: next }); setSavedMsg("Saved ✓"); }
+    try { await saveConfigFn({ keys, email: mail, flags: next }); setSavedMsg("Saved ✓"); }
     catch (e) { setSavedMsg("Save failed: " + ((e && e.message) || "error")); await loadConfig(); }
     setTimeout(() => setSavedMsg(""), 3000);
   };
@@ -94,12 +92,10 @@ export default function AdminDashboard() {
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditMsg, setAuditMsg] = useState("");
 
-  const callFn = (name, data) => httpsCallable(functions, name)(data);
-
   // Load combined usage + the saved config once on mount.
   useEffect(() => {
-    callFn("getStats")
-      .then(r => setStats(r.data))
+    getStats()
+      .then(d => setStats(d))
       .catch(e => setStatsErr((e && e.message) || "Could not load stats"));
     loadConfig();
   }, []);
@@ -107,7 +103,7 @@ export default function AdminDashboard() {
 
   const loadUserList = async () => {
     setListLoading(true); setListMsg("");
-    try { const r = await callFn("listUsers", {}); setUserList((r.data && r.data.users) || []); }
+    try { setUserList(await listUsers()); }
     catch (e) { setListMsg((e && e.message) || "Could not load users"); setUserList([]); }
     setListLoading(false);
   };
@@ -116,7 +112,7 @@ export default function AdminDashboard() {
 
   const loadAudit = async () => {
     setAuditLoading(true); setAuditMsg("");
-    try { const r = await callFn("listAudit", { limit: 100 }); setAudit((r.data && r.data.entries) || []); }
+    try { setAudit(await listAudit(100)); }
     catch (e) { setAuditMsg((e && e.message) || "Could not load the audit log"); setAudit([]); }
     setAuditLoading(false);
   };
@@ -125,34 +121,34 @@ export default function AdminDashboard() {
   const lookup = async () => {
     if (!lookupEmail.trim()) return;
     setBusy(true); setLookupMsg(""); setActionMsg(""); setConfirmDelete(false); setFound(null);
-    try { const r = await callFn("lookupUser", { email: lookupEmail.trim() }); setFound(r.data); }
+    try { setFound(await lookupUser(lookupEmail.trim())); }
     catch (e) { setLookupMsg((e && e.message) || "Lookup failed"); }
     setBusy(false);
   };
   // Open a row from the list → full detail (incl. coin count) via lookupUser.
   const openUser = async (email) => {
     setBusy(true); setActionMsg(""); setConfirmDelete(false); setFound(null); setLookupMsg("");
-    try { const r = await callFn("lookupUser", { email }); setFound(r.data); }
+    try { setFound(await lookupUser(email)); }
     catch (e) { setLookupMsg((e && e.message) || "Lookup failed"); }
     setBusy(false);
   };
   const changeTier = async (tier) => {
     setBusy(true); setActionMsg("");
-    try { await callFn("setUserTier", { uid: found.uid, tier }); setFound({ ...found, tier });
+    try { await setUserTier(found.uid, tier); setFound({ ...found, tier });
       setUserList(l => l && l.map(x => x.uid === found.uid ? { ...x, tier } : x)); setActionMsg("Tier updated ✓"); }
     catch (e) { setActionMsg((e && e.message) || "Failed"); }
     setBusy(false);
   };
   const toggleSuspend = async () => {
     setBusy(true); setActionMsg("");
-    try { const d = !found.disabled; await callFn("suspendUser", { uid: found.uid, disabled: d }); setFound({ ...found, disabled: d });
+    try { const d = !found.disabled; await suspendUser(found.uid, d); setFound({ ...found, disabled: d });
       setUserList(l => l && l.map(x => x.uid === found.uid ? { ...x, disabled: d } : x)); setActionMsg(d ? "Suspended ✓" : "Un-suspended ✓"); }
     catch (e) { setActionMsg((e && e.message) || "Failed"); }
     setBusy(false);
   };
   const doDelete = async () => {
     setBusy(true); setActionMsg("");
-    try { await callFn("deleteUser", { uid: found.uid });
+    try { await deleteUser(found.uid);
       setUserList(l => l && l.filter(x => x.uid !== found.uid)); setActionMsg("Account deleted ✓"); setFound(null); setConfirmDelete(false); setLookupEmail(""); }
     catch (e) { setActionMsg((e && e.message) || "Failed"); }
     setBusy(false);
