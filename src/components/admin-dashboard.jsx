@@ -455,10 +455,6 @@ export default function AdminDashboard() {
             <option value="none">None</option>
             <option value="activecampaign">ActiveCampaign</option>
             <option value="getresponse">GetResponse</option>
-            <option value="mailchimp">Mailchimp</option>
-            <option value="sendgrid">SendGrid</option>
-            <option value="resend">Resend</option>
-            <option value="brevo">Brevo (Sendinblue)</option>
           </select>
           {[
             ["API key","apiKey","provider API key"],
