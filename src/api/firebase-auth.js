@@ -13,7 +13,7 @@ import {
   updateProfile,
   sendEmailVerification
 } from "firebase/auth";
-import { doc, setDoc, getDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { auth, db } from "./firebase.config.js";
 
 
@@ -103,38 +103,12 @@ export async function resetPassword(email) {
 }
 
 
-// ─── Get User Profile ───
-export async function getUserProfile(uid) {
-  try {
-    const snap = await getDoc(doc(db, "users", uid));
-    if (snap.exists()) {
-      return { success: true, profile: { id: uid, ...snap.data() } };
-    }
-    return { success: false, error: "Profile not found" };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-
 // ─── Listen to Auth State ───
 // Call this once on app startup
 export function onAuthChange(callback) {
   return onAuthStateChanged(auth, (user) => {
     callback(user);
   });
-}
-
-
-// ─── Upgrade / Downgrade Tier ───
-// In production, this would be triggered by Stripe payment webhook
-export async function updateUserTier(uid, tier) {
-  try {
-    await setDoc(doc(db, "users", uid), { tier }, { merge: true });
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
 }
 
 

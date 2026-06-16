@@ -59,16 +59,6 @@ export async function createPortfolio(uid, name, order = 0) {
   }
 }
 
-// Rename a portfolio
-export async function renamePortfolio(uid, portfolioId, name) {
-  try {
-    await updateDoc(doc(db, "users", uid, "portfolios", portfolioId), { name });
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
 // Delete a portfolio and all its coins/transactions
 export async function deletePortfolio(uid, portfolioId) {
   try {
@@ -230,45 +220,6 @@ export async function deleteTransaction(uid, portfolioId, coinId, txId) {
 }
 
 
-// ════════════════════════════════════════
-// TIER LIMITS (enforced client + server side)
-// ════════════════════════════════════════
-export const TIER_LIMITS = {
-  free: {
-    maxPortfolios: 1,
-    maxCoinsPerPortfolio: 10,
-    maxTransactionsPerCoin: 50,
-    maxDCAPerDay: 20,
-    maxStorageGB: 0.005,
-    price: "$0",
-  },
-  pro: {
-    maxPortfolios: 10,
-    maxCoinsPerPortfolio: 200,
-    maxTransactionsPerCoin: 2000,
-    maxDCAPerDay: Infinity,
-    maxStorageGB: 0.5,
-    price: "$9.99/month · $79.99/year",
-  },
-  premium: {
-    maxPortfolios: 50,
-    maxCoinsPerPortfolio: 500,
-    maxTransactionsPerCoin: 5000,
-    maxDCAPerDay: Infinity,
-    maxStorageGB: 15,
-    price: "$49.99/month · $399.99/year",
-    customizable: true,
-  }
-};
-
-// Check if user can add a portfolio
-export function canAddPortfolio(tier, currentCount) {
-  const limit = TIER_LIMITS[tier]?.maxPortfolios || 1;
-  return currentCount < limit;
-}
-
-// Check if user can add a coin
-export function canAddCoin(tier, currentCount) {
-  const limit = TIER_LIMITS[tier]?.maxCoinsPerPortfolio || 20;
-  return currentCount < limit;
-}
+// Tier limits live in src/hooks/useUpgrade.js (single source of truth). They are
+// ENFORCED server-side by firestore.rules (reading config/app.plans); the client
+// only reads them for display, so they don't belong in this data-access layer.
