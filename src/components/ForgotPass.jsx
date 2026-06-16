@@ -1,20 +1,10 @@
 import { useApp } from "../hooks/app-context.js";
 import { c, inp_s } from "../utils/theme.js";
-import { resetPassword } from "../api/firebase-auth.js";
 
-// Password reset screen. State (fp* fields, resetSent) comes from context.
+// Password reset screen — presentation only. State (fp* fields, resetSent) and
+// the handleReset handler come from context (handler defined in CryptoIdea.jsx).
 export function ForgotPass() {
-  const { fpEmail, setFpEmail, fpErr, setFpErr, resetSent, setResetSent, setScreen } = useApp();
-  const handleReset = async () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!fpEmail) { setFpErr("Enter your email"); return; }
-    if (!emailRegex.test(fpEmail)) { setFpErr("Enter a valid email"); return; }
-    // Firebase sends the reset email. We always show success so an attacker
-    // can't use this form to discover which emails have accounts.
-    const res = await resetPassword(fpEmail.toLowerCase().trim());
-    if (!res.success && res.error && res.error.indexOf("Network") !== -1) { setFpErr(res.error); return; }
-    setResetSent(true); setFpErr("");
-  };
+  const { fpEmail, setFpEmail, fpErr, resetSent, setResetSent, setScreen, handleReset } = useApp();
   if (resetSent) return (<div style={{padding:"40px 24px",display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",justifyContent:"center"}}>
     <div style={{width:56,height:56,borderRadius:28,background:c.acd,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,marginBottom:20}}>✓</div>
     <div style={{fontSize:22,fontWeight:700,marginBottom:8,textAlign:"center"}}>Check your email</div>

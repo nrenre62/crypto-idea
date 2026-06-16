@@ -18,7 +18,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
-import { registerUser, loginUser, logoutUser } from "./api/firebase-auth.js";
+import { registerUser, loginUser, logoutUser, resetPassword } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount } from "./api/account.js";
 import {
   createPortfolio as dbCreatePortfolio,
@@ -153,6 +153,18 @@ export default function CryptoIdea(){
     if(!u||!u.uid)return;
     const {uid,pass,loggedOut,...rest}=u;
     await db.set("ci-profile-"+uid,rest);
+  };
+
+  // Send a password-reset email. Always reports success (anti-enumeration),
+  // surfacing only a network error. Lives here (not in ForgotPass) so that
+  // screen is presentation-only, consistent with Login's handleAuth.
+  const handleReset=async()=>{
+    const emailRegex=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if(!fpEmail){setFpErr("Enter your email");return}
+    if(!emailRegex.test(fpEmail)){setFpErr("Enter a valid email");return}
+    const res=await resetPassword(fpEmail.toLowerCase().trim());
+    if(!res.success&&res.error&&res.error.indexOf("Network")!==-1){setFpErr(res.error);return}
+    setResetSent(true);setFpErr("");
   };
 
   const handleAuth=async()=>{
@@ -391,7 +403,7 @@ export default function CryptoIdea(){
   </div>);
 
   // Shared state + handlers for extracted screens (grows as screens migrate).
-  const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,
+  const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,handleReset,
     user,contactMsg,setContactMsg,contactSent,setContactSent,
     sq,setSq,searchResults,portfolio,addCoin,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
