@@ -67,8 +67,12 @@ them. Next: §1c (move remaining backend calls / shared theme out of components)
 
 ### 1c. Move backend calls out of components (closes audit rule 1)
 - [x] `CryptoIdea.jsx` calls `httpsCallable(functions, "exportMyData"/"deleteMyAccount")` directly. → Moved into `src/api/account.js` (`exportMyData()`, `deleteMyAccount()`); component imports them, no longer touches `httpsCallable`/`functions`. 2 tests.
-- [ ] `components/admin-dashboard.jsx` calls Cloud Functions via `httpsCallable` directly. Move those into an `api/admin.js` and have the dashboard consume a hook.
-- [ ] `components/pro-success.jsx` defines a local `c` theme — import `utils/theme.js` instead.
+- [x] `components/admin-dashboard.jsx` called Cloud Functions via `httpsCallable` directly. → Moved all 9 callables into `src/api/admin.js` (`getStats`/`listUsers`/`listAudit`/`lookupUser`/`setUserTier`/`suspendUser`/`deleteUser`/`getAdminConfig`/`saveConfig`); each wrapper unwraps the payload the dashboard needs. Component no longer imports `httpsCallable`/`functions`. 7 tests. **Kept as plain `api/` functions, not a hook** (KISS, same call as `account.js`): the dashboard already owns all its own state, so a hook would add a layer without cutting coupling.
+- [x] `components/pro-success.jsx` defined a local `c` theme — now imports the shared `utils/theme.js` (`c.bg`/`c.txt`/`c.dim`/`c.ac`), dropped the unused `border` token.
+
+**✅ Section 1c complete** — no user/admin component calls a Cloud Function or
+defines its own theme anymore; all backend access lives in `src/api/*`.
+**✅ Section 1 (frontend refactor) complete** — all of 1a/1b/1c are done.
 
 ---
 
