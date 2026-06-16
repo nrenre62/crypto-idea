@@ -1,8 +1,27 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 export default function EduDesign3() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [err, setErr] = useState("");
+  const hp = useRef(null);   // honeypot — bots fill it, humans never see it
+
+  // Actually subscribe via the cached /api proxy (same as the landing page).
+  // Before: this only flipped local state, silently dropping the email.
+  const submit = async () => {
+    if (!email.includes("@")) { setErr("Enter a valid email"); return; }
+    setErr("");
+    try {
+      const r = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), hp: hp.current ? hp.current.value : "" }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.success) { setSubmitted(true); setErr(""); }
+      else setErr("Couldn't subscribe right now — please try again.");
+    } catch (e) { setErr("Couldn't subscribe right now — please try again."); }
+  };
 
   const c = { bg: "#FFFFFF", text: "#1A1A1A", sub: "#888", light: "#F5F5F5", border: "#EAEAEA", green: "#34C759" };
 
@@ -111,28 +130,35 @@ export default function EduDesign3() {
                 Portfolio strategy, risk management, and the investing lessons that compound over time.
               </p>
               {!submitted ? (
-                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    style={{
-                      padding: "12px 16px", borderRadius: 10, border: `1px solid ${c.border}`,
-                      fontSize: 13, outline: "none", width: 220,
-                    }}
-                  />
-                  <button
-                    onClick={() => { if (email.includes("@")) setSubmitted(true); }}
-                    style={{
-                      padding: "12px 20px", borderRadius: 10, border: "none",
-                      background: c.text, color: "#fff", fontSize: 13, fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Subscribe
-                  </button>
-                </div>
+                <>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                    {/* Honeypot: off-screen, hidden from humans; a filled value = bot. */}
+                    <input ref={hp} type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true"
+                      style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+                      placeholder="your@email.com"
+                      style={{
+                        padding: "12px 16px", borderRadius: 10, border: `1px solid ${c.border}`,
+                        fontSize: 13, outline: "none", width: 220,
+                      }}
+                    />
+                    <button
+                      onClick={submit}
+                      style={{
+                        padding: "12px 20px", borderRadius: 10, border: "none",
+                        background: c.text, color: "#fff", fontSize: 13, fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Subscribe
+                    </button>
+                  </div>
+                  {err && <div style={{ fontSize: 12, color: "#c0492f", marginTop: 10 }}>{err}</div>}
+                </>
               ) : (
                 <div style={{ padding: "12px 20px", borderRadius: 10, background: c.green + "12", color: c.green, fontSize: 13, fontWeight: 600, display: "inline-block" }}>
                   You're in ✓
