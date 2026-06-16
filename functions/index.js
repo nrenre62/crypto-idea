@@ -101,13 +101,31 @@ function mergePlans(saved) {
   for (const t of ["free", "pro", "premium"]) {
     const d = DEFAULT_PLANS[t], v = s[t] || {};
     out[t] = {
-      price: num(v.price, d.price),
-      portfolios: Math.round(num(v.portfolios, d.portfolios)),
-      coins: Math.round(num(v.coins, d.coins)),
-      transactions: Math.round(num(v.transactions, d.transactions)),
+      price: Math.min(num(v.price, d.price), 1e6),                              // cap: no absurd prices
+      portfolios: Math.min(Math.round(num(v.portfolios, d.portfolios)), 100000),
+      coins: Math.min(Math.round(num(v.coins, d.coins)), 100000),
+      transactions: Math.min(Math.round(num(v.transactions, d.transactions)), 1000000),
     };
   }
   return out;
+}
+
+// SSRF guard: only allow fetching an EXTERNAL https URL (used for the admin-set
+// email-provider API URL). Rejects non-https, IP literals, localhost, and
+// internal/metadata hostnames so a misconfigured/compromised admin can't point
+// the server at the cloud metadata service or an internal address. Returns the
+// parsed URL's origin, or null if unsafe.
+function safeProviderOrigin(raw) {
+  let u;
+  try { u = new URL(String(raw || "")); } catch (e) { return null; }
+  if (u.protocol !== "https:") return null;
+  const host = u.hostname.toLowerCase();
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return null;        // IPv4 literal (incl. 169.254.169.254)
+  if (host.includes(":") || host.startsWith("[")) return null;  // IPv6 literal
+  if (host === "localhost" || host.endsWith(".localhost")) return null;
+  if (host.endsWith(".internal") || host.endsWith(".local")) return null;
+  if (host === "metadata") return null;
+  return u.origin;
 }
 
 async function getPayPalToken() {
@@ -325,10 +343,12 @@ exports.lookupUser = functions.https.onCall(async (data, context) => {
   if (!context.auth || !isAdminToken(context.auth.token)) {
     throw new functions.https.HttpsError("permission-denied", "Admins only.");
   }
-  const email = data && data.email;
-  if (!email) throw new functions.https.HttpsError("invalid-argument", "email is required.");
+  const email = String((data && data.email) || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
+    throw new functions.https.HttpsError("invalid-argument", "Enter a valid email.");
+  }
   let rec;
-  try { rec = await admin.auth().getUserByEmail(String(email).trim()); }
+  try { rec = await admin.auth().getUserByEmail(email); }
   catch (e) { throw new functions.https.HttpsError("not-found", "No user with that email."); }
   const snap = await db.collection("users").doc(rec.uid).get();
   const d = snap.exists ? snap.data() : {};
@@ -779,7 +799,7 @@ exports.api = functions.https.onRequest(async (req, res) => {
       return;
     }
     if (action === "search") {
-      const q = String(req.query.q || "").trim().toLowerCase();
+      const q = String(req.query.q || "").trim().toLowerCase().slice(0, 100);  // cap length (DoS guard)
       if (!q) { res.json({ coins: [] }); return; }
       const list = await getCoinList();   // ~3,000 coins, no per-search upstream call
       const matches = [];
@@ -878,8 +898,8 @@ exports.api = functions.https.onRequest(async (req, res) => {
           });
           ok = r.ok || r.status === 202 || r.status === 409; // 409 = already on the list
         } else if (e.provider === "activecampaign") {
-          const base = String(e.apiUrl || "").replace(/\/+$/, "");
-          if (!base) { res.status(503).json({ error: "missing ActiveCampaign API URL" }); return; }
+          const base = safeProviderOrigin(e.apiUrl);
+          if (!base) { res.status(503).json({ error: "invalid ActiveCampaign API URL (must be an external https URL)" }); return; }
           const cr = await fetch(base + "/api/3/contact/sync", {
             method: "POST",
             headers: { "Api-Token": e.apiKey, "Content-Type": "application/json" },
