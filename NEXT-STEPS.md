@@ -52,7 +52,18 @@ Most state + logic still lives in the `CryptoIdea.jsx` component. Pull into hook
   `CryptoIdea.jsx` by design** — they're coupled to `user`/tier-limits (derived after `user`, which
   comes from `useAuthSession`) and UI/form state; hook-ifying them would need ~15 injected deps or a
   risky reorder of the auth↔load sequence (anti-KISS). Revisit only if a redesign makes it cleaner.
-- [ ] `useUpgrade` — `startUpgrade`, downgrade flow, `trimToTier`, `getTrimImpact`, `calcEndDate`
+- [x] `useUpgrade` — **tier-limit business logic extracted** to `hooks/useUpgrade.js`
+  (`calcEndDate`, `getTrimImpact`, `trimToTier`, bound to `portfolios`/`setPortfolios`). Also
+  consolidated the **duplicated limits table** into one `TIER_LIMITS` constant. 6 hook tests
+  (`renderHook`). The **UI-flow orchestrators stay in `CryptoIdea.jsx` by design** (`startUpgrade`/
+  `startDowngrade`/`confirmDowngrade`): they drive overlay state shared with the auth/Login flow
+  (`showPlan`/`upgradeStep`/`upgradeFlow`…), so hook-ifying them would only relocate ~7 setters
+  without cutting coupling (anti-KISS) — same call as `usePortfolios`' CRUD.
+
+**✅ Section 1b complete** — auth session, portfolios state, and tier-limit logic are now in
+hooks. What stays in `CryptoIdea.jsx` (portfolio CRUD + upgrade-overlay orchestrators) is coupled
+to UI/form/auth state by design; pulling it into hooks would relocate dependencies, not reduce
+them. Next: §1c (move remaining backend calls / shared theme out of components).
 
 ### 1c. Move backend calls out of components (closes audit rule 1)
 - [x] `CryptoIdea.jsx` calls `httpsCallable(functions, "exportMyData"/"deleteMyAccount")` directly. → Moved into `src/api/account.js` (`exportMyData()`, `deleteMyAccount()`); component imports them, no longer touches `httpsCallable`/`functions`. 2 tests.

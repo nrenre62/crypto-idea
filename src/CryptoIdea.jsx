@@ -34,6 +34,7 @@ import { useCoinSearch } from "./hooks/useCoinSearch.js";
 import { useLivePrices } from "./hooks/useLivePrices.js";
 import { useAuthSession } from "./hooks/useAuthSession.js";
 import { usePortfolios, DEFAULT_PORTFOLIOS } from "./hooks/usePortfolios.js";
+import { useUpgrade } from "./hooks/useUpgrade.js";
 import { db } from "./utils/storage.js";
 import { c } from "./utils/theme.js";
 import { Ic } from "./components/ui.jsx";
@@ -85,6 +86,9 @@ export default function CryptoIdea(){
   const[showWelcome,setShowWelcome]=useState(null);  // null | "free" | "pro" | "premium"
   const[showPaymentFailedSim,setShowPaymentFailedSim]=useState(false);
   const {portfolios,setPortfolios,activePortId,setActivePortId,portfolio,setPortfolio}=usePortfolios();
+  // Subscription/tier-limit logic (end-date, downgrade impact + trim). UI flow state
+  // for the upgrade overlay stays here (shared with the auth/Login flow) — see useUpgrade.
+  const {calcEndDate,getTrimImpact,trimToTier}=useUpgrade({portfolios,setPortfolios});
   const[showPortManager,setShowPortManager]=useState(false);
   const[newPortName,setNewPortName]=useState("");
   // Auth session: owns user/dataLoaded + the auth-watch & profile-save effects.
@@ -331,55 +335,8 @@ export default function CryptoIdea(){
   const usagePct=Math.max(coinPct,txPct);
 
   // ── Subscription Helpers ──
+  // calcEndDate / getTrimImpact / trimToTier now live in useUpgrade (above).
   const fmtDate=(d)=>new Date(d).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
-  const calcEndDate=(billing)=>{
-    const d=new Date();
-    if(billing==="yearly")d.setFullYear(d.getFullYear()+1);
-    else d.setMonth(d.getMonth()+1);
-    return d.toISOString();
-  };
-  const getTrimImpact=(toTier)=>{
-    const limits={
-      free:{ports:1,coins:10,tx:50},
-      pro:{ports:10,coins:200,tx:2000},
-      premium:{ports:50,coins:500,tx:5000},
-    };
-    const lim=limits[toTier];
-    if(!lim)return null;
-    const portsToDelete=Math.max(0,portfolios.length-lim.ports);
-    let coinsToDelete=0,txToDelete=0;
-    portfolios.slice(0,lim.ports).forEach(p=>{
-      coinsToDelete+=Math.max(0,p.coins.length-lim.coins);
-      p.coins.slice(0,lim.coins).forEach(coin=>{
-        txToDelete+=Math.max(0,(coin.entries?.length||0)-lim.tx);
-      });
-    });
-    portfolios.slice(lim.ports).forEach(p=>{
-      p.coins.forEach(coin=>{coinsToDelete++;txToDelete+=(coin.entries?.length||0)});
-    });
-    return{portsToDelete,coinsToDelete,txToDelete};
-  };
-
-  // Actually trim portfolios/coins/tx to fit a tier's limits
-  const trimToTier=(toTier)=>{
-    const limits={
-      free:{ports:1,coins:10,tx:50},
-      pro:{ports:10,coins:200,tx:2000},
-      premium:{ports:50,coins:500,tx:5000},
-    };
-    const lim=limits[toTier];
-    if(!lim)return;
-    setPortfolios(prev=>{
-      const trimmed=prev.slice(0,lim.ports).map(p=>({
-        ...p,
-        coins:p.coins.slice(0,lim.coins).map(coin=>({
-          ...coin,
-          entries:(coin.entries||[]).slice(-lim.tx), // keep most recent
-        })),
-      }));
-      return trimmed.length>0?trimmed:[{id:"default",name:"My Portfolio",coins:[]}];
-    });
-  };
 
   // Check on app load if subscription expired or payment failed
   const checkSubscriptionStatus=async(u)=>{
