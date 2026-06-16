@@ -16,7 +16,7 @@
 2. `CryptoIdea.jsx` → `useCoinSearch(sq)` invoked.
 3. `hooks/useCoinSearch.js` — instant local match against `TOP_COINS` (offline), then **debounce 300 ms** for live results.
 4. `api/coingecko.js` → `searchCoins(q)` → `GET /api/search?q=…` (same-origin proxy).
-5. `functions/index.js` (`api` handler, `search` action) — `getCoinList()` reads the Firestore `cache/coinlist` doc (or fetches CoinGecko if stale), filters ~3,000 coins, returns top 25.
+5. `functions/index.js` (`api` handler, `search` action) — `getUniverse()` reads the Firestore `cache/universe` doc (or fetches CoinGecko if stale), filters ~3,000 coins, returns top 25.
 6. `useCoinSearch.js` — merges live results with local list (deduped) → renders in `Search.jsx`.
 7. User taps **+ Add** → `addCoin(coin)` from context.
 
@@ -65,17 +65,17 @@
 ## 3. Prices auto-refresh
 
 **Files touched, in order:**
-`useLivePrices.js` → `CryptoIdea.jsx` → `coingecko.js` → `functions/index.js` (`prices` action → `getMarkets`/`refreshMarkets` → long-tail) → Firestore `cache/*` → back to `useLivePrices.js` → `CryptoIdea.jsx` (ctx) → `StatusDot.jsx` + `Portfolio.jsx`/`Detail.jsx`
+`useLivePrices.js` → `CryptoIdea.jsx` → `coingecko.js` → `functions/index.js` (`prices` action → `getUniverse`/`refreshUniverse` → on-demand fold) → Firestore `cache/universe` → back to `useLivePrices.js` → `CryptoIdea.jsx` (ctx) → `StatusDot.jsx` + `Portfolio.jsx`/`Detail.jsx`
 
 1. `hooks/useLivePrices.js` (mount) — seeds **mock prices** from `TOP_COINS` so the UI isn't empty; `setApi("demo")`.
 2. `CryptoIdea.jsx` — `const {prices, api} = useLivePrices(portfolio)`; `api` flows into ctx.
 3. `useLivePrices.js` (effect, dep `[portfolio]`) — builds `ids = portfolio.map(c=>c.id).join(",")`; calls `f()` **immediately**, then `setInterval(f, 60000)` — **60 s poll**.
 4. `useLivePrices.js` `f()` → `api/coingecko.js` `fetchPrices(ids)` → `GET /api/prices?ids=…` (returns `null` on error, no throw).
-5. `functions/index.js` (`api` handler, `prices` action) — caps ids (≤500); `getMarkets()`.
-6. `functions/index.js` `getMarkets()` — reads Firestore `cache/markets`; if older than **5-min TTL**, calls `refreshMarkets()` (else serves cache, even stale on failure).
-7. `functions/index.js` `refreshMarkets()` — `fetch` CoinGecko `/coins/markets` (top-250, with key) → writes `cache/markets` with fresh `updatedAt`.
-8. Handler builds response from the top-250 cache; coins not found → `missing[]`.
-9. **Long-tail:** reads `cache/longtail`; per-coin **20-min TTL** — fresh ones served from cache, stale/missing → `toFetch[]` → `fetch` CoinGecko `/simple/price` → merge into response **+** update `cache/longtail`.
+5. `functions/index.js` (`api` handler, `prices` action) — caps ids (≤500); `getUniverse()`.
+6. `functions/index.js` `getUniverse()` — reads Firestore `cache/universe`; if older than **5-min TTL**, calls `refreshUniverse()` (else serves cache, even stale on failure).
+7. `functions/index.js` `refreshUniverse()` — `fetch` CoinGecko `/coins/markets` (up to ~3,000 coins, metadata + price). A complete refresh **replaces** `cache/universe` (prunes delisted coins); a partial one (429) **merges** so the universe never shrinks.
+8. Handler builds response from the universe cache; coins not found → `missing[]`.
+9. **Off-list coins:** any held coin not in the ~3,000 universe → `fetch` CoinGecko `/simple/price` once → merge into response **+** fold the price back into `cache/universe` (price-only entry, skipped by search/coinlist; pruned by the daily refresh).
 10. Handler sets `Cache-Control: public, max-age=120` (browser caches 2 min) → `res.json(out)`.
 11. `coingecko.js` — parses response, returns `{ id: {usd, usd_24h_change, usd_market_cap}, … }`.
 12. `useLivePrices.js` — `if (d) { setPrices(p => ({...p, ...d})); setApi("live") }` (merge keeps prior, **demo→live** flips here).
@@ -84,6 +84,6 @@
 15. `components/Portfolio.jsx` / `Detail.jsx` — re-render with fresh prices & 24h change.
 16. **Loop:** every 60 s → back to step 4.
 
-> Caching makes upstream cost flat regardless of user count: server-side `cache/markets` (5 min) +
-> `cache/longtail` (20 min, shared) + browser CDN (2 min). Scheduled pub/sub functions
-> (`refreshMarkets`/`refreshCoinList`) also warm these caches in prod.
+> Caching makes upstream cost flat regardless of user count: one shared server-side
+> `cache/universe` doc (5-min freshness) + browser CDN (2 min). Scheduled pub/sub
+> functions (`refreshPrices` every 5 min, `refreshUniverseDaily` daily) warm it in prod.

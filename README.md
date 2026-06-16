@@ -167,7 +167,8 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | Function | Type | Purpose |
 |----------|------|---------|
 | `api` | HTTP | CoinGecko proxy — `/api/prices`, `/api/search`, `/api/history` (see below) |
-| `refreshMarkets` | Scheduled (every 5 min) | Keeps the shared price/coin cache warm in production |
+| `refreshPrices` | Scheduled (every 5 min) | Keeps prices fresh in the shared `cache/universe` (all ~3,000 coins on a paid CoinGecko plan; degrades to the top coins on the free tier) |
+| `refreshUniverseDaily` | Scheduled (every 24 h) | Guarantees the full ~3,000-coin list and prunes coins that dropped off |
 | `paypalWebhook` | HTTP | Verifies PayPal signatures and updates a user's tier |
 | `createSubscription` / `cancelSubscription` | Callable | Start/cancel a PayPal subscription (auth-enforced) |
 | `getStats` | Callable | Admin-only **combined** usage/revenue stats (no personal data) |
@@ -188,46 +189,48 @@ The app never calls CoinGecko directly. It calls the same-origin `/api/*` endpoi
 
 | Endpoint | What it does | Caching |
 |----------|--------------|---------|
-| `GET /api/prices?ids=a,b,c` | Live prices for held coins | Top-N coins come from a shared `cache/markets` doc (refreshed every 5 min). Coins outside the top-N ("long tail") come from a shared `cache/longtail` doc refreshed every 20 min — so even obscure-coin prices are shared across all users and stay flat in cost. |
-| `GET /api/search?q=term` | Search any of the top-N coins | Reads `cache/markets` — **zero per-search upstream calls**. Only established (top-ranked) coins appear, which naturally excludes brand-new micro-caps. |
+| `GET /api/prices?ids=a,b,c` | Live prices for held coins | Reads the shared `cache/universe` doc (refreshed every 5 min). A held coin not in the universe is fetched once on demand and folded back in, so the next request — for any user — is cached. Cost stays flat regardless of user count. |
+| `GET /api/search?q=term` | Search the ~3,000-coin universe | Reads `cache/universe` — **zero per-search upstream calls**. Only established (top-ranked) coins appear, which naturally excludes brand-new micro-caps. |
+| `GET /api/coinlist` | Full ~3,000-coin list **+ price** (for the landing DCA calculator) | Reads `cache/universe`; served from the CDN for 24 h so thousands of visitors add ~0 function calls. Price is included so the DCA tool shows a value with no per-visitor price call. |
 | `GET /api/history?id=coin` | Full daily price history (for DCA) | Cached per-coin in `historyCache/{coin}` for 7 days — fetched **once per coin**, reused for every date range and every user. |
 
-### How prices + search share one dataset
-A single CoinGecko endpoint — `coins/markets` — returns the coin **list + prices + images + rank** together. One call covers 250 coins. `refreshMarkets()` stores that in the shared `cache/markets` doc, so both prices and search read from it. On the free tier this also auto-refreshes on demand if the scheduled function isn't running.
+### One shared dataset for everything
+A single CoinGecko endpoint — `coins/markets` — returns the coin **list + prices + images + rank** together. One call covers 250 coins; `refreshUniverse()` fetches up to 12 pages (~3,000 coins) into one shared `cache/universe` doc, so prices, search, **and** the landing DCA calculator all read from it. On the free tier the universe also auto-refreshes on demand if the scheduled jobs aren't running, and rate-limited pages are skipped (last-good data kept).
 
 ### Tunables (top of the CoinGecko section in `functions/index.js`)
-- `MARKET_PAGES` — coins covered for live prices. `1` = top 250 (1 call/refresh).
-- `LIST_PAGES` — coins covered for **search** (default `12` = ~3,000), refreshed daily.
-- `MARKETS_TTL` — top-N price freshness (default 5 min).
-- `LONGTAIL_TTL` — held coins outside the top-N: shared refresh interval (default 20 min).
+- `UNIVERSE_PAGES` — coins covered (default `12` = ~3,000; each page = 250 coins = 1 call).
+- `UNIVERSE_TTL` — serve-time freshness window (default 5 min).
 - `HISTORY_TTL` — per-coin history refresh (default 7 days).
 
 ### The API key
+Set it from the **Admin dashboard → Settings** (written to the locked `config/app` doc, the primary source), or via an environment variable:
 ```bash
-# Production:
-firebase functions:config:set coingecko.demo_key="YOUR_DEMO_KEY"
+# Production: functions/.env (git-ignored; see functions/.env.example)
+COINGECKO_DEMO_KEY=YOUR_DEMO_KEY
 # Local emulator:
 $env:COINGECKO_DEMO_KEY = "YOUR_DEMO_KEY"   # PowerShell (optional)
 ```
+> `functions.config()` was removed in firebase-functions v7 — config now comes from the `config/app` Firestore doc (primary) or env vars (fallback).
 Without a key it uses CoinGecko's public endpoint: lower rate limit, and **history limited to the last 365 days** (the app falls back to built-in estimates for older dates). A free Demo key extends the range. Get one at coingecko.com/en/api.
 
 ## Upstream call budget (independent of user count)
 
-With the defaults (top 250 coins, 5-min refresh):
+With the defaults (all ~3,000 coins, 5-min refresh):
 
 | Source | Upstream CoinGecko calls | Scales with users? |
 |--------|--------------------------|--------------------|
-| Prices + search | ~1 call / 5 min = **~290/day** | **No** |
-| DCA history | ~1 call per coin per 7 days (e.g. 250 coins → **~36/day**) | **No** |
-| Out-of-top-250 coins held | small, on-demand | slightly |
-| **Total** | **~325/day ≈ ~10k/month** | **flat** |
+| Prices + search (universe) | 12 calls / 5 min = **~3,456/day** | **No** |
+| Daily full refresh / prune | ~12/day | **No** |
+| DCA history | ~1 call per coin per 7 days | **No** |
+| Off-list coins held | small, on-demand | slightly |
+| **Total** | **~3,500/day ≈ ~105k/month** | **flat** |
 
-So **100 users, 1,000 users, and 10,000 users cost roughly the same** (~10k calls/month), which fits CoinGecko's free Demo plan (10,000/month). For more coins or faster refresh, raise `MARKET_PAGES`/lower `MARKETS_TTL` and move to the Lite plan (100k/month, $35).
+So **100 users, 1,000 users, and 10,000 users cost roughly the same** (~105k calls/month) — the cost is driven by coverage + refresh rate, **not** user count. Covering all ~3,000 coins every 5 min needs a **paid CoinGecko plan** (Lite ~100k/mo, or Analyst 500k/mo ≈ $129). On the free Demo tier (10k/mo) the universe still works but only the top coins stay 5-min-fresh — rate-limited pages are skipped. To stay free, raise `UNIVERSE_TTL` (refresh less often) and/or lower `UNIVERSE_PAGES` (fewer coins hot).
 
 ## Storage
 
 Tiny — all within Firebase's free tier (1 GiB Firestore):
-- `cache/markets`: ~250 coins × ~120 bytes ≈ **~30 KB** (one doc).
+- `cache/universe`: ~3,000 coins × ~110 bytes ≈ **~330 KB** (one doc, well under Firestore's 1 MB limit).
 - `historyCache/{coin}`: ~365 daily points × ~25 bytes ≈ **~9 KB/coin**; 250 coins ≈ **~2 MB** total.
 - Firestore **reads** per request are minimized by CDN `Cache-Control` headers (repeat identical requests are served from Firebase's edge, never hitting the function or Firestore).
 
@@ -254,7 +257,7 @@ This runs **the whole stack in one lifecycle** (start one → start all; stop on
 
 Under the hood it's `firebase emulators:exec --ui "npm run dev"`, so Ctrl-C stops everything together. (`npm run dev` alone runs only Vite — the app loads but `/api/*` calls fail with `ECONNREFUSED :5001`.) Other emulators (Realtime Database, Storage) are intentionally off — the app doesn't use them.
 
-> Note: the scheduled functions (`refreshMarkets`, `refreshCoinList`) **register** in the emulator but don't auto-fire on their cron; trigger them from the Emulator UI if needed. In production (Blaze) Cloud Scheduler fires them for real. The on-demand cache fill means the app works regardless.
+> Note: the scheduled functions (`refreshPrices`, `refreshUniverseDaily`) **register** in the emulator but don't auto-fire on their cron; trigger them from the Emulator UI if needed. In production (Blaze) Cloud Scheduler fires them for real. The on-demand cache fill means the app works regardless.
 
 # Frontend vs backend (what ships to users)
 
@@ -325,16 +328,16 @@ The landing + DCA are **static files served by Firebase's CDN**, so traffic scal
 
 | Action | Upstream CoinGecko calls |
 |--------|--------------------------|
-| Prices (top 250) | ~290/day total — same for 1k or 10k users |
-| Prices (long tail) | flat, by distinct coins held (20-min shared cache) |
-| Search (~3,000 coins) | ~12/day total (daily list refresh) — **0 per search** |
+| Prices + search (universe, ~3,000) | ~3,456/day total (12 calls / 5 min) — same for 1k or 10k users |
+| Off-list coins held | flat, by distinct coins held (folded into the universe on demand) |
+| Search | reads the cached universe — **0 per search** |
 | DCA history | ~1 per coin per 7 days |
 
 **Searching 10–20 coins per user:** each search is debounced and reads the **cached** coin list, so it makes **0 CoinGecko calls**. 10,000 users × 15 searches = 150,000 *search requests*, but these hit Firebase (function + Firestore read, CDN-cached 5 min), **not** CoinGecko — so CoinGecko search cost stays ~0. The only Firebase cost is cheap function invocations / Firestore reads, heavily reduced by the CDN.
 
 # Adding coins (the ~3,000 list)
 
-Search covers the **top ~3,000 coins by market cap** (`LIST_PAGES = 12`). So users can find and add coins at rank **#800, #1,200, #2,500**, etc. — just search the name or symbol. To cover more, raise `LIST_PAGES` in `functions/index.js`. (Anything outside the list can still be priced on-demand if held.)
+Search covers the **top ~3,000 coins by market cap** (`UNIVERSE_PAGES = 12`). So users can find and add coins at rank **#800, #1,200, #2,500**, etc. — just search the name or symbol. To cover more, raise `UNIVERSE_PAGES` in `functions/index.js`. (Anything outside the list can still be priced on-demand if held.)
 
 ---
 
@@ -348,7 +351,7 @@ Defense in depth across the whole app:
 | **Admin** | A verified Firebase **custom claim** (`{admin:true}`), set server-side — not an email list. |
 | **Firestore rules** | Owner-only access; users can't change their own `tier`; counter-based plan limits; `/config` is server-only (no client read/write). Verified by `npm run test:rules`. |
 | **Functions** | Callable functions enforce auth and act on the caller's uid (no IDOR). The PayPal webhook verifies signatures. |
-| **Secrets** | API keys live only in the Cloud Function (env / `functions.config()` / the locked `config/app` doc). The Firebase web config is public by design. |
+| **Secrets** | API keys live only in the Cloud Function (the locked `config/app` doc, or env vars / `functions/.env`). The Firebase web config is public by design. |
 | **Bot / abuse** | `/api` has a **per-IP rate limit** (60/min). **Firebase App Check** (reCAPTCHA v3) protects Auth/Firestore/callable Functions when `VITE_RECAPTCHA_SITE_KEY` is set + enforcement is on. The landing email form has a honeypot. |
 | **HTTP headers** | `firebase.json` sets CSP, `X-Frame-Options: DENY` (clickjacking), `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, and HSTS on every response. |
 | **XSS** | The React app auto-escapes (JSX); the static landing builds DOM with `textContent`, never `innerHTML`, for API data. |
@@ -356,7 +359,7 @@ Defense in depth across the whole app:
 
 ## Admin settings (API keys & email) — `saveConfig`
 
-The admin **Settings** tab saves to a **locked** Firestore doc `config/app` via the admin-only `saveConfig` Cloud Function. Clients can never read it (rules deny `/config`); the proxy and PayPal functions read it server-side (`getConfig`, cached 5 min, with `functions.config()`/env fallback). So you can rotate the CoinGecko/PayPal keys and pick an email provider from the dashboard without redeploying. The form pre-fills from `getAdminConfig` on open (non-secret values shown; secrets shown only as a "saved" placeholder), and a blank secret field on save **keeps** the stored value — so re-saving never wipes a key.
+The admin **Settings** tab saves to a **locked** Firestore doc `config/app` via the admin-only `saveConfig` Cloud Function. Clients can never read it (rules deny `/config`); the proxy and PayPal functions read it server-side (`getConfig`, cached 5 min, with env-var fallback). So you can rotate the CoinGecko/PayPal keys and pick an email provider from the dashboard without redeploying. The form pre-fills from `getAdminConfig` on open (non-secret values shown; secrets shown only as a "saved" placeholder), and a blank secret field on save **keeps** the stored value — so re-saving never wipes a key.
 
 **App Controls (public flags).** The Settings tab also has instant-save toggles for **Maintenance mode** and **Allow new signups**, stored in `config/app.flags`. The app reads them from the public **`/api/config`** endpoint (non-secret only, CDN-cached ~60s) on load: maintenance shows a "we'll be right back" screen for everyone; signups-off disables the Register tab. Changes apply within ~60s. (Signups-off is a client gate; for hard enforcement add an Auth `beforeCreate` blocking function at go-live.)
 
