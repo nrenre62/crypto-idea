@@ -21,9 +21,19 @@ on `x-forwarded-for[0]` (client-influenceable). The public endpoints include a *
 (`/api/subscribe`) and **expensive** reads (`/api/prices`, `/api/search` over ~3,000 coins). Once
 live with a CoinGecko key + an email provider, this is a scraping / email-spam / cost vector
 reachable by anyone.
-- **Fix:** enable Firebase **App Check** enforcement (already `VITE_RECAPTCHA_SITE_KEY`-wired in
-  `firebase.config.js`) + add a reCAPTCHA/Turnstile token check on `subscribe`. Item #1 on the
-  documented go-live list — elevated here because it's the highest-impact gap.
+
+**Status — PARTIALLY FIXED (commit f1e3fd7):** the public write endpoint `/api/subscribe` now has
+its own dedicated, far stricter per-IP budget (`SUBSCRIBE_LIMIT = 5`/min via a separate `_rlSub`
+store), instead of sharing the loose 60/min read budget. Verified against the emulator (6th+ rapid
+subscribe → `429`; reads still `200`). This blunts single-IP spam.
+
+**Still remaining (deploy-time, cannot be done in code alone):**
+- Enable Firebase **App Check** enforcement (already `VITE_RECAPTCHA_SITE_KEY`-wired in
+  `firebase.config.js`) — needs a reCAPTCHA v3 key + console enforcement.
+- Add a reCAPTCHA/Turnstile token check on the **static landing** subscribe form (the landing has no
+  Firebase SDK, so this is a client integration that needs the site key to build/test).
+- (Optional, keyless) a **durable** rate limit (Firestore-backed) to survive instance restarts and
+  defeat multi-IP bursts — heavier, defer unless abuse is observed.
 - **Note:** not currently exploitable for email spam — `subscribe` returns `503` until a provider+key
   are configured (`index.js:860`). It goes live the moment email is configured at launch, which is
   exactly when App Check must already be on.
@@ -93,7 +103,8 @@ mitigation; noted for completeness.
 4. **M3 / M4 / L1–L3** — batch into a hardening pass.
 
 ### Suggested follow-up tasks (not yet done)
-- [ ] Enable App Check enforcement + add CAPTCHA token check on `/api/subscribe` (C1).
+- [x] Dedicated strict per-IP rate limit on `/api/subscribe` write (C1, code-side — commit f1e3fd7).
+- [ ] Enable App Check enforcement + add reCAPTCHA token check on the landing `/api/subscribe` form (C1, deploy-time).
 - [ ] Allowlist `config/app.email.apiUrl` host + require HTTPS before fetch (M1).
 - [ ] Add length/range/date bounds to `validCoinData`/`validTransactionData` in `firestore.rules` + extend `test:rules` (M2).
 - [ ] Whitelist the `saveConfig` payload shape server-side (M3).
