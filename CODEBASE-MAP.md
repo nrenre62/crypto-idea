@@ -3,6 +3,23 @@
 > Generated 2026-06-16. Scope: all 98 git-tracked files. `node_modules/` excluded.
 > The two `package-lock.json` files and the 8 PNG icons are generated/binary, so their
 > "line counts" aren't meaningful code (noted as such).
+>
+> **Addendum (later, same day) — files added after this map was generated** (architecture/refactor
+> sweep; ask me to regenerate for a fully-current map):
+> | File | LOC | What |
+> |---|---|---|
+> | `src/utils/pnl.js` | 45 | Pure P&L math (holdings/coinPnl/portfolioPnl) — extracted from components |
+> | `src/utils/usage.js` | 14 | Pure plan-usage % math — extracted from `CryptoIdea.jsx` |
+> | `src/hooks/useAdminDashboard.js` | 164 | All admin-panel state/effects/handlers (extracted from the component) |
+> | `tests/unit/pnl.test.js` | 70 | P&L math tests |
+> | `tests/unit/usage.test.js` | 27 | Usage-% tests |
+> | `tests/unit/admin-dashboard.test.jsx` | 64 | Admin panel interaction tests (4 tabs + user detail) |
+> | `tests/unit/education-page.test.jsx` | 42 | Education-page subscribe regression tests |
+> | `tests/unit/format.test.js` | 19 | `fmtPriceInput` tests |
+>
+> Also: `useUpgrade.js` gained `dueDowngrade`; `format.js` gained `fmtPriceInput`; dead exports
+> (`getUserProfile`/`updateUserTier`/`renamePortfolio`) + duplicate `TIER_LIMITS` removed from the
+> api layer. **Unit tests are now 88** (was 65); rules tests 10.
 
 ## 1. Folder structure (tree)
 
