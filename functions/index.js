@@ -608,9 +608,10 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
 // CoinGecko proxy  (prices / search / history)
 // ═════════════════════════════════════════════════════════════
 // Cost model: upstream calls are SHARED across all users and do NOT scale with
-// the number of users. One refresh of the top-N coin list (1 call per 250 coins)
-// serves everyone's prices AND search. Each coin's full history is fetched once
-// and reused for every DCA calc by every user. See README "CoinGecko proxy".
+// the number of users. One refresh of the shared coin universe (1 call per 250
+// coins) serves everyone's prices AND search — for the DCA calculator and the
+// app alike. Each coin's full history is fetched once and reused for every DCA
+// calc by every user. See README "CoinGecko proxy".
 //
 // API key lives server-side only — set it from the Admin dashboard (config/app
 // doc, the primary source read by cgHeaders) or via the COINGECKO_DEMO_KEY env
@@ -655,89 +656,76 @@ function rateLimited(req, store = _rl, limit = RATE_LIMIT) {
   return e.count > limit;
 }
 
-// Tunables (raise pages for more coins, raise TTLs for fewer upstream calls).
-const MARKET_PAGES = 1;                          // 1 page = top 250 coins (1 call/refresh)
-const MARKETS_TTL = 5 * 60 * 1000;               // prices/list freshness: 5 minutes
+// ─── ONE shared coin universe (metadata + price for ~3,000 coins) ───
+// A single Firestore doc powers BOTH the public DCA calculator and the user app
+// (each reads it through its own endpoint, so the two front-ends stay decoupled).
+// Two scheduled jobs keep it warm:
+//   • refreshUniverseDaily — guarantees the full ~3,000-coin list (names, symbols,
+//     icons, rank) exists and PRUNES coins that dropped off. Cheap (≤12 calls).
+//   • refreshPrices (every 5 min) — keeps PRICES fresh for the whole universe.
+// Cost is flat regardless of user count (one shared fetch serves everyone).
+// Covering all ~3,000 coins every 5 min needs a paid CoinGecko plan; on the free
+// tier it degrades gracefully — rate-limited (429) pages are skipped and the last
+// good data is kept, so the top coins stay fresh and the rest stay as last seen.
+const UNIVERSE_PAGES = 12;                        // 12 × 250 = ~3,000 coins
+const UNIVERSE_TTL = 5 * 60 * 1000;              // serve-time freshness window: 5 min
 const HISTORY_TTL = 7 * 24 * 60 * 60 * 1000;     // per-coin history refresh: 7 days
-const LONGTAIL_TTL = 20 * 60 * 1000;             // held coins outside the top-N: refresh every 20 min
-const MARKETS_DOC = "cache/markets";
-const LONGTAIL_DOC = "cache/longtail";
+const UNIVERSE_DOC = "cache/universe";
 
-// Fetch the top-N coins (list + price + image + rank, all in one endpoint) and
-// store them in one shared Firestore doc. This single dataset powers prices AND
-// search for ALL users. Only coins big enough to be in the top-N appear — which
-// naturally excludes brand-new micro-cap coins.
-async function refreshMarkets() {
+// Fetch up to UNIVERSE_PAGES pages of /coins/markets (metadata + price in one
+// call). Returns the coins map. A FULLY successful refresh REPLACES the doc (so
+// delisted coins are pruned); a PARTIAL one (a page 429'd / errored) MERGES, so a
+// single rate-limit never shrinks the universe.
+async function refreshUniverse() {
   const coins = {};
-  for (let page = 1; page <= MARKET_PAGES; page++) {
-    const r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&price_change_percentage=24h`, { headers: await cgHeaders() });
-    if (!r.ok) throw new Error("markets " + r.status);
+  let complete = true;
+  for (let page = 1; page <= UNIVERSE_PAGES; page++) {
+    let r;
+    try {
+      r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&price_change_percentage=24h`, { headers: await cgHeaders() });
+    } catch (e) { complete = false; break; }
+    // First page failing with nothing collected = hard error (caller falls back
+    // to cache). Any later failure: keep what we have, mark partial, stop.
+    if (!r.ok) {
+      if (page === 1 && !Object.keys(coins).length) throw new Error("universe " + r.status);
+      complete = false; break;
+    }
     const arr = await r.json();
+    if (!arr.length) break;                        // ran past the last page of coins
     for (const c of arr) {
       coins[c.id] = {
         s: String(c.symbol || "").toUpperCase(), n: c.name, img: c.image || "",
         rank: c.market_cap_rank || null, p: c.current_price,
-        ch: c.price_change_percentage_24h, mc: c.market_cap,
+        ch: c.price_change_percentage_24h, mc: c.market_cap, at: Date.now(),
       };
     }
   }
-  await db.doc(MARKETS_DOC).set({ updatedAt: Date.now(), coins });
+  await db.doc(UNIVERSE_DOC).set({ updatedAt: Date.now(), coins }, complete ? undefined : { merge: true });
   return coins;
 }
 
-// Read the shared market cache; refresh it on demand if missing/stale (so it
-// works even without the scheduled function, e.g. in the emulator).
-async function getMarkets() {
+// Read the shared universe; refresh on demand if missing/stale (so it works even
+// without the scheduled jobs, e.g. in the emulator).
+async function getUniverse() {
   let data = null;
-  try { const snap = await db.doc(MARKETS_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
-  if (!data || (Date.now() - (data.updatedAt || 0)) > MARKETS_TTL) {
-    try { return await refreshMarkets(); } catch (e) { if (data) return data.coins; throw e; }
+  try { const snap = await db.doc(UNIVERSE_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
+  if (!data || (Date.now() - (data.updatedAt || 0)) > UNIVERSE_TTL) {
+    try { return await refreshUniverse(); } catch (e) { if (data) return data.coins; throw e; }
   }
   return data.coins;
 }
 
-// Scheduled keep-warm (production only; needs the Blaze plan). The on-demand
-// refresh in getMarkets() covers everything if this isn't running.
-exports.refreshMarkets = functions.pubsub.schedule("every 5 minutes").onRun(async () => {
-  try { await refreshMarkets(); } catch (e) { console.error("refreshMarkets:", e); }
+// Keep prices fresh (every 5 min). Covers all ~3,000 coins on a paid CoinGecko
+// plan; degrades to the top coins on the free tier (rate-limited pages skipped).
+exports.refreshPrices = functions.pubsub.schedule("every 5 minutes").onRun(async () => {
+  try { await refreshUniverse(); } catch (e) { console.error("refreshPrices:", e); }
   return null;
 });
 
-// ─── Larger coin list for SEARCH (covers ~3,000 coins) ───
-// The list (names/symbols/icons/rank) changes slowly, so it's refreshed daily —
-// cheap (LIST_PAGES calls/day) and independent of user count. Live prices for a
-// held coin still come from /api/prices (top-N cache or on-demand), so this only
-// needs to be fresh enough for search/discovery.
-const LIST_PAGES = 12;                          // 12 × 250 = ~3,000 coins
-const LIST_TTL = 24 * 60 * 60 * 1000;           // refresh daily
-const COINLIST_DOC = "cache/coinlist";
-
-async function refreshCoinList() {
-  const coins = {};
-  for (let page = 1; page <= LIST_PAGES; page++) {
-    const r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}`, { headers: await cgHeaders() });
-    if (!r.ok) { if (page === 1) throw new Error("coinlist " + r.status); break; }
-    const arr = await r.json();
-    if (!arr.length) break;
-    for (const c of arr) {
-      coins[c.id] = { s: String(c.symbol || "").toUpperCase(), n: c.name, img: c.image || "", rank: c.market_cap_rank || null };
-    }
-  }
-  await db.doc(COINLIST_DOC).set({ updatedAt: Date.now(), coins });
-  return coins;
-}
-
-async function getCoinList() {
-  let data = null;
-  try { const snap = await db.doc(COINLIST_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
-  if (!data || (Date.now() - (data.updatedAt || 0)) > LIST_TTL) {
-    try { return await refreshCoinList(); } catch (e) { if (data) return data.coins; throw e; }
-  }
-  return data.coins;
-}
-
-exports.refreshCoinList = functions.pubsub.schedule("every 24 hours").onRun(async () => {
-  try { await refreshCoinList(); } catch (e) { console.error("refreshCoinList:", e); }
+// Daily full refresh — guarantees the complete ~3,000-coin list and prunes coins
+// that dropped off the market-cap list. Cheap and reliable even on the free tier.
+exports.refreshUniverseDaily = functions.pubsub.schedule("every 24 hours").onRun(async () => {
+  try { await refreshUniverse(); } catch (e) { console.error("refreshUniverseDaily:", e); }
   return null;
 });
 
@@ -755,49 +743,38 @@ exports.api = functions.https.onRequest(async (req, res) => {
     if (action === "prices") {
       const ids = String(req.query.ids || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 500);
       if (!ids.length) { res.status(400).json({ error: "ids required" }); return; }
-      const markets = await getMarkets();
+      const universe = await getUniverse();
       const out = {};
       const missing = [];
       for (const id of ids) {
-        const m = markets[id];
+        const m = universe[id];
         if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc };
         else missing.push(id);
       }
-      // Coins outside the top-N ("long tail"): served from a SHARED Firestore
-      // cache refreshed at most every LONGTAIL_TTL (20 min) per coin — so the
-      // cost is flat (driven by how many distinct obscure coins are held across
-      // ALL users, not by user/request count).
+      // Any held coin not in the ~3,000-coin universe (rare): fetch it once on
+      // demand and fold the price into the shared universe doc, so the next
+      // request — for ANY user — is served from cache. Cost stays flat (driven by
+      // how many distinct off-list coins are held across ALL users, not by request
+      // count). These price-only entries carry no name, so the search / coinlist
+      // endpoints below skip them; the daily full refresh prunes them.
       if (missing.length) {
         const now = Date.now();
-        let lt = {};
-        try { const s = await db.doc(LONGTAIL_DOC).get(); lt = (s.exists && s.data().coins) || {}; } catch (e) { /* ignore */ }
-        const toFetch = [];
-        for (const id of missing) {
-          const c = lt[id];
-          if (c && (now - (c.at || 0)) < LONGTAIL_TTL) {
-            out[id] = { usd: c.p, usd_24h_change: c.ch, usd_market_cap: c.mc };
-          } else {
-            toFetch.push(id);
-          }
-        }
-        if (toFetch.length) {
-          try {
-            const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(toFetch.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: await cgHeaders() });
-            if (r.ok) {
-              const d = await r.json();
-              const upd = { coins: {} };
-              for (const id of toFetch) {
-                if (d[id]) {
-                  out[id] = d[id];
-                  upd.coins[id] = { p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: now };
-                }
-              }
-              if (Object.keys(upd.coins).length) {
-                try { await db.doc(LONGTAIL_DOC).set(upd, { merge: true }); } catch (e) { /* ignore */ }
+        try {
+          const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(missing.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: await cgHeaders() });
+          if (r.ok) {
+            const d = await r.json();
+            const upd = {};
+            for (const id of missing) {
+              if (d[id]) {
+                out[id] = d[id];
+                upd[id] = { p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: now };
               }
             }
-          } catch (e) { /* ignore */ }
-        }
+            if (Object.keys(upd).length) {
+              try { await db.doc(UNIVERSE_DOC).set({ coins: upd }, { merge: true }); } catch (e) { /* ignore */ }
+            }
+          }
+        } catch (e) { /* ignore */ }
       }
       res.set("Cache-Control", "public, max-age=120");
       res.json(out);
@@ -806,11 +783,12 @@ exports.api = functions.https.onRequest(async (req, res) => {
     if (action === "search") {
       const q = String(req.query.q || "").trim().toLowerCase().slice(0, 100);  // cap length (DoS guard)
       if (!q) { res.json({ coins: [] }); return; }
-      const list = await getCoinList();   // ~3,000 coins, no per-search upstream call
+      const list = await getUniverse();   // ~3,000 coins, no per-search upstream call
       const matches = [];
       for (const id in list) {
         const m = list[id];
-        if (id.includes(q) || String(m.n || "").toLowerCase().includes(q) || String(m.s || "").toLowerCase().includes(q)) {
+        if (!m || !m.n) continue;         // skip price-only off-list entries (no metadata)
+        if (id.includes(q) || String(m.n).toLowerCase().includes(q) || String(m.s || "").toLowerCase().includes(q)) {
           matches.push({ id, symbol: m.s, name: m.n, thumb: m.img, rank: m.rank });
         }
       }
@@ -820,12 +798,18 @@ exports.api = functions.https.onRequest(async (req, res) => {
       return;
     }
     if (action === "coinlist") {
-      // Full ~3,000-coin list (names/symbols/icons/rank — NO prices) for the landing
-      // DCA calculator's CLIENT-SIDE search. The page fetches this ONCE and is served
-      // from Firebase's CDN for a day, so thousands of visitors add ~0 function calls.
-      const list = await getCoinList();
+      // Full ~3,000-coin list (names/symbols/icons/rank + last price) for the
+      // landing DCA calculator's CLIENT-SIDE search. The page fetches this ONCE
+      // and is served from Firebase's CDN for a day, so thousands of visitors add
+      // ~0 function calls. Price is included so the calculator can show a current
+      // value straight from storage, with no per-visitor price call.
+      const list = await getUniverse();
       const coins = [];
-      for (const id in list) { const m = list[id]; coins.push({ id, symbol: m.s, name: m.n, thumb: m.img, rank: m.rank }); }
+      for (const id in list) {
+        const m = list[id];
+        if (!m || !m.n) continue;         // skip price-only off-list entries (no metadata)
+        coins.push({ id, symbol: m.s, name: m.n, thumb: m.img, rank: m.rank, price: m.p, change: m.ch });
+      }
       coins.sort((a, b) => (a.rank || 99999) - (b.rank || 99999));
       res.set("Cache-Control", "public, max-age=86400, s-maxage=86400");
       res.json({ coins });
