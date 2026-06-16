@@ -2,6 +2,7 @@ import { useApp } from "../hooks/app-context.js";
 import { c, sb } from "../utils/theme.js";
 import { fmtP, fmtPct, fmtMc, fmtDT } from "../utils/format.js";
 import { getHistoricalPrice } from "../utils/coins.js";
+import { coinPnl } from "../utils/pnl.js";
 import { Ic, CI } from "./ui.jsx";
 
 // Coin detail: live price, holdings + P/L summary, and the transaction list (each
@@ -15,12 +16,7 @@ export function Detail() {
   if(!sel)return null;
   const coin=portfolio.find(x=>x.id===sel.id)||sel;
   const p=prices[coin.id];const pr=p?.usd;const ch=p?.usd_24h_change;const mc=p?.usd_market_cap;
-  const h=Math.max(0,coin.entries.reduce((s,e)=>e.type==="sell"?s-e.amount:s+e.amount,0));
-  const buysCost=coin.entries.filter(e=>e.type!=="sell").reduce((s,e)=>s+e.amount*e.priceAtBuy,0);
-  const sellsGain=coin.entries.filter(e=>e.type==="sell").reduce((s,e)=>s+e.amount*e.priceAtBuy,0);
-  const v=h*(pr||0);
-  const totalPnl=(v+sellsGain)-buysCost;
-  const totalPnlPct=buysCost>0?((v+sellsGain-buysCost)/buysCost)*100:0;
+  const { holding:h, value:v, buysCost, sellsGain, pnl:totalPnl, pnlPct:totalPnlPct } = coinPnl(coin.entries, pr);
   return(<>
     <div style={{padding:"14px 18px 6px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><button onClick={()=>{setScreen("portfolio");setSel(null);setConfirmDel(false)}} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>{Ic.back}</button><span style={{fontSize:17,fontWeight:600}}>{coin.name}</span>{!confirmDel?<button onClick={()=>setConfirmDel(true)} style={{background:"none",border:"none",cursor:"pointer",padding:4}}>{Ic.trash}</button>:<button onClick={()=>{remCoin(coin.id);setConfirmDel(false)}} style={{padding:"5px 12px",borderRadius:8,border:"none",fontSize:11,fontWeight:700,cursor:"pointer",background:c.red,color:"#fff",animation:"fadeIn 0.15s"}}>Remove</button>}</div>
     <div style={{margin:"8px 16px",background:c.card,borderRadius:18,padding:"20px",textAlign:"center"}}>

@@ -37,6 +37,7 @@ import { usePortfolios, DEFAULT_PORTFOLIOS } from "./hooks/usePortfolios.js";
 import { useUpgrade } from "./hooks/useUpgrade.js";
 import { db } from "./utils/storage.js";
 import { c } from "./utils/theme.js";
+import { portfolioPnl } from "./utils/pnl.js";
 import { Ic } from "./components/ui.jsx";
 import { Loading } from "./components/Loading.jsx";
 import { AppContext } from "./hooks/app-context.js";
@@ -319,11 +320,7 @@ export default function CryptoIdea(){
     setPortfolio(p=>p.map(c=>c.id===cid?{...c,entries:c.entries.filter(e=>e.id!==eid)}:c));setSel(p=>p?{...p,entries:p.entries.filter(e=>e.id!==eid)}:p)};
 
 
-  const tv=portfolio.reduce((s,c)=>{const p=prices[c.id]?.usd||0;return s+c.entries.reduce((a,e)=>a+e.amount,0)*p},0);
-  const tinv=portfolio.reduce((s,c)=>{const b=c.entries.filter(e=>e.type!=="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0);const sl=c.entries.filter(e=>e.type==="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0);return s+(b-sl)},0);
-  const totalBuys=portfolio.reduce((s,c)=>s+c.entries.filter(e=>e.type!=="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0),0);
-  const totalSells=portfolio.reduce((s,c)=>s+c.entries.filter(e=>e.type==="sell").reduce((a,e)=>a+e.amount*e.priceAtBuy,0),0);
-  const tpnl=(tv+totalSells)-totalBuys;const tpp=totalBuys>0?((tv+totalSells-totalBuys)/totalBuys)*100:0;
+  const { value:tv, totalBuys, pnl:tpnl, pnlPct:tpp } = portfolioPnl(portfolio, prices);
 
   // ── Usage Calculation ──
   const totalCoinsUsed=portfolio.length;
