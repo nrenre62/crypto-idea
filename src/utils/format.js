@@ -4,6 +4,11 @@
 // Price -> display string, with precision that grows as the price shrinks.
 export function fmtP(p){if(p==null)return"—";if(p>=1)return"$"+p.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});if(p>=0.01)return"$"+p.toFixed(4);if(p>=0.0001)return"$"+p.toFixed(6);return"$"+p.toFixed(10)}
 
+// Price -> a bare numeric string for a number INPUT (no "$", precision grows as
+// the price shrinks). Empty string for a non-positive/missing price. Used to
+// auto-fill the transaction price field. Shared by AddEntry + Detail.
+export function fmtPriceInput(p){if(!p||p<=0)return"";if(p>=1)return p.toFixed(2);if(p>=0.0001)return p.toFixed(6);if(p>=0.0000001)return p.toFixed(10);return p.toFixed(12)}
+
 // Market cap -> short string ($1.23T / $4.56B / $7.89M).
 export function fmtMc(m){if(!m)return"—";if(m>=1e12)return"$"+(m/1e12).toFixed(2)+"T";if(m>=1e9)return"$"+(m/1e9).toFixed(2)+"B";if(m>=1e6)return"$"+(m/1e6).toFixed(2)+"M";return"$"+m.toLocaleString()}
 

@@ -1,6 +1,6 @@
 import { useApp } from "../hooks/app-context.js";
 import { c, inp_s, lbl_s } from "../utils/theme.js";
-import { fmtP } from "../utils/format.js";
+import { fmtP, fmtPriceInput } from "../utils/format.js";
 import { TOP_COINS, getHistoricalPrice } from "../utils/coins.js";
 import { Ic, hdr } from "./ui.jsx";
 
@@ -15,7 +15,6 @@ export function AddEntry() {
   const coinData = sel ? TOP_COINS.find(x => x.id === sel.id) : null;
   const launchDate = coinData?.launch || "2013-04-28";
   const launchDateTime = launchDate + "T00:00";
-  const fmtPriceInput = (p) => { if(!p||p<=0)return""; if(p>=1)return p.toFixed(2); if(p>=0.0001)return p.toFixed(6); if(p>=0.0000001)return p.toFixed(10); return p.toFixed(12); };
   const onDateChange = (newDate) => {
     if(!newDate)return;
     const picked=new Date(newDate);
