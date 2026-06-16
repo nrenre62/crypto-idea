@@ -125,8 +125,9 @@ want explicit MVC separation:**
 
 ## 5. Housekeeping
 
-- [ ] Dev-only `npm audit` advisories (~10, from the Vitest/jsdom test tooling). Production
-  audit is **0** (only `dist/` ships). Run `npm audit fix` when convenient; don't `--force`.
+- [x] Ran `npm audit fix` (no `--force`): patched the `protobufjs` prod advisory → **production
+  audit (`--omit=dev`) is now 0**. ~11 dev-only advisories remain (Vitest/jsdom tooling) and would
+  need `--force`/breaking bumps — left per policy. Build + 72 unit tests green after the fix.
 - [x] Debug logs (`firebase-debug.log`, etc.) are already gitignored.
 
 ---

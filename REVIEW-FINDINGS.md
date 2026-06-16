@@ -70,8 +70,12 @@ wiring, all tests green. The real gaps are a small number of **half-wired featur
    admin dropdown to the 2 that work (KISS — quick).
 3. **Dead exports incl. duplicate `TIER_LIMITS`** — delete unused, consolidate the limits table.
 
-### Suggested follow-up tasks (not yet done)
-- [ ] Fix education-page Subscribe to POST `/api/subscribe` (+ honeypot) like `index.html`.
-- [ ] Reconcile email providers: implement the other 4 OR trim the admin dropdown to ActiveCampaign + GetResponse.
-- [ ] Remove dead exports (`getUserProfile`, `updateUserTier`, `renamePortfolio` if rename stays unbuilt) and consolidate `TIER_LIMITS` into one source (see `ARCHITECTURE-AUDIT.md` #1).
-- [ ] Fix the stale import example in `README.md:85`.
+### Follow-up tasks — ALL DONE
+- [x] Fix education-page Subscribe to POST `/api/subscribe` (+ honeypot) like `index.html`. — commit c1a7a3a
+- [x] Reconcile email providers: trimmed the admin dropdown to ActiveCampaign + GetResponse (the implemented ones). — commit 3e4c70a
+- [x] Remove dead exports (`getUserProfile`, `updateUserTier`, `renamePortfolio`) and consolidate `TIER_LIMITS` into one source (`useUpgrade.js`). — commit 26ecd78
+- [x] Fix the stale import example in `README.md:85`. — commit e4bac05
+
+> Note: `renamePortfolio` was removed as dead code rather than wired to a UI. If you want an
+> in-app "rename portfolio" feature, that's a deliberate feature add (re-introduce the data-layer
+> fn + an inline edit in `Account.jsx`) — say the word.

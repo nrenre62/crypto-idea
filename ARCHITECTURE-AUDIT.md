@@ -110,12 +110,15 @@ Firestore in the same body. Representative cases:
 
 ## What to fix vs. leave
 
-**Cheap, genuine wins (recommended):**
-1. **Move `TIER_LIMITS` + `canAddPortfolio`/`canAddCoin` out of `firebase-database.js`** into a
-   shared `utils/` (or fold into `useUpgrade`). Kills the duplicate plan-limits table — a real
-   correctness risk, not just tidiness.
-2. **Extract Detail/CryptoIdea P&L + usage math** into a small `utils/pnl.js` (pure, testable).
-3. **Refactor `admin-dashboard.jsx` into a `useAdminDashboard` hook** — biggest single Rule-1/2 cleanup.
+**Cheap, genuine wins:**
+1. ✅ **DONE (commit 26ecd78)** — removed the duplicate `TIER_LIMITS` + `canAddPortfolio`/`canAddCoin`
+   from `firebase-database.js`; single source of truth is `useUpgrade.js`. Kills the drift risk.
+2. ✅ **DONE (commit 3e4bfcb)** — extracted P&L math into pure `utils/pnl.js` (+ 7 unit tests);
+   `Detail.jsx` and `CryptoIdea.jsx` now call it.
+3. ⏳ **DEFERRED — `admin-dashboard.jsx` → `useAdminDashboard` hook.** Biggest single Rule-1/2
+   cleanup, but it's a ~565-line move and the component has **no tests**, so behavior can't be
+   verified after the refactor (build catches missing imports, not runtime `undefined` refs). Safer
+   to add test coverage first, then refactor. Left intentionally rather than done blind.
 
 **Leave as-is (intentional / documented):**
 - Backend monolith (rules 4–6) — `NEXT-STEPS.md` §2 marks the split optional; for one serverless
