@@ -82,13 +82,12 @@ Replace the simulated storage calls in the React app with the Firebase functions
 ```javascript
 // Instead of: window.storage.get("ci-user")
 // Use:
-import { onAuthChange, getUserProfile } from "./firebase/auth.js";
-import { getPortfolios, getCoins } from "./firebase/database.js";
+import { onAuthChange } from "./api/firebase-auth.js";
+import { getPortfolios, getCoins } from "./api/firebase-database.js";
 
 // Listen for auth state on app load
 onAuthChange(async (firebaseUser) => {
   if (firebaseUser) {
-    const profile = await getUserProfile(firebaseUser.uid);
     const portfolios = await getPortfolios(firebaseUser.uid);
     // Set your React state with this data
   }
