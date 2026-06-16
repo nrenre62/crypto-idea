@@ -34,10 +34,11 @@ import { useCoinSearch } from "./hooks/useCoinSearch.js";
 import { useLivePrices } from "./hooks/useLivePrices.js";
 import { useAuthSession } from "./hooks/useAuthSession.js";
 import { usePortfolios, DEFAULT_PORTFOLIOS } from "./hooks/usePortfolios.js";
-import { useUpgrade } from "./hooks/useUpgrade.js";
+import { useUpgrade, dueDowngrade } from "./hooks/useUpgrade.js";
 import { db } from "./utils/storage.js";
 import { c } from "./utils/theme.js";
 import { portfolioPnl } from "./utils/pnl.js";
+import { usagePercents } from "./utils/usage.js";
 import { Ic } from "./components/ui.jsx";
 import { Loading } from "./components/Loading.jsx";
 import { AppContext } from "./hooks/app-context.js";
@@ -322,48 +323,24 @@ export default function CryptoIdea(){
 
   const { value:tv, totalBuys, pnl:tpnl, pnlPct:tpp } = portfolioPnl(portfolio, prices);
 
-  // ── Usage Calculation ──
-  const totalCoinsUsed=portfolio.length;
-  const totalTxUsed=portfolios.reduce((s,p)=>s+p.coins.reduce((cs,c)=>cs+(c.entries?.length||0),0),0);
-  const maxTotalTx=maxPortfolios*maxCoinsPerPort*maxTxPerCoin;
-  const coinPct=maxCoinsPerPort>0?Math.round(totalCoinsUsed/maxCoinsPerPort*100):0;
-  const txPct=maxTotalTx>0?Math.round(totalTxUsed/maxTotalTx*100):0;
-  // Only warn based on coins or transactions — not portfolio count (1/1 on free always = 100%)
-  const usagePct=Math.max(coinPct,txPct);
+  // ── Usage Calculation ── (pure math in utils/usage.js)
+  const { usagePct } = usagePercents(portfolio.length, portfolios, { maxCoinsPerPort, maxPortfolios, maxTxPerCoin });
 
   // ── Subscription Helpers ──
   // calcEndDate / getTrimImpact / trimToTier now live in useUpgrade (above).
   const fmtDate=(d)=>new Date(d).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
 
-  // Check on app load if subscription expired or payment failed
+  // Check on app load whether the subscription expired or payment failed. The
+  // decision (which tier, or none) is pure logic in useUpgrade.dueDowngrade; this
+  // only orchestrates the side effects (trim stored data + persist the profile).
   const checkSubscriptionStatus=async(u)=>{
     if(!u||!u.subscription)return u;
-    const now=new Date();
-    const sub=u.subscription;
-
-    // Payment failed grace period (7 days)
-    if(sub.paymentFailed&&sub.paymentFailedDate){
-      const failedDate=new Date(sub.paymentFailedDate);
-      const daysSince=Math.floor((now-failedDate)/(1000*60*60*24));
-      if(daysSince>=7){
-        // Force downgrade to free
-        trimToTier("free");
-        const updated={...u,tier:"free",subscription:null};
-        await saveProfile(updated);
-        return updated;
-      }
-    }
-
-    // Cancelled subscription expired
-    if(sub.cancelled&&sub.endDate&&new Date(sub.endDate)<=now){
-      const target=sub.downgradeTo||"free";
-      trimToTier(target);
-      const updated={...u,tier:target,subscription:null};
-      await saveProfile(updated);
-      return updated;
-    }
-
-    return u;
+    const target=dueDowngrade(u.subscription,new Date());
+    if(!target)return u;
+    trimToTier(target);
+    const updated={...u,tier:target,subscription:null};
+    await saveProfile(updated);
+    return updated;
   };
 
   // ── Swipe Handlers ──

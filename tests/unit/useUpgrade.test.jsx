@@ -1,6 +1,28 @@
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { useUpgrade, TIER_LIMITS } from "../../src/hooks/useUpgrade.js";
+import { useUpgrade, TIER_LIMITS, dueDowngrade } from "../../src/hooks/useUpgrade.js";
+
+// Pure subscription-expiry decision (extracted from CryptoIdea.checkSubscriptionStatus).
+describe("dueDowngrade", () => {
+  const now = new Date("2026-06-16T00:00:00Z");
+  it("returns null when there is no subscription", () => {
+    expect(dueDowngrade(null, now)).toBe(null);
+    expect(dueDowngrade(undefined, now)).toBe(null);
+  });
+  it("keeps the plan during the payment-failed grace period (<7 days)", () => {
+    expect(dueDowngrade({ paymentFailed: true, paymentFailedDate: "2026-06-12T00:00:00Z" }, now)).toBe(null);
+  });
+  it("forces free after the 7-day payment-failed grace period", () => {
+    expect(dueDowngrade({ paymentFailed: true, paymentFailedDate: "2026-06-01T00:00:00Z" }, now)).toBe("free");
+  });
+  it("downgrades a cancelled subscription once its end date passes", () => {
+    expect(dueDowngrade({ cancelled: true, endDate: "2026-06-10T00:00:00Z", downgradeTo: "pro" }, now)).toBe("pro");
+    expect(dueDowngrade({ cancelled: true, endDate: "2026-06-10T00:00:00Z" }, now)).toBe("free"); // default
+  });
+  it("keeps a cancelled subscription still within its paid period", () => {
+    expect(dueDowngrade({ cancelled: true, endDate: "2026-07-01T00:00:00Z" }, now)).toBe(null);
+  });
+});
 
 // Build `n` buy transactions with sortable ids/dates so "keep most recent" is testable.
 const mkEntries = (n) =>

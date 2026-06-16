@@ -26,6 +26,24 @@ function trimPortfolios(portfolios, lim) {
   return trimmed.length > 0 ? trimmed : [{ ...FALLBACK_PORTFOLIO }];
 }
 
+// Pure: decide whether a subscription is due for an automatic downgrade and to
+// which tier. Returns the target tier string, or null if no change is due.
+// Extracted from CryptoIdea.jsx's checkSubscriptionStatus (audit rule 1).
+export function dueDowngrade(subscription, now) {
+  const sub = subscription;
+  if (!sub) return null;
+  // Payment failed: a 7-day grace period, then force down to free.
+  if (sub.paymentFailed && sub.paymentFailedDate) {
+    const days = Math.floor((now - new Date(sub.paymentFailedDate)) / (1000 * 60 * 60 * 24));
+    if (days >= 7) return "free";
+  }
+  // Cancelled subscription whose paid period has now ended.
+  if (sub.cancelled && sub.endDate && new Date(sub.endDate) <= now) {
+    return sub.downgradeTo || "free";
+  }
+  return null;
+}
+
 // Subscription / tier-limit business logic for the upgrade & downgrade flows,
 // pulled out of CryptoIdea.jsx (audit rule 1) and bound to the portfolios state so
 // the trim uses the functional-update form — safe inside the async subscription
