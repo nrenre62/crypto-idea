@@ -615,17 +615,19 @@ async function cgHeaders() {
 // In-memory sliding window per function instance. Caps how fast any single
 // visitor (incl. the public DCA calculator) can hit the API. Heavy upstream
 // work is already cached, so this mainly stops scraping/DoS-style bursts.
-const RATE_LIMIT = 60;            // max requests
+const RATE_LIMIT = 60;            // max requests (cheap, cached READ endpoints) per window, per IP
+const SUBSCRIBE_LIMIT = 5;        // far stricter cap for the public WRITE endpoint (subscribe)
 const RATE_WINDOW = 60 * 1000;   // per 60 seconds, per IP
-const _rl = {};
-function rateLimited(req) {
+const _rl = {};                   // sliding-window store for general (read) traffic
+const _rlSub = {};                // SEPARATE store so the write endpoint has its own tight budget
+function rateLimited(req, store = _rl, limit = RATE_LIMIT) {
   const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip || "unknown";
   const now = Date.now();
-  if (Object.keys(_rl).length > 10000) { for (const k in _rl) delete _rl[k]; } // guard against unbounded growth
-  let e = _rl[ip];
-  if (!e || now > e.resetAt) { e = { count: 0, resetAt: now + RATE_WINDOW }; _rl[ip] = e; }
+  if (Object.keys(store).length > 10000) { for (const k in store) delete store[k]; } // guard against unbounded growth
+  let e = store[ip];
+  if (!e || now > e.resetAt) { e = { count: 0, resetAt: now + RATE_WINDOW }; store[ip] = e; }
   e.count++;
-  return e.count > RATE_LIMIT;
+  return e.count > limit;
 }
 
 // Tunables (raise pages for more coins, raise TTLs for fewer upstream calls).
@@ -847,6 +849,12 @@ exports.api = functions.https.onRequest(async (req, res) => {
       return;
     }
     if (action === "subscribe") {
+      // This is the only public, UNAUTHENTICATED write — the main bot-abuse
+      // surface. Give it its own far stricter per-IP budget (separate from the
+      // 60/min read limit) so a single IP can't spam the email provider even
+      // while staying under the general limit. Defense-in-depth alongside the
+      // honeypot below; App Check / reCAPTCHA is the deploy-time complement.
+      if (rateLimited(req, _rlSub, SUBSCRIBE_LIMIT)) { res.status(429).json({ error: "Too many requests — please slow down." }); return; }
       // Public email capture from the landing form → forward to the configured
       // email provider (ActiveCampaign / GetResponse). Key stays server-side.
       const email = String((req.body && req.body.email) || req.query.email || "").trim().toLowerCase();
