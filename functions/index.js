@@ -659,27 +659,31 @@ function rateLimited(req, store = _rl, limit = RATE_LIMIT) {
 // ─── ONE shared coin universe (metadata + price for ~3,000 coins) ───
 // A single Firestore doc powers BOTH the public DCA calculator and the user app
 // (each reads it through its own endpoint, so the two front-ends stay decoupled).
-// Two scheduled jobs keep it warm:
-//   • refreshUniverseDaily — guarantees the full ~3,000-coin list (names, symbols,
-//     icons, rank) exists and PRUNES coins that dropped off. Cheap (≤12 calls).
-//   • refreshPrices (every 5 min) — keeps PRICES fresh for the whole universe.
-// Cost is flat regardless of user count (one shared fetch serves everyone).
-// Covering all ~3,000 coins every 5 min needs a paid CoinGecko plan; on the free
-// tier it degrades gracefully — rate-limited (429) pages are skipped and the last
-// good data is kept, so the top coins stay fresh and the rest stay as last seen.
-const UNIVERSE_PAGES = 12;                        // 12 × 250 = ~3,000 coins
-const UNIVERSE_TTL = 5 * 60 * 1000;              // serve-time freshness window: 5 min
-const HISTORY_TTL = 7 * 24 * 60 * 60 * 1000;     // per-coin history refresh: 7 days
+// HYBRID price model (keeps upstream cost down without hurting UX):
+//   • refreshPrices (every 5 min) — refreshes only the HOT set (top ~HOT_PAGES×250
+//     coins), which is what people actually hold/trade. Always MERGES.
+//   • refreshUniverseDaily (24h) — refreshes ALL ~3,000 (metadata + price) and
+//     PRUNES coins that dropped off the list. Cheap (≤12 calls), reliable on free tier.
+//   • /api/prices fetches a held coin in the long tail ON DEMAND (per-coin freshness
+//     check below) and folds it back in — so cost is flat by distinct coins held,
+//     not by user count. The DCA calculator reads the cache only — 0 user-triggered calls.
+// Covering even the hot ~1,250 every 5 min needs a paid CoinGecko plan; on the free
+// tier it degrades gracefully — rate-limited (429) pages are skipped, last-good kept.
+const UNIVERSE_PAGES = 12;                        // 12 × 250 = ~3,000 coins (full universe)
+const HOT_PAGES = 5;                              // 5 × 250 = top ~1,250 coins kept 5-min-fresh
+const UNIVERSE_TTL = 5 * 60 * 1000;              // lazy full-refresh window (when no scheduler runs)
+const HOT_TTL = 5 * 60 * 1000;                   // per-coin price freshness for the app (long tail refetched past this)
+const HISTORY_TTL = 30 * 24 * 60 * 60 * 1000;    // per-coin history: 30 days (past data never changes)
 const UNIVERSE_DOC = "cache/universe";
 
-// Fetch up to UNIVERSE_PAGES pages of /coins/markets (metadata + price in one
-// call). Returns the coins map. A FULLY successful refresh REPLACES the doc (so
-// delisted coins are pruned); a PARTIAL one (a page 429'd / errored) MERGES, so a
-// single rate-limit never shrinks the universe.
-async function refreshUniverse() {
+// Fetch up to `pages` pages of /coins/markets (metadata + price in one call) into
+// the shared universe doc. REPLACES the doc (pruning delisted coins) only on a
+// `prune` refresh that fully succeeded; otherwise MERGES, so a hot/partial refresh
+// never drops the coins it didn't fetch. Returns the fetched coins map.
+async function refreshUniverse({ pages = UNIVERSE_PAGES, prune = false } = {}) {
   const coins = {};
   let complete = true;
-  for (let page = 1; page <= UNIVERSE_PAGES; page++) {
+  for (let page = 1; page <= pages; page++) {
     let r;
     try {
       r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&price_change_percentage=24h`, { headers: await cgHeaders() });
@@ -700,32 +704,33 @@ async function refreshUniverse() {
       };
     }
   }
-  await db.doc(UNIVERSE_DOC).set({ updatedAt: Date.now(), coins }, complete ? undefined : { merge: true });
+  const replace = prune && complete;               // only a complete daily refresh prunes
+  await db.doc(UNIVERSE_DOC).set({ updatedAt: Date.now(), coins }, replace ? undefined : { merge: true });
   return coins;
 }
 
-// Read the shared universe; refresh on demand if missing/stale (so it works even
-// without the scheduled jobs, e.g. in the emulator).
+// Read the shared universe; lazily refresh the FULL list on demand if missing/stale
+// (so it works even without the scheduled jobs, e.g. in the emulator).
 async function getUniverse() {
   let data = null;
   try { const snap = await db.doc(UNIVERSE_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
   if (!data || (Date.now() - (data.updatedAt || 0)) > UNIVERSE_TTL) {
-    try { return await refreshUniverse(); } catch (e) { if (data) return data.coins; throw e; }
+    try { return await refreshUniverse({ pages: UNIVERSE_PAGES }); } catch (e) { if (data) return data.coins; throw e; }
   }
   return data.coins;
 }
 
-// Keep prices fresh (every 5 min). Covers all ~3,000 coins on a paid CoinGecko
-// plan; degrades to the top coins on the free tier (rate-limited pages skipped).
+// Keep the HOT set fresh (every 5 min) — top ~1,250 coins, always merged so the
+// long tail (refreshed daily) is preserved. The tail is priced on demand by /api/prices.
 exports.refreshPrices = functions.pubsub.schedule("every 5 minutes").onRun(async () => {
-  try { await refreshUniverse(); } catch (e) { console.error("refreshPrices:", e); }
+  try { await refreshUniverse({ pages: HOT_PAGES }); } catch (e) { console.error("refreshPrices:", e); }
   return null;
 });
 
-// Daily full refresh — guarantees the complete ~3,000-coin list and prunes coins
+// Daily FULL refresh — guarantees the complete ~3,000-coin list and prunes coins
 // that dropped off the market-cap list. Cheap and reliable even on the free tier.
 exports.refreshUniverseDaily = functions.pubsub.schedule("every 24 hours").onRun(async () => {
-  try { await refreshUniverse(); } catch (e) { console.error("refreshUniverseDaily:", e); }
+  try { await refreshUniverse({ pages: UNIVERSE_PAGES, prune: true }); } catch (e) { console.error("refreshUniverseDaily:", e); }
   return null;
 });
 
@@ -744,30 +749,37 @@ exports.api = functions.https.onRequest(async (req, res) => {
       const ids = String(req.query.ids || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 500);
       if (!ids.length) { res.status(400).json({ error: "ids required" }); return; }
       const universe = await getUniverse();
+      const now = Date.now();
       const out = {};
-      const missing = [];
+      const stale = [];
       for (const id of ids) {
         const m = universe[id];
-        if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc };
-        else missing.push(id);
+        // Serve from cache only if the coin's price is fresh (hot coins, refreshed
+        // every 5 min). A long-tail coin (refreshed only daily) goes "stale" after
+        // HOT_TTL → refetched on demand below. Missing coins are stale too.
+        if (m && (now - (m.at || 0)) < HOT_TTL) {
+          out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc };
+        } else {
+          if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc }; // last-known, refreshed just below
+          stale.push(id);
+        }
       }
-      // Any held coin not in the ~3,000-coin universe (rare): fetch it once on
-      // demand and fold the price into the shared universe doc, so the next
-      // request — for ANY user — is served from cache. Cost stays flat (driven by
-      // how many distinct off-list coins are held across ALL users, not by request
-      // count). These price-only entries carry no name, so the search / coinlist
-      // endpoints below skip them; the daily full refresh prunes them.
-      if (missing.length) {
-        const now = Date.now();
+      // Refresh stale/missing held coins ON DEMAND and fold the fresh price back
+      // into the shared universe doc, so the next request — for ANY user — is served
+      // from cache. Cost stays flat (driven by distinct coins held across ALL users,
+      // not request count). Price-only entries for off-list coins carry no name, so
+      // search / coinlist skip them; the daily full refresh prunes them.
+      if (stale.length) {
         try {
-          const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(missing.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: await cgHeaders() });
+          const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(stale.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: await cgHeaders() });
           if (r.ok) {
             const d = await r.json();
             const upd = {};
-            for (const id of missing) {
+            for (const id of stale) {
               if (d[id]) {
                 out[id] = d[id];
-                upd[id] = { p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: now };
+                // preserve metadata if we already had it; only update price fields
+                upd[id] = { ...(universe[id] || {}), p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: now };
               }
             }
             if (Object.keys(upd).length) {
