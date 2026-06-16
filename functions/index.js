@@ -4,13 +4,13 @@
  *
  * SETUP:
  * 1. cd functions && npm install
- * 2. firebase functions:config:set \
- *      paypal.client_id="YOUR_ID" \
- *      paypal.secret="YOUR_SECRET" \
- *      paypal.plan_id="P-YOUR_PLAN_ID" \
- *      paypal.premium_plan_id="P-YOUR_PREMIUM_PLAN_ID" \
- *      paypal.webhook_id="YOUR_WEBHOOK_ID" \
- *      app.url="https://YOUR-PROJECT.web.app"
+ * 2. Configuration (functions.config() was removed in firebase-functions v7):
+ *    - PRIMARY: set PayPal/CoinGecko keys from the Admin dashboard → Settings,
+ *      which writes the locked config/app Firestore doc (read at runtime).
+ *    - FALLBACK / deploy-time: a functions/.env file (git-ignored) with
+ *      PAYPAL_CLIENT_ID, PAYPAL_SECRET, PAYPAL_PLAN_ID, PAYPAL_PREMIUM_PLAN_ID,
+ *      PAYPAL_WEBHOOK_ID, APP_URL, COINGECKO_DEMO_KEY. The PayPal plan IDs and
+ *      APP_URL are env-only (not stored in the config doc).
  * 3. firebase deploy --only functions
  * 4. PayPal Developer Dashboard → Webhooks → Add URL:
  *    https://YOUR-PROJECT.cloudfunctions.net/paypalWebhook
@@ -26,24 +26,29 @@
  *   we trust it. Unverified events are rejected.
  */
 
-// v1 API (gives us functions.config() + onCall(data, context)).
+// v1 API (onCall(data, context) + pubsub.schedule). functions.config() was
+// removed in firebase-functions v7, so every secret now comes from either the
+// locked config/app Firestore doc (primary, admin-managed via saveConfig) or an
+// environment variable (fallback, from functions/.env or the deploy env).
 const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 const db = admin.firestore();
 
-const cfg = functions.config().paypal || {};
-const PAYPAL_CLIENT_ID = cfg.client_id;
-const PAYPAL_SECRET = cfg.secret;
-const PAYPAL_PLAN_ID = cfg.plan_id;
-const PAYPAL_PREMIUM_PLAN_ID = cfg.premium_plan_id;
-const PAYPAL_WEBHOOK_ID = cfg.webhook_id;
+// PayPal fallbacks (env). The primary source for clientId/secret/webhookId is the
+// config/app doc (read in getPayPalToken / verifyPayPalWebhook); the plan IDs are
+// env-only. Never hard-code secrets — these stay server-side.
+const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
+const PAYPAL_SECRET = process.env.PAYPAL_SECRET;
+const PAYPAL_PLAN_ID = process.env.PAYPAL_PLAN_ID;
+const PAYPAL_PREMIUM_PLAN_ID = process.env.PAYPAL_PREMIUM_PLAN_ID;
+const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID;
 const PAYPAL_BASE = "https://api-m.paypal.com";
 
 // Fixed, trusted app URL for PayPal redirects (never derived from request headers,
 // which a caller can spoof — that would be an open-redirect).
-const APP_URL = (functions.config().app && functions.config().app.url) || "https://crypto-idea.web.app";
+const APP_URL = process.env.APP_URL || "https://crypto-idea.web.app";
 
 // Admin is a verified Firebase custom claim ({ admin: true }), set via the Admin SDK
 // (setAdminClaim below, or functions/scripts/set-admin.js for the first admin).
@@ -607,16 +612,16 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
 // serves everyone's prices AND search. Each coin's full history is fetched once
 // and reused for every DCA calc by every user. See README "CoinGecko proxy".
 //
-// API key lives server-side only:
-//   firebase functions:config:set coingecko.demo_key="YOUR_DEMO_KEY"
-//   (or COINGECKO_DEMO_KEY env var for the emulator)
-// Without a key it uses the public endpoint (lower limits, history limited to
-// the last 365 days — the app then falls back to its built-in estimates).
+// API key lives server-side only — set it from the Admin dashboard (config/app
+// doc, the primary source read by cgHeaders) or via the COINGECKO_DEMO_KEY env
+// var (functions/.env) as a fallback. Without a key it uses the public endpoint
+// (lower limits, history limited to the last 365 days — the app then falls back
+// to its built-in estimates).
 const CG_BASE = "https://api.coingecko.com/api/v3";
-const CG_KEY = (functions.config().coingecko && functions.config().coingecko.demo_key) || process.env.COINGECKO_DEMO_KEY || "";
+const CG_KEY = process.env.COINGECKO_DEMO_KEY || "";
 // Admin-managed config (API keys / email) lives in a LOCKED Firestore doc
-// (config/app) written by the saveConfig function. Falls back to
-// functions.config()/env. Cached 5 min. Clients can never read it (rules).
+// (config/app) written by the saveConfig function. Falls back to env vars.
+// Cached 5 min. Clients can never read it (rules).
 let _cfg = null, _cfgAt = 0;
 async function getConfig() {
   if (_cfg && (Date.now() - _cfgAt) < 5 * 60 * 1000) return _cfg;
