@@ -74,8 +74,8 @@
 5. `functions/index.js` (`api` handler, `prices` action) — caps ids (≤500); `getUniverse()`.
 6. `functions/index.js` `getUniverse()` — reads Firestore `cache/universe`; if older than **5-min TTL**, calls `refreshUniverse()` (else serves cache, even stale on failure).
 7. `functions/index.js` `refreshUniverse()` — `fetch` CoinGecko `/coins/markets` (up to ~3,000 coins, metadata + price). A complete refresh **replaces** `cache/universe` (prunes delisted coins); a partial one (429) **merges** so the universe never shrinks.
-8. Handler builds response from the universe cache; coins not found → `missing[]`.
-9. **Off-list coins:** any held coin not in the ~3,000 universe → `fetch` CoinGecko `/simple/price` once → merge into response **+** fold the price back into `cache/universe` (price-only entry, skipped by search/coinlist; pruned by the daily refresh).
+8. Handler builds response from the universe cache. A coin is served from cache only if its price is **fresh** (`HOT_TTL` = 5 min — i.e. hot top-~1,250 coins, refreshed by `refreshPrices`); a stale long-tail coin or a missing coin → `stale[]`.
+9. **Stale/off-list coins:** `stale[]` → one `fetch` CoinGecko `/simple/price` → merge into response **+** fold the fresh price back into `cache/universe` (metadata preserved; price-only off-list entries are skipped by search/coinlist and pruned by the daily refresh). Flat cost by distinct coins held, not user count.
 10. Handler sets `Cache-Control: public, max-age=120` (browser caches 2 min) → `res.json(out)`.
 11. `coingecko.js` — parses response, returns `{ id: {usd, usd_24h_change, usd_market_cap}, … }`.
 12. `useLivePrices.js` — `if (d) { setPrices(p => ({...p, ...d})); setApi("live") }` (merge keeps prior, **demo→live** flips here).

@@ -17,6 +17,8 @@ files in any browser or VS Code. These are kept up to date as components change 
 - Cadence (e.g. "every 5 min") and cost notes are written on the diagram itself.
 
 ## Status note
-`coin-data-flow.svg` shows the **hybrid target** (hot top ~1,300 refreshed every
-5 min + tail 1,300–3,000 priced on demand). The code currently refreshes all
-~3,000 every 5 min; the hybrid is a pending refinement (see git history / NEXT-STEPS).
+`coin-data-flow.svg` matches the **implemented** hybrid: `refreshPrices` refreshes
+the hot top ~1,250 (`HOT_PAGES`=5) every 5 min; the tail (1,250–3,000) is priced
+on demand by `/api/prices`; `refreshUniverseDaily` refreshes all ~3,000 daily.
+The diagram says "~1,300" — the code default is the nearest page boundary (~1,250),
+tunable via `HOT_PAGES`.

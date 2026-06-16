@@ -167,8 +167,8 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | Function | Type | Purpose |
 |----------|------|---------|
 | `api` | HTTP | CoinGecko proxy — `/api/prices`, `/api/search`, `/api/history` (see below) |
-| `refreshPrices` | Scheduled (every 5 min) | Keeps prices fresh in the shared `cache/universe` (all ~3,000 coins on a paid CoinGecko plan; degrades to the top coins on the free tier) |
-| `refreshUniverseDaily` | Scheduled (every 24 h) | Guarantees the full ~3,000-coin list and prunes coins that dropped off |
+| `refreshPrices` | Scheduled (every 5 min) | Keeps prices fresh for the **hot set** (top ~1,250, `HOT_PAGES`) in `cache/universe`; the long tail is priced on demand by `/api/prices` |
+| `refreshUniverseDaily` | Scheduled (every 24 h) | Refreshes all ~3,000 (metadata + price), guarantees the full list, and prunes coins that dropped off |
 | `paypalWebhook` | HTTP | Verifies PayPal signatures and updates a user's tier |
 | `createSubscription` / `cancelSubscription` | Callable | Start/cancel a PayPal subscription (auth-enforced) |
 | `getStats` | Callable | Admin-only **combined** usage/revenue stats (no personal data) |
@@ -189,18 +189,20 @@ The app never calls CoinGecko directly. It calls the same-origin `/api/*` endpoi
 
 | Endpoint | What it does | Caching |
 |----------|--------------|---------|
-| `GET /api/prices?ids=a,b,c` | Live prices for held coins | Reads the shared `cache/universe` doc (refreshed every 5 min). A held coin not in the universe is fetched once on demand and folded back in, so the next request — for any user — is cached. Cost stays flat regardless of user count. |
+| `GET /api/prices?ids=a,b,c` | Live prices for held coins | Reads `cache/universe`. Hot coins (top ~1,250, refreshed every 5 min) are served from cache; a long-tail or off-list held coin whose price is stale (> `HOT_TTL`) is refetched once on demand and folded back in, so the next request — for any user — is cached. Flat cost regardless of user count. |
 | `GET /api/search?q=term` | Search the ~3,000-coin universe | Reads `cache/universe` — **zero per-search upstream calls**. Only established (top-ranked) coins appear, which naturally excludes brand-new micro-caps. |
 | `GET /api/coinlist` | Full ~3,000-coin list **+ price** (for the landing DCA calculator) | Reads `cache/universe`; served from the CDN for 24 h so thousands of visitors add ~0 function calls. Price is included so the DCA tool shows a value with no per-visitor price call. |
-| `GET /api/history?id=coin` | Full daily price history (for DCA) | Cached per-coin in `historyCache/{coin}` for 7 days — fetched **once per coin**, reused for every date range and every user. |
+| `GET /api/history?id=coin` | Full daily price history (DCA backtests **and** the app's buy-date price auto-fill) | Cached per-coin in `historyCache/{coin}` for 30 days — fetched **once per coin**, reused for every date range and every user. With a key, covers each coin's full range (BTC from 2013). |
 
 ### One shared dataset for everything
 A single CoinGecko endpoint — `coins/markets` — returns the coin **list + prices + images + rank** together. One call covers 250 coins; `refreshUniverse()` fetches up to 12 pages (~3,000 coins) into one shared `cache/universe` doc, so prices, search, **and** the landing DCA calculator all read from it. On the free tier the universe also auto-refreshes on demand if the scheduled jobs aren't running, and rate-limited pages are skipped (last-good data kept).
 
 ### Tunables (top of the CoinGecko section in `functions/index.js`)
-- `UNIVERSE_PAGES` — coins covered (default `12` = ~3,000; each page = 250 coins = 1 call).
-- `UNIVERSE_TTL` — serve-time freshness window (default 5 min).
-- `HISTORY_TTL` — per-coin history refresh (default 7 days).
+- `UNIVERSE_PAGES` — full universe size (default `12` = ~3,000; each page = 250 coins = 1 call; daily refresh).
+- `HOT_PAGES` — hot set refreshed every 5 min (default `5` = top ~1,250). Raise to keep more coins always-fresh (costs more); lower to save calls.
+- `HOT_TTL` — per-coin price freshness (default 5 min); a held coin staler than this is refetched on demand.
+- `UNIVERSE_TTL` — lazy full-refresh window when no scheduler runs (default 5 min).
+- `HISTORY_TTL` — per-coin history refresh (default 30 days; past data never changes).
 
 ### The API key
 Set it from the **Admin dashboard → Settings** (written to the locked `config/app` doc, the primary source), or via an environment variable:
@@ -215,17 +217,17 @@ Without a key it uses CoinGecko's public endpoint: lower rate limit, and **histo
 
 ## Upstream call budget (independent of user count)
 
-With the defaults (all ~3,000 coins, 5-min refresh):
+With the defaults (hybrid: hot top ~1,250 every 5 min + tail on demand + daily full refresh):
 
 | Source | Upstream CoinGecko calls | Scales with users? |
 |--------|--------------------------|--------------------|
-| Prices + search (universe) | 12 calls / 5 min = **~3,456/day** | **No** |
+| Hot prices (`HOT_PAGES`=5) | 5 calls / 5 min = **~1,440/day** | **No** |
 | Daily full refresh / prune | ~12/day | **No** |
-| DCA history | ~1 call per coin per 7 days | **No** |
-| Off-list coins held | small, on-demand | slightly |
-| **Total** | **~3,500/day ≈ ~105k/month** | **flat** |
+| Long-tail prices (held) | small, on-demand · flat by distinct coins | slightly |
+| History (DCA + app buy price) | ~1 call per coin per 30 days | **No** |
+| **Total** | **~1,500/day ≈ ~44k/month** | **flat** |
 
-So **100 users, 1,000 users, and 10,000 users cost roughly the same** (~105k calls/month) — the cost is driven by coverage + refresh rate, **not** user count. Covering all ~3,000 coins every 5 min needs a **paid CoinGecko plan** (Lite ~100k/mo, or Analyst 500k/mo ≈ $129). On the free Demo tier (10k/mo) the universe still works but only the top coins stay 5-min-fresh — rate-limited pages are skipped. To stay free, raise `UNIVERSE_TTL` (refresh less often) and/or lower `UNIVERSE_PAGES` (fewer coins hot).
+So **100 users, 1,000 users, and 10,000 users cost roughly the same** (~44k calls/month) — driven by coverage + refresh rate, **not** user count. This still needs a **paid CoinGecko plan** (Lite ~100k/mo comfortably fits). On the free Demo tier (10k/mo) it still works but only the top coins stay 5-min-fresh — rate-limited pages are skipped. To go cheaper: lower `HOT_PAGES` (fewer hot coins) or raise the refresh interval. To keep **all** ~3,000 hot every 5 min instead, raise `HOT_PAGES` to 12 (~105k/mo, Analyst plan ≈ $129).
 
 ## Storage
 
@@ -328,10 +330,10 @@ The landing + DCA are **static files served by Firebase's CDN**, so traffic scal
 
 | Action | Upstream CoinGecko calls |
 |--------|--------------------------|
-| Prices + search (universe, ~3,000) | ~3,456/day total (12 calls / 5 min) — same for 1k or 10k users |
-| Off-list coins held | flat, by distinct coins held (folded into the universe on demand) |
+| Hot prices (top ~1,250) | ~1,440/day total (5 calls / 5 min) — same for 1k or 10k users |
+| Long-tail coins held | flat, by distinct coins held (folded into the universe on demand) |
 | Search | reads the cached universe — **0 per search** |
-| DCA history | ~1 per coin per 7 days |
+| History (DCA + app buy price) | ~1 per coin per 30 days |
 
 **Searching 10–20 coins per user:** each search is debounced and reads the **cached** coin list, so it makes **0 CoinGecko calls**. 10,000 users × 15 searches = 150,000 *search requests*, but these hit Firebase (function + Firestore read, CDN-cached 5 min), **not** CoinGecko — so CoinGecko search cost stays ~0. The only Firebase cost is cheap function invocations / Firestore reads, heavily reduced by the CDN.
 
