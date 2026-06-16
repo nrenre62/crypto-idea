@@ -1,12 +1,14 @@
 import { useApp } from "../hooks/app-context.js";
+import { useCoinHistory } from "../hooks/useCoinHistory.js";
 import { c, inp_s, lbl_s } from "../utils/theme.js";
 import { fmtP, fmtPriceInput } from "../utils/format.js";
-import { TOP_COINS, getHistoricalPrice } from "../utils/coins.js";
+import { TOP_COINS, getHistoricalPrice, priceAtDate } from "../utils/coins.js";
 import { Ic, hdr } from "./ui.jsx";
 
 // Buy/sell transaction form (new or edit). Selected coin, the e* form fields, and
 // the addEntry handler come from context. Date is clamped to the coin's launch and
-// the price auto-fills from the historical model.
+// the buy-date price auto-fills from REAL history (any coin, via the cached
+// /api/history) — falling back to the built-in estimate when history isn't loaded.
 export function AddEntry() {
   const {
     sel, eAmt, setEAmt, ePrice, setEPrice, eDate, setEDate,
@@ -15,21 +17,29 @@ export function AddEntry() {
   const coinData = sel ? TOP_COINS.find(x => x.id === sel.id) : null;
   const launchDate = coinData?.launch || "2013-04-28";
   const launchDateTime = launchDate + "T00:00";
+  // Real daily history for the selected coin (null while loading / unavailable).
+  const histPrices = useCoinHistory(sel?.id);
+  // Price at a date: prefer real history, fall back to the built-in estimate.
+  const priceAt = (date) => {
+    if (!sel) return null;
+    const real = histPrices ? priceAtDate(histPrices, date) : null;
+    return (real != null && isFinite(real)) ? real : getHistoricalPrice(sel.id, date);
+  };
   const onDateChange = (newDate) => {
     if(!newDate)return;
     const picked=new Date(newDate);
     const launch=new Date(launchDate);
     if(picked<launch){
       setEDate(launchDateTime);
-      const hp=getHistoricalPrice(sel.id,launch);
+      const hp=priceAt(launch);
       const formatted=fmtPriceInput(hp);
       if(formatted){setEPrice(formatted)}
       return;
     }
     setEDate(newDate);
-    if(sel){const hp=getHistoricalPrice(sel.id,new Date(newDate));const fmt=fmtPriceInput(hp);if(fmt){setEPrice(fmt)}}
+    if(sel){const hp=priceAt(new Date(newDate));const fmt=fmtPriceInput(hp);if(fmt){setEPrice(fmt)}}
   };
-  const histPrice = sel ? getHistoricalPrice(sel.id, new Date(eDate)) : null;
+  const histPrice = sel ? priceAt(new Date(eDate)) : null;
   const priceIsHist = histPrice && ePrice && Math.abs(parseFloat(ePrice)-histPrice)/histPrice < 0.15;
   const isBeforeLaunch = eDate && new Date(eDate) < new Date(launchDate);
   return (<>

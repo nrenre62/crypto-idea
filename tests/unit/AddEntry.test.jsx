@@ -2,6 +2,10 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
 import { AppContext } from "../../src/hooks/app-context.js";
+
+// AddEntry now fetches real coin history (useCoinHistory -> fetchHistory). Stub it
+// so the form falls back to the built-in estimate and tests hit no network.
+vi.mock("../../src/api/coingecko.js", () => ({ fetchHistory: vi.fn().mockResolvedValue(null) }));
 import { AddEntry } from "../../src/components/AddEntry.jsx";
 
 // AddEntry is reached via Detail -> +Buy/+Sell (needs a held coin), so we test it

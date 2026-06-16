@@ -16,6 +16,19 @@ export async function fetchPrices(ids) {
   }
 }
 
+// Full daily price history for a coin -> [[tsMs, price], ...] (ascending) or null.
+// Served from the cached /api/history proxy (shared across all users).
+export async function fetchHistory(id) {
+  try {
+    const r = await fetch(`/api/history?id=${encodeURIComponent(id)}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return Array.isArray(d.prices) ? d.prices : null;
+  } catch {
+    return null;
+  }
+}
+
 // Search any CoinGecko coin by name/symbol -> array of {id,symbol,name,thumb,rank}, or null on error/empty.
 export async function searchCoins(q) {
   try {

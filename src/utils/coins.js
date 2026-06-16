@@ -522,3 +522,23 @@ export function getHistoricalPrice(coinId, date) {
   const ratio = (dateVal - before.val) / (after.val - before.val);
   return before.price + (after.price - before.price) * ratio;
 }
+
+// Given a CoinGecko prices array [[tsMs, price], ...] (ascending) and a date,
+// return the price at the most recent point on/before that date (the first point
+// if the date predates history, or null if empty/invalid). Pure — no I/O.
+// Used to auto-fill an accurate buy-date price for ANY coin from real history,
+// falling back to getHistoricalPrice() when no history is available.
+export function priceAtDate(prices, date) {
+  if (!Array.isArray(prices) || prices.length === 0) return null;
+  const t = date instanceof Date ? date.getTime() : new Date(date).getTime();
+  if (!isFinite(t)) return null;
+  if (t <= prices[0][0]) return prices[0][1];
+  // Binary search for the last point with timestamp <= t.
+  let lo = 0, hi = prices.length - 1, ans = prices[0];
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (prices[mid][0] <= t) { ans = prices[mid]; lo = mid + 1; }
+    else hi = mid - 1;
+  }
+  return ans ? ans[1] : null;
+}
