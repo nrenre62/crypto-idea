@@ -48,22 +48,29 @@ is used unvalidated: `fetch(base + "/api/3/contact/sync")`. No scheme/host allow
 high** (a request to `http://169.254.169.254/…` could reach the GCP metadata server → service-account
 token → project compromise), but the **precondition is an admin write** (claim-gated, `MIN_ADMINS=2`).
 So it's an admin→infrastructure escalation gadget, not anonymous. Cheap to close.
-- **Fix:** require `https:` + allowlist the host (e.g. `*.activecampaign.com`) before fetching.
+- **FIXED (commit 70b618b):** added `safeProviderOrigin()` — requires `https:` and rejects IP
+  literals (incl. `169.254.169.254`), `localhost`, and `.internal`/`.local`/`metadata` hosts.
+  Subscribe now fetches the validated origin or returns `503`. Residual: DNS-rebinding to an internal
+  IP via a public hostname is out of scope (would need resolve-time IP checks).
 
 ### M2. Firestore write validation is missing bounds (area 2)
 `firestore.rules:170–184` — `validCoinData()` checks `symbol`/`name` are strings **but no length cap**
 (a user can store a 1 MB name on their own doc); `validTransactionData()` accepts `amount`/`priceAtBuy`
 with **no upper bound** (`1e308` allowed) and `date` as **any string** (no format/range). Portfolio
 names *are* bounded (`≤50`, `validPortfolioData()`), so the pattern exists — just extend it.
-- **Fix:** add `.size()` caps on `symbol`/`name`, sane numeric ceilings, and a date-format/range
-  check. Covered by `npm run test:rules`.
+- **FIXED (commit ad08db6):** `validCoinData` now caps `symbol≤20`, `name≤64`, `thumb≤512`;
+  `validTransactionData` bounds `amount∈(0, 1e15]`, `priceAtBuy∈[0, 1e9]`, `date` non-empty ≤40.
+  2 new `test:rules` cases (oversized name + absurd amount rejected) — 10/10 pass.
 
 ### M3. `saveConfig` payload not allowlisted (area 2)
 `functions/index.js:534–580` — an admin (or anything bypassing the UI with an admin token) can write
 arbitrary/unknown fields and arbitrary plan tiers into the locked `config/app` doc; `mergePlans()`
 coerces numbers but doesn't whitelist keys or validate the 3-tier shape. Admin-gated, so limited
 blast radius, but config integrity isn't enforced.
-- **Fix:** validate/whitelist the payload shape server-side before writing.
+- **FIXED (commit 70b618b):** the payload was already field-allowlisted (the saved doc is built from
+  explicitly-named fields; unknown keys are dropped). Added value ceilings in `mergePlans` so plan
+  numbers can't be set absurdly high. (Provider-string validation skipped as low-value/anti-KISS —
+  unknown providers already no-op at the `501` branch.)
 
 ### M4. CORS `*` on the public API (area 1)
 `functions/index.js:718` — `Access-Control-Allow-Origin: *` is fine for the read-only proxy, but it
@@ -74,13 +81,10 @@ mitigation; noted for completeness.
 
 ## 🟢 LOW — cleanup / nice-to-have
 
-- **L1.** `/api/search?q=` has **no length cap** (`functions/index.js:780`) → unbounded `.includes`
-  over 3,000 coins per request. Cap `q` at ~100 chars. (area 2)
-- **L2.** `lookupUser` passes `email` to the Auth SDK without a format pre-check
-  (`functions/index.js:331`) — SDK rejects bad input, so low risk. (area 2)
-- **L3.** **Unused `VITE_STRIPE_*` placeholders** in `.env.example:18–20` — dead config, remove to
-  avoid confusion (the app uses PayPal, not Stripe). (area 3)
-- **L4.** Stale import example in `README.md:85` references a non-existent path — doc rot only.
+- **L1.** ✅ **FIXED (70b618b)** — `/api/search?q=` now capped at 100 chars (DoS guard on the scan). (area 2)
+- **L2.** ✅ **FIXED (70b618b)** — `lookupUser` now validates the email (regex + length) before the Auth SDK call. (area 2)
+- **L3.** ✅ **FIXED (e4bac05)** — removed unused `VITE_STRIPE_*` placeholders from `.env.example`. (area 3)
+- **L4.** ✅ **FIXED (e4bac05)** — corrected the stale `README.md` import example (paths + dead `getUserProfile`).
 
 ---
 
@@ -96,16 +100,27 @@ mitigation; noted for completeness.
 
 ---
 
-## Recommended fix order
-1. **C1 — App Check + CAPTCHA** before launch (biggest real-world risk; already planned, mostly console config).
-2. **M1 — apiUrl allowlist** (cheap, closes an infra-escalation gadget).
-3. **M2 — Firestore field bounds** (a few lines + a rules test).
-4. **M3 / M4 / L1–L3** — batch into a hardening pass.
+## Status — all code-fixable items DONE
 
-### Suggested follow-up tasks (not yet done)
-- [x] Dedicated strict per-IP rate limit on `/api/subscribe` write (C1, code-side — commit f1e3fd7).
-- [ ] Enable App Check enforcement + add reCAPTCHA token check on the landing `/api/subscribe` form (C1, deploy-time).
-- [ ] Allowlist `config/app.email.apiUrl` host + require HTTPS before fetch (M1).
-- [ ] Add length/range/date bounds to `validCoinData`/`validTransactionData` in `firestore.rules` + extend `test:rules` (M2).
-- [ ] Whitelist the `saveConfig` payload shape server-side (M3).
-- [ ] Cap `/api/search?q=` length; pre-validate `lookupUser` email; remove unused Stripe vars; fix README snippet (L1–L4).
+Every finding that can be fixed and verified in code has been fixed, tested, and committed.
+What remains is **deploy-time only** (external keys + Firebase console) and **by-design**:
+
+| # | Status | Commit |
+|---|---|---|
+| C1 (write rate limit) | ✅ code-side fixed | f1e3fd7 |
+| C1 (App Check / reCAPTCHA) | ⏳ deploy-time (needs reCAPTCHA key + console + static-landing client integration) | — |
+| M1 (SSRF guard) | ✅ fixed | 70b618b |
+| M2 (Firestore field bounds) | ✅ fixed + tests | ad08db6 |
+| M3 (saveConfig hardening) | ✅ fixed | 70b618b |
+| M4 (CORS `*`) | ⚪ by design (public proxy; App Check is the mitigation) | — |
+| L1 (search length cap) | ✅ fixed | 70b618b |
+| L2 (lookupUser email validation) | ✅ fixed | 70b618b |
+| L3 (dead Stripe vars) | ✅ fixed | e4bac05 |
+| L4 (stale README snippet) | ✅ fixed | e4bac05 |
+
+Regression check after all fixes: `npm run build` clean · `test:unit` 65/65 · `test:rules` 10/10.
+
+### Remaining (deploy-time, only you can do)
+- [ ] Create a reCAPTCHA v3 key → set `VITE_RECAPTCHA_SITE_KEY` → enable App Check enforcement in the Firebase console.
+- [ ] Add the reCAPTCHA token to the **static landing** subscribe form + verify it server-side (the landing has no Firebase SDK).
+- [ ] (Optional, if abuse is observed) a durable Firestore-backed rate limit to survive instance restarts / multi-IP bursts.
