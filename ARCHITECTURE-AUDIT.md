@@ -115,10 +115,15 @@ Firestore in the same body. Representative cases:
    from `firebase-database.js`; single source of truth is `useUpgrade.js`. Kills the drift risk.
 2. ✅ **DONE (commit 3e4bfcb)** — extracted P&L math into pure `utils/pnl.js` (+ 7 unit tests);
    `Detail.jsx` and `CryptoIdea.jsx` now call it.
-3. ⏳ **DEFERRED — `admin-dashboard.jsx` → `useAdminDashboard` hook.** Biggest single Rule-1/2
-   cleanup, but it's a ~565-line move and the component has **no tests**, so behavior can't be
-   verified after the refactor (build catches missing imports, not runtime `undefined` refs). Safer
-   to add test coverage first, then refactor. Left intentionally rather than done blind.
+3. 🔁 **RECONSIDERED — `admin-dashboard.jsx` → `useAdminDashboard` hook: declined on KISS grounds.**
+   It would be a **1:1 hook used by exactly one component** — relocating ~20 `useState`s + handlers
+   into a new file without enabling reuse or cutting coupling. That's the same call the project
+   already made for portfolio CRUD in `NEXT-STEPS.md` §1b ("relocates deps, not reduces them —
+   anti-KISS"). Applying that precedent consistently, the extraction isn't a clear win.
+   **Instead (commit pending):** added the missing safety net — an interaction test
+   (`tests/unit/admin-dashboard.test.jsx`) that mounts the panel, mocks the API, and clicks through
+   all four tabs. That fills the real gap (the admin panel had zero coverage) and de-risks future
+   edits, which is the actual value here.
 
 **Leave as-is (intentional / documented):**
 - Backend monolith (rules 4–6) — `NEXT-STEPS.md` §2 marks the split optional; for one serverless
