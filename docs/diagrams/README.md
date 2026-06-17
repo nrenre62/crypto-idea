@@ -12,6 +12,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [api-key-flow.svg](api-key-flow.svg) | How the CoinGecko/PayPal keys move from the admin panel to the locked `config/app` doc to upstream calls — and why no browser can ever read them. |
 | [multi-agent-workflow.svg](multi-agent-workflow.svg) | Running several agents on one project safely — worktrees + lanes, one shared `.git`/`master`, the single shared dev stack. |
 | [auth-and-session.svg](auth-and-session.svg) | Register / login / logout / reset via Firebase Auth (password never on device); `onAuthChange` → `useAuthSession` loads the server-authoritative tier + portfolios; admin = a verified custom claim. |
+| [firestore-data-model.svg](firestore-data-model.svg) | The nested owner-only tree (users → portfolios → coins → transactions) with per-parent counters, plus the server-only top-level docs (config/app, cache/universe, historyCache, audit) and how counters enforce tier limits. |
 
 ## Backlog — diagram everything (the auto-loop worklist)
 The drawing loop draws **one per iteration**, ticks it, commits, and stops when all are done.
@@ -20,7 +21,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] API-key flow
 - [x] multi-agent workflow
 - [x] auth & session (register / login / `onAuthChange` / custom-claim admin)
-- [ ] Firestore data model (users → portfolios → coins → transactions + counters)
+- [x] Firestore data model (users → portfolios → coins → transactions + counters)
 - [ ] authorization & tier limits (owner/admin rules + counter-enforced plan ceilings)
 - [ ] PayPal subscription + webhook flow (create → approve → verified webhook → tier)
 - [ ] admin dashboard operations (getStats / listUsers / lookup / setTier / suspend / delete / audit)
