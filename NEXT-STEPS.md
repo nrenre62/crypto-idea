@@ -128,9 +128,19 @@ want explicit MVC separation:**
 - [x] **F-1 (HIGH):** user tier was read from local cache, never Firestore → paid users showed as
   free on a fresh device / after an admin change. Fixed: `getUserProfile` reader + `useAuthSession`
   adopts server tier; retries past the login-time `lastLogin` pending-write view. (commit `8ecd222`)
+- [x] **F-2 (MED):** Account screen crashed rendering a Firestore Timestamp `joined`. Fixed — session
+  takes only authoritative fields from the server; regression test added. (commit `b9bf9b6`)
+- [x] **F-3 (UX):** limit/error messages rendered off-screen → now a fixed floating toast. (`b9bf9b6`)
+- [x] **F-4 (FEATURE):** portfolio CSV export (holdings + transactions). (commits `262e562`, `3b4db27`)
+- [x] **F-5 (HIGH):** "Delete my account" reworked into a soft-delete with a 30-day trash, user
+  self-restore, admin Trash tab (restore / delete-now), and a daily `purgeExpiredTrash`. Server-only
+  `deleted`/`deletedAt` (rules-enforced). Self-restore auto-syncs to the admin Users/Trash split
+  (`partitionUsers`). (commits `9661cbe`, this one)
 - [ ] **N-1 (LOW): harden the landing DCA fetch.** `getHistory` in `index.html` has no timeout, so a
   hung `/api/history` leaves the button stuck on "Calculating…" with no feedback. Add a fetch
   timeout (AbortController) + a clear error message. Low priority (prod is warm + CDN-cached).
+- [ ] **N-2 (LOW): admin trash niceties.** Optional "Empty trash" bulk-purge action, and/or a live
+  (onSnapshot) admin list so a user self-restore reflects without clicking Refresh.
 
 ## 5. Housekeeping
 

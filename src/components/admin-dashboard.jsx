@@ -1,5 +1,5 @@
 import { useAdminDashboard } from "../hooks/useAdminDashboard.js";
-import { trashDaysLeft } from "../utils/trash.js";
+import { trashDaysLeft, partitionUsers } from "../utils/trash.js";
 
 const TIERS = {
   free:    { label:"Free",    color:"#FF9500", limits:{ portfolios:1, coins:10, transactions:50 }, storage:"5 MB", price:"$0" },
@@ -228,7 +228,7 @@ export default function AdminDashboard() {
           if (listLoading && !userList) return <div style={{ textAlign:"center", color:c.dm, fontSize:13, padding:"24px 0" }}>Loading users…</div>;
           if (!userList) return null;
           const needle = q.trim().toLowerCase();
-          const active = userList.filter(u => !u.deleted); // trashed accounts live in the Trash tab
+          const { active } = partitionUsers(userList); // trashed accounts live in the Trash tab
           const filtered = needle ? active.filter(u => (u.email||"").toLowerCase().includes(needle) || (u.name||"").toLowerCase().includes(needle)) : active;
           const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
           const pg = Math.min(page, pages);
@@ -270,10 +270,13 @@ export default function AdminDashboard() {
           Accounts users have deleted. They're kept for <b>30 days</b> so they can be restored, then purged automatically. Restore brings the account fully back; Delete now erases it permanently.
         </div>
         {actionMsg && <div style={{ fontSize:12, color: actionMsg.includes("✓") ? c.gr : c.rd, marginBottom:10, fontWeight:600 }}>{actionMsg}</div>}
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:10 }}>
+          <button onClick={loadUserList} disabled={listLoading} style={{ padding:"7px 14px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, fontSize:13, fontWeight:600, cursor:"pointer", opacity:listLoading?0.6:1 }}>{listLoading ? "…" : "Refresh"}</button>
+        </div>
         {(() => {
           if (listLoading && !userList) return <div style={{ textAlign:"center", color:c.dm, fontSize:13, padding:"24px 0" }}>Loading…</div>;
           if (!userList) return null;
-          const trashed = userList.filter(u => u.deleted).sort((a,b) => (a.deletedAt||0) - (b.deletedAt||0));
+          const trashed = partitionUsers(userList).trashed.sort((a,b) => (a.deletedAt||0) - (b.deletedAt||0));
           if (trashed.length === 0) return <div style={{ background:c.w, border:`1px solid ${c.bd}`, borderRadius:14, padding:"24px", textAlign:"center", color:c.dm, fontSize:13 }}>Trash is empty.</div>;
           return (
             <div style={{ background:c.w, border:`1px solid ${c.bd}`, borderRadius:14, overflow:"hidden" }}>

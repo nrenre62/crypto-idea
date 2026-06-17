@@ -177,8 +177,9 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | `lookupUser` | Callable | Admin-only: look up one user by email (tier/status/usage) for support |
 | `getAdminConfig` | Callable | Admin-only: read saved config to pre-fill Settings (secrets returned as set-flags only) |
 | `listAudit` | Callable | Admin-only: recent admin-action audit log |
-| `setUserTier` / `suspendUser` / `deleteUser` | Callable | Admin-only: change tier / suspend / delete-with-erasure (blocks self-target) |
-| `deleteMyAccount` / `exportMyData` | Callable | Self-service GDPR/CCPA: a user erases or exports **their own** data |
+| `setUserTier` / `suspendUser` / `deleteUser` / `restoreUser` | Callable | Admin-only: change tier / suspend / delete-with-erasure (blocks self-target) / restore from trash |
+| `deleteMyAccount` / `restoreMyAccount` / `exportMyData` | Callable | Self-service GDPR/CCPA: a user soft-deletes (30-day trash), restores, or exports **their own** data |
+| `purgeExpiredTrash` | Scheduled (daily) | Permanently erases soft-deleted accounts past the 30-day window |
 | `saveConfig` | Callable | Admin-only: write API keys to the locked `config/app` doc |
 
 ## CoinGecko proxy (`api`)
@@ -291,6 +292,7 @@ The free DCA calculator lives **inline on the landing** (no login, no separate p
 A **separate app** from the user-facing one, served at **`/admin`**. It has its own login that verifies the Firebase `{admin:true}` custom claim and **signs out any non-admin**. The admin code is **not** bundled into the user app, so regular users never download it. A different URL is *not* the security boundary — the claim check (enforced server-side in every admin function, re-checked in the admin app) is; the split additionally keeps admin code off users' devices. **2FA for admins is deferred to go-live** (needs Blaze + Identity Platform MFA). Tabs:
 - **Overview** — **real combined usage** from the admin-only `getStats` function: total users, tier breakdown, total portfolios + coins, **avg per user**, and estimated revenue. **No personal data** — aggregate only (privacy by design).
 - **Users** — **full users list** (`listUsers`), **searched + paginated 50/page** client-side. Shows email, name, tier, status (admin/suspended), and portfolio count — **operational data only, never holdings**. Click a row to manage: **change tier** (`setUserTier`), **suspend/un-suspend** (`suspendUser`), **delete** (`deleteUser`, full GDPR erasure). The list merges Auth (email/name/disabled/admin) with the Firestore profile (tier, counts), capped at 5,000.
+- **Trash** — soft-deleted accounts (users who deleted themselves), each with **days left** in the 30-day window and **Restore** / **Delete now** actions (`restoreUser` / `deleteUser`). Trashed accounts are excluded from Overview stats and the Users list. A daily `purgeExpiredTrash` job erases them after 30 days. Both Users and Trash have a **Refresh** button, so a user's self-restore shows up here on demand.
 - **Settings** — **API Keys** (CoinGecko, PayPal) and **Email & Integrations**, saved server-side via the admin-only `saveConfig` function to the locked `config/app` doc.
 
 **Two admins, always:** admin is the `{admin:true}` claim, so keep at least two. A `MIN_ADMINS=2` guard (`countAdmins()`) blocks `deleteUser`/`setAdminClaim` demotion/`deleteMyAccount` whenever the action would leave fewer than 2 admins — admin access can't be wiped out.
@@ -299,8 +301,9 @@ A **separate app** from the user-facing one, served at **`/admin`**. It has its 
 
 ## User privacy & data rights (GDPR/CCPA)
 Self-service, from the app's **Account → "Privacy & your data"** card (acts only on the caller's own account — no IDOR):
-- **Download my data** (`exportMyData`) — JSON of their profile + portfolios/coins/transactions (right to access).
-- **Delete my account** (`deleteMyAccount`) — wipes all their data + Auth account (right to erasure).
+- **Download CSV (spreadsheet)** (`exportMyData` → `buildPortfolioCsv`) — a holdings summary (per coin: amount held, avg buy price, invested/sold + a TOTAL) plus a chronological transactions list; opens in Excel/Sheets (cost-basis only, no live prices).
+- **Download all my data (JSON)** (`exportMyData`) — full profile + portfolios/coins/transactions (right to access).
+- **Delete my account** (`deleteMyAccount`) — **soft delete with a 30-day grace period** (right to erasure, with recovery): the account is moved to trash, the user is signed out, and they can **restore it within 30 days** by logging back in (`restoreMyAccount`, shown via the in-app restore screen). After 30 days `purgeExpiredTrash` erases it permanently. `deleted`/`deletedAt` are server-only (firestore.rules block the owner from setting them).
 - **Privacy Policy / Terms** links → `privacy.html` / `terms.html`. These are built static pages with a clearly-marked placeholder — paste your **Termly** embed snippet into the marked block and re-deploy. Linked from the landing footer too.
 
 ## Signup hardening

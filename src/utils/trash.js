@@ -14,3 +14,14 @@ export function trashDaysLeft(deletedAt, now = Date.now(), graceDays = TRASH_GRA
   const remainingMs = graceDays * DAY_MS - (now - deletedAt);
   return Math.max(0, Math.ceil(remainingMs / DAY_MS));
 }
+
+// Split a user list into the admin Users tab (active) and Trash tab (trashed).
+// Single source of truth for the partition, so a restored account (deleted:false)
+// automatically leaves Trash and rejoins the active list with no admin action.
+export function partitionUsers(list) {
+  const users = list || [];
+  return {
+    active: users.filter((u) => !u.deleted),
+    trashed: users.filter((u) => u.deleted),
+  };
+}

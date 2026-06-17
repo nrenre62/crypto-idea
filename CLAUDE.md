@@ -11,7 +11,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 
 ## Build, test, deploy
 - `npm run build` — Vite build + stamps the service worker. Must be clean before deploy.
-- `npm run test:rules` (7 tests) and `npm run test:integration` (4 tests) — Firestore rules + data layer, via emulators.
+- `npm run test:unit` (Vitest, ~108) · `npm run test:rules` (11) · `npm run test:integration` (5) — component/hook + Firestore rules + data layer (rules/integration via emulators).
 - `npm run deploy` — build + `firebase deploy` (needs the Blaze plan for functions).
 
 ## Architecture

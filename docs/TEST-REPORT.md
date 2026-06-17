@@ -108,6 +108,31 @@ error is now a **fixed-position floating toast** (`role="alert"`, top-centered, 
 content), so every limit/error message is visible regardless of scroll. Verified in-browser: free
 user → Add portfolio now shows the toast in the viewport.
 
+### F-4 — 🟢 FEATURE: Portfolio CSV export
+
+Account → Privacy & your data gained **Download CSV (spreadsheet)** (alongside the full JSON
+export). `src/utils/export-csv.js` `buildPortfolioCsv()` produces a HOLDINGS summary (per coin:
+amount held, avg buy price, total invested/sold + a grand TOTAL, sorted by portfolio then largest
+position) and a chronological TRANSACTIONS list; BOM-prefixed for Excel. Cost-basis only (no live
+prices). 6 unit tests; verified in-browser against real emulator data.
+
+### F-5 — 🔴 HIGH: "Delete my account" → soft-delete with 30-day trash — ✅ FIXED + EXTENDED
+
+The old delete hard-deleted immediately; for an admin account it was silently blocked by the
+min-2-admins guard (tiny message), so it looked like "nothing happened". Reworked into a recoverable
+flow: `deleteMyAccount` now **soft-deletes** (`users/{uid}.deleted+deletedAt`, data kept), signs the
+user out, and shows a 30-day recovery toast. Re-login shows a **Restore screen** (`restoreMyAccount`);
+admin has a **Trash tab** (restore / delete-now); `purgeExpiredTrash` (daily) erases accounts past 30
+days. `deleted`/`deletedAt` are server-only (rules-enforced; new rules test). Verified end-to-end in
+the emulator (delete → logout+toast; re-login → restore screen → restored; admin Trash lists +
+restores).
+
+- **Self-restore ↔ admin sync (your requested scenario):** when a user restores their own account,
+  it **automatically leaves the admin Trash and rejoins the admin Users list** — no admin action.
+  Covered by `partitionUsers()` unit tests and verified in-browser (free@test.com self-restored →
+  out of Trash, back in Users). The admin view refreshes via the **Refresh** button on both tabs
+  (point-in-time load; not a live listener).
+
 ## 4. Notes (not bugs)
 
 - **N-1 — Emulator cold start:** the **first** call to a Cloud Function in the emulator cold-starts
@@ -126,7 +151,8 @@ user → Add portfolio now shows the toast in the viewport.
 
 ## 5. Status
 
-- Automated: **109/109 green** (unit 94 · rules 10 · integration 5) — +3 new tests added for F-1.
-- Manual: **9/9 pass** — F-1 fixed and re-verified in the browser (fresh login → PRO + 6/200).
+- Automated: **124/124 green** (unit 108 · rules 11 · integration 5).
+- Manual / in-browser: F-1…F-5 all fixed/verified, incl. the self-restore ↔ admin-trash scenario.
 - Build: clean.
-- Follow-up (not blocking): DCA fetch-timeout hardening (**N-1**).
+- Follow-up (not blocking): DCA fetch-timeout hardening (**N-1**); optional admin "empty trash"
+  bulk action; optional live (onSnapshot) admin refresh instead of the manual Refresh button.
