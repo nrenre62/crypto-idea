@@ -6,10 +6,14 @@ Both fail soft: if the WD drive isn't connected they skip quietly and never bloc
 | | **Backup 1 — on "finish"** | **Backup 2 — auto-loop** ("agent 2") |
 |---|---|---|
 | Trigger | A chat message containing `finish` (`UserPromptSubmit` hook) | **Windows Scheduled Task, every 3 hours** |
-| Copies | `*.md` docs + `docs/diagrams` drawings + all skills | **Whole project** (code + docs) + all skills |
+| Copies | `*.md` docs + `docs/diagrams` drawings + all skills + Claude config\* | **Whole project** (code + docs) + all skills + Claude config\* |
 | Destination | `D:\apps\crypto-idea-backup\<timestamp>\` | `D:\apps\crypto-idea-auto-backup\<timestamp>\` |
 | History | keeps everything (never pruned) | **newest 20 snapshots**, older auto-pruned |
 | Script | `scripts/backup-to-wd.ps1` | `scripts/auto-backup-to-wd.ps1` |
+
+\* **Claude config** = your global `~/.claude/CLAUDE.md` + every project's `memory\` folder
+(both auto-discovered), saved under a `claude-config\` folder in each snapshot — so your whole
+Claude setup is recoverable, not just the project.
 
 They use **separate folders**, so the auto-loop's pruning never touches the on-"finish" snapshots.
 
@@ -22,12 +26,14 @@ A reusable pattern; see the **`auto-backup-loop`** skill for the general version
 **What it does, each run**
 1. Checks the WD drive (`D:`). Not connected → logs `skipped`, exits 0, retries next run.
    *(This is the "wait until it's plugged back in" behaviour — no errors, nothing to restart.)*
-2. Compares the project **and the skills** to the most recent snapshot (`robocopy /L`). Nothing
-   changed → skip, so the 20-snapshot history holds 20 *real* working states, not idle duplicates.
+2. Compares the project, **the skills, and your Claude config** to the most recent snapshot
+   (`robocopy /L`). Nothing changed → skip, so the 20-snapshot history holds 20 *real* working
+   states, not idle duplicates.
 3. Otherwise copies the whole project into a new `D:\apps\crypto-idea-auto-backup\<yyyy-MM-dd_HHmm>\`
-   snapshot (`repo\` + `skills\` + a `backup-info.txt` manifest), **excluding**
-   `node_modules`, `dist`, `.git`, and `*-debug.log`. **Skills are auto-discovered** from
-   `~/.claude/skills`, so every skill you add is backed up automatically — no list to maintain.
+   snapshot (`repo\` + `skills\` + `claude-config\` + a `backup-info.txt` manifest), **excluding**
+   `node_modules`, `dist`, `.git`, and `*-debug.log`. **Skills and memory are auto-discovered**
+   (from `~/.claude/skills` and `~/.claude/projects/*/memory`), so anything you add is backed up
+   automatically — no list to maintain.
 4. Prunes to the newest 20 snapshots.
 
 A running log is kept at `D:\apps\crypto-idea-auto-backup\auto-backup.log`.

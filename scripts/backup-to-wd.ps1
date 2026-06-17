@@ -91,7 +91,8 @@ if (Test-Path $globalMd) {
 foreach ($m in Get-MemoryDirs) {
   $memDest = Join-Path $cfgDest ("memory\" + $m.Name)
   New-Item -ItemType Directory -Force -Path $memDest | Out-Null
-  Copy-Item -LiteralPath (Join-Path $m.Path "*") -Destination $memDest -Recurse -Force
+  # -Path (not -LiteralPath) so the trailing * is expanded and the folder CONTENTS are copied.
+  Copy-Item -Path (Join-Path $m.Path "*") -Destination $memDest -Recurse -Force
   $cfgCopied += ("memory\" + $m.Name)
 }
 
