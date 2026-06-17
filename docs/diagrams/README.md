@@ -11,6 +11,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [coin-data-flow.svg](coin-data-flow.svg) | How coin metadata, prices and history flow to the DCA calculator vs the app — the shared `cache/universe`, the hot/tail split, the refresh jobs, and the single CoinGecko upstream. |
 | [api-key-flow.svg](api-key-flow.svg) | How the CoinGecko/PayPal keys move from the admin panel to the locked `config/app` doc to upstream calls — and why no browser can ever read them. |
 | [multi-agent-workflow.svg](multi-agent-workflow.svg) | Running several agents on one project safely — worktrees + lanes, one shared `.git`/`master`, the single shared dev stack. |
+| [auth-and-session.svg](auth-and-session.svg) | Register / login / logout / reset via Firebase Auth (password never on device); `onAuthChange` → `useAuthSession` loads the server-authoritative tier + portfolios; admin = a verified custom claim. |
 
 ## Backlog — diagram everything (the auto-loop worklist)
 The drawing loop draws **one per iteration**, ticks it, commits, and stops when all are done.
@@ -18,7 +19,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] coin data flow (prices/history, hybrid)
 - [x] API-key flow
 - [x] multi-agent workflow
-- [ ] auth & session (register / login / `onAuthChange` / custom-claim admin)
+- [x] auth & session (register / login / `onAuthChange` / custom-claim admin)
 - [ ] Firestore data model (users → portfolios → coins → transactions + counters)
 - [ ] authorization & tier limits (owner/admin rules + counter-enforced plan ceilings)
 - [ ] PayPal subscription + webhook flow (create → approve → verified webhook → tier)
