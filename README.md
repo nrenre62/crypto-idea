@@ -14,6 +14,7 @@ crypto-idea/
 │   ├── api/                      ← data fetching (firebase auth/db/config, coingecko, config, account)
 │   ├── hooks/                    ← state + logic (useAuthSession, usePortfolios, useCoinSearch, useLivePrices, app-context)
 │   ├── components/               ← UI: every user screen (Login/Portfolio/Account/Detail/…) + shared ui.jsx/StatusDot
+│   ├── features/research/        ← Research tab feature module (Overview/Coins/Ask; own components/hooks/utils/styles)
 │   └── utils/                    ← pure helpers (format, coins+DCA model, theme tokens, storage)
 ├── functions/index.js           ← Cloud Functions (CoinGecko proxy, PayPal, admin/GDPR callables)
 ├── firestore.rules              ← security rules
@@ -284,6 +285,17 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 | `/edge` | React | Education guide. |
 | `/pro-success` | React | PayPal return / upgrade confirmation. |
 | `/api/*` | `api` function | CoinGecko proxy: `prices` / `search` / `history` / `coinlist`; plus `config` = public app flags (maintenance, signups). All cached / CDN-friendly. |
+
+### Research tab (AI insights)
+
+The app's middle bottom-nav tab (**Portfolio · Research · Search**) is a self-contained feature in
+`src/features/research/`. Three sub-views: **Overview** (daily brief, Portfolio Pulse, allocation,
+risk meter, stress test), **Coins** (per-holding cards with a 7-day sparkline + cost/now/P&L), and
+**Ask** (chat about your holdings). It reads your **real** active portfolio and reuses the app's
+existing `/api` proxy only — current price + 24h from live prices, and 7d/30d change + sparkline
+derived from the CDN-cached `/api/history` (no direct CoinGecko calls, no key in the client). The
+AI "Pulse"/"Ask" currently render **data-driven offline fallbacks**; wiring live Claude is a planned
+next step (a secure Cloud Function proxy holding the Anthropic key — see `NEXT-STEPS.md` N-3).
 
 The free DCA calculator lives **inline on the landing** (no login, no separate page) — it is **not** in the app. It's built so visitors add **~0 backend calls**: it fetches the full ~3,000-coin list **once** from `/api/coinlist` (CDN-cached 24h) and searches **client-side** (no per-keystroke calls), then a calculation fetches only that coin's `/api/history` (CDN-cached; price history is immutable) and uses its latest point as "today's price" — no per-calc `/api/prices` call. So thousands of visitors share a couple of cached responses; scheduled jobs refresh the data at most daily. (CDN caching applies on the deployed site, not the local dev server.)
 

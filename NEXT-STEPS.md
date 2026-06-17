@@ -141,6 +141,13 @@ want explicit MVC separation:**
   timeout (AbortController) + a clear error message. Low priority (prod is warm + CDN-cached).
 - [ ] **N-2 (LOW): admin trash niceties.** Optional "Empty trash" bulk-purge action, and/or a live
   (onSnapshot) admin list so a user self-restore reflects without clicking Refresh.
+- [ ] **N-3 (MED): live AI for the Research tab.** The Research tab ships with AI in graceful
+  offline-fallback mode (`src/features/research/api/ai-client.js` throws → built-in data-driven
+  summaries). To make "Pulse"/"Ask" use real Claude: add a secure callable Cloud Function
+  (e.g. `researchAsk`) that holds the Anthropic key server-side, forwards to Claude (Anthropic SDK,
+  model per `claude-api` skill), and add per-user rate limiting + App Check. Then replace the one
+  `ai-client.js` body with a call to that function. Needs an Anthropic API key + the Blaze plan
+  (outbound network). NEVER call Anthropic directly from the browser.
 
 ## 5. Housekeeping
 
