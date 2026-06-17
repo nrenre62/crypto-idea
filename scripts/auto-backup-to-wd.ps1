@@ -3,7 +3,8 @@
 # Also runnable by hand:  powershell -File scripts\auto-backup-to-wd.ps1
 #
 # Behaviour:
-#   - Copies the whole project (EXCLUDING node_modules, dist, .git) + ALL personal skills.
+#   - Copies the whole project (EXCLUDING node_modules, dist, .git) + ALL personal skills
+#     + your Claude config (global ~/.claude/CLAUDE.md + every project's memory folder).
 #   - WD drive not connected -> logs "skipped" and exits 0. The next scheduled run retries,
 #     so it simply waits until the drive is plugged back in (never errors, never blocks).
 #   - Only creates a new snapshot when something actually CHANGED since the last one, so the
@@ -18,8 +19,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$repo      = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$skillsSrc = Join-Path $env:USERPROFILE ".claude\skills"
+$repo       = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$claudeRoot = Join-Path $env:USERPROFILE ".claude"
+$skillsSrc  = Join-Path $claudeRoot "skills"
+$globalMd   = Join-Path $claudeRoot "CLAUDE.md"   # global instructions for all projects
 # All personal skills under ~/.claude/skills, auto-discovered so new skills are always included.
 $skills    = if (Test-Path $skillsSrc) { @(Get-ChildItem $skillsSrc -Directory | Select-Object -ExpandProperty Name) } else { @() }
 $exclDirs  = @("node_modules", "dist", ".git")
@@ -30,6 +33,16 @@ function Write-Log($msg) {
   $line = "{0}  {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $msg
   Write-Output $line
   try { Add-Content -Path (Join-Path $Dest "auto-backup.log") -Value $line -Encoding utf8 } catch {}
+}
+
+# Every project's memory folder under ~/.claude/projects/<id>/memory (auto-discovered).
+function Get-MemoryDirs {
+  $proj = Join-Path $claudeRoot "projects"
+  if (-not (Test-Path $proj)) { return @() }
+  Get-ChildItem $proj -Directory | ForEach-Object {
+    $m = Join-Path $_.FullName "memory"
+    if (Test-Path $m) { [pscustomobject]@{ Name = $_.Name; Path = $m } }
+  }
 }
 
 # 1) Is the WD drive connected? If not, skip quietly and let the next run retry.
@@ -49,11 +62,22 @@ $changed = $true
 if ($last) {
   $lastRepo   = Join-Path $last.FullName "repo"
   $lastSkills = Join-Path $last.FullName "skills"
+  $lastCfg    = Join-Path $last.FullName "claude-config"
   & robocopy $repo $lastRepo /MIR /L /NJH /NJS /NFL /NDL /XD $exclDirs /XF $exclFiles *> $null
   $repoSame = ($LASTEXITCODE -eq 0)                 # 0 = identical; 1-7 = differences
   & robocopy $skillsSrc $lastSkills /MIR /L /NJH /NJS /NFL /NDL *> $null
   $skillsSame = ($LASTEXITCODE -eq 0)
-  if ($repoSame -and $skillsSame) { $changed = $false }
+  # Claude config: global CLAUDE.md + each project's memory folder.
+  $cfgSame = $true
+  if (Test-Path $globalMd) {
+    & robocopy $claudeRoot $lastCfg "CLAUDE.md" /L /NJH /NJS /NFL /NDL *> $null
+    if ($LASTEXITCODE -ne 0) { $cfgSame = $false }
+  }
+  foreach ($m in Get-MemoryDirs) {
+    & robocopy $m.Path (Join-Path $lastCfg ("memory\" + $m.Name)) /MIR /L /NJH /NJS /NFL /NDL *> $null
+    if ($LASTEXITCODE -ne 0) { $cfgSame = $false }
+  }
+  if ($repoSame -and $skillsSame -and $cfgSame) { $changed = $false }
 }
 if (-not $changed) {
   Write-Log "[auto-backup] no changes since $($last.Name) - snapshot skipped."
@@ -86,6 +110,19 @@ foreach ($s in $skills) {
   }
 }
 
+# Claude config: global CLAUDE.md + every project's memory folder.
+$cfgDest = Join-Path $snapshot "claude-config"
+New-Item -ItemType Directory -Force -Path $cfgDest | Out-Null
+$cfgCopied = @()
+if (Test-Path $globalMd) {
+  Copy-Item -LiteralPath $globalMd -Destination $cfgDest -Force
+  $cfgCopied += "CLAUDE.md"
+}
+foreach ($m in Get-MemoryDirs) {
+  & robocopy $m.Path (Join-Path $cfgDest ("memory\" + $m.Name)) /E /NFL /NDL /NJH /NJS /R:1 /W:1 *> $null
+  if ($LASTEXITCODE -lt 8) { $cfgCopied += ("memory\" + $m.Name) }
+}
+
 # Self-describing manifest.
 $fileCount = (Get-ChildItem $repoDest -Recurse -File | Measure-Object).Count
 $info = @(
@@ -94,11 +131,12 @@ $info = @(
   "Source  : $repo",
   "Excluded: $($exclDirs -join ', ')",
   "Files   : $fileCount",
-  "Skills  : $($skillsCopied -join ', ')"
+  "Skills  : $($skillsCopied -join ', ')",
+  "Config  : $($cfgCopied -join ', ')"
 ) -join "`r`n"
 Set-Content -Path (Join-Path $snapshot "backup-info.txt") -Value $info -Encoding utf8
 
-Write-Log "[auto-backup] snapshot $stamp created ($fileCount files, $($skillsCopied.Count) skills)."
+Write-Log "[auto-backup] snapshot $stamp created ($fileCount files, $($skillsCopied.Count) skills, $($cfgCopied.Count) config items)."
 
 # 4) Prune: keep only the newest $Keep snapshots.
 $all = Get-ChildItem $Dest -Directory -ErrorAction SilentlyContinue |
