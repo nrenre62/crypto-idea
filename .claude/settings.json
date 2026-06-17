@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nrenr\\OneDrive\\מסמכים\\crypto idea app\\crypto-idea-project\\crypto-idea\\scripts\\finish-backup-hook.ps1\"",
+            "timeout": 60,
+            "statusMessage": "Backing up to WD drive..."
+          }
+        ]
+      }
+    ]
+  }
+}

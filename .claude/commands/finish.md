@@ -13,3 +13,10 @@ End-of-session routine for Crypto Idea:
 5. **Confirm a clean git working tree** and list the commits made this session.
 
 Report what was saved and confirm nothing is left running.
+
+> **WD backup is automatic.** A `UserPromptSubmit` hook (`.claude/settings.json`)
+> runs `scripts/finish-backup-hook.ps1` on any message containing "finish", which
+> snapshots all MD docs, the `docs/diagrams` drawings, and the 3 project skills to
+> `D:\apps\crypto-idea-backup\<timestamp>\`. It fails soft (skips silently if the WD
+> drive isn't connected) and never blocks your message. Run it by hand anytime with
+> `powershell -File scripts\backup-to-wd.ps1`.
