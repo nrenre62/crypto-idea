@@ -123,6 +123,15 @@ want explicit MVC separation:**
 
 ---
 
+## 4b. Follow-ups from the QA test pass (see `docs/TEST-REPORT.md`)
+
+- [x] **F-1 (HIGH):** user tier was read from local cache, never Firestore → paid users showed as
+  free on a fresh device / after an admin change. Fixed: `getUserProfile` reader + `useAuthSession`
+  adopts server tier; retries past the login-time `lastLogin` pending-write view. (commit `8ecd222`)
+- [ ] **N-1 (LOW): harden the landing DCA fetch.** `getHistory` in `index.html` has no timeout, so a
+  hung `/api/history` leaves the button stuck on "Calculating…" with no feedback. Add a fetch
+  timeout (AbortController) + a clear error message. Low priority (prod is warm + CDN-cached).
+
 ## 5. Housekeeping
 
 - [x] Ran `npm audit fix` (no `--force`): patched the `protobufjs` prod advisory → **production
