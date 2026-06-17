@@ -3,7 +3,7 @@
 # Also runnable by hand:  powershell -File scripts\auto-backup-to-wd.ps1
 #
 # Behaviour:
-#   - Copies the whole project (EXCLUDING node_modules, dist, .git) + the 3 skills.
+#   - Copies the whole project (EXCLUDING node_modules, dist, .git) + ALL personal skills.
 #   - WD drive not connected -> logs "skipped" and exits 0. The next scheduled run retries,
 #     so it simply waits until the drive is plugged back in (never errors, never blocks).
 #   - Only creates a new snapshot when something actually CHANGED since the last one, so the
@@ -20,7 +20,8 @@ $ErrorActionPreference = "Stop"
 
 $repo      = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $skillsSrc = Join-Path $env:USERPROFILE ".claude\skills"
-$skills    = @("firebase-saas-starter", "landing-page-design", "secure-by-design")
+# All personal skills under ~/.claude/skills, auto-discovered so new skills are always included.
+$skills    = if (Test-Path $skillsSrc) { @(Get-ChildItem $skillsSrc -Directory | Select-Object -ExpandProperty Name) } else { @() }
 $exclDirs  = @("node_modules", "dist", ".git")
 $exclFiles = @("*-debug.log")   # transient emulator logs - noise, not project content
 $snapRegex = '^\d{4}-\d{2}-\d{2}_\d{4}$'
@@ -46,9 +47,13 @@ $last = $existing | Select-Object -Last 1
 
 $changed = $true
 if ($last) {
-  $lastRepo = Join-Path $last.FullName "repo"
+  $lastRepo   = Join-Path $last.FullName "repo"
+  $lastSkills = Join-Path $last.FullName "skills"
   & robocopy $repo $lastRepo /MIR /L /NJH /NJS /NFL /NDL /XD $exclDirs /XF $exclFiles *> $null
-  if ($LASTEXITCODE -eq 0) { $changed = $false }   # 0 = identical; 1-7 = differences
+  $repoSame = ($LASTEXITCODE -eq 0)                 # 0 = identical; 1-7 = differences
+  & robocopy $skillsSrc $lastSkills /MIR /L /NJH /NJS /NFL /NDL *> $null
+  $skillsSame = ($LASTEXITCODE -eq 0)
+  if ($repoSame -and $skillsSame) { $changed = $false }
 }
 if (-not $changed) {
   Write-Log "[auto-backup] no changes since $($last.Name) - snapshot skipped."

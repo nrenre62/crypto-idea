@@ -5,7 +5,7 @@
 # What it copies (read-only source; never deletes anything on D:):
 #   - every *.md in the repo (CLAUDE.md, README.md, AGILE.md, docs, etc.) - keeps folder layout
 #   - the drawings in docs\diagrams (*.svg / *.png)
-#   - the 3 project skills from ~/.claude/skills
+#   - all personal skills from ~/.claude/skills (auto-discovered)
 # Into:  D:\apps\crypto-idea-backup\<yyyy-MM-dd_HHmm>\  (repo\ + skills\)
 
 param(
@@ -17,7 +17,8 @@ $ErrorActionPreference = "Stop"
 # Resolve key locations
 $repo      = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $skillsSrc = Join-Path $env:USERPROFILE ".claude\skills"
-$skills    = @("firebase-saas-starter", "landing-page-design", "secure-by-design")
+# All personal skills under ~/.claude/skills, auto-discovered so new skills are always included.
+$skills    = if (Test-Path $skillsSrc) { @(Get-ChildItem $skillsSrc -Directory | Select-Object -ExpandProperty Name) } else { @() }
 
 # Fail clearly (but softly via the hook wrapper) if the WD drive isn't mounted
 $driveRoot = Split-Path -Qualifier $Dest
