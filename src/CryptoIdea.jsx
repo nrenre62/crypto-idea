@@ -418,7 +418,9 @@ export default function CryptoIdea(){
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site};
   return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:430,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
-    {err&&<div style={{margin:"8px 16px",padding:"10px 14px",background:"#FFF0F0",color:c.red,borderRadius:12,fontSize:12,fontWeight:500,border:"1px solid #FFD0D0"}}>{err}</div>}
+    {/* Floating toast: fixed so a limit/error message is always visible, even when the action
+        (e.g. "Add portfolio" on the scrolled Account screen) is far below the top of the page. */}
+    {err&&<div role="alert" style={{position:"fixed",top:10,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:398,padding:"12px 16px",background:"#FFF0F0",color:c.red,borderRadius:12,fontSize:13,fontWeight:600,border:"1px solid #FFD0D0",boxShadow:"0 6px 24px rgba(0,0,0,0.15)",zIndex:9500,textAlign:"center"}}>{err}</div>}
     {showPlan&&screen!=="login"&&(()=>{
       // Reuse the Login() flow rendering for upgrade overlay
       // But Login() handles the showPlan branch — render it as a full overlay

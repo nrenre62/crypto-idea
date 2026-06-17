@@ -59,6 +59,16 @@ describe("useAuthSession", () => {
     expect(view.result.current.user).toMatchObject({ uid: "u1", tier: "pro" });
   });
 
+  it("does not adopt non-string server fields that the UI renders (joined Timestamp)", async () => {
+    // Firestore returns `joined` as a Timestamp object {seconds,nanoseconds}; the Account screen
+    // renders user.joined directly, so importing the object would crash it ("Objects are not valid
+    // as a React child"). The session must take only authoritative fields (tier) from the server.
+    getUserProfile.mockResolvedValueOnce({ success: true, tier: "free", joined: { seconds: 1, nanoseconds: 0 } });
+    const { view } = setup();
+    await act(async () => { await authCb({ uid: "u1", email: "a@b.com", displayName: "Ann" }); });
+    expect(typeof view.result.current.user.joined).toBe("string");
+  });
+
   it("server tier overrides a stale local cache", async () => {
     // Local cache says pro, but the server has since downgraded the user to free -> free wins.
     db.get.mockResolvedValueOnce({ tier: "pro" });

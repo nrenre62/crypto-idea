@@ -54,10 +54,12 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
           tier: "free",
           joined: new Date().toISOString().split("T")[0],
           ...profile,
+          // Take ONLY the authoritative fields from the server. Display/format fields like
+          // `joined` stay from the local cache/default — Firestore returns `joined` as a
+          // Timestamp object, and the Account screen renders it directly (would crash on an object).
           ...(server.success ? {
             tier: server.tier || "free",
             subscription: "subscription" in server ? server.subscription : (profile.subscription ?? null),
-            joined: server.joined || profile.joined || new Date().toISOString().split("T")[0],
           } : {}),
           uid: fbUser.uid,
           email: fbUser.email,

@@ -89,6 +89,25 @@ badge + 6/200 limit** (was STARTER + 6/10).
 
 ---
 
+### F-2 — 🟠 MED: Account screen crashed (regression from the F-1 fix) — ✅ FIXED
+
+The F-1 fix initially imported `joined` from Firestore, where it's a **Timestamp object**
+`{seconds, nanoseconds}`. `Account.jsx` renders `user.joined` directly, so React threw *"Objects
+are not valid as a React child"* and the whole Account screen went blank. Fix: `useAuthSession`
+now takes **only the authoritative fields (`tier`, `subscription`)** from the server; display fields
+like `joined` stay from the local cache/default string. Regression guard added
+(`useAuthSession` test: a Timestamp `joined` from the server must not reach the session user).
+Caught only by exercising the Account screen in the browser — reinforces "build passing ≠ runs".
+
+### F-3 — 🟢 UX: Limit/error messages were rendered off-screen — ✅ FIXED
+
+`showErr` rendered a banner at the top of the page in normal flow, so on a scrolled screen (e.g.
+adding a 2nd portfolio on the Account screen) the message — *"Free: 1 portfolio. Upgrade to Pro for
+10!"* — appeared above the fold and was invisible; the action just seemed to do nothing. Fix: the
+error is now a **fixed-position floating toast** (`role="alert"`, top-centered, `z-index` above
+content), so every limit/error message is visible regardless of scroll. Verified in-browser: free
+user → Add portfolio now shows the toast in the viewport.
+
 ## 4. Notes (not bugs)
 
 - **N-1 — Emulator cold start:** the **first** call to a Cloud Function in the emulator cold-starts
