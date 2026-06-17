@@ -9,7 +9,7 @@ export function Account() {
     setScreen, user, isPremium, isPro, portfolios, maxPortfolios, maxCoinsPerPort,
     maxTxPerCoin, portfolio, startUpgrade, startDowngrade, fmtDate, setActivePortId,
     activePortId, deletePortfolio, newPortName, setNewPortName, addPortfolio,
-    downloadMyData, acctBusy, deleteMyAccount, delConfirm, setDelConfirm, acctMsg, logout,
+    downloadMyData, downloadCsv, acctBusy, deleteMyAccount, delConfirm, setDelConfirm, acctMsg, logout,
   } = useApp();
   return (<div>
     <div style={{padding:"14px 18px 6px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -139,8 +139,9 @@ export function Account() {
     {/* Privacy & your data (GDPR/CCPA self-service) */}
     <div style={{margin:"12px 18px",padding:"16px",background:c.card,borderRadius:16,border:"1px solid #E8E8ED"}}>
       <div style={{fontSize:13,fontWeight:700,marginBottom:4}}>Privacy & your data</div>
-      <div style={{fontSize:11,color:c.dim,marginBottom:12,lineHeight:1.5}}>Download everything we hold about you, or permanently delete your account and all your data.</div>
-      <button onClick={downloadMyData} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:8}}>{acctBusy?"…":"Download my data"}</button>
+      <div style={{fontSize:11,color:c.dim,marginBottom:12,lineHeight:1.5}}>Download your portfolio as a spreadsheet (CSV) — your coin list, how much you hold, and every transaction. Or export everything we hold (JSON), or permanently delete your account.</div>
+      <button onClick={downloadCsv} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:c.txt,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:8}}>{acctBusy?"…":"Download CSV (spreadsheet)"}</button>
+      <button onClick={downloadMyData} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:8}}>{acctBusy?"…":"Download all my data (JSON)"}</button>
       {delConfirm?(
         <button onClick={deleteMyAccount} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:c.red,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>Yes, permanently delete my account</button>
       ):(

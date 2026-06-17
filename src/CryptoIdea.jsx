@@ -20,6 +20,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount } from "./api/account.js";
+import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
   createPortfolio as dbCreatePortfolio,
   deletePortfolio as dbDeletePortfolio,
@@ -224,6 +225,20 @@ export default function CryptoIdea(){
     }catch(e){setAcctMsg((e&&e.message)||"Export failed");}
     setAcctBusy(false);
   };
+  const downloadCsv=async()=>{
+    setAcctBusy(true);setAcctMsg("");
+    try{
+      const data=await exportMyData();
+      const csv=buildPortfolioCsv(data);
+      // Prepend a UTF-8 BOM so Excel opens the file with the right encoding.
+      const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");a.href=url;a.download="crypto-idea-portfolio.csv";a.click();
+      URL.revokeObjectURL(url);
+      setAcctMsg("Downloaded ✓");
+    }catch(e){setAcctMsg((e&&e.message)||"Export failed");}
+    setAcctBusy(false);
+  };
   const deleteMyAccount=async()=>{
     setAcctBusy(true);setAcctMsg("");
     try{
@@ -413,7 +428,7 @@ export default function CryptoIdea(){
     portfolios,setActivePortId,activePortId,
     resetSwipe,onTouchS,onTouchM,onTouchE,touchStart,swipeId,swipeX,
     maxTxPerCoin,startDowngrade,fmtDate,deletePortfolio,newPortName,setNewPortName,addPortfolio,
-    downloadMyData,acctBusy,deleteMyAccount,delConfirm,setDelConfirm,acctMsg,logout,
+    downloadMyData,downloadCsv,acctBusy,deleteMyAccount,delConfirm,setDelConfirm,acctMsg,logout,
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site};
