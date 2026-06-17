@@ -1,7 +1,11 @@
 // Builds a human-readable CSV (spreadsheet) from the exportMyData() payload.
-// Two sections in one file: a HOLDINGS summary (net amount held per coin) and a
-// full TRANSACTIONS detail list — so the user can open it in Excel/Sheets and see
-// their coin list, how much they hold, and every transaction. Pure + unit-tested.
+// One file, two clearly-labelled sections:
+//   HOLDINGS      — one row per coin: amount held, what you paid (avg cost, invested,
+//                   sold), and a grand TOTAL row. Sorted by portfolio, then biggest
+//                   position first.
+//   TRANSACTIONS  — one row per transaction, listed in chronological order.
+// Pure + unit-tested. (Current market value isn't included — the export holds your own
+// data only, no live prices.)
 
 // CSV-escape one field: wrap in quotes if it contains a comma, quote, or newline.
 function esc(v) {
@@ -16,47 +20,81 @@ const num = (n, dp) => {
   return String(Math.round((Number(n) || 0) * f) / f);
 };
 
-// Net amount currently held for a coin = total bought minus total sold.
-const netHeld = (txs) =>
-  (txs || []).reduce((n, t) => n + (t.type === "sell" ? -1 : 1) * (Number(t.amount) || 0), 0);
+// Reduce a coin's transactions to a holdings summary (cost basis — no live price).
+function summarize(txs) {
+  let boughtQty = 0, soldQty = 0, invested = 0, sold = 0;
+  for (const t of txs || []) {
+    const amt = Number(t.amount) || 0;
+    const val = amt * (Number(t.priceAtBuy) || 0);
+    if (t.type === "sell") { soldQty += amt; sold += val; }
+    else { boughtQty += amt; invested += val; }
+  }
+  return {
+    held: boughtQty - soldQty,
+    avgBuy: boughtQty > 0 ? invested / boughtQty : 0,
+    invested, sold,
+    count: (txs || []).length,
+  };
+}
 
 export function buildPortfolioCsv(data) {
   const portfolios = (data && data.portfolios) || [];
-  const lines = [];
+  const out = [];
 
-  lines.push(row(["Crypto Idea — data export"]));
-  if (data && data.exportedAt) lines.push(row(["Exported", data.exportedAt]));
-  if (data && data.account && data.account.email) lines.push(row(["Account", data.account.email]));
-  lines.push("");
+  out.push(row(["Crypto Idea — portfolio export"]));
+  if (data && data.exportedAt) out.push(row(["Exported", data.exportedAt]));
+  if (data && data.account && data.account.email) out.push(row(["Account", data.account.email]));
+  out.push("");
 
-  // ── Holdings summary: one row per coin ──
-  lines.push(row(["HOLDINGS"]));
-  lines.push(row(["Portfolio", "Coin", "Symbol", "Amount held", "Transactions"]));
+  // Flatten to coin-level rows once, reused by both sections.
+  const coinRows = [];
   for (const p of portfolios) {
     for (const co of p.coins || []) {
-      lines.push(row([
-        p.name || p.id, co.name || "", (co.symbol || "").toUpperCase(),
-        num(netHeld(co.transactions), 8), (co.transactions || []).length,
-      ]));
+      coinRows.push({ portfolio: p.name || p.id, coin: co, sum: summarize(co.transactions) });
     }
   }
-  lines.push("");
 
-  // ── Transactions detail: one row per transaction ──
-  lines.push(row(["TRANSACTIONS"]));
-  lines.push(row(["Portfolio", "Coin", "Symbol", "Type", "Amount", "Price (USD)", "Value (USD)", "Date"]));
+  // ── HOLDINGS: sorted by portfolio, then largest position (by invested) first ──
+  out.push(row(["HOLDINGS"]));
+  out.push(row(["Portfolio", "Coin", "Symbol", "Amount held", "Avg buy price (USD)",
+    "Total invested (USD)", "Total sold (USD)", "Transactions"]));
+  const holdings = coinRows.slice().sort((a, b) =>
+    a.portfolio.localeCompare(b.portfolio) || b.sum.invested - a.sum.invested);
+  let totInvested = 0, totSold = 0;
+  for (const r of holdings) {
+    totInvested += r.sum.invested;
+    totSold += r.sum.sold;
+    out.push(row([
+      r.portfolio, r.coin.name || "", (r.coin.symbol || "").toUpperCase(),
+      num(r.sum.held, 8), num(r.sum.avgBuy, 8),
+      num(r.sum.invested, 2), num(r.sum.sold, 2), r.sum.count,
+    ]));
+  }
+  out.push(row(["TOTAL", "", "", "", "", num(totInvested, 2), num(totSold, 2), ""]));
+  out.push("");
+
+  // ── TRANSACTIONS: every transaction, oldest first ──
+  out.push(row(["TRANSACTIONS"]));
+  out.push(row(["Portfolio", "Coin", "Symbol", "Type", "Amount", "Price (USD)", "Value (USD)", "Date"]));
+  const txRows = [];
   for (const p of portfolios) {
     for (const co of p.coins || []) {
       for (const t of co.transactions || []) {
-        const amt = Number(t.amount) || 0;
-        const price = Number(t.priceAtBuy) || 0;
-        lines.push(row([
-          p.name || p.id, co.name || "", (co.symbol || "").toUpperCase(),
-          t.type || "buy", num(amt, 8), num(price, 8), num(amt * price, 2), t.date || "",
-        ]));
+        txRows.push({ portfolio: p.name || p.id, coin: co, t });
       }
     }
   }
+  txRows.sort((a, b) =>
+    String(a.t.date || "").localeCompare(String(b.t.date || "")) ||
+    a.portfolio.localeCompare(b.portfolio));
+  for (const { portfolio, coin, t } of txRows) {
+    const amt = Number(t.amount) || 0;
+    const price = Number(t.priceAtBuy) || 0;
+    out.push(row([
+      portfolio, coin.name || "", (coin.symbol || "").toUpperCase(),
+      t.type || "buy", num(amt, 8), num(price, 8), num(amt * price, 2), t.date || "",
+    ]));
+  }
 
-  return lines.join("\r\n");
+  return out.join("\r\n");
 }

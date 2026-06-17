@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { buildPortfolioCsv } from "../../src/utils/export-csv.js";
 
+const lines = (csv) => csv.split(/\r?\n/);
+
 const sample = {
   exportedAt: "2026-06-17T00:00:00.000Z",
   account: { uid: "u1", email: "a@b.com" },
@@ -11,9 +13,14 @@ const sample = {
         {
           id: "bitcoin", symbol: "btc", name: "Bitcoin",
           transactions: [
-            { type: "buy", amount: 0.5, priceAtBuy: 40000, date: "2024-01-01" },
+            // intentionally out of date order to prove the export sorts chronologically
             { type: "sell", amount: 0.2, priceAtBuy: 50000, date: "2024-06-01" },
+            { type: "buy", amount: 0.5, priceAtBuy: 40000, date: "2024-01-01" },
           ],
+        },
+        {
+          id: "ethereum", symbol: "eth", name: "Ethereum",
+          transactions: [{ type: "buy", amount: 2, priceAtBuy: 1000, date: "2024-02-01" }],
         },
       ],
     },
@@ -21,32 +28,53 @@ const sample = {
 };
 
 describe("buildPortfolioCsv", () => {
-  it("has a holdings section with net amount held (buys minus sells) and tx count", () => {
+  it("holdings row shows amount held, avg buy price, total invested and total sold", () => {
     const csv = buildPortfolioCsv(sample);
     expect(csv).toContain("HOLDINGS");
-    expect(csv).toContain("Amount held");
-    // net = 0.5 - 0.2 = 0.3, two transactions, symbol upper-cased
-    const line = csv.split(/\r?\n/).find((l) => l.includes("Bitcoin") && l.includes("BTC"));
-    expect(line).toContain("0.3");
-    expect(line).toContain("2");
+    const header = lines(csv).find((l) => l.startsWith("Portfolio,Coin,Symbol"));
+    expect(header).toContain("Amount held");
+    expect(header).toContain("Avg buy price (USD)");
+    expect(header).toContain("Total invested (USD)");
+    expect(header).toContain("Total sold (USD)");
+
+    const btc = lines(csv).find((l) => l.includes("Bitcoin") && l.includes("BTC"));
+    // held 0.3, avg 40000, invested 20000, sold 10000, 2 transactions
+    expect(btc).toContain("0.3");
+    expect(btc).toContain("40000");
+    expect(btc).toContain("20000");
+    expect(btc).toContain("10000");
   });
 
-  it("has a transactions section with a value column (amount * price)", () => {
+  it("includes a grand TOTAL row summing invested and sold across coins", () => {
+    const csv = buildPortfolioCsv(sample);
+    const total = lines(csv).find((l) => l.startsWith("TOTAL"));
+    expect(total).toBeTruthy();
+    // invested = 20000 (btc) + 2000 (eth) = 22000 ; sold = 10000
+    expect(total).toContain("22000");
+    expect(total).toContain("10000");
+  });
+
+  it("transactions are listed in chronological order (oldest first)", () => {
+    const csv = buildPortfolioCsv(sample);
+    const ls = lines(csv);
+    const buyIdx = ls.findIndex((l) => l.includes("2024-01-01"));
+    const sellIdx = ls.findIndex((l) => l.includes("2024-06-01"));
+    expect(buyIdx).toBeGreaterThan(-1);
+    expect(sellIdx).toBeGreaterThan(buyIdx); // earlier date comes first
+  });
+
+  it("transactions row has a value column (amount * price)", () => {
     const csv = buildPortfolioCsv(sample);
     expect(csv).toContain("TRANSACTIONS");
-    const buy = csv.split(/\r?\n/).find((l) => l.includes("buy"));
+    const buy = lines(csv).find((l) => l.includes("buy") && l.includes("2024-01-01"));
     expect(buy).toContain("20000"); // 0.5 * 40000
-    const sell = csv.split(/\r?\n/).find((l) => l.includes("sell"));
-    expect(sell).toContain("10000"); // 0.2 * 50000
   });
 
   it("escapes fields containing commas (the portfolio name)", () => {
-    const csv = buildPortfolioCsv(sample);
-    expect(csv).toContain('"My, Portfolio"');
+    expect(buildPortfolioCsv(sample)).toContain('"My, Portfolio"');
   });
 
-  it("does not crash on empty / missing data", () => {
-    expect(() => buildPortfolioCsv({})).not.toThrow();
+  it("does not crash on empty / missing data and still has both sections", () => {
     expect(() => buildPortfolioCsv(undefined)).not.toThrow();
     const csv = buildPortfolioCsv({ portfolios: [] });
     expect(csv).toContain("HOLDINGS");
