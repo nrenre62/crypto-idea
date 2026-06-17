@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { onAuthChange } from "../api/firebase-auth.js";
-import { getPortfolios, getCoins } from "../api/firebase-database.js";
+import { getPortfolios, getCoins, getUserProfile } from "../api/firebase-database.js";
 import { db } from "../utils/storage.js";
 
 // Owns the auth session lifecycle: watches Firebase auth, loads the signed-in
@@ -44,12 +44,21 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
     // Firebase Auth and is never stored on the device.
     const unsub = onAuthChange(async (fbUser) => {
       if (fbUser) {
-        // Non-sensitive profile (tier, subscription, settings) kept locally, keyed by uid.
+        // Local cache holds non-authoritative prefs (settings) + a last-known tier, keyed by uid.
         const profile = await db.get("ci-profile-" + fbUser.uid) || {};
+        // Tier + subscription are server-authoritative (set by admin/PayPal/seed) — read them
+        // from Firestore so they're correct on a fresh device and after an admin change. The
+        // server wins over the local cache; if the doc is missing we fall back to the cache/default.
+        const server = await getUserProfile(fbUser.uid);
         const baseUser = {
           tier: "free",
           joined: new Date().toISOString().split("T")[0],
           ...profile,
+          ...(server.success ? {
+            tier: server.tier || "free",
+            subscription: "subscription" in server ? server.subscription : (profile.subscription ?? null),
+            joined: server.joined || profile.joined || new Date().toISOString().split("T")[0],
+          } : {}),
           uid: fbUser.uid,
           email: fbUser.email,
           name: fbUser.displayName || profile.name || (fbUser.email ? fbUser.email.split("@")[0] : ""),

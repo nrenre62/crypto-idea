@@ -15,12 +15,45 @@
  */
 
 import {
-  collection, doc, setDoc, getDoc, getDocs,
+  collection, doc, setDoc, getDoc, getDocFromServer, getDocs,
   deleteDoc, updateDoc, query, orderBy,
   serverTimestamp, writeBatch, increment
 } from "firebase/firestore";
 import { db } from "./firebase.config.js";
 
+
+// ════════════════════════════════════════
+// USER PROFILE
+// ════════════════════════════════════════
+
+// Read the server-authoritative user profile (users/{uid}). Tier and subscription
+// live here — written by the admin panel, the PayPal webhook, and the seed — so the
+// client must read them from Firestore (not local cache) to stay correct across
+// devices and after admin changes. Returns { success:false } when the doc is missing.
+export async function getUserProfile(uid, _retriesLeft = 2) {
+  try {
+    const snap = await getDocFromServer(doc(db, "users", uid));
+    if (!snap.exists()) return { success: false };
+    const data = snap.data();
+    // On sign-in, loginUser() writes `lastLogin`; that concurrent pending write can briefly
+    // surface a partial (latency-compensated) view of the doc that has only `lastLogin` and is
+    // missing `tier`. If so, wait for the write to flush and re-read — otherwise we'd wrongly
+    // fall back to the free tier on login. A real profile always has `tier`.
+    if (data.tier === undefined && _retriesLeft > 0) {
+      await new Promise(r => setTimeout(r, 400));
+      return getUserProfile(uid, _retriesLeft - 1);
+    }
+    return { success: true, ...data };
+  } catch (error) {
+    // Right after sign-in the Firestore client's auth state can briefly lag, so the first
+    // read may throw permission-denied. Retry after a short pause before giving up.
+    if (_retriesLeft > 0) {
+      await new Promise(r => setTimeout(r, 400));
+      return getUserProfile(uid, _retriesLeft - 1);
+    }
+    return { success: false, error: error.message };
+  }
+}
 
 // ════════════════════════════════════════
 // PORTFOLIOS

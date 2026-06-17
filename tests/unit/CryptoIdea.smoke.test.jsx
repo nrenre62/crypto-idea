@@ -16,6 +16,7 @@ vi.mock("../../src/api/firebase-auth.js", () => ({
 vi.mock("../../src/api/firebase-database.js", () => ({
   getPortfolios: vi.fn().mockResolvedValue({ success: true, portfolios: [] }),
   getCoins: vi.fn().mockResolvedValue({ success: true, coins: [] }),
+  getUserProfile: vi.fn().mockResolvedValue({ success: false }),
   createPortfolio: vi.fn(),
   deletePortfolio: vi.fn(),
   addCoin: vi.fn(),

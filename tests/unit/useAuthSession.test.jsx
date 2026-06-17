@@ -9,12 +9,16 @@ vi.mock("../../src/api/firebase-auth.js", () => ({
 vi.mock("../../src/api/firebase-database.js", () => ({
   getPortfolios: vi.fn().mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] }),
   getCoins: vi.fn().mockResolvedValue({ success: true, coins: [] }),
+  // Default: no server profile doc -> session should fall back to the "free" default.
+  getUserProfile: vi.fn().mockResolvedValue({ success: false }),
 }));
 vi.mock("../../src/utils/storage.js", () => ({
   db: { get: vi.fn().mockResolvedValue(null), set: vi.fn(), del: vi.fn() },
 }));
 
 import { useAuthSession } from "../../src/hooks/useAuthSession.js";
+import { getUserProfile } from "../../src/api/firebase-database.js";
+import { db } from "../../src/utils/storage.js";
 
 function setup(overrides = {}) {
   const collab = {
@@ -44,6 +48,24 @@ describe("useAuthSession", () => {
     expect(collab.setScreen).toHaveBeenCalledWith("portfolio");
     expect(view.result.current.user).toMatchObject({ uid: "u1", email: "a@b.com", name: "Ann", tier: "free" });
     expect(view.result.current.dataLoaded).toBe(true);
+  });
+
+  it("adopts the server tier from Firestore (the authoritative source), not the local default", async () => {
+    // A Pro user (set server-side by admin/PayPal/seed) logging in on a fresh device with no
+    // local cache must come up as Pro — F-1 regression guard.
+    getUserProfile.mockResolvedValueOnce({ success: true, tier: "pro", subscription: null });
+    const { view } = setup();
+    await act(async () => { await authCb({ uid: "u1", email: "pro@b.com", displayName: "Pat" }); });
+    expect(view.result.current.user).toMatchObject({ uid: "u1", tier: "pro" });
+  });
+
+  it("server tier overrides a stale local cache", async () => {
+    // Local cache says pro, but the server has since downgraded the user to free -> free wins.
+    db.get.mockResolvedValueOnce({ tier: "pro" });
+    getUserProfile.mockResolvedValueOnce({ success: true, tier: "free", subscription: null });
+    const { view } = setup();
+    await act(async () => { await authCb({ uid: "u1", email: "a@b.com", displayName: "Ann" }); });
+    expect(view.result.current.user.tier).toBe("free");
   });
 
   it("auto-saves the profile after the user is set", async () => {

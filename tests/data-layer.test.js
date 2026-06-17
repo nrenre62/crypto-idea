@@ -14,7 +14,7 @@ import { connectFirestoreEmulator } from "firebase/firestore";
 import { registerUser } from "../src/api/firebase-auth.js";
 import {
   getPortfolios, createPortfolio, getCoins,
-  addCoin, addTransaction, deleteTransaction,
+  addCoin, addTransaction, deleteTransaction, getUserProfile,
 } from "../src/api/firebase-database.js";
 
 // Point the SDK at the local emulators (DEV auto-connect only happens under Vite).
@@ -34,6 +34,17 @@ test("register creates the user + default portfolio (counters seeded)", async ()
   assert.ok(ports.success);
   assert.equal(ports.portfolios.length, 1, "should have exactly the default portfolio");
   assert.equal(ports.portfolios[0].id, "default");
+});
+
+test("getUserProfile reads the server-authoritative profile (tier) for the user", async () => {
+  // F-1 guard: the client must be able to read tier from Firestore, not just local cache.
+  const prof = await getUserProfile(uid);
+  assert.ok(prof.success, "profile should exist after registration: " + JSON.stringify(prof));
+  assert.equal(prof.tier, "free", "registered user starts on the free tier");
+  assert.equal(prof.email, email);
+
+  const missing = await getUserProfile("no-such-uid");
+  assert.equal(missing.success, false, "a missing profile returns success:false");
 });
 
 test("free tier: a 2nd portfolio is rejected by the rules", async () => {
