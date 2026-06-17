@@ -1,20 +1,44 @@
 # Architecture Diagrams
 
 Saved, version-controlled drawings of how Crypto Idea is built. Open the `.svg`
-files in any browser or VS Code. These are kept up to date as components change —
-**when a new component is built, a diagram for it is added here.**
+files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
+**when a component is built or changes, its diagram is added/updated here.**
 
+## Finished diagrams
 | Diagram | What it shows |
 |---------|---------------|
 | [system-overview.svg](system-overview.svg) | The big picture — every component (3 front-ends, Hosting/CDN, Cloud Functions, Firestore collections, CoinGecko + PayPal) and how they connect. |
 | [coin-data-flow.svg](coin-data-flow.svg) | How coin metadata, prices and history flow to the DCA calculator vs the app — the shared `cache/universe`, the hot/tail split, the refresh jobs, and the single CoinGecko upstream. |
 | [api-key-flow.svg](api-key-flow.svg) | How the CoinGecko/PayPal keys move from the admin panel to the locked `config/app` doc to upstream calls — and why no browser can ever read them. |
+| [multi-agent-workflow.svg](multi-agent-workflow.svg) | Running several agents on one project safely — worktrees + lanes, one shared `.git`/`master`, the single shared dev stack. |
 
-## Conventions
-- **Blue** = DCA / public flow.  **Grey** = app flow.  **Dark** = refresh / upstream.
-- Colors use `var(--token, #fallback)` so they theme inside chat **and** render
-  standalone as files.
-- Cadence (e.g. "every 5 min") and cost notes are written on the diagram itself.
+## Backlog — diagram everything (the auto-loop worklist)
+The drawing loop draws **one per iteration**, ticks it, commits, and stops when all are done.
+- [x] system overview
+- [x] coin data flow (prices/history, hybrid)
+- [x] API-key flow
+- [x] multi-agent workflow
+- [ ] auth & session (register / login / `onAuthChange` / custom-claim admin)
+- [ ] Firestore data model (users → portfolios → coins → transactions + counters)
+- [ ] authorization & tier limits (owner/admin rules + counter-enforced plan ceilings)
+- [ ] PayPal subscription + webhook flow (create → approve → verified webhook → tier)
+- [ ] admin dashboard operations (getStats / listUsers / lookup / setTier / suspend / delete / audit)
+- [ ] GDPR self-service (deleteMyAccount / exportMyData)
+- [ ] live-prices polling (app `useLivePrices`, 60s, demo→live)
+- [ ] app buy-date history (`useCoinHistory` + `priceAtDate`, fallback)
+- [ ] multi-page build + code-splitting (Vite `manualChunks`, lazy routes, dist)
+- [ ] service-worker update flow (network-first, build stamp, auto-reload on deploy)
+- [ ] rate-limiting & abuse (per-IP read/write budgets, honeypot, App Check)
+- [ ] config & feature flags (`config/app` → public `/api/config`, maintenance/signups)
+- [ ] frontend layered architecture (`src/` api / hooks / components / utils)
+- [ ] deploy: Hosting / CDN / rewrites / cache headers
+- [ ] emulator dev stack (`start:all` one-lifecycle, ports, on-demand cache fill)
+
+## Conventions (see the `drawing-diagram` skill for the full guide)
+- **Blue** = public / DCA flow.  **Grey** = app flow.  **Dark** = upstream / refresh / external.
+- Colors use `var(--token, #fallback)` so they theme in chat **and** render standalone.
+- Cadence ("every 5 min"), cost, and "why" notes go on the diagram itself.
+- Each `<svg>` is `role="img"` with a `<title>` + `<desc>` for accessibility.
 
 ## Status note
 `coin-data-flow.svg` matches the **implemented** hybrid: `refreshPrices` refreshes

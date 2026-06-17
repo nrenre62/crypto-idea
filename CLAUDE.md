@@ -40,6 +40,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - **On finishing a session:** commit everything, update README + skills if relevant, shut down emulators + dev server, confirm a clean tree.
 - **Every change must be production-ready.**
 - Reusable patterns live in user skills: `firebase-saas-starter`, `landing-page-design`, `secure-by-design`.
+- **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 
 ## Admin & privacy (functions/index.js)
 - **Admin is a SEPARATE app at `/admin`** (`admin.html` / `src/admin-main.jsx`), not part of the user app. It has its own login that verifies the `{admin:true}` claim and signs out non-admins. The user bundle contains no admin code. A different URL is NOT the security boundary — the claim check (server-side in every admin function, re-checked in the admin app) is. **2FA for admins is deferred to go-live** (needs Blaze + Identity Platform MFA).
