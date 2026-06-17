@@ -1,4 +1,5 @@
 import { useAdminDashboard } from "../hooks/useAdminDashboard.js";
+import { trashDaysLeft } from "../utils/trash.js";
 
 const TIERS = {
   free:    { label:"Free",    color:"#FF9500", limits:{ portfolios:1, coins:10, transactions:50 }, storage:"5 MB", price:"$0" },
@@ -7,7 +8,7 @@ const TIERS = {
 };
 
 // Friendly labels for audit-log action codes.
-const ACTION_LABELS = { setUserTier: "Changed tier", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", grantAdmin: "Granted admin", revokeAdmin: "Revoked admin", saveConfig: "Saved settings" };
+const ACTION_LABELS = { setUserTier: "Changed tier", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", restoreUser: "Restored account", grantAdmin: "Granted admin", revokeAdmin: "Revoked admin", saveConfig: "Saved settings" };
 
 // Presentation only — all state, data-loading and admin actions live in the hook.
 export default function AdminDashboard() {
@@ -21,6 +22,7 @@ export default function AdminDashboard() {
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,
     s,
     loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, toggleSuspend, doDelete,
+    restoreFromTrash, purgeFromTrash,
   } = useAdminDashboard();
 
   const c = { bg:"#F5F5F5", w:"#fff", tx:"#1A1A1A", dm:"#999", bd:"#E8E8ED", gr:"#34C759", or:"#FF9500", bl:"#007AFF", rd:"#FF3B30", pr:"#AF52DE" };
@@ -47,7 +49,7 @@ export default function AdminDashboard() {
 
       {/* Tabs */}
       <div style={{ display:"flex", gap:4, marginBottom:14, background:c.w, borderRadius:12, padding:4, border:`1px solid ${c.bd}` }}>
-        {["overview","users","settings","audit"].map(tb => (
+        {["overview","users","trash","settings","audit"].map(tb => (
           <button key={tb} onClick={() => { setTab(tb); }}
             style={{ flex:1, padding:10, borderRadius:10, border:"none", fontSize:13, fontWeight:600, cursor:"pointer", background:tab===tb?c.tx:"transparent", color:tab===tb?"#fff":c.dm }}>
             {tb.charAt(0).toUpperCase()+tb.slice(1)}
@@ -226,7 +228,8 @@ export default function AdminDashboard() {
           if (listLoading && !userList) return <div style={{ textAlign:"center", color:c.dm, fontSize:13, padding:"24px 0" }}>Loading users…</div>;
           if (!userList) return null;
           const needle = q.trim().toLowerCase();
-          const filtered = needle ? userList.filter(u => (u.email||"").toLowerCase().includes(needle) || (u.name||"").toLowerCase().includes(needle)) : userList;
+          const active = userList.filter(u => !u.deleted); // trashed accounts live in the Trash tab
+          const filtered = needle ? active.filter(u => (u.email||"").toLowerCase().includes(needle) || (u.name||"").toLowerCase().includes(needle)) : active;
           const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
           const pg = Math.min(page, pages);
           const rows = filtered.slice((pg-1)*PAGE_SIZE, pg*PAGE_SIZE);
@@ -258,6 +261,40 @@ export default function AdminDashboard() {
               </div>
             )}
           </>);
+        })()}
+      </>)}
+
+      {/* ═══ TRASH — soft-deleted accounts, recoverable for 30 days ═══ */}
+      {tab === "trash" && (<>
+        <div style={{ fontSize:11, color:c.dm, marginBottom:10, lineHeight:1.5 }}>
+          Accounts users have deleted. They're kept for <b>30 days</b> so they can be restored, then purged automatically. Restore brings the account fully back; Delete now erases it permanently.
+        </div>
+        {actionMsg && <div style={{ fontSize:12, color: actionMsg.includes("✓") ? c.gr : c.rd, marginBottom:10, fontWeight:600 }}>{actionMsg}</div>}
+        {(() => {
+          if (listLoading && !userList) return <div style={{ textAlign:"center", color:c.dm, fontSize:13, padding:"24px 0" }}>Loading…</div>;
+          if (!userList) return null;
+          const trashed = userList.filter(u => u.deleted).sort((a,b) => (a.deletedAt||0) - (b.deletedAt||0));
+          if (trashed.length === 0) return <div style={{ background:c.w, border:`1px solid ${c.bd}`, borderRadius:14, padding:"24px", textAlign:"center", color:c.dm, fontSize:13 }}>Trash is empty.</div>;
+          return (
+            <div style={{ background:c.w, border:`1px solid ${c.bd}`, borderRadius:14, overflow:"hidden" }}>
+              {trashed.map((u, i) => {
+                const left = trashDaysLeft(u.deletedAt);
+                return (
+                  <div key={u.uid} style={{ display:"flex", alignItems:"center", gap:8, padding:"11px 14px", borderTop: i ? `1px solid ${c.bd}` : "none" }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{u.name || u.email}</div>
+                      <div style={{ fontSize:11, color:c.dm }}>{u.email}</div>
+                      <div style={{ fontSize:10, color: left===0 ? c.rd : c.dm, marginTop:2 }}>{left===0 ? "Expired — will be purged" : `${left} day${left===1?"":"s"} left to restore`}</div>
+                    </div>
+                    <button onClick={() => restoreFromTrash(u.uid)} disabled={busy}
+                      style={{ padding:"7px 12px", borderRadius:9, border:"none", background:c.gr, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", opacity:busy?0.6:1, flexShrink:0 }}>Restore</button>
+                    <button onClick={() => purgeFromTrash(u.uid)} disabled={busy}
+                      style={{ padding:"7px 12px", borderRadius:9, border:`1px solid ${c.rd}`, background:c.rd+"12", color:c.rd, fontSize:12, fontWeight:600, cursor:"pointer", opacity:busy?0.6:1, flexShrink:0 }}>Delete now</button>
+                  </div>
+                );
+              })}
+            </div>
+          );
         })()}
       </>)}
 

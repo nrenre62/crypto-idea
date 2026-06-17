@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, lookupUser, setUserTier, suspendUser, deleteUser, getAdminConfig, saveConfig as saveConfigFn } from "../api/admin.js";
+import { getStats, listUsers, listAudit, lookupUser, setUserTier, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn } from "../api/admin.js";
 
 // Combined real usage shown on the Overview before getStats resolves (no fake data).
 const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0, proPrice: 9.99, premiumPrice: 49.99 };
@@ -103,8 +103,8 @@ export function useAdminDashboard() {
     catch (e) { setListMsg((e && e.message) || "Could not load users"); setUserList([]); }
     setListLoading(false);
   };
-  // Load the user list the first time the Users tab is opened.
-  useEffect(() => { if (tab === "users" && userList === null && !listLoading) loadUserList(); }, [tab]);
+  // Load the user list the first time the Users or Trash tab is opened (both read it).
+  useEffect(() => { if ((tab === "users" || tab === "trash") && userList === null && !listLoading) loadUserList(); }, [tab]);
 
   const loadAudit = async () => {
     setAuditLoading(true); setAuditMsg("");
@@ -149,6 +149,21 @@ export function useAdminDashboard() {
     catch (e) { setActionMsg((e && e.message) || "Failed"); }
     setBusy(false);
   };
+  // Trash tab: restore a soft-deleted account, or purge it permanently now.
+  const restoreFromTrash = async (uid) => {
+    setBusy(true); setActionMsg("");
+    try { await restoreUser(uid);
+      setUserList(l => l && l.map(x => x.uid === uid ? { ...x, deleted: false, deletedAt: null } : x)); setActionMsg("Account restored ✓"); }
+    catch (e) { setActionMsg((e && e.message) || "Restore failed"); }
+    setBusy(false);
+  };
+  const purgeFromTrash = async (uid) => {
+    setBusy(true); setActionMsg("");
+    try { await deleteUser(uid);
+      setUserList(l => l && l.filter(x => x.uid !== uid)); setActionMsg("Permanently deleted ✓"); }
+    catch (e) { setActionMsg((e && e.message) || "Failed"); }
+    setBusy(false);
+  };
 
   return {
     stats, setStats, statsErr, setStatsErr, tab, setTab,
@@ -160,5 +175,6 @@ export function useAdminDashboard() {
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,
     s,
     loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, toggleSuspend, doDelete,
+    restoreFromTrash, purgeFromTrash,
   };
 }

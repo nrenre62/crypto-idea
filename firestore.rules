@@ -86,12 +86,14 @@ service cloud.firestore {
                     && request.resource.data.get('portfolioCount', 0) == 0;
 
       // Admins can change anything (e.g. grant a paid tier after payment).
-      // Owners may update their profile but NOT 'tier'/'joined', and may only
-      // nudge portfolioCount by ±1 (kept in sync with portfolio create/delete).
+      // Owners may update their profile but NOT 'tier'/'joined', and not the
+      // soft-delete fields 'deleted'/'deletedAt' (set server-side only, so a user
+      // can't self-trash or un-trash outside the deleteMyAccount/restore callables).
+      // They may only nudge portfolioCount by ±1 (kept in sync with portfolio create/delete).
       allow update: if isAdmin() || (
                       isOwner(userId)
                       && !request.resource.data.diff(resource.data)
-                            .affectedKeys().hasAny(['tier', 'joined'])
+                            .affectedKeys().hasAny(['tier', 'joined', 'deleted', 'deletedAt'])
                       && counterDeltaOk('portfolioCount')
                     );
 

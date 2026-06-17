@@ -60,6 +60,12 @@ function isAdminToken(token) {
 // become a single point of failure or be wiped out entirely.
 const MIN_ADMINS = 2;
 
+// Soft-delete grace period: a self-deleted account is kept (recoverable) for this
+// long, then permanently purged. Visible in the admin "Trash" tab; the user can
+// restore it themselves by logging back in within the window.
+const TRASH_DAYS = 30;
+const TRASH_MS = TRASH_DAYS * 24 * 60 * 60 * 1000;
+
 // Counts accounts that currently hold the { admin: true } claim. Paginates through
 // all users (fine at our scale) — used by the guard below before any action that
 // would remove an admin (delete / demote / admin self-delete).
@@ -286,9 +292,11 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("permission-denied", "Admins only.");
   }
   const usersSnap = await db.collection("users").get();
-  let proUsers = 0, premiumUsers = 0, freeUsers = 0, totalPortfolios = 0;
+  let proUsers = 0, premiumUsers = 0, freeUsers = 0, totalPortfolios = 0, activeUsers = 0;
   usersSnap.forEach((doc) => {
     const d = doc.data();
+    if (d.deleted === true) return; // soft-deleted accounts live in Trash, not the stats
+    activeUsers++;
     if (d.tier === "pro") proUsers++;
     else if (d.tier === "premium") premiumUsers++;
     else freeUsers++;
@@ -305,7 +313,7 @@ exports.getStats = functions.https.onCall(async (data, context) => {
   }
   const plans = mergePlans((await getConfig()).plans);
   return {
-    totalUsers: usersSnap.size,
+    totalUsers: activeUsers,
     proUsers,
     premiumUsers,
     freeUsers,
@@ -429,6 +437,18 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   return { success: true, uid };
 });
 
+// ─── Admin: restore a soft-deleted user from the Trash (admins only) ───
+exports.restoreUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const uid = data && data.uid;
+  if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  await db.collection("users").doc(uid).set({ deleted: false, deletedAt: null }, { merge: true });
+  await writeAudit(context, "restoreUser", { targetUid: uid });
+  return { success: true, uid };
+});
+
 // ─── Self-service: a user deletes THEIR OWN account (GDPR/CCPA erasure) ───
 // Any signed-in user; acts only on their own uid (no IDOR).
 exports.deleteMyAccount = functions.https.onCall(async (data, context) => {
@@ -440,9 +460,30 @@ exports.deleteMyAccount = functions.https.onCall(async (data, context) => {
   if (context.auth.token.admin === true && (await countAdmins()) <= MIN_ADMINS) {
     throw new functions.https.HttpsError("failed-precondition", `As one of the last ${MIN_ADMINS} admins you can't delete your account yet — promote another admin first.`);
   }
-  await db.recursiveDelete(db.collection("users").doc(uid));
-  await admin.auth().deleteUser(uid);
-  return { success: true };
+  // SOFT delete: mark the account as trashed and keep the data for TRASH_DAYS so it
+  // can be recovered (by the user logging back in, or by an admin from the Trash tab).
+  // A scheduled job (purgeExpiredTrash) permanently erases it after the window. We do
+  // NOT disable the Auth account, so the user can sign in to restore it.
+  const deletedAt = Date.now();
+  await db.collection("users").doc(uid).set({ deleted: true, deletedAt }, { merge: true });
+  return { success: true, deletedAt, retrievableUntil: deletedAt + TRASH_MS, graceDays: TRASH_DAYS };
+});
+
+// ─── Self-service: restore your OWN soft-deleted account within the grace window ───
+exports.restoreMyAccount = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  }
+  const uid = context.auth.uid;
+  const ref = db.collection("users").doc(uid);
+  const snap = await ref.get();
+  if (!snap.exists || snap.data().deleted !== true) return { success: true, restored: false };
+  const deletedAt = snap.data().deletedAt || 0;
+  if (Date.now() - deletedAt > TRASH_MS) {
+    throw new functions.https.HttpsError("failed-precondition", "The 30-day window to restore this account has passed.");
+  }
+  await ref.set({ deleted: false, deletedAt: null }, { merge: true });
+  return { success: true, restored: true };
 });
 
 // ─── Self-service: a user exports THEIR OWN data (GDPR/CCPA right to access) ───
@@ -498,6 +539,8 @@ exports.listUsers = functions.https.onCall(async (data, context) => {
         isAdmin: !!(u.customClaims && u.customClaims.admin),
         portfolioCount: p.portfolioCount || 0,
         joinedMs,
+        deleted: p.deleted === true,
+        deletedAt: p.deletedAt || null,
       });
     }
     pageToken = res.pageToken;
@@ -731,6 +774,23 @@ exports.refreshPrices = functions.pubsub.schedule("every 5 minutes").onRun(async
 // that dropped off the market-cap list. Cheap and reliable even on the free tier.
 exports.refreshUniverseDaily = functions.pubsub.schedule("every 24 hours").onRun(async () => {
   try { await refreshUniverse({ pages: UNIVERSE_PAGES, prune: true }); } catch (e) { console.error("refreshUniverseDaily:", e); }
+  return null;
+});
+
+// Daily: permanently erase accounts whose 30-day trash window has elapsed.
+// (Cloud Scheduler fires this in prod; trigger it from the emulator UI in dev.)
+exports.purgeExpiredTrash = functions.pubsub.schedule("every 24 hours").onRun(async () => {
+  try {
+    const cutoff = Date.now() - TRASH_MS;
+    const snap = await db.collection("users").where("deleted", "==", true).get();
+    for (const d of snap.docs) {
+      if ((d.data().deletedAt || 0) <= cutoff) {
+        await db.recursiveDelete(d.ref);
+        try { await admin.auth().deleteUser(d.id); } catch (e) { /* already gone */ }
+        console.log("purgeExpiredTrash: permanently deleted", d.id);
+      }
+    }
+  } catch (e) { console.error("purgeExpiredTrash:", e); }
   return null;
 });
 

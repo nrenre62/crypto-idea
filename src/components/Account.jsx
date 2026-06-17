@@ -143,7 +143,10 @@ export function Account() {
       <button onClick={downloadCsv} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:c.txt,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:8}}>{acctBusy?"…":"Download CSV (spreadsheet)"}</button>
       <button onClick={downloadMyData} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:8}}>{acctBusy?"…":"Download all my data (JSON)"}</button>
       {delConfirm?(
-        <button onClick={deleteMyAccount} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:c.red,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>Yes, permanently delete my account</button>
+        <>
+          <div style={{fontSize:11,color:c.dim,lineHeight:1.5,marginBottom:8,textAlign:"center"}}>You'll be signed out and your account moved to trash. You can restore it within <strong>30 days</strong> by logging back in — after that it's deleted forever.</div>
+          <button onClick={deleteMyAccount} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"none",background:c.red,color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>{acctBusy?"…":"Yes, delete my account (restorable for 30 days)"}</button>
+        </>
       ):(
         <button onClick={()=>setDelConfirm(true)} disabled={acctBusy} style={{width:"100%",padding:"11px",borderRadius:12,border:"1px solid "+c.red,background:c.redd,color:c.red,fontSize:13,fontWeight:600,cursor:"pointer"}}>Delete my account</button>
       )}

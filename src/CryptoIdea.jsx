@@ -19,7 +19,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword } from "./api/firebase-auth.js";
-import { exportMyData, deleteMyAccount as apiDeleteMyAccount } from "./api/account.js";
+import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
   createPortfolio as dbCreatePortfolio,
@@ -51,6 +51,7 @@ import { CoinInfo } from "./components/CoinInfo.jsx";
 import { Detail } from "./components/Detail.jsx";
 import { Portfolio } from "./components/Portfolio.jsx";
 import { Account } from "./components/Account.jsx";
+import { RestoreAccount } from "./components/RestoreAccount.jsx";
 import { Login } from "./components/Login.jsx";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
@@ -242,10 +243,22 @@ export default function CryptoIdea(){
   const deleteMyAccount=async()=>{
     setAcctBusy(true);setAcctMsg("");
     try{
-      await apiDeleteMyAccount();
+      const res=await apiDeleteMyAccount();           // soft delete (kept in trash ~30 days)
+      const days=(res&&res.graceDays)||30;
       await logoutUser();
-      setUser(null);setScreen("login");
+      setUser(null);setDelConfirm(false);setAcctBusy(false);setScreen("login");
+      // Toast persists across the screen change so the user sees the recovery window.
+      showErr(`Account deleted. You can restore it within ${days} days by logging back in — after that it's gone forever.`);
     }catch(e){setAcctMsg((e&&e.message)||"Delete failed");setAcctBusy(false);}
+  };
+  // Restore the caller's own soft-deleted account (within the 30-day window).
+  const restoreAccount=async()=>{
+    setAcctBusy(true);setAcctMsg("");
+    try{
+      await apiRestoreMyAccount();
+      setUser(u=>u?{...u,deleted:false,deletedAt:null}:u);
+      setAcctBusy(false);setScreen("portfolio");
+    }catch(e){setAcctMsg((e&&e.message)||"Couldn't restore — the window may have passed.");setAcctBusy(false);}
   };
   const startUpgrade=(toTier)=>{setUpgradeFlow(toTier);setUpgradeStep("billing");setShowPlan(true)};
   const startDowngrade=(toTier)=>{setDowngradeTo(toTier)};
@@ -428,7 +441,7 @@ export default function CryptoIdea(){
     portfolios,setActivePortId,activePortId,
     resetSwipe,onTouchS,onTouchM,onTouchE,touchStart,swipeId,swipeX,
     maxTxPerCoin,startDowngrade,fmtDate,deletePortfolio,newPortName,setNewPortName,addPortfolio,
-    downloadMyData,downloadCsv,acctBusy,deleteMyAccount,delConfirm,setDelConfirm,acctMsg,logout,
+    downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site};
@@ -485,6 +498,8 @@ export default function CryptoIdea(){
         </div>
       </div>);
     })()}
+    {/* A soft-deleted (trashed) user sees only the restore screen — never the app. */}
+    {user?.deleted&&screen!=="login"&&screen!=="loading"?<RestoreAccount/>:<>
     {screen==="account"&&<Account/>}
     {screen==="portfolio"&&<Portfolio/>}
     {screen==="search"&&<Search/>}
@@ -494,5 +509,6 @@ export default function CryptoIdea(){
     {screen!=="login"&&screen!=="loading"&&screen!=="forgotPass"&&screen!=="contact"&&<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,display:"flex",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid #E8E8ED",padding:"6px 0 22px",zIndex:100}}>
       {[{id:"portfolio",label:"Portfolio",icon:Ic.port},{id:"search",label:"Search",icon:Ic.srch}].map(tab=>(<button key={tab.id} onClick={()=>setScreen(tab.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"7px 0",cursor:"pointer",border:"none",background:"none",fontSize:10,fontWeight:600,color:at===tab.id?c.ac:c.dim}}>{tab.icon(at===tab.id)}{tab.label}</button>))}
     </div>}
+    </>}
   </div></AppContext.Provider>);
 }

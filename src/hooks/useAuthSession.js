@@ -60,6 +60,10 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
           ...(server.success ? {
             tier: server.tier || "free",
             subscription: "subscription" in server ? server.subscription : (profile.subscription ?? null),
+            // Soft-delete state is server-authoritative (numbers, safe to render). When
+            // `deleted` is true the app shows the restore screen instead of the portfolio.
+            deleted: server.deleted === true,
+            deletedAt: server.deletedAt || null,
           } : {}),
           uid: fbUser.uid,
           email: fbUser.email,

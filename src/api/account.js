@@ -11,7 +11,16 @@ export async function exportMyData() {
   return res.data;
 }
 
-// Permanently deletes the caller's account + data. Throws on failure.
+// Soft-deletes the caller's account: marks it trashed and keeps the data for a
+// 30-day grace period (recoverable via restoreMyAccount). Returns the grace info.
 export async function deleteMyAccount() {
-  await httpsCallable(functions, "deleteMyAccount")();
+  const res = await httpsCallable(functions, "deleteMyAccount")();
+  return res.data;
+}
+
+// Restores the caller's own soft-deleted account (within the 30-day window). Throws
+// if the window has passed.
+export async function restoreMyAccount() {
+  const res = await httpsCallable(functions, "restoreMyAccount")();
+  return res.data;
 }

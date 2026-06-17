@@ -77,6 +77,16 @@ test("a user cannot promote their own tier, but an admin can", async () => {
   await assertSucceeds(updateDoc(doc(adminDb(), "users", "alice"), { tier: "pro" }));
 });
 
+test("a user cannot set the soft-delete fields (server-only); an admin can", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });
+  });
+  // Soft-delete + restore happen via Admin-SDK callables only — the owner must not
+  // be able to trash or un-trash their own doc directly.
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { deleted: true, deletedAt: 1 }));
+  await assertSucceeds(updateDoc(doc(adminDb(), "users", "alice"), { deleted: true, deletedAt: 1 }));
+});
+
 test("an admin (custom claim) can read another user's profile", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });

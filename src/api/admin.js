@@ -46,6 +46,11 @@ export async function deleteUser(uid) {
   await httpsCallable(functions, "deleteUser")({ uid });
 }
 
+// Restore a soft-deleted (trashed) user account. Throws on failure.
+export async function restoreUser(uid) {
+  await httpsCallable(functions, "restoreUser")({ uid });
+}
+
 // Saved admin config (secrets returned as set-flags only, never values). Returns the config object.
 export async function getAdminConfig() {
   const res = await httpsCallable(functions, "getAdminConfig")();
