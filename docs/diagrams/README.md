@@ -15,6 +15,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [firestore-data-model.svg](firestore-data-model.svg) | The nested owner-only tree (users → portfolios → coins → transactions) with per-parent counters, plus the server-only top-level docs (config/app, cache/universe, historyCache, audit) and how counters enforce tier limits. |
 | [authorization-and-tier-limits.svg](authorization-and-tier-limits.svg) | The rule gates every write passes (signed-in → owner/admin → field guards → counter+limit), the per-tier limits sourced from `config/app.plans`, and the invariants (no self-upgrade, no counter smuggling, locked config/audit). |
 | [paypal-subscription-flow.svg](paypal-subscription-flow.svg) | Subscribe (createSubscription → PayPal approve → /pro-success), the signature-verified webhook that sets the tier, and cancel — all acting on the caller's own uid; unverified webhooks rejected. |
+| [admin-operations.svg](admin-operations.svg) | Admin-only callables behind the claim gate — read/insight (getStats, listUsers, lookupUser, listAudit, getAdminConfig) vs audited mutations (setUserTier, suspendUser, deleteUser, setAdminClaim, saveConfig); self-target blocked, MIN_ADMINS=2, no holdings exposed. |
 
 ## Backlog — diagram everything (the auto-loop worklist)
 The drawing loop draws **one per iteration**, ticks it, commits, and stops when all are done.
@@ -26,7 +27,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] Firestore data model (users → portfolios → coins → transactions + counters)
 - [x] authorization & tier limits (owner/admin rules + counter-enforced plan ceilings)
 - [x] PayPal subscription + webhook flow (create → approve → verified webhook → tier)
-- [ ] admin dashboard operations (getStats / listUsers / lookup / setTier / suspend / delete / audit)
+- [x] admin dashboard operations (getStats / listUsers / lookup / setTier / suspend / delete / audit)
 - [ ] GDPR self-service (deleteMyAccount / exportMyData)
 - [ ] live-prices polling (app `useLivePrices`, 60s, demo→live)
 - [ ] app buy-date history (`useCoinHistory` + `priceAtDate`, fallback)
