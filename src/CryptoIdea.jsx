@@ -53,6 +53,7 @@ import { Portfolio } from "./components/Portfolio.jsx";
 import { Account } from "./components/Account.jsx";
 import { RestoreAccount } from "./components/RestoreAccount.jsx";
 import { Login } from "./components/Login.jsx";
+import Research from "./features/research/Research.jsx";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -506,8 +507,9 @@ export default function CryptoIdea(){
     {screen==="detail"&&<Detail/>}
     {screen==="addEntry"&&<AddEntry/>}
     {screen==="coinInfo"&&<CoinInfo/>}
+    {screen==="research"&&<Research/>}
     {screen!=="login"&&screen!=="loading"&&screen!=="forgotPass"&&screen!=="contact"&&<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,display:"flex",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid #E8E8ED",padding:"6px 0 22px",zIndex:100}}>
-      {[{id:"portfolio",label:"Portfolio",icon:Ic.port},{id:"search",label:"Search",icon:Ic.srch}].map(tab=>(<button key={tab.id} onClick={()=>setScreen(tab.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"7px 0",cursor:"pointer",border:"none",background:"none",fontSize:10,fontWeight:600,color:at===tab.id?c.ac:c.dim}}>{tab.icon(at===tab.id)}{tab.label}</button>))}
+      {[{id:"portfolio",label:"Portfolio",icon:Ic.port},{id:"research",label:"Research",icon:Ic.rsch},{id:"search",label:"Search",icon:Ic.srch}].map(tab=>(<button key={tab.id} onClick={()=>setScreen(tab.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"7px 0",cursor:"pointer",border:"none",background:"none",fontSize:10,fontWeight:600,color:at===tab.id?c.ac:c.dim}}>{tab.icon(at===tab.id)}{tab.label}</button>))}
     </div>}
     </>}
   </div></AppContext.Provider>);
