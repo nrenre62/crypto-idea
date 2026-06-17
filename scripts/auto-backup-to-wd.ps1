@@ -1,20 +1,21 @@
-# Automatic recurring backup of the WHOLE Crypto Idea project to the WD drive.
-# Runs on a 3-hour loop via a Windows Scheduled Task (see register-auto-backup-task.ps1).
-# Also runnable by hand:  powershell -File scripts\auto-backup-to-wd.ps1
+# The ONE backup for the Crypto Idea project, to the WD drive. Two triggers, one script, one folder:
+#   - Every 3 hours (Windows Scheduled Task, see register-auto-backup-task.ps1): snapshots ONLY
+#     when something changed, and keeps the newest $Keep (20) ROLLING snapshots (older pruned).
+#   - When you type "finish" (UserPromptSubmit hook runs this with -Force): forces a snapshot NOW
+#     even if nothing changed, names it "<stamp>_finish", and KEEPS it forever (never pruned) as
+#     your end-of-day milestone.
+# Also runnable by hand:  powershell -File scripts\auto-backup-to-wd.ps1 [-Force]
 #
-# Behaviour:
-#   - Copies the whole project (EXCLUDING node_modules, dist, .git) + ALL personal skills
-#     + your Claude config (global ~/.claude/CLAUDE.md + every project's memory folder).
-#   - WD drive not connected -> logs "skipped" and exits 0. The next scheduled run retries,
-#     so it simply waits until the drive is plugged back in (never errors, never blocks).
-#   - Only creates a new snapshot when something actually CHANGED since the last one, so the
-#     20-snapshot history holds 20 real working states instead of idle duplicates.
-#   - Keeps the newest 20 snapshots; older ones are deleted. Lives in its own folder, so it
-#     never touches the manual "finish" backups in D:\apps\crypto-idea-backup.
+# Either trigger copies the whole project (EXCLUDING node_modules, dist, .git) + ALL personal
+# skills + your Claude config (global ~/.claude/CLAUDE.md + every project's memory folder).
+# WD drive not connected -> logs "skipped" and exits 0; the next run retries, so it simply waits
+# until the drive is plugged back in (never errors, never blocks).
 
 param(
-  [string]$Dest = "D:\apps\crypto-idea-auto-backup",
-  [int]   $Keep = 20
+  [string]$Dest  = "D:\apps\crypto-idea-auto-backup",
+  [int]   $Keep  = 20,
+  [switch]$Force          # "finish" command: force a kept milestone snapshot now, even if nothing
+                          # changed. Without it, the scheduled 3-hourly run behaves as usual.
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,7 +28,8 @@ $globalMd   = Join-Path $claudeRoot "CLAUDE.md"   # global instructions for all 
 $skills    = if (Test-Path $skillsSrc) { @(Get-ChildItem $skillsSrc -Directory | Select-Object -ExpandProperty Name) } else { @() }
 $exclDirs  = @("node_modules", "dist", ".git")
 $exclFiles = @("*-debug.log")   # transient emulator logs - noise, not project content
-$snapRegex = '^\d{4}-\d{2}-\d{2}_\d{4}$'
+$snapAll   = '^\d{4}-\d{2}-\d{2}_\d{4}(_finish)?$'   # any snapshot (rolling OR kept finish)
+$snapRoll  = '^\d{4}-\d{2}-\d{2}_\d{4}$'             # rolling only - the prunable ones
 
 function Write-Log($msg) {
   $line = "{0}  {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $msg
@@ -54,12 +56,13 @@ if (-not (Test-Path "$driveRoot\")) {
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 
 # 2) Did anything change since the most recent snapshot? (robocopy /L = list only, no copy)
+#    Skipped entirely on a forced "finish" run - that always snapshots.
 $existing = Get-ChildItem $Dest -Directory -ErrorAction SilentlyContinue |
-  Where-Object { $_.Name -match $snapRegex } | Sort-Object Name
+  Where-Object { $_.Name -match $snapAll } | Sort-Object Name
 $last = $existing | Select-Object -Last 1
 
 $changed = $true
-if ($last) {
+if ($last -and -not $Force) {
   $lastRepo   = Join-Path $last.FullName "repo"
   $lastSkills = Join-Path $last.FullName "skills"
   $lastCfg    = Join-Path $last.FullName "claude-config"
@@ -84,8 +87,9 @@ if (-not $changed) {
   exit 0
 }
 
-# 3) Create a new timestamped snapshot.
+# 3) Create a new timestamped snapshot. A "finish" run gets a "_finish" suffix and is kept forever.
 $stamp    = Get-Date -Format "yyyy-MM-dd_HHmm"
+if ($Force) { $stamp = "${stamp}_finish" }
 $snapshot = Join-Path $Dest $stamp
 $repoDest = Join-Path $snapshot "repo"
 New-Item -ItemType Directory -Force -Path $repoDest | Out-Null
@@ -132,15 +136,16 @@ $info = @(
   "Excluded: $($exclDirs -join ', ')",
   "Files   : $fileCount",
   "Skills  : $($skillsCopied -join ', ')",
-  "Config  : $($cfgCopied -join ', ')"
+  "Config  : $($cfgCopied -join ', ')",
+  "Trigger : $(if ($Force) { 'finish (kept milestone)' } else { 'scheduled 3-hourly (rolling)' })"
 ) -join "`r`n"
 Set-Content -Path (Join-Path $snapshot "backup-info.txt") -Value $info -Encoding utf8
 
-Write-Log "[auto-backup] snapshot $stamp created ($fileCount files, $($skillsCopied.Count) skills, $($cfgCopied.Count) config items)."
+Write-Log "[auto-backup] $(if ($Force) { 'FINISH' } else { 'scheduled' }) snapshot $stamp created ($fileCount files, $($skillsCopied.Count) skills, $($cfgCopied.Count) config items)."
 
-# 4) Prune: keep only the newest $Keep snapshots.
+# 4) Prune ONLY the rolling (non-finish) snapshots; keep the newest $Keep. Finish milestones stay.
 $all = Get-ChildItem $Dest -Directory -ErrorAction SilentlyContinue |
-  Where-Object { $_.Name -match $snapRegex } | Sort-Object Name
+  Where-Object { $_.Name -match $snapRoll } | Sort-Object Name
 if ($all.Count -gt $Keep) {
   $all | Select-Object -First ($all.Count - $Keep) | ForEach-Object {
     Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue

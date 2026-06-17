@@ -1,89 +1,62 @@
 # Backups → WD drive (`D:\apps`)
 
-The project is backed up to the external **WD drive** by two independent mechanisms.
-Both fail soft: if the WD drive isn't connected they skip quietly and never block or error.
+**One** backup system saves the project to the external **WD drive**, with **two triggers**.
+It fails soft: if the WD drive isn't connected it skips quietly and never blocks or errors — the
+next run just retries once the drive is reconnected. (Reusable pattern: the `auto-backup-loop` skill.)
 
-| | **Backup 1 — on "finish"** | **Backup 2 — auto-loop** ("agent 2") |
+| | **3-hour auto-loop** | **"finish" command** |
 |---|---|---|
-| Trigger | A chat message containing `finish` (`UserPromptSubmit` hook) | **Windows Scheduled Task, every 3 hours** |
-| Copies | `*.md` docs + `docs/diagrams` drawings + all skills + Claude config\* | **Whole project** (code + docs) + all skills + Claude config\* |
-| Destination | `D:\apps\crypto-idea-backup\<timestamp>\` | `D:\apps\crypto-idea-auto-backup\<timestamp>\` |
-| History | keeps everything (never pruned) | **newest 20 snapshots**, older auto-pruned |
-| Script | `scripts/backup-to-wd.ps1` | `scripts/auto-backup-to-wd.ps1` |
+| Trigger | Windows Scheduled Task, every 3 hours | A chat message containing `finish` (UserPromptSubmit hook) |
+| When it saves | only if something changed since the last snapshot | **always** — forces a save right now |
+| Retention | **rolling**: newest 20 kept, older pruned | **kept forever** as a milestone (`..._finish`) |
+| Purpose | continuous safety net | your "I'm done for today" end-of-day save |
 
-\* **Claude config** = your global `~/.claude/CLAUDE.md` + every project's `memory\` folder
-(both auto-discovered), saved under a `claude-config\` folder in each snapshot — so your whole
-Claude setup is recoverable, not just the project.
+Both triggers run the **same script** (`scripts/auto-backup-to-wd.ps1`) into the **same folder**
+(`D:\apps\crypto-idea-auto-backup\`), and both copy the same thing:
 
-They use **separate folders**, so the auto-loop's pruning never touches the on-"finish" snapshots.
+- the **whole project** (excluding `node_modules`, `dist`, `.git`, `*-debug.log`),
+- **all skills** (auto-discovered from `~/.claude/skills`),
+- your **Claude config**: global `~/.claude/CLAUDE.md` + every project's `memory\` folder
+  (auto-discovered), under a `claude-config\` folder.
 
----
+Each snapshot is `…\<yyyy-MM-dd_HHmm>[_finish]\` containing `repo\` + `skills\` + `claude-config\`
++ a `backup-info.txt` manifest. A running log is at `…\auto-backup.log`.
 
-## Backup 2 — the auto-backup loop (this is "agent 2")
+## How "finish" works
+Typing a message containing **`finish`** fires the `UserPromptSubmit` hook
+(`scripts/finish-backup-hook.ps1`), which runs `auto-backup-to-wd.ps1 -Force`:
 
-A reusable pattern; see the **`auto-backup-loop`** skill for the general version.
+- **`-Force`** = snapshot now even if nothing changed (so "finish" *always* saves), and
+- name it `<stamp>_finish` and **never prune it** — your end-of-day milestones pile up safely
+  while the 3-hour runs keep rotating through their newest 20.
 
-**What it does, each run**
-1. Checks the WD drive (`D:`). Not connected → logs `skipped`, exits 0, retries next run.
-   *(This is the "wait until it's plugged back in" behaviour — no errors, nothing to restart.)*
-2. Compares the project, **the skills, and your Claude config** to the most recent snapshot
-   (`robocopy /L`). Nothing changed → skip, so the 20-snapshot history holds 20 *real* working
-   states, not idle duplicates.
-3. Otherwise copies the whole project into a new `D:\apps\crypto-idea-auto-backup\<yyyy-MM-dd_HHmm>\`
-   snapshot (`repo\` + `skills\` + `claude-config\` + a `backup-info.txt` manifest), **excluding**
-   `node_modules`, `dist`, `.git`, and `*-debug.log`. **Skills and memory are auto-discovered**
-   (from `~/.claude/skills` and `~/.claude/projects/*/memory`), so anything you add is backed up
-   automatically — no list to maintain.
-4. Prunes to the newest 20 snapshots.
+If the WD drive is unplugged when you type "finish", the hook just notes `[WD backup] … skipped`
+and the save happens on the next run once you reconnect.
 
-A running log is kept at `D:\apps\crypto-idea-auto-backup\auto-backup.log`.
-
-**The Scheduled Task** — `CryptoIdea WD Auto-Backup`, registered by
-`scripts/register-auto-backup-task.ps1`:
-- Runs **every 3 hours**, as the current user, **only while logged on** (so no Windows password
-  is stored and no admin rights are needed).
-- **Runs on battery** and **catches up after sleep**; 15-min time limit; never overlaps itself.
+## The 3-hour loop
+A Windows Scheduled Task `CryptoIdea WD Auto-Backup` (registered by
+`scripts/register-auto-backup-task.ps1`) runs the script every 3 hours — as you, only while
+logged on (no stored password / admin), on battery, catching up after sleep. It snapshots only
+when the project, skills, or Claude config actually changed since the last snapshot.
 
 ### Manage it
-
 ```powershell
-# Run a backup right now
-Start-ScheduledTask -TaskName "CryptoIdea WD Auto-Backup"
-
-# (Re-)register or change the interval/retention — edit the script, then:
-powershell -File scripts\register-auto-backup-task.ps1
-
-# Inspect last/next run + result (0 = success)
-Get-ScheduledTaskInfo -TaskName "CryptoIdea WD Auto-Backup"
-
-# Remove the loop entirely
-Unregister-ScheduledTask -TaskName "CryptoIdea WD Auto-Backup" -Confirm:$false
+Start-ScheduledTask -TaskName "CryptoIdea WD Auto-Backup"                       # run a backup now
+powershell -File scripts\register-auto-backup-task.ps1                          # (re-)register / change interval
+Get-ScheduledTaskInfo -TaskName "CryptoIdea WD Auto-Backup"                     # last/next run + result (0 = ok)
+Unregister-ScheduledTask -TaskName "CryptoIdea WD Auto-Backup" -Confirm:$false  # remove the loop
 ```
-
-Change **frequency** by editing `-RepetitionInterval` in the register script; change **how many
-snapshots to keep** with the `-Keep` param in `scripts/auto-backup-to-wd.ps1` (default 20).
-
-> ⚠️ The task runs only while you're logged in — the trade-off that avoids storing your Windows
-> password. Fine for a personal laptop. To run while logged out you'd switch the principal to a
-> stored-credential / service account (needs your password and, usually, admin).
-
----
-
-## Backup 1 — on "finish"
-
-Typing a message containing **`finish`** fires the `UserPromptSubmit` hook in
-`.claude/settings.json`, which runs `scripts/finish-backup-hook.ps1` →
-`scripts/backup-to-wd.ps1`: a timestamped snapshot of all `*.md`, the `docs/diagrams` drawings,
-and all skills into `D:\apps\crypto-idea-backup\`. Run it by hand any time with
-`powershell -File scripts\backup-to-wd.ps1`.
-
----
+Change **frequency** via `-RepetitionInterval` in the register script; change how many **rolling**
+snapshots to keep via the `-Keep` param of `auto-backup-to-wd.ps1` (default 20 — finish milestones
+are kept regardless).
 
 ## New machine / moved repo
+The scripts resolve paths relative to themselves, so they keep working if the repo moves.
+- Re-run `powershell -File scripts\register-auto-backup-task.ps1` to recreate the scheduled task.
+- The "finish" hook is wired in `.claude/settings.json` (`UserPromptSubmit`) → update that absolute
+  path if the repo moves.
+- If the backup drive isn't `D:`, pass `-Dest` to the script (and update the register script).
 
-Both scripts resolve paths relative to themselves, so they keep working if the repo moves.
-After cloning/moving:
-- **Auto-loop:** re-run `powershell -File scripts\register-auto-backup-task.ps1` to recreate the
-  task on the new machine.
-- **On-"finish":** update the absolute script path in `.claude/settings.json` to the new location.
-- If the backup drive isn't `D:`, pass `-Dest` to the scripts (and update the register script).
+> Note: the older separate `D:\apps\crypto-idea-backup\` folder (from the previous two-backup
+> setup) is **no longer written to**. Its existing snapshots are left untouched — delete them by
+> hand if you don't want them.
