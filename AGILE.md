@@ -33,12 +33,24 @@ Every commit is a **potentially shippable increment**: the app builds and runs a
 ## Definition of Done (every increment)
 - [ ] Simplest solution that works (KISS); secure by design (no client secrets, validate input,
       encode output).
+- [ ] **Tests written first (TDD):** add/extend the test before the implementation, watch it fail,
+      then make it pass. Run tests after every change and fix failures before continuing — never
+      mark an item done with a red test.
 - [ ] Tests added/updated and green (`test:unit` / `test:rules` / `test:integration`, as relevant).
 - [ ] Verified for real — ran the app or the tests; actual result reported (failures included).
 - [ ] Build clean when it could be affected (`npm run build`).
 - [ ] Committed to git with a clear message.
 - [ ] Docs updated if structure/behavior changed (`README.md` / `src/ARCHITECTURE.md` / this backlog).
 - [ ] Reusable patterns captured in skills/memory.
+
+## Testing conventions
+- **Frameworks:** unit/component/hook tests use **Vitest** + Testing-Library + jsdom
+  (`npm run test:unit`); Firestore-rules and data-layer tests use Node's built-in `node:test` against
+  the Firebase emulators (`npm run test:rules`, `npm run test:integration`).
+- **Location:** all test files live under **`/tests`** — `tests/unit/*.test.jsx` (flat, by feature name,
+  e.g. `Login.test.jsx`), plus `tests/firestore-rules.test.js` and `tests/data-layer.test.js`. Flat by
+  choice (KISS) — they are not mirrored into `src/` subfolders.
+- **TDD:** new behavior gets a failing test first (see Definition of Done).
 
 ## Retrospective = Kaizen
 After each increment, leave the code a little better than found and log any new improvement
