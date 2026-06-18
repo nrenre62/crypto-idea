@@ -45,6 +45,29 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - Cadence ("every 5 min"), cost, and "why" notes go on the diagram itself.
 - Each `<svg>` is `role="img"` with a `<title>` + `<desc>` for accessibility.
 
+## Keeping diagrams in sync
+**The rule: a diagram is wrong the moment the code it describes changes.** Treat a diagram
+like a test — part of the change, not an afterthought.
+
+- **New feature/component built** → add a backlog line below, then draw it (new `.svg` + index row).
+- **Existing behavior changed** (cadence, limits, flow, endpoints, a renamed callable) → **edit the
+  affected `.svg`** and any note that quotes a number, so the drawing never drifts from the code.
+- **Feature removed** → delete its `.svg`, its index row, and its backlog line.
+
+How to trigger it (either works):
+- **On demand** — tell the agent "I changed X, redraw it" / "draw the new Y"; it does that one diagram.
+- **Via the loop** — add the item to the backlog; the drawing loop picks it up on its next firing.
+  (The loop stops itself when the backlog is empty, so re-adding an item — and re-arming the loop —
+  is what restarts it.)
+
+Same workflow every time (see the `drawing-diagram` skill): render inline + save the `.svg` +
+update this index/backlog with **targeted edits** + commit **only** `docs/diagrams/` paths.
+
+> **Coverage gap to work through:** the app has grown past the original backlog — the Research tab
+> (`src/features/research/`), soft-delete/30-day trash + restore, CSV/JSON data export, GDPR
+> self-service, analytics/legal config, and public App Controls flags are all built but not yet
+> diagrammed. Add these to the backlog as the loop drains the current list.
+
 ## Status note
 `coin-data-flow.svg` matches the **implemented** hybrid: `refreshPrices` refreshes
 the hot top ~1,250 (`HOT_PAGES`=5) every 5 min; the tail (1,250–3,000) is priced
