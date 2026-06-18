@@ -6,8 +6,9 @@
 #     your end-of-day milestone.
 # Also runnable by hand:  powershell -File scripts\auto-backup-to-wd.ps1 [-Force]
 #
-# Either trigger copies the whole project (EXCLUDING node_modules, dist, .git) + ALL personal
-# skills + your Claude config (global ~/.claude/CLAUDE.md + every project's memory folder).
+# Either trigger copies the whole project (EXCLUDING only node_modules + dist, which npm rebuilds;
+# the .git history IS included since this repo has no remote) + ALL personal skills + your Claude
+# config (global ~/.claude/CLAUDE.md + every project's memory folder).
 # WD drive not connected -> logs "skipped" and exits 0; the next run retries, so it simply waits
 # until the drive is plugged back in (never errors, never blocks).
 
@@ -26,7 +27,9 @@ $skillsSrc  = Join-Path $claudeRoot "skills"
 $globalMd   = Join-Path $claudeRoot "CLAUDE.md"   # global instructions for all projects
 # All personal skills under ~/.claude/skills, auto-discovered so new skills are always included.
 $skills    = if (Test-Path $skillsSrc) { @(Get-ChildItem $skillsSrc -Directory | Select-Object -ExpandProperty Name) } else { @() }
-$exclDirs  = @("node_modules", "dist", ".git")
+# Exclude ONLY rebuildable dirs. .git is intentionally KEPT: this repo is local-only (no remote),
+# so the backup is the sole offsite copy of the commit history.
+$exclDirs  = @("node_modules", "dist")
 $exclFiles = @("*-debug.log")   # transient emulator logs - noise, not project content
 $snapAll   = '^\d{4}-\d{2}-\d{2}_\d{4}(_finish)?$'   # any snapshot (rolling OR kept finish)
 $snapRoll  = '^\d{4}-\d{2}-\d{2}_\d{4}$'             # rolling only - the prunable ones
