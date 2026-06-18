@@ -7,6 +7,12 @@ End-of-session routine for Crypto Idea. Work top to bottom; **never skip a step 
 1. **Commit everything** to git with clear messages (don't leave anything uncommitted).
 2. **Update docs** — `README.md` / `CLAUDE.md` / `NEXT-STEPS.md` if today's work changed how the
    app is built, run, or structured, or left a follow-up to track.
+   - **Sync the architecture diagrams — DON'T SKIP.** The finish hook prints a `[diagram drift]`
+     report (from `scripts/diagram-drift.ps1`) listing code that changed since the diagrams were
+     last updated. For **each** genuinely diagram-worthy change, redraw/update the affected
+     `docs/diagrams/*.svg` (and its index row) per the **`drawing-diagram`** skill, then commit
+     only `docs/diagrams/`. If a built feature has no diagram yet, add it to the backlog. If the
+     report says they're in sync (or the changes don't affect any diagram), **say so explicitly**.
 3. **Capture what you learned into skills + memory — DO NOT SKIP THIS.** It's the step most easily
    forgotten (it has been). It is required, not optional. Actually review what you built/fixed this
    session, then for **each** reusable pattern, gotcha, or standing preference add a concise note to
