@@ -7,6 +7,8 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   - Vite dev: http://localhost:3000  · Hosting (built `dist/`): http://localhost:5000  · Emulator UI: http://localhost:4000
   - Emulators: auth 9099, firestore 8080, functions 5001 (`/api`), pubsub 8085.
 - `npm run dev` alone runs ONLY Vite → `/api/*` fails with `ECONNREFUSED :5001`. Don't use it alone.
+- **`start:all` brings up an EMPTY in-memory emulator — it does NOT seed.** After it's up, seed once
+  with `node functions/scripts/seed-emulator.js` (admins `admin@test.com`/`admin2@test.com` + `free@`/`pro@test.com`, all `test1234`). Re-seed after every restart (the emulator is in-memory). See "Seed test data" below.
 - Realtime Database & Storage emulators are intentionally off — the app doesn't use them.
 
 ## Build, test, deploy
