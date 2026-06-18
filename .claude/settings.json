@@ -10,6 +10,13 @@
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nrenr\\OneDrive\\מסמכים\\crypto idea app\\crypto-idea-project\\crypto-idea\\scripts\\finish-backup-hook.ps1\"",
             "timeout": 60,
             "statusMessage": "Backing up to WD drive..."
+          },
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"C:\\Users\\nrenr\\OneDrive\\מסמכים\\crypto idea app\\crypto-idea-project\\crypto-idea\\scripts\\diagram-drift.ps1\"",
+            "timeout": 30,
+            "statusMessage": "Checking diagram drift..."
           }
         ]
       }
