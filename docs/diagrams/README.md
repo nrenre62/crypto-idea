@@ -38,6 +38,12 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [ ] frontend layered architecture (`src/` api / hooks / components / utils)
 - [ ] deploy: Hosting / CDN / rewrites / cache headers
 - [ ] emulator dev stack (`start:all` one-lifecycle, ports, on-demand cache fill)
+- [ ] GDPR self-service & soft-delete (`deleteMyAccount` → 30-day trash → `restoreMyAccount` / `purgeExpiredTrash`)
+- [ ] data export (`exportMyData` → JSON + holdings/transactions CSV via `buildPortfolioCsv`)
+- [ ] admin Trash tab (restore / purge-now, days-left countdown, server-only `deleted` flag)
+- [ ] Research tab module (`src/features/research/` — Overview / Coins / Ask; app-native data, no new API calls)
+- [ ] App Controls & feature flags (`config/app.flags` → public `/api/config`, maintenance / signups-off)
+- [ ] analytics & legal injection (`config/app.analytics`+`legal` → `/api/config` → `site-meta.js`, Termly/GA4/Plausible + CSP)
 
 ## Conventions (see the `drawing-diagram` skill for the full guide)
 - **Blue** = public / DCA flow.  **Grey** = app flow.  **Dark** = upstream / refresh / external.
