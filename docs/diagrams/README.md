@@ -15,6 +15,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [firestore-data-model.svg](firestore-data-model.svg) | The nested owner-only tree (users → portfolios → coins → transactions) with per-parent counters, plus the server-only top-level docs (config/app, cache/universe, historyCache, audit) and how counters enforce tier limits. |
 | [authorization-and-tier-limits.svg](authorization-and-tier-limits.svg) | The rule gates every write passes (signed-in → owner/admin → field guards → counter+limit), the per-tier limits sourced from `config/app.plans`, and the invariants (no self-upgrade, no counter smuggling, locked config/audit). |
 | [paypal-subscription-flow.svg](paypal-subscription-flow.svg) | Subscribe (createSubscription → PayPal approve → /pro-success), the signature-verified webhook that sets the tier, and cancel — all acting on the caller's own uid; unverified webhooks rejected. |
+| [live-prices-polling.svg](live-prices-polling.svg) | How the app keeps prices live — `useLivePrices` seeds mock prices instantly (demo), polls `/api/prices` every 60s for held coins, flips to live on first response; the proxy serves from the shared `cache/universe` (5-min hot set + on-demand tail), errors keep the last good prices (no NaN), and upstream cost stays flat regardless of user count. |
 | [gdpr-self-service.svg](gdpr-self-service.svg) | User-driven data rights from the "Privacy & your data" card — exportMyData (JSON + holdings CSV), deleteMyAccount as a SOFT delete (deleted/deletedAt, data kept, Auth not disabled), restoreMyAccount within 30 days, the re-login Restore screen, and the daily purgeExpiredTrash that erases accounts past the window. No IDOR; soft-delete fields are server-only. |
 | [admin-operations.svg](admin-operations.svg) | Admin-only callables behind the claim gate — read/insight (getStats, listUsers, lookupUser, listAudit, getAdminConfig) vs audited mutations (setUserTier, suspendUser, deleteUser, setAdminClaim, saveConfig); self-target blocked, MIN_ADMINS=2, no holdings exposed. |
 
@@ -30,7 +31,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] PayPal subscription + webhook flow (create → approve → verified webhook → tier)
 - [x] admin dashboard operations (getStats / listUsers / lookup / setTier / suspend / delete / audit)
 - [ ] GDPR self-service (deleteMyAccount / exportMyData)
-- [ ] live-prices polling (app `useLivePrices`, 60s, demo→live)
+- [x] live-prices polling (app `useLivePrices`, 60s, demo→live)
 - [ ] app buy-date history (`useCoinHistory` + `priceAtDate`, fallback)
 - [ ] multi-page build + code-splitting (Vite `manualChunks`, lazy routes, dist)
 - [ ] service-worker update flow (network-first, build stamp, auto-reload on deploy)
