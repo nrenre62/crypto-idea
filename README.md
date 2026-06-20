@@ -13,8 +13,9 @@ crypto-idea/
 │   ├── main.jsx / admin-main.jsx ← React entries
 │   ├── api/                      ← data fetching (firebase auth/db/config, coingecko, config, account)
 │   ├── hooks/                    ← state + logic (useAuthSession, usePortfolios, useCoinSearch, useLivePrices, app-context)
-│   ├── components/               ← UI: every user screen (Login/Portfolio/Account/Detail/…) + shared ui.jsx/StatusDot
+│   ├── components/               ← UI: every user screen (Login/Portfolio/Account/Detail/Journal/Learn/…) + shared ui.jsx/StatusDot
 │   ├── features/research/        ← Research tab feature module (Overview/Coins/Ask; own components/hooks/utils/styles)
+│   ├── styles/app.css            ← app design system (editorial/paper, scoped under .ci-app)
 │   └── utils/                    ← pure helpers (format, coins+DCA model, theme tokens, storage)
 ├── functions/index.js           ← Cloud Functions (CoinGecko proxy, PayPal, admin/GDPR callables)
 ├── firestore.rules              ← security rules
@@ -288,8 +289,8 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 
 ### Research tab (AI insights)
 
-The app's middle bottom-nav tab (**Portfolio · Research · Search**) is a self-contained feature in
-`src/features/research/`. Three sub-views: **Overview** (daily brief, Portfolio Pulse, allocation,
+One of the app's five bottom-nav tabs (**Portfolio · Research · Journal · Learn · Search**) is a self-contained feature in
+`src/features/research/`. (Journal + Learn are design-only shells for now — see the design-system note below.) Three sub-views: **Overview** (daily brief, Portfolio Pulse, allocation,
 risk meter, stress test), **Coins** (per-holding cards with a 7-day sparkline + cost/now/P&L), and
 **Ask** (chat about your holdings). It reads your **real** active portfolio and reuses the app's
 existing `/api` proxy only — current price + 24h from live prices, and 7d/30d change + sparkline
