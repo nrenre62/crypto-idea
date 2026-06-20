@@ -153,6 +153,50 @@
 .ci-app .add-pill { font-family:var(--body); font-size:12px; font-weight:700; color:#fff; background:var(--accent); border:0; border-radius:999px; padding:6px 14px; cursor:pointer; white-space:nowrap; }
 .ci-app .add-pill:disabled { background:var(--paper-3); color:var(--ink-faint); cursor:default; }
 
+/* ── Conviction signal pills (also used in Research) ──── */
+.ci-app .conv-row { display:flex; gap:5px; margin-top:11px; flex-wrap:wrap; }
+.ci-app .csig { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; }
+.ci-app .csig .sd { width:5px; height:5px; border-radius:50%; }
+.ci-app .csig-g { background:var(--sg-s); color:var(--sg); } .ci-app .csig-g .sd { background:var(--sg); }
+.ci-app .csig-a { background:var(--sa-s); color:#956c00; } .ci-app .csig-a .sd { background:var(--sa); }
+.ci-app .csig-r { background:var(--sr-s); color:var(--sr); } .ci-app .csig-r .sd { background:var(--sr); }
+.ci-app .csig-d { background:var(--sd-s); color:var(--sd); } .ci-app .csig-d .sd { background:var(--sd); }
+
+/* ── Overlays (buy-journal, lesson) ───────────────────── */
+.ci-app.overlay { position:fixed; inset:0; z-index:9000; background:var(--paper); overflow-y:auto; width:100%; max-width:430px; left:50%; transform:translateX(-50%); animation:ci-slide-up .3s var(--ease); }
+@keyframes ci-slide-up { from { transform:translate(-50%,100%); } to { transform:translate(-50%,0); } }
+.ci-app .overlay-head { display:flex; align-items:center; gap:10px; padding:18px; border-bottom:1px solid var(--line); }
+.ci-app .back-btn { width:34px; height:34px; border-radius:50%; background:var(--paper-3); border:1px solid var(--line); display:grid; place-items:center; cursor:pointer; color:var(--ink-soft); flex:none; }
+.ci-app .overlay-head-title { font-family:var(--display); font-size:18px; font-weight:500; }
+.ci-app .overlay-body { padding:20px 18px 40px; }
+.ci-app .bj-coin-head { display:flex; align-items:center; gap:12px; margin-bottom:20px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+.ci-app .bj-coin-name { font-weight:700; font-size:17px; }
+.ci-app .bj-coin-price { font-size:13px; color:var(--ink-faint); margin-top:2px; }
+.ci-app .journal-q { margin-bottom:20px; }
+.ci-app .journal-q .q-label { font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px; }
+.ci-app .journal-q .q-sub { font-size:11.5px; color:var(--ink-faint); margin-bottom:9px; line-height:1.4; }
+.ci-app .journal-q textarea { width:100%; border:1px solid var(--line-strong); border-radius:var(--radius-xs); padding:12px; font-family:var(--body); font-size:13.5px; color:var(--ink); background:var(--paper-3); resize:none; outline:none; line-height:1.55; height:88px; }
+.ci-app .journal-q textarea:focus { border-color:var(--accent); background:var(--paper-2); }
+.ci-app .bj-note { font-size:11px; color:var(--ink-faint); line-height:1.5; text-align:center; margin:12px 0 18px; }
+.ci-app .bj-callout { background:rgba(247,147,26,.08); border:1px solid rgba(247,147,26,.2); border-radius:13px; padding:13px; margin-bottom:18px; }
+.ci-app .bj-callout .bjc-label { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#c97d12; margin-bottom:3px; }
+.ci-app .bj-callout .bjc-text { font-size:13px; color:var(--ink-soft); line-height:1.5; }
+.ci-app .ov-btn-gap { margin-bottom:10px; }
+.ci-app .lesson-title { font-family:var(--display); font-size:22px; font-weight:500; margin-bottom:18px; line-height:1.25; letter-spacing:-.02em; }
+.ci-app .lesson-body { font-size:14.5px; line-height:1.75; color:var(--ink-soft); }
+.ci-app .lesson-body p { margin-bottom:14px; }
+.ci-app .lesson-body strong { color:var(--ink); font-weight:600; }
+.ci-app .lesson-insight { background:linear-gradient(135deg,var(--accent-soft),#f0f4fd); border:1px solid rgba(10,107,77,.2); border-radius:var(--radius-sm); padding:15px; margin:18px 0; }
+.ci-app .lesson-insight .li-label { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:6px; }
+.ci-app .lesson-insight .li-text { font-size:14.5px; font-weight:600; color:var(--ink); line-height:1.45; }
+.ci-app .quiz-card { background:var(--paper-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:16px; margin-top:18px; }
+.ci-app .quiz-q { font-size:14px; font-weight:700; margin-bottom:14px; }
+.ci-app .quiz-opt { display:flex; align-items:center; gap:9px; padding:10px 12px; border-radius:var(--radius-xs); border:1px solid var(--line); margin-bottom:7px; cursor:pointer; font-size:13.5px; transition:border-color .15s var(--ease); }
+.ci-app .quiz-opt:hover { border-color:var(--ink-soft); }
+.ci-app .quiz-opt.correct { border-color:var(--sg); background:var(--sg-s); color:var(--sg); font-weight:600; }
+.ci-app .quiz-opt .radio { width:16px; height:16px; border-radius:50%; border:2px solid var(--line-strong); flex:none; }
+.ci-app .quiz-opt.correct .radio { background:var(--sg); border-color:var(--sg); }
+
 @media (prefers-reduced-motion:reduce) {
   .ci-app *, .ci-app *::before, .ci-app *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; }
 }
