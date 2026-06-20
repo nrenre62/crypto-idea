@@ -97,7 +97,7 @@ export function Learn() {
     <div className="ci-app screen-bg">
       <div className="learn-hero">
         <div className="learn-level">Level 2 · Fundamental Analyst</div>
-        <div className="learn-title">Your Investing Edge</div>
+        <div className="learn-title">Your Investing Edge <span className="beta">BETA</span></div>
         <div className="xp-bar"><div className="xp-fill" style={{ width: "70%" }} /></div>
         <div className="xp-label">847 / 1,200 XP to Level 3</div>
       </div>

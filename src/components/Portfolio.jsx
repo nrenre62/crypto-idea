@@ -26,7 +26,7 @@ export function Portfolio() {
       <div className="apphead">
         <div>
           <div className="title">
-            Crypto Idea
+            Crypto Idea <span className="beta">BETA</span>
             {api === "live" && <span className="badge badge-live">● LIVE</span>}
             <span className="badge badge-plan" onClick={() => setScreen("account")} style={{ cursor: "pointer" }}>{plan}</span>
           </div>

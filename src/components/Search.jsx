@@ -23,7 +23,7 @@ export function Search() {
     <div className="ci-app screen-bg">
       <div className="apphead">
         <div>
-          <div className="title" style={{ fontSize: 24 }}>Add Coin</div>
+          <div className="title" style={{ fontSize: 24 }}>Add Coin <span className="beta">BETA</span></div>
           <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 2 }}>Find any coin. Research before you add.</div>
         </div>
       </div>
