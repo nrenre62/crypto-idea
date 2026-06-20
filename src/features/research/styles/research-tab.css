@@ -208,6 +208,13 @@
 .research-root .coin-card:focus-visible{outline:2px solid var(--ai-2);outline-offset:3px}
 .research-root .seg button:focus-visible,.research-root .tf-pills button:focus-visible{outline-offset:-2px}
 
+/* Conviction signals — DESIGN PLACEHOLDER (neutral/pending; AI research is
+   offline, so we show the four signal categories without faking a verdict). */
+.research-root .conv-row{display:flex;gap:5px;margin-top:11px;flex-wrap:wrap}
+.research-root .csig{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:rgba(21,20,15,.05);color:var(--ink-faint)}
+.research-root .csig .csd{width:5px;height:5px;border-radius:50%;background:var(--ink-faint);flex:none}
+.research-root .conv-note{font-size:10.5px;color:var(--ink-faint);font-style:italic;margin-top:7px}
+
 @media (prefers-reduced-motion: reduce){
   .research-root *,.research-root *::before,.research-root *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   .research-root .view.active{animation:none}

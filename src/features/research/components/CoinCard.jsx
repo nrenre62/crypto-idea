@@ -34,6 +34,17 @@ export default function CoinCard({ holding, index, onAsk }) {
       </div>
 
       <span className={'sentiment ' + s.cls}><span className="d" />Sentiment: {s.label}</span>
+
+      {/* Conviction signals — design placeholder (Dev / Founders / Team / Community).
+          Neutral/pending: the AI research engine is offline, so we show the four
+          categories without faking a green/red verdict. */}
+      <div className="conv-row">
+        {['Dev', 'Founders', 'Team', 'Community'].map((k) => (
+          <span key={k} className="csig"><span className="csd" />{k}</span>
+        ))}
+      </div>
+      <div className="conv-note">AI conviction analysis — coming soon</div>
+
       <p className="cc-insight">{holding.name} is {Math.round(holding.alloc)}% of your portfolio and moved {fmtPct(holding.c24)} today.</p>
 
       <div className="cc-detail"><div className="cc-detail-inner">
