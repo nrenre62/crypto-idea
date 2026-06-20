@@ -1,17 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="top">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Crypto Idea — Build your portfolio. Own your edge.</title>
-<meta name="description" content="A clean, private crypto portfolio tracker for retail investors. Track everything in one place, see your real position, and invest with clarity and confidence." />
+<title>CryptoIdea — The only crypto app that asks why you're buying before you buy.</title>
+<meta name="description" content="Research every coin. Write your thesis. Hold with conviction, not hope. The investing journal nobody else has built — plus a free DCA calculator, no sign-up needed." />
 
 <!-- Open Graph -->
-<meta property="og:title" content="Crypto Idea — Build your portfolio. Own your edge." />
-<meta property="og:description" content="A clean, private crypto portfolio tracker for retail investors." />
+<meta property="og:title" content="CryptoIdea — Stop investing in hype. Start investing in fundamentals." />
+<meta property="og:description" content="Write your thesis before you buy. Research your holdings. Hold with conviction, not hope." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://cryptoidea.com" />
 
+<!-- Fonts (same family the app + research tab use) -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -22,868 +23,998 @@
 <link rel="apple-touch-icon" href="/icons/icon-192.png" />
 <link rel="manifest" href="/manifest.json" />
 
-<style>
-  :root {
-    --ink: #0e0f0d;
-    --ink-soft: #4a4d47;
-    --ink-faint: #8a8d85;
-    --paper: #fbfbf8;
-    --paper-2: #ffffff;
-    --paper-3: #f4f3ed;
-    --line: #e9e8e1;
-    --line-strong: #d9d8cf;
-    --accent: #0b6b4f;       /* deep, restrained green */
-    --accent-soft: #e7f1ec;
-    --accent-ink: #084d39;
-    --radius: 18px;
-    --radius-sm: 12px;
-    --shadow-sm: 0 1px 2px rgba(14,15,13,.04), 0 4px 14px -8px rgba(14,15,13,.10);
-    --shadow: 0 1px 2px rgba(14,15,13,.04), 0 14px 44px -18px rgba(14,15,13,.14);
-    --shadow-lg: 0 1px 2px rgba(14,15,13,.05), 0 34px 80px -30px rgba(14,15,13,.24);
-    --ease: cubic-bezier(.22,.61,.36,1);
-    --ease-out: cubic-bezier(.16,1,.3,1);
-    --maxw: 1120px;
-    --display: "Fraunces", Georgia, serif;
-    --body: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
-  body {
-    font-family: var(--body);
-    background: var(--paper);
-    color: var(--ink);
-    line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-    overflow-x: hidden;
-  }
-  a { color: inherit; text-decoration: none; }
-  ::selection { background: var(--accent); color: #fff; }
-
-  /* Visible keyboard focus everywhere (quality floor) */
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
-  a:focus-visible, .btn:focus-visible { outline-offset: 4px; }
-  input:focus-visible { outline: none; }
-
-  .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
-
-  /* ---------- Header ---------- */
-  header {
-    position: sticky; top: 0; z-index: 50;
-    background: rgba(251,251,248,.72);
-    backdrop-filter: saturate(180%) blur(16px);
-    -webkit-backdrop-filter: saturate(180%) blur(16px);
-    border-bottom: 1px solid transparent;
-    transition: border-color .35s var(--ease), background .35s var(--ease);
-  }
-  header.scrolled { border-bottom-color: var(--line); background: rgba(251,251,248,.86); }
-  .nav { display: flex; align-items: center; justify-content: space-between; height: 72px; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 19px; letter-spacing: -.01em; }
-  .brand .mark {
-    width: 28px; height: 28px; border-radius: 8px;
-    background: var(--ink); color: var(--paper);
-    display: grid; place-items: center;
-    font-family: var(--display); font-size: 17px; font-weight: 600;
-    transition: transform .3s var(--ease);
-  }
-  .brand:hover .mark { transform: rotate(-6deg) scale(1.06); }
-  .nav-links { display: flex; align-items: center; gap: 34px; }
-  .nav-links a.link { font-size: 15px; color: var(--ink-soft); font-weight: 500; position: relative; transition: color .2s var(--ease); }
-  .nav-links a.link::after {
-    content: ""; position: absolute; left: 0; right: 100%; bottom: -5px; height: 1.5px;
-    background: var(--accent); transition: right .3s var(--ease);
-  }
-  .nav-links a.link:hover { color: var(--ink); }
-  .nav-links a.link:hover::after { right: 0; }
-  .nav-cta { display: flex; align-items: center; gap: 14px; }
-
-  .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    font-family: var(--body); font-weight: 600; font-size: 15px;
-    padding: 11px 20px; border-radius: 999px; cursor: pointer; border: 1px solid transparent;
-    transition: transform .18s var(--ease), background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease), box-shadow .25s var(--ease);
-    white-space: nowrap;
-  }
-  .btn-primary { background: var(--ink); color: var(--paper); }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -12px rgba(14,15,13,.55); }
-  .btn-ghost { color: var(--ink); border-color: var(--line-strong); background: transparent; }
-  .btn-ghost:hover { transform: translateY(-2px); border-color: var(--ink); background: var(--paper-2); box-shadow: var(--shadow-sm); }
-  .btn:active { transform: translateY(0); }
-  .btn-lg { padding: 15px 28px; font-size: 16px; }
-
-  .menu-toggle { display: none; background: none; border: 0; cursor: pointer; width: 40px; height: 40px; }
-  .menu-toggle span { display: block; width: 22px; height: 2px; background: var(--ink); margin: 5px auto; transition: .25s var(--ease); }
-
-  /* ---------- Hero ---------- */
-  .hero { padding: 92px 0 76px; position: relative; }
-  .hero::before {
-    content: ""; position: absolute; inset: 0; z-index: -1;
-    background:
-      radial-gradient(58% 48% at 80% 4%, rgba(11,107,79,.07), transparent 70%),
-      radial-gradient(42% 42% at 8% 26%, rgba(14,15,13,.035), transparent 70%);
-  }
-  .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; }
-  .eyebrow {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
-    color: var(--accent-ink); background: var(--accent-soft);
-    padding: 7px 14px; border-radius: 999px; margin-bottom: 26px;
-  }
-  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); position: relative; }
-  .eyebrow .dot::after {
-    content: ""; position: absolute; inset: -4px; border-radius: 50%;
-    border: 1.5px solid var(--accent); opacity: 0; animation: ring 2.8s var(--ease) infinite;
-  }
-  @keyframes ring { 0% { transform: scale(.6); opacity: .55; } 70%,100% { transform: scale(1.6); opacity: 0; } }
-  h1 {
-    font-family: var(--display); font-weight: 500;
-    font-size: clamp(42px, 5.6vw, 72px); line-height: 1.0; letter-spacing: -.025em;
-    margin-bottom: 22px;
-  }
-  h1 em { font-style: italic; color: var(--accent); }
-  .hero p.lead {
-    font-size: clamp(17px, 1.5vw, 19px); color: var(--ink-soft);
-    max-width: 30em; margin-bottom: 32px; line-height: 1.6;
-  }
-  .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
-  .hero-note { font-size: 13.5px; color: var(--ink-faint); margin-top: 18px; }
-
-  /* App preview card — the signature "live product" moment */
-  .preview {
-    background: var(--paper-2); border: 1px solid var(--line);
-    border-radius: 24px; box-shadow: var(--shadow-lg); padding: 22px;
-    position: relative; overflow: hidden;
-    animation: floaty 7s var(--ease) infinite;
-  }
-  .preview::before {
-    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 140px; pointer-events: none;
-    background: linear-gradient(180deg, rgba(11,107,79,.045), transparent);
-  }
-  @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-  .preview-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-  .preview-top .pt-label { font-size: 13px; color: var(--ink-faint); font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
-  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); position: relative; flex: none; }
-  .live-dot::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; background: var(--accent); opacity: .35; animation: pulse 2.2s var(--ease) infinite; }
-  @keyframes pulse { 0% { transform: scale(.8); opacity: .45; } 70%,100% { transform: scale(2.2); opacity: 0; } }
-  .balance { font-family: var(--display); font-size: 40px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-  .balance-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
-  .chip-up { font-size: 13px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 10px; border-radius: 999px; }
-  .balance-sub { font-size: 13.5px; color: var(--ink-faint); margin-bottom: 18px; }
-
-  .spark { width: 100%; height: 90px; margin-bottom: 20px; display: block; }
-  .spark .spark-line { stroke-dasharray: 1; stroke-dashoffset: 1; pathLength: 1; animation: draw 1.6s var(--ease-out) .25s forwards; }
-  @keyframes draw { to { stroke-dashoffset: 0; } }
-
-  .holding { display: flex; align-items: center; gap: 14px; padding: 13px 4px; border-top: 1px solid var(--line); transition: padding-left .25s var(--ease); }
-  .holding:first-of-type { border-top: 0; }
-  .holding:hover { padding-left: 8px; }
-  .coin {
-    width: 36px; height: 36px; border-radius: 50%; flex: none;
-    display: grid; place-items: center; font-weight: 700; font-size: 14px; color: #fff;
-  }
-  .coin.btc { background: #f7931a; }
-  .coin.eth { background: #4b6ef5; }
-  .coin.sol { background: #11b886; }
-  .holding .h-name { font-weight: 600; font-size: 15px; }
-  .holding .h-amt { font-size: 12.5px; color: var(--ink-faint); }
-  .holding .h-right { margin-left: auto; text-align: right; }
-  .holding .h-val { font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
-  .holding .h-chg { font-size: 12.5px; font-weight: 600; }
-  .pos { color: var(--accent); }
-  .neg { color: #c0492f; }
-
-  /* ---------- Section shells ---------- */
-  section { padding: 88px 0; }
-  .section-head { max-width: 38em; margin-bottom: 52px; }
-  .kicker { font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
-  h2 { font-family: var(--display); font-weight: 500; font-size: clamp(30px, 3.6vw, 44px); line-height: 1.07; letter-spacing: -.025em; }
-  h2 + p { color: var(--ink-soft); font-size: 17px; margin-top: 16px; line-height: 1.6; }
-
-  /* Benefits */
-  .benefits { background: var(--paper-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .bgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-  .bcard { background: var(--paper-2); padding: 34px 30px; transition: background .3s var(--ease); }
-  .bcard:hover { background: var(--paper); }
-  .bicon { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink); display: grid; place-items: center; margin-bottom: 20px; transition: transform .3s var(--ease), background .3s var(--ease); }
-  .bcard:hover .bicon { transform: translateY(-2px) scale(1.05); }
-  .bcard h3 { font-size: 18px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 9px; }
-  .bcard p { font-size: 15px; color: var(--ink-soft); }
-
-  /* Steps — a real ordered process, so the numbering carries meaning */
-  .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 36px; }
-  .step .num { font-family: var(--display); font-size: 15px; color: var(--accent); font-weight: 600; border: 1px solid var(--accent); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 18px; transition: background .3s var(--ease), color .3s var(--ease); }
-  .step:hover .num { background: var(--accent); color: #fff; }
-  .step h3 { font-size: 19px; font-weight: 600; margin-bottom: 8px; letter-spacing: -.01em; }
-  .step p { color: var(--ink-soft); font-size: 15px; }
-
-  /* Pricing */
-  .pricing { background: var(--paper-2); border-top: 1px solid var(--line); }
-  .toggle { display: inline-flex; align-items: center; gap: 4px; background: var(--paper); border: 1px solid var(--line-strong); border-radius: 999px; padding: 4px; margin: 28px auto 0; }
-  .toggle button { font-family: var(--body); border: 0; background: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ink-soft); padding: 9px 20px; border-radius: 999px; transition: background .25s var(--ease), color .25s var(--ease); }
-  .toggle button.active { background: var(--ink); color: var(--paper); }
-  .save-tag { font-size: 12px; color: var(--accent); font-weight: 600; margin-left: 8px; }
-
-  .plans { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; margin-top: 48px; align-items: start; }
-  .plan { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px 28px; position: relative; transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s var(--ease); }
-  .plan.featured { border-color: var(--ink); box-shadow: var(--shadow); }
-  .plan.featured::after { content: "Most popular"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
-  .plan:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: var(--line-strong); }
-  .plan.featured:hover { border-color: var(--ink); }
-  .plan h3 { font-size: 16px; font-weight: 600; letter-spacing: .01em; }
-  .plan .price { font-family: var(--display); font-weight: 500; font-size: 46px; letter-spacing: -.02em; margin: 14px 0 2px; font-variant-numeric: tabular-nums; }
-  .plan .price span { font-family: var(--body); font-size: 15px; font-weight: 500; color: var(--ink-faint); letter-spacing: 0; }
-  .plan .pdesc { font-size: 14px; color: var(--ink-soft); min-height: 40px; margin-bottom: 22px; }
-  .plan ul { list-style: none; margin-bottom: 26px; }
-  .plan li { font-size: 14.5px; color: var(--ink-soft); padding: 8px 0 8px 26px; position: relative; }
-  .plan li::before { content: "✓"; position: absolute; left: 0; color: var(--accent); font-weight: 700; }
-  .plan .btn { width: 100%; }
-
-  /* Education teaser */
-  .edu { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
-  .edu-card { background: var(--ink); color: var(--paper); border-radius: var(--radius); padding: 40px; position: relative; overflow: hidden; }
-  .edu-card::before {
-    content: ""; position: absolute; top: -40%; right: -20%; width: 60%; height: 120%;
-    background: radial-gradient(circle, rgba(159,212,194,.16), transparent 65%); pointer-events: none;
-  }
-  .edu-card .principle { display: flex; gap: 16px; padding: 16px 0; border-top: 1px solid rgba(255,255,255,.12); position: relative; transition: padding-left .25s var(--ease); }
-  .edu-card .principle:first-child { border-top: 0; padding-top: 0; }
-  .edu-card .principle:hover { padding-left: 6px; }
-  .edu-card .pn { font-family: var(--display); color: #9fd4c2; font-size: 15px; flex: none; font-variant-numeric: tabular-nums; }
-  .edu-card .pt { font-size: 15px; color: rgba(255,255,255,.82); }
-
-  /* Subscribe / footer */
-  .cta-band { text-align: center; }
-  .subscribe { display: flex; gap: 10px; max-width: 440px; margin: 28px auto 0; }
-  .subscribe input { flex: 1; font-family: var(--body); font-size: 15px; padding: 14px 18px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--paper-2); color: var(--ink); outline: none; transition: border-color .2s var(--ease), box-shadow .2s var(--ease); }
-  .subscribe input:focus { border-color: var(--ink); box-shadow: 0 0 0 4px rgba(14,15,13,.05); }
-  .sub-msg { font-size: 13.5px; color: var(--accent); margin-top: 14px; min-height: 20px; font-weight: 500; }
-
-  footer { border-top: 1px solid var(--line); padding: 48px 0 56px; }
-  .foot { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
-  .foot-links { display: flex; gap: 26px; flex-wrap: wrap; }
-  .foot-links a { font-size: 14px; color: var(--ink-soft); transition: color .2s var(--ease); }
-  .foot-links a:hover { color: var(--ink); }
-  .foot small { color: var(--ink-faint); font-size: 13px; }
-  .disclaimer { font-size: 12px; color: var(--ink-faint); max-width: 60em; margin-top: 22px; line-height: 1.5; }
-
-  /* ---------- Reveal animation ---------- */
-  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s var(--ease), transform .7s var(--ease); }
-  .reveal.in { opacity: 1; transform: none; }
-  @media (prefers-reduced-motion: reduce) {
-    .reveal { opacity: 1; transform: none; transition: none; }
-    html { scroll-behavior: auto; }
-    .preview { animation: none; }
-    .spark .spark-line { animation: none; stroke-dashoffset: 0; }
-    .eyebrow .dot::after, .live-dot::after { animation: none; }
-    .btn:hover, .plan:hover, .bcard:hover .bicon, .brand:hover .mark { transform: none; }
-  }
-
-  /* ---------- Responsive ---------- */
-  @media (max-width: 920px) {
-    .hero-grid { grid-template-columns: 1fr; gap: 44px; }
-    .preview { max-width: 440px; }
-    .bgrid, .steps, .plans { grid-template-columns: 1fr; }
-    .bgrid { gap: 1px; }
-    .edu { grid-template-columns: 1fr; gap: 32px; }
-    .nav-links { display: none; }
-    .menu-toggle { display: block; }
-    .nav-cta .btn-ghost { display: none; }
-    header.menu-open .nav-links {
-      display: flex; flex-direction: column; position: absolute; top: 72px; left: 0; right: 0;
-      background: var(--paper); border-bottom: 1px solid var(--line); padding: 20px 24px; gap: 18px;
-    }
-  }
-  @media (max-width: 540px) {
-    section { padding: 64px 0; }
-    .hero { padding: 56px 0 48px; }
-    .subscribe { flex-direction: column; }
-    .subscribe input, .subscribe .btn { width: 100%; }
-  }
-
-  /* ---------- DCA calculator (embedded section) ---------- */
-  #dca .lead{font-size:17px;color:var(--ink-soft);max-width:34em;margin:14px auto 0}
-  #dca .calc{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px;max-width:680px;margin:26px auto 0;text-align:left}
-  #dca label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:7px}
-  #dca input,#dca select{width:100%;font-family:var(--body);font-size:15px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--paper-2);color:var(--ink);outline:none;transition:border-color .2s var(--ease),box-shadow .2s var(--ease)}
-  #dca input:focus{border-color:var(--ink);box-shadow:0 0 0 4px rgba(14,15,13,.05)}
-  #dca .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  #dca .fld{margin-bottom:16px}
-  #dca .seg{display:flex;gap:4px;background:var(--paper);border:1px solid var(--line-strong);border-radius:999px;padding:4px}
-  #dca .seg button{flex:1;border:0;background:none;cursor:pointer;font-family:var(--body);font-size:13px;font-weight:600;color:var(--ink-soft);padding:9px 4px;border-radius:999px;transition:background .25s var(--ease),color .25s var(--ease)}
-  #dca .seg button.active{background:var(--ink);color:var(--paper)}
-  #dca .picker{position:relative}
-  #dca .dd{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow);max-height:280px;overflow:auto;z-index:5}
-  #dca .opt{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background .15s var(--ease)}
-  #dca .opt:hover{background:var(--paper)}
-  #dca .opt img{width:24px;height:24px;border-radius:50%}
-  #dca .opt .n{font-size:14px;font-weight:600}#dca .opt .s{font-size:11px;color:var(--ink-faint)}
-  #dca .msg{font-size:13.5px;color:#c0492f;margin-top:12px;min-height:18px;text-align:center}
-  #dca .res{display:none;margin-top:18px}
-  #dca .res.show{display:block;animation:dcaIn .45s var(--ease)}
-  @keyframes dcaIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
-  #dca .big{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-  #dca .stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px 18px}
-  #dca .stat .k{font-size:12px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
-  #dca .stat .v{font-family:var(--display);font-size:24px;font-weight:500;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
-  #dca .pos{color:var(--accent)}#dca .neg{color:#c0492f}
-  #dca .rows{border-top:1px solid var(--line);margin-top:6px}
-  #dca .row{display:flex;justify-content:space-between;padding:9px 2px;font-size:14px;border-bottom:1px solid var(--line)}
-  #dca .row span:first-child{color:var(--ink-soft)}#dca .row span:last-child{font-weight:600}
-  #dca .note{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:14px}
-  @media(max-width:560px){#dca .g2,#dca .big{grid-template-columns:1fr}}
-  @media (prefers-reduced-motion: reduce){ #dca .res.show{animation:none} }
-</style>
 <!-- Analytics + cookie consent from admin config (no-ops if unconfigured) -->
 <script src="/site-meta.js" defer></script>
+<style>
+/* ── Design tokens ──────────────────────────────── */
+:root{
+  --ink:#0e0f0d;--ink-soft:#4a4d47;--ink-faint:#8a8d85;
+  --paper:#fbfbf8;--paper-2:#ffffff;--paper-3:#f4f3ed;
+  --line:#e9e8e1;--line-strong:#d9d8cf;
+  --accent:#0b6b4f;--accent-soft:#e7f1ec;--accent-ink:#084d39;
+  --warn:#c0402c;
+  --sg:#1f9d55;--sa:#e0a423;--sr:#cf3a2c;
+  --sg-s:rgba(31,157,85,.1);--sa-s:rgba(224,164,35,.1);--sr-s:rgba(207,58,44,.1);
+  --radius:18px;--radius-sm:12px;
+  --shadow-sm:0 1px 2px rgba(14,15,13,.04),0 4px 14px -8px rgba(14,15,13,.10);
+  --shadow:0 1px 2px rgba(14,15,13,.04),0 14px 44px -18px rgba(14,15,13,.14);
+  --shadow-lg:0 1px 2px rgba(14,15,13,.05),0 34px 80px -30px rgba(14,15,13,.24);
+  --ease:cubic-bezier(.22,.61,.36,1);--ease-out:cubic-bezier(.16,1,.3,1);
+  --maxw:1120px;
+  --display:"Fraunces",Georgia,serif;
+  --body:"Hanken Grotesk",-apple-system,system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:var(--body);background:var(--paper);color:var(--ink);
+  line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+::selection{background:var(--accent);color:#fff}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+.wrap{width:100%;max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+/* ── Header ─────────────────────────────────────── */
+header{position:sticky;top:0;z-index:50;
+  background:rgba(251,251,248,.72);backdrop-filter:saturate(180%) blur(16px);
+  -webkit-backdrop-filter:saturate(180%) blur(16px);
+  border-bottom:1px solid transparent;transition:border-color .35s var(--ease),background .35s}
+header.scrolled{border-bottom-color:var(--line);background:rgba(251,251,248,.88)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:68px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:18px;letter-spacing:-.01em}
+.brand .mark{width:28px;height:28px;border-radius:8px;background:var(--accent);color:#fff;
+  display:grid;place-items:center;font-family:var(--display);font-size:16px;font-weight:600;
+  transition:transform .3s var(--ease)}
+.brand:hover .mark{transform:rotate(-6deg) scale(1.06)}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-links a{font-size:14.5px;color:var(--ink-soft);font-weight:500;transition:color .2s;position:relative}
+.nav-links a::after{content:"";position:absolute;left:0;right:100%;bottom:-5px;height:1.5px;background:var(--accent);transition:right .3s var(--ease)}
+.nav-links a:hover{color:var(--ink)}
+.nav-links a:hover::after{right:0}
+.nav-cta{display:flex;align-items:center;gap:12px}
+
+/* ── Buttons ────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:var(--body);font-weight:700;font-size:15px;padding:12px 24px;
+  border-radius:999px;cursor:pointer;border:none;
+  transition:transform .18s var(--ease),box-shadow .25s,border-color .2s,background .2s;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 28px -10px rgba(11,107,79,.48)}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line-strong)}
+.btn-ghost:hover{transform:translateY(-2px);border-color:var(--ink);box-shadow:var(--shadow-sm)}
+.btn-dark{background:var(--ink);color:var(--paper)}
+.btn-dark:hover{transform:translateY(-2px);box-shadow:0 12px 28px -10px rgba(14,15,13,.5)}
+.btn:active{transform:translateY(0)}
+.btn-lg{padding:15px 32px;font-size:16px}
+.btn-sm{padding:9px 18px;font-size:13.5px}
+.menu-toggle{display:none;background:none;border:0;cursor:pointer;width:40px;height:40px}
+.menu-toggle span{display:block;width:22px;height:2px;background:var(--ink);margin:5px auto;transition:.25s}
+
+/* ── Reveal ─────────────────────────────────────── */
+.reveal{opacity:0;transform:translateY(18px);
+  transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
+.reveal.in{opacity:1;transform:none}
+
+/* ── Shared section bits ────────────────────────── */
+.kicker{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:12px}
+h2{font-family:var(--display);font-weight:500;
+  font-size:clamp(28px,3.4vw,42px);line-height:1.07;letter-spacing:-.025em}
+h2 em{font-style:italic}
+.sec-lead{font-size:17px;color:var(--ink-soft);line-height:1.65;margin-top:14px}
+
+/* ══ HERO ══════════════════════════════════════════ */
+.hero{padding:96px 0 80px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;
+  background:radial-gradient(60% 50% at 78% 0%,rgba(11,107,79,.08),transparent 68%),
+             radial-gradient(40% 40% at 10% 30%,rgba(14,15,13,.03),transparent 70%)}
+.hero-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:64px;align-items:center}
+.hook-tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);
+  background:var(--accent-soft);padding:6px 14px;border-radius:999px;margin-bottom:24px}
+.hook-tag .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);position:relative}
+.hook-tag .dot::after{content:"";position:absolute;inset:-4px;border-radius:50%;
+  border:1.5px solid var(--accent);opacity:0;animation:ring 2.8s ease infinite}
+@keyframes ring{0%{transform:scale(.6);opacity:.55}70%,100%{transform:scale(1.6);opacity:0}}
+h1{font-family:var(--display);font-weight:500;
+  font-size:clamp(38px,5vw,64px);line-height:1.02;letter-spacing:-.025em;margin-bottom:20px;text-wrap:balance}
+h1 em{font-style:italic;color:var(--accent)}
+.hero-lead{font-size:clamp(16px,1.4vw,18.5px);color:var(--ink-soft);
+  max-width:28em;margin-bottom:32px;line-height:1.65;text-wrap:pretty}
+.hero-cta{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hero-note{font-size:13px;color:var(--ink-faint);margin-top:16px}
+
+/* Hero app card — a faithful slice of the in-app Research › Your coins view */
+.app-card{background:var(--paper-3);border:1px solid var(--line);border-radius:24px;
+  box-shadow:var(--shadow-lg);padding:16px;position:relative;overflow:hidden;
+  animation:float 7s ease-in-out infinite}
+.app-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--accent),#3f7df0)}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.ac-head{display:flex;align-items:center;justify-content:space-between;margin:4px 6px 14px}
+.ac-tab{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
+.ac-live{font-size:12px;color:var(--ink-faint);font-weight:500;display:flex;align-items:center;gap:6px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);position:relative}
+.live-dot::after{content:"";position:absolute;inset:-3px;border-radius:50%;
+  background:var(--accent);opacity:.35;animation:pulse 2.2s ease infinite}
+@keyframes pulse{0%{transform:scale(.8);opacity:.45}70%,100%{transform:scale(2.2);opacity:0}}
+.coin-ic{border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:none}
+/* Real conviction coin card */
+.coin-card{background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:15px;box-shadow:var(--shadow-sm)}
+.coin-card + .coin-card{margin-top:11px}
+.cc-top{display:flex;align-items:center;gap:11px}
+.cc-id{flex:1;min-width:0}
+.cc-name{font-weight:600;font-size:14.5px}
+.cc-meta{font-size:11.5px;color:var(--ink-faint)}
+.cc-right{text-align:right}
+.cc-val{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+.cc-chg{font-size:11.5px;font-weight:600}
+.cc-chg.up{color:var(--accent)} .cc-chg.dn{color:var(--warn)}
+.cc-chev{margin-left:4px;color:var(--ink-faint);flex:none;transition:transform .3s var(--ease)}
+.coin-card.open .cc-chev{transform:rotate(180deg)}
+.cc-expand{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
+.cc-sec-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+.sig-detail{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+.sig-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.45}
+.sig-row .sig-dot{width:7px;height:7px;border-radius:50%;flex:none;margin-top:4px}
+.sig-row .sig-text{color:var(--ink-soft)}
+.sig-row .sig-text strong{color:var(--ink);font-weight:600}
+.cc-thesis{font-size:12px;color:var(--ink-soft);line-height:1.55;margin-bottom:11px;font-style:italic}
+.cc-review{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:8px 14px}
+.cc-conv{display:flex;gap:5px;flex-wrap:wrap;margin-top:11px}
+.cc-verdict{font-size:12px;color:var(--ink-soft);font-style:italic;margin-top:10px;line-height:1.45}
+/* conviction pills (shared with the Conviction feature section) */
+.pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}
+.pill .sd{width:5px;height:5px;border-radius:50%}
+.pill-g{background:var(--sg-s);color:var(--sg)} .pill-g .sd{background:var(--sg)}
+.pill-a{background:var(--sa-s);color:#956c00} .pill-a .sd{background:var(--sa)}
+.pill-r{background:var(--sr-s);color:var(--sr)} .pill-r .sd{background:var(--sr)}
+
+/* ══ DCA — VALUE FIRST (section 2) ═════════════════ */
+#dca{background:var(--paper-3);border-top:1px solid var(--line)}
+section,#dca,.pain,.pricing{padding:88px 0}
+#dca .sec-head{text-align:center;max-width:38em;margin:0 auto 36px}
+.dca-tabline{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
+  padding:6px 14px;border-radius:999px;margin-bottom:16px}
+#dca .calc{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:28px;max-width:680px;margin:0 auto;text-align:left}
+#dca label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:7px}
+#dca input,#dca select{width:100%;font-family:var(--body);font-size:15px;padding:12px 14px;
+  border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--paper-2);
+  color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s}
+#dca input:focus{border-color:var(--ink);box-shadow:0 0 0 4px rgba(14,15,13,.05)}
+#dca .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#dca .fld{margin-bottom:16px}
+#dca .seg{display:flex;gap:4px;background:var(--paper);border:1px solid var(--line-strong);border-radius:999px;padding:4px}
+#dca .seg button{flex:1;border:0;background:none;cursor:pointer;font-family:var(--body);font-size:13px;
+  font-weight:600;color:var(--ink-soft);padding:9px 4px;border-radius:999px;transition:.2s}
+#dca .seg button.active{background:var(--ink);color:var(--paper)}
+#dca .picker{position:relative}
+#dca .dd{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--paper-2);
+  border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:var(--shadow);
+  max-height:280px;overflow:auto;z-index:5}
+#dca .opt{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background .15s}
+#dca .opt:hover{background:var(--paper)}
+#dca .opt .oic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;flex:none}
+#dca .opt img{width:24px;height:24px;border-radius:50%}
+#dca .opt .n{font-size:14px;font-weight:600}
+#dca .opt .s{font-size:11px;color:var(--ink-faint)}
+#dca .msg{font-size:13.5px;color:var(--warn);margin-top:12px;min-height:18px;text-align:center}
+#dca .res{display:none;margin-top:20px}
+#dca .res.show{display:block;animation:fadeUp .4s var(--ease-out)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#dca .big{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+#dca .stat{background:var(--paper-3);border:1px solid var(--line);border-radius:var(--radius-sm);padding:16px}
+#dca .stat .k{font-size:11.5px;color:var(--ink-faint);font-weight:600;letter-spacing:.03em;margin-bottom:5px}
+#dca .stat .v{font-family:var(--display);font-size:26px;font-weight:500;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+#dca .pos{color:var(--accent)}#dca .neg{color:var(--warn)}
+#dca .rows{border-top:1px solid var(--line);padding-top:4px}
+#dca .row{display:flex;justify-content:space-between;padding:9px 0;font-size:14px;border-bottom:1px solid var(--line)}
+#dca .row:last-child{border-bottom:0}
+#dca .row span:first-child{color:var(--ink-soft)}
+#dca .row span:last-child{font-weight:600;font-variant-numeric:tabular-nums}
+#dca .note{font-size:14px;color:var(--ink-faint);text-align:center;margin-top:14px;line-height:1.5}
+#dca .cta-after{text-align:center;margin-top:22px}
+@media(max-width:560px){#dca .g2,#dca .big{grid-template-columns:1fr}}
+
+/* ══ PAIN ══════════════════════════════════════════ */
+.pain{background:var(--ink);color:var(--paper)}
+.pain-grid{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center}
+.pain-story{font-size:clamp(16px,1.5vw,18px);line-height:1.75;color:rgba(255,255,255,.78)}
+.pain-story p{margin-bottom:18px}
+.pain-story p:last-child{margin-bottom:0}
+.pain-story strong{color:#fff;font-weight:600}
+.pain-story em{font-style:italic;color:#9fd4c2}
+.pain-quote{background:rgba(255,255,255,.06);border-left:3px solid #9fd4c2;
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  padding:24px;font-family:var(--display);font-size:clamp(20px,2.2vw,28px);
+  font-style:italic;line-height:1.35;color:#fff}
+.pain-quote-attr{font-family:var(--body);font-style:normal;font-size:14px;
+  color:rgba(255,255,255,.4);margin-top:14px;font-weight:500}
+
+/* ══ HOW IT WORKS ══════════════════════════════════ */
+.how{background:var(--paper-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.how .sec-head{text-align:center;max-width:32em;margin:0 auto 52px}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;counter-reset:s}
+.step{position:relative;padding-top:8px}
+.step .num{font-family:var(--display);font-size:15px;color:var(--accent);font-weight:600;
+  border:1px solid var(--accent);width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
+  margin-bottom:18px;transition:background .3s var(--ease),color .3s var(--ease)}
+.step:hover .num{background:var(--accent);color:#fff}
+.step h4{font-size:17px;font-weight:700;margin-bottom:8px;letter-spacing:-.01em}
+.step .tab-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--accent-ink);background:var(--accent-soft);padding:3px 10px;border-radius:999px;margin-bottom:10px}
+.step p{color:var(--ink-soft);font-size:14.5px;line-height:1.55}
+.step .connector{position:absolute;top:26px;left:46px;right:-12px;height:1px;
+  background:linear-gradient(90deg,var(--line-strong),transparent)}
+.step:last-child .connector{display:none}
+
+/* ══ SOLUTION SECTIONS ═════════════════════════════ */
+section.sol.alt{background:var(--paper-3)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center}
+.sol-head .kicker{margin-bottom:12px}
+.sol-head h2{margin-bottom:18px}
+.sol-head p{font-size:17px;color:var(--ink-soft);line-height:1.65;margin-bottom:24px}
+
+/* Journal */
+.jq{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);
+  padding:22px;box-shadow:var(--shadow-sm);margin-bottom:14px;position:relative;overflow:hidden}
+.jq::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+.jq.q1::before{background:var(--accent)}
+.jq.q2::before{background:#3f7df0}
+.jq-n{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px}
+.jq-q{font-size:15.5px;font-weight:700;color:var(--ink);margin-bottom:10px;line-height:1.3}
+.jq-a{font-size:13.5px;color:var(--ink-soft);line-height:1.6;
+  background:var(--paper-3);border:1px solid var(--line);border-radius:9px;padding:11px 13px}
+.jq-hint{font-size:11.5px;color:var(--ink-faint);margin-top:9px;display:flex;align-items:center;gap:6px}
+.jq-hint::before{content:"";width:5px;height:5px;border-radius:50%;flex:none}
+.jq.q1 .jq-hint::before{background:var(--accent)}
+.jq.q2 .jq-hint::before{background:#3f7df0}
+.later-card{background:linear-gradient(145deg,#1a1916,#0d0c09);border-radius:var(--radius);padding:20px;color:var(--paper)}
+.lc-label{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.32);margin-bottom:11px}
+.lc-row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.lc-ic{width:34px;height:34px;border-radius:50%;background:#11b886;color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.lc-name{font-weight:600;font-size:14px}
+.lc-date{font-size:11.5px;color:rgba(255,255,255,.38);margin-top:1px}
+.lc-thesis{font-size:13px;color:rgba(255,255,255,.62);line-height:1.6;border-left:2px solid rgba(159,212,194,.35);padding-left:11px;margin-bottom:12px}
+.lc-tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#9fd4c2;background:rgba(159,212,194,.1);padding:5px 11px;border-radius:999px}
+.lc-tag::before{content:"";width:6px;height:6px;border-radius:50%;background:#9fd4c2}
+
+/* Conviction signals */
+.sig-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.sig-card{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);
+  padding:22px;box-shadow:var(--shadow-sm);transition:transform .22s,box-shadow .22s}
+.sig-card:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.sig-emoji{font-size:24px;margin-bottom:12px;display:block}
+.sig-title{font-size:16px;font-weight:700;margin-bottom:6px}
+.sig-desc{font-size:13.5px;color:var(--ink-soft);line-height:1.55;margin-bottom:12px}
+.sig-pills{display:flex;gap:5px;flex-wrap:wrap}
+
+/* Features grid */
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.feat{background:var(--paper-2);padding:32px 26px;transition:background .25s}
+.feat:hover{background:var(--paper-3)}
+.feat-icon{font-size:22px;margin-bottom:14px}
+.feat h3{font-size:17px;font-weight:700;margin-bottom:7px;letter-spacing:-.01em}
+.feat p{font-size:14px;color:var(--ink-soft);line-height:1.55}
+
+/* Action strip */
+.action-strip{background:var(--accent);color:#fff;padding:56px 0;text-align:center}
+.action-strip h2{color:#fff;font-family:var(--display);font-size:clamp(24px,3vw,36px);font-weight:500;margin-bottom:10px;letter-spacing:-.02em}
+.action-strip p{color:rgba(255,255,255,.74);font-size:17px;max-width:30em;margin:0 auto 28px;line-height:1.6}
+
+/* Learn */
+.learn-bg{background:var(--paper-3)}
+.principles-grid{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center}
+.principles-list{background:var(--ink);border-radius:var(--radius);padding:36px;overflow:hidden;position:relative}
+.principles-list::before{content:"";position:absolute;top:-30%;right:-15%;width:55%;height:110%;
+  background:radial-gradient(circle,rgba(159,212,194,.14),transparent 65%);pointer-events:none}
+.principle{display:flex;gap:16px;padding:16px 0;border-top:1px solid rgba(255,255,255,.1);position:relative;transition:padding-left .22s}
+.principle:first-child{border-top:0;padding-top:0}
+.principle:hover{padding-left:5px}
+.pn{font-family:var(--display);color:#9fd4c2;font-size:14px;flex:none}
+.pt{font-size:15px;color:rgba(255,255,255,.8);line-height:1.45}
+
+/* Pricing */
+.pricing{background:var(--paper-2);border-top:1px solid var(--line)}
+.pricing-head{text-align:center;max-width:34em;margin:0 auto 44px}
+.billing-tog{display:inline-flex;gap:4px;background:var(--paper-3);border:1px solid var(--line-strong);border-radius:999px;padding:4px;margin-top:24px}
+.billing-tog button{font-family:var(--body);border:0;background:none;cursor:pointer;font-size:14px;font-weight:600;color:var(--ink-faint);padding:9px 20px;border-radius:999px;transition:.2s}
+.billing-tog button.active{background:var(--ink);color:var(--paper)}
+.save-tag{font-size:11.5px;color:var(--accent);font-weight:700;margin-left:6px}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:44px;align-items:stretch;text-align:left}
+.plan{background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:30px;position:relative;display:flex;flex-direction:column;transition:transform .22s,box-shadow .22s,border-color .22s}
+.plan.featured{border-color:var(--ink);box-shadow:var(--shadow-lg)}
+.plan.featured::after{content:"Most popular";position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);font-size:12px;font-weight:700;padding:5px 14px;border-radius:999px;white-space:nowrap}
+.plan:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
+.plan.featured:hover{border-color:var(--ink)}
+.plan-name{font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:10px}
+.plan-price{font-family:var(--display);font-size:48px;font-weight:500;letter-spacing:-.03em;margin-bottom:3px;font-variant-numeric:tabular-nums}
+.plan-price span{font-family:var(--body);font-size:14px;color:var(--ink-faint);font-weight:500;letter-spacing:.02em;margin-left:5px}
+.plan-desc{font-size:14px;color:var(--ink-faint);margin-bottom:22px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.plan-feats{list-style:none;margin-bottom:26px}
+.plan-feats li{font-size:14px;color:var(--ink-soft);padding:8px 0 8px 22px;position:relative;line-height:1.45}
+.plan-feats li::before{content:"✓";position:absolute;left:0;color:var(--accent);font-weight:700}
+.plan-feats li.new::before{content:"✦"}
+.plan .btn{width:100%;justify-content:center;margin-top:auto}
+.plan .btn:hover,.plan .btn:focus-visible{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 12px 28px -10px rgba(11,107,79,.48)}
+.plan .btn:active{background:var(--accent-ink);border-color:var(--accent-ink);color:#fff}
+
+/* Subscribe */
+.sub-section{background:var(--paper);border-top:1px solid var(--line);padding:72px 0;text-align:center}
+.sub-section h2{max-width:16em;margin:0 auto 12px}
+.sub-section p{font-size:16px;color:var(--ink-soft);max-width:30em;margin:0 auto 28px}
+.subscribe{display:flex;gap:10px;max-width:420px;margin:0 auto;flex-wrap:wrap;justify-content:center}
+.subscribe input{flex:1;font-family:var(--body);font-size:15px;padding:14px 18px;
+  border:1px solid var(--line-strong);border-radius:999px;background:var(--paper-2);
+  color:var(--ink);outline:none;transition:border-color .2s;min-width:200px}
+.subscribe input:focus{border-color:var(--ink)}
+.sub-msg{font-size:13.5px;color:var(--accent);margin-top:12px;min-height:18px;font-weight:500}
+.sub-note{font-size:12px;color:var(--ink-faint);line-height:1.55;max-width:36em;margin:16px auto 0}
+
+/* Footer */
+footer{border-top:1px solid var(--line);padding:44px 0 52px;background:var(--paper-3)}
+.foot-row{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+.foot-links{display:flex;gap:22px;flex-wrap:wrap}
+.foot-links a{font-size:14px;color:var(--ink-faint);transition:color .2s}
+.foot-links a:hover{color:var(--ink)}
+footer small{font-size:13px;color:var(--ink-faint)}
+.foot-tag{font-family:var(--display);font-style:italic;font-size:16px;color:var(--ink);margin:6px 0 18px}
+.disclaimer{font-size:11.5px;color:var(--ink-faint);line-height:1.6;max-width:58em}
+
+/* ── Responsive ─────────────────────────────────── */
+@media(max-width:940px){
+  .hero-grid,.two-col,.pain-grid,.principles-grid{grid-template-columns:1fr;gap:44px}
+  .hero{padding:60px 0 48px}
+  .sig-grid,.plans,.feat-grid{grid-template-columns:1fr}
+  .feat-grid{gap:1px}
+  .steps{grid-template-columns:repeat(2,1fr);gap:32px 24px}
+  .step .connector{display:none}
+  .nav-links{display:none}
+  .menu-toggle{display:block}
+  .nav-cta .btn-ghost{display:none}
+  header.menu-open .nav-links{display:flex;flex-direction:column;position:absolute;
+    top:68px;left:0;right:0;background:var(--paper);border-bottom:1px solid var(--line);padding:20px 24px;gap:16px}
+}
+@media(max-width:540px){
+  section,#dca,.pain,.pricing,.sub-section{padding:64px 0}
+  .steps{grid-template-columns:1fr}
+  .subscribe{flex-direction:column}
+  .subscribe input,.subscribe .btn{width:100%}
+  .hero-cta .btn{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;transition:none}
+  html{scroll-behavior:auto}
+  .app-card{animation:none}
+  .spark-line path.draw{animation:none;stroke-dashoffset:0}
+  .hook-tag .dot::after,.live-dot::after{animation:none}
+}
+</style>
 </head>
 <body>
 
+
+<!-- NAV -->
 <header id="header">
   <div class="wrap nav">
-    <a href="#top" class="brand"><span class="mark">C</span> Crypto Idea</a>
+    <a href="#top" class="brand"><span class="mark">C</span> CryptoIdea</a>
     <nav class="nav-links" id="navLinks">
-      <a class="link" href="#product">Product</a>
-      <a class="link" href="#pricing">Pricing</a>
-      <a class="link" href="#edge">Education</a>
-      <a class="link" href="#dca">DCA Calculator</a>
+      <a href="#dca">Free DCA Tool</a>
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#learn">Learn</a>
+      <a href="#pricing">Pricing</a>
     </nav>
     <div class="nav-cta">
-      <a class="btn btn-ghost" href="/app">Open app</a>
-      <a class="btn btn-primary" href="#pricing">Get started</a>
-      <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+      <a class="btn btn-ghost btn-sm" href="/app">Log in</a>
+      <a class="btn btn-primary btn-sm" href="/app">Start free</a>
     </div>
+    <button class="menu-toggle" id="menuToggle" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
 </header>
 
-<main id="top">
+<main>
 
-  <!-- HERO -->
-  <section class="hero" id="product">
-    <div class="wrap hero-grid">
-      <div>
-        <span class="eyebrow reveal"><span class="dot"></span> Portfolio tracker for retail investors</span>
-        <h1 class="reveal">Build your portfolio.<br><em>Own your edge.</em></h1>
-        <p class="lead reveal">Every coin, every wallet, every move — in one calm, private place. Crypto Idea gives you the clarity and confidence to manage your portfolio like you actually know what you hold.</p>
-        <div class="hero-actions reveal">
-          <a class="btn btn-primary btn-lg" href="#pricing">Start tracking free</a>
-          <a class="btn btn-ghost btn-lg" href="#edge">See how it works</a>
-        </div>
-        <p class="hero-note reveal">No card to start · Your data stays yours · Works on iPhone &amp; web</p>
+<!-- ══ HERO ══ -->
+<section class="hero" id="product">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="hook-tag reveal"><span class="dot"></span> For retail crypto investors</div>
+      <h1 class="reveal">The only crypto app that asks <em>why</em> you're buying — before you buy.</h1>
+      <p class="hero-lead reveal">Research every coin. Write your thesis. Hold with conviction, not hope — and always know exactly why you own what you own.</p>
+      <div class="hero-cta reveal">
+        <a class="btn btn-primary btn-lg" href="/app">Start free</a>
+        <a class="btn btn-ghost btn-lg" href="#dca">Try the free calculator</a>
       </div>
+      <p class="hero-note reveal">No card required &nbsp;·&nbsp; Your data stays yours &nbsp;·&nbsp; iPhone &amp; web</p>
+    </div>
 
-      <!-- App preview -->
-      <div class="preview reveal" aria-hidden="true">
-        <div class="preview-top">
-          <span class="pt-label"><span class="live-dot"></span>Total balance</span>
-          <span class="pt-label">30D</span>
+    <!-- App card: faithful slice of the in-app Research › Your coins (conviction) view -->
+    <div class="app-card reveal" aria-hidden="true">
+      <div class="ac-head">
+        <span class="ac-tab">Research · Your coins</span>
+        <span class="ac-live"><span class="live-dot"></span> Live</span>
+      </div>
+      <div class="coin-card open">
+        <div class="cc-top">
+          <div class="coin-ic" style="background:#f7931a;width:38px;height:38px;font-size:14px">₿</div>
+          <div class="cc-id">
+            <div class="cc-name">Bitcoin</div>
+            <div class="cc-meta">0.12 BTC · 30% of portfolio</div>
+          </div>
+          <div class="cc-right">
+            <div class="cc-val">$12,420</div>
+            <div class="cc-chg up">+0.4%</div>
+          </div>
+          <svg class="cc-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg>
         </div>
-        <div class="balance-row">
-          <span class="balance">$48,920</span>
-          <span class="chip-up">▲ 12.4%</span>
+        <div class="cc-conv">
+          <span class="pill pill-g"><span class="sd"></span>Dev: Active</span>
+          <span class="pill pill-g"><span class="sd"></span>Founders: Visible</span>
+          <span class="pill pill-g"><span class="sd"></span>Team: Focused</span>
+          <span class="pill pill-g"><span class="sd"></span>Community: Strong</span>
         </div>
-        <div class="balance-sub">+$5,410 this month</div>
-
-        <svg class="spark" viewBox="0 0 320 90" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="rgba(11,107,79,.22)" />
-              <stop offset="100%" stop-color="rgba(11,107,79,0)" />
-            </linearGradient>
-          </defs>
-          <path class="spark-line" d="M0,68 C30,60 50,72 80,55 C110,40 130,50 160,38 C195,24 220,40 250,26 C280,14 300,20 320,10"
-                fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M0,68 C30,60 50,72 80,55 C110,40 130,50 160,38 C195,24 220,40 250,26 C280,14 300,20 320,10 L320,90 L0,90 Z"
-                fill="url(#g)" stroke="none"/>
-        </svg>
-
-        <div class="holding">
-          <div class="coin btc">₿</div>
-          <div><div class="h-name">Bitcoin</div><div class="h-amt">0.42 BTC</div></div>
-          <div class="h-right"><div class="h-val">$28,140</div><div class="h-chg pos">+3.1%</div></div>
+        <div class="cc-verdict">“Digital reserve asset — 21M hard cap, institutional anchor”</div>
+        <div class="cc-expand">
+          <div class="cc-sec-label">Signal detail</div>
+          <div class="sig-detail">
+            <div class="sig-row"><div class="sig-dot" style="background:var(--sg)"></div><div class="sig-text"><strong>Dev</strong> — Core repos committed 3 days ago. 500+ contributors. Lightning Network active.</div></div>
+            <div class="sig-row"><div class="sig-dot" style="background:var(--sg)"></div><div class="sig-text"><strong>Founders</strong> — Developer community extremely active. No single-founder risk.</div></div>
+            <div class="sig-row"><div class="sig-dot" style="background:var(--sg)"></div><div class="sig-text"><strong>Team</strong> — Decentralised development. No departure risk by design.</div></div>
+            <div class="sig-row"><div class="sig-dot" style="background:var(--sg)"></div><div class="sig-text"><strong>Community</strong> — Strongly positive sentiment. Institutional narrative.</div></div>
+          </div>
+          <div class="cc-sec-label">Your thesis · Jan 15, 2026</div>
+          <div class="cc-thesis">“21M hard cap. Spot ETF approved. A scarce digital reserve asset with no counterparty risk…”</div>
+          <span class="cc-review">Review full thesis &amp; conviction →</span>
         </div>
-        <div class="holding">
-          <div class="coin eth">Ξ</div>
-          <div><div class="h-name">Ethereum</div><div class="h-amt">5.8 ETH</div></div>
-          <div class="h-right"><div class="h-val">$15,920</div><div class="h-chg pos">+1.8%</div></div>
+      </div>
+      <div class="coin-card">
+        <div class="cc-top">
+          <div class="coin-ic" style="background:#64748b;width:38px;height:38px;font-size:15px">◆</div>
+          <div class="cc-id">
+            <div class="cc-name">Sample Coin</div>
+            <div class="cc-meta">Demo holding · 15% of portfolio</div>
+          </div>
+          <div class="cc-right">
+            <div class="cc-val">$3,180</div>
+            <div class="cc-chg up">+2.1%</div>
+          </div>
+          <svg class="cc-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg>
         </div>
-        <div class="holding">
-          <div class="coin sol">◎</div>
-          <div><div class="h-name">Solana</div><div class="h-amt">31 SOL</div></div>
-          <div class="h-right"><div class="h-val">$4,860</div><div class="h-chg neg">−0.6%</div></div>
+        <div class="cc-conv">
+          <span class="pill pill-g"><span class="sd"></span>Dev: Active</span>
+          <span class="pill pill-g"><span class="sd"></span>Founders: Visible</span>
+          <span class="pill pill-g"><span class="sd"></span>Team: Focused</span>
+          <span class="pill pill-a"><span class="sd"></span>Community: Mixed</span>
         </div>
+        <div class="cc-verdict">“Illustrative example — every coin you hold gets its own conviction read.”</div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- DCA CALCULATOR (free, embedded) -->
-  <section id="dca">
-    <div class="wrap" style="text-align:center;">
-      <div class="reveal" style="max-width:40em;margin:0 auto;">
-        <div class="kicker">Free tool · No sign-up</div>
-        <h2>Crypto DCA Calculator</h2>
-        <p class="lead">See what investing a fixed amount on a regular schedule would have returned — for any of 3,000+ coins.</p>
+<!-- ══ DCA — FREE TOOL (section 2) ══ -->
+<section id="dca">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="dca-tabline">⬡ Free tool · No sign-up</div>
+      <h2>See what disciplined investing<br>actually returns.</h2>
+      <p class="sec-lead">See how much you'd have today if you had invested a set amount regularly — in any coin, over any period you choose.</p>
+    </div>
+    <div class="calc reveal">
+      <div class="fld picker">
+        <label>Coin</label>
+        <input type="text" id="dcaCoin" placeholder="Search any coin (Bitcoin, ETH, SOL...)" autocomplete="off">
+        <div id="dcaDD" class="dd" style="display:none"></div>
       </div>
-      <div class="calc reveal">
-        <div class="fld picker">
-          <label>Coin</label>
-          <input type="text" id="dcaCoin" placeholder="Search a coin (Bitcoin, ETH, SOL...)" autocomplete="off" />
-          <div id="dcaDD" class="dd" style="display:none"></div>
-        </div>
-        <div class="g2">
-          <div class="fld"><label>Amount each time (USD)</label><input type="number" id="dcaAmt" value="100" min="1" inputmode="decimal" /></div>
-          <div class="fld"><label>How often</label>
-            <div class="seg" id="dcaFreq">
-              <button data-f="daily">Daily</button><button data-f="weekly" class="active">Weekly</button><button data-f="biweekly">2 wks</button><button data-f="monthly">Monthly</button>
-            </div>
+      <div class="g2">
+        <div class="fld"><label>Amount each time (USD)</label><input type="number" id="dcaAmt" value="100" min="1" inputmode="decimal"></div>
+        <div class="fld"><label>How often</label>
+          <div class="seg" id="dcaFreq">
+            <button data-f="daily">Daily</button>
+            <button data-f="weekly" class="active">Weekly</button>
+            <button data-f="biweekly">2 weeks</button>
+            <button data-f="monthly">Monthly</button>
           </div>
         </div>
-        <div class="g2">
-          <div class="fld"><label>Start date</label><input type="date" id="dcaStart" /></div>
-          <div class="fld"><label>End date</label><input type="date" id="dcaEnd" /></div>
+      </div>
+      <div class="g2">
+        <div class="fld"><label>Start date</label><input type="date" id="dcaStart"></div>
+        <div class="fld"><label>End date</label><input type="date" id="dcaEnd"></div>
+      </div>
+      <div class="msg" id="dcaMsg"></div>
+      <div class="res" id="dcaRes">
+        <div class="big">
+          <div class="stat"><div class="k">Total invested</div><div class="v" id="dcaInvested">$0</div></div>
+          <div class="stat"><div class="k">Value today</div><div class="v" id="dcaValue">$0</div></div>
         </div>
-        <button class="btn btn-primary" style="width:100%;" id="dcaBtn">Calculate returns</button>
-        <div class="msg" id="dcaMsg"></div>
-        <div class="res" id="dcaRes">
-          <div class="big">
-            <div class="stat"><div class="k">Total invested</div><div class="v" id="dcaInvested">$0</div></div>
-            <div class="stat"><div class="k">Value today</div><div class="v" id="dcaValue">$0</div></div>
-          </div>
-          <div class="big">
-            <div class="stat"><div class="k">Profit / Loss</div><div class="v" id="dcaProfit">$0</div></div>
-            <div class="stat"><div class="k">Return</div><div class="v" id="dcaRoi">0%</div></div>
-          </div>
-          <div class="rows">
-            <div class="row"><span>Coin</span><span id="dcaRCoin">—</span></div>
-            <div class="row"><span>Number of buys</span><span id="dcaRBuys">0</span></div>
-            <div class="row"><span>Total accumulated</span><span id="dcaRCoins">0</span></div>
-            <div class="row"><span>Average buy price</span><span id="dcaRAvg">$0</span></div>
-            <div class="row"><span>Price today</span><span id="dcaRNow">$0</span></div>
-          </div>
+        <div class="big">
+          <div class="stat"><div class="k">Profit / Loss</div><div class="v" id="dcaProfit">$0</div></div>
+          <div class="stat"><div class="k">Return</div><div class="v" id="dcaRoi">0%</div></div>
         </div>
-        <div class="note">For information only — not financial advice. Past results don't guarantee future returns.</div>
+        <div class="rows">
+          <div class="row"><span>Coin</span><span id="dcaRCoin">—</span></div>
+          <div class="row"><span>Buys made</span><span id="dcaRBuys">0</span></div>
+          <div class="row"><span>Total accumulated</span><span id="dcaRCoins">0</span></div>
+          <div class="row"><span>Average buy price</span><span id="dcaRAvg">$0</span></div>
+          <div class="row"><span>Price today</span><span id="dcaRNow">$0</span></div>
+        </div>
+        <div class="cta-after"><a class="btn btn-primary" href="/app">Track this in CryptoIdea — free</a></div>
+      </div>
+      <div class="note">For information only — not financial advice. Past results don't guarantee future returns.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PAIN ══ -->
+<div class="pain" id="pain">
+  <div class="wrap pain-grid">
+    <div class="pain-story reveal">
+      <p>You've been there.</p>
+      <p>The market was moving. A coin was up. Everyone was talking about it. FOMO kicked in — and you bought.</p>
+      <p>Then it dropped. And when someone asked why you bought it, <strong>you didn't have a real answer.</strong> "Everyone said it would pump" isn't a thesis — it's a feeling.</p>
+      <p>And feelings make expensive mistakes.</p>
+      <p>Most trackers just let you add the coin and move on. They assume the decision is already made. <em>CryptoIdea stops you first.</em></p>
+    </div>
+    <div class="pain-quote reveal">
+      "The investor's chief problem — and even his worst enemy — is likely to be himself."
+      <div class="pain-quote-attr">Benjamin Graham · The Intelligent Investor</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HOW IT WORKS ══ -->
+<section class="how" id="how">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="kicker">How it works</div>
+      <h2>More than a tracker.<br><em>A research system.</em></h2>
+      <p class="sec-lead">Four steps that turn watching prices into real conviction — each one builds on the last.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><span class="connector"></span><div class="num">1</div><span class="tab-tag">Search tab</span><h4>Look it up first</h4><p>Find any coin and preview its fundamentals — and see what the community is actually researching. You start informed, not on a hot tip.</p></div>
+      <div class="step reveal"><span class="connector"></span><div class="num">2</div><span class="tab-tag">Journal tab</span><h4>Write your thesis</h4><p>When you add a coin, the app asks why you're buying it and what would change your mind. Your reasoning is saved with the position — something a plain tracker never asks.</p></div>
+      <div class="step reveal"><span class="connector"></span><div class="num">3</div><span class="tab-tag">Portfolio + Research</span><h4>Track and research together</h4><p>Live prices and real P&amp;L, plus AI conviction analysis on every holding — dev activity, founders, team and community. Not just what it's worth, but whether it's still worth holding.</p></div>
+      <div class="step reveal"><div class="num">4</div><span class="tab-tag">Journal + Learn</span><h4>Review and improve</h4><p>When the market moves, reread your own words against the latest signals and decide with evidence. Short lessons keep sharpening your edge over time.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FEATURES ══ -->
+<section class="sol" id="features">
+  <!-- Journal -->
+  <div class="wrap two-col">
+    <div class="sol-head">
+      <div class="kicker reveal">Investment Journal</div>
+      <h2 class="reveal">Write before you buy.<br><em>Know why you hold.</em></h2>
+      <p class="reveal">Every time you add a coin, CryptoIdea asks two questions: <strong>why are you buying this?</strong> And <strong>what would change your mind?</strong></p>
+      <p class="reveal" style="color:var(--ink-soft);font-size:17px;line-height:1.65;margin-bottom:24px">Your answers live with the position forever. When the market drops and panic sets in, you can read exactly why you bought — and decide if that reason still holds.</p>
+      <a class="btn btn-primary btn-lg reveal" href="/app">Start free</a>
+    </div>
+    <div>
+      <div class="jq q1 reveal">
+        <div class="jq-n">Question 1 of 2</div>
+        <div class="jq-q">Why are you buying this?</div>
+        <div class="jq-a">Real institutional adoption and growing developer activity. Clear use case, low fees, and a roadmap I can actually verify. The fundamentals back the position.</div>
+        <div class="jq-hint">Stored permanently with your position</div>
+      </div>
+      <div class="jq q2 reveal">
+        <div class="jq-n">Question 2 of 2</div>
+        <div class="jq-q">What would change your mind?</div>
+        <div class="jq-a">Spot ETF rejected. A major network outage damages developer confidence. Competing chains take back developer mindshare.</div>
+        <div class="jq-hint">Your personal exit criteria — written at entry</div>
+      </div>
+      <div class="later-card reveal">
+        <div class="lc-label">6 months later — your journal</div>
+        <div class="lc-row">
+          <div class="lc-ic" style="background:#64748b">◆</div>
+          <div><div class="lc-name">Sample Coin</div><div class="lc-date">Added Apr 20, 2026</div></div>
+        </div>
+        <div class="lc-thesis">"Real institutional adoption and growing developer activity. Clear use case, low fees, and a roadmap I can verify…"</div>
+        <div class="lc-tag">Conviction signals: thesis still intact</div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- BENEFITS -->
-  <section class="benefits">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <div class="kicker">Why Crypto Idea</div>
-        <h2>Clarity first. Confidence follows.</h2>
-        <p>No noise, no hype, no dashboards you'll never use. Just the few things that actually tell you how your portfolio is doing.</p>
+<!-- Conviction signals -->
+<section class="sol alt" id="conviction">
+  <div class="wrap">
+    <div class="sol-head reveal" style="max-width:40em;margin-bottom:44px">
+      <div class="kicker">Conviction Research</div>
+      <h2>Know what you own.<br><em>Not just what it's worth.</em></h2>
+      <p style="font-size:17px;color:var(--ink-soft);line-height:1.65;margin-top:14px">For every coin you hold, CryptoIdea runs four fundamental checks using AI web search. Know instantly whether a project is still being built, the founder is still showing up, and the community still believes.</p>
+    </div>
+    <div class="sig-grid">
+      <div class="sig-card reveal">
+        <span class="sig-emoji">💻</span>
+        <div class="sig-title">Development Activity</div>
+        <div class="sig-desc">Is the project still being actively built? We check public repositories — last commit date, active contributors, live codebases. A team that stops shipping code usually stops shipping product.</div>
+        <div class="sig-pills"><span class="pill pill-g"><span class="sd"></span>Active</span><span class="pill pill-a"><span class="sd"></span>Slowing</span><span class="pill pill-r"><span class="sd"></span>Dead</span></div>
       </div>
-      <div class="bgrid reveal">
-        <div class="bcard">
-          <div class="bicon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
-          </div>
-          <h3>One real number</h3>
-          <p>See your true total balance and 30-day change across every coin and wallet — not scattered across ten apps.</p>
-        </div>
-        <div class="bcard">
-          <div class="bicon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 12l2 2 4-4"/></svg>
-          </div>
-          <h3>Track in seconds</h3>
-          <p>Add holdings and transactions with quick swipe-to-edit gestures. Your portfolio stays current without the busywork.</p>
-        </div>
-        <div class="bcard">
-          <div class="bicon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          </div>
-          <h3>Private by default</h3>
-          <p>Your portfolio is yours. We don't sell your data or clutter the app with ads — the page you read is the page you get.</p>
-        </div>
-        <div class="bcard">
-          <div class="bicon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
-          </div>
-          <h3>Built to learn</h3>
-          <p>The Education section turns market behavior into simple principles, so every decision sharpens your edge.</p>
-        </div>
-        <div class="bcard">
-          <div class="bicon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M2 9h20M7 14h6"/></svg>
-          </div>
-          <h3>Plans that scale</h3>
-          <p>Start free, upgrade when you grow. Clear limits, fair pricing, and no surprises at renewal.</p>
-        </div>
-        <div class="bcard">
-          <div class="bicon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></svg>
-          </div>
-          <h3>iPhone &amp; web</h3>
-          <p>A fast, install-anywhere app that feels native on your phone and lives just as comfortably in your browser.</p>
-        </div>
+      <div class="sig-card reveal">
+        <span class="sig-emoji">👤</span>
+        <div class="sig-title">Founder Visibility</div>
+        <div class="sig-desc">Has the founder appeared in an interview, podcast, or conference in the last three months? Silent founders are one of the earliest warning signs of a project losing direction.</div>
+        <div class="sig-pills"><span class="pill pill-g"><span class="sd"></span>Visible</span><span class="pill pill-a"><span class="sd"></span>Limited</span><span class="pill pill-r"><span class="sd"></span>Departed</span></div>
+      </div>
+      <div class="sig-card reveal">
+        <span class="sig-emoji">🏗️</span>
+        <div class="sig-title">Team Focus</div>
+        <div class="sig-desc">Are founders still fully committed, or have they quietly taken other roles? We watch public activity for the signals of divided attention and silent departures.</div>
+        <div class="sig-pills"><span class="pill pill-g"><span class="sd"></span>Focused</span><span class="pill pill-a"><span class="sd"></span>Divided</span><span class="pill pill-r"><span class="sd"></span>Gone</span></div>
+      </div>
+      <div class="sig-card reveal">
+        <span class="sig-emoji">💬</span>
+        <div class="sig-title">Community Sentiment</div>
+        <div class="sig-desc">What are holders actually saying — not the project's own posts, but the replies? Real community sentiment reveals what the marketing never will.</div>
+        <div class="sig-pills"><span class="pill pill-g"><span class="sd"></span>Strong</span><span class="pill pill-a"><span class="sd"></span>Mixed</span><span class="pill pill-r"><span class="sd"></span>Frustrated</span></div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- STEPS -->
-  <section>
-    <div class="wrap">
-      <div class="section-head reveal">
-        <div class="kicker">How it works</div>
-        <h2>From scattered to settled in three steps.</h2>
-      </div>
-      <div class="steps">
-        <div class="step reveal"><div class="num">1</div><h3>Add your holdings</h3><p>Enter the coins and amounts you hold. Crypto Idea pulls live prices and builds your portfolio instantly.</p></div>
-        <div class="step reveal"><div class="num">2</div><h3>See your real position</h3><p>One balance, one chart, one truth. Watch your 30-day performance and know exactly where you stand.</p></div>
-        <div class="step reveal"><div class="num">3</div><h3>Sharpen your edge</h3><p>Use the Education principles to make calmer, better decisions — and let confidence replace the guesswork.</p></div>
-      </div>
+<!-- Action strip -->
+<div class="action-strip">
+  <div class="wrap">
+    <h2 class="reveal">Research before you regret it.</h2>
+    <p class="reveal">Track your portfolio. Write your thesis. Check your conviction. Start free — no card required.</p>
+    <a class="btn reveal" href="/app" style="background:#fff;color:var(--ink);font-size:16px;padding:15px 32px">Start free</a>
+  </div>
+</div>
+
+<!-- Everything included -->
+<section class="sol">
+  <div class="wrap">
+    <div class="sol-head reveal" style="max-width:32em;margin-bottom:44px">
+      <div class="kicker">Everything included</div>
+      <h2>Everything you need.<br><em>Nothing you don't.</em></h2>
     </div>
-  </section>
+    <div class="feat-grid reveal">
+      <div class="feat"><div class="feat-icon">📝</div><h3>Investment Journal</h3><p>Two questions before every buy. Your thesis lives with the position forever. Hold with data, not hope.</p></div>
+      <div class="feat"><div class="feat-icon">🔍</div><h3>Conviction Signals</h3><p>AI-powered fundamental checks on every coin you hold. Four signals, updated automatically. Green, amber, or red.</p></div>
+      <div class="feat"><div class="feat-icon">📊</div><h3>Portfolio Tracker</h3><p>Every coin, every transaction, real P&amp;L. Live market prices, one clean number — no cluttered dashboards.</p></div>
+      <div class="feat"><div class="feat-icon">🎓</div><h3>Investing Education</h3><p>Short lessons from the best investors in history — applied immediately to your real portfolio.</p></div>
+      <div class="feat"><div class="feat-icon">🔒</div><h3>Private by design</h3><p>No ads. No data selling. No third-party sharing. Your portfolio is yours, full stop.</p></div>
+      <div class="feat"><div class="feat-icon">📱</div><h3>iPhone &amp; web</h3><p>Installs like a native app, works just as well in any browser. No App Store required.</p></div>
+    </div>
+  </div>
+</section>
 
-  <!-- PRICING -->
-  <section class="pricing" id="pricing">
-    <div class="wrap" style="text-align:center;">
-      <div class="reveal" style="max-width:36em;margin:0 auto;">
-        <div class="kicker">Pricing</div>
-        <h2>Simple plans. Honest limits.</h2>
-        <p style="margin-left:auto;margin-right:auto;">Start free and upgrade only when your portfolio outgrows the plan. Cancel anytime.</p>
-      </div>
+<!-- ══ LEARN ══ -->
+<section class="sol alt learn-bg" id="learn">
+  <div class="wrap principles-grid">
+    <div>
+      <div class="kicker reveal">Investing Education</div>
+      <h2 class="reveal">The principles that built<br>generational wealth.<br><em>Applied to crypto.</em></h2>
+      <p class="reveal" style="font-size:17px;color:var(--ink-soft);line-height:1.65;margin-top:16px;margin-bottom:28px">Most investing education is long, passive, and disconnected from your actual portfolio. CryptoIdea turns the timeless principles of the world's greatest value investors into short lessons — applied immediately to the coins you actually hold.</p>
+      <a class="btn btn-dark btn-lg reveal" href="/app">Start free</a>
+    </div>
+    <div class="principles-list reveal">
+      <div class="principle"><span class="pn">01</span><span class="pt">Know what you hold before you act on it.</span></div>
+      <div class="principle"><span class="pn">02</span><span class="pt">Write your thesis before you buy — not after.</span></div>
+      <div class="principle"><span class="pn">03</span><span class="pt">A project that stops building usually stops mattering.</span></div>
+      <div class="principle"><span class="pn">04</span><span class="pt">Conviction comes from data, not from watching the price.</span></div>
+      <div class="principle"><span class="pn">05</span><span class="pt">The best exit strategy is a thesis written at entry.</span></div>
+      <div class="principle"><span class="pn">06</span><span class="pt">Your edge is discipline, repeated.</span></div>
+    </div>
+  </div>
+</section>
 
-      <div class="toggle reveal" role="group" aria-label="Billing period">
+<!-- ══ PRICING ══ -->
+<section class="pricing" id="pricing">
+  <div class="wrap">
+    <div class="pricing-head reveal">
+      <div class="kicker">Pricing</div>
+      <h2>Simple plans.<br>Honest limits.</h2>
+      <p style="font-size:17px;color:var(--ink-soft);margin-top:14px">Start free. Upgrade when your portfolio grows. Cancel anytime.</p>
+      <div class="billing-tog">
         <button id="btnMonthly" class="active" onclick="setBilling('monthly')">Monthly</button>
         <button id="btnYearly" onclick="setBilling('yearly')">Yearly <span class="save-tag">−33%</span></button>
       </div>
-
-      <div class="plans">
-        <div class="plan reveal">
-          <h3>Starter</h3>
-          <div class="price" data-m="$0" data-y="$0">$0<span>/mo</span></div>
-          <p class="pdesc">For getting your first portfolio off the ground.</p>
-          <ul>
-            <li>1 portfolio</li>
-            <li>Up to 10 coins</li>
-            <li>50 transactions per coin</li>
-            <li>Live prices &amp; 30-day chart</li>
-            <li>Web &amp; iPhone access</li>
-          </ul>
-          <a class="btn btn-ghost" href="/app">Start free</a>
-        </div>
-
-        <div class="plan featured reveal">
-          <h3>Pro</h3>
-          <div class="price" data-m="$9.99" data-y="$6.67">$9.99<span>/mo</span></div>
-          <p class="pdesc">For active investors who want the full picture.</p>
-          <ul>
-            <li>10 portfolios</li>
-            <li>Up to 200 coins each</li>
-            <li>2,000 transactions per coin</li>
-            <li>Unlimited DCA calculations</li>
-            <li>Education library</li>
-          </ul>
-          <a class="btn btn-primary" href="/app">Choose Pro</a>
-        </div>
-
-        <div class="plan reveal">
-          <h3>Premium</h3>
-          <div class="price" data-m="$49.99" data-y="$33.33">$49.99<span>/mo</span></div>
-          <p class="pdesc">For serious portfolios that need room to grow.</p>
-          <ul>
-            <li>50 portfolios</li>
-            <li>Up to 500 coins each</li>
-            <li>5,000 transactions per coin</li>
-            <li>Advanced portfolio insights</li>
-            <li>Everything in Pro, plus early access</li>
-          </ul>
-          <a class="btn btn-ghost" href="/app">Choose Premium</a>
-        </div>
-      </div>
-      <p class="hero-note reveal" style="margin-top:28px;">Payments handled securely through PayPal.</p>
     </div>
-  </section>
-
-  <!-- EDUCATION -->
-  <section id="edge">
-    <div class="wrap edu">
-      <div class="reveal">
-        <div class="kicker">Education</div>
-        <h2>Own your edge — built on principles, not predictions.</h2>
-        <p style="color:var(--ink-soft);font-size:17px;margin:16px 0 26px;">Markets are noisy. Your strategy doesn't have to be. The Education section distills investing into a handful of clear principles you can actually use.</p>
-        <a class="btn btn-primary btn-lg" href="/edge">Read the guide</a>
+    <div class="plans">
+      <div class="plan reveal">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price" data-m="$0" data-y="$0">$0<span>/month</span></div>
+        <p class="plan-desc">Your first portfolio, fully researched.</p>
+        <ul class="plan-feats">
+          <li>Track 1 portfolio, up to 10 coins</li>
+          <li class="new">Journal before you buy</li>
+          <li class="new">AI conviction signals on your holdings</li>
+          <li>Portfolio Pulse AI &amp; Ask AI</li>
+          <li>Up to 50 transactions per coin</li>
+          <li>2 Learn modules to get started</li>
+        </ul>
+        <a class="btn btn-ghost" href="/app">Start free</a>
       </div>
-      <div class="edu-card reveal">
-        <div class="principle"><span class="pn">01</span><span class="pt">Know what you hold before you act on it.</span></div>
-        <div class="principle"><span class="pn">02</span><span class="pt">Time in the market beats timing the market.</span></div>
-        <div class="principle"><span class="pn">03</span><span class="pt">Position size is risk management, not ambition.</span></div>
-        <div class="principle"><span class="pn">04</span><span class="pt">A plan you can keep beats a perfect one you can't.</span></div>
-        <div class="principle"><span class="pn">05</span><span class="pt">Track the process, not just the price.</span></div>
-        <div class="principle"><span class="pn">06</span><span class="pt">Your edge is discipline, repeated.</span></div>
+      <div class="plan featured reveal">
+        <div class="plan-name">Pro</div>
+        <div class="plan-price" data-m="$9.99" data-y="$6.67">$9.99<span>/month</span></div>
+        <p class="plan-desc">For investors who take research seriously.</p>
+        <ul class="plan-feats">
+          <li>Track 10 portfolios, 200 coins each</li>
+          <li class="new">Journal before you buy</li>
+          <li class="new">AI conviction signals on your holdings</li>
+          <li>Portfolio Pulse AI &amp; Ask AI</li>
+          <li>Up to 2,000 transactions per coin</li>
+          <li>5 Learn modules unlocked</li>
+        </ul>
+        <a class="btn btn-ghost" href="/app">Choose Pro</a>
+      </div>
+      <div class="plan reveal">
+        <div class="plan-name">Premium</div>
+        <div class="plan-price" data-m="$49.99" data-y="$33.33">$49.99<span>/month</span></div>
+        <p class="plan-desc">For serious portfolios with serious ambitions.</p>
+        <ul class="plan-feats">
+          <li>Track 50 portfolios, 500 coins each</li>
+          <li class="new">Unlimited journaling &amp; thesis history</li>
+          <li class="new">AI conviction signals on your holdings</li>
+          <li>Priority Pulse &amp; unlimited Ask AI</li>
+          <li>Up to 5,000 transactions per coin</li>
+          <li>All Learn modules unlocked + priority support</li>
+        </ul>
+        <a class="btn btn-ghost" href="/app">Choose Premium</a>
       </div>
     </div>
-  </section>
+    <p style="text-align:center;font-size:13px;color:var(--ink-faint);margin-top:24px">
+      Payments handled securely &nbsp;·&nbsp; Cancel anytime &nbsp;·&nbsp; No card to start on Starter
+    </p>
+  </div>
+</section>
 
-  <!-- SUBSCRIBE -->
-  <section class="benefits">
-    <div class="wrap cta-band reveal">
-      <div class="kicker" style="justify-content:center;">Stay in the loop</div>
-      <h2 style="margin:0 auto;max-width:18em;">Get clearer about crypto, one email at a time.</h2>
-      <p style="margin:14px auto 0;max-width:34em;">Occasional notes on portfolio thinking and new features. No spam, unsubscribe anytime.</p>
-      <div class="subscribe">
-        <input type="text" id="hpField" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" />
-        <input type="email" id="emailInput" placeholder="you@email.com" aria-label="Email address" />
-        <button class="btn btn-primary" onclick="subscribe()">Subscribe</button>
-      </div>
-      <div class="sub-msg" id="subMsg"></div>
+<!-- Subscribe -->
+<section class="sub-section">
+  <div class="wrap">
+    <div class="kicker reveal" style="text-align:center">Stay in the loop</div>
+    <h2 class="reveal">One email at a time.<br><em>No noise.</em></h2>
+    <p class="reveal">Portfolio thinking, new features, and the principles behind good investing. Unsubscribe anytime.</p>
+    <div class="subscribe reveal">
+      <input type="text" id="hpField" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+      <input type="email" id="emailInput" placeholder="you@email.com" aria-label="Email address">
+      <button class="btn btn-dark" onclick="subscribe()">Subscribe</button>
     </div>
-  </section>
+    <div class="sub-msg" id="subMsg"></div>
+    <p class="sub-note">By subscribing you agree to receive occasional emails from CryptoIdea. We never sell or share your email, and you can unsubscribe at any time. Emails are for general information only and are not financial advice.</p>
+  </div>
+</section>
+
 </main>
 
 <footer>
   <div class="wrap">
-    <div class="foot">
-      <a href="#top" class="brand"><span class="mark">C</span> Crypto Idea</a>
+    <div class="foot-row">
+      <a href="#top" class="brand"><span class="mark">C</span> CryptoIdea</a>
       <div class="foot-links">
-        <a href="#product">Product</a>
+        <a href="#dca">DCA Tool</a>
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#learn">Learn</a>
         <a href="#pricing">Pricing</a>
-        <a href="#edge">Education</a>
-        <a href="#dca">DCA Calculator</a>
         <a href="/app">Open app</a>
         <a href="/privacy.html">Privacy</a>
         <a href="/terms.html">Terms</a>
       </div>
-      <small>© <span id="year"></span> Crypto Idea</small>
+      <small>© <span id="year"></span> CryptoIdea</small>
     </div>
-    <p class="disclaimer">Crypto Idea is a portfolio tracking tool for informational purposes only. Nothing here is financial, investment, or trading advice. Cryptocurrency is volatile and you can lose money. Always do your own research.</p>
+    <p class="foot-tag">Research before you regret it.</p>
+    <p class="disclaimer">CryptoIdea is a portfolio tracking and research tool for informational purposes only. Nothing here is financial, investment, or trading advice. Cryptocurrency is highly volatile and you can lose money. Conviction signals are AI-generated research aids — not investment recommendations. CryptoIdea is not affiliated with, endorsed by, or sponsored by any individual or company referenced for educational purposes. Always do your own research before making any investment decision.</p>
   </div>
 </footer>
 
 <script>
-  // Header shadow on scroll
-  const header = document.getElementById('header');
-  const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
-  window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+// Header
+const hdr=document.getElementById('header');
+const onS=()=>hdr.classList.toggle('scrolled',scrollY>8);
+window.addEventListener('scroll',onS,{passive:true});onS();
 
-  // Mobile menu
-  const toggle = document.getElementById('menuToggle');
-  toggle.addEventListener('click', () => header.classList.toggle('menu-open'));
-  document.querySelectorAll('#navLinks a').forEach(a =>
-    a.addEventListener('click', () => header.classList.remove('menu-open')));
+// Mobile menu
+const tog=document.getElementById('menuToggle');
+tog.addEventListener('click',()=>hdr.classList.toggle('menu-open'));
+document.querySelectorAll('#navLinks a').forEach(a=>a.addEventListener('click',()=>hdr.classList.remove('menu-open')));
 
-  // Pricing toggle
-  function setBilling(period) {
-    const monthly = period === 'monthly';
-    document.getElementById('btnMonthly').classList.toggle('active', monthly);
-    document.getElementById('btnYearly').classList.toggle('active', !monthly);
-    document.querySelectorAll('.plan .price').forEach(el => {
-      const val = monthly ? el.dataset.m : el.dataset.y;
-      const free = val === '$0';
-      el.innerHTML = val + '<span>' + (free ? '/mo' : (monthly ? '/mo' : '/mo, billed yearly')) + '</span>';
-    });
+// Billing toggle
+function setBilling(p){
+  const m=p==='monthly';
+  document.getElementById('btnMonthly').classList.toggle('active',m);
+  document.getElementById('btnYearly').classList.toggle('active',!m);
+  document.querySelectorAll('.plan-price').forEach(el=>{
+    const v=m?el.dataset.m:el.dataset.y;
+    const free=v==='$0';
+    el.innerHTML=v+'<span>'+(free?'/month':(m?'/month':'/month, billed yearly'))+'</span>';
+  });
+}
+
+// Subscribe
+function subscribe(){
+  const input=document.getElementById('emailInput');
+  const msg=document.getElementById('subMsg');
+  const email=input.value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){msg.style.color='var(--warn)';msg.textContent='Please enter a valid email.';return;}
+  msg.style.color='var(--ink-faint)';msg.textContent='Subscribing…';
+  fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({email,hp:document.getElementById('hpField')?.value||''})})
+    .then(r=>r.json().catch(()=>({})).then(d=>({ok:r.ok,d})))
+    .then(res=>{
+      if(res.ok&&res.d?.success){msg.style.color='var(--accent)';msg.textContent="You're on the list — thanks!";input.value='';}
+      else{msg.style.color='var(--warn)';msg.textContent="Couldn't subscribe right now — please try again.";}
+    }).catch(()=>{msg.style.color='var(--warn)';msg.textContent='Network error — please try again.';});
+}
+document.getElementById('emailInput').addEventListener('keydown',e=>{if(e.key==='Enter')subscribe();});
+
+// Year
+document.getElementById('year').textContent=new Date().getFullYear();
+
+// Reveal on scroll
+const io=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});
+},{threshold:.1,rootMargin:'0px 0px -36px 0px'});
+document.querySelectorAll('.reveal').forEach((el,i)=>{
+  el.style.transitionDelay=(Math.min(i%5,4)*80)+'ms';io.observe(el);});
+
+// Live plan prices from admin config (falls back to hardcoded data-* values)
+fetch('/api/config').then(r=>r.ok?r.json():null).then(c=>{
+  if(!c||!c.plans)return;
+  var cards=document.querySelectorAll('.plan-price');
+  ['free','pro','premium'].forEach((t,i)=>{
+    var p=c.plans[t];if(!cards[i]||!p||p.price==null)return;
+    var y=Math.round(p.price*8/12*100)/100;
+    cards[i].dataset.m='$'+p.price;cards[i].dataset.y='$'+y;
+  });
+  var yEl=document.getElementById('btnYearly');
+  setBilling(yEl&&yEl.classList.contains('active')?'yearly':'monthly');
+}).catch(()=>{});
+
+// ── DCA Calculator ──
+// Prefers the live API (3,000+ coins, CDN-cached on the deployed site). When the
+// backend isn't reachable (e.g. this preview), it falls back to a small embedded
+// dataset so the tool stays fully usable as a demo. The fallback is clearly
+// approximate monthly data for major coins only.
+(function(){
+  var inp=document.getElementById('dcaCoin');if(!inp)return;
+  var dd=document.getElementById('dcaDD');
+  var sel={id:'bitcoin',symbol:'BTC',name:'Bitcoin'};
+  var freq='weekly';
+  inp.value='Bitcoin (BTC)';
+
+  // Embedded fallback: approximate month-end USD prices, Jan 2021 → Jun 2026.
+  var FB_PRICES={
+    bitcoin:[33,45,58,57,37,35,41,47,43,61,57,46, 38,43,45,38,31,19,23,20,19,20,17,16, 23,23,28,29,27,30,29,26,27,34,37,42, 43,61,71,60,67,62,66,59,63,70,96,94, 102,84,82,94,104,107,115,112,109,110,105,103, 103,100,98,101,103,103].map(v=>v*1000),
+    ethereum:[1.3,1.4,1.9,2.7,2.6,2.3,2.5,3.2,3.0,4.3,4.6,3.7, 2.7,2.9,3.3,2.8,1.9,1.0,1.7,1.6,1.3,1.6,1.3,1.2, 1.6,1.6,1.8,1.9,1.9,1.9,1.9,1.7,1.7,1.8,2.0,2.3, 2.3,3.3,3.5,3.0,3.8,3.4,3.2,2.5,2.6,2.5,3.7,3.3, 3.3,2.2,1.8,1.8,2.5,2.4,2.6,2.4,2.3,2.3,2.2,2.1, 2.1,2.0,1.9,2.0,2.1,2.1].map(v=>v*1000),
+    solana:[3,13,19,28,35,33,37,110,170,200,240,170, 100,90,130,100,45,35,40,32,33,30,14,10, 24,23,21,20,20,18,24,21,21,38,60,100, 96,110,190,135,165,145,135,145,155,170,235,190, 215,140,125,150,165,150,180,200,185,190,170,160, 160,150,140,150,160,160],
+    cardano:[.34,.93,1.18,1.20,1.68,1.36,1.30,2.95,2.20,2.00,1.55,1.31, 1.10,.92,1.15,.78,.50,.45,.51,.45,.43,.32,.31,.25, .35,.39,.40,.38,.37,.29,.30,.26,.25,.30,.38,.59, .54,.72,.65,.45,.46,.39,.39,.33,.35,.34,1.04,.85, .95,.62,.65,.70,.75,.65,.80,.85,.78,.80,.72,.68, .68,.62,.58,.62,.66,.66],
+    ripple:[.28,.45,.57,1.38,.88,.66,.67,1.12,.92,1.06,1.02,.83, .76,.78,.83,.63,.40,.31,.37,.34,.43,.46,.39,.34, .39,.40,.47,.46,.47,.47,.71,.51,.52,.56,.62,.62, .56,.62,.63,.51,.52,.49,.59,.56,.59,.52,1.45,2.10, 2.40,2.20,2.10,2.20,2.30,2.10,3.10,2.90,2.80,2.85,2.50,2.30, 2.30,2.10,2.00,2.10,2.20,2.20]
+  };
+  var FB_META={
+    bitcoin:{symbol:'BTC',name:'Bitcoin',color:'#f7931a',g:'₿'},
+    ethereum:{symbol:'ETH',name:'Ethereum',color:'#4b6ef5',g:'Ξ'},
+    solana:{symbol:'SOL',name:'Solana',color:'#11b886',g:'◎'},
+    cardano:{symbol:'ADA',name:'Cardano',color:'#0d6dca',g:'₳'},
+    ripple:{symbol:'XRP',name:'XRP',color:'#23292f',g:'✕'}
+  };
+  var FB_COINS=Object.keys(FB_META).map((id,i)=>({id:id,symbol:FB_META[id].symbol,name:FB_META[id].name,rank:i+1}));
+  function fbHist(id){
+    var arr=FB_PRICES[id];if(!arr)return [];
+    var out=[];for(var i=0;i<arr.length;i++){out.push([Date.UTC(2021,i,1),arr[i]]);}
+    return out;
   }
 
-  // Pull live plan prices from admin config (falls back to the hardcoded data-* values).
-  fetch('/api/config').then(function(r){return r.ok?r.json():null;}).then(function(c){
-    if(!c||!c.plans) return;
-    var cards=document.querySelectorAll('.plan .price'); // order: free, pro, premium
-    ['free','pro','premium'].forEach(function(tier,i){
-      var p=c.plans[tier]; if(!cards[i]||!p||p.price==null) return;
-      var y=Math.round(p.price*8/12*100)/100;   // ~33% yearly discount, matching the design
-      cards[i].dataset.m='$'+p.price; cards[i].dataset.y='$'+y;
+  function iso(d){return d.toISOString().split('T')[0];}
+  var eEl=document.getElementById('dcaEnd'),sEl=document.getElementById('dcaStart');
+  var e0=new Date(),s0=new Date();s0.setFullYear(s0.getFullYear()-3);
+  eEl.value=iso(e0);sEl.value=iso(s0);
+  document.querySelectorAll('#dcaFreq button').forEach(b=>{
+    b.addEventListener('click',function(){
+      document.querySelectorAll('#dcaFreq button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');freq=b.dataset.f;calc();
     });
-    var yEl=document.getElementById('btnYearly');
-    setBilling(yEl && yEl.classList.contains('active') ? 'yearly' : 'monthly');
-  }).catch(function(){});
-
-  // Email capture (front-end demo — wire to your backend / PayPal flow later)
-  function subscribe() {
-    var hp = document.getElementById('hpField');
-    const input = document.getElementById('emailInput');
-    const msg = document.getElementById('subMsg');
-    const email = input.value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      msg.style.color = '#c0492f'; msg.textContent = 'Please enter a valid email.'; return;
-    }
-    msg.style.color = 'var(--ink-faint)'; msg.textContent = 'Subscribing…';
-    fetch('/api/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, hp: hp ? hp.value : '' })
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; });
-    }).then(function (res) {
-      if (res.ok && res.d && res.d.success) {
-        msg.style.color = 'var(--accent)'; msg.textContent = "You're on the list — thanks!"; input.value = '';
-      } else {
-        msg.style.color = '#c0492f'; msg.textContent = "Couldn't subscribe right now — please try again.";
-      }
-    }).catch(function () {
-      msg.style.color = '#c0492f'; msg.textContent = 'Network error — please try again.';
-    });
-  }
-  document.getElementById('emailInput').addEventListener('keydown', e => { if (e.key === 'Enter') subscribe(); });
-
-  // Year
-  document.getElementById('year').textContent = new Date().getFullYear();
-
-  // Reveal on scroll
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((e, i) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-  document.querySelectorAll('.reveal').forEach((el, i) => {
-    el.style.transitionDelay = (Math.min(i % 6, 5) * 70) + 'ms';
-    io.observe(el);
   });
 
-  // ── Free DCA calculator ──
-  // Cost design: the ~3,000-coin list is fetched ONCE (then cached on Firebase's
-  // CDN for a day) and ALL searching happens in the browser — typing never hits the
-  // backend. Calculating fetches only the coin's history (also CDN-cached, and price
-  // history doesn't change), and uses its latest point as "today's price" — so no
-  // live-price call. Net: thousands of visitors add ~0 Cloud Function invocations;
-  // the scheduled jobs refresh the data at most daily. (CDN caching applies on the
-  // deployed site, not the local dev server.)
-  (function(){
-    var input = document.getElementById('dcaCoin');
-    if (!input) return;
-    var dd = document.getElementById('dcaDD');
-    var sel = { id:'bitcoin', symbol:'BTC', name:'Bitcoin', thumb:'/icons/icon-96.png' };
-    var freq = 'weekly';
-    input.value = 'Bitcoin (BTC)';
-    function iso(d){ return d.toISOString().split('T')[0]; }
-    var endEl = document.getElementById('dcaEnd'), startEl = document.getElementById('dcaStart');
-    var e0 = new Date(), s0 = new Date(); s0.setFullYear(s0.getFullYear()-3);
-    endEl.value = iso(e0); startEl.value = iso(s0);
-    document.querySelectorAll('#dcaFreq button').forEach(function(b){
-      b.addEventListener('click', function(){
-        document.querySelectorAll('#dcaFreq button').forEach(function(x){x.classList.remove('active')});
-        b.classList.add('active'); freq = b.dataset.f; calculate();
+  var COINS=null,cr=null;
+  function loadCoins(){
+    if(COINS)return Promise.resolve(COINS);
+    if(cr)return cr;
+    cr=fetch('/api/coinlist').then(r=>r.ok?r.json():{coins:[]})
+      .then(d=>{COINS=(d&&d.coins&&d.coins.length)?d.coins:FB_COINS;return COINS;})
+      .catch(()=>{COINS=FB_COINS;return COINS;});
+    return cr;
+  }
+  function render(list){
+    dd.textContent='';
+    list.slice(0,50).forEach(c=>{
+      var el=document.createElement('div');el.className='opt';
+      var meta=FB_META[c.id];
+      if(c.thumb){var img=document.createElement('img');img.alt='';img.src=c.thumb;img.onerror=function(){this.style.visibility='hidden';};el.appendChild(img);}
+      else{var oic=document.createElement('div');oic.className='oic';oic.style.background=(meta&&meta.color)||'#888';oic.textContent=(meta&&meta.g)||(c.symbol||'?').charAt(0);el.appendChild(oic);}
+      var box=document.createElement('div');
+      var n=document.createElement('div');n.className='n';n.textContent=c.name;
+      var s=document.createElement('div');s.className='s';s.textContent=c.symbol+(c.rank?' · #'+c.rank:'');
+      box.appendChild(n);box.appendChild(s);el.appendChild(box);
+      el.addEventListener('click',function(){
+        sel={id:c.id,symbol:c.symbol,name:c.name};
+        inp.value=c.name+' ('+c.symbol+')';dd.style.display='none';calc();
       });
+      dd.appendChild(el);
     });
-
-    // Load the full coin list once; search is then 100% client-side.
-    var COINS = null, coinsReq = null;
-    function loadCoins(){
-      if (COINS) return Promise.resolve(COINS);
-      if (coinsReq) return coinsReq;
-      coinsReq = fetch('/api/coinlist').then(function(r){return r.ok?r.json():{coins:[]};})
-        .then(function(d){ COINS = (d && d.coins) || []; return COINS; })
-        .catch(function(){ COINS = []; return COINS; });
-      return coinsReq;
-    }
-    function render(list){
-      dd.textContent = '';
-      list.slice(0,50).forEach(function(c){
-        // Build with textContent (NOT innerHTML) so coin names can't inject HTML/JS.
-        var el=document.createElement('div'); el.className='opt';
-        var img=document.createElement('img'); img.alt=''; if(c.thumb) img.src=c.thumb; img.onerror=function(){this.style.visibility='hidden';};
-        var box=document.createElement('div');
-        var n=document.createElement('div'); n.className='n'; n.textContent=c.name;
-        var s=document.createElement('div'); s.className='s'; s.textContent=c.symbol+(c.rank?' · #'+c.rank:'');
-        box.appendChild(n); box.appendChild(s); el.appendChild(img); el.appendChild(box);
-        el.addEventListener('click', function(){ sel={id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb}; input.value=c.name+' ('+c.symbol+')'; dd.style.display='none'; calculate(); });
-        dd.appendChild(el);
-      });
-      dd.style.display = list.length ? 'block':'none';
-    }
-    input.addEventListener('focus', loadCoins);   // warm the list on first focus
-    input.addEventListener('input', function(){
-      var q = input.value.trim().toLowerCase();
-      if (q.length < 1){ dd.style.display='none'; return; }
-      loadCoins().then(function(all){
-        // Two buckets: coins that START WITH the typed letters come first (what you'd
-        // expect when typing "t" → "te" …), then "contains" matches. Each bucket stays
-        // in the server's rank order, so the most established coins float to the top.
-        var pre = [], sub = [];
-        for (var i=0;i<all.length;i++){
-          var c = all[i];
-          var name=(c.name||'').toLowerCase(), sym=(c.symbol||'').toLowerCase(), id=(c.id||'').toLowerCase();
-          if (sym.indexOf(q)===0 || name.indexOf(q)===0 || id.indexOf(q)===0){ if (pre.length<50) pre.push(c); }
-          else if (sym.indexOf(q)>=0 || name.indexOf(q)>=0 || id.indexOf(q)>=0){ if (sub.length<50) sub.push(c); }
-        }
-        render(pre.concat(sub));
-      });
-    });
-    document.addEventListener('click', function(ev){ if(!input.parentNode.contains(ev.target)) dd.style.display='none'; });
-    function money(n){ if(n==null||isNaN(n)) return '$0'; var a=Math.abs(n); if(a>=1000) return '$'+n.toLocaleString('en-US',{maximumFractionDigits:0}); if(a>=1) return '$'+n.toFixed(2); return '$'+n.toFixed(a<0.0001?8:4); }
-    function genDates(start,end,f){ var d=[],c=new Date(start),e=new Date(end); while(c<=e){ d.push(new Date(c)); if(f==='daily')c.setDate(c.getDate()+1); else if(f==='weekly')c.setDate(c.getDate()+7); else if(f==='biweekly')c.setDate(c.getDate()+14); else c.setMonth(c.getMonth()+1);} return d; }
-    var btn=document.getElementById('dcaBtn'), msg=document.getElementById('dcaMsg'), amtEl=document.getElementById('dcaAmt');
-
-    // History is cached PER COIN, so changing the amount/frequency/dates recomputes
-    // instantly with no new request; only switching coins fetches (and that's CDN-cached).
-    var histCache = {};
-    function getHistory(id){
-      if (histCache[id]) return Promise.resolve(histCache[id]);
-      return fetch('/api/history?id='+encodeURIComponent(id)).then(function(r){return r.ok?r.json():{prices:[]};})
-        .then(function(d){ histCache[id]=(d&&d.prices)||[]; return histCache[id]; })
-        .catch(function(){ histCache[id]=[]; return histCache[id]; });
-    }
-
-    // ONE calculation path — called by the button AND by every input change, so the
-    // result always reflects the current coin / amount / frequency / dates.
-    function calculate(){
-      msg.textContent='';
-      var amount=parseFloat(amtEl.value), start=startEl.value, end=endEl.value;
-      if(!sel){ msg.textContent='Pick a coin first.'; return; }
-      if(!amount||amount<=0){ msg.textContent='Enter an amount.'; return; }
-      if(!start||!end||new Date(start)>=new Date(end)){ msg.textContent='Pick a valid date range (start before end).'; return; }
-      btn.textContent='Calculating...'; btn.disabled=true;
-      // Only the (CDN-cached) history is needed; its latest point is "today's price".
-      getHistory(sel.id).then(function(hist){
-        if(!hist.length){ msg.textContent='No historical data for this coin. Try another coin or a more recent start date.'; return; }
-        var startMs=new Date(start).getTime(), earliest=hist[0][0]; if(startMs<earliest)startMs=earliest;
-        var dates=genDates(new Date(startMs), new Date(end), freq);
-        var coins=0,invested=0,buys=0;
-        for(var i=0;i<dates.length;i++){ var ts=dates[i].getTime(), best=hist[0], bd=Infinity; for(var j=0;j<hist.length;j++){ var diff=Math.abs(hist[j][0]-ts); if(diff<bd){bd=diff;best=hist[j];} } var price=best[1]; if(price>0){coins+=amount/price; invested+=amount; buys++;} }
-        if(!buys){ msg.textContent='No price points in that range.'; return; }
-        var nowP=hist[hist.length-1][1], value=coins*nowP, profit=value-invested, roi=invested>0?(profit/invested)*100:0, avg=coins>0?invested/coins:0;
-        document.getElementById('dcaInvested').textContent=money(invested);
-        document.getElementById('dcaValue').textContent=money(value);
-        var p=document.getElementById('dcaProfit'); p.textContent=(profit>=0?'+':'')+money(profit); p.className='v '+(profit>=0?'pos':'neg');
-        var rr=document.getElementById('dcaRoi'); rr.textContent=(roi>=0?'+':'')+roi.toFixed(1)+'%'; rr.className='v '+(roi>=0?'pos':'neg');
-        document.getElementById('dcaRCoin').textContent=sel.name+' ('+sel.symbol+')';
-        document.getElementById('dcaRBuys').textContent=buys.toLocaleString();
-        document.getElementById('dcaRCoins').textContent=coins.toLocaleString('en-US',{maximumFractionDigits:6})+' '+sel.symbol;
-        document.getElementById('dcaRAvg').textContent=money(avg);
-        document.getElementById('dcaRNow').textContent=money(nowP);
-        document.getElementById('dcaRes').classList.add('show');
-      }).catch(function(){ msg.textContent='Could not load price data. Try again.'; }).then(function(){ btn.textContent='Calculate returns'; btn.disabled=false; });
-    }
-
-    // Recalculate live on every input change (amount is debounced while typing).
-    btn.addEventListener('click', calculate);
-    var amtT; amtEl.addEventListener('input', function(){ clearTimeout(amtT); amtT=setTimeout(calculate, 350); });
-    startEl.addEventListener('change', calculate);
-    endEl.addEventListener('change', calculate);
-  })();
-</script>
-<script>
-  // Hero count-up on first paint — mirrors the research-tab polish. Parses the
-  // number out of the element so markup/values stay the single source of truth,
-  // and is fully reduced-motion safe (skips straight to the final value).
-  (function(){
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) return;
-    function countUp(el){
-      if (!el) return;
-      var raw = el.textContent;
-      var m = raw.match(/-?[\d,]*\.?\d+/);
-      if (!m) return;
-      var target = parseFloat(m[0].replace(/,/g, ''));
-      if (!isFinite(target)) return;
-      var decimals = (m[0].split('.')[1] || '').length;
-      var prefix = raw.slice(0, m.index), suffix = raw.slice(m.index + m[0].length);
-      var grouped = /,/.test(m[0]);
-      var start = performance.now(), dur = 1100;
-      function fmt(n){
-        var s = decimals ? n.toFixed(decimals) : String(Math.round(n));
-        if (grouped) { var p = s.split('.'); p[0] = (+p[0]).toLocaleString('en-US'); s = p.join('.'); }
-        return prefix + s + suffix;
+    dd.style.display=list.length?'block':'none';
+  }
+  inp.addEventListener('focus',loadCoins);
+  inp.addEventListener('input',function(){
+    var q=inp.value.trim().toLowerCase();
+    if(q.length<1){dd.style.display='none';return;}
+    loadCoins().then(all=>{
+      var pre=[],sub=[];
+      for(var i=0;i<all.length;i++){
+        var c=all[i];
+        var nm=(c.name||'').toLowerCase(),sy=(c.symbol||'').toLowerCase(),id=(c.id||'').toLowerCase();
+        if(sy.indexOf(q)===0||nm.indexOf(q)===0||id.indexOf(q)===0){if(pre.length<50)pre.push(c);}
+        else if(sy.indexOf(q)>=0||nm.indexOf(q)>=0||id.indexOf(q)>=0){if(sub.length<50)sub.push(c);}
       }
-      el.textContent = fmt(0);
-      (function frame(now){
-        var t = Math.min(1, (now - start) / dur), eased = 1 - Math.pow(1 - t, 3);
-        el.textContent = fmt(target * eased);
-        if (t < 1) requestAnimationFrame(frame); else el.textContent = fmt(target);
-      })(start);
-    }
-    var run = function(){ countUp(document.querySelector('.balance')); countUp(document.querySelector('.chip-up')); };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
-  })();
+      render(pre.concat(sub));
+    });
+  });
+  document.addEventListener('click',ev=>{if(!inp.parentNode.contains(ev.target))dd.style.display='none';});
+  function money(n){if(n==null||isNaN(n))return'$0';var a=Math.abs(n);
+    if(a>=1000)return'$'+n.toLocaleString('en-US',{maximumFractionDigits:0});
+    if(a>=1)return'$'+n.toFixed(2);return'$'+n.toFixed(a<0.0001?8:4);}
+  function genDates(start,end,f){
+    var d=[],c=new Date(start),e=new Date(end);
+    while(c<=e){d.push(new Date(c));
+      if(f==='daily')c.setDate(c.getDate()+1);
+      else if(f==='weekly')c.setDate(c.getDate()+7);
+      else if(f==='biweekly')c.setDate(c.getDate()+14);
+      else c.setMonth(c.getMonth()+1);}
+    return d;}
+  var btn=document.getElementById('dcaBtn'),msg=document.getElementById('dcaMsg'),aEl=document.getElementById('dcaAmt');
+  var hCache={};
+  function getHist(id){
+    if(hCache[id])return Promise.resolve(hCache[id]);
+    return fetch('/api/history?id='+encodeURIComponent(id))
+      .then(r=>r.ok?r.json():{prices:[]})
+      .then(d=>{var p=(d&&d.prices&&d.prices.length)?d.prices:fbHist(id);hCache[id]=p;return p;})
+      .catch(()=>{hCache[id]=fbHist(id);return hCache[id];});
+  }
+  function calc(){
+    msg.textContent='';
+    var amount=parseFloat(aEl.value),start=sEl.value,end=eEl.value;
+    if(!sel){msg.textContent='Pick a coin first.';return;}
+    if(!amount||amount<=0){msg.textContent='Enter an amount.';return;}
+    if(!start||!end||new Date(start)>=new Date(end)){msg.textContent='Pick a valid date range (start before end).';return;}
+    if(btn){btn.textContent='Calculating…';btn.disabled=true;}
+    getHist(sel.id).then(hist=>{
+      if(!hist.length){msg.textContent='No historical data available in offline demo mode. On the live site, every coin in your library is supported.';return;}
+      var sm=new Date(start).getTime(),ea=hist[0][0];if(sm<ea)sm=ea;
+      var dates=genDates(new Date(sm),new Date(end),freq);
+      var coins=0,invested=0,buys=0;
+      for(var i=0;i<dates.length;i++){
+        var ts=dates[i].getTime(),best=hist[0],bd=Infinity;
+        for(var j=0;j<hist.length;j++){var df=Math.abs(hist[j][0]-ts);if(df<bd){bd=df;best=hist[j];}}
+        var price=best[1];if(price>0){coins+=amount/price;invested+=amount;buys++;}
+      }
+      if(!buys){msg.textContent='No price points in that range.';return;}
+      var nowP=hist[hist.length-1][1],value=coins*nowP,profit=value-invested,
+          roi=invested>0?(profit/invested)*100:0,avg=coins>0?invested/coins:0;
+      document.getElementById('dcaInvested').textContent=money(invested);
+      document.getElementById('dcaValue').textContent=money(value);
+      var p=document.getElementById('dcaProfit');p.textContent=(profit>=0?'+':'')+money(profit);p.className='v '+(profit>=0?'pos':'neg');
+      var rr=document.getElementById('dcaRoi');rr.textContent=(roi>=0?'+':'')+roi.toFixed(1)+'%';rr.className='v '+(roi>=0?'pos':'neg');
+      document.getElementById('dcaRCoin').textContent=sel.name+' ('+sel.symbol+')';
+      document.getElementById('dcaRBuys').textContent=buys.toLocaleString();
+      document.getElementById('dcaRCoins').textContent=coins.toLocaleString('en-US',{maximumFractionDigits:6})+' '+sel.symbol;
+      document.getElementById('dcaRAvg').textContent=money(avg);
+      document.getElementById('dcaRNow').textContent=money(nowP);
+      document.getElementById('dcaRes').classList.add('show');
+    }).catch(()=>{msg.textContent='Could not load price data. Try again.';})
+      .then(()=>{if(btn){btn.textContent='Calculate returns';btn.disabled=false;}});
+  }
+  btn&&btn.addEventListener('click',calc);
+  var aT;aEl.addEventListener('input',()=>{clearTimeout(aT);aT=setTimeout(calc,350);});
+  sEl.addEventListener('change',calc);eEl.addEventListener('change',calc);
+  calc();
+})();
 </script>
-</body>
-</html>
+
+
+</body></html>
