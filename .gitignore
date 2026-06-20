@@ -13,6 +13,15 @@ dist/
 .env.local
 .env.production
 
+# Service-account / private keys (NEVER commit — god-mode credentials)
+*serviceAccount*.json
+*service-account*.json
+*-key.json
+*_key.json
+serviceAccountKey.json
+*.pem
+google-services.json
+
 # Firebase
 .firebase/
 firebase-debug.log

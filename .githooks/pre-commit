@@ -1,0 +1,28 @@
+#!/bin/sh
+# Block commits that include secrets. This runs regardless of how the commit is
+# invoked (Claude Code, terminal, IDE). The only bypass is --no-verify, which the
+# Claude Code global guard (~/.claude/hooks/guard.ps1) also blocks.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# Keep patterns in sync with .gitignore.
+set -eu
+
+fail() { echo "COMMIT BLOCKED (pre-commit): $1" >&2; exit 1; }
+
+# 1. Secret-looking FILENAMES staged (catches `git add -f` past .gitignore).
+bad_files=$(git diff --cached --name-only \
+  | grep -iE '(^|/)\.env($|\.)(local|production)?|serviceaccount.*\.json|service-account.*\.json|[-_]key\.json$|\.pem$|google-services\.json$' \
+  | grep -ivE '\.env\.example$|\.example$' || true)
+if [ -n "$bad_files" ]; then
+  fail "secret-looking file(s) staged:
+$bad_files
+Unstage them: git restore --staged <file>  (and confirm they're in .gitignore)."
+fi
+
+# 2. Secret-looking CONTENT in the staged diff (private keys / service-account JSON).
+if git diff --cached -U0 \
+  | grep -nE -- '-----BEGIN [A-Z ]*PRIVATE KEY-----|"private_key"[[:space:]]*:|"private_key_id"[[:space:]]*:' >/dev/null 2>&1; then
+  fail "staged changes contain a private key / service-account credential. Remove it — keys live server-side, never in git."
+fi
+
+exit 0
