@@ -9,6 +9,7 @@
  */
 import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
+import "./styles/app.css"; // app design system (scoped under .ci-app)
 
 // Every route is code-split. The initial download is just this tiny entry + React,
 // so the loading shell paints immediately; the heavy app code AND the Firebase SDK

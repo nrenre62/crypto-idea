@@ -40,7 +40,6 @@ import { db } from "./utils/storage.js";
 import { c } from "./utils/theme.js";
 import { portfolioPnl } from "./utils/pnl.js";
 import { usagePercents } from "./utils/usage.js";
-import { Ic } from "./components/ui.jsx";
 import { Loading } from "./components/Loading.jsx";
 import { AppContext } from "./hooks/app-context.js";
 import { ForgotPass } from "./components/ForgotPass.jsx";
@@ -54,6 +53,8 @@ import { Account } from "./components/Account.jsx";
 import { RestoreAccount } from "./components/RestoreAccount.jsx";
 import { Login } from "./components/Login.jsx";
 import Research from "./features/research/Research.jsx";
+import { Journal } from "./components/Journal.jsx";
+import { Learn } from "./components/Learn.jsx";
 // NOTE: the admin dashboard is a SEPARATE app (admin.html / admin-main.jsx) served
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
@@ -508,9 +509,19 @@ export default function CryptoIdea(){
     {screen==="addEntry"&&<AddEntry/>}
     {screen==="coinInfo"&&<CoinInfo/>}
     {screen==="research"&&<Research/>}
-    {screen!=="login"&&screen!=="loading"&&screen!=="forgotPass"&&screen!=="contact"&&<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,display:"flex",background:"rgba(255,255,255,0.95)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderTop:"1px solid #E8E8ED",padding:"6px 0 22px",zIndex:100}}>
-      {[{id:"portfolio",label:"Portfolio",icon:Ic.port},{id:"research",label:"Research",icon:Ic.rsch},{id:"search",label:"Search",icon:Ic.srch}].map(tab=>(<button key={tab.id} onClick={()=>setScreen(tab.id)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"7px 0",cursor:"pointer",border:"none",background:"none",fontSize:10,fontWeight:600,color:at===tab.id?c.ac:c.dim}}>{tab.icon(at===tab.id)}{tab.label}</button>))}
-    </div>}
+    {screen==="journal"&&<Journal/>}
+    {screen==="learn"&&<Learn/>}
+    {screen!=="login"&&screen!=="loading"&&screen!=="forgotPass"&&screen!=="contact"&&(
+      <nav className="ci-app tabbar">
+        {[
+          {id:"portfolio",label:"Portfolio",icon:(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>)},
+          {id:"research",label:"Research",icon:(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>)},
+          {id:"journal",label:"Journal",icon:(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8M8 11h6"/></svg>)},
+          {id:"learn",label:"Learn",icon:(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>)},
+          {id:"search",label:"Search",icon:(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>)},
+        ].map(tab=>(<button key={tab.id} className={"tb"+(at===tab.id?" active":"")} onClick={()=>setScreen(tab.id)}>{tab.icon}{tab.label}</button>))}
+      </nav>
+    )}
     </>}
   </div></AppContext.Provider>);
 }

@@ -1,0 +1,116 @@
+/*
+ * CryptoIdea app design system (editorial / paper look).
+ *
+ * Scoped under .ci-app so it can NEVER leak into the rest of the app or the
+ * Research tab's .research-root subtree (which reuses generic class names like
+ * .card). Apply className="ci-app" to a screen or nav root; descendants then use
+ * the classes below. Tokens match the Research tab so the whole app is one system.
+ *
+ * Ported from the v1 app design prototype. Foundation set (nav + Journal + Learn +
+ * shared primitives); per-screen classes are added as each screen is restyled.
+ */
+.ci-app {
+  --ink:#15140f; --ink-soft:#55534b; --ink-faint:#928f85;
+  --paper:#f8f7f3; --paper-2:#ffffff; --paper-3:#fcfbf8;
+  --line:#ece9e1; --line-2:rgba(21,20,15,.06); --line-strong:#ddd9cf;
+  --accent:#0a6b4d; --accent-soft:#e9f2ed; --accent-ink:#07503a;
+  --ai-1:#0a6b4d; --ai-2:#3f7df0; --warn:#bf4730; --amber:#b8841f;
+  --sg:#1f9d55; --sa:#e0a423; --sr:#cf3a2c; --sd:#555;
+  --sg-s:rgba(31,157,85,.1); --sa-s:rgba(224,164,35,.1); --sr-s:rgba(207,58,44,.1); --sd-s:rgba(85,85,85,.1);
+  --radius:22px; --radius-sm:14px; --radius-xs:11px;
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --sh-sm:0 1px 1px rgba(21,20,15,.03),0 4px 12px -6px rgba(21,20,15,.07);
+  --sh:0 1px 2px rgba(21,20,15,.04),0 12px 26px -14px rgba(21,20,15,.13);
+  --sh-lg:0 2px 6px rgba(21,20,15,.05),0 34px 64px -30px rgba(21,20,15,.24);
+  --display:"Fraunces",Georgia,serif;
+  --body:"Hanken Grotesk",-apple-system,system-ui,sans-serif;
+  font-family:var(--body); color:var(--ink); letter-spacing:-.005em;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+.ci-app * { box-sizing:border-box; }
+
+/* paper background for a full screen root */
+.ci-app.screen-bg { background:var(--paper); min-height:100vh; }
+
+/* ── Shared layout primitives ─────────────────────────── */
+.ci-app .pad { padding:0 18px; }
+.ci-app .apphead { padding:14px 18px; display:flex; align-items:flex-start; justify-content:space-between; }
+.ci-app .apphead .title { font-family:var(--display); font-weight:500; font-size:28px; letter-spacing:-.025em; display:flex; align-items:center; gap:8px; }
+.ci-app .badge { font-family:var(--body); font-size:9.5px; font-weight:700; letter-spacing:.1em; padding:3px 8px; border-radius:6px; position:relative; top:-2px; }
+.ci-app .badge-live { color:#1a7a3c; background:rgba(26,122,60,.1); border:1px solid rgba(26,122,60,.2); }
+.ci-app .badge-plan { color:var(--amber); background:rgba(184,132,31,.1); border:1px solid rgba(184,132,31,.2); }
+.ci-app .badge-pro { color:var(--ai-2); background:rgba(63,125,240,.1); border:1px solid rgba(63,125,240,.2); }
+.ci-app .avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(155deg,#26241d,#15140f); color:var(--paper); display:grid; place-items:center; font-weight:700; font-size:13px; flex:none; }
+.ci-app .card { background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); padding:18px; margin-bottom:16px; box-shadow:var(--sh-sm); }
+.ci-app .sec-label { display:flex; align-items:center; justify-content:space-between; margin:0 2px 12px; }
+.ci-app .sec-label h2 { font-size:11.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); }
+.ci-app .sec-link { font-size:13px; font-weight:600; color:var(--accent); cursor:pointer; }
+.ci-app .btn-primary { display:block; width:100%; padding:14px; background:var(--ink); color:var(--paper); border:0; border-radius:var(--radius-sm); font-family:var(--body); font-size:15px; font-weight:700; cursor:pointer; text-align:center; transition:opacity .2s var(--ease); }
+.ci-app .btn-primary:hover { opacity:.88; }
+.ci-app .btn-ghost { display:block; width:100%; padding:13px; background:none; color:var(--ink-soft); border:1px solid var(--line-strong); border-radius:var(--radius-sm); font-family:var(--body); font-size:14px; font-weight:600; cursor:pointer; text-align:center; }
+.ci-app .disclaimer { font-size:11px; color:var(--ink-faint); line-height:1.55; padding:14px 6px 0; text-align:center; }
+
+/* ── Empty state ──────────────────────────────────────── */
+.ci-app .empty-state { text-align:center; padding:48px 24px; }
+.ci-app .empty-ic { width:56px; height:56px; border-radius:50%; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; font-size:22px; margin:0 auto 14px; }
+.ci-app .empty-h { font-family:var(--display); font-size:18px; font-weight:500; margin-bottom:6px; }
+.ci-app .empty-p { font-size:13.5px; color:var(--ink-soft); line-height:1.55; max-width:260px; margin:0 auto 18px; }
+
+/* ── Bottom tab bar (fixed; mirrors the app's centered max-width column) ─── */
+.ci-app.tabbar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; height:80px;
+  background:rgba(248,247,243,.93); backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border-top:1px solid var(--line-2); display:flex; align-items:center; justify-content:space-around; padding:0 4px 22px; z-index:100; }
+.ci-app .tb { display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink-faint); font-family:var(--body); font-size:9.5px; font-weight:600; letter-spacing:.02em; cursor:pointer; border:0; background:none; padding:4px 6px; border-radius:10px; min-width:52px; transition:color .2s var(--ease); }
+.ci-app .tb svg { width:22px; height:22px; }
+.ci-app .tb.active { color:var(--accent); }
+
+/* ── Journal ──────────────────────────────────────────── */
+.ci-app .j-entry { background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:15px; margin-bottom:11px; cursor:pointer; box-shadow:var(--sh-sm); }
+.ci-app .j-top { display:flex; align-items:center; gap:11px; margin-bottom:9px; }
+.ci-app .j-ic { width:36px; height:36px; border-radius:50%; flex:none; display:grid; place-items:center; font-weight:700; color:#fff; font-size:13px; }
+.ci-app .j-coin { font-weight:700; font-size:14px; }
+.ci-app .j-date { font-size:11.5px; color:var(--ink-faint); margin-top:1px; }
+.ci-app .j-excerpt { font-size:13px; color:var(--ink-soft); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.ci-app .j-status { display:inline-flex; align-items:center; gap:5px; margin-top:9px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; }
+.ci-app .j-intact { background:var(--sg-s); color:var(--sg); }
+.ci-app .j-review { background:var(--sa-s); color:#956c00; }
+.ci-app .j-challenged { background:var(--sr-s); color:var(--sr); }
+
+/* ── Learn ────────────────────────────────────────────── */
+.ci-app .learn-hero { padding:14px 18px 18px; border-bottom:1px solid var(--line); }
+.ci-app .learn-level { font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:4px; }
+.ci-app .learn-title { font-family:var(--display); font-size:22px; font-weight:500; margin-bottom:12px; }
+.ci-app .xp-bar { height:7px; background:var(--line); border-radius:999px; overflow:hidden; }
+.ci-app .xp-fill { height:100%; background:linear-gradient(90deg,var(--ai-1),var(--ai-2)); border-radius:999px; }
+.ci-app .xp-label { font-size:11px; color:var(--ink-faint); margin-top:5px; font-weight:600; }
+.ci-app .badges-row { display:flex; gap:7px; padding:14px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.ci-app .badge-chip { font-size:14px; width:38px; height:38px; border-radius:11px; background:var(--paper-2); border:1px solid var(--line); display:grid; place-items:center; box-shadow:var(--sh-sm); }
+.ci-app .today-lesson { margin:16px 18px 0; background:linear-gradient(135deg,#f0faf4,#f0f4fd); border:1px solid var(--line); border-radius:var(--radius-sm); padding:16px; }
+.ci-app .tl-label { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:6px; }
+.ci-app .tl-title { font-size:15px; font-weight:700; margin-bottom:5px; }
+.ci-app .tl-excerpt { font-size:13px; color:var(--ink-soft); line-height:1.5; margin-bottom:11px; }
+.ci-app .tl-meta { display:flex; gap:10px; font-size:11px; color:var(--ink-faint); font-weight:600; margin-bottom:12px; }
+.ci-app .tl-cta { display:flex; align-items:center; justify-content:space-between; font-size:13.5px; font-weight:700; color:var(--accent-ink); }
+.ci-app .module-list { padding:16px 18px 0; }
+.ci-app .module { background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:15px; margin-bottom:11px; box-shadow:var(--sh-sm); }
+.ci-app .module.locked { opacity:.55; }
+.ci-app .module.active { border-color:rgba(10,107,77,.3); background:linear-gradient(135deg,#f9fdfb,#fff); }
+.ci-app .m-top { display:flex; align-items:flex-start; gap:11px; }
+.ci-app .m-icon { width:38px; height:38px; border-radius:11px; background:var(--accent-soft); display:grid; place-items:center; font-size:18px; flex:none; }
+.ci-app .m-icon.done { background:rgba(31,157,85,.12); }
+.ci-app .m-icon.locked-icon { background:var(--paper-3); }
+.ci-app .m-info { flex:1; }
+.ci-app .m-title { font-weight:700; font-size:14px; margin-bottom:2px; display:flex; align-items:center; gap:6px; }
+.ci-app .m-subtitle { font-size:12px; color:var(--ink-faint); line-height:1.4; }
+.ci-app .m-prog { margin-top:10px; }
+.ci-app .m-prog-bar { height:4px; background:var(--line); border-radius:999px; overflow:hidden; }
+.ci-app .m-prog-fill { height:100%; border-radius:999px; }
+.ci-app .m-prog-fill.done-fill { background:var(--sg); }
+.ci-app .m-prog-fill.active-fill { background:linear-gradient(90deg,var(--ai-1),var(--ai-2)); }
+.ci-app .m-prog-label { font-size:11px; color:var(--ink-faint); margin-top:4px; font-weight:600; }
+.ci-app .m-cta { display:flex; align-items:center; justify-content:flex-end; margin-top:11px; }
+.ci-app .m-btn { font-family:var(--body); font-size:12px; font-weight:700; color:var(--accent-ink); background:var(--accent-soft); border:0; border-radius:999px; padding:6px 14px; cursor:pointer; }
+
+@media (prefers-reduced-motion:reduce) {
+  .ci-app *, .ci-app *::before, .ci-app *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; }
+}
