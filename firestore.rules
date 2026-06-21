@@ -135,7 +135,10 @@ service cloud.firestore {
                         && getAfter(portfolioRef()).data.coinCount == get(portfolioRef()).data.get('coinCount', 0) + 1
                         && getAfter(portfolioRef()).data.coinCount <= maxCoins(userId);
 
-          allow update: if (isOwner(userId) && counterDeltaOk('txCount')) || isAdmin();
+          // Validate content (incl. the optional thesis journal) on update too, and
+          // keep txCount moving by at most 1 — so a coin's journal can be written/
+          // reviewed but the doc can't be corrupted or used to smuggle past a limit.
+          allow update: if (isOwner(userId) && validCoinData() && counterDeltaOk('txCount')) || isAdmin();
 
           allow delete: if isOwner(userId) || isAdmin();
 
@@ -173,7 +176,19 @@ service cloud.firestore {
       let data = request.resource.data;
       return data.symbol is string && data.symbol.size() > 0 && data.symbol.size() <= 20
              && data.name is string && data.name.size() > 0 && data.name.size() <= 64
-             && (!('thumb' in data) || (data.thumb is string && data.thumb.size() <= 512));
+             && (!('thumb' in data) || (data.thumb is string && data.thumb.size() <= 512))
+             && (!('journal' in data) || validJournal(data.journal));
+    }
+
+    // Investment-thesis journal stored on a coin (the "write before you buy" feature):
+    // why you bought it, what would change your mind, and the running review status.
+    function validJournal(j) {
+      return j is map
+             && j.thesis is string && j.thesis.size() <= 2000
+             && j.changeMyMind is string && j.changeMyMind.size() <= 2000
+             && j.status in ['intact', 'review', 'challenged']
+             && j.priceAtAdd is number && j.priceAtAdd >= 0
+             && j.createdAt is string && j.createdAt.size() <= 40;
     }
 
     function validTransactionData() {

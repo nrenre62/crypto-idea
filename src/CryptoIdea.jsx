@@ -25,6 +25,7 @@ import {
   createPortfolio as dbCreatePortfolio,
   deletePortfolio as dbDeletePortfolio,
   addCoin as dbAddCoin,
+  updateCoinJournal as dbUpdateCoinJournal,
   removeCoin as dbRemoveCoin,
   addTransaction as dbAddTransaction,
   updateTransaction as dbUpdateTransaction,
@@ -300,14 +301,24 @@ export default function CryptoIdea(){
     setPortfolios(prev=>prev.filter(p=>p.id!==pid));
     if(activePortId===pid){setActivePortId(portfolios.find(p=>p.id!==pid)?.id||"default")}};
 
-  const addCoin=async(c)=>{
+  const addCoin=async(c,journal=null)=>{
     if(portfolio.find(x=>x.id===c.id)){showErr("Already added");return}
     const lim=maxCoinsPerPort;
     if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Free: "+maxCoinsPerPort+" coins. Upgrade to Pro for "+200+"!");return}
     if(!user?.uid){showErr("Please sign in again");return}
-    const res=await dbAddCoin(user.uid,activePortId,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb});
+    const res=await dbAddCoin(user.uid,activePortId,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb},journal);
     if(!res.success){showErr("Couldn't add coin. Check your connection.");return}
-    setPortfolio(p=>[...p,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb,entries:[]}]);setScreen("portfolio");setSq("")};
+    setPortfolio(p=>[...p,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb,entries:[],...(journal?{journal}:{})}]);setScreen("portfolio");setSq("")};
+  // Record the "is your thesis still intact?" review decision (intact|review|challenged)
+  // by merging the new status into the coin's existing journal.
+  const reviewThesis=async(coinId,status)=>{
+    const coin=portfolio.find(x=>x.id===coinId);
+    if(!coin||!coin.journal)return;
+    if(!user?.uid){showErr("Please sign in again");return}
+    const journal={...coin.journal,status};
+    const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
+    if(!res.success){showErr("Couldn't save. Check your connection.");return}
+    setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));};
   const remCoin=async(id)=>{
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbRemoveCoin(user.uid,activePortId,id);
@@ -435,7 +446,7 @@ export default function CryptoIdea(){
   // Shared state + handlers for extracted screens (grows as screens migrate).
   const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,handleReset,
     user,contactMsg,setContactMsg,contactSent,setContactSent,
-    sq,setSq,searchResults,portfolio,addCoin,
+    sq,setSq,searchResults,portfolio,addCoin,reviewThesis,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
     infoCoin,setInfoCoin,prices,
     confirmDel,setConfirmDel,remCoin,remEntry,

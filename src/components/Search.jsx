@@ -6,17 +6,27 @@ import { CI } from "./ui.jsx";
 // Add-coin search screen. Live search results, the active portfolio, and the
 // addCoin handler come from context. Restyled to the .ci-app design system.
 //
-// Adding a coin now opens the Buy-Journal prompt first ("write before you buy").
-// The thesis text is DESIGN-ONLY for now (not persisted) — Save and Skip both
-// proceed to the existing addCoin, so the add logic and limits are unchanged.
+// Adding a coin opens the Buy-Journal prompt first ("write before you buy"). On
+// "Save" the typed thesis is persisted with the coin (addCoin's 2nd arg → the
+// coin's journal); "Skip" adds the coin with no journal. Either way the add logic
+// and tier limits are unchanged.
 export function Search() {
   const { sq, setSq, searchResults, portfolio, addCoin } = useApp();
   const [journalFor, setJournalFor] = useState(null);
+  const [thesis, setThesis] = useState("");
+  const [changeMind, setChangeMind] = useState("");
 
-  const confirmAdd = () => {
+  const closeOverlay = () => { setJournalFor(null); setThesis(""); setChangeMind(""); };
+
+  const confirmAdd = (save) => {
     const coin = journalFor;
-    setJournalFor(null);
-    if (coin) addCoin(coin);
+    const t = thesis.trim(), m = changeMind.trim();
+    closeOverlay();
+    if (!coin) return;
+    const journal = (save && (t || m))
+      ? { thesis: t, changeMyMind: m, status: "intact", priceAtAdd: coin.mockPrice || 0, createdAt: new Date().toISOString() }
+      : null;
+    addCoin(coin, journal);
   };
 
   return (
@@ -61,7 +71,7 @@ export function Search() {
       {journalFor && (
         <div className="ci-app overlay">
           <div className="overlay-head">
-            <div className="back-btn" onClick={() => setJournalFor(null)}>
+            <div className="back-btn" onClick={closeOverlay}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
             </div>
             <div className="overlay-head-title">Before you add {journalFor.name}…</div>
@@ -81,16 +91,16 @@ export function Search() {
             <div className="journal-q">
               <div className="q-label">Why are you buying this?</div>
               <div className="q-sub">What makes you believe in this project? What's the fundamental case?</div>
-              <textarea placeholder="e.g. active GitHub, founder talks publicly, real revenue, upcoming catalyst..." />
+              <textarea value={thesis} onChange={(e) => setThesis(e.target.value)} placeholder="e.g. active GitHub, founder talks publicly, real revenue, upcoming catalyst..." />
             </div>
             <div className="journal-q">
               <div className="q-label">What would change your mind?</div>
               <div className="q-sub">What signal would tell you your thesis is wrong?</div>
-              <textarea placeholder="e.g. GitHub goes quiet, founder departs, unlock event overwhelms demand..." />
+              <textarea value={changeMind} onChange={(e) => setChangeMind(e.target.value)} placeholder="e.g. GitHub goes quiet, founder departs, unlock event overwhelms demand..." />
             </div>
             <div className="bj-note">This is for your own reflection — not financial advice. CryptoIdea never tells you what to buy or sell.</div>
-            <button className="btn-primary ov-btn-gap" onClick={confirmAdd}>Save to Journal &amp; add coin</button>
-            <button className="btn-ghost" onClick={confirmAdd}>Skip for now</button>
+            <button className="btn-primary ov-btn-gap" onClick={() => confirmAdd(true)}>Save to Journal &amp; add coin</button>
+            <button className="btn-ghost" onClick={() => confirmAdd(false)}>Skip for now</button>
           </div>
         </div>
       )}

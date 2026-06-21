@@ -14,7 +14,7 @@ import { connectFirestoreEmulator } from "firebase/firestore";
 import { registerUser } from "../src/api/firebase-auth.js";
 import {
   getPortfolios, createPortfolio, getCoins,
-  addCoin, addTransaction, deleteTransaction, getUserProfile,
+  addCoin, addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
 } from "../src/api/firebase-database.js";
 
 // Point the SDK at the local emulators (DEV auto-connect only happens under Vite).
@@ -73,4 +73,21 @@ test("transactions: add then delete, and they round-trip via getCoins", async ()
 
   const del = await deleteTransaction(uid, "default", "coin0", add.id);
   assert.ok(del.success, "delete transaction should succeed");
+});
+
+test("coin journal: write a thesis and a review decision, read both back via getCoins", async () => {
+  const j = { thesis: "active devs", changeMyMind: "devs quit", status: "intact", priceAtAdd: 50000, createdAt: "2026-01-01T00:00:00.000Z" };
+  const upd = await updateCoinJournal(uid, "default", "coin0", j);
+  assert.ok(upd.success, "journal write should succeed: " + JSON.stringify(upd));
+
+  const coins = await getCoins(uid, "default");
+  const coin0 = coins.coins.find((c) => c.id === "coin0");
+  assert.equal(coin0.journal.thesis, "active devs");
+  assert.equal(coin0.journal.status, "intact");
+
+  // The "is your thesis still intact?" review decision updates the status in place.
+  const upd2 = await updateCoinJournal(uid, "default", "coin0", { ...j, status: "challenged" });
+  assert.ok(upd2.success);
+  const coins2 = await getCoins(uid, "default");
+  assert.equal(coins2.coins.find((c) => c.id === "coin0").journal.status, "challenged");
 });

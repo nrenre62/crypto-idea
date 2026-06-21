@@ -170,6 +170,39 @@ test("coin create enforces symbol/name length bounds", async () => {
   await assertFails(bad.commit());
 });
 
+test("coin journal: valid thesis accepted, owner can update status, bad data + strangers rejected", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 0 });
+  });
+  const db = aliceDb();
+  const goodJournal = { thesis: "active devs", changeMyMind: "devs quit", status: "intact", priceAtAdd: 50000, createdAt: "2026-01-01T00:00:00.000Z" };
+
+  // Coin created WITH a valid journal (coinCount 0 -> 1)
+  const ok = writeBatch(db);
+  ok.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0, journal: goodJournal });
+  ok.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertSucceeds(ok.commit());
+
+  // Owner can update the journal status (the "is your thesis still intact?" decision)
+  await assertSucceeds(updateDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { journal: { ...goodJournal, status: "challenged" } }));
+
+  // Oversized thesis (>2000 chars) -> rejected by validJournal
+  const bad = writeBatch(db);
+  bad.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "eth"), { symbol: "ETH", name: "Ethereum", txCount: 0, journal: { ...goodJournal, thesis: "x".repeat(2001) } });
+  bad.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(bad.commit());
+
+  // Invalid status enum -> rejected
+  const badStatus = writeBatch(db);
+  badStatus.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "sol"), { symbol: "SOL", name: "Solana", txCount: 0, journal: { ...goodJournal, status: "bogus" } });
+  badStatus.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(badStatus.commit());
+
+  // A stranger cannot write Alice's coin journal
+  await assertFails(updateDoc(doc(bobDb(), "users", "alice", "portfolios", "p1", "coins", "btc"), { journal: goodJournal }));
+});
+
 test("transaction create enforces amount/price/date bounds", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });

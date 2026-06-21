@@ -77,6 +77,8 @@
 .ci-app .j-intact { background:var(--sg-s); color:var(--sg); }
 .ci-app .j-review { background:var(--sa-s); color:#956c00; }
 .ci-app .j-challenged { background:var(--sr-s); color:var(--sr); }
+/* Read-back of a saved thesis in the Journal detail overlay (preserves line breaks) */
+.ci-app .j-read { font-size:14px; line-height:1.6; color:var(--ink-soft); margin-top:6px; white-space:pre-wrap; }
 
 /* ── Learn ────────────────────────────────────────────── */
 .ci-app .learn-hero { padding:14px 18px 18px; border-bottom:1px solid var(--line); }

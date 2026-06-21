@@ -10,6 +10,7 @@
  *         ├── name, created, order
  *         └── coins/{coinId}
  *               ├── id, symbol, name, thumb, addedAt
+ *               ├── journal? { thesis, changeMyMind, status, priceAtAdd, createdAt }
  *               └── transactions/{txId}
  *                     ├── type, amount, priceAtBuy, date, createdAt
  */
@@ -151,20 +152,37 @@ export async function getCoins(uid, portfolioId) {
   }
 }
 
-// Add a coin to a portfolio (atomically bumps the portfolio's coinCount).
-export async function addCoin(uid, portfolioId, coinData) {
+// Add a coin to a portfolio (atomically bumps the portfolio's coinCount). An
+// optional `journal` ({ thesis, changeMyMind, status, priceAtAdd, createdAt }) is
+// stored on the coin when the user writes a thesis in the Buy-Journal prompt.
+export async function addCoin(uid, portfolioId, coinData, journal = null) {
   try {
     const ref = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinData.id);
     const batch = writeBatch(db);
-    batch.set(ref, {
+    const coinDoc = {
       symbol: coinData.symbol,
       name: coinData.name,
       thumb: coinData.thumb || "",
       addedAt: serverTimestamp(),
       txCount: 0
-    });
+    };
+    if (journal) coinDoc.journal = journal;
+    batch.set(ref, coinDoc);
     batch.update(doc(db, "users", uid, "portfolios", portfolioId), { coinCount: increment(1) });
     await batch.commit();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Set/replace the investment-thesis journal on a coin — used both to write a thesis
+// for an existing holding and to record the "is your thesis still intact?" decision
+// (the caller passes the full journal object with the updated `status`).
+export async function updateCoinJournal(uid, portfolioId, coinId, journal) {
+  try {
+    const ref = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId);
+    await updateDoc(ref, { journal });
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
