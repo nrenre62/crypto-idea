@@ -155,6 +155,25 @@
 .ci-app .add-pill { font-family:var(--body); font-size:12px; font-weight:700; color:#fff; background:var(--accent); border:0; border-radius:999px; padding:6px 14px; cursor:pointer; white-space:nowrap; }
 .ci-app .add-pill:disabled { background:var(--paper-3); color:var(--ink-faint); cursor:default; }
 
+/* ── Coin drill-in (CoinInfo + Detail: header / price hero / key-value rows) ── */
+.ci-app .detail-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 18px 6px; }
+.ci-app .detail-head .dh-title { font-family:var(--display); font-size:18px; font-weight:500; flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ci-app .icon-btn { background:none; border:0; padding:0; cursor:pointer; display:grid; place-items:center; flex:none; }
+.ci-app .pill-ghost { background:none; border:1px solid var(--line-strong); border-radius:999px; padding:6px 13px; font-family:var(--body); font-size:11.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; white-space:nowrap; flex:none; }
+.ci-app .price-hero { padding:16px 18px 18px; text-align:center; }
+.ci-app .price-hero .ph-icon { display:flex; justify-content:center; margin-bottom:12px; }
+.ci-app .price-hero .ph-sub { font-size:11.5px; color:var(--ink-faint); font-weight:600; letter-spacing:.03em; margin-bottom:6px; }
+.ci-app .price-hero .ph-price { font-family:var(--display); font-size:38px; font-weight:500; letter-spacing:-.03em; }
+.ci-app .chg-pill { display:inline-flex; margin-top:10px; padding:4px 14px; border-radius:999px; font-size:13px; font-weight:700; background:var(--accent-soft); color:var(--accent-ink); }
+.ci-app .chg-pill.dn { background:#fbede9; color:var(--warn); }
+.ci-app .card-title { font-size:13px; font-weight:700; color:var(--ink); margin-bottom:12px; }
+.ci-app .kv-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--line-2); }
+.ci-app .kv-row:last-child { border-bottom:0; padding-bottom:0; }
+.ci-app .kv-row .kv-k { font-size:13px; color:var(--ink-soft); }
+.ci-app .kv-row .kv-v { font-size:13px; font-weight:600; color:var(--ink); }
+.ci-app .kv-row .kv-vr { text-align:right; }
+.ci-app .kv-chg { font-size:10.5px; font-weight:600; margin-left:6px; }
+
 /* ── Conviction signal pills (also used in Research) ──── */
 .ci-app .conv-row { display:flex; gap:5px; margin-top:11px; flex-wrap:wrap; }
 .ci-app .csig { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; }
