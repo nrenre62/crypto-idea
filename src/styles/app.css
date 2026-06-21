@@ -272,6 +272,53 @@
 .ci-app .proc-h { font-family:var(--display); font-size:28px; font-weight:500; margin-bottom:12px; }
 .ci-app .proc-sub { font-size:13px; color:var(--ink-faint); }
 
+/* ── Account ──────────────────────────────────────────── */
+.ci-app .acct-profile { padding:20px 18px; text-align:center; }
+.ci-app .acct-avatar { width:60px; height:60px; border-radius:50%; background:linear-gradient(155deg,#26241d,#15140f); color:var(--paper); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; margin:0 auto 10px; }
+.ci-app .acct-name { font-size:18px; font-weight:700; }
+.ci-app .acct-email { font-size:13px; color:var(--ink-faint); }
+.ci-app .tier-badge { display:inline-flex; padding:4px 14px; border-radius:999px; margin-top:8px; font-size:12px; font-weight:700; letter-spacing:.06em; }
+.ci-app .tier-badge.free { background:rgba(184,132,31,.12); color:var(--amber); }
+.ci-app .tier-badge.pro { background:var(--accent-soft); color:var(--accent-ink); }
+.ci-app .tier-badge.prem { background:#f3ecfb; color:#7d4bbf; }
+.ci-app .usage-row { padding:10px 0; border-bottom:1px solid var(--line-2); }
+.ci-app .usage-row .usage-top { display:flex; justify-content:space-between; align-items:center; }
+.ci-app .usage-row .usage-k { font-size:13px; color:var(--ink-soft); }
+.ci-app .usage-row .usage-v { font-size:13px; font-weight:600; }
+.ci-app .usage-row .usage-note { font-size:10px; color:var(--ink-faint); margin-top:4px; }
+.ci-app .bar { height:5px; background:var(--line); border-radius:3px; overflow:hidden; margin-top:6px; }
+.ci-app .bar-fill { height:100%; border-radius:3px; transition:width .3s var(--ease); }
+.ci-app .sub-note { margin-top:10px; padding:10px 12px; border-radius:10px; font-size:11px; text-align:center; font-weight:600; line-height:1.5; }
+.ci-app .sub-note.ok { background:var(--accent-soft); color:var(--accent-ink); }
+.ci-app .sub-note.bad { background:#fdecea; color:var(--warn); }
+.ci-app .sub-note .sub-sub { font-weight:400; color:var(--ink-faint); }
+.ci-app .sub-warn { margin-top:10px; padding:12px 14px; border-radius:10px; background:#fdecea; border:1px solid #f6cfc8; text-align:center; }
+.ci-app .sub-warn .sw-h { font-size:11px; font-weight:700; color:var(--warn); margin-bottom:4px; }
+.ci-app .sub-warn .sw-b { font-size:12px; color:var(--warn); font-weight:600; line-height:1.5; margin-bottom:8px; }
+.ci-app .sub-warn .sw-s { font-size:11px; color:var(--ink-faint); line-height:1.5; }
+.ci-app .acct-btn { width:100%; padding:13px; border-radius:12px; border:0; font-family:var(--body); font-size:14px; font-weight:700; cursor:pointer; margin-top:10px; }
+.ci-app .acct-btn.accent { background:var(--accent); color:#fff; }
+.ci-app .acct-btn.prem { background:#7d4bbf; color:#fff; }
+.ci-app .acct-btn.ghost { background:var(--paper-2); color:var(--ink-soft); border:1px solid var(--line-strong); font-weight:600; font-size:13px; padding:11px; margin-top:8px; }
+.ci-app .port-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2); }
+.ci-app .port-row .pr-name { font-size:14px; font-weight:500; cursor:pointer; }
+.ci-app .port-row .pr-name.active { font-weight:700; color:var(--accent); }
+.ci-app .port-row .pr-sub { font-size:11px; color:var(--ink-faint); }
+.ci-app .port-add { display:flex; gap:8px; margin-top:12px; }
+.ci-app .port-add .field-input { flex:1; min-width:0; }
+.ci-app .port-add .add-name { padding:10px 16px; border-radius:12px; border:0; background:var(--ink); color:#fff; font-family:var(--body); font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.ci-app .priv-text { font-size:11px; color:var(--ink-faint); margin-bottom:12px; line-height:1.5; }
+.ci-app .priv-btn { width:100%; padding:11px; border-radius:12px; font-family:var(--body); font-size:13px; font-weight:700; cursor:pointer; margin-bottom:8px; }
+.ci-app .priv-btn.solid { background:var(--ink); color:#fff; border:0; }
+.ci-app .priv-btn.ghost { background:var(--paper-2); color:var(--ink); border:1px solid var(--line-strong); font-weight:600; }
+.ci-app .priv-btn.danger { background:#fdecea; color:var(--warn); border:1px solid #f0c4bd; font-weight:600; }
+.ci-app .priv-btn.danger-solid { background:var(--warn); color:#fff; border:0; margin-bottom:0; }
+.ci-app .priv-confirm { font-size:11px; color:var(--ink-faint); line-height:1.5; margin-bottom:8px; text-align:center; }
+.ci-app .priv-msg { text-align:center; margin-top:10px; font-size:12px; color:var(--ink-faint); font-weight:600; }
+.ci-app .priv-links { font-size:11px; margin-top:12px; text-align:center; }
+.ci-app .priv-links a { color:var(--accent); text-decoration:none; }
+.ci-app .logout-btn { width:100%; padding:13px; border-radius:12px; border:1px solid #f0c4bd; background:#fdecea; color:var(--warn); font-family:var(--body); font-size:14px; font-weight:600; cursor:pointer; margin-top:4px; }
+
 /* ── Conviction signal pills (also used in Research) ──── */
 .ci-app .conv-row { display:flex; gap:5px; margin-top:11px; flex-wrap:wrap; }
 .ci-app .csig { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; }
