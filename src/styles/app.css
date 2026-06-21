@@ -160,6 +160,7 @@
 .ci-app .detail-head .dh-title { font-family:var(--display); font-size:18px; font-weight:500; flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ci-app .icon-btn { background:none; border:0; padding:0; cursor:pointer; display:grid; place-items:center; flex:none; }
 .ci-app .pill-ghost { background:none; border:1px solid var(--line-strong); border-radius:999px; padding:6px 13px; font-family:var(--body); font-size:11.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; white-space:nowrap; flex:none; }
+.ci-app .pill-danger { background:var(--warn); color:#fff; border:0; border-radius:999px; padding:6px 13px; font-family:var(--body); font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap; flex:none; }
 .ci-app .price-hero { padding:16px 18px 18px; text-align:center; }
 .ci-app .price-hero .ph-icon { display:flex; justify-content:center; margin-bottom:12px; }
 .ci-app .price-hero .ph-sub { font-size:11.5px; color:var(--ink-faint); font-weight:600; letter-spacing:.03em; margin-bottom:6px; }
@@ -173,6 +174,35 @@
 .ci-app .kv-row .kv-v { font-size:13px; font-weight:600; color:var(--ink); }
 .ci-app .kv-row .kv-vr { text-align:right; }
 .ci-app .kv-chg { font-size:10.5px; font-weight:600; margin-left:6px; }
+
+/* Detail-specific: price-hero market cap, P/L summary, transaction list */
+.ci-app .price-hero .ph-mc { font-size:11px; color:var(--ink-faint); margin-top:8px; }
+.ci-app .kv-sub { color:var(--ink-faint); font-weight:400; }
+.ci-app .kv-v.kv-sell { color:var(--warn); }
+.ci-app .kv-row.kv-sm { padding:3px 0; border-bottom:0; }
+.ci-app .kv-row.kv-sm .kv-k { font-size:11px; color:var(--ink-faint); }
+.ci-app .kv-row.kv-sm .kv-v { font-size:12px; font-weight:400; color:var(--ink-faint); }
+.ci-app .pnl-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 12px; border-radius:10px; margin-top:10px; background:var(--accent-soft); }
+.ci-app .pnl-row.dn { background:#fbede9; }
+.ci-app .pnl-row .pnl-label { font-size:13px; font-weight:600; color:var(--ink); }
+.ci-app .pnl-row .pnl-val { font-size:14px; font-weight:700; color:var(--accent-ink); }
+.ci-app .pnl-row.dn .pnl-val { color:var(--warn); }
+.ci-app .pnl-note { background:var(--accent-soft); color:var(--accent-ink); border-radius:8px; font-size:11px; line-height:1.45; padding:7px 10px; margin-top:8px; }
+.ci-app .tx-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 18px 8px; }
+.ci-app .tx-head .tx-title { font-size:14px; font-weight:700; }
+.ci-app .tx-actions { display:flex; gap:7px; flex:none; }
+.ci-app .tx-btn { font-family:var(--body); font-size:12px; font-weight:700; border:0; border-radius:999px; padding:6px 13px; cursor:pointer; }
+.ci-app .tx-btn.buy { background:var(--accent-soft); color:var(--accent-ink); }
+.ci-app .tx-btn.sell { background:#fbede9; color:var(--warn); }
+.ci-app .tx-empty { text-align:center; padding:24px; color:var(--ink-faint); font-size:13px; }
+.ci-app .tx-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 18px; border-bottom:1px solid var(--line-2); cursor:pointer; }
+.ci-app .tx-badge { font-size:9px; font-weight:700; letter-spacing:.04em; padding:2px 6px; border-radius:6px; }
+.ci-app .tx-badge.buy { background:var(--accent-soft); color:var(--accent-ink); }
+.ci-app .tx-badge.sell { background:#fbede9; color:var(--warn); }
+.ci-app .tx-row .tx-amt { font-size:13px; font-weight:600; }
+.ci-app .tx-row .tx-meta { font-size:11px; color:var(--ink-faint); margin-top:3px; display:flex; align-items:center; gap:4px; }
+.ci-app .tx-row .tx-price { font-size:10.5px; color:var(--ink-faint); margin-top:1px; }
+.ci-app .tx-row .tx-del { background:none; border:0; cursor:pointer; padding:6px; flex:none; }
 
 /* ── Conviction signal pills (also used in Research) ──── */
 .ci-app .conv-row { display:flex; gap:5px; margin-top:11px; flex-wrap:wrap; }
