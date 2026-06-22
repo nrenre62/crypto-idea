@@ -35,6 +35,9 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   small, shippable increment at a time; every increment meets the **Definition of Done** (KISS +
   secure, tests green, verified, committed, docs updated). Retrospective = Kaizen (leave it better,
   log new opportunities).
+- **Product direction:** [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) is the canonical record of
+  product/AI/pricing decisions (2026-06-22 founder interview) — it **wins over any stale planning doc**;
+  the reconciled planning docs live in [`docs/planning/`](docs/planning/). Current build order: `NEXT-STEPS.md` §0.
 - **KISS by design:** build the simplest thing that works — plain readable code, fewer moving
   parts, no new dependency when a few lines do, no premature optimization. Simple = fewer bugs,
   faster loads, easier fixes, smaller attack surface. Pairs with security-first below.
