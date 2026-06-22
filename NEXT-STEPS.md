@@ -2,12 +2,58 @@
 
 > This is the **prioritized product backlog** for our [Agile workflow](AGILE.md): top = next.
 > Each item is a small, shippable increment finished to the **Definition of Done** in AGILE.md.
-> The app is feature-complete and runs locally; the work below is (1) finishing an in-progress
-> architecture refactor, (2) a known bug, and (3) go-live tasks.
+> The architecture refactor (§1) is complete. The current priority is the **2026-06-22 product
+> direction** (§0, canonical: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md)) — finish the conviction
+> engine, Learn, and the tier reconfig behind a secure AI proxy. Go-live tasks (§4) follow.
 
 See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md) (layer rules + migration detail),
 [`README.md`](README.md) (backend/proxy/deploy), [`CLAUDE.md`](CLAUDE.md) (conventions).
+
+---
+
+## 0. Product direction — 2026-06-22 decisions  (NEXT — top priority)
+
+Canonical: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) (28 decisions). Planning docs reconciled in
+[`docs/planning/`](docs/planning/). Build in this order — each a test-guarded increment per AGILE.md.
+
+### 0a. Tier reconfig + anti-abuse  (decisions #19, #20)
+- [ ] `config/app.plans` defaults + admin "Plans & Pricing" defaults → **Starter 1 portfolio/10 coins · Pro 3/50-each · Premium 15/unlimited**.
+- [ ] `firestore.rules` tier enforcement to match (portfolios + coins-per-portfolio). Verify `npm run test:rules`.
+- [ ] Rename the "Free" label → **Starter** across app/landing/admin copy.
+- [ ] Anti-abuse on "unlimited": a high HARD coin ceiling + rate-limited add-coin path + App Check — never bot-inflatable. Add a rules/integration test.
+
+### 0b. Secure AI proxy  (extends N-3; the keystone everything AI needs)
+- [ ] Callable Cloud Function holding the **Anthropic + Gemini** keys server-side (never in the client). Per-user rate limit + App Check + tier gating.
+- [ ] **No-training API tiers** + privacy-policy disclosure (chat sends the journal raw — #17).
+- [ ] LLM split: **Claude** for prose (chat, Pulse), **Gemini** for structured signal extraction (#18).
+- [ ] Swap the `src/features/research/api/ai-client.js` body to call it.
+
+### 0c. Conviction engine  (decisions #6–#11)
+- [ ] Backend fetches from **approved sources only** (GitHub API, CoinGecko, news allowlist for Founders/Community) — the LLM never web-searches (#6, #7).
+- [ ] **Multi-source cross-check** per axis before a signal shows (#8).
+- [ ] **4-state rubric:** 🟢 healthy / 🟡 mixed / 🔴 problem / ⬛ insufficient-data (#9).
+- [ ] **On-demand + shared 48h cache** (reuse the flat-cost `cache/universe` pattern); any held coin; ⬛ for thin coverage (#10).
+- [ ] **Stamp "as of DATE"** on every signal + auto-expire dated catalysts (#11).
+- [ ] Light up the "coming soon" conviction pills on Research coin cards.
+
+### 0d. Output validator + fail-closed  (decisions #15, #16) — lands WITH 0b/0c, not after
+- [ ] **Regex prefilter → LLM judge**: blocks any project name the user didn't mention (BTC/ETH/SOL excepted), price targets, buy/sell/hold, %-allocation, aggregate score. Fails closed.
+- [ ] **Up to N regens (N capped) then safe fallback.**
+
+### 0e. Portfolio Pulse as its own AI surface  (decision #12)
+- [ ] Own cache + trigger + tier-gate + validation; portfolio-level "describe what is, never prescribe".
+
+### 0f. Learn — wire the full tab  (decisions #23–#27)
+- [ ] Persist progress/XP/badges/streaks (recommend **Firestore**, mirror the journal).
+- [ ] **Quiz-gated** lesson completion (#25).
+- [ ] Author the full library (~9 modules / ~50 lessons) — voice = **no names** (#24); decide quiz authoring (hand vs AI).
+- [ ] **Templated AI tutor** (Premium): pre-generated explanations, personalize only the coin (#21).
+- [ ] Capture the **manual funnel steps** (dilution/volume/yield) as journal fields + teach them (#26, #27).
+
+### 0g. Copy + funnel  (decisions #3, #4, #14, #24)
+- [ ] Landing/onboarding lead **anti-FOMO / regret**, not FOMO (#4); drop named investors (#24).
+- [ ] Research-led @CryptoIdea funnel (Substack/X) — **hard naming wall**: nothing named flows into the app (#14).
 
 ---
 
