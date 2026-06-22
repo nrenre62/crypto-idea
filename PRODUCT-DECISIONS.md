@@ -64,9 +64,9 @@ in fundamentals — not FOMO."*
 | 7 | Founders/Community signals | **Derive from the news-domain allowlist** (no direct X/YouTube scraping) | 🆕 | Cheaper/legal; less fresh — acceptable |
 | 8 | Accuracy gate | **Multi-source cross-check** before a signal shows | 🆕 | Each axis must corroborate across ≥2 sources (prevents the CryptoMiso-was-wrong failure) |
 | 9 | Signal rubric | **4 states — 🟢 healthy / 🟡 mixed / 🔴 problem / ⬛ insufficient-data** | 🔧 | Reframes PRODUCT-SPEC (where ⬛ = "dead"): "dead/abandoned" now grades 🔴; ⬛ means *no data* |
-| 10 | Coverage | **On-demand + shared 48h cache**, any held coin; thin coverage honestly shows ⬛ | 🆕 | Reuses the existing flat-cost `cache/universe` pattern; first viewer warms it |
+| 10 | Coverage & freshness | **Shared per-coin cache, on-demand only** (no scheduler) + **read-time TTL**: Premium 24h · Pro 48h · Starter read-only (never triggers). View coverage: Starter 250 · Pro 500 · Premium 1,250 (+ held coins, paid). Cold runs metered by budget; hits free. Per-user **local offline copy**; never-warmed → ⬛ | 🆕 | One `convictionCache/{coinId}` doc, generated once per coin (**NEVER per-user**). Starter sees ⬛ for coins no paid user warmed (accepted — cheapest model) |
 | 11 | Freshness | **Stamp every signal "as of DATE" + auto-expire dated catalysts** | 🆕 | Cheap honesty layer; never show a past unlock as "upcoming" |
-| 12 | Portfolio Pulse | **Its own AI surface** (own cache, trigger, tier-gate, validation) | 🆕 | Document it in `ai-tool-policy`; bind portfolio-level "describe, don't prescribe" |
+| 12 | Pulse / tutor | **Own AI surface** — per-user cache (uid+portfolio-hash+tf) + TTL, tier-gate, validation; live for Pro/Premium within budget (Starter = offline summary) | 🆕 | Distinct from the per-coin conviction cache; portfolio-level "describe, don't prescribe"; same fail-closed validator |
 
 ---
 
@@ -102,6 +102,7 @@ in fundamentals — not FOMO."*
 
 ## Captured hard requirements (carry into every relevant story)
 
+- **Two separate caches:** (1) **prices** — shared CoinGecko `cache/universe`, **live & untiered** (Starter→Premium identical); (2) **AI conviction** — shared per-coin cache, **on-demand only**, read-time TTL by tier (Premium 24h / Pro 48h / Starter read-only), budget-metered, per-user **local offline copy**. Generated once per coin (never per-user). Prices are never a tier lever — tier value = AI + capacity.
 - **Responsive mobile + desktop** for the whole app (PWA path).
 - **Anti-abuse on "unlimited"**: 1,000-coin hard clamp + `addCoinGuarded` callable (rate-limited) + App Check.
 - **No-training LLM tiers** + privacy-policy disclosure (because chat sends the journal raw); Gemini **paid** key only.

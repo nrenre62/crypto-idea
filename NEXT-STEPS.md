@@ -33,6 +33,23 @@ offline · Pro 50 · Premium 300 per day** (durable per-uid Firestore counter) �
 **v1 manual `context.app`**, prod-flag gated · Claude/Gemini model ids resolved via the `claude-api`
 skill at code time (never hardcoded from memory).
 
+**Two separate caches (do NOT conflate):**
+- **Prices — untiered, live for all.** The existing shared CoinGecko proxy (`cache/universe`: top
+  ~1,250 @ 5 min, ~3,000 daily, history CDN-cached) serves the SAME fresh prices to every tier,
+  Starter included. Prices are **never a tier lever** (flat-cost shared cache + this is a long-term
+  conviction tool, not a trading app). Tier value = AI layer + capacity (coins/portfolios), not price speed.
+- **AI conviction — shared per-coin, on-demand only, read-time TTL by tier.** One shared
+  `convictionCache/{coinId}` doc, generated ONCE per coin and amortized across all users (**never
+  per-user generation**). **On-demand only — no scheduled refresh job.** A coin is (re)generated only
+  when a Pro/Premium user views it and the cached entry is older than their tier TTL: **Premium 24h ·
+  Pro 48h · Starter read-only (never triggers).** View coverage: Starter top-250 · Pro top-500 ·
+  Premium top-1,250, plus any held coin for paid tiers. Only cold runs cost a budget unit; cache hits
+  are free. Every user's PWA keeps a **local offline copy** of viewed coins (shown stamped "as of
+  DATE" when offline / during an outage). **Accepted consequence:** Starter sees ⬛ for any coin no
+  paid user has warmed — the cheapest model, and an honest ⬛ beats a fabricated or idly-scheduled signal.
+- **Pulse / tutor** are per-user (not per-coin): cached per (uid + portfolio-hash + tf) with a TTL,
+  live only for Pro/Premium within the daily budget; Starter gets the data-driven offline summary.
+
 ### The one critical re-sequence
 `0d` (the output validator) is **NOT** a later epic. [`ai-client.js`](src/features/research/api/ai-client.js)
 is a single throwing stub — the instant the `0b` proxy swaps its body, raw LLM prose reaches the UI
@@ -105,12 +122,19 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   Lights up Pulse AND Ask at once. Decide the validator's return contract first (throw → offline note,
   vs a distinct "we held this back" payload — currently undefined).
 - [ ] **B5 · 0c-live (#6/#7/#10/#17):** GitHub / news-allowlist / CoinGecko-fundamentals fetchers (the
-  LLM never web-searches) + `getConviction` callable + a shared **48h cache** (`convictionCache/{cgId}`,
-  mirrors `cache/universe`, server-write-only) + the **#17 privacy disclosure in the same commit**.
-  Extend the `safeProviderOrigin()` SSRF guard to an allowlist. Empty allowlist → Founders/Community
-  stay ⬛. Rules test: clients can't read the cache doc.
-- [ ] **B6 · 0e-live (#11/#12):** Pulse as its OWN AI surface — own cache + trigger + tier-gate +
-  validator + "as of DATE". (Pulse & Ask share the seam but keep separate caches/gates.)
+  LLM never web-searches) + `getConviction(coinId)` callable backed by the shared per-coin
+  `convictionCache/{cgId}` (server-write-only). **On-demand only — no scheduler;** the callable
+  (re)generates only when a Pro/Premium caller's tier TTL is exceeded (**Premium 24h · Pro 48h**),
+  else serves the cached doc; **Starter is read-only** (never triggers → cached doc or ⬛). View-coverage
+  gate Starter 250 / Pro 500 / Premium 1,250 (+ held coins for paid). Cold runs charge the daily budget;
+  cache hits are free. **#17 privacy disclosure in the same commit.** Extend `safeProviderOrigin()` to
+  the allowlist (empty → Founders/Community stay ⬛). Rules test: clients can't read the cache doc.
+- [ ] **B6 · 0e-live (#11/#12):** Pulse as its OWN AI surface — **per-user cache** (uid +
+  portfolio-hash + tf) with a TTL, tier-gate (live for Pro/Premium; Starter = data-driven offline
+  summary), validator + "as of DATE". (Pulse & Ask share the seam but keep separate caches/gates.)
+- [ ] **B8 · offline copy (PWA):** persist each user's *viewed* conviction + Pulse results to the PWA
+  local store, shown stamped "as of DATE" when offline or during a backend outage. Mirrors the
+  existing price offline-fallback; per-user local mirror only (no extra generation).
 - [ ] **B7 · 0f-tutor (#21):** Premium templated tutor — **template-first** ({coin}-substitution, zero
   LLM cost); any live elaboration is optional, gated to Premium, and routed through the validator.
 
