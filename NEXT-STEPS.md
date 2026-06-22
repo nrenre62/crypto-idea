@@ -40,13 +40,18 @@ skill at code time (never hardcoded from memory).
   conviction tool, not a trading app). Tier value = AI layer + capacity (coins/portfolios), not price speed.
 - **AI conviction — shared per-coin, on-demand only, read-time TTL by tier.** One shared
   `convictionCache/{coinId}` doc, generated ONCE per coin and amortized across all users (**never
-  per-user generation**). **On-demand only — no scheduled refresh job.** A coin is (re)generated only
-  when a Pro/Premium user views it and the cached entry is older than their tier TTL: **Premium 24h ·
-  Pro 48h · Starter read-only (never triggers).** View coverage: Starter top-250 · Pro top-500 ·
-  Premium top-1,250, plus any held coin for paid tiers. Only cold runs cost a budget unit; cache hits
-  are free. Every user's PWA keeps a **local offline copy** of viewed coins (shown stamped "as of
-  DATE" when offline / during an outage). **Accepted consequence:** Starter sees ⬛ for any coin no
-  paid user has warmed — the cheapest model, and an honest ⬛ beats a fabricated or idly-scheduled signal.
+  per-user generation**). **On-demand only — no scheduled refresh job.** Pro/Premium can trigger a
+  (re)generation for **any coin (held or searched), at any rank** when the cached entry exceeds their
+  tier TTL — **Premium 24h · Pro 48h**; **Starter is read-only** (never triggers → reads the shared
+  cache or ⬛). **No rank gate** — the daily budget (50 / 300 cold runs) + TTL are the only limiters,
+  and a held coin always gets a lookup. Cache hits are free. Every user's PWA keeps a **local offline
+  copy** of viewed coins (stamped "as of DATE"). **⬛ = insufficient-data is a *finding*, not a gap** —
+  shown with a per-axis reason chip (`no public repo` / `no coverage` / `anonymous team`) and taught in
+  Learn as a caution flag; **rank does not cause ⬛, thin sources do** (CoinGecko dev/community data +
+  GitHub reach most of the ~3,000-coin universe; the realistic ⬛ frontier is the universe edge, not
+  rank 500/1,250). **Accepted consequence:** Starter sees ⬛ for any coin no paid user has warmed (→
+  "upgrade to check this coin" hook). NB: with the news allowlist deferred, Founders + Community are ⬛
+  for *all* coins (incl. BTC) until domains are supplied — that's the allowlist, not rank.
 - **Pulse / tutor** are per-user (not per-coin): cached per (uid + portfolio-hash + tf) with a TTL,
   live only for Pro/Premium within the daily budget; Starter gets the data-driven offline summary.
 
@@ -125,10 +130,12 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   LLM never web-searches) + `getConviction(coinId)` callable backed by the shared per-coin
   `convictionCache/{cgId}` (server-write-only). **On-demand only — no scheduler;** the callable
   (re)generates only when a Pro/Premium caller's tier TTL is exceeded (**Premium 24h · Pro 48h**),
-  else serves the cached doc; **Starter is read-only** (never triggers → cached doc or ⬛). View-coverage
-  gate Starter 250 / Pro 500 / Premium 1,250 (+ held coins for paid). Cold runs charge the daily budget;
-  cache hits are free. **#17 privacy disclosure in the same commit.** Extend `safeProviderOrigin()` to
-  the allowlist (empty → Founders/Community stay ⬛). Rules test: clients can't read the cache doc.
+  else serves the cached doc; **Starter is read-only** (never triggers → cached doc or ⬛). **No rank
+  gate** — any coin (held or searched), any rank; budget + TTL are the only limiters. Cold runs charge
+  the daily budget; cache hits are free. Emit **per-axis ⬛ with a reason** (`no public repo` / `no
+  coverage` / `anonymous team`) — ⬛ is a finding, not a blank. **#17 privacy disclosure in the same
+  commit.** Extend `safeProviderOrigin()` to the allowlist (empty → Founders/Community stay ⬛). Rules
+  test: clients can't read the cache doc.
 - [ ] **B6 · 0e-live (#11/#12):** Pulse as its OWN AI surface — **per-user cache** (uid +
   portfolio-hash + tf) with a TTL, tier-gate (live for Pro/Premium; Starter = data-driven offline
   summary), validator + "as of DATE". (Pulse & Ask share the seam but keep separate caches/gates.)
