@@ -77,7 +77,7 @@ in fundamentals — not FOMO."*
 | 13 | No advice (in-app) | **Zero** price targets / probability weights / model portfolio in-app; **no aggregate score** | ✅ | Targets/V7 live only in the external reports; app shows separate signals + your thesis |
 | 14 | Naming wall | **Hard wall** — in-app AI fully anonymized; published named reports are a **separate, founder-reviewed** pipeline | 🆕 | Two content pipelines; nothing named flows into the app |
 | 15 | Output validator | **Regex prefilter → LLM judge**, fail-closed | 🆕 | Cheap path for clean text, escalate suspect spans; blocks names/targets/advice |
-| 16 | Fail-closed UX | **Up to N regens, then safe fallback** | 🆕 | **Cap N** (e.g. 2–3) to bound chat latency/cost |
+| 16 | Fail-closed UX | **Up to N regens, then safe fallback** | 🆕 | **N = 2** (locked) to bound chat latency/cost; a judge error/timeout also fails closed → safe fallback |
 | 17 | Privacy | **Send raw to the LLM under no-train terms** + clear user disclosure | 🆕 | **Hard requirement:** use no-training API tiers (Anthropic default; Gemini *paid* only) + privacy-policy line |
 | 18 | LLM split | **Claude for prose** (chat, Pulse) · **Gemini for structured extraction** (signals) | 🆕 | Two integrations behind the proxy; best cost/quality split |
 
@@ -87,9 +87,9 @@ in fundamentals — not FOMO."*
 
 | # | Decision | Choice | Status | Build implication |
 |---|---|---|---|---|
-| 19 | Tiers | **Starter** 1 portfolio/10 coins · **Pro** 3 portfolios/50 coins each · **Premium** 15 portfolios/unlimited coins · rename Free→**Starter** | 🔧 | `config/app.plans` + `firestore.rules` + admin defaults + plan labels |
-| 20 | Anti-abuse | "Unlimited" = **a high hard ceiling + rate-limited add-coin endpoint + App Check** — never bot-inflatable to infinity | 🆕 | Protects data *and* AI cost (each novel coin = a fresh engine run) |
-| 21 | AI cost control | **Cache/template the tutor** — pre-generate lesson explanations, personalize only the coin | 🆕 | Keeps the flat-cost model; "unlimited" Premium needs finite ceilings |
+| 19 | Tiers | **Starter** 1 portfolio/10 coins · **Pro** 3 portfolios/50 coins each · **Premium** 15 portfolios/"unlimited" coins (**hard clamp 1,000/portfolio**) · keep tx caps (Pro 2,000 / Premium 5,000) · rename Free→**Starter** (label only; internal tier key stays `free`) | 🔧 | `config/app.plans` + `firestore.rules` + admin defaults + plan labels |
+| 20 | Anti-abuse | "Unlimited" = **1,000-coin hard clamp (rules `min(config,1000)`) + `addCoinGuarded` callable (per-uid rate limit) + App Check (v1 `context.app`)** — never bot-inflatable | 🆕 | The clamp is *independent of* `config/app.plans` (a finite default isn't a ceiling); protects data *and* AI cost (each novel coin = a fresh engine run) |
+| 21 | AI cost control | **Template-first tutor** (personalize only the coin) + **per-uid daily live-AI budget: Starter offline · Pro 50 · Premium 300** (durable Firestore counter) | 🆕 | Keeps the flat-cost model; "unlimited" Premium needs finite ceilings |
 | 22 | Journal storage | **Firestore** (already on the coin doc: `journal{thesis,changeMyMind,status,priceAtAdd,createdAt}`, `validJournal` rule) | ✅ | Required for AI read + cross-device sync — **already done** |
 | 23 | Learn at launch | **Full library + gamification + AI tutor** (tutor templated per #21) | 🆕 | Largest content lift: ~9 modules / ~50 lessons + XP/badges/streaks + quiz + wiring |
 | 24 | Learn voice | **No names** — principles taught without attribution | ✅/🔧 | `learn-tab` already no-names; **fix the landing/spec copy that names Buffett/Munger/Marks** |
@@ -103,9 +103,10 @@ in fundamentals — not FOMO."*
 ## Captured hard requirements (carry into every relevant story)
 
 - **Responsive mobile + desktop** for the whole app (PWA path).
-- **Anti-abuse on "unlimited"**: hard coin ceiling + rate-limited add-coin endpoint + App Check.
-- **No-training LLM tiers** + privacy-policy disclosure (because chat sends the journal raw).
-- **Regen cap N** with a safe fallback (bound chat latency/cost).
+- **Anti-abuse on "unlimited"**: 1,000-coin hard clamp + `addCoinGuarded` callable (rate-limited) + App Check.
+- **No-training LLM tiers** + privacy-policy disclosure (because chat sends the journal raw); Gemini **paid** key only.
+- **Regen cap N = 2** with a safe fallback; the validator **fails closed** (judge error → fallback, never the raw text).
+- **Live-AI budget**: Starter offline · Pro 50/day · Premium 300/day (durable per-uid Firestore counter).
 - **Every signal carries its fetch date**; dated catalysts auto-expire.
 - **Hard naming wall** between the anonymized app and the named published reports.
 - **No advice anywhere in-app**: no targets, no model portfolio, no aggregate score.
@@ -130,30 +131,38 @@ pre-reconciliation archive):
 
 ---
 
-## 8. Still open (small decisions, settle when building)
+## 8. Decisions settled 2026-06-22 (were open; now locked)
 
-- Learn-progress storage — **recommend Firestore** (mirror the journal: AI tutor + cross-device + cheat-resistant).
-- The exact **anti-abuse ceiling number** + add-coin rate-limit budget.
-- The **regen cap N**.
-- Which **news domains** are on the Founders/Community allowlist (curation work).
+| Was open | Resolved |
+|---|---|
+| Learn-progress storage | **Firestore** — `users/{uid}/learn/progress` doc + `validLearnProgress` rule (mirrors the journal) |
+| Anti-abuse ceiling number | **1,000 coins/portfolio** — identical literal in `DEFAULT_PLANS` + the `firestore.rules` hard clamp |
+| Add-coin rate-limit | **`addCoinGuarded` callable** (per-uid sliding window + App Check), Wave B |
+| Live-AI budget | **Starter offline · Pro 50/day · Premium 300/day** (durable per-uid Firestore counter) |
+| Regen cap N | **2**, then safe fallback (validator fails closed) |
+| Founders/Community news allowlist | **Deferred** — fetchers built against an (initially empty) config list; those axes show ⬛ until domains are supplied |
+| App Check approach | **v1 `onCall` + manual `context.app`** check, prod-flag gated (no v1/v2 mix) |
+| Lesson quizzes | **Hand-authored** (guarantees the no-names voice + correct answers) |
+
+### Still genuinely open (don't block Wave A)
 - **CoinGecko plan tier** under on-demand engine load (cost modeling; today ~44k calls/mo on the price proxy alone).
-- Whether the ~50 lesson **quizzes are hand-authored or AI-generated**.
-- Exact **Claude/Gemini model ids + budgets** (see the `claude-api` skill for current model ids).
+- **Exact Claude/Gemini model ids** — resolve via the `claude-api` skill at code time (never hardcode from memory).
+- Which model runs the **0d output judge** (Gemini cheaper/structured vs Claude better at naming-wall nuance) — decide at B2.
 
 ---
 
-## 9. Build sequence (recommended)
+## 9. Build sequence → see `NEXT-STEPS.md` §0 (authoritative)
 
-You chose to ship the full 5-tab product. WIP=1 still means an order. The lowest-risk
-path that protects AI spend until it's proven:
+The detailed, audited build order now lives in [`NEXT-STEPS.md`](NEXT-STEPS.md) §0, structured as
+**two waves** around the Blaze/keys boundary (Wave A local-first A1–A9 · Wave B Blaze B1–B7). Two
+refinements from the 2026-06-22 codebase audit supersede the original linear list:
 
-1. **Tier reconfig** (#19/#20) — `config/app.plans` + `firestore.rules` + labels + anti-abuse, test-guarded. *Small, unblocks pricing copy.*
-2. **Secure AI proxy** (backlog N-3) — callable Cloud Function holding the Anthropic/Gemini keys, per-user rate limit + App Check, no-train tiers. *The keystone everything AI depends on.*
-3. **Conviction engine** (#6–#11) behind the proxy — backend fetch → cross-check → 4-state cached signals with as-of dates. Light the "coming soon" pills.
-4. **Output validator + fail-closed** (#15/#16) — must land *with* the engine/chat, not after.
-5. **Pulse + Ask** (#12) wired to live AI.
-6. **Learn** (#23–#27) — content + gamification + quiz + templated tutor. *Largest, most parallelizable; can run alongside.*
-7. **Copy + funnel** (#3/#4/#24) — anti-FOMO landing, drop named investors, research-led @CryptoIdea.
+- **The output validator (#15/#16) is built FIRST and wired INSIDE the proxy**, green before the
+  `ai-client.js` body-swap — not a step after the engine. `ai-client.js` is a throwing stub, so the
+  swap is the moment raw LLM prose could reach the UI; nothing un-validated may ever get there.
+- **App Check + the per-uid rate limiter are built ONCE** (in the proxy) and reused by the
+  `addCoinGuarded` callable — the codebase has zero server-side `context.app` checks today, so App
+  Check is currently decorative.
 
 > **Cofounder note (recorded once):** shipping all of the above at once is a large
 > first release for a solo builder and consciously overrides KISS/Agile/PMF. Consider

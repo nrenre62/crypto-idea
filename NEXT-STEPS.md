@@ -12,48 +12,121 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
-## 0. Product direction — 2026-06-22 decisions  (NEXT — top priority)
+## 0. Product direction — 2026-06-22 build roadmap  (NEXT — top priority)
 
-Canonical: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) (28 decisions). Planning docs reconciled in
-[`docs/planning/`](docs/planning/). Build in this order — each a test-guarded increment per AGILE.md.
+Canonical decisions: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) (28 decisions; §8 settled
+2026-06-22). Planning docs reconciled in [`docs/planning/`](docs/planning/). **This section is the
+authoritative build order**, grounded in a full codebase audit (the audit notes are inline so the
+order can't silently drift back to the stale spec).
 
-### 0a. Tier reconfig + anti-abuse  (decisions #19, #20)
-- [ ] `config/app.plans` defaults + admin "Plans & Pricing" defaults → **Starter 1 portfolio/10 coins · Pro 3/50-each · Premium 15/unlimited**.
-- [ ] `firestore.rules` tier enforcement to match (portfolios + coins-per-portfolio). Verify `npm run test:rules`.
-- [ ] Rename the "Free" label → **Starter** across app/landing/admin copy.
-- [ ] Anti-abuse on "unlimited": a high HARD coin ceiling + rate-limited add-coin path + App Check — never bot-inflatable. Add a rules/integration test.
+§0 splits along ONE hard external boundary — the **Blaze plan + live API keys**:
+- **Wave A — local-first:** fully buildable AND verifiable on the existing emulator stack now.
+- **Wave B — Blaze + keys:** build the code + the offline-degrade path now; the live LLM path is
+  only verifiable at go-live. Each Wave-B increment's DoD includes *"verified the offline fallback
+  still works with keys unset"* so a green local suite is never mistaken for a verified live path.
 
-### 0b. Secure AI proxy  (extends N-3; the keystone everything AI needs)
-- [ ] Callable Cloud Function holding the **Anthropic + Gemini** keys server-side (never in the client). Per-user rate limit + App Check + tier gating.
-- [ ] **No-training API tiers** + privacy-policy disclosure (chat sends the journal raw — #17).
-- [ ] LLM split: **Claude** for prose (chat, Pulse), **Gemini** for structured signal extraction (#18).
-- [ ] Swap the `src/features/research/api/ai-client.js` body to call it.
+**Locked numbers (2026-06-22 interview follow-up):** Premium ceiling **1,000 coins/portfolio** (the
+*identical literal* in `DEFAULT_PLANS` + the `firestore.rules` hard clamp) · keep tx caps (Pro 2,000 /
+Premium 5,000) · add-coin anti-abuse = **`addCoinGuarded` callable** · live-AI budget **Starter
+offline · Pro 50 · Premium 300 per day** (durable per-uid Firestore counter) · news allowlist
+**deferred** (Founders/Community show ⬛ until domains are supplied) · regen cap **N = 2** · App Check
+**v1 manual `context.app`**, prod-flag gated · Claude/Gemini model ids resolved via the `claude-api`
+skill at code time (never hardcoded from memory).
 
-### 0c. Conviction engine  (decisions #6–#11)
-- [ ] Backend fetches from **approved sources only** (GitHub API, CoinGecko, news allowlist for Founders/Community) — the LLM never web-searches (#6, #7).
-- [ ] **Multi-source cross-check** per axis before a signal shows (#8).
-- [ ] **4-state rubric:** 🟢 healthy / 🟡 mixed / 🔴 problem / ⬛ insufficient-data (#9).
-- [ ] **On-demand + shared 48h cache** (reuse the flat-cost `cache/universe` pattern); any held coin; ⬛ for thin coverage (#10).
-- [ ] **Stamp "as of DATE"** on every signal + auto-expire dated catalysts (#11).
-- [ ] Light up the "coming soon" conviction pills on Research coin cards.
+### The one critical re-sequence
+`0d` (the output validator) is **NOT** a later epic. [`ai-client.js`](src/features/research/api/ai-client.js)
+is a single throwing stub — the instant the `0b` proxy swaps its body, raw LLM prose reaches the UI
+with no filter. So: **build `validateOutput()` first (A9), wire it INSIDE the `0b` proxy (B2), and it
+must be green BEFORE the client body-swap (B4).** No un-validated LLM output may ever reach the screen.
 
-### 0d. Output validator + fail-closed  (decisions #15, #16) — lands WITH 0b/0c, not after
-- [ ] **Regex prefilter → LLM judge**: blocks any project name the user didn't mention (BTC/ETH/SOL excepted), price targets, buy/sell/hold, %-allocation, aggregate score. Fails closed.
-- [ ] **Up to N regens (N capped) then safe fallback.**
+### Four "looks-done-but-isn't" traps (audited — must be honored)
+1. **#20 hard ceiling is unenforced today.** `firestore.rules` `configuredLimit()` returns the
+   configured number with **no clamp**, and the existing "configured limits override defaults" test
+   *proves* config beats defaults. Add a literal `min(config, 1000)` clamp in the rule (mirrored in
+   `mergePlans`); the new test must set config *above* 1,000 and still reject. A finite *default* is
+   not a ceiling.
+2. **App Check is decoration.** Zero server-side `context.app` checks exist (uniformly v1 `onCall`).
+   Build the gate ONCE (B2) and reuse it for the add-coin callable (B3) — don't build it twice.
+3. **#17 + a free Gemini key = a privacy violation that compiles.** Gemini's free tier trains on
+   inputs; #17 sends journal text raw. The no-train **paid** key + the privacy disclosure must ship
+   in the SAME commit as any journal-raw code; assert the no-train requirement at the call site.
+4. **Stale `dist/` still ships the named investors.** `0g`'s DoD = `npm run build` then grep `dist/`
+   for the names → expect zero hits (a build-time guard test).
 
-### 0e. Portfolio Pulse as its own AI surface  (decision #12)
-- [ ] Own cache + trigger + tier-gate + validation; portfolio-level "describe what is, never prescribe".
+Plus the highest-consequence line in the build: the validator must **fail CLOSED** (judge
+error/timeout or regen-cap-reached → safe fallback, never the violating text) — the opposite of the
+usual "degrade to showing something" instinct, and easy to get subtly wrong.
 
-### 0f. Learn — wire the full tab  (decisions #23–#27)
-- [ ] Persist progress/XP/badges/streaks (recommend **Firestore**, mirror the journal).
-- [ ] **Quiz-gated** lesson completion (#25).
-- [ ] Author the full library (~9 modules / ~50 lessons) — voice = **no names** (#24); decide quiz authoring (hand vs AI).
-- [ ] **Templated AI tutor** (Premium): pre-generated explanations, personalize only the coin (#21).
-- [ ] Capture the **manual funnel steps** (dilution/volume/yield) as journal fields + teach them (#26, #27).
+### Wave A — local-first (ship + fully test on the emulator now)
+- [ ] **A1 · 0a-core (#19/#20):** `DEFAULT_PLANS`+`mergePlans` → Starter 1/10 · Pro 3/50 · Premium
+  15/**1000**; `firestore.rules` fallbacks **+ the `min(config, 1000)` HARD CLAMP** (trap 1);
+  Free→**Starter** LABEL only (keep the internal tier key `free`) across admin-dashboard / Login /
+  CryptoIdea / index.html / useUpgrade. Tests: `test:rules` (pro-50; premium rejected past 1,000 even
+  with config set higher; coins config-override) + `test:integration` + `test:unit`; update
+  `docs/diagrams/authorization-and-tier-limits.svg`. *Now unblocked (ceiling = 1,000).*
+- [ ] **A2 · 0g-copy (#4/#24):** drop Buffett/Munger/Marks from `Learn.jsx` (lines 15, 126) + the
+  Graham landing pull-quote (replace with a first-party anti-FOMO line); optional Login-tagline
+  polish. Add the build-time `dist/` name-guard test (trap 4). *Fully unblocked — no decisions needed.*
+- [ ] **A3 · enabler:** thread the active portfolio's coin objects (name/sym + `journal` subfields)
+  through `Research.jsx` → `ResearchTab`. Unblocks BOTH the 0d allowlist AND the #17 journal context.
+  First verify the forwarded coins actually carry `journal`.
+- [ ] **A4 · 0f-persist (#23):** `users/{uid}/learn/progress` doc + `validLearnProgress()` rule +
+  `getLearnProgress`/`saveLearnProgress` (mirror the journal pattern). Tests: rules + integration.
+- [ ] **A5 · 0f-logic (#25):** pure `utils/learn.js` (level/XP/streak/module-state) + `useLearn` hook
+  + wire `Learn.jsx`; **quiz-gated** completion. Tests: unit (pure util + hook + component).
+- [ ] **A6 · 0f-journal-widen (#27):** extend `validJournal` with an optional bounded
+  `funnel{dilution,volume,yield}` + Search/Journal inputs. **Its own small rules commit**, separate
+  from content; include a no-funnel backward-compat test. Re-run `test:rules` + `test:integration`.
+- [ ] **A7 · 0f-content (#23/#24):** author ~9 modules / ~50 lessons in `src/data/learn-content.js`,
+  **no-names** voice; hand-authored quizzes. Test: every lesson has a valid `correctIdx`; a regex
+  asserts no author names appear.
+- [ ] **A8 · 0c-pure (#8/#9/#11):** the conviction **rubric reducer** (≥2-source cross-check →
+  🟢/🟡/🔴/⬛, as-of-date, catalyst auto-expiry) as a pure util + light up the 4-state pills in
+  `CoinCard.jsx` driven by **mock data**. Test: unit (single-source→⬛, conflict→🟡, corroborated-bad→🔴,
+  expired catalyst, thin coverage→⬛). The marketed differentiator — highest-value early test.
+- [ ] **A9 · 0d-pure (#14/#15/#16):** `validateOutput()` regex-prefilter as a **pure module** +
+  exhaustive unit tests — blocks unmentioned project names (BTC/ETH/SOL excepted), price targets,
+  buy/sell/hold, %-allocation, aggregate score; **fails closed**; caps regens at **N=2**. Built here;
+  consumed in B2. The most security-load-bearing test set in §0.
 
-### 0g. Copy + funnel  (decisions #3, #4, #14, #24)
-- [ ] Landing/onboarding lead **anti-FOMO / regret**, not FOMO (#4); drop named investors (#24).
-- [ ] Research-led @CryptoIdea funnel (Substack/X) — **hard naming wall**: nothing named flows into the app (#14).
+### Wave B — Blaze + keys (code + offline-degrade now; verify live at go-live)
+- [ ] **B1 · 0b-secret-store:** Anthropic + Gemini keys in the locked `config/app` doc + admin
+  Settings fields (set-flags only, `keep()` idiom). The Gemini key **must be a paid no-train key**
+  (trap 3) — document it in `functions/.env.example` + README.
+- [ ] **B2 · 0b-proxy (KEYSTONE, extends N-3):** `researchAsk` callable — Claude (prose) / Gemini
+  (structured) **+ `validateOutput` (A9) wired in, fail-closed** + per-uid **Firestore** rate limiter
+  (Pro 50 / Premium 300 per day) + **`context.app` App Check gate** (v1, prod-flag) + server-side
+  tier-gate. Extract guard/budget/validator logic as pure helpers and unit-test them.
+- [ ] **B3 · 0a-antiabuse (#20):** `addCoinGuarded` callable — **reuses B2's per-uid limiter + App
+  Check gate**; the client write path routes through it. Closes #20's rate-limit + the write-path App
+  Check. Integration throttle test (rapid adds → `resource-exhausted`).
+- [ ] **B4 · 0b-swap:** swap the `ai-client.js` body to call `researchAsk` (keep the *resolve-string /
+  reject* contract so the hooks' offline fallback survives). **LAST step, gated on A9 + B2 green.**
+  Lights up Pulse AND Ask at once. Decide the validator's return contract first (throw → offline note,
+  vs a distinct "we held this back" payload — currently undefined).
+- [ ] **B5 · 0c-live (#6/#7/#10/#17):** GitHub / news-allowlist / CoinGecko-fundamentals fetchers (the
+  LLM never web-searches) + `getConviction` callable + a shared **48h cache** (`convictionCache/{cgId}`,
+  mirrors `cache/universe`, server-write-only) + the **#17 privacy disclosure in the same commit**.
+  Extend the `safeProviderOrigin()` SSRF guard to an allowlist. Empty allowlist → Founders/Community
+  stay ⬛. Rules test: clients can't read the cache doc.
+- [ ] **B6 · 0e-live (#11/#12):** Pulse as its OWN AI surface — own cache + trigger + tier-gate +
+  validator + "as of DATE". (Pulse & Ask share the seam but keep separate caches/gates.)
+- [ ] **B7 · 0f-tutor (#21):** Premium templated tutor — **template-first** ({coin}-substitution, zero
+  LLM cost); any live elaboration is optional, gated to Premium, and routed through the validator.
+
+### Gaps to track (not yet owned by an increment)
+- **#1 (the moat):** no end-to-end test that *Journal thesis → conviction signals → Learn framework*
+  connect for a user. Add a walkthrough seam test once A4–A8 land.
+- **#2 responsive:** add *"verify mobile + desktop layout"* to the DoD of every UI increment (A8 pills,
+  A5 Learn, B6 Pulse) — manual narrow-viewport check, no automated visual test exists.
+- **#26 bridge copy** ("these signals cover steps 1–2; you apply 3–5") — make it a tested deliverable
+  wherever signals/funnel fields render (easy to omit on one surface).
+- **Diagrams:** A1 updates `authorization-and-tier-limits.svg`; the AI proxy / conviction engine /
+  Learn surfaces are **undiagrammed** — each needs a new `docs/diagrams/` SVG (use `drawing-diagram`).
+
+### Still genuinely open (does NOT block Wave A)
+- CoinGecko plan tier under on-demand engine load (cost modeling; ~44k calls/mo on the price proxy alone today).
+- Which model runs the `0d` judge (Gemini cheaper/structured vs Claude better at naming-wall nuance) — decide at B2.
 
 ---
 
