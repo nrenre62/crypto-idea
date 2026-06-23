@@ -15,6 +15,7 @@ import { registerUser } from "../src/api/firebase-auth.js";
 import {
   getPortfolios, createPortfolio, getCoins,
   addCoin, addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
+  getLearnProgress, saveLearnProgress,
 } from "../src/api/firebase-database.js";
 
 // Point the SDK at the local emulators (DEV auto-connect only happens under Vite).
@@ -90,4 +91,24 @@ test("coin journal: write a thesis and a review decision, read both back via get
   assert.ok(upd2.success);
   const coins2 = await getCoins(uid, "default");
   assert.equal(coins2.coins.find((c) => c.id === "coin0").journal.status, "challenged");
+});
+
+test("learn progress: defaults when empty, then saves + reads back via the data layer (#23)", async () => {
+  // Fresh learner: no progress doc yet → zeroed default, not an error.
+  const fresh = await getLearnProgress(uid);
+  assert.ok(fresh.success, "empty progress should read as a zeroed default: " + JSON.stringify(fresh));
+  assert.equal(fresh.xp, 0);
+  assert.deepEqual(fresh.completedLessons, []);
+
+  const saved = await saveLearnProgress(uid, {
+    xp: 250, streak: 4, lastActivity: "2026-06-23", completedLessons: ["m1-l1", "m1-l2", "m2-l1"],
+  });
+  assert.ok(saved.success, "save should satisfy the rule: " + JSON.stringify(saved));
+
+  const got = await getLearnProgress(uid);
+  assert.ok(got.success);
+  assert.equal(got.xp, 250);
+  assert.equal(got.streak, 4);
+  assert.deepEqual(got.completedLessons, ["m1-l1", "m1-l2", "m2-l1"]);
+  assert.ok(got.updatedAt, "updatedAt should be stamped by saveLearnProgress");
 });

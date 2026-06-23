@@ -104,8 +104,13 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   `portfolio.holdings`, so it reaches `ResearchTab`'s consumers (the future #17 AI context + 0d
   allowlist). Tests: `research-adapters` adds journal-preservation + a `computePortfolio`
   pass-through guard. **Verified:** unit 136 · build clean.
-- [ ] **A4 · 0f-persist (#23):** `users/{uid}/learn/progress` doc + `validLearnProgress()` rule +
-  `getLearnProgress`/`saveLearnProgress` (mirror the journal pattern). Tests: rules + integration.
+- [x] **A4 · 0f-persist (#23):** ✅ DONE 2026-06-23 — `users/{uid}/learn/progress` doc +
+  `validLearnProgress()` rule (owner-only; bounded+typed `{xp, streak, lastActivity, completedLessons[],
+  updatedAt}`, `hasOnly` blocks junk keys) + `getLearnProgress`/`saveLearnProgress` (mirror the journal;
+  zeroed default for a fresh learner). Persistence only — UI wiring is A5; level/badges/module-state are
+  *derived*, not stored. Tests: `test:rules` (owner write/read; stranger + malformed rejected) +
+  `test:integration` (default → save → read-back). **Verified:** rules 15 · integration 7 · unit 136 ·
+  build clean.
 - [ ] **A5 · 0f-logic (#25):** pure `utils/learn.js` (level/XP/streak/module-state) + `useLearn` hook
   + wire `Learn.jsx`; **quiz-gated** completion. Tests: unit (pure util + hook + component).
 - [ ] **A6 · 0f-journal-widen (#27):** extend `validJournal` with an optional bounded

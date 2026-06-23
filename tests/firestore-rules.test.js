@@ -262,3 +262,26 @@ test("transaction create enforces amount/price/date bounds", async () => {
   bad.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
   await assertFails(bad.commit());
 });
+
+test("learn progress: owner reads/writes a valid doc; strangers + malformed are rejected (#23)", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });
+    await setDoc(doc(db, "users", "bob"), { tier: "free", portfolioCount: 0 });
+  });
+  const good = { xp: 120, streak: 3, lastActivity: "2026-06-23", completedLessons: ["m1-l1", "m1-l2"], updatedAt: "2026-06-23T00:00:00.000Z" };
+  const ref = (db) => doc(db, "users", "alice", "learn", "progress");
+
+  // Owner can write + read their own progress.
+  await assertSucceeds(setDoc(ref(aliceDb()), good));
+  await assertSucceeds(getDoc(ref(aliceDb())));
+
+  // A stranger can neither read nor write it.
+  await assertFails(getDoc(ref(bobDb())));
+  await assertFails(setDoc(ref(bobDb()), good));
+
+  // Malformed docs are rejected: out of range, wrong type, non-list, and unknown keys.
+  await assertFails(setDoc(ref(aliceDb()), { ...good, xp: -1 }));
+  await assertFails(setDoc(ref(aliceDb()), { ...good, xp: "lots" }));
+  await assertFails(setDoc(ref(aliceDb()), { ...good, completedLessons: "nope" }));
+  await assertFails(setDoc(ref(aliceDb()), { ...good, hacker: true }));
+});

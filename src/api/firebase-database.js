@@ -6,6 +6,7 @@
  * SCHEMA:
  * users/{uid}
  *   ├── email, name, tier, joined, lastLogin, settings
+ *   ├── learn/progress { xp, streak, lastActivity, completedLessons[], updatedAt }
  *   └── portfolios/{portfolioId}
  *         ├── name, created, order
  *         └── coins/{coinId}
@@ -184,6 +185,46 @@ export async function updateCoinJournal(uid, portfolioId, coinId, journal) {
     const ref = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId);
     await updateDoc(ref, { journal });
     return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ════════════════════════════════════════
+// LEARN PROGRESS
+// ════════════════════════════════════════
+
+// Read the user's Learn gamification state (users/{uid}/learn/progress). Returns a
+// zeroed default when the doc doesn't exist yet (a fresh learner), so callers always
+// get a usable shape. These persisted fields are the source of truth; level / badges /
+// module-state are DERIVED from them client-side (see utils/learn.js).
+export async function getLearnProgress(uid) {
+  try {
+    const snap = await getDoc(doc(db, "users", uid, "learn", "progress"));
+    if (!snap.exists()) {
+      return { success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [], updatedAt: "" };
+    }
+    return { success: true, ...snap.data() };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Persist the user's Learn progress to the single progress doc. Writes exactly the
+// fields validLearnProgress (firestore.rules) allows and stamps updatedAt, so the
+// write always satisfies the rule regardless of any extra keys the caller passes.
+export async function saveLearnProgress(uid, progress) {
+  try {
+    const p = progress || {};
+    const record = {
+      xp: Number(p.xp) || 0,
+      streak: Number(p.streak) || 0,
+      lastActivity: typeof p.lastActivity === "string" ? p.lastActivity : "",
+      completedLessons: Array.isArray(p.completedLessons) ? p.completedLessons : [],
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(doc(db, "users", uid, "learn", "progress"), record);
+    return { success: true, ...record };
   } catch (error) {
     return { success: false, error: error.message };
   }

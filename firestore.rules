@@ -170,6 +170,17 @@ service cloud.firestore {
           }
         }
       }
+
+      // ─── Learn progress (gamification state) ───
+      // One per-user doc: users/{uid}/learn/progress. Low-stakes SELF data (it never
+      // touches tier/limits/money), so the owner may write it within a bounded, typed
+      // shape. validLearnProgress caps sizes so it can't be abused as free storage;
+      // note Firestore rules can't validate list ELEMENTS, only the list's size.
+      match /learn/{docId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update: if isOwner(userId) && validLearnProgress(request.resource.data);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
     }
 
     // ═══ Validation Functions ═══
@@ -198,6 +209,19 @@ service cloud.firestore {
              && j.status in ['intact', 'review', 'challenged']
              && j.priceAtAdd is number && j.priceAtAdd >= 0
              && j.createdAt is string && j.createdAt.size() <= 40;
+    }
+
+    // Learn gamification state (users/{uid}/learn/progress). Bounded + typed, with
+    // exactly these keys (hasOnly blocks junk fields). Lists are size-capped — rules
+    // can't inspect list elements, but this is the user's own low-stakes progress,
+    // not a privilege, so a size bound is the right ceiling.
+    function validLearnProgress(p) {
+      return p.keys().hasOnly(['xp', 'streak', 'lastActivity', 'completedLessons', 'updatedAt'])
+             && p.xp is number && p.xp >= 0 && p.xp <= 10000000
+             && p.streak is number && p.streak >= 0 && p.streak <= 100000
+             && p.lastActivity is string && p.lastActivity.size() <= 40
+             && p.completedLessons is list && p.completedLessons.size() <= 500
+             && p.updatedAt is string && p.updatedAt.size() <= 40;
     }
 
     function validTransactionData() {
