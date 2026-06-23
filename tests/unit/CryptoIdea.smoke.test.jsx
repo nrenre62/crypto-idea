@@ -24,6 +24,8 @@ vi.mock("../../src/api/firebase-database.js", () => ({
   addTransaction: vi.fn(),
   updateTransaction: vi.fn(),
   deleteTransaction: vi.fn(),
+  getLearnProgress: vi.fn().mockResolvedValue({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] }),
+  saveLearnProgress: vi.fn().mockResolvedValue({ success: true }),
 }));
 vi.mock("../../src/api/coingecko.js", () => ({
   fetchPrices: vi.fn().mockResolvedValue(null),

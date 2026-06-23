@@ -25,6 +25,8 @@ vi.mock("../../src/api/firebase-database.js", () => ({
   addCoin: vi.fn().mockResolvedValue({ success: true }),
   removeCoin: vi.fn().mockResolvedValue({ success: true }),
   addTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(),
+  getLearnProgress: vi.fn().mockResolvedValue({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] }),
+  saveLearnProgress: vi.fn().mockResolvedValue({ success: true }),
 }));
 vi.mock("../../src/api/coingecko.js", () => ({
   fetchPrices: vi.fn().mockResolvedValue(null),
@@ -93,7 +95,7 @@ describe("User walkthrough — all functions", () => {
     fireEvent.click(screen.getByText("Start lesson"));
     expect(await screen.findByText("The key insight")).toBeInTheDocument();
     // Answer the quiz — clicking the correct option reveals it (class "correct")
-    const correct = screen.getByText("Last GitHub commit was 2 days ago");
+    const correct = screen.getByText("More people are buying it right now");
     fireEvent.click(correct);
     expect(correct.closest(".quiz-opt").className).toContain("correct");
   });

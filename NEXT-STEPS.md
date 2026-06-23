@@ -111,8 +111,13 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   *derived*, not stored. Tests: `test:rules` (owner write/read; stranger + malformed rejected) +
   `test:integration` (default → save → read-back). **Verified:** rules 15 · integration 7 · unit 136 ·
   build clean.
-- [ ] **A5 · 0f-logic (#25):** pure `utils/learn.js` (level/XP/streak/module-state) + `useLearn` hook
-  + wire `Learn.jsx`; **quiz-gated** completion. Tests: unit (pure util + hook + component).
+- [x] **A5 · 0f-logic (#25):** ✅ DONE 2026-06-23 — pure `utils/learn.js` (levelFromXp / streakOn /
+  completeLesson / moduleStates / nextLesson, all unit-tested) + `useLearn` hook (loads A4 progress,
+  persists **quiz-gated** completions, degrades gracefully when signed out) + `Learn.jsx` fully wired
+  (real level/XP/streak/badges/module-state, sequential module unlock, quiz-gated lesson overlay). Seed
+  content in `src/data/learn-content.js` (2 modules / 4 real lessons, no-names voice) — **A7 expands** to
+  ~9 modules / ~50 lessons. Tests: unit pure (16) + hook (4) + component (3); walkthrough/smoke updated.
+  **Verified:** unit 159 · build clean.
 - [ ] **A6 · 0f-journal-widen (#27):** extend `validJournal` with an optional bounded
   `funnel{dilution,volume,yield}` + Search/Journal inputs. **Its own small rules commit**, separate
   from content; include a no-funnel backward-compat test. Re-run `test:rules` + `test:integration`.
