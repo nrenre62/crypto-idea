@@ -66,7 +66,9 @@ must be green BEFORE the client body-swap (B4).** No un-validated LLM output may
    configured number with **no clamp**, and the existing "configured limits override defaults" test
    *proves* config beats defaults. Add a literal `min(config, 1000)` clamp in the rule (mirrored in
    `mergePlans`); the new test must set config *above* 1,000 and still reject. A finite *default* is
-   not a ceiling.
+   not a ceiling. ✅ **Resolved in A1** — `configuredLimit` clamps to a per-key `hardMax` (coins 1,000),
+   mirrored by `mergePlans`; the rules test sets premium coins config to 5,000 and is still rejected at
+   the 1,001st coin.
 2. **App Check is decoration.** Zero server-side `context.app` checks exist (uniformly v1 `onCall`).
    Build the gate ONCE (B2) and reuse it for the add-coin callable (B3) — don't build it twice.
 3. **#17 + a free Gemini key = a privacy violation that compiles.** Gemini's free tier trains on
@@ -81,12 +83,15 @@ error/timeout or regen-cap-reached → safe fallback, never the violating text) 
 usual "degrade to showing something" instinct, and easy to get subtly wrong.
 
 ### Wave A — local-first (ship + fully test on the emulator now)
-- [ ] **A1 · 0a-core (#19/#20):** `DEFAULT_PLANS`+`mergePlans` → Starter 1/10 · Pro 3/50 · Premium
-  15/**1000**; `firestore.rules` fallbacks **+ the `min(config, 1000)` HARD CLAMP** (trap 1);
-  Free→**Starter** LABEL only (keep the internal tier key `free`) across admin-dashboard / Login /
-  CryptoIdea / index.html / useUpgrade. Tests: `test:rules` (pro-50; premium rejected past 1,000 even
-  with config set higher; coins config-override) + `test:integration` + `test:unit`; update
-  `docs/diagrams/authorization-and-tier-limits.svg`. *Now unblocked (ceiling = 1,000).*
+- [x] **A1 · 0a-core (#19/#20):** ✅ DONE 2026-06-23 — `DEFAULT_PLANS`+`mergePlans` (functions) → Pro
+  3/50 · Premium 15/**1000** (Starter 1/10 unchanged); `firestore.rules` defaults updated **+ the hard
+  clamp** (`configuredLimit` per-key `hardMax`; coins clamped to 1,000, mirrored by `mergePlans`
+  `Math.min(coins,1000)`); Free→**Starter** LABEL only (internal key stays `free`) across
+  admin-dashboard / Login / CryptoIdea / index.html + all limit mirrors (useUpgrade, useAdminDashboard);
+  removed a dead stale `MAX_COINS=200` const. New `test:rules` cases prove pro-50 and the clamp (config
+  5,000 → still rejected at the 1,001st coin); diagram updated. An adversarial audit confirmed the clamp
+  airtight server-side (per-user `premiumLimits` is client-display-only — no rule reads it).
+  **Verified:** rules 14 · unit 134 · integration 6 · build clean.
 - [x] **A2 · 0g-copy (#4/#24):** ✅ DONE 2026-06-23 — de-named `Learn.jsx` (module sub + disclaimer),
   replaced the Graham landing pull-quote with a first-party anti-FOMO line ("The coins that hurt most
   are the ones you couldn't explain."), and polished the Login tagline → "Know why you own every coin."

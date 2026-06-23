@@ -66,8 +66,6 @@ const APP_VERSION = "4.1.0";
 // Admin is determined by a Firebase custom claim ({ admin: true }) set server-side
 // via the Admin SDK — see functions/index.js (setAdminClaim) and functions/scripts/set-admin.js.
 // There is intentionally no email allowlist here; the client only reads the verified token claim.
-const FREE_COIN_LIMIT = 10;
-const MAX_COINS = 200;
 
 // ── Main App ──
 export default function CryptoIdea(){
@@ -279,13 +277,13 @@ export default function CryptoIdea(){
   // Admin-configured tier limits (from /api/config); fall back to built-in defaults.
   const _tierKey=isPremium?"premium":isPro?"pro":"free";
   const _planLim=(key,def)=>{const p=site.plans&&site.plans[_tierKey];return (p&&p[key]!=null)?p[key]:def;};
-  const maxPortfolios=isPremium?(premLimits.portfolios||_planLim("portfolios",50)):_planLim("portfolios",isPro?10:1);
-  const maxCoinsPerPort=isPremium?(premLimits.coins||_planLim("coins",500)):_planLim("coins",isPro?200:10);
+  const maxPortfolios=isPremium?(premLimits.portfolios||_planLim("portfolios",15)):_planLim("portfolios",isPro?3:1);
+  const maxCoinsPerPort=isPremium?(premLimits.coins||_planLim("coins",1000)):_planLim("coins",isPro?50:10);
   const maxTxPerCoin=isPremium?(premLimits.transactions||_planLim("transactions",5000)):_planLim("transactions",isPro?2000:50);
 
 
   const addPortfolio=async()=>{
-    if(portfolios.length>=maxPortfolios){showErr(isPro?"Max 10 portfolios":"Free: 1 portfolio. Upgrade to Pro for 10!");return}
+    if(portfolios.length>=maxPortfolios){showErr(isPro?("Max "+maxPortfolios+" portfolios"):"Starter: 1 portfolio — upgrade to Pro for 3");return}
     if(!newPortName.trim()){showErr("Enter a portfolio name");return}
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbCreatePortfolio(user.uid,newPortName.trim(),portfolios.length);
@@ -304,7 +302,7 @@ export default function CryptoIdea(){
   const addCoin=async(c,journal=null)=>{
     if(portfolio.find(x=>x.id===c.id)){showErr("Already added");return}
     const lim=maxCoinsPerPort;
-    if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Free: "+maxCoinsPerPort+" coins. Upgrade to Pro for "+200+"!");return}
+    if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Starter: "+maxCoinsPerPort+" coins — upgrade to Pro for 50");return}
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbAddCoin(user.uid,activePortId,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb},journal);
     if(!res.success){showErr("Couldn't add coin. Check your connection.");return}

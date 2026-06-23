@@ -100,9 +100,9 @@ async function writeAudit(context, action, info) {
 // config/app.plans); these are the fallback when nothing is configured and MUST
 // match the defaults in firestore.rules (where the limit ceiling is enforced).
 const DEFAULT_PLANS = {
-  free:    { price: 0,     portfolios: 1,  coins: 10,  transactions: 50 },
-  pro:     { price: 9.99,  portfolios: 10, coins: 200, transactions: 2000 },
-  premium: { price: 49.99, portfolios: 50, coins: 500, transactions: 5000 },
+  free:    { price: 0,     portfolios: 1,  coins: 10,   transactions: 50 },
+  pro:     { price: 9.99,  portfolios: 3,  coins: 50,   transactions: 2000 },
+  premium: { price: 49.99, portfolios: 15, coins: 1000, transactions: 5000 },
 };
 // Validate + fill any missing plan fields from the defaults (never trust raw input).
 function mergePlans(saved) {
@@ -114,7 +114,7 @@ function mergePlans(saved) {
     out[t] = {
       price: Math.min(num(v.price, d.price), 1e6),                              // cap: no absurd prices
       portfolios: Math.min(Math.round(num(v.portfolios, d.portfolios)), 100000),
-      coins: Math.min(Math.round(num(v.coins, d.coins)), 100000),
+      coins: Math.min(Math.round(num(v.coins, d.coins)), 1000),     // hard ceiling #20: mirrors firestore.rules maxCoins clamp
       transactions: Math.min(Math.round(num(v.transactions, d.transactions)), 1000000),
     };
   }

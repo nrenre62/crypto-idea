@@ -45,6 +45,7 @@ async function seed(fn) {
 
 const aliceDb = () => testEnv.authenticatedContext("alice").firestore();
 const bobDb = () => testEnv.authenticatedContext("bob").firestore();
+const carolDb = () => testEnv.authenticatedContext("carol").firestore();
 const adminDb = () => testEnv.authenticatedContext("zadmin", { admin: true }).firestore();
 
 test("a user can read their own profile, a stranger cannot", async () => {
@@ -139,7 +140,7 @@ test("pro tier allows a 2nd portfolio where free would fail", async () => {
   const b = writeBatch(db);
   b.set(doc(db, "users", "bob", "portfolios", "p2"), { name: "Two", coinCount: 0 });
   b.update(doc(db, "users", "bob"), { portfolioCount: increment(1) });
-  await assertSucceeds(b.commit()); // count 1 -> 2, within pro limit of 10
+  await assertSucceeds(b.commit()); // count 1 -> 2, within pro limit of 3
 });
 
 test("creating a portfolio WITHOUT bumping the counter is rejected", async () => {
@@ -168,6 +169,46 @@ test("coin create enforces symbol/name length bounds", async () => {
   bad.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "eth"), { symbol: "ETH", name: "E".repeat(100), txCount: 0 });
   bad.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
   await assertFails(bad.commit());
+});
+
+test("pro tier allows 50 coins per portfolio, then rejects (new 0a-core default)", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "bob"), { tier: "pro", portfolioCount: 1 });
+    // Seed the counter just below the pro ceiling (avoids creating 49 real coins).
+    await setDoc(doc(db, "users", "bob", "portfolios", "p1"), { name: "P", coinCount: 49 });
+  });
+  const db = bobDb();
+  // 49 -> 50: at the pro coins limit -> allowed
+  const ok = writeBatch(db);
+  ok.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "c50"), { symbol: "AAA", name: "Coin A", txCount: 0 });
+  ok.update(doc(db, "users", "bob", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertSucceeds(ok.commit());
+  // 50 -> 51: exceeds the pro limit of 50 -> rejected
+  const over = writeBatch(db);
+  over.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "c51"), { symbol: "BBB", name: "Coin B", txCount: 0 });
+  over.update(doc(db, "users", "bob", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(over.commit());
+});
+
+test("premium coins are hard-clamped at 1,000 even when config sets a higher number (#20 trap 1)", async () => {
+  await seed(async (db) => {
+    // A tampered / over-generous config tries to lift the ceiling above 1,000.
+    await setDoc(doc(db, "config", "app"), { plans: { premium: { coins: 5000 } } });
+    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 999 });
+  });
+  const db = carolDb();
+  // 999 -> 1000: at the 1,000 hard clamp -> allowed
+  const ok = writeBatch(db);
+  ok.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c1000"), { symbol: "AAA", name: "Coin A", txCount: 0 });
+  ok.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertSucceeds(ok.commit());
+  // 1000 -> 1001: config says 5,000, but the rule clamps to 1,000 -> rejected.
+  // A finite *default* is not a ceiling — this proves the literal min(config, 1000).
+  const over = writeBatch(db);
+  over.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c1001"), { symbol: "BBB", name: "Coin B", txCount: 0 });
+  over.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(over.commit());
 });
 
 test("coin journal: valid thesis accepted, owner can update status, bad data + strangers rejected", async () => {

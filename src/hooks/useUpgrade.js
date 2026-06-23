@@ -5,9 +5,9 @@ import { useCallback } from "react";
 // enforcement reads admin-configured plans (`site.plans`) with these as the fallback;
 // the downgrade trim intentionally uses the fixed defaults.
 export const TIER_LIMITS = {
-  free:    { ports: 1,  coins: 10,  tx: 50 },
-  pro:     { ports: 10, coins: 200, tx: 2000 },
-  premium: { ports: 50, coins: 500, tx: 5000 },
+  free:    { ports: 1,  coins: 10,   tx: 50 },
+  pro:     { ports: 3,  coins: 50,   tx: 2000 },
+  premium: { ports: 15, coins: 1000, tx: 5000 },
 };
 
 // The shape a fully-trimmed (now-empty) account falls back to.

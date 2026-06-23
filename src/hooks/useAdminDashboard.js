@@ -28,9 +28,9 @@ export function useAdminDashboard() {
   const [legal, setLegal] = useState({ termlyUuid: "", termlyPrivacyId: "", termlyTermsId: "", cookieBanner: false });
   // Editable plan prices + limits (mirrors functions DEFAULT_PLANS / firestore.rules).
   const DEFAULT_PLANS = {
-    free:    { price: 0,     portfolios: 1,  coins: 10,  transactions: 50 },
-    pro:     { price: 9.99,  portfolios: 10, coins: 200, transactions: 2000 },
-    premium: { price: 49.99, portfolios: 50, coins: 500, transactions: 5000 },
+    free:    { price: 0,     portfolios: 1,  coins: 10,   transactions: 50 },
+    pro:     { price: 9.99,  portfolios: 3,  coins: 50,   transactions: 2000 },
+    premium: { price: 49.99, portfolios: 15, coins: 1000, transactions: 5000 },
   };
   const [plans, setPlans] = useState(DEFAULT_PLANS);
 

@@ -2,9 +2,9 @@ import { useAdminDashboard } from "../hooks/useAdminDashboard.js";
 import { trashDaysLeft, partitionUsers } from "../utils/trash.js";
 
 const TIERS = {
-  free:    { label:"Free",    color:"#FF9500", limits:{ portfolios:1, coins:10, transactions:50 }, storage:"5 MB", price:"$0" },
-  pro:     { label:"Pro",     color:"#34C759", limits:{ portfolios:10, coins:200, transactions:2000 }, storage:"500 MB", price:"$9.99/mo" },
-  premium: { label:"Premium", color:"#AF52DE", limits:{ portfolios:50, coins:500, transactions:5000 }, storage:"15 GB", price:"$49.99/mo" },
+  free:    { label:"Starter", color:"#FF9500", limits:{ portfolios:1, coins:10, transactions:50 }, storage:"5 MB", price:"$0" },
+  pro:     { label:"Pro",     color:"#34C759", limits:{ portfolios:3, coins:50, transactions:2000 }, storage:"500 MB", price:"$9.99/mo" },
+  premium: { label:"Premium", color:"#AF52DE", limits:{ portfolios:15, coins:1000, transactions:5000 }, storage:"15 GB", price:"$49.99/mo" },
 };
 
 // Friendly labels for audit-log action codes.
@@ -61,7 +61,7 @@ export default function AdminDashboard() {
       {tab === "overview" && (<>
         {/* Stats */}
         <div style={{ display:"flex", gap:6, marginBottom:10 }}>
-          {[[s.totalUsers,"Total",c.tx],[s.freeUsers,"Free",c.or],[s.proUsers,"Pro",c.gr],[s.premiumUsers,"Premium",c.pr]].map(([val,label,color]) => (
+          {[[s.totalUsers,"Total",c.tx],[s.freeUsers,"Starter",c.or],[s.proUsers,"Pro",c.gr],[s.premiumUsers,"Premium",c.pr]].map(([val,label,color]) => (
             <div key={label} style={{ background:c.w, borderRadius:14, padding:"14px 10px", border:`1px solid ${c.bd}`, textAlign:"center", flex:1 }}>
               <div style={{ fontSize:24, fontWeight:700, letterSpacing:"-1px", color }}>{val}</div>
               <div style={{ fontSize:8, color:c.dm, marginTop:2, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.5px" }}>{label}</div>
@@ -109,7 +109,7 @@ export default function AdminDashboard() {
             ))}
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", marginTop:6, fontSize:9, fontWeight:600 }}>
-            <span style={{ color:c.or }}>Free ({s.freeUsers})</span>
+            <span style={{ color:c.or }}>Starter ({s.freeUsers})</span>
             <span style={{ color:c.gr }}>Pro ({s.proUsers})</span>
             <span style={{ color:c.pr }}>Premium ({s.premiumUsers})</span>
           </div>

@@ -14,7 +14,10 @@
 //   (writeBatch + increment) which keeps these counters in sync.
 //
 // NOTE: Premium *custom* limits (per-user premiumLimits) are checked client-side;
-// these rules use the premium defaults (50/500/5000) as the hard ceiling.
+// these rules use the tier defaults (Premium 15 portfolios / 1,000 coins / 5,000 tx)
+// and clamp EVERY configured limit to a hard ceiling — coins can never exceed 1,000
+// per portfolio, so "unlimited" Premium can't be bot-inflated into a denial-of-wallet
+// (decision #20). A finite default is not a license to raise the ceiling.
 //
 // IMPORTANT: test changes with the Firebase emulator (firebase emulators:start)
 // before deploying — counter logic is easy to get subtly wrong.
@@ -56,16 +59,22 @@ service cloud.firestore {
     // Rules read them here so the configured limit is the ENFORCED ceiling; when
     // nothing is configured we fall back to the built-in defaults. config/app is
     // unreadable by clients, but get()/exists() inside rules may still read it.
-    function configuredLimit(userId, key, defFree, defPro, defPrem) {
+    // The configured value is the ENFORCED limit, but it can never exceed the
+    // product's HARD ceiling for that key (hardMax) — config may only LOWER a limit,
+    // never raise it past the ceiling. hardMax mirrors the Math.min() caps in
+    // functions/index.js mergePlans (portfolios 100000, coins 1000, tx 1000000), so
+    // the two enforcement layers agree on the literal 1,000-coin clamp (#20).
+    function configuredLimit(userId, key, defFree, defPro, defPrem, hardMax) {
       let t = tierOf(userId);
       let fallback = t == 'premium' ? defPrem : t == 'pro' ? defPro : defFree;
       let cfgPath = /databases/$(database)/documents/config/app;
       let plan = exists(cfgPath) ? get(cfgPath).data.get('plans', {}).get(t, {}) : {};
-      return plan.get(key, fallback);
+      let want = plan.get(key, fallback);
+      return want < hardMax ? want : hardMax;
     }
-    function maxPortfolios(userId) { return configuredLimit(userId, 'portfolios', 1, 10, 50); }
-    function maxCoins(userId)      { return configuredLimit(userId, 'coins', 10, 200, 500); }
-    function maxTx(userId)         { return configuredLimit(userId, 'transactions', 50, 2000, 5000); }
+    function maxPortfolios(userId) { return configuredLimit(userId, 'portfolios', 1, 3, 15, 100000); }
+    function maxCoins(userId)      { return configuredLimit(userId, 'coins', 10, 50, 1000, 1000); }
+    function maxTx(userId)         { return configuredLimit(userId, 'transactions', 50, 2000, 5000, 1000000); }
 
     // Counter changes (made by clients to keep aggregates in sync) must move by at
     // most 1 per write, so they can't be reset to smuggle past a limit in one shot.

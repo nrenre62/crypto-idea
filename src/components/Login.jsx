@@ -19,8 +19,8 @@ export function Login() {
     if(upgradeStep==="welcome"){
       const benefits={
         free:["1 portfolio","10 coins","50 transactions per coin","Live prices · Full P/L tracking"],
-        pro:["10 portfolios","200 coins per portfolio","2,000 transactions per coin","Live prices · Full P/L tracking"],
-        premium:["50 portfolios","500 coins per portfolio","5,000 transactions per coin","Priority support · Custom limits"],
+        pro:["3 portfolios","50 coins per portfolio","2,000 transactions per coin","Live prices · Full P/L tracking"],
+        premium:["15 portfolios","1,000 coins per portfolio","5,000 transactions per coin","Priority support · Custom limits"],
       };
       const list=benefits[showWelcome||"free"];
       const isPrem=showWelcome==="premium";
@@ -90,12 +90,12 @@ export function Login() {
         <div onClick={()=>{setUpgradeFlow("pro");setUpgradeStep("billing")}} className="plan-card rec">
           <div className="plan-badge">RECOMMENDED</div>
           <div className="plan-top"><span className="plan-name">Pro</span><span className="plan-price-sm">from $6.67/mo</span></div>
-          <div className="plan-feats">10 portfolios · 200 coins · 2,000 transactions per coin</div>
+          <div className="plan-feats">3 portfolios · 50 coins · 2,000 transactions per coin</div>
           <div className="plan-cta accent">Choose Pro</div>
         </div>
         <div onClick={()=>{setUpgradeFlow("premium");setUpgradeStep("billing")}} className="plan-card prem">
           <div className="plan-top"><span className="plan-name prem">Premium</span><span className="plan-price-sm">from $33.33/mo</span></div>
-          <div className="plan-feats">50 portfolios · 500 coins · 5,000 transactions per coin</div>
+          <div className="plan-feats">15 portfolios · 1,000 coins · 5,000 transactions per coin</div>
           <div className="plan-cta prem">Choose Premium</div>
         </div>
       </div>
