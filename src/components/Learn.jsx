@@ -12,7 +12,7 @@ const MODULES = [
   { id: 2, icon: "🔍", title: "Reading the Fundamentals", sub: "GitHub health, founder visibility, real revenue vs. emissions", lessons: 7, done: 3, status: "active", nextLesson: "Lesson 4 — Why GitHub commits matter more than price action" },
   { id: 3, icon: "🏗️", title: "Portfolio Construction", sub: "One winner per category, position sizing, structural connections", lessons: 6, done: 0, status: "locked" },
   { id: 4, icon: "💎", title: "The Conviction Framework", sub: "Holding through volatility — with data, not hope", lessons: 8, done: 0, status: "locked" },
-  { id: 5, icon: "📚", title: "Great Investor Principles", sub: "Buffett, Munger, Marks — applied to crypto investing", lessons: 10, done: 0, status: "locked" },
+  { id: 5, icon: "📚", title: "Great Investor Principles", sub: "Timeless principles from the world's best investors — applied to crypto investing", lessons: 10, done: 0, status: "locked" },
 ];
 
 const BADGES = ["🎯", "📊", "💎", "📝", "🔍"];
@@ -123,7 +123,7 @@ export function Learn() {
 
       <div className="module-list">
         {MODULES.map((m) => (<Module key={m.id} m={m} onContinue={() => setShowLesson(true)} />))}
-        <div className="disclaimer">Principles from Buffett, Munger, Marks, and the CryptoIdea research framework. For educational purposes only — not financial advice.</div>
+        <div className="disclaimer">Timeless investing principles distilled into the CryptoIdea research framework. For educational purposes only — not financial advice.</div>
       </div>
 
       {showLesson && <LessonOverlay onClose={() => setShowLesson(false)} />}

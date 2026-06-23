@@ -73,7 +73,8 @@ must be green BEFORE the client body-swap (B4).** No un-validated LLM output may
    inputs; #17 sends journal text raw. The no-train **paid** key + the privacy disclosure must ship
    in the SAME commit as any journal-raw code; assert the no-train requirement at the call site.
 4. **Stale `dist/` still ships the named investors.** `0g`'s DoD = `npm run build` then grep `dist/`
-   for the names → expect zero hits (a build-time guard test).
+   for the names → expect zero hits (a build-time guard test). ✅ **Resolved in A2** —
+   `scripts/check-dist-names.js` (case-sensitive whole-word) runs inside `build` and fails it on any hit.
 
 Plus the highest-consequence line in the build: the validator must **fail CLOSED** (judge
 error/timeout or regen-cap-reached → safe fallback, never the violating text) — the opposite of the
@@ -86,9 +87,11 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   CryptoIdea / index.html / useUpgrade. Tests: `test:rules` (pro-50; premium rejected past 1,000 even
   with config set higher; coins config-override) + `test:integration` + `test:unit`; update
   `docs/diagrams/authorization-and-tier-limits.svg`. *Now unblocked (ceiling = 1,000).*
-- [ ] **A2 · 0g-copy (#4/#24):** drop Buffett/Munger/Marks from `Learn.jsx` (lines 15, 126) + the
-  Graham landing pull-quote (replace with a first-party anti-FOMO line); optional Login-tagline
-  polish. Add the build-time `dist/` name-guard test (trap 4). *Fully unblocked — no decisions needed.*
+- [x] **A2 · 0g-copy (#4/#24):** ✅ DONE 2026-06-23 — de-named `Learn.jsx` (module sub + disclaimer),
+  replaced the Graham landing pull-quote with a first-party anti-FOMO line ("The coins that hurt most
+  are the ones you couldn't explain."), and polished the Login tagline → "Know why you own every coin."
+  Build-time `dist/` name-guard (`scripts/check-dist-names.js`, case-sensitive whole-word, pure matcher
+  unit-tested) wired into `npm run build` so a leaked name FAILS the build (trap 4).
 - [ ] **A3 · enabler:** thread the active portfolio's coin objects (name/sym + `journal` subfields)
   through `Research.jsx` → `ResearchTab`. Unblocks BOTH the 0d allowlist AND the #17 journal context.
   First verify the forwarded coins actually carry `journal`.

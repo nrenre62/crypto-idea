@@ -49,7 +49,7 @@ describe("User walkthrough — all functions", () => {
   it("1. Logged-out: login screen renders", async () => {
     onAuthChange.mockImplementation((cb) => { cb(null); return () => {}; });
     render(<CryptoIdea />);
-    expect(await screen.findByText(/Track your investments/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Know why you own every coin/i)).toBeInTheDocument();
   });
 
   it("2. Portfolio tab: header, BETA badge, empty state", async () => {

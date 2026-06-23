@@ -103,7 +103,7 @@ export function Login() {
   }
   return(<div className="ci-app screen-bg auth-wrap">
     <div className="auth-logo">Crypto <span>Idea</span></div>
-    <div className="auth-tagline">Track your investments. Plan your next move.</div>
+    <div className="auth-tagline">Know why you own every coin.</div>
     <div className="auth-col">
       <div className="auth-toggle">
         <button onClick={()=>{setAuthMode("login");setAuthErr("")}} className={authMode==="login"?"on":""}>Login</button>

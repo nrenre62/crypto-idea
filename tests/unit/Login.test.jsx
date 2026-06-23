@@ -21,7 +21,7 @@ const provide = (value) =>
 describe("Login screen (extracted, via AppContext)", () => {
   it("renders the login form by default", () => {
     provide({});
-    expect(screen.getByText(/Track your investments/i)).toBeInTheDocument();
+    expect(screen.getByText(/Know why you own every coin/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText("name@email.com")).toBeInTheDocument();
   });
 

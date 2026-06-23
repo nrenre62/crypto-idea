@@ -40,7 +40,7 @@ describe("CryptoIdea (smoke)", () => {
   it("renders the login screen when logged out", async () => {
     onAuthChange.mockImplementation((cb) => { cb(null); return () => {}; });
     render(<CryptoIdea />);
-    expect(await screen.findByText(/Track your investments/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Know why you own every coin/i)).toBeInTheDocument();
   });
 
   it("navigates from login to the password-reset screen (ForgotPass via context)", async () => {

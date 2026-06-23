@@ -12,8 +12,8 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - Realtime Database & Storage emulators are intentionally off — the app doesn't use them.
 
 ## Build, test, deploy
-- `npm run build` — Vite build + stamps the service worker. Must be clean before deploy.
-- `npm run test:unit` (Vitest, ~115) · `npm run test:rules` (11) · `npm run test:integration` (5) — component/hook + Firestore rules + data layer (rules/integration via emulators).
+- `npm run build` — Vite build + stamps the service worker + the **no-names `dist/` guard** (`scripts/check-dist-names.js`, #24): the build FAILS if a real investor name (Buffett/Munger/Marks/Graham) leaks into the shipped bundle. Must be clean before deploy.
+- `npm run test:unit` (Vitest, ~134) · `npm run test:rules` (12) · `npm run test:integration` (6) — component/hook + Firestore rules + data layer (rules/integration via emulators).
 - `npm run deploy` — build + `firebase deploy` (needs the Blaze plan for functions).
 
 ## Architecture
