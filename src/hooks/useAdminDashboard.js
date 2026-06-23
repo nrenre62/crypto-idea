@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { getStats, listUsers, listAudit, lookupUser, setUserTier, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn } from "../api/admin.js";
 
 // Combined real usage shown on the Overview before getStats resolves (no fake data).
-const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0, proPrice: 9.99, premiumPrice: 49.99 };
+const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0, grossRevenue: 0, paymentFees: 0, netRevenue: 0, proPrice: 9.99, premiumPrice: 49.99 };
 
 // All state, data-loading and admin actions for the dashboard. Extracted verbatim
 // from admin-dashboard.jsx so that component is presentation-only (audit rule 1/2).
@@ -27,10 +27,11 @@ export function useAdminDashboard() {
   const [analytics, setAnalytics] = useState({ ga4: "", plausible: "" });
   const [legal, setLegal] = useState({ termlyUuid: "", termlyPrivacyId: "", termlyTermsId: "", cookieBanner: false });
   // Editable plan prices + limits (mirrors functions DEFAULT_PLANS / firestore.rules).
+  // priceYear = annual price (2 months free); aiMonthlyCents = live-AI $-cost ceiling (¢/mo).
   const DEFAULT_PLANS = {
-    free:    { price: 0,     portfolios: 1,  coins: 10,   transactions: 50 },
-    pro:     { price: 9.99,  portfolios: 3,  coins: 50,   transactions: 2000 },
-    premium: { price: 49.99, portfolios: 15, coins: 1000, transactions: 5000 },
+    free:    { price: 0,     priceYear: 0,      aiMonthlyCents: 0,    portfolios: 1,  coins: 10,   transactions: 50 },
+    pro:     { price: 9.99,  priceYear: 99.99,  aiMonthlyCents: 400,  portfolios: 3,  coins: 50,   transactions: 2000 },
+    premium: { price: 49.99, priceYear: 499.99, aiMonthlyCents: 2500, portfolios: 15, coins: 1000, transactions: 5000 },
   };
   const [plans, setPlans] = useState(DEFAULT_PLANS);
 

@@ -41,9 +41,11 @@ export function Login() {
     // ── Billing confirmation (works for both Pro and Premium) ──
     if(upgradeStep==="billing"&&upgradeFlow){
       const isPrem=upgradeFlow==="premium";
-      const monthlyP=isPrem?49.99:9.99;
-      const yearlyP=isPrem?399.99:79.99;
+      const _pl=(site&&site.plans&&site.plans[upgradeFlow])||{};
+      const monthlyP=_pl.price!=null?_pl.price:(isPrem?49.99:9.99);
+      const yearlyP=_pl.priceYear!=null?_pl.priceYear:(isPrem?499.99:99.99);
       const yearlyM=(yearlyP/12).toFixed(2);
+      const savePct=monthlyP>0?Math.round((1-yearlyP/(monthlyP*12))*100):0;
       const accentClr=isPrem?"#7d4bbf":"var(--accent)";
       return(<div className="ci-app screen-bg auth-wrap">
         <div className="auth-h">Upgrade to <span style={{color:accentClr}}>{isPrem?"Premium":"Pro"}</span></div>
@@ -54,7 +56,7 @@ export function Login() {
             <div className="cycle-price">${monthlyP}<span className="cycle-per">/mo</span></div>
           </div>
           <div onClick={()=>setUpgradeBilling("yearly")} className={"cycle-card"+(upgradeBilling==="yearly"?" on":"")+(isPrem?" prem":"")}>
-            <div className="cycle-save" style={{background:accentClr}}>SAVE 33%</div>
+            <div className="cycle-save" style={{background:accentClr}}>{savePct>0?`SAVE ${savePct}%`:"BEST VALUE"}</div>
             <div><div className="cycle-name">Yearly</div><div className="cycle-sub">${yearlyM}/mo · billed annually</div></div>
             <div className="cycle-price">${yearlyP}<span className="cycle-per">/yr</span></div>
           </div>
@@ -89,12 +91,12 @@ export function Login() {
         </div>
         <div onClick={()=>{setUpgradeFlow("pro");setUpgradeStep("billing")}} className="plan-card rec">
           <div className="plan-badge">RECOMMENDED</div>
-          <div className="plan-top"><span className="plan-name">Pro</span><span className="plan-price-sm">from $6.67/mo</span></div>
+          <div className="plan-top"><span className="plan-name">Pro</span><span className="plan-price-sm">from ${((site?.plans?.pro?.priceYear ?? 99.99)/12).toFixed(2)}/mo</span></div>
           <div className="plan-feats">3 portfolios · 50 coins · 2,000 transactions per coin</div>
           <div className="plan-cta accent">Choose Pro</div>
         </div>
         <div onClick={()=>{setUpgradeFlow("premium");setUpgradeStep("billing")}} className="plan-card prem">
-          <div className="plan-top"><span className="plan-name prem">Premium</span><span className="plan-price-sm">from $33.33/mo</span></div>
+          <div className="plan-top"><span className="plan-name prem">Premium</span><span className="plan-price-sm">from ${((site?.plans?.premium?.priceYear ?? 499.99)/12).toFixed(2)}/mo</span></div>
           <div className="plan-feats">15 portfolios · 1,000 coins · 5,000 transactions per coin</div>
           <div className="plan-cta prem">Choose Premium</div>
         </div>

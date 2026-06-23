@@ -72,16 +72,27 @@ export default function AdminDashboard() {
         {/* On desktop these three sit side-by-side; on mobile auto-fit collapses to one column. */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:10, alignItems:"start", marginBottom:10 }}>
 
-        {/* Revenue */}
+        {/* Revenue — shown NET of payment-processor fees (gross − fees). Falls back
+            to client-side fee math if getStats predates the net fields. */}
+        {(() => {
+          const gross = s.grossRevenue != null ? s.grossRevenue : s.estimatedRevenue;
+          const fees  = s.paymentFees  != null ? s.paymentFees  : gross * 0.029 + (s.proUsers + s.premiumUsers) * 0.30;
+          const net   = s.netRevenue   != null ? s.netRevenue   : Math.max(0, gross - fees);
+          return (
         <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}` }}>
           <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
             <span style={{ fontSize:13, fontWeight:600 }}>Est. Monthly Revenue</span>
-            <span style={{ fontSize:18, fontWeight:800, color:c.gr }}>${s.estimatedRevenue.toFixed(0)}</span>
+            <span style={{ fontSize:18, fontWeight:800, color:c.gr }}>${net.toFixed(0)}</span>
+          </div>
+          <div style={{ fontSize:10, color:c.dm, marginBottom:3 }}>
+            Net after fees · gross ${gross.toFixed(0)} − fees ${fees.toFixed(2)} (PayPal ~2.9% + $0.30/charge)
           </div>
           <div style={{ fontSize:10, color:c.dm }}>
             {s.proUsers} Pro × ${s.proPrice} = ${(s.proUsers*s.proPrice).toFixed(0)} · {s.premiumUsers} Premium × ${s.premiumPrice} = ${(s.premiumUsers*s.premiumPrice).toFixed(0)}
           </div>
         </div>
+          );
+        })()}
 
         {/* Combined usage — aggregate engagement, no personal data */}
         <div style={{ background:c.w, borderRadius:14, padding:14, border:`1px solid ${c.bd}` }}>
@@ -386,15 +397,15 @@ export default function AdminDashboard() {
         {/* Plans & Pricing (prices = display/revenue; limits enforced by firestore.rules) */}
         <div style={{ background:c.w, borderRadius:14, padding:16, border:`1px solid ${c.bd}`, marginTop:12 }}>
           <div style={{ fontSize:13, fontWeight:700, marginBottom:4 }}>Plans &amp; Pricing</div>
-          <div style={{ fontSize:11, color:c.dm, marginBottom:14 }}>Prices drive the revenue estimate + what users see; limits are enforced server-side by Firestore rules.</div>
+          <div style={{ fontSize:11, color:c.dm, marginBottom:14 }}>Prices drive the revenue estimate + what users see; limits are enforced server-side by Firestore rules. <strong>Mo $</strong> = monthly price · <strong>Yr $</strong> = annual price (2 months free) · <strong>AI ¢/mo</strong> = live-AI cost ceiling in cents (margin guard).</div>
           {["free","pro","premium"].map(t => (
             <div key={t} style={{ marginBottom:12 }}>
               <div style={{ fontSize:11, fontWeight:700, color:(TIERS[t]||{}).color, textTransform:"uppercase", marginBottom:6 }}>{t}</div>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:6 }}>
-                {[["price","Price $"],["portfolios","Portfolios"],["coins","Coins"],["transactions","Tx/coin"]].map(([k,lbl]) => (
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:6 }}>
+                {[["price","Mo $"],["priceYear","Yr $"],["aiMonthlyCents","AI ¢/mo"],["portfolios","Portfolios"],["coins","Coins"],["transactions","Tx/coin"]].map(([k,lbl]) => (
                   <div key={k}>
                     <label style={{ fontSize:9, color:c.dm, display:"block", marginBottom:3 }}>{lbl}</label>
-                    <input type="number" min="0" step={k==="price"?"0.01":"1"} value={(plans[t] && plans[t][k] != null) ? plans[t][k] : ""}
+                    <input type="number" min="0" step={(k==="price"||k==="priceYear")?"0.01":"1"} value={(plans[t] && plans[t][k] != null) ? plans[t][k] : ""}
                       onChange={e => setPlans({ ...plans, [t]: { ...plans[t], [k]: e.target.value === "" ? 0 : Number(e.target.value) } })}
                       style={{ width:"100%", padding:"8px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:12, outline:"none", boxSizing:"border-box" }} />
                   </div>

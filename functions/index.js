@@ -98,11 +98,17 @@ async function writeAudit(context, action, info) {
 
 // Default plan prices + tier limits. Editable from admin Settings (stored in
 // config/app.plans); these are the fallback when nothing is configured and MUST
-// match the defaults in firestore.rules (where the limit ceiling is enforced).
+// match the limit defaults in firestore.rules (where the limit ceiling is enforced).
+//   price          = monthly price (USD)
+//   priceYear      = annual price (USD); default = 2 months free (~-17% vs 12×monthly)
+//   aiMonthlyCents = live-AI monthly $-cost ceiling, in CENTS (decision #21). This is
+//                    the margin guard: each live analysis costs ~1¢, so the ceiling
+//                    bounds AI spend per user no matter how many calls they make.
+//                    free=0 (offline only), pro=400 (~$4/mo), premium=2500 (~$25/mo).
 const DEFAULT_PLANS = {
-  free:    { price: 0,     portfolios: 1,  coins: 10,   transactions: 50 },
-  pro:     { price: 9.99,  portfolios: 3,  coins: 50,   transactions: 2000 },
-  premium: { price: 49.99, portfolios: 15, coins: 1000, transactions: 5000 },
+  free:    { price: 0,     priceYear: 0,      aiMonthlyCents: 0,    portfolios: 1,  coins: 10,   transactions: 50 },
+  pro:     { price: 9.99,  priceYear: 99.99,  aiMonthlyCents: 400,  portfolios: 3,  coins: 50,   transactions: 2000 },
+  premium: { price: 49.99, priceYear: 499.99, aiMonthlyCents: 2500, portfolios: 15, coins: 1000, transactions: 5000 },
 };
 // Validate + fill any missing plan fields from the defaults (never trust raw input).
 function mergePlans(saved) {
@@ -112,7 +118,9 @@ function mergePlans(saved) {
   for (const t of ["free", "pro", "premium"]) {
     const d = DEFAULT_PLANS[t], v = s[t] || {};
     out[t] = {
-      price: Math.min(num(v.price, d.price), 1e6),                              // cap: no absurd prices
+      price: Math.min(num(v.price, d.price), 1e6),                              // monthly price; cap: no absurd prices
+      priceYear: Math.min(num(v.priceYear, d.priceYear), 1e6),                  // annual price (default = 2 months free)
+      aiMonthlyCents: Math.min(Math.round(num(v.aiMonthlyCents, d.aiMonthlyCents)), 1e9), // live-AI monthly $-cost ceiling, in cents (#21)
       portfolios: Math.min(Math.round(num(v.portfolios, d.portfolios)), 100000),
       coins: Math.min(Math.round(num(v.coins, d.coins)), 1000),     // hard ceiling #20: mirrors firestore.rules maxCoins clamp
       transactions: Math.min(Math.round(num(v.transactions, d.transactions)), 1000000),
@@ -286,6 +294,15 @@ exports.paypalWebhook = functions.https.onRequest(async (req, res) => {
   }
 });
 
+// Payment-processor fees, subtracted from revenue so the admin sees NET, not gross.
+// Default = PayPal standard (2.9% + $0.30 per charge). Edit to match your processor.
+// NOTE: this is a MONTHLY-equivalent estimate — getStats counts each payer once per
+// month (it does not yet read per-user billing cycle), so an annual payer's fees are
+// over-counted (errs conservative: understates net). Exact per-cycle fees need the
+// PayPal webhook to persist subscription.billing — see PRICING.md "Open items".
+const PAYMENT_FEE_RATE = 0.029;
+const PAYMENT_FEE_FIXED = 0.30;
+
 // ─── Admin Stats (admins only) ───
 exports.getStats = functions.https.onCall(async (data, context) => {
   if (!context.auth || !isAdminToken(context.auth.token)) {
@@ -312,6 +329,10 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     totalCoins = 0;
   }
   const plans = mergePlans((await getConfig()).plans);
+  const grossRevenue = proUsers * plans.pro.price + premiumUsers * plans.premium.price;
+  const payers = proUsers + premiumUsers;
+  const paymentFees = grossRevenue * PAYMENT_FEE_RATE + payers * PAYMENT_FEE_FIXED;
+  const netRevenue = Math.max(0, grossRevenue - paymentFees);
   return {
     totalUsers: activeUsers,
     proUsers,
@@ -321,7 +342,10 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     totalCoins,
     proPrice: plans.pro.price,
     premiumPrice: plans.premium.price,
-    estimatedRevenue: proUsers * plans.pro.price + premiumUsers * plans.premium.price,
+    grossRevenue,
+    paymentFees,
+    netRevenue,
+    estimatedRevenue: grossRevenue,   // kept (= gross) for backward compatibility
   };
 });
 
