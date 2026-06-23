@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { holdingsFromCoins } from "../../src/features/research/utils/coins.js";
 import { deriveFromHistory, buildResearchPrices } from "../../src/features/research/utils/priceAdapter.js";
+import { computePortfolio } from "../../src/features/research/utils/portfolio.js";
 
 const DAY = 86400000;
 const BASE = 1_600_000_000_000;
@@ -34,6 +35,15 @@ describe("holdingsFromCoins — reads the app coin shape (entries / priceAtBuy /
       ],
     }];
     expect(holdingsFromCoins(coins)).toHaveLength(0);
+  });
+
+  it("preserves the coin's journal (thesis) so downstream can read it; omits it when absent", () => {
+    const journal = { thesis: "real revenue + active devs", changeMyMind: "devs go quiet", status: "intact", priceAtAdd: 100, createdAt: "2026-01-01T00:00:00.000Z" };
+    const [withJ] = holdingsFromCoins([{ id: "bitcoin", symbol: "btc", name: "Bitcoin", entries: [{ type: "buy", amount: 1, priceAtBuy: 100 }], journal }]);
+    expect(withJ.journal).toEqual(journal);
+    // No thesis → no `journal` key (matches the app's addCoin convention).
+    const [noJ] = holdingsFromCoins([{ id: "ethereum", symbol: "eth", name: "Ethereum", entries: [{ type: "buy", amount: 1, priceAtBuy: 100 }] }]);
+    expect("journal" in noJ).toBe(false);
   });
 });
 
@@ -76,5 +86,17 @@ describe("buildResearchPrices — merges live prices with derived history", () =
     const out = buildResearchPrices(["bitcoin"], {}, { bitcoin: history });
     expect(out.bitcoin.price).toBe(130);
     expect(out.bitcoin.c24).toBe(0);
+  });
+});
+
+describe("computePortfolio — carries each holding's journal through to portfolio.holdings (#17 enabler)", () => {
+  it("keeps the journal alongside the computed price/value fields", () => {
+    const journal = { thesis: "t", changeMyMind: "c", status: "intact", priceAtAdd: 100, createdAt: "2026-01-01T00:00:00.000Z" };
+    const { holdings } = computePortfolio(
+      [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 100, journal }],
+      { bitcoin: { price: 200, c24: 0, c7d: 0, c30d: 0 } }
+    );
+    expect(holdings[0].journal).toEqual(journal); // available for the 0d allowlist + #17 context
+    expect(holdings[0].value).toBe(200);          // still computes the derived fields
   });
 });

@@ -66,6 +66,10 @@ export const holdingsFromCoins = (coins) =>
       return {
         id, sym: sym || String(id).toUpperCase().slice(0, 4),
         name: c.name || sym || id, amount, avgCost: bought ? costSum / bought : 0,
+        // Carry the investment-thesis journal through so the conviction source
+        // allowlist (0d) and the AI journal-context (#17) can read it later. Only
+        // when present, matching the app's addCoin convention.
+        ...(c.journal ? { journal: c.journal } : {}),
       };
     })
     .filter((h) => h.amount > 0 && h.id);

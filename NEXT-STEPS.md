@@ -97,9 +97,13 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   are the ones you couldn't explain."), and polished the Login tagline → "Know why you own every coin."
   Build-time `dist/` name-guard (`scripts/check-dist-names.js`, case-sensitive whole-word, pure matcher
   unit-tested) wired into `npm run build` so a leaked name FAILS the build (trap 4).
-- [ ] **A3 · enabler:** thread the active portfolio's coin objects (name/sym + `journal` subfields)
-  through `Research.jsx` → `ResearchTab`. Unblocks BOTH the 0d allowlist AND the #17 journal context.
-  First verify the forwarded coins actually carry `journal`.
+- [x] **A3 · enabler:** ✅ DONE 2026-06-23 — verified the forwarded coins carry `journal` end-to-end
+  (`getCoins` returns it; `Research.jsx` passes the full `portfolio` to `ResearchTab`). The only loss
+  was `holdingsFromCoins` (research `utils/coins.js`) dropping it in the holdings transform — now
+  preserved (present-only); `computePortfolio`'s `...h` already carries it through to
+  `portfolio.holdings`, so it reaches `ResearchTab`'s consumers (the future #17 AI context + 0d
+  allowlist). Tests: `research-adapters` adds journal-preservation + a `computePortfolio`
+  pass-through guard. **Verified:** unit 136 · build clean.
 - [ ] **A4 · 0f-persist (#23):** `users/{uid}/learn/progress` doc + `validLearnProgress()` rule +
   `getLearnProgress`/`saveLearnProgress` (mirror the journal pattern). Tests: rules + integration.
 - [ ] **A5 · 0f-logic (#25):** pure `utils/learn.js` (level/XP/streak/module-state) + `useLearn` hook
