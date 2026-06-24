@@ -149,10 +149,24 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   (single-source→⬛, thin→⬛, conflict→🟡, any-mixed→🟡, corroborated-bad→🔴, catalyst expiry, all-⬛
   degrade, mock determinism) + `CoinCard.test.jsx` (pills + ⬛ reason chip + catalyst). **Verified:**
   unit 194 · build clean.
-- [ ] **A9 · 0d-pure (#14/#15/#16):** `validateOutput()` regex-prefilter as a **pure module** +
-  exhaustive unit tests — blocks unmentioned project names (BTC/ETH/SOL excepted), price targets,
-  buy/sell/hold, %-allocation, aggregate score; **fails closed**; caps regens at **N=2**. Built here;
-  consumed in B2. The most security-load-bearing test set in §0.
+- [x] **A9 · 0d-pure (#14/#15/#16):** ✅ DONE 2026-06-24 — `functions/validate-output.js` (server-side,
+  CommonJS, **not** in the client bundle): `validateOutput(text, {allowedNames})` blocks unmentioned
+  project names/tickers/cashtags (BTC/ETH/SOL excepted), price targets/valuations/multiples,
+  buy/sell/hold advice + rating labels, %-/word-fraction allocation, and any aggregate score/grade —
+  with a **de-obfuscation pass** (`b*u*y`, `B U Y`, `` `buy` ``). **Fails closed** (empty/garbage →
+  invalid); `selectValidated()` encodes the **N=2** regen cap → safe fallback, never the violating
+  text. Tests `tests/unit/validate-output.test.js` (23): per-category block/allow + fail-closed + the
+  N=2 cap (incl. a clean candidate *beyond* the cap is NOT reached) + a **red-team regression set**
+  (a 6-agent / 63-probe adversarial sweep; the prefilter blocks 58/63 with **zero false positives**,
+  the 5 it defers — English-word names like Avalanche/Near/Maker, a bare "solid 8", a slang adverb —
+  are by design the B2 LLM judge's job, per #15). **Verified:** unit 217 · build clean. Consumed in B2.
+
+**✅ Wave A (local-first) COMPLETE — A1–A9 all done.** Everything buildable + verifiable on the
+emulator stack is shipped: the tier reconfig + hard clamp, the no-names voice + dist guard, the
+journal/funnel + Learn library, the conviction rubric, and the fail-closed output validator. What
+remains (Wave B below) needs the **Blaze plan + live API keys** — the secure AI proxy that wires the
+validator (A9) in and body-swaps `ai-client.js`. Build order for Wave B is unchanged: B1 → B2 (keystone,
+validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) → B5/B6/B7/B8.
 
 ### Wave B — Blaze + keys (code + offline-degrade now; verify live at go-live)
 - [ ] **B1 · 0b-secret-store:** Anthropic + Gemini keys in the locked `config/app` doc + admin
