@@ -46,7 +46,10 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - **Commit every change** to git with a clear message — don't wait to be asked.
 - **On finishing a session:** commit everything, update README + skills if relevant, shut down emulators + dev server, confirm a clean tree.
 - **Every change must be production-ready.**
-- Reusable patterns live in user skills: `firebase-saas-starter`, `landing-page-design`, `secure-by-design`.
+- Reusable patterns live in user skills: `firebase-saas-starter`, `landing-page-design`, `secure-by-design`, `responsive-app`.
+- **Responsive / desktop layout:** the app is mobile-only today (fixed ~430px column). The plan to make it
+  one fluid layout (admin-style **1040px** container + **auto-fit card grids**, same markup mobile→desktop)
+  is in [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) (backlog §R in `NEXT-STEPS.md`); method = `responsive-app` skill.
 - **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 
 ## Admin & privacy (functions/index.js)
