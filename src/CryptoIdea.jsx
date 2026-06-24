@@ -476,8 +476,8 @@ export default function CryptoIdea(){
     {showPlan&&screen!=="login"&&(()=>{
       // Reuse the Login() flow rendering for upgrade overlay
       // But Login() handles the showPlan branch — render it as a full overlay
-      return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:c.bg,zIndex:9000,maxWidth:430,margin:"0 auto",overflowY:"auto"}}>
-        <Login/>
+      return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:c.bg,zIndex:9000,overflowY:"auto",display:"flex",justifyContent:"center"}}>
+        <div style={{width:"100%",maxWidth:430}}><Login/></div>
       </div>);
     })()}
     {screen==="loading"&&Loading()}

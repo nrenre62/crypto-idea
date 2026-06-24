@@ -226,7 +226,10 @@
 .ci-app .submit-buy:disabled { opacity:.4; cursor:default; }
 
 /* ── Auth (Login) + plan picker + billing + welcome ───── */
-.ci-app .auth-wrap { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; text-align:center; }
+/* NOTE: compound `.ci-app.auth-wrap` — all three classes (ci-app screen-bg auth-wrap)
+   sit on the SAME screen-root element, so this must NOT be a descendant selector
+   (`.ci-app .auth-wrap`), or the flex-centering silently never applies. */
+.ci-app.auth-wrap { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; text-align:center; }
 .ci-app .auth-logo { font-family:var(--display); font-size:32px; font-weight:500; letter-spacing:-.02em; margin-bottom:4px; }
 .ci-app .auth-logo span { font-weight:700; }
 .ci-app .auth-tagline { font-size:13px; color:var(--ink-soft); margin-bottom:34px; }
