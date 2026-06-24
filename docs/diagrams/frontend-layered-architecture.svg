@@ -1,0 +1,84 @@
+<svg viewBox="0 0 920 660" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — frontend layered architecture</title>
+  <desc>The src/ tree is layered with a one-direction dependency rule: components (UI only) call hooks (business logic and state), which call api/ (data fetching only); everything uses utils/ (pure helpers). The app shell wraps its render in an AppContext provider so screens read shared state via useApp() instead of dozens of props. The Research tab is a self-contained vertical slice with its own api/hooks/components/utils/styles and scoped CSS. data/ holds reference content and styles/ the design system. The layering is being peeled out incrementally; some logic still lives in the shell.</desc>
+  <defs>
+    <marker id="fa_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="fa_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+  </defs>
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Frontend Layered Architecture (src/)</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">One-way dependency: components → hooks → api/ · everything → utils/ (pure)</text>
+  <line x1="556" y1="26" x2="580" y2="26" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="2.5"/><text x="586" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">core layer</text>
+  <line x1="668" y1="26" x2="692" y2="26" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="698" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">entries / feature slice</text>
+
+  <!-- Entries band -->
+  <rect x="24" y="56" width="872" height="52" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="40" y="76" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">src/ root — Vite entries + app shell</text>
+  <text x="40" y="95" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">main.jsx → app.html (user router)   ·   admin-main.jsx → admin.html (separate)   ·   CryptoIdea.jsx — shell wraps render in &lt;AppContext.Provider&gt;</text>
+
+  <!-- Layer stack -->
+  <rect x="24" y="120" width="556" height="60" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="139" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">components/ — UI only (presentational JSX) · 19</text>
+  <text x="40" y="155" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">Portfolio · Search · AddEntry · Detail · Account · Login · admin-dashboard · ui.jsx</text>
+  <text x="40" y="170" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">read shared state via useApp() · NEVER fetch / import the Firebase SDK</text>
+
+  <rect x="24" y="192" width="556" height="60" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="211" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">hooks/ — business logic + state (React, no JSX) · 9</text>
+  <text x="40" y="227" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">useAuthSession · usePortfolios · useUpgrade · useLivePrices · useCoinSearch · useCoinHistory</text>
+  <text x="40" y="242" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">useLearn · useAdminDashboard · app-context (AppContext + useApp)</text>
+
+  <rect x="24" y="264" width="556" height="60" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="283" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">api/ — data fetching ONLY (Firebase SDK + /api/* fetches) · 7</text>
+  <text x="40" y="299" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">firebase-auth · firebase-database · coingecko · config · account · admin · firebase.config</text>
+  <text x="40" y="314" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">the only layer that talks to Firebase / the backend proxy</text>
+
+  <rect x="24" y="336" width="556" height="56" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="40" y="355" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">utils/ — pure helpers (no React, no I/O) · 10 · used by EVERY layer</text>
+  <text x="40" y="371" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">format · coins · pnl · journal · learn · trash · usage · export-csv · storage · theme</text>
+  <text x="40" y="385" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">same input → same output → trivially unit-testable (where the math lives)</text>
+
+  <!-- dependency arrows -->
+  <line x1="120" y1="180" x2="120" y2="191" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#fa_a)"/>
+  <line x1="120" y1="252" x2="120" y2="263" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#fa_a)"/>
+  <text x="132" y="188" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">calls</text>
+  <text x="132" y="260" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">calls</text>
+  <line x1="540" y1="180" x2="540" y2="334" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#fa_a)"/>
+  <text x="548" y="258" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">all use utils/</text>
+
+  <!-- AppContext arrow -->
+  <line x1="300" y1="108" x2="300" y2="118" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.4" marker-end="url(#fa_d)"/>
+  <text x="312" y="116" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">AppContext.Provider → useApp()</text>
+
+  <!-- Right column -->
+  <rect x="596" y="120" width="300" height="150" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="612" y="140" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">features/research/ — vertical slice · 30</text>
+  <text x="612" y="159" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">self-contained: its OWN</text>
+  <text x="612" y="175" font-size="9" fill="var(--color-text-primary,#1a1a1a)">api / hooks / components / utils / styles</text>
+  <text x="612" y="195" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">CSS scoped under .research-root (can't leak)</text>
+  <text x="612" y="213" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">app-native data only — no new external calls</text>
+  <text x="612" y="233" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">a whole feature can evolve — or be removed —</text>
+  <text x="612" y="247" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">without touching the core layers.</text>
+  <text x="612" y="263" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">mirrors the same layering, one folder deep.</text>
+
+  <rect x="596" y="282" width="300" height="44" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4"/>
+  <text x="612" y="301" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">data/ — reference + seed content · 11</text>
+  <text x="612" y="317" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">learn-content, static lookups (no logic)</text>
+
+  <rect x="596" y="338" width="300" height="54" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4"/>
+  <text x="612" y="357" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">styles/app.css — design system · 1</text>
+  <text x="612" y="373" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">scoped under .ci-app so it can't collide with</text>
+  <text x="612" y="386" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">.research-root (both reuse generic class names)</text>
+
+  <!-- Why / rules / audit -->
+  <rect x="24" y="404" width="872" height="238" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="426" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="447" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• One-way dependency: a component that needs data calls a HOOK; the hook calls api/ and uses utils/. Components never fetch() or import the Firebase SDK.</text>
+  <text x="40" y="465" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Pure utils = testable core: utils/ has no React and no I/O, so the real logic (pnl, coins, learn, journal) is unit-tested directly without rendering or mocks.</text>
+  <text x="40" y="483" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• AppContext over prop-drilling: the shell wraps render in &lt;AppContext.Provider&gt;; extracted screens read shared state/handlers via useApp() instead of 25+ props each.</text>
+  <text x="40" y="501" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Feature slices stay isolated: the Research tab owns its api/hooks/components/utils/styles with scoped CSS, so it evolves (or is deleted) without rippling into the core.</text>
+  <text x="40" y="519" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• KISS, incremental: existing code is peeled into these layers one verified commit at a time — not a big-bang rewrite; the test net guards each extraction.</text>
+  <text x="40" y="547" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Migration status (honest — src/ARCHITECTURE.md §"Known layer violations")</text>
+  <text x="40" y="567" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">CryptoIdea.jsx still holds portfolio-CRUD + upgrade handlers (coupled to UI/auth by design); api/ also runs counter/limit logic (really a data/model layer);</text>
+  <text x="40" y="585" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">admin-dashboard.jsx calls Cloud Functions directly (→ future api/admin.js). The rules above are the target the migration is closing toward.</text>
+  <text x="40" y="613" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: src/ARCHITECTURE.md · src/{api,hooks,components,utils,data,styles,features}/ · src/hooks/app-context.js (AppContext / useApp).</text>
+  <text x="40" y="629" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Related: multi-page-build-code-splitting.svg (how these become bundles) · firestore-data-model.svg (what api/ reads/writes).</text>
+</svg>
