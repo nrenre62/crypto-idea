@@ -1,0 +1,85 @@
+<svg viewBox="0 0 920 660" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — service-worker update flow</title>
+  <desc>Each build stamps the service worker with a unique id so its file is byte-different every deploy. In production app.html registers the worker; when the browser's update check finds the new worker installed and a controller already exists, the tab reloads itself to the latest version. The worker caches the app shell on install, purges old caches on activate, and serves pages network-first (falling back to cache offline). On localhost the script unregisters the worker and clears caches so development never serves a stale page.</desc>
+  <defs>
+    <marker id="sw_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="sw_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+  </defs>
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Service-Worker Update Flow</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">Build stamp → browser detects the new worker → open tabs auto-reload · network-first, offline-capable</text>
+  <line x1="470" y1="26" x2="494" y2="26" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="500" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">build / deploy</text>
+  <line x1="610" y1="26" x2="634" y2="26" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="2.5"/><text x="640" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">browser / runtime</text>
+
+  <!-- Build band -->
+  <rect x="24" y="58" width="246" height="58" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="147" y="80" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">npm run build (vite)</text>
+  <text x="147" y="97" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">dist/service-worker.js</text>
+  <text x="147" y="109" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">BUILD = "__BUILD__" (placeholder)</text>
+
+  <rect x="300" y="58" width="250" height="58" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="425" y="80" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">scripts/stamp-sw.js</text>
+  <text x="425" y="97" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">replace __BUILD__ → Date.now() id</text>
+  <text x="425" y="109" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">CACHE_NAME = crypto-idea-&lt;id&gt;</text>
+
+  <rect x="580" y="58" width="316" height="58" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="738" y="80" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">firebase deploy → Hosting / CDN</text>
+  <text x="738" y="97" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">SW file is byte-different every build →</text>
+  <text x="738" y="109" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">the browser's update check notices it</text>
+  <line x1="270" y1="87" x2="298" y2="87" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.4" marker-end="url(#sw_d)"/>
+  <line x1="550" y1="87" x2="578" y2="87" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.4" marker-end="url(#sw_d)"/>
+
+  <!-- Left column: registration + update detection -->
+  <text x="24" y="140" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Registration &amp; update detection (app.html)</text>
+  <rect x="24" y="150" width="430" height="64" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="170" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">on load — PRODUCTION only</text>
+  <text x="40" y="186" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">navigator.serviceWorker.register("/service-worker.js")</text>
+  <text x="40" y="201" font-size="9" fill="var(--color-text-info,#2c7fb8)">localhost → unregister SW + clear caches (never stale in dev)</text>
+
+  <rect x="24" y="228" width="430" height="42" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4"/>
+  <text x="40" y="247" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">updatefound → new worker installing</text>
+  <text x="40" y="262" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">listen for its statechange</text>
+  <line x1="239" y1="214" x2="239" y2="226" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#sw_a)"/>
+
+  <rect x="24" y="284" width="430" height="46" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="303" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">state === "installed" AND a controller exists</text>
+  <text x="40" y="320" font-size="9.5" fill="var(--color-text-primary,#1a1a1a)">→ window.location.reload()  ·  skips the first install</text>
+  <line x1="239" y1="270" x2="239" y2="282" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#sw_a)"/>
+
+  <rect x="24" y="344" width="430" height="40" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="362" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">visibilitychange → reg.update()</text>
+  <text x="40" y="377" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">re-check for a new version whenever the tab regains focus</text>
+
+  <!-- Right column: SW lifecycle + fetch -->
+  <text x="474" y="140" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Worker lifecycle &amp; fetch (service-worker.js)</text>
+  <rect x="474" y="150" width="422" height="50" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="490" y="169" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">install</text>
+  <text x="490" y="185" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">cache APP_SHELL (/, index.html, app.html, manifest.json) → STATIC_CACHE · skipWaiting()</text>
+
+  <rect x="474" y="210" width="422" height="44" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="490" y="229" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">activate</text>
+  <text x="490" y="245" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">delete caches ≠ current STATIC_CACHE / API_CACHE · clients.claim()</text>
+  <line x1="685" y1="200" x2="685" y2="208" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#sw_a)"/>
+
+  <rect x="474" y="264" width="422" height="120" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="490" y="283" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">fetch — strategy by request</text>
+  <text x="490" y="302" font-size="9" fill="var(--color-text-primary,#1a1a1a)">▸ pages / app shell / same-origin /api: NETWORK-FIRST</text>
+  <text x="502" y="316" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">always latest HTML; cache is the OFFLINE fallback</text>
+  <text x="490" y="334" font-size="9" fill="var(--color-text-primary,#1a1a1a)">▸ api.coingecko.com: network-first → API_CACHE fallback</text>
+  <text x="490" y="352" font-size="9" fill="var(--color-text-primary,#1a1a1a)">▸ assets.coingecko.com images: cache-first (rarely change)</text>
+  <text x="490" y="372" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">Why network-first: cache-first served stale pages after every deploy.</text>
+  <line x1="685" y1="254" x2="685" y2="262" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#sw_a)"/>
+
+  <!-- Why -->
+  <rect x="24" y="398" width="872" height="244" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="420" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="442" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Auto-update, no prompts: stamping a unique build id makes the SW byte-different each deploy → the browser finds a new worker → the open tab reloads itself.</text>
+  <text x="40" y="460" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• First load isn't disrupted: the reload only fires when a controller already exists (an update), so the very first install doesn't trigger a refresh.</text>
+  <text x="40" y="478" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Fresh, not stale: pages are NETWORK-FIRST, so even between SW updates a reload/navigation pulls the latest HTML; the cache only serves when offline.</text>
+  <text x="40" y="496" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Still a real PWA: the app shell + last API/image responses are cached, so it opens and works offline.</text>
+  <text x="40" y="514" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Dev never caches: on localhost the script unregisters any worker and clears caches, so you never debug against a stale page.</text>
+  <text x="40" y="532" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Belt + suspenders: it also re-checks for updates whenever the tab regains focus (visibilitychange → reg.update()).</text>
+  <text x="40" y="550" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Old caches are purged on activate, keyed by build id, so storage doesn't grow unbounded across deploys.</text>
+  <text x="40" y="578" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Net effect after a deploy</text>
+  <text x="40" y="598" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">A user who reloads or navigates is instantly on the new version; a user with the app already open gets auto-refreshed. Just run npm run deploy.</text>
+  <text x="40" y="624" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: public/service-worker.js · scripts/stamp-sw.js (run by npm build) · app.html (registration + auto-reload) · firebase.json (Hosting cache headers — see deploy diagram).</text>
+</svg>

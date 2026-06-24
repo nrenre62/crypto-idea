@@ -15,6 +15,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [firestore-data-model.svg](firestore-data-model.svg) | The nested owner-only tree (users → portfolios → coins → transactions) with per-parent counters, plus the server-only top-level docs (config/app, cache/universe, historyCache, audit) and how counters enforce tier limits. |
 | [authorization-and-tier-limits.svg](authorization-and-tier-limits.svg) | The rule gates every write passes (signed-in → owner/admin → field guards → counter+limit), the per-tier limits sourced from `config/app.plans`, and the invariants (no self-upgrade, no counter smuggling, locked config/audit). |
 | [paypal-subscription-flow.svg](paypal-subscription-flow.svg) | Subscribe (createSubscription → PayPal approve → /pro-success), the signature-verified webhook that sets the tier, and cancel — all acting on the caller's own uid; unverified webhooks rejected. |
+| [service-worker-update-flow.svg](service-worker-update-flow.svg) | How deploys reach users — `stamp-sw.js` gives the SW a unique build id so it changes every deploy, the browser detects the new worker and auto-reloads open tabs (skipping first install), pages are served network-first (cache = offline fallback), old caches are purged on activate, and localhost never caches. |
 | [multi-page-build-code-splitting.svg](multi-page-build-code-splitting.svg) | The Vite build — 5 HTML entries (landing, privacy, terms, app, separate admin) → 5 page bundles; `main.jsx` lazy-loads each route behind a `Suspense` shell; `manualChunks` isolates Firebase + vendor for cache reuse across deploys; admin code never enters the user bundle. |
 | [app-buy-date-history.svg](app-buy-date-history.svg) | How the app auto-fills an accurate buy-date price for ANY coin — `useCoinHistory` (module + shared `/api/history` + CDN cache) feeds `priceAtDate` (binary search), falling back to the built-in `getHistoricalPrice` estimate; dates clamped to launch, never NaN. |
 | [live-prices-polling.svg](live-prices-polling.svg) | How the app keeps prices live — `useLivePrices` seeds mock prices instantly (demo), polls `/api/prices` every 60s for held coins, flips to live on first response; the proxy serves from the shared `cache/universe` (5-min hot set + on-demand tail), errors keep the last good prices (no NaN), and upstream cost stays flat regardless of user count. |
@@ -36,7 +37,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] live-prices polling (app `useLivePrices`, 60s, demo→live)
 - [x] app buy-date history (`useCoinHistory` + `priceAtDate`, fallback)
 - [x] multi-page build + code-splitting (Vite `manualChunks`, lazy routes, dist)
-- [ ] service-worker update flow (network-first, build stamp, auto-reload on deploy)
+- [x] service-worker update flow (network-first, build stamp, auto-reload on deploy)
 - [ ] rate-limiting & abuse (per-IP read/write budgets, honeypot, App Check)
 - [ ] config & feature flags (`config/app` → public `/api/config`, maintenance/signups)
 - [ ] frontend layered architecture (`src/` api / hooks / components / utils)
