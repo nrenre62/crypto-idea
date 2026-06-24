@@ -93,6 +93,30 @@ test("coin journal: write a thesis and a review decision, read both back via get
   assert.equal(coins2.coins.find((c) => c.id === "coin0").journal.status, "challenged");
 });
 
+test("coin journal funnel (#27): write findings, read them back, then clear them", async () => {
+  const base = { thesis: "active devs", changeMyMind: "devs quit", status: "intact", priceAtAdd: 50000, createdAt: "2026-01-01T00:00:00.000Z" };
+
+  // Backward-compat: a journal with no funnel round-trips with no funnel key.
+  await updateCoinJournal(uid, "default", "coin1", base);
+  const a = await getCoins(uid, "default");
+  assert.equal(a.coins.find((c) => c.id === "coin1").journal.funnel, undefined, "no-funnel journal should have no funnel key");
+
+  // Add manual funnel findings and read them back.
+  const withFunnel = { ...base, funnel: { dilution: "40% unlocks in 2027", yield: "real fees" } };
+  const upd = await updateCoinJournal(uid, "default", "coin1", withFunnel);
+  assert.ok(upd.success, "funnel write should succeed: " + JSON.stringify(upd));
+  const b = await getCoins(uid, "default");
+  const coin1b = b.coins.find((c) => c.id === "coin1");
+  assert.equal(coin1b.journal.funnel.dilution, "40% unlocks in 2027");
+  assert.equal(coin1b.journal.funnel.yield, "real fees");
+
+  // Clearing findings (journal re-saved without the funnel key) removes them.
+  const cleared = await updateCoinJournal(uid, "default", "coin1", base);
+  assert.ok(cleared.success);
+  const cl = await getCoins(uid, "default");
+  assert.equal(cl.coins.find((c) => c.id === "coin1").journal.funnel, undefined);
+});
+
 test("learn progress: defaults when empty, then saves + reads back via the data layer (#23)", async () => {
   // Fresh learner: no progress doc yet → zeroed default, not an error.
   const fresh = await getLearnProgress(uid);

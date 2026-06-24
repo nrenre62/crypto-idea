@@ -8,7 +8,7 @@ import { Journal } from "../../src/components/Journal.jsx";
 // in isolation against the real AppContext.
 function provide(value) {
   return render(
-    <AppContext.Provider value={{ setScreen: vi.fn(), reviewThesis: vi.fn(), portfolio: [], ...value }}>
+    <AppContext.Provider value={{ setScreen: vi.fn(), reviewThesis: vi.fn(), saveFunnel: vi.fn(), portfolio: [], ...value }}>
       <Journal />
     </AppContext.Provider>
   );
@@ -43,5 +43,26 @@ describe("Journal tab (extracted, via AppContext)", () => {
     expect(screen.getByText("Devs go quiet")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Reconsidering"));
     expect(reviewThesis).toHaveBeenCalledWith("bitcoin", "challenged");
+  });
+
+  it("shows saved funnel findings in the detail overlay (#27)", () => {
+    const withFunnel = { ...withThesis, journal: { ...withThesis.journal, funnel: { dilution: "40% unlocks in 2027" } } };
+    provide({ portfolio: [withFunnel] });
+    fireEvent.click(screen.getByText("Bitcoin"));
+    expect(screen.getByText("Manual research findings")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("40% unlocks in 2027")).toBeInTheDocument();
+  });
+
+  it("edits funnel findings and persists them via saveFunnel", () => {
+    const saveFunnel = vi.fn();
+    provide({ portfolio: [withThesis], saveFunnel });
+    fireEvent.click(screen.getByText("Bitcoin"));
+    fireEvent.change(screen.getByPlaceholderText(/supply unlocks/i), {
+      target: { value: "big unlock cliff ahead" },
+    });
+    fireEvent.click(screen.getByText("Save findings"));
+    expect(saveFunnel).toHaveBeenCalledTimes(1);
+    expect(saveFunnel.mock.calls[0][0]).toBe("bitcoin");
+    expect(saveFunnel.mock.calls[0][1].dilution).toBe("big unlock cliff ahead");
   });
 });

@@ -118,9 +118,16 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   content in `src/data/learn-content.js` (2 modules / 4 real lessons, no-names voice) — **A7 expands** to
   ~9 modules / ~50 lessons. Tests: unit pure (16) + hook (4) + component (3); walkthrough/smoke updated.
   **Verified:** unit 159 · build clean.
-- [ ] **A6 · 0f-journal-widen (#27):** extend `validJournal` with an optional bounded
-  `funnel{dilution,volume,yield}` + Search/Journal inputs. **Its own small rules commit**, separate
-  from content; include a no-funnel backward-compat test. Re-run `test:rules` + `test:integration`.
+- [x] **A6 · 0f-journal-widen (#27):** ✅ DONE 2026-06-24 — `validJournal` now allows an OPTIONAL
+  bounded `funnel{dilution,volume,yield}` (new `validFunnel`: each field optional string ≤2000,
+  `hasOnly` blocks junk keys, whole funnel optional → backward-compatible). The three manual-research
+  findings are captured as inputs on BOTH surfaces (Search Buy-Journal + Journal detail overlay,
+  editable since the checks happen over time); single source of truth for the fields/copy in
+  `src/data/journal-funnel.js`, pure `cleanFunnel` (`utils/journal.js`) drops empties so an all-empty
+  funnel persists no key. New `saveFunnel` handler mirrors `reviewThesis`. Tests: rules (valid/partial
+  accepted, **no-funnel still valid**, oversized/unknown-key/non-string rejected), integration
+  (write→read→clear round-trip + no-funnel back-compat), unit (cleanFunnel + Search capture + Journal
+  edit). **Verified:** unit 168 · rules 16 · integration 8 · build clean.
 - [ ] **A7 · 0f-content (#23/#24):** author ~9 modules / ~50 lessons in `src/data/learn-content.js`,
   **no-names** voice; hand-authored quizzes. Test: every lesson has a valid `correctIdx`; a regex
   asserts no author names appear.

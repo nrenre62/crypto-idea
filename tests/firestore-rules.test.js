@@ -244,6 +244,40 @@ test("coin journal: valid thesis accepted, owner can update status, bad data + s
   await assertFails(updateDoc(doc(bobDb(), "users", "alice", "portfolios", "p1", "coins", "btc"), { journal: goodJournal }));
 });
 
+test("coin journal funnel (#27): valid funnel accepted, no-funnel still valid, oversized/unknown-key/non-string rejected", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 0 });
+  });
+  const db = aliceDb();
+  const base = { thesis: "active devs", changeMyMind: "devs quit", status: "intact", priceAtAdd: 50000, createdAt: "2026-01-01T00:00:00.000Z" };
+  const coin = doc(db, "users", "alice", "portfolios", "p1", "coins", "btc");
+
+  // Backward-compat: a journal with NO funnel key still validates (coinCount 0 -> 1)
+  const create = writeBatch(db);
+  create.set(coin, { symbol: "BTC", name: "Bitcoin", txCount: 0, journal: base });
+  create.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertSucceeds(create.commit());
+
+  // A full funnel (all three optional findings) is accepted
+  await assertSucceeds(updateDoc(coin, { journal: { ...base, funnel: { dilution: "40% unlocks", volume: "thin book", yield: "real fees" } } }));
+
+  // A partial funnel (only one finding) is accepted
+  await assertSucceeds(updateDoc(coin, { journal: { ...base, funnel: { dilution: "unlock cliff" } } }));
+
+  // Oversized funnel field (>2000 chars) -> rejected
+  await assertFails(updateDoc(coin, { journal: { ...base, funnel: { dilution: "x".repeat(2001) } } }));
+
+  // Unknown key inside funnel -> rejected (hasOnly)
+  await assertFails(updateDoc(coin, { journal: { ...base, funnel: { bogus: "nope" } } }));
+
+  // Non-string funnel field -> rejected
+  await assertFails(updateDoc(coin, { journal: { ...base, funnel: { dilution: 123 } } }));
+
+  // Unknown TOP-LEVEL journal key -> rejected (validJournal hasOnly; no smuggling junk into the journal)
+  await assertFails(updateDoc(coin, { journal: { ...base, smuggled: "junk" } }));
+});
+
 test("transaction create enforces amount/price/date bounds", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });

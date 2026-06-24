@@ -41,6 +41,7 @@ import { db } from "./utils/storage.js";
 import { c } from "./utils/theme.js";
 import { portfolioPnl } from "./utils/pnl.js";
 import { usagePercents } from "./utils/usage.js";
+import { cleanFunnel } from "./utils/journal.js";
 import { Loading } from "./components/Loading.jsx";
 import { AppContext } from "./hooks/app-context.js";
 import { ForgotPass } from "./components/ForgotPass.jsx";
@@ -317,6 +318,18 @@ export default function CryptoIdea(){
     const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
     if(!res.success){showErr("Couldn't save. Check your connection.");return}
     setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));};
+  // Record/replace the manual-research funnel findings (#27) on a coin's journal.
+  // Cleans the raw inputs; an all-empty funnel drops the key entirely.
+  const saveFunnel=async(coinId,funnelInput)=>{
+    const coin=portfolio.find(x=>x.id===coinId);
+    if(!coin||!coin.journal)return false;
+    if(!user?.uid){showErr("Please sign in again");return false}
+    const f=cleanFunnel(funnelInput);
+    const journal={...coin.journal};
+    if(f)journal.funnel=f;else delete journal.funnel;
+    const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
+    if(!res.success){showErr("Couldn't save. Check your connection.");return false}
+    setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));return true;};
   const remCoin=async(id)=>{
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbRemoveCoin(user.uid,activePortId,id);
@@ -444,7 +457,7 @@ export default function CryptoIdea(){
   // Shared state + handlers for extracted screens (grows as screens migrate).
   const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,handleReset,
     user,contactMsg,setContactMsg,contactSent,setContactSent,
-    sq,setSq,searchResults,portfolio,addCoin,reviewThesis,
+    sq,setSq,searchResults,portfolio,addCoin,reviewThesis,saveFunnel,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
     infoCoin,setInfoCoin,prices,
     confirmDel,setConfirmDel,remCoin,remEntry,

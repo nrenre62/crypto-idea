@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP } from "../utils/format.js";
+import { cleanFunnel } from "../utils/journal.js";
+import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { CI } from "./ui.jsx";
 
 // Add-coin search screen. Live search results, the active portfolio, and the
@@ -15,16 +17,19 @@ export function Search() {
   const [journalFor, setJournalFor] = useState(null);
   const [thesis, setThesis] = useState("");
   const [changeMind, setChangeMind] = useState("");
+  const [funnel, setFunnel] = useState({});
+  const setF = (k, v) => setFunnel((p) => ({ ...p, [k]: v }));
 
-  const closeOverlay = () => { setJournalFor(null); setThesis(""); setChangeMind(""); };
+  const closeOverlay = () => { setJournalFor(null); setThesis(""); setChangeMind(""); setFunnel({}); };
 
   const confirmAdd = (save) => {
     const coin = journalFor;
     const t = thesis.trim(), m = changeMind.trim();
+    const f = cleanFunnel(funnel);
     closeOverlay();
     if (!coin) return;
-    const journal = (save && (t || m))
-      ? { thesis: t, changeMyMind: m, status: "intact", priceAtAdd: coin.mockPrice || 0, createdAt: new Date().toISOString() }
+    const journal = (save && (t || m || f))
+      ? { thesis: t, changeMyMind: m, status: "intact", priceAtAdd: coin.mockPrice || 0, createdAt: new Date().toISOString(), ...(f ? { funnel: f } : {}) }
       : null;
     addCoin(coin, journal);
   };
@@ -98,6 +103,17 @@ export function Search() {
               <div className="q-sub">What signal would tell you your thesis is wrong?</div>
               <textarea value={changeMind} onChange={(e) => setChangeMind(e.target.value)} placeholder="e.g. GitHub goes quiet, founder departs, unlock event overwhelms demand..." />
             </div>
+            <div className="journal-q" style={{ marginBottom: 10 }}>
+              <div className="q-label">Manual research findings (optional)</div>
+              <div className="q-sub">{FUNNEL_BRIDGE}</div>
+            </div>
+            {FUNNEL_FIELDS.map((field) => (
+              <div className="journal-q" key={field.key}>
+                <div className="q-label">{field.label}</div>
+                <div className="q-sub">{field.sub}</div>
+                <textarea value={funnel[field.key] || ""} onChange={(e) => setF(field.key, e.target.value)} placeholder={field.placeholder} />
+              </div>
+            ))}
             <div className="bj-note">This is for your own reflection — not financial advice. CryptoIdea never tells you what to buy or sell.</div>
             <button className="btn-primary ov-btn-gap" onClick={() => confirmAdd(true)}>Save to Journal &amp; add coin</button>
             <button className="btn-ghost" onClick={() => confirmAdd(false)}>Skip for now</button>

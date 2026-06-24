@@ -204,11 +204,25 @@ service cloud.firestore {
     // why you bought it, what would change your mind, and the running review status.
     function validJournal(j) {
       return j is map
+             && j.keys().hasOnly(['thesis', 'changeMyMind', 'status', 'priceAtAdd', 'createdAt', 'funnel'])
              && j.thesis is string && j.thesis.size() <= 2000
              && j.changeMyMind is string && j.changeMyMind.size() <= 2000
              && j.status in ['intact', 'review', 'challenged']
              && j.priceAtAdd is number && j.priceAtAdd >= 0
-             && j.createdAt is string && j.createdAt.size() <= 40;
+             && j.createdAt is string && j.createdAt.size() <= 40
+             && (!('funnel' in j) || validFunnel(j.funnel));
+    }
+
+    // Optional manual-research funnel findings (#27): dilution/unlocks, real
+    // trading volume vs wash-trading, and real yield. Each is optional bounded
+    // text the user records by hand; hasOnly blocks unknown keys. The whole
+    // funnel object is optional on the journal (backward-compatible).
+    function validFunnel(f) {
+      return f is map
+             && f.keys().hasOnly(['dilution', 'volume', 'yield'])
+             && (!('dilution' in f) || (f.dilution is string && f.dilution.size() <= 2000))
+             && (!('volume' in f) || (f.volume is string && f.volume.size() <= 2000))
+             && (!('yield' in f) || (f.yield is string && f.yield.size() <= 2000));
     }
 
     // Learn gamification state (users/{uid}/learn/progress). Bounded + typed, with

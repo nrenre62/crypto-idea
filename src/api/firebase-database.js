@@ -11,7 +11,7 @@
  *         ├── name, created, order
  *         └── coins/{coinId}
  *               ├── id, symbol, name, thumb, addedAt
- *               ├── journal? { thesis, changeMyMind, status, priceAtAdd, createdAt }
+ *               ├── journal? { thesis, changeMyMind, status, priceAtAdd, createdAt, funnel?{dilution,volume,yield} }
  *               └── transactions/{txId}
  *                     ├── type, amount, priceAtBuy, date, createdAt
  */
