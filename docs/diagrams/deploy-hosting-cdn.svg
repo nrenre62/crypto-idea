@@ -1,0 +1,80 @@
+<svg viewBox="0 0 920 660" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — deploy: Hosting / CDN / rewrites / cache headers</title>
+  <desc>npm run deploy builds only dist/ then runs firebase deploy, which pushes Hosting (static dist to a global CDN), Functions (the api HTTP proxy plus scheduled and callable functions), and Firestore rules. Hosting rewrites route by first match: /api/** to the api function, /admin and the app routes to their HTML, and everything else to the landing index.html. Cache headers make HTML no-cache (always fresh after a deploy) while content-hashed assets are immutable for a year and the service worker stays no-cache. Strong security headers including HSTS and a tight CSP apply to every response.</desc>
+  <defs>
+    <marker id="dp_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="dp_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+    <marker id="dp_b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-info,#2c7fb8)"/></marker>
+  </defs>
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Deploy — Hosting / CDN / Rewrites / Cache</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">Only dist/ ships → CDN + functions · rewrites route by first match · HTML fresh, hashed assets immutable</text>
+  <line x1="470" y1="26" x2="494" y2="26" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="500" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">build / deploy / backend</text>
+  <line x1="690" y1="26" x2="714" y2="26" stroke="var(--color-text-info,#2c7fb8)" stroke-width="2.5"/><text x="720" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">CDN / static</text>
+
+  <!-- Deploy pipeline -->
+  <rect x="24" y="56" width="150" height="54" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="99" y="79" font-size="11" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">npm run deploy</text>
+  <text x="99" y="96" font-size="8" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">build + firebase deploy</text>
+
+  <rect x="192" y="56" width="252" height="54" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="318" y="78" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">npm run build → dist/</text>
+  <text x="318" y="94" font-size="8" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">vite + stamp SW + no-names guard · ONLY dist/ ships</text>
+  <line x1="174" y1="83" x2="190" y2="83" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.4" marker-end="url(#dp_d)"/>
+
+  <rect x="462" y="56" width="128" height="54" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="526" y="79" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">firebase deploy</text>
+  <text x="526" y="96" font-size="8" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">needs Blaze (functions)</text>
+  <line x1="444" y1="83" x2="460" y2="83" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.4" marker-end="url(#dp_d)"/>
+
+  <rect x="610" y="50" width="286" height="26" rx="7" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.4"/>
+  <text x="622" y="67" font-size="9" fill="var(--color-text-primary,#1a1a1a)">Hosting → global CDN (dist/ static)</text>
+  <rect x="610" y="82" width="286" height="26" rx="7" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.4"/>
+  <text x="622" y="99" font-size="9" fill="var(--color-text-primary,#1a1a1a)">Functions: api (HTTP) + scheduled + callables</text>
+  <rect x="610" y="114" width="286" height="26" rx="7" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.4"/>
+  <text x="622" y="131" font-size="9" fill="var(--color-text-primary,#1a1a1a)">Firestore rules (security boundary)</text>
+  <line x1="590" y1="83" x2="608" y2="76" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#dp_a)"/>
+  <line x1="590" y1="90" x2="608" y2="95" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#dp_a)"/>
+  <line x1="590" y1="98" x2="608" y2="124" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#dp_a)"/>
+
+  <!-- Routing -->
+  <rect x="24" y="156" width="560" height="152" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="177" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Hosting rewrites — first match wins</text>
+  <text x="40" y="199" font-size="10" fill="var(--color-text-primary,#1a1a1a)">/api/**</text><text x="180" y="199" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">→ function "api"  (CoinGecko / PayPal / admin backend)</text>
+  <text x="40" y="221" font-size="10" fill="var(--color-text-primary,#1a1a1a)">/admin</text><text x="180" y="221" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">→ /admin.html  (separate admin app)</text>
+  <text x="40" y="243" font-size="10" fill="var(--color-text-primary,#1a1a1a)">/app · /edge · /pro-success</text><text x="240" y="243" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">→ /app.html  (React user app)</text>
+  <text x="40" y="265" font-size="10" fill="var(--color-text-primary,#1a1a1a)">**  (everything else)</text><text x="240" y="265" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">→ /index.html  (landing; SPA fallback)</text>
+  <line x1="40" y1="277" x2="568" y2="277" stroke="var(--color-border-tertiary,#e2e2e2)" stroke-width="1"/>
+  <text x="40" y="294" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">/api/** is a same-origin REWRITE (not a redirect) → no CORS, and the API key stays server-side in the function.</text>
+
+  <!-- Cache headers -->
+  <rect x="596" y="156" width="300" height="152" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.5"/>
+  <text x="612" y="177" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Cache-Control (edge / CDN)</text>
+  <text x="612" y="198" font-size="9.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">** (HTML): no-cache</text>
+  <text x="624" y="211" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">always revalidated → fresh after every deploy</text>
+  <text x="612" y="230" font-size="9.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">js/css/fonts/img: max-age=1yr, immutable</text>
+  <text x="624" y="243" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">safe because filenames are content-hashed</text>
+  <text x="612" y="262" font-size="9.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">/service-worker.js: no-cache</text>
+  <text x="624" y="275" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">re-checked each load → update detection works</text>
+  <text x="612" y="294" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">+ per-API TTLs: /coinlist 24h · /history 24h · /config 60s</text>
+
+  <!-- Security headers -->
+  <rect x="24" y="316" width="872" height="42" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.5"/>
+  <text x="40" y="334" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Security headers — on EVERY response</text>
+  <text x="40" y="350" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">HSTS preload (1yr) · CSP locked allowlist (self + PayPal / Termly / GA / Plausible / CoinGecko imgs) · X-Frame-Options DENY · nosniff · Referrer-Policy · Permissions-Policy · frame-ancestors 'none'</text>
+
+  <!-- Why -->
+  <rect x="24" y="366" width="872" height="282" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="388" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="409" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Only dist/ ships: public:"dist" + ignore firebase.json / dotfiles / node_modules → no source, configs, or secrets ever reach the CDN.</text>
+  <text x="40" y="427" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Clean URLs at the edge: the rewrites mirror the dev middleware — /app, /admin, /edge, /pro-success resolve to their HTML; everything else falls back to the landing.</text>
+  <text x="40" y="445" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Same-origin API: /api/** is a rewrite (not a redirect), so the browser sees one origin (no CORS) and the CoinGecko/PayPal keys stay inside the api function.</text>
+  <text x="40" y="463" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Instant updates + max cache hits: HTML is no-cache (always fresh post-deploy) while content-hashed JS/CSS/images are immutable for a year — best of both.</text>
+  <text x="40" y="481" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Service worker stays no-cache: so the browser re-checks it each load and the auto-reload-on-deploy flow works (see service-worker-update-flow.svg).</text>
+  <text x="40" y="499" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Flat upstream cost: /api responses set their own CDN TTLs, so CoinGecko calls don't scale with traffic (see coin-data-flow.svg).</text>
+  <text x="40" y="517" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Hardened by default: HSTS preload + a tight CSP allowlist + anti-clickjacking headers on every response — security at the edge, before any app code runs.</text>
+  <text x="40" y="535" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Build is the gate: the deploy can't ship unless the build is clean (SW stamped, no-names guard passed) — a bad bundle never reaches the CDN.</text>
+  <text x="40" y="563" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Note</text>
+  <text x="40" y="583" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">CDN caching is a DEPLOYED-Hosting behavior — the local dev server invokes the function each time, so test the "fresh HTML / cached assets / no per-visitor /api calls" effects after deploy.</text>
+  <text x="40" y="614" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: firebase.json (hosting.public / rewrites / headers) · package.json (deploy = build + firebase deploy) · scripts/stamp-sw.js + check-dist-names.js.</text>
+  <text x="40" y="630" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Related: multi-page-build-code-splitting.svg · service-worker-update-flow.svg · config-and-feature-flags.svg · rate-limiting-and-abuse.svg.</text>
+</svg>

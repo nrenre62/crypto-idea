@@ -15,6 +15,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [firestore-data-model.svg](firestore-data-model.svg) | The nested owner-only tree (users → portfolios → coins → transactions) with per-parent counters, plus the server-only top-level docs (config/app, cache/universe, historyCache, audit) and how counters enforce tier limits. |
 | [authorization-and-tier-limits.svg](authorization-and-tier-limits.svg) | The rule gates every write passes (signed-in → owner/admin → field guards → counter+limit), the per-tier limits sourced from `config/app.plans`, and the invariants (no self-upgrade, no counter smuggling, locked config/audit). |
 | [paypal-subscription-flow.svg](paypal-subscription-flow.svg) | Subscribe (createSubscription → PayPal approve → /pro-success), the signature-verified webhook that sets the tier, and cancel — all acting on the caller's own uid; unverified webhooks rejected. |
+| [deploy-hosting-cdn.svg](deploy-hosting-cdn.svg) | How a deploy ships — `npm run deploy` builds only `dist/` then `firebase deploy` pushes Hosting (CDN) + Functions + rules; Hosting rewrites route by first match (`/api/**`→function, `/admin`/app routes→HTML, `**`→landing); HTML is no-cache while hashed assets are immutable, SW stays no-cache; HSTS + tight CSP on every response. |
 | [frontend-layered-architecture.svg](frontend-layered-architecture.svg) | The `src/` layering — components (UI) → hooks (logic/state) → api/ (fetch only), everything → utils/ (pure); `AppContext`/`useApp()` instead of prop-drilling; `features/research/` as a self-contained vertical slice; plus the honest migration audit (what still lives in the shell). |
 | [config-and-feature-flags.svg](config-and-feature-flags.svg) | One locked `config/app` doc as the single source — admins write it via `saveConfig`; secrets stay server-side (`getConfig`, 5-min cache), a non-secret subset (maintenance, signups, plans, analytics, legal) is published fresh via public `/api/config` (60s CDN); the client uses it for the maintenance screen, signups gate, and pricing. |
 | [rate-limiting-and-abuse.svg](rate-limiting-and-abuse.svg) | Bot/abuse protection on the public API — per-IP in-memory sliding window with separate read (60/min) and write (subscribe, 5/min) budgets → 429; the subscribe endpoint layers a honeypot, email validation, and a server-side provider key, with App Check + reCAPTCHA as the deploy-time wall. |
@@ -44,7 +45,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] rate-limiting & abuse (per-IP read/write budgets, honeypot, App Check)
 - [x] config & feature flags (`config/app` → public `/api/config`, maintenance/signups)
 - [x] frontend layered architecture (`src/` api / hooks / components / utils)
-- [ ] deploy: Hosting / CDN / rewrites / cache headers
+- [x] deploy: Hosting / CDN / rewrites / cache headers
 - [ ] emulator dev stack (`start:all` one-lifecycle, ports, on-demand cache fill)
 - [x] GDPR self-service & soft-delete (`deleteMyAccount` → 30-day trash → `restoreMyAccount` / `purgeExpiredTrash`)
 - [ ] data export (`exportMyData` → JSON + holdings/transactions CSV via `buildPortfolioCsv`)
