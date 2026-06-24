@@ -1,0 +1,96 @@
+<svg viewBox="0 0 920 650" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — rate-limiting &amp; abuse protection</title>
+  <desc>Every public API request is keyed to a client IP and counted in an in-memory sliding window. Cheap cached read endpoints get a 60-per-minute budget; the only public unauthenticated write (email subscribe) gets its own far tighter 5-per-minute budget. Over budget returns 429. The subscribe endpoint adds layered bot defense: a honeypot field that silently drops bots, email validation, and a server-side provider key — with App Check and reCAPTCHA as the deploy-time complement. The store flushes past 10,000 IPs so memory stays bounded.</desc>
+  <defs>
+    <marker id="rl_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="rl_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+  </defs>
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Rate-Limiting &amp; Abuse Protection</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">Per-IP sliding window · separate read (60/min) &amp; write (5/min) budgets · honeypot + App Check</text>
+  <line x1="540" y1="26" x2="564" y2="26" stroke="var(--color-text-info,#2c7fb8)" stroke-width="2.5"/><text x="570" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">public request path</text>
+  <line x1="700" y1="26" x2="724" y2="26" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="730" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">deploy-time / upstream</text>
+
+  <!-- A: request + IP -->
+  <rect x="24" y="62" width="222" height="148" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.6"/>
+  <text x="40" y="83" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Public API request</text>
+  <text x="40" y="99" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">/api/coinlist · search · prices · history · subscribe</text>
+  <text x="40" y="124" font-size="9.5" fill="var(--color-text-primary,#1a1a1a)">1 · client IP =</text>
+  <text x="52" y="139" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">x-forwarded-for[0] → req.ip → "unknown"</text>
+  <text x="40" y="162" font-size="9.5" fill="var(--color-text-primary,#1a1a1a)">2 · look up per-IP window</text>
+  <text x="52" y="177" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">in-memory · per function instance</text>
+  <text x="40" y="197" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">no Redis / no dependency (KISS)</text>
+
+  <!-- B: budgets -->
+  <rect x="266" y="62" width="300" height="70" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.5"/>
+  <text x="282" y="82" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">READ budget — cached endpoints</text>
+  <text x="282" y="99" font-size="9.5" fill="var(--color-text-primary,#1a1a1a)">RATE_LIMIT = 60 / 60s per IP</text>
+  <text x="282" y="115" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">store _rl · coinlist / search / prices / history</text>
+
+  <rect x="266" y="140" width="300" height="70" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="282" y="160" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">WRITE budget — subscribe</text>
+  <text x="282" y="177" font-size="9.5" fill="var(--color-text-primary,#1a1a1a)">SUBSCRIBE_LIMIT = 5 / 60s per IP</text>
+  <text x="282" y="193" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">SEPARATE store _rlSub · public, unauthenticated</text>
+  <line x1="246" y1="120" x2="264" y2="97" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.3" marker-end="url(#rl_a)"/>
+  <line x1="246" y1="150" x2="264" y2="175" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.3" marker-end="url(#rl_a)"/>
+
+  <!-- 429 -->
+  <rect x="586" y="62" width="130" height="70" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="651" y="92" font-size="14" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">429</text>
+  <text x="651" y="110" font-size="8" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">"Too many requests —</text>
+  <text x="651" y="121" font-size="8" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">please slow down."</text>
+  <line x1="566" y1="97" x2="584" y2="97" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#rl_a)"/>
+  <text x="575" y="90" font-size="7.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">over</text>
+  <line x1="566" y1="175" x2="584" y2="120" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#rl_a)"/>
+
+  <!-- C: mechanics -->
+  <rect x="586" y="140" width="310" height="70" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="602" y="158" font-size="9.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Sliding window (per IP)</text>
+  <text x="602" y="173" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">entry {count, resetAt} · now &gt; resetAt → fresh 60s window</text>
+  <text x="602" y="186" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">count++ each request · count &gt; limit → 429</text>
+  <text x="602" y="201" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">flush store when &gt; 10,000 IPs → memory bounded</text>
+
+  <!-- Subscribe defense band -->
+  <text x="24" y="240" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Public email signup (subscribe) — layered bot defense (defense in depth)</text>
+  <rect x="24" y="250" width="202" height="74" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4"/>
+  <text x="40" y="269" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">① tight 5/min budget</text>
+  <text x="40" y="285" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">_rlSub — far stricter than</text>
+  <text x="40" y="297" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">the 60/min read budget</text>
+  <text x="40" y="314" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">over → 429</text>
+
+  <rect x="238" y="250" width="202" height="74" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4"/>
+  <text x="254" y="269" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">② honeypot</text>
+  <text x="254" y="285" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">hidden hp field filled →</text>
+  <text x="254" y="297" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">return success + silently drop</text>
+  <text x="254" y="314" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">(bots only; no CAPTCHA for humans)</text>
+
+  <rect x="452" y="250" width="202" height="74" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4"/>
+  <text x="468" y="269" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">③ validate email</text>
+  <text x="468" y="285" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">regex + length ≤ 200</text>
+  <text x="468" y="297" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">else 400 · provider unset → 503</text>
+
+  <rect x="666" y="250" width="230" height="74" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4"/>
+  <text x="682" y="269" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">④ forward to provider</text>
+  <text x="682" y="285" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">ActiveCampaign / GetResponse</text>
+  <text x="682" y="297" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">API key stays SERVER-SIDE</text>
+  <line x1="226" y1="287" x2="237" y2="287" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" marker-end="url(#rl_a)"/>
+  <line x1="440" y1="287" x2="451" y2="287" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" marker-end="url(#rl_a)"/>
+  <line x1="654" y1="287" x2="665" y2="287" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" marker-end="url(#rl_a)"/>
+
+  <!-- deploy-time -->
+  <rect x="24" y="334" width="872" height="34" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.5"/>
+  <text x="40" y="355" font-size="10" fill="var(--color-text-primary,#1a1a1a)"><tspan font-weight="700">Deploy-time wall (the real bot barrier):</tspan>  App Check + reCAPTCHA (set VITE_RECAPTCHA_SITE_KEY + enable App Check enforcement) attests requests come from your real app.</text>
+
+  <!-- Why -->
+  <rect x="24" y="382" width="872" height="252" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="404" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="425" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Cost isn't the target: upstream is already cached (flat cost), so the limit mainly stops scraping / DoS-style bursts and email-provider spam — not CoinGecko spend.</text>
+  <text x="40" y="443" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Two separate budgets: the only public WRITE (subscribe) gets a far tighter 5/min on its own store, so an IP can't spam signups while staying under the 60/min read budget.</text>
+  <text x="40" y="461" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Honeypot = zero friction: a hidden field humans never see; bots that fill it get a fake 200 and are dropped — no CAPTCHA tax on real users.</text>
+  <text x="40" y="479" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Defense in depth: rate limit + honeypot + validation live in code now; App Check + reCAPTCHA are added at deploy as the actual bot wall.</text>
+  <text x="40" y="497" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Bounded + dependency-free: a plain in-memory map (KISS, no Redis) with a 10,000-IP flush so memory can't grow unbounded; best-effort per instance, which is fine as one layer.</text>
+  <text x="40" y="515" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Fail-shut on the write: invalid email → 400, provider unconfigured → 503, honeypot → drop; the provider API key never leaves the server.</text>
+  <text x="40" y="543" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Known limitation</text>
+  <text x="40" y="563" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">The window is per-instance in-memory, so under heavy autoscale the effective limit is per instance, not global. It's a deliberately simple first layer; App Check is the strong gate.</text>
+  <text x="40" y="592" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: functions/index.js — rateLimited(), RATE_LIMIT / SUBSCRIBE_LIMIT / RATE_WINDOW, _rl / _rlSub, the /api 429 guard + subscribe honeypot/validation.</text>
+  <text x="40" y="608" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Deploy: VITE_RECAPTCHA_SITE_KEY + App Check enforcement (console). Related: api-key-flow.svg, coin-data-flow.svg.</text>
+</svg>
