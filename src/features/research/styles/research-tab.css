@@ -208,11 +208,19 @@
 .research-root .coin-card:focus-visible{outline:2px solid var(--ai-2);outline-offset:3px}
 .research-root .seg button:focus-visible,.research-root .tf-pills button:focus-visible{outline-offset:-2px}
 
-/* Conviction signals — DESIGN PLACEHOLDER (neutral/pending; AI research is
-   offline, so we show the four signal categories without faking a verdict). */
+/* Conviction signals (#8/#9/#11) — the 4-state rubric pills, graded from
+   cross-checked sources. Mock evidence today; live AI is Wave B. State classes
+   reuse the sentiment palette; ⬛ insufficient is grey with a hollow dot + reason chip. */
 .research-root .conv-row{display:flex;gap:5px;margin-top:11px;flex-wrap:wrap}
 .research-root .csig{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:rgba(21,20,15,.05);color:var(--ink-faint)}
 .research-root .csig .csd{width:5px;height:5px;border-radius:50%;background:var(--ink-faint);flex:none}
+.research-root .csig-healthy{background:var(--accent-soft);color:var(--accent-ink)}.research-root .csig-healthy .csd{background:var(--accent)}
+.research-root .csig-mixed{background:#fdf3e0;color:#876314}.research-root .csig-mixed .csd{background:#d09715}
+.research-root .csig-problem{background:#fbede9;color:#963922}.research-root .csig-problem .csd{background:var(--warn)}
+.research-root .csig-insufficient{background:rgba(21,20,15,.05);color:var(--ink-faint)}.research-root .csig-insufficient .csd{background:transparent;border:1px solid var(--ink-faint)}
+.research-root .csig-reason{font-weight:600;opacity:.85}
+.research-root .conv-cats{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.research-root .conv-cat{font-size:10.5px;color:var(--ink-soft);background:var(--paper-3);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
 .research-root .conv-note{font-size:10.5px;color:var(--ink-faint);font-style:italic;margin-top:7px}
 
 @media (prefers-reduced-motion: reduce){

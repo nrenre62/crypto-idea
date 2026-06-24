@@ -136,10 +136,11 @@ describe("User walkthrough — all functions", () => {
     render(<CryptoIdea />);
     // Portfolio shows the seeded holding
     expect(await screen.findByText("Bitcoin")).toBeInTheDocument();
-    // Research -> Coins -> conviction placeholder pills appear
+    // Research -> Coins -> the conviction rubric pills render (mock evidence, A8);
+    // the #26 funnel<->signals bridge note replaced the old "coming soon" placeholder.
     tab("Research");
     fireEvent.click(await screen.findByText("Coins"));
-    expect(await screen.findByText("AI conviction analysis — coming soon")).toBeInTheDocument();
+    expect(await screen.findByText(/you apply 3–5/)).toBeInTheDocument();
     expect(screen.getByText("Dev")).toBeInTheDocument();
     expect(screen.getByText("Community")).toBeInTheDocument();
     // Back to portfolio, open the coin -> a detail/info screen renders without crashing

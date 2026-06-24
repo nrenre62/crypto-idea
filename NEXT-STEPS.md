@@ -138,10 +138,17 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   options + an in-range `correctIdx`, unique ids, **no author names** (reuses the build's
   `findForbiddenNames` guard so the list can't drift), and varied answer positions. **Verified:**
   unit 176 · build clean (name-guard passing).
-- [ ] **A8 · 0c-pure (#8/#9/#11):** the conviction **rubric reducer** (≥2-source cross-check →
-  🟢/🟡/🔴/⬛, as-of-date, catalyst auto-expiry) as a pure util + light up the 4-state pills in
-  `CoinCard.jsx` driven by **mock data**. Test: unit (single-source→⬛, conflict→🟡, corroborated-bad→🔴,
-  expired catalyst, thin coverage→⬛). The marketed differentiator — highest-value early test.
+- [x] **A8 · 0c-pure (#8/#9/#11):** ✅ DONE 2026-06-24 — pure rubric reducer
+  `src/features/research/utils/conviction.js` (`reduceAxis` / `activeCatalysts` / `computeConviction`):
+  the **≥2-source accuracy gate** (#8 — fewer corroborating sources → ⬛, never a single-source guess),
+  the **4-state rubric** (#9 — all-good→🟢, conflict/any-mixed→🟡, corroborated-bad/dead→🔴, thin→⬛
+  with a per-axis **reason chip**, never a silent blank), and **catalyst auto-expiry + as-of date**
+  (#11). The 4-state pills in `CoinCard.jsx` are lit from it, driven by a deterministic **mock seam**
+  (`data/mock-conviction.js`) that swaps for the live per-coin cache in one place at Wave B; the #26
+  funnel↔signals bridge note renders with the pills. Tests: `tests/unit/conviction.test.js`
+  (single-source→⬛, thin→⬛, conflict→🟡, any-mixed→🟡, corroborated-bad→🔴, catalyst expiry, all-⬛
+  degrade, mock determinism) + `CoinCard.test.jsx` (pills + ⬛ reason chip + catalyst). **Verified:**
+  unit 194 · build clean.
 - [ ] **A9 · 0d-pure (#14/#15/#16):** `validateOutput()` regex-prefilter as a **pure module** +
   exhaustive unit tests — blocks unmentioned project names (BTC/ETH/SOL excepted), price targets,
   buy/sell/hold, %-allocation, aggregate score; **fails closed**; caps regens at **N=2**. Built here;

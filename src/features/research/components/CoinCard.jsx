@@ -3,6 +3,11 @@ import { useState } from 'react';
 import Sparkline from './Sparkline';
 import { visualFor, sentimentOf } from '../utils/coins';
 import { money, abbreviate, priceFmt, fmtPct } from '../utils/format';
+import { STATES } from '../utils/conviction';
+import { mockConviction } from '../data/mock-conviction';
+
+// Today as YYYY-MM-DD, for catalyst auto-expiry (#11).
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function CoinCard({ holding, index, onAsk }) {
   const [open, setOpen] = useState(false);
@@ -10,6 +15,9 @@ export default function CoinCard({ holding, index, onAsk }) {
   const s = sentimentOf(holding);
   const subColor = holding.c24 >= 0 ? 'var(--accent)' : 'var(--warn)';
   const pl = holding.avgCost ? (holding.price / holding.avgCost - 1) * 100 : null;
+  // Conviction signals (#8/#9/#11). MOCK evidence today (live AI is Wave B); swap
+  // mockConviction -> the live per-coin cache when the proxy ships — reducer + UI stay.
+  const conv = mockConviction(holding, todayISO());
 
   return (
     <div
@@ -35,15 +43,23 @@ export default function CoinCard({ holding, index, onAsk }) {
 
       <span className={'sentiment ' + s.cls}><span className="d" />Sentiment: {s.label}</span>
 
-      {/* Conviction signals — design placeholder (Dev / Founders / Team / Community).
-          Neutral/pending: the AI research engine is offline, so we show the four
-          categories without faking a green/red verdict. */}
+      {/* Conviction signals (Dev / Founders / Team / Community) — graded by the rubric
+          reducer from cross-checked sources (#8/#9). ⬛ shows a reason chip, never a
+          silent blank. Mock evidence today; live AI is Wave B. */}
       <div className="conv-row">
-        {['Dev', 'Founders', 'Team', 'Community'].map((k) => (
-          <span key={k} className="csig"><span className="csd" />{k}</span>
+        {conv.axes.map((a) => (
+          <span key={a.key} className={'csig csig-' + STATES[a.state].cls} title={a.reason || STATES[a.state].label}>
+            <span className="csd" />{a.label}
+            {a.reason ? <span className="csig-reason"> · {a.reason}</span> : null}
+          </span>
         ))}
       </div>
-      <div className="conv-note">AI conviction analysis — coming soon</div>
+      {conv.catalysts.length > 0 && (
+        <div className="conv-cats">
+          {conv.catalysts.map((c, i) => (<span key={i} className="conv-cat">📅 {c.label} · {c.date}</span>))}
+        </div>
+      )}
+      <div className="conv-note">{(conv.asOf ? `Conviction signals as of ${conv.asOf} · ` : '') + 'These cover funnel steps 1–2; you apply 3–5.'}</div>
 
       <p className="cc-insight">{holding.name} is {Math.round(holding.alloc)}% of your portfolio and moved {fmtPct(holding.c24)} today.</p>
 
