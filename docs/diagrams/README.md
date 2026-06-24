@@ -15,6 +15,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [firestore-data-model.svg](firestore-data-model.svg) | The nested owner-only tree (users → portfolios → coins → transactions) with per-parent counters, plus the server-only top-level docs (config/app, cache/universe, historyCache, audit) and how counters enforce tier limits. |
 | [authorization-and-tier-limits.svg](authorization-and-tier-limits.svg) | The rule gates every write passes (signed-in → owner/admin → field guards → counter+limit), the per-tier limits sourced from `config/app.plans`, and the invariants (no self-upgrade, no counter smuggling, locked config/audit). |
 | [paypal-subscription-flow.svg](paypal-subscription-flow.svg) | Subscribe (createSubscription → PayPal approve → /pro-success), the signature-verified webhook that sets the tier, and cancel — all acting on the caller's own uid; unverified webhooks rejected. |
+| [config-and-feature-flags.svg](config-and-feature-flags.svg) | One locked `config/app` doc as the single source — admins write it via `saveConfig`; secrets stay server-side (`getConfig`, 5-min cache), a non-secret subset (maintenance, signups, plans, analytics, legal) is published fresh via public `/api/config` (60s CDN); the client uses it for the maintenance screen, signups gate, and pricing. |
 | [rate-limiting-and-abuse.svg](rate-limiting-and-abuse.svg) | Bot/abuse protection on the public API — per-IP in-memory sliding window with separate read (60/min) and write (subscribe, 5/min) budgets → 429; the subscribe endpoint layers a honeypot, email validation, and a server-side provider key, with App Check + reCAPTCHA as the deploy-time wall. |
 | [service-worker-update-flow.svg](service-worker-update-flow.svg) | How deploys reach users — `stamp-sw.js` gives the SW a unique build id so it changes every deploy, the browser detects the new worker and auto-reloads open tabs (skipping first install), pages are served network-first (cache = offline fallback), old caches are purged on activate, and localhost never caches. |
 | [multi-page-build-code-splitting.svg](multi-page-build-code-splitting.svg) | The Vite build — 5 HTML entries (landing, privacy, terms, app, separate admin) → 5 page bundles; `main.jsx` lazy-loads each route behind a `Suspense` shell; `manualChunks` isolates Firebase + vendor for cache reuse across deploys; admin code never enters the user bundle. |
@@ -40,7 +41,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] multi-page build + code-splitting (Vite `manualChunks`, lazy routes, dist)
 - [x] service-worker update flow (network-first, build stamp, auto-reload on deploy)
 - [x] rate-limiting & abuse (per-IP read/write budgets, honeypot, App Check)
-- [ ] config & feature flags (`config/app` → public `/api/config`, maintenance/signups)
+- [x] config & feature flags (`config/app` → public `/api/config`, maintenance/signups)
 - [ ] frontend layered architecture (`src/` api / hooks / components / utils)
 - [ ] deploy: Hosting / CDN / rewrites / cache headers
 - [ ] emulator dev stack (`start:all` one-lifecycle, ports, on-demand cache fill)

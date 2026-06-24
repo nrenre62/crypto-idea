@@ -1,0 +1,94 @@
+<svg viewBox="0 0 920 660" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — config &amp; feature flags</title>
+  <desc>One locked Firestore doc, config/app, is the single source for all runtime settings: API-key secrets, feature flags (maintenance, signups), plan limits/prices, and analytics/legal IDs. Admins write it via the saveConfig callable. Secrets are read only server-side through getConfig (5-minute cache); the public /api/config endpoint exposes only a non-secret subset, read fresh so toggles apply within about a minute behind a 60-second CDN cache. The client reads that on load to show a maintenance screen, disable signups, and source plan pricing. Firestore rules deny all client access to the doc.</desc>
+  <defs>
+    <marker id="cf_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="cf_b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-info,#2c7fb8)"/></marker>
+    <marker id="cf_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+  </defs>
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Config &amp; Feature Flags</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">One locked config/app doc → secrets stay server-side, a non-secret subset is published via /api/config</text>
+  <line x1="498" y1="26" x2="522" y2="26" stroke="var(--color-text-info,#2c7fb8)" stroke-width="2.5"/><text x="528" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">public (non-secret)</text>
+  <line x1="650" y1="26" x2="674" y2="26" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="680" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">server-only / secret</text>
+
+  <!-- A: admin write -->
+  <rect x="24" y="64" width="286" height="150" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="85" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Admin · Settings (dashboard)</text>
+  <text x="40" y="106" font-size="10" fill="var(--color-text-primary,#1a1a1a)">saveConfig(...) — admin claim only</text>
+  <text x="52" y="121" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">→ write config/app (merge) + writeAudit()</text>
+  <text x="40" y="144" font-size="10" fill="var(--color-text-primary,#1a1a1a)">getAdminConfig() — prefill the form</text>
+  <text x="52" y="159" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">secrets returned as SET-FLAGS only</text>
+  <text x="52" y="172" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">(never the actual value)</text>
+  <text x="40" y="195" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">A blank secret field keeps the saved value</text>
+  <text x="40" y="208" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">(never wiped on re-save).</text>
+
+  <!-- B: the doc -->
+  <rect x="336" y="64" width="252" height="232" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.8"/>
+  <text x="462" y="85" font-size="11.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">config/app — single source</text>
+  <text x="462" y="100" font-size="9" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">one LOCKED Firestore doc</text>
+  <rect x="350" y="112" width="224" height="40" rx="7" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.3"/>
+  <text x="360" y="129" font-size="9.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">SECRETS (server-only)</text>
+  <text x="360" y="144" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">coingecko · paypal · email keys</text>
+  <text x="360" y="172" font-size="9.5" fill="var(--color-text-info,#2c7fb8)">flags: { maintenance, signupsEnabled }</text>
+  <text x="360" y="192" font-size="9.5" fill="var(--color-text-info,#2c7fb8)">plans: free / pro / premium (limits + price)</text>
+  <text x="360" y="212" font-size="9.5" fill="var(--color-text-info,#2c7fb8)">analytics: { ga4, plausible }</text>
+  <text x="360" y="232" font-size="9.5" fill="var(--color-text-info,#2c7fb8)">legal: { termly ids, cookieBanner }</text>
+  <line x1="350" y1="250" x2="574" y2="250" stroke="var(--color-border-tertiary,#e2e2e2)" stroke-width="1"/>
+  <text x="462" y="268" font-size="9" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">firestore.rules deny ALL client</text>
+  <text x="462" y="281" font-size="9" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">read + write (config/** server-only)</text>
+  <line x1="310" y1="130" x2="334" y2="130" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#cf_a)"/>
+  <text x="322" y="123" font-size="7.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">write</text>
+
+  <!-- C1: server-internal -->
+  <rect x="612" y="64" width="284" height="96" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="628" y="84" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">getConfig() — SERVER-ONLY · 5-min cache</text>
+  <text x="628" y="102" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">feeds secrets to: cgHeaders (CoinGecko key),</text>
+  <text x="628" y="116" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">PayPal token / webhook, email provider</text>
+  <text x="628" y="138" font-size="9" fill="var(--color-text-primary,#1a1a1a)">clients can NEVER read the doc (rules)</text>
+  <text x="628" y="152" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">secret values stay inside the functions runtime</text>
+  <line x1="588" y1="100" x2="610" y2="100" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.5" marker-end="url(#cf_d)"/>
+
+  <!-- C2: public endpoint -->
+  <rect x="612" y="172" width="284" height="124" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.7"/>
+  <text x="628" y="192" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">/api/config — PUBLIC · NON-SECRET subset</text>
+  <text x="628" y="210" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">reads the doc FRESH (NOT the 5-min cache)</text>
+  <text x="628" y="223" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">→ a flag flip applies promptly</text>
+  <text x="628" y="243" font-size="9" fill="var(--color-text-primary,#1a1a1a)">returns { maintenance, signupsEnabled,</text>
+  <text x="640" y="256" font-size="9" fill="var(--color-text-primary,#1a1a1a)">plans, analytics, legal }  — no keys, ever</text>
+  <text x="628" y="278" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">CDN: max-age=60, s-maxage=60 → ~1 call/min</text>
+  <line x1="588" y1="220" x2="610" y2="220" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.5" marker-end="url(#cf_b)"/>
+  <text x="599" y="213" font-size="7.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">curated</text>
+
+  <!-- D: client effects -->
+  <rect x="24" y="312" width="872" height="120" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.4"/>
+  <text x="40" y="333" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Client reads it on load — fetchSiteConfig() → setSite</text>
+  <rect x="40" y="344" width="206" height="74" rx="8" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.2"/>
+  <text x="143" y="364" font-size="9.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">maintenance: true</text>
+  <text x="143" y="381" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">"We'll be right back" screen</text>
+  <text x="143" y="395" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">(data is safe, app hidden)</text>
+  <rect x="256" y="344" width="206" height="74" rx="8" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.2"/>
+  <text x="359" y="364" font-size="9.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">signupsEnabled: false</text>
+  <text x="359" y="381" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">Register disabled, "signups</text>
+  <text x="359" y="395" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">paused" notice (client gate)</text>
+  <rect x="472" y="344" width="206" height="74" rx="8" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.2"/>
+  <text x="575" y="364" font-size="9.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">plans</text>
+  <text x="575" y="381" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">tier limits + landing/app</text>
+  <text x="575" y="395" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">pricing (rules enforce limits)</text>
+  <rect x="688" y="344" width="190" height="74" rx="8" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.2"/>
+  <text x="783" y="364" font-size="9.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">analytics / legal</text>
+  <text x="783" y="381" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">site-meta.js injects GA4 /</text>
+  <text x="783" y="395" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">Plausible / Termly (own diagram)</text>
+  <line x1="754" y1="296" x2="754" y2="310" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.4" marker-end="url(#cf_b)"/>
+
+  <!-- Why -->
+  <rect x="24" y="444" width="872" height="194" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="466" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="487" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• One source of truth: every runtime setting (secrets, flags, plans, analytics, legal) lives in ONE locked doc — admins edit it live, nothing is hard-coded or redeployed.</text>
+  <text x="40" y="505" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Hard secret boundary: the doc is server-only (rules deny clients). Secrets are read by getConfig server-side; /api/config publishes ONLY a curated non-secret subset.</text>
+  <text x="40" y="523" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Toggles apply in ~60s: /api/config reads the doc FRESH (bypassing the 5-min server cache) so a maintenance/signups flip is near-live; a 60s CDN cache still caps invocations.</text>
+  <text x="40" y="541" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Admin prefill is safe: getAdminConfig returns secrets as set/unset flags only — the Settings form never round-trips the actual key.</text>
+  <text x="40" y="559" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Flags are a client gate (good enough now): signups-off disables the Register UI; hard server enforcement (Auth beforeCreate) is a go-live add. Maintenance + pricing apply immediately.</text>
+  <text x="40" y="577" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Plans do double duty: the same plans block drives displayed pricing AND the tier ceilings that firestore.rules enforce (see authorization-and-tier-limits.svg).</text>
+  <text x="40" y="606" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: functions/index.js — getConfig (5-min cache), /api/config (action "config", fresh read + 60s CDN), saveConfig, getAdminConfig · src/api/config.js · src/CryptoIdea.jsx (setSite).</text>
+  <text x="40" y="622" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">firestore.rules (config/** server-only). Related: api-key-flow.svg (secret path) · analytics &amp; legal injection (backlog).</text>
+</svg>
