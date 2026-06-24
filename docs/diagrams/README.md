@@ -24,6 +24,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [multi-page-build-code-splitting.svg](multi-page-build-code-splitting.svg) | The Vite build — 5 HTML entries (landing, privacy, terms, app, separate admin) → 5 page bundles; `main.jsx` lazy-loads each route behind a `Suspense` shell; `manualChunks` isolates Firebase + vendor for cache reuse across deploys; admin code never enters the user bundle. |
 | [app-buy-date-history.svg](app-buy-date-history.svg) | How the app auto-fills an accurate buy-date price for ANY coin — `useCoinHistory` (module + shared `/api/history` + CDN cache) feeds `priceAtDate` (binary search), falling back to the built-in `getHistoricalPrice` estimate; dates clamped to launch, never NaN. |
 | [live-prices-polling.svg](live-prices-polling.svg) | How the app keeps prices live — `useLivePrices` seeds mock prices instantly (demo), polls `/api/prices` every 60s for held coins, flips to live on first response; the proxy serves from the shared `cache/universe` (5-min hot set + on-demand tail), errors keep the last good prices (no NaN), and upstream cost stays flat regardless of user count. |
+| [data-export.svg](data-export.svg) | The two download paths from "Privacy & your data" — both call `exportMyData` (caller uid only), then JSON saves the raw payload and CSV runs the pure `buildPortfolioCsv` into a HOLDINGS summary + chronological TRANSACTIONS ledger (BOM-prefixed for Excel, cost-basis only). |
 | [gdpr-self-service.svg](gdpr-self-service.svg) | User-driven data rights from the "Privacy & your data" card — exportMyData (JSON + holdings CSV), deleteMyAccount as a SOFT delete (deleted/deletedAt, data kept, Auth not disabled), restoreMyAccount within 30 days, the re-login Restore screen, and the daily purgeExpiredTrash that erases accounts past the window. No IDOR; soft-delete fields are server-only. |
 | [admin-operations.svg](admin-operations.svg) | Admin-only callables behind the claim gate — read/insight (getStats, listUsers, lookupUser, listAudit, getAdminConfig) vs audited mutations (setUserTier, suspendUser, deleteUser, setAdminClaim, saveConfig); self-target blocked, MIN_ADMINS=2, no holdings exposed. |
 
@@ -38,7 +39,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] authorization & tier limits (owner/admin rules + counter-enforced plan ceilings)
 - [x] PayPal subscription + webhook flow (create → approve → verified webhook → tier)
 - [x] admin dashboard operations (getStats / listUsers / lookup / setTier / suspend / delete / audit)
-- [ ] GDPR self-service (deleteMyAccount / exportMyData)
+- [x] GDPR self-service (deleteMyAccount / exportMyData) — covered by [gdpr-self-service.svg](gdpr-self-service.svg)
 - [x] live-prices polling (app `useLivePrices`, 60s, demo→live)
 - [x] app buy-date history (`useCoinHistory` + `priceAtDate`, fallback)
 - [x] multi-page build + code-splitting (Vite `manualChunks`, lazy routes, dist)
@@ -49,7 +50,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] deploy: Hosting / CDN / rewrites / cache headers
 - [x] emulator dev stack (`start:all` one-lifecycle, ports, on-demand cache fill)
 - [x] GDPR self-service & soft-delete (`deleteMyAccount` → 30-day trash → `restoreMyAccount` / `purgeExpiredTrash`)
-- [ ] data export (`exportMyData` → JSON + holdings/transactions CSV via `buildPortfolioCsv`)
+- [x] data export (`exportMyData` → JSON + holdings/transactions CSV via `buildPortfolioCsv`)
 - [ ] admin Trash tab (restore / purge-now, days-left countdown, server-only `deleted` flag)
 - [ ] Research tab module (`src/features/research/` — Overview / Coins / Ask; app-native data, no new API calls)
 - [ ] App Controls & feature flags (`config/app.flags` → public `/api/config`, maintenance / signups-off)

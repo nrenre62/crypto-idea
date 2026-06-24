@@ -1,0 +1,80 @@
+<svg viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — data export (JSON + holdings/transactions CSV)</title>
+  <desc>From the Account "Privacy &amp; your data" card a user can download their own data two ways. Both buttons call the exportMyData callable, which returns the caller's profile and nested portfolios, coins and transactions as JSON. The JSON button saves that raw payload. The CSV button runs the pure buildPortfolioCsv transform into a human-readable spreadsheet with a HOLDINGS summary (amount held, avg buy price, total invested and sold, plus a grand total, sorted by portfolio then largest position) and a chronological TRANSACTIONS list, prefixed with a byte-order mark so Excel reads UTF-8. The export is cost-basis only — no live prices — and acts on the caller's own uid.</desc>
+  <defs>
+    <marker id="ex_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="ex_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+  </defs>
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Data Export — JSON + Holdings/Transactions CSV</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">Account → "Privacy &amp; your data" · GDPR data portability · your own data only (cost-basis, no live prices)</text>
+  <line x1="560" y1="26" x2="584" y2="26" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="2.5"/><text x="590" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">app / client</text>
+  <line x1="690" y1="26" x2="714" y2="26" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="720" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">server callable</text>
+
+  <!-- Two buttons -->
+  <rect x="24" y="62" width="250" height="74" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="83" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Account · Privacy &amp; your data</text>
+  <text x="40" y="103" font-size="10" fill="var(--color-text-primary,#1a1a1a)">▸ Download CSV (spreadsheet)</text>
+  <text x="40" y="123" font-size="10" fill="var(--color-text-primary,#1a1a1a)">▸ Download all my data (JSON)</text>
+
+  <!-- exportMyData callable -->
+  <rect x="324" y="62" width="280" height="74" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="464" y="83" font-size="11.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">exportMyData() — callable</text>
+  <text x="464" y="101" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">acts on context.auth.uid only — no IDOR</text>
+  <text x="464" y="117" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">returns JSON: { exportedAt, account, profile,</text>
+  <text x="464" y="129" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">portfolios → coins → transactions }</text>
+  <line x1="274" y1="99" x2="322" y2="99" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#ex_a)"/>
+  <text x="298" y="92" font-size="7.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">both call</text>
+
+  <!-- JSON branch -->
+  <rect x="654" y="62" width="222" height="74" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.4"/>
+  <text x="765" y="82" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">JSON download</text>
+  <text x="765" y="100" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">JSON.stringify(data, null, 2)</text>
+  <text x="765" y="113" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">Blob application/json</text>
+  <text x="765" y="127" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">crypto-idea-my-data.json (raw, complete)</text>
+  <line x1="604" y1="92" x2="652" y2="92" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4" marker-end="url(#ex_a)"/>
+  <text x="628" y="85" font-size="7.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">JSON btn</text>
+
+  <!-- CSV transform -->
+  <rect x="24" y="158" width="852" height="40" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="176" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">CSV btn → buildPortfolioCsv(data) — pure, unit-tested transform (utils/export-csv.js)</text>
+  <text x="40" y="191" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">summarize() reduces each coin's transactions to a holdings row · esc() CSV-escapes · num() trims float noise · one file, two labelled sections ↓</text>
+  <line x1="200" y1="136" x2="200" y2="156" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4" marker-end="url(#ex_a)"/>
+
+  <!-- HOLDINGS section -->
+  <rect x="24" y="212" width="420" height="150" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.5"/>
+  <text x="40" y="232" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">HOLDINGS — one row per coin</text>
+  <text x="40" y="250" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">columns: Portfolio · Coin · Symbol · Amount held ·</text>
+  <text x="40" y="263" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Avg buy price · Total invested · Total sold · # Transactions</text>
+  <text x="40" y="284" font-size="9" fill="var(--color-text-primary,#1a1a1a)">held = bought − sold · avgBuy = invested / bought</text>
+  <text x="40" y="300" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">sorted by portfolio, then largest position (invested) first</text>
+  <text x="40" y="320" font-size="9" fill="var(--color-text-primary,#1a1a1a)">+ grand TOTAL row (invested, sold)</text>
+  <text x="40" y="342" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">COST BASIS ONLY — no live price (your data, no extra API calls)</text>
+
+  <!-- TRANSACTIONS section -->
+  <rect x="456" y="212" width="420" height="150" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="472" y="232" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">TRANSACTIONS — one row per transaction</text>
+  <text x="472" y="250" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">columns: Portfolio · Coin · Symbol · Type ·</text>
+  <text x="472" y="263" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Amount · Price · Value · Date</text>
+  <text x="472" y="284" font-size="9" fill="var(--color-text-primary,#1a1a1a)">value = amount × priceAtBuy</text>
+  <text x="472" y="300" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">listed in chronological order (oldest first)</text>
+  <text x="472" y="322" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">the full ledger behind the holdings summary</text>
+  <text x="472" y="342" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">buy / sell type preserved per row</text>
+
+  <!-- CSV file out -->
+  <rect x="324" y="378" width="252" height="40" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.4"/>
+  <text x="450" y="396" font-size="10" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">crypto-idea-portfolio.csv</text>
+  <text x="450" y="410" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">Blob "﻿" + csv · text/csv;charset=utf-8</text>
+  <line x1="234" y1="362" x2="380" y2="376" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#ex_a)"/>
+  <line x1="666" y1="362" x2="520" y2="376" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#ex_a)"/>
+
+  <!-- Why -->
+  <rect x="24" y="432" width="852" height="170" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="454" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="475" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Data portability (GDPR): one click gets ALL your data out — JSON is the complete raw export; CSV is a readable spreadsheet for Excel / Google Sheets.</text>
+  <text x="40" y="493" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Excel-safe: the CSV is prefixed with a UTF-8 byte-order mark (﻿) so Excel opens accented names / symbols correctly instead of mojibake.</text>
+  <text x="40" y="511" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Pure + tested transform: buildPortfolioCsv has no I/O (data in → string out), so it's unit-tested directly; the component only fetches + triggers the download.</text>
+  <text x="40" y="529" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Cost-basis by design: the export is YOUR recorded data (amounts + buy prices), not live market value — deterministic, and it makes zero extra API calls.</text>
+  <text x="40" y="547" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• No IDOR: exportMyData reads context.auth.uid only — a user can export no one else's data; the same callable feeds both buttons.</text>
+  <text x="40" y="565" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Two sections, one file: a HOLDINGS summary for a quick read + the full TRANSACTIONS ledger for the detail — the summary is derived from the ledger.</text>
+  <text x="40" y="589" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: functions/index.js (exportMyData) · src/api/account.js · src/utils/export-csv.js (buildPortfolioCsv) · src/CryptoIdea.jsx (downloadMyData / downloadCsv) · src/components/Account.jsx · Related: gdpr-self-service.svg.</text>
+</svg>
