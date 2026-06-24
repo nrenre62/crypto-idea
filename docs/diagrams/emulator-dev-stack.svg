@@ -1,0 +1,85 @@
+<svg viewBox="0 0 920 660" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — emulator dev stack (start:all)</title>
+  <desc>npm run start:all runs firebase emulators:exec with the Vite dev server as its child, so the emulators and the dev server share one lifecycle and shut down together. The browser hits the Vite dev server on port 3000, which proxies /api to the Functions emulator on 5001 (the CoinGecko proxy, PayPal, admin and callables), which reads and writes the Firestore and Auth emulators and lazily fills the coin cache on demand. The emulator is in-memory and starts empty, so you seed test accounts once per start. New function exports need a restart; edits hot-reload.</desc>
+  <defs>
+    <marker id="ev_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="ev_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+    <marker id="ev_b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-info,#2c7fb8)"/></marker>
+  </defs>
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Emulator Dev Stack — start:all</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">Emulators + dev server in ONE lifecycle · same-origin /api proxy · in-memory, seed each start</text>
+  <line x1="470" y1="26" x2="494" y2="26" stroke="var(--color-text-info,#2c7fb8)" stroke-width="2.5"/><text x="500" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">browser</text>
+  <line x1="580" y1="26" x2="604" y2="26" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="2.5"/><text x="610" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">dev server</text>
+  <line x1="700" y1="26" x2="724" y2="26" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="730" y="30" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">emulator / backend</text>
+
+  <!-- start:all band -->
+  <rect x="24" y="56" width="872" height="48" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="40" y="76" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">npm run start:all  =  firebase emulators:exec --project demo-crypto-idea --ui "npm run dev"</text>
+  <text x="40" y="93" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">ONE lifecycle: starting one starts all · the dev server runs as the emulators' child → Ctrl-C (or Vite exit) tears the whole stack down</text>
+
+  <!-- Request path -->
+  <rect x="24" y="118" width="176" height="124" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.6"/>
+  <text x="40" y="138" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Browser</text>
+  <text x="40" y="156" font-size="9" fill="var(--color-text-primary,#1a1a1a)">:3000 — dev app (hot reload)</text>
+  <text x="40" y="172" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">:5000 — built dist/ (Hosting)</text>
+  <text x="40" y="188" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">:4000 — Emulator UI</text>
+  <text x="40" y="210" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">on localhost the SW is</text>
+  <text x="40" y="222" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">unregistered + caches cleared</text>
+  <text x="40" y="234" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">(never a stale page)</text>
+
+  <rect x="216" y="118" width="200" height="124" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="232" y="138" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Vite dev server :3000</text>
+  <text x="232" y="157" font-size="9" fill="var(--color-text-primary,#1a1a1a)">proxy: /api → 127.0.0.1:5001</text>
+  <text x="244" y="171" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">rewrite → /demo-crypto-idea/</text>
+  <text x="244" y="183" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">us-central1/api</text>
+  <text x="232" y="204" font-size="9" fill="var(--color-text-primary,#1a1a1a)">cleanUrlsDev middleware:</text>
+  <text x="244" y="218" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">/app·/edge·/pro-success → app.html</text>
+  <text x="244" y="230" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">/admin → admin.html</text>
+  <line x1="200" y1="170" x2="214" y2="170" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.4" marker-end="url(#ev_b)"/>
+  <text x="207" y="163" font-size="7" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">/api</text>
+
+  <rect x="432" y="118" width="196" height="124" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="448" y="138" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Functions emu :5001</text>
+  <text x="448" y="156" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">serves /api — the api function:</text>
+  <text x="448" y="170" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">CoinGecko proxy, PayPal,</text>
+  <text x="448" y="182" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">admin + callables</text>
+  <text x="448" y="204" font-size="9" fill="var(--color-text-primary,#1a1a1a)">lazy ON-DEMAND cache fill:</text>
+  <text x="448" y="218" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">first /api call fetches + folds</text>
+  <text x="448" y="230" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">into cache/universe + historyCache</text>
+  <line x1="416" y1="170" x2="430" y2="170" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4" marker-end="url(#ev_a)"/>
+
+  <rect x="644" y="118" width="252" height="124" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="660" y="138" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Data + jobs emulators</text>
+  <text x="660" y="157" font-size="9" fill="var(--color-text-primary,#1a1a1a)">Firestore :8080  (rules enforced)</text>
+  <text x="660" y="172" font-size="9" fill="var(--color-text-primary,#1a1a1a)">Auth :9099</text>
+  <text x="660" y="187" font-size="9" fill="var(--color-text-primary,#1a1a1a)">Pub/Sub :8085</text>
+  <text x="672" y="200" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">scheduled fns register but don't auto-fire</text>
+  <text x="672" y="211" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">on cron — trigger from the Emulator UI</text>
+  <text x="660" y="227" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">RTDB + Storage OFF · in-memory (resets on restart)</text>
+  <line x1="628" y1="170" x2="642" y2="170" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.4" marker-end="url(#ev_d)"/>
+  <text x="635" y="163" font-size="7" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">r/w</text>
+
+  <!-- Seed band -->
+  <rect x="24" y="252" width="872" height="58" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="272" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Seed — NOT automatic (start:all brings up an EMPTY emulator)</text>
+  <text x="40" y="289" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">node functions/scripts/seed-emulator.js → admins admin@ / admin2@ + free@ / pro@test.com (all test1234). In-memory → RE-SEED after every restart.</text>
+  <text x="40" y="303" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">New function EXPORTS need a stack restart to register; edits to existing functions hot-reload.</text>
+
+  <!-- Why -->
+  <rect x="24" y="320" width="872" height="318" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="342" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="363" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Start the whole stack together: npm run dev alone is just Vite → every /api/* call fails with ECONNREFUSED :5001. start:all ties emulators + dev server into ONE lifecycle.</text>
+  <text x="40" y="381" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Clean teardown: emulators:exec runs the dev server as its child, so when Vite exits (Ctrl-C) the emulators shut down with it — nothing left running to remember.</text>
+  <text x="40" y="399" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Same-origin /api in dev: Vite proxies /api to the Functions emulator (rewriting to its function path), so the browser hits one origin — mirroring the prod Hosting rewrite.</text>
+  <text x="40" y="417" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• In-memory + re-seed: the emulator starts empty and resets on restart; run seed-emulator.js once per start to get the admin + test accounts.</text>
+  <text x="40" y="435" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• On-demand cache fill: cache/universe + historyCache start empty and scheduled jobs don't auto-fire on cron, so the first /api call lazily fetches + folds data in.</text>
+  <text x="40" y="453" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• New triggers need a restart: the emulator hot-reloads edits to existing functions, but a NEW function export isn't registered until you restart the stack.</text>
+  <text x="40" y="471" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Dev never caches: on localhost app.html unregisters the service worker and clears caches, so you never debug a stale page.</text>
+  <text x="40" y="489" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Tests reuse the emulators: test:rules (firestore only) and test:integration (auth + firestore) run through the same emulators:exec mechanism.</text>
+  <text x="40" y="517" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Windows note</text>
+  <text x="40" y="537" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">Stopping the stack on Windows can orphan emulator processes — kill the ports (3000 / 4000 / 5001 / 8080 / 8085 / 9099 …) before restarting.</text>
+  <text x="40" y="565" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Ports at a glance</text>
+  <text x="40" y="585" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">Vite 3000 · Hosting (built dist/) 5000 · Emulator UI 4000 · Auth 9099 · Firestore 8080 · Functions /api 5001 · Pub/Sub 8085.</text>
+  <text x="40" y="613" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: package.json (start:all, dev, test:rules / test:integration) · vite.config.js (proxy + cleanUrlsDev) · firebase.json (emulators block) · functions/scripts/seed-emulator.js.</text>
+  <text x="40" y="629" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Related: deploy-hosting-cdn.svg (the prod equivalent of the /api rewrite) · coin-data-flow.svg (what the cache fill populates).</text>
+</svg>
