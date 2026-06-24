@@ -218,6 +218,91 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
 
 ---
 
+## U. User accounts & settings — 2026-06-24 build roadmap  (parallel track)
+
+Canonical specs: [`USER-CREATION.md`](USER-CREATION.md) + [`USER-SETTINGS.md`](USER-SETTINGS.md)
+(26-gap audit, 12 founder-locked decisions, 2026-06-24 interview). Reusable frameworks: the
+`user-creation` + `user-settings` skills. **Runs parallel to §0** — it touches the auth /
+account / settings surface, not the conviction engine; the only overlap is the go-live App
+Check / MFA items (shared with §4). Same split as §0: **Wave A** = buildable + emulator-verifiable
+now; **Wave B** = Blaze / Identity Platform (code now, verify at go-live).
+
+> Build the foundation first: **U1 rules → U2 registration → the rest.** TDD per the AGILE.md
+> DoD — write the `test:rules` / `test:unit` case first, never finish red. Two decisions went
+> *beyond* the KISS default: **U6** builds the sign-out-everywhere revoke callable now, and
+> **U11** implements `premiumLimits` end-to-end (not a stub).
+
+### Wave A — local-first (build + verify on the emulator now)
+
+- [ ] **U1 · rules + data model (FOUNDATION — do first):** add `validUserData()` (name 2–50),
+  `validConsent()`, `validSettings()` (closed / typed / size-capped) to `firestore.rules`; add
+  `premiumLimits` to the owner-update blocklist; shape-check `name` / `settings` / `consent` when
+  present on create AND update. `test:rules` FIRST: happy path + every reject branch (oversized
+  name, junk settings key, owner writing `premiumLimits` / `tier` / `deleted`). No data migration.
+  Refs: USER-SETTINGS §4–5, USER-CREATION §4.
+- [ ] **U2 · atomic registration + server validation + consent:** `registerUser(email,pw,name,consent)`
+  → ONE `writeBatch` (user doc + default portfolio + `portfolioCount:1`); server-side trim/bounds the
+  name + email; write the `consent` record + `settings` defaults; fix the pw error `6`→`8`; add a
+  `verifyEmail()` resend. Integration test: register → doc shape + consent + atomicity. USER-CREATION §2–5.
+- [ ] **U3 · register form (consent + skip):** Terms-required + Privacy-required checkboxes (links) +
+  marketing opt-in (default off); submit gated until both required are checked; pass `consent` through.
+  Add a "Skip for now / Explore Starter" button to the plan picker. Component tests (gating, default-off,
+  skip nav).
+- [ ] **U4 · email-verify nudge:** `useAuthSession` reads `fbUser.emailVerified` → a non-blocking,
+  dismissible banner + Resend on Portfolio. Hook/component tests (verified → none; unverified → banner).
+- [ ] **U5 · re-auth core + delete hardening (S5/S6):** one shared `confirmPassword()` helper
+  (`reauthenticateWithCredential`, catch `auth/requires-recent-login`) + a reusable modal; gate
+  account-delete behind **type `DELETE` + confirmPassword** in an isolated red Danger Zone. Tests:
+  modal flow, wrong-pw error, delete needs both gates.
+- [ ] **U6 · Security tab (S7):** change-password form behind re-auth → `updatePassword` (same
+  8+/Aa1+special rule); **`signOutEverywhere` callable** (`admin.auth().revokeRefreshTokens(uid)`) +
+  button. Tests: unit (form) + integration (callable auth-gated + revokes).
+- [ ] **U7 · Profile tab (S10):** editable display name (`updateProfile` + `saveProfile`, 2–30,
+  explicit Save + inline "Saved"); change-email behind re-auth via `verifyBeforeUpdateEmail` (mirror to
+  Firestore only after the link is clicked, on next login — never optimistically). Component tests.
+- [ ] **U8 · Notifications + Appearance + Privacy tabs (S3/S4):** a `settings` save handler; **auto-save**
+  toggles with inline confirm — `emailDigest` / `emailMarketing` (notifications) + marketing /
+  `consentAnalytics` (privacy, withdrawable); wire `settings.theme` light/dark/system via a root class +
+  CSS vars + localStorage; store `currency` (formatting deferred). Tests: toggle persists, theme applies,
+  shape valid.
+- [ ] **U9 · tier display:** surface `aiMonthlyCents` **server-authoritatively** (add it to
+  `getUserProfile`) → an AI-allowance meter in Account; usage bars read the **configured** caps
+  (`site.plans`), not hardcoded numbers. Tests: meter from the server value, bars from config.
+  (The enforcement counter itself is §0 B2.)
+- [ ] **U10 · downgrade-trim fix:** pass `site.plans` into `useUpgrade` / `trimToTier` so a downgrade
+  trims to the **configured** ceiling, not the hardcoded `TIER_LIMITS` (silent data-loss bug if an admin
+  raised a cap). Unit + a rules-backed test with an overridden cap.
+- [ ] **U11 · premiumLimits end-to-end (S8):** `setPremiumLimits` admin callable + admin UI →
+  `users/{uid}.premiumLimits`; `configuredLimit()` reads per-user `premiumLimits` first for premium
+  (clamped to `hardMax`, coins ≤ 1,000 — #20); Account shows "custom vs default". Replaces the dead
+  `CryptoIdea.jsx:277` override. Tests: rules (override enforced + clamped; owner can't write it).
+- [ ] **U12 · billing resilience (S9):** an "Update payment method" link (Pro+) → the PayPal-hosted
+  flow; record `tierBeforeFailure` on a PayPal failure event so the paid tier survives an auto-downgrade;
+  admin "last paid tier". Tests: link visibility, webhook handler.
+
+### Wave B — Blaze / Identity Platform (code now, verify at go-live; shared with §4)
+
+- [ ] **U13 · server password policy:** Identity Platform require-mode (`minLength ≥ 8` + char classes,
+  `forceUpgradeOnSignin`); mirror client with `validatePassword()` for inline feedback.
+- [ ] **U14 · abuse prevention:** App Check enforcement (set `VITE_RECAPTCHA_SITE_KEY`, enable in the
+  console) + a `beforeCreate` blocking function that enforces `signupsEnabled` **server-side** + an IP
+  rate-limit. (The App Check gate is shared with §0 B2/B3 — build it once.)
+- [ ] **U15 · MFA/2FA:** Identity Platform TOTP enrollment in Account; required for admins (already on
+  §4). Document as roadmap until then.
+
+### Deferred (no increment yet)
+- `defaultPortfolioId` server-side default-portfolio preference (Pro+).
+- Restore cooldown (`restoreLockedUntil`, 24h) against delete/restore harassment.
+- In-app PayPal vault card display (last-4 / expiry) — needs the vault API + an SSRF-safe proxy.
+- Full channel × category notification matrix (push / in-app + frequency + quiet hours).
+- `currency` formatting wired across all price/P&L displays (`Intl.NumberFormat`).
+
+**DoD (every U-increment):** KISS + secure; `test:unit` / `test:rules` / `test:integration` green;
+re-auth on every sensitive op; verify mobile + desktop layout; no secret shipped; rules verified in
+the emulator; committed with a clear message; USER-CREATION / USER-SETTINGS updated if behavior changed.
+
+---
+
 ## 1. Frontend refactor — finish extracting `CryptoIdea.jsx`  (IN PROGRESS)
 
 We are moving the monolithic `CryptoIdea.jsx` (~1,000 lines, was 1,559) into the
