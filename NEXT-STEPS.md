@@ -128,9 +128,16 @@ usual "degrade to showing something" instinct, and easy to get subtly wrong.
   accepted, **no-funnel still valid**, oversized/unknown-key/non-string rejected), integration
   (write→read→clear round-trip + no-funnel back-compat), unit (cleanFunnel + Search capture + Journal
   edit). **Verified:** unit 168 · rules 16 · integration 8 · build clean.
-- [ ] **A7 · 0f-content (#23/#24):** author ~9 modules / ~50 lessons in `src/data/learn-content.js`,
-  **no-names** voice; hand-authored quizzes. Test: every lesson has a valid `correctIdx`; a regex
-  asserts no author names appear.
+- [x] **A7 · 0f-content (#23/#24):** ✅ DONE 2026-06-24 — authored the full **9-module / 50-lesson**
+  Learn library, **no-names** voice, hand-authored quizzes. Split one file per module under
+  `src/data/learn/` (markets · fundamentals · tokenomics · demand · yield · risk · psychology ·
+  security · thesis); `learn-content.js` is now the composing index. The A5 seed lessons
+  (markets-1/2, fundamentals-1/2) are preserved verbatim (test-locked). Curriculum maps to the app:
+  the #27 manual checks (dilution/volume/yield) + the #26 funnel↔signals bridge are taught explicitly
+  (`thesis-1`). Test `tests/unit/learn-content.test.js`: 9 modules/50 lessons, every lesson has 4
+  options + an in-range `correctIdx`, unique ids, **no author names** (reuses the build's
+  `findForbiddenNames` guard so the list can't drift), and varied answer positions. **Verified:**
+  unit 176 · build clean (name-guard passing).
 - [ ] **A8 · 0c-pure (#8/#9/#11):** the conviction **rubric reducer** (≥2-source cross-check →
   🟢/🟡/🔴/⬛, as-of-date, catalyst auto-expiry) as a pure util + light up the 4-state pills in
   `CoinCard.jsx` driven by **mock data**. Test: unit (single-source→⬛, conflict→🟡, corroborated-bad→🔴,
