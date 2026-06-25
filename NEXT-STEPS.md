@@ -441,22 +441,21 @@ want explicit MVC separation:**
   `ai-client.js` body with a call to that function. Needs an Anthropic API key + the Blaze plan
   (outbound network). NEVER call Anthropic directly from the browser.
 
-## R. Responsive app — desktop layout  (PLANNED — design locked, awaiting go-ahead)
+## R. Responsive app — desktop layout  (DONE 2026-06-25 — R-0…R-4 shipped)
 
-Make the user app work on desktop as ONE fluid layout (same markup, no separate desktop build),
-modeled on the admin panel. Canonical design + phased plan: [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md).
-Reusable methodology: the `responsive-app` user skill.
+The user app is now ONE responsive layout (centered shell + auto-fit card grids, same markup
+mobile↔desktop, no `@media`, no new deps), **design unchanged**. As-built detail:
+[`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md); reusable method: the `responsive-app` skill.
 
-- Locked: admin-style centered **1040px** container + **auto-fit card grids** · keep the **bottom bar** ·
-  plain side background. Open decision: holdings **rows vs tiles** (leaning tiles; mockups produced).
-- [ ] **R-0 Shell foundation** — container 430→1040 + `clamp()` padding; add the `.grid-auto` utility;
-  keep the bottom bar (centers as a pill). *(S, low risk)*
-- [ ] **R-1 Easy grids** — Account / Learn / Journal / Search card stacks → `.grid-auto`. *(S)*
-- [ ] **R-2 Research** — Overview 2-col + Coins grid (scoped `research-tab.css`). *(S–M)*
-- [ ] **R-3 Drill-in + Portfolio** — CoinInfo/Detail card grids + cap form/detail bodies ~600px;
-  resolve Portfolio rows-vs-tiles. *(M; preserve Login's inline `#FF3B30` — a test asserts it)*
-- [ ] **R-4 Polish + verify** — overlays stay comfortable centered modals; verify at 1040px AND 375px.
-- DoD per [`AGILE.md`](AGILE.md): build + `test:unit` green, browser-verified both widths, committed per phase.
+- [x] **R-0 Shell** — `.app-shell` centered column (720 default / 560 narrow / 1040 wide track) +
+  `.grid-auto` utility; bottom bar kept (centers as a pill). (`9fed965`)
+- [x] **R-1 Learn** — modules reflow to a 2-up grid on desktop, 1-up mobile. (`28a74f6`)
+- [x] **R-2 Journal** — thesis entries reflow to a 2-up grid. (`0653d6b`)
+- [x] **R-3 Research** — coin cards reflow to a 2-up grid (scoped `research-tab.css`). (`bd14965`)
+- [x] **R-4 Forms/detail** — Detail/AddEntry/CoinInfo on the 560 narrow track; Contact capped 560. (`da32f03`)
+- Honored "keep the design the same": no colors/fonts/components changed; Portfolio & Search **rows kept**
+  (not tiled); only homogeneous card lists gridded. Each phase: build + 217/217 unit green + browser-probed
+  (grids reflow 1→2→3 cols by width, collapse to 1 on mobile).
 
 ## 5. Housekeeping
 

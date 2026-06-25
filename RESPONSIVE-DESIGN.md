@@ -1,7 +1,9 @@
 # Crypto Idea — Responsive App Design (one layout, mobile → desktop)
 
-> **Status: PLANNED — not yet built.** Assessed, interviewed, and designed 2026-06-24; awaiting
-> go-ahead to implement. No app code has changed for this yet.
+> **Status: BUILT (R-0…R-4) — 2026-06-25.** Shipped as one responsive layout with the design
+> unchanged (no colors, fonts, or components altered — width/flow only). Commits: `9fed965` (shell),
+> `28a74f6` (Learn grid), `0653d6b` (Journal grid), `bd14965` (Research grid), `da32f03` (forms/detail
+> + Contact). See "Status — as built" below for what shipped vs. the original plan.
 >
 > **Goal:** the user app (`app.html`) currently renders as a fixed ~430px **mobile column even on
 > desktop**. Make it a single **responsive** layout that works on phone AND desktop — the *same
@@ -42,6 +44,29 @@ These supersede the earlier exploratory "Path A / Path B" framing: the admin mod
 than a bespoke per-screen desktop rebuild, because an auto-fit grid is one layout, not two.
 
 ---
+
+## Status — as built (2026-06-25)
+
+Shipped honoring "keep the design the same" — **nothing restyled, no colors/fonts/components changed,
+no rows converted to tiles.** One reusable mechanism (`.app-shell` + `.grid-auto`), zero `@media`
+queries, no new dependencies.
+
+- **Shell:** tab screens render in a centered `.app-shell` with three width tracks chosen by screen:
+  **720px** default (Portfolio, Search, Account), **560px** narrow (Detail, AddEntry, CoinInfo — forms
+  read better tighter; Contact also capped 560), **1040px** wide track exists but is currently unused.
+- **Card grids (homogeneous lists only):** Learn modules, Journal thesis entries, and Research coin
+  cards reflow **1 col (mobile) → 2 (desktop) → 3 (wide)** via auto-fit, gaps matched to the original
+  stack spacing so mobile is visually identical.
+- **Deliberately kept single-column (design preserved):** Portfolio coin **rows** (not tiled), Search
+  result rows, Account sections, Research Overview/Ask. Rows and forms are not card collections, so
+  gridding them would change their design — so we didn't.
+- **Deviation from the original 1040 plan:** the app's content is header/row/form-heavy, so forcing a
+  1040 single-column would stretch thin elements. A centered 720 column + selective 2-up card grids
+  gives the desktop benefit without changing any component's look. The 1040 `app-shell-wide` track is
+  ready if a future screen becomes a true multi-column grid.
+
+Verified each phase: `npm run build` clean + 217/217 unit tests green + browser computed-style probes
+(every shell track resolves; grids reflow 1→2→3 cols by width and collapse to 1 on mobile).
 
 ## 3. The core technique
 
