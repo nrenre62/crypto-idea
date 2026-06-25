@@ -970,16 +970,23 @@ fetch('/api/config').then(r=>r.ok?r.json():null).then(c=>{
       else c.setMonth(c.getMonth()+1);}
     return d;}
   var btn=document.getElementById('dcaBtn'),msg=document.getElementById('dcaMsg'),aEl=document.getElementById('dcaAmt');
-  var hCache={};
+  var hCache={},histDegraded=false;
+  // fetch() has no default timeout: if /api/history hangs (connection open, no
+  // response), the promise never settles and the button is stuck on "Calculating…"
+  // forever. Bound it with an AbortController; on timeout or network error fall back
+  // to the built-in offline estimate (fbHist) and flag it so calc() can say so. The
+  // fallback is NOT cached, so a later attempt can still reach the live API.
   function getHist(id){
     if(hCache[id])return Promise.resolve(hCache[id]);
-    return fetch('/api/history?id='+encodeURIComponent(id))
+    var ctrl=new AbortController(),to=setTimeout(function(){ctrl.abort();},12000);
+    return fetch('/api/history?id='+encodeURIComponent(id),{signal:ctrl.signal})
       .then(r=>r.ok?r.json():{prices:[]})
       .then(d=>{var p=(d&&d.prices&&d.prices.length)?d.prices:fbHist(id);hCache[id]=p;return p;})
-      .catch(()=>{hCache[id]=fbHist(id);return hCache[id];});
+      .catch(()=>{histDegraded=true;return fbHist(id);})
+      .then(function(p){clearTimeout(to);return p;});
   }
   function calc(){
-    msg.textContent='';
+    msg.textContent='';histDegraded=false;
     var amount=parseFloat(aEl.value),start=sEl.value,end=eEl.value;
     if(!sel){msg.textContent='Pick a coin first.';return;}
     if(!amount||amount<=0){msg.textContent='Enter an amount.';return;}
@@ -1008,6 +1015,7 @@ fetch('/api/config').then(r=>r.ok?r.json():null).then(c=>{
       document.getElementById('dcaRAvg').textContent=money(avg);
       document.getElementById('dcaRNow').textContent=money(nowP);
       document.getElementById('dcaRes').classList.add('show');
+      if(histDegraded)msg.textContent='Live price data was slow to load — showing an offline estimate.';
     }).catch(()=>{msg.textContent='Could not load price data. Try again.';})
       .then(()=>{if(btn){btn.textContent='Calculate returns';btn.disabled=false;}});
   }
