@@ -18,8 +18,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
-import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, CONSENT_VERSION } from "./api/firebase-auth.js";
-import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount } from "./api/account.js";
+import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, CONSENT_VERSION } from "./api/firebase-auth.js";
+import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
   createPortfolio as dbCreatePortfolio,
@@ -188,12 +188,8 @@ export default function CryptoIdea(){
       // Password strength is enforced ONLY at registration. Login just checks the password
       // is correct (Firebase does that) — re-validating composition on login would lock out
       // any valid account whose password predates a rule change, and leaks the policy for no gain.
-      if(authPass.length<8){setAuthErr("Password must be at least 8 characters");return}
-      if(authPass.length>50){setAuthErr("Password is too long");return}
-      if(!/[A-Z]/.test(authPass)){setAuthErr("Password needs at least 1 uppercase letter (A-Z)");return}
-      if(!/[a-z]/.test(authPass)){setAuthErr("Password needs at least 1 lowercase letter (a-z)");return}
-      if(!/[0-9]/.test(authPass)){setAuthErr("Password needs at least 1 number (0-9)");return}
-      if(!/[!@#$%^&*()_+\-={}|;:,.<>?]/.test(authPass)){setAuthErr("Password needs at least 1 special character (!@#$%...)");return}
+      const pErr=passwordError(authPass);   // single source of truth (shared with change-password)
+      if(pErr){setAuthErr(pErr);return}
       if(!authName){setAuthErr("Enter your name");return}
       if(!nameRegex.test(authName.trim())){setAuthErr("Name: letters only, 2-30 characters");return}
       if(!authAgreeTerms||!authAgreePrivacy){setAuthErr("Please accept the Terms and Privacy Policy to continue");return}
@@ -218,7 +214,7 @@ export default function CryptoIdea(){
   const logout=async()=>{
     // Sign out of Firebase; onAuthChange will clear the session. No credentials are kept on the device.
     await logoutUser();
-    setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("");setAuthAgreeTerms(false);setAuthAgreePrivacy(false);setAuthAgreeMarketing(false);setDelConfirm(false);setDelPass("");setDelType("")};
+    setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("");setAuthAgreeTerms(false);setAuthAgreePrivacy(false);setAuthAgreeMarketing(false);setDelConfirm(false);setDelPass("");setDelType("");setPwCur("");setPwNew("");setPwMsg("")};
 
   // ── Self-service privacy (GDPR/CCPA): export + delete your own data ──
   const [acctBusy,setAcctBusy]=useState(false);
@@ -227,6 +223,10 @@ export default function CryptoIdea(){
   // Account-delete friction (S6): re-auth (password) + type-DELETE before the callable.
   const [delPass,setDelPass]=useState("");
   const [delType,setDelType]=useState("");
+  // Security card (S7): change password (behind re-auth) + sign out everywhere.
+  const [pwCur,setPwCur]=useState("");
+  const [pwNew,setPwNew]=useState("");
+  const [pwMsg,setPwMsg]=useState("");
   // Email-verify nudge (USER-CREATION.md §5): dismissible banner + resend.
   const [verifyDismissed,setVerifyDismissed]=useState(false);
   const [verifyMsg,setVerifyMsg]=useState("");
@@ -285,6 +285,30 @@ export default function CryptoIdea(){
   };
   // Back out of the delete flow, clearing the sensitive inputs.
   const cancelDelete=()=>{setDelConfirm(false);setDelPass("");setDelType("");setAcctMsg("")};
+  // Change password in-app, behind re-auth (S6/S7). Firebase auto-revokes other
+  // sessions on a password change, so this doubles as a sign-out-everywhere.
+  const changeMyPassword=async()=>{
+    setPwMsg("");
+    const pe=passwordError(pwNew);
+    if(pe){setPwMsg(pe);return}
+    if(!pwCur){setPwMsg("Enter your current password");return}
+    setAcctBusy(true);
+    const res=await changePassword(pwCur,pwNew);
+    setAcctBusy(false);
+    if(res.success){setPwCur("");setPwNew("");setPwMsg("Password changed ✓ — other devices were signed out.");}
+    else setPwMsg(res.error||"Couldn't change password");
+  };
+  // Sign out of ALL devices via the revoke-refresh-tokens callable (S7), then sign
+  // this device out too and return to login.
+  const signOutEverywhere=async()=>{
+    setPwMsg("");setAcctBusy(true);
+    try{
+      await apiSignOutEverywhere();
+      await logoutUser();
+      setUser(null);setAcctBusy(false);setScreen("login");
+      showErr("Signed out of all devices. Please sign in again.");
+    }catch(e){setAcctBusy(false);setPwMsg((e&&e.message)||"Couldn't sign out everywhere");}
+  };
   // Restore the caller's own soft-deleted account (within the 30-day window).
   const restoreAccount=async()=>{
     setAcctBusy(true);setAcctMsg("");
@@ -499,6 +523,7 @@ export default function CryptoIdea(){
     maxTxPerCoin,startDowngrade,fmtDate,deletePortfolio,newPortName,setNewPortName,addPortfolio,
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     delPass,setDelPass,delType,setDelType,cancelDelete,
+    pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site,

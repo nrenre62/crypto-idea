@@ -510,6 +510,19 @@ exports.restoreMyAccount = functions.https.onCall(async (data, context) => {
   return { success: true, restored: true };
 });
 
+// ─── Self-service: sign out of ALL sessions (revoke refresh tokens) ───
+// Backs the Account "Sign out everywhere" button (USER-SETTINGS.md S7). Invalidates
+// every device's refresh token, so each must re-authenticate. (Changing the password
+// also auto-revokes other sessions; this is the explicit path that doesn't change it.)
+// Acts only on the CALLER's own uid — no IDOR.
+exports.signOutEverywhere = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  }
+  await admin.auth().revokeRefreshTokens(context.auth.uid);
+  return { success: true };
+});
+
 // ─── Self-service: a user exports THEIR OWN data (GDPR/CCPA right to access) ───
 exports.exportMyData = functions.https.onCall(async (data, context) => {
   if (!context.auth) {

@@ -16,6 +16,8 @@ const base = {
   downloadMyData: vi.fn(), downloadCsv: vi.fn(), acctBusy: false, deleteMyAccount: vi.fn(),
   delConfirm: false, setDelConfirm: vi.fn(), acctMsg: "", logout: vi.fn(),
   delPass: "", setDelPass: vi.fn(), delType: "", setDelType: vi.fn(), cancelDelete: vi.fn(),
+  pwCur: "", setPwCur: vi.fn(), pwNew: "", setPwNew: vi.fn(), pwMsg: "",
+  changeMyPassword: vi.fn(), signOutEverywhere: vi.fn(),
   user: { name: "Free User", email: "free@test.com", tier: "free", joined: "2026-01-01" },
 };
 const provide = (value) =>
@@ -73,6 +75,24 @@ describe("Account screen (extracted, via AppContext)", () => {
     provide({ delConfirm: true, cancelDelete });
     fireEvent.click(screen.getByText("Cancel"));
     expect(cancelDelete).toHaveBeenCalled();
+  });
+
+  it("renders the Security card: change-password fields + sign-out-everywhere (U6/S7)", () => {
+    provide({});
+    expect(screen.getByText("Security")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Current password")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/New password/i)).toBeInTheDocument();
+    // Save is gated until both password fields are filled.
+    expect(screen.getByText("Save new password")).toBeDisabled();
+    expect(screen.getByText("Sign out everywhere")).toBeInTheDocument();
+  });
+
+  it("enables Save once both password fields are present, and wires sign-out-everywhere", () => {
+    const signOutEverywhere = vi.fn();
+    provide({ pwCur: "old", pwNew: "Newpass1!", signOutEverywhere });
+    expect(screen.getByText("Save new password")).not.toBeDisabled();
+    fireEvent.click(screen.getByText("Sign out everywhere"));
+    expect(signOutEverywhere).toHaveBeenCalled();
   });
 
   it("calls logout from the Logout button", () => {

@@ -13,7 +13,8 @@ import {
   updateProfile,
   sendEmailVerification,
   reauthenticateWithCredential,
-  EmailAuthProvider
+  EmailAuthProvider,
+  updatePassword
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { auth, db } from "./firebase.config.js";
@@ -120,6 +121,38 @@ export async function verifyEmail() {
 }
 
 
+// ─── Password policy (one source of truth) ───
+// Pure client-side check used by registration AND change-password so the rule (and
+// its messages) can't drift between the two. Returns the first failing message, or
+// null when the password is acceptable. The server floor is Firebase / Identity
+// Platform (go-live); this is the UX layer.
+export function passwordError(pw) {
+  if (!pw || pw.length < 8) return "Password must be at least 8 characters";
+  if (pw.length > 50) return "Password is too long";
+  if (!/[A-Z]/.test(pw)) return "Password needs at least 1 uppercase letter (A-Z)";
+  if (!/[a-z]/.test(pw)) return "Password needs at least 1 lowercase letter (a-z)";
+  if (!/[0-9]/.test(pw)) return "Password needs at least 1 number (0-9)";
+  if (!/[!@#$%^&*()_+\-={}|;:,.<>?]/.test(pw)) return "Password needs at least 1 special character (!@#$%...)";
+  return null;
+}
+
+
+// ─── Change password (in-app, behind re-auth) ───
+// confirmPassword(old) re-proves identity, then updatePassword sets the new one.
+// Firebase auto-revokes other sessions on a password change (free sign-out-everywhere).
+export async function changePassword(currentPassword, newPassword) {
+  const pe = passwordError(newPassword);
+  if (pe) return { success: false, error: pe };
+  try {
+    await confirmPassword(currentPassword);
+    await updatePassword(auth.currentUser, newPassword);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error.code) };
+  }
+}
+
+
 // ─── Re-authentication (the security core) ───
 // Firebase throws `auth/requires-recent-login` for sensitive ops (change email/
 // password, delete account). One shared helper re-proves the password just before
@@ -191,6 +224,8 @@ function getErrorMessage(code) {
     "auth/wrong-password": "Incorrect password",
     "auth/too-many-requests": "Too many attempts. Try again later",
     "auth/network-request-failed": "Network error. Check your connection",
+    "auth/requires-recent-login": "Please sign in again, then retry.",
+    "auth/invalid-credential": "Incorrect password",
   };
   return messages[code] || "Something went wrong. Try again.";
 }

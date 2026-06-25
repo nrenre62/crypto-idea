@@ -11,6 +11,7 @@ export function Account() {
     activePortId, deletePortfolio, newPortName, setNewPortName, addPortfolio,
     downloadMyData, downloadCsv, acctBusy, deleteMyAccount, delConfirm, setDelConfirm, acctMsg, logout,
     delPass, setDelPass, delType, setDelType, cancelDelete,
+    pwCur, setPwCur, pwNew, setPwNew, pwMsg, changeMyPassword, signOutEverywhere,
   } = useApp();
   return (
     <div className="ci-app screen-bg">
@@ -97,6 +98,17 @@ export function Account() {
         </div>
           );
         })()}
+
+        {/* Security (change password · sign out everywhere) */}
+        <div className="card">
+          <div className="card-title">Security</div>
+          <div className="priv-text">Change your password or sign out of every device. Changing your password also signs out other devices.</div>
+          <input type="password" value={pwCur||""} onChange={e=>setPwCur(e.target.value)} placeholder="Current password" autoComplete="current-password" className="field-input"/>
+          <input type="password" value={pwNew||""} onChange={e=>setPwNew(e.target.value)} placeholder="New password (min 8: Aa1 + special)" autoComplete="new-password" className="field-input"/>
+          <button onClick={changeMyPassword} disabled={acctBusy||!pwCur||!pwNew} className="acct-btn accent">Save new password</button>
+          {pwMsg&&<div className="priv-msg">{pwMsg}</div>}
+          <button onClick={signOutEverywhere} disabled={acctBusy} className="acct-btn ghost">Sign out everywhere</button>
+        </div>
 
         {/* Portfolio Manager */}
         <div className="card">

@@ -24,3 +24,9 @@ export async function restoreMyAccount() {
   const res = await httpsCallable(functions, "restoreMyAccount")();
   return res.data;
 }
+
+// Revokes the caller's refresh tokens on the server (sign out of ALL devices, S7).
+export async function signOutEverywhere() {
+  const res = await httpsCallable(functions, "signOutEverywhere")();
+  return res.data;
+}
