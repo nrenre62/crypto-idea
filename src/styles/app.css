@@ -29,6 +29,23 @@
 }
 .ci-app * { box-sizing:border-box; }
 
+/* ─── Theme (light / dark / system) — U8 Appearance ───
+ * settings.theme drives document.documentElement[data-theme]. The whole app is one
+ * token system: .ci-app AND the Research tab's .research-root share the SAME token
+ * names, so a single dark-override block flips every app surface consistently. Shell
+ * vars (--app-*) cover the non-token outer page chrome (the centered shell + the
+ * maintenance screen). The static marketing landing is a separate surface (light). */
+:root { --app-bg:#ffffff; --app-fg:#1a1a1a; }
+html[data-theme="dark"] { --app-bg:#0f0e0c; --app-fg:#ece9e1; background:var(--app-bg); color-scheme:dark; }
+html[data-theme="dark"] body { background:var(--app-bg); color:var(--app-fg); }
+html[data-theme="dark"] .ci-app,
+html[data-theme="dark"] .research-root {
+  --ink:#ece9e1; --ink-soft:#b5b1a6; --ink-faint:#86837a;
+  --paper:#14130f; --paper-2:#1c1b17; --paper-3:#211f19;
+  --line:#2c2a24; --line-2:rgba(236,233,225,.08); --line-strong:#3a382f;
+  --accent-soft:rgba(31,157,85,.18); --accent-ink:#5cd6a6;
+}
+
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }
 
@@ -348,6 +365,10 @@
 .ci-app .custom-tag { display:inline-block; margin-left:5px; padding:1px 7px; border-radius:999px; background:#f3ecfb; color:#7d4bbf; font-size:9px; font-weight:700; letter-spacing:.04em; vertical-align:middle; }
 /* "Update payment method" deep-link styled as a button (S9) */
 .ci-app a.acct-btn.pay-link { display:block; text-align:center; text-decoration:none; box-sizing:border-box; }
+/* Theme selector segmented control (Appearance, U8) */
+.ci-app .theme-seg { display:flex; gap:4px; background:var(--paper-3); border:1px solid var(--line-2); border-radius:12px; padding:4px; }
+.ci-app .theme-opt { flex:1; padding:9px 0; border:0; background:none; border-radius:9px; font-family:var(--body); font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer; transition:.2s var(--ease); }
+.ci-app .theme-opt.on { background:var(--ink); color:var(--paper); }
 .ci-app .port-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2); }
 .ci-app .port-row .pr-name { font-size:14px; font-weight:500; cursor:pointer; }
 .ci-app .port-row .pr-name.active { font-weight:700; color:var(--accent); }

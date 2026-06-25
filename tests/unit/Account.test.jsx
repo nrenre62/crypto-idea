@@ -153,6 +153,15 @@ describe("Account screen (extracted, via AppContext)", () => {
     expect(toggleSetting).toHaveBeenCalledWith("emailDigest", true);
   });
 
+  it("renders the Appearance theme selector and persists the choice (U8)", () => {
+    const toggleSetting = vi.fn();
+    provide({ toggleSetting, user: { ...base.user, settings: { theme: "light" } } });
+    expect(screen.getByText("Appearance")).toBeInTheDocument();
+    expect(screen.getByText("Light")).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByText("Dark"));
+    expect(toggleSetting).toHaveBeenCalledWith("theme", "dark");
+  });
+
   it("calls logout from the Logout button", () => {
     const logout = vi.fn();
     provide({ logout });

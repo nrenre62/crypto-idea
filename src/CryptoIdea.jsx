@@ -152,6 +152,23 @@ export default function CryptoIdea(){
     db.set("ci-active-port",activePortId);
   },[activePortId,dataLoaded]);
 
+  // ═══ Apply the chosen theme (light / dark / system) to the document root ═══
+  // settings.theme is the source of truth; "system" follows the OS preference live.
+  // CSS in app.css overrides the design tokens under html[data-theme="dark"].
+  useEffect(()=>{
+    const pref=user?.settings?.theme||"light";
+    const mq=typeof window!=="undefined"&&window.matchMedia?window.matchMedia("(prefers-color-scheme: dark)"):null;
+    const apply=()=>{
+      const resolved=pref==="system"?((mq&&mq.matches)?"dark":"light"):(pref==="dark"?"dark":"light");
+      document.documentElement.dataset.theme=resolved;
+    };
+    apply();
+    if(pref==="system"&&mq&&mq.addEventListener){
+      mq.addEventListener("change",apply);
+      return ()=>mq.removeEventListener("change",apply);
+    }
+  },[user?.settings?.theme]);
+
   // Coin search for the Add Coin screen (built-in matches + debounced live results).
   const searchResults=useCoinSearch(sq);
 
@@ -539,7 +556,7 @@ export default function CryptoIdea(){
 
   const at=(screen==="addEntry"||screen==="detail"||screen==="coinInfo"||screen==="account")?"portfolio":screen;
 
-  if(site.maintenance) return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
+  if(site.maintenance) return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
     <div style={{fontSize:40,marginBottom:14}}>🛠️</div>
     <div style={{fontSize:24,fontWeight:700,marginBottom:8}}>We'll be right back</div>
     <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5}}>Crypto Idea is briefly down for maintenance. Your data is safe — please check back in a little while.</div>
@@ -569,7 +586,7 @@ export default function CryptoIdea(){
   // their grids land (§R). Same markup mobile↔desktop — no @media needed.
   const WIDE_SCREENS=new Set([]);
   const NARROW_SCREENS=new Set(["detail","addEntry","coinInfo"]); // forms/detail read better narrower
-  return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
+  return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {/* Floating toast: fixed so a limit/error message is always visible, even when the action
         (e.g. "Add portfolio" on the scrolled Account screen) is far below the top of the page. */}
     {err&&<div role="alert" style={{position:"fixed",top:10,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:398,padding:"12px 16px",background:"#FFF0F0",color:c.red,borderRadius:12,fontSize:13,fontWeight:600,border:"1px solid #FFD0D0",boxShadow:"0 6px 24px rgba(0,0,0,0.15)",zIndex:9500,textAlign:"center"}}>{err}</div>}

@@ -158,6 +158,18 @@ export function Account() {
           <div className="usage-note">Security &amp; payment emails are always sent — you can't opt out of those.</div>
         </div>
 
+        {/* Appearance (theme — auto-save, applied app-wide) */}
+        <div className="card">
+          <div className="card-title">Appearance</div>
+          <div className="theme-seg" role="radiogroup" aria-label="Theme">
+            {[["light","Light"],["dark","Dark"],["system","System"]].map(([val,label])=>(
+              <button key={val} type="button" role="radio" aria-checked={(settings.theme||"light")===val}
+                className={"theme-opt"+((settings.theme||"light")===val?" on":"")} onClick={()=>toggleSetting("theme",val)}>{label}</button>
+            ))}
+          </div>
+          <div className="usage-note">“System” follows your device’s light/dark setting.</div>
+        </div>
+
         {/* Portfolio Manager */}
         <div className="card">
           <div className="card-title">Portfolios ({portfolios.length}/{maxPortfolios})</div>
