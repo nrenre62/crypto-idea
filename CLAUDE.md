@@ -47,9 +47,12 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - **On finishing a session:** commit everything, update README + skills if relevant, shut down emulators + dev server, confirm a clean tree.
 - **Every change must be production-ready.**
 - Reusable patterns live in user skills: `firebase-saas-starter`, `landing-page-design`, `secure-by-design`, `responsive-app`.
-- **Responsive / desktop layout:** the app is mobile-only today (fixed ~430px column). The plan to make it
-  one fluid layout (admin-style **1040px** container + **auto-fit card grids**, same markup mobile→desktop)
-  is in [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) (backlog §R in `NEXT-STEPS.md`); method = `responsive-app` skill.
+- **Responsive / desktop layout (DONE 2026-06-25):** the app is now ONE responsive layout — tab screens
+  render in a centered `.app-shell` that widens on desktop (**720** default / **560** forms+detail / **1040**
+  wide track) and homogeneous card lists (Learn modules, Journal entries, Research coins) reflow to 2-up via
+  `.grid-auto`. Same markup mobile↔desktop, **no `@media`, no new deps, design unchanged** (rows/forms kept,
+  nothing restyled). As-built: [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) (+ backlog §R); method = `responsive-app` skill.
+  Gotcha: shell classes are compound (`.ci-app.app-shell`) — same-element classes need a compound selector, not a descendant one.
 - **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 
 ## Admin & privacy (functions/index.js)
