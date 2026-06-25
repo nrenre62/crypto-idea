@@ -428,9 +428,15 @@ want explicit MVC separation:**
   self-restore, admin Trash tab (restore / delete-now), and a daily `purgeExpiredTrash`. Server-only
   `deleted`/`deletedAt` (rules-enforced). Self-restore auto-syncs to the admin Users/Trash split
   (`partitionUsers`). (commits `9661cbe`, this one)
-- [ ] **N-1 (LOW): harden the landing DCA fetch.** `getHistory` in `index.html` has no timeout, so a
-  hung `/api/history` leaves the button stuck on "Calculating…" with no feedback. Add a fetch
-  timeout (AbortController) + a clear error message. Low priority (prod is warm + CDN-cached).
+- [x] **N-1 (DONE 2026-06-25, `a3693c9`): hardened the landing DCA fetch.** The history fetch
+  (`getHist` in `index.html`) had no timeout, so a hung `/api/history` left the calculator stuck
+  mid-calculation with no feedback. Added a **12s `AbortController` timeout**; on timeout or network
+  error it falls back to the built-in offline estimate (`fbHist`) and shows a clear "showing an
+  offline estimate" note. The fallback is no longer cached, so a later attempt can still reach a
+  recovered API. (NB: the minimal-API rewrite had already dropped the literal "Calculate" button —
+  the calc auto-runs — so the real symptom was a never-completing calc, not a stuck button.)
+  **Verified in-browser:** real-data path unchanged; an immediate failure and a true 12s hang both
+  degrade to the estimate + note instead of hanging.
 - [ ] **N-2 (LOW): admin trash niceties.** Optional "Empty trash" bulk-purge action, and/or a live
   (onSnapshot) admin list so a user self-restore reflects without clicking Refresh.
 - [ ] **N-3 (MED): live AI for the Research tab.** The Research tab ships with AI in graceful
