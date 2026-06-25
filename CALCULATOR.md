@@ -163,6 +163,40 @@ The app's research/buy flow reuses the same cached `/api/history` (no second dat
 
 ---
 
+## Roadmap & locked scope (2026-06-25 founder interview)
+
+A founder interview locked what to build next — and, just as important, what to deliberately leave
+out so the calculator stays simple and focused.
+
+### Planned increments (priority order)
+- **C-1 (FIRST) — Lump-sum vs DCA + overlay chart.** Add a lump-sum result beside the DCA one:
+  invest the **same total** the DCA spent, all at once at the start of the covered range
+  (`coinsLump = totalInvested / priceAtStart`; `valueLump = coinsLump × nowP`), and show which
+  strategy won. Add a **dependency-free (inline SVG) two-line overlay chart** of portfolio value
+  over time — DCA value vs lump-sum value (against total invested). No chart library (KISS /
+  no-new-deps).
+- **C-2 — Trust signals + signup CTA.** Show all four: a *"Not financial advice"* disclaimer, a
+  *"Data as of <date>"* freshness stamp (from the history series / universe `updatedAt`), a *"Past
+  performance ≠ future results"* note, and an accuracy caveat (nearest-day prices, fees excluded).
+  After a result, a *"Track your real portfolio →"* CTA into signup — ties the free tool to the product.
+- **C-3 — Full history (CoinGecko Demo key).** The server already requests `days=max` when a key is
+  set; add a free Demo key so multi-year DCA isn't silently clamped to the last 365 days. Until the
+  key is set, show a *"limited to the last year"* note instead of a silent clamp.
+- **C-4 — Price-gap guard (accuracy).** If the nearest history point is too far from a buy date (a
+  data gap), flag/skip it rather than fabricating a buy at a far-off price.
+- **C-5 — Auto-refreshed offline snapshot.** A scheduled job snapshots real history for the fallback
+  coins into stored data so the built-in estimate never goes stale (replaces hand-kept `FB_PRICES`).
+
+### Deliberately OUT of scope (keep it simple)
+Each was considered and **declined** to keep the tool focused — revisit only if a real need appears:
+exchange **fees/slippage**, **selling / take-profit / DCA-out**, **benchmark comparisons** (vs BTC /
+S&P 500 / cash), **multi-coin / portfolio** DCA, **extra cadences** (quarterly / custom-day / payday),
+**non-USD fiats**, and **sharing hooks** (shareable URL / share-image).
+
+### DoD for each C-increment
+KISS + **no new dependency** (inline SVG over a chart lib); verify in-browser (the real path **and**
+the lump-sum math); disclaimers/CTA are copy, not controls; commit with a clear message; update this doc.
+
 ## Maintenance notes
 
 - **Refresh the offline estimate** (`FB_PRICES` in `index.html`) periodically — it's a hand-kept

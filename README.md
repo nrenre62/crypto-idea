@@ -300,7 +300,7 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 
 | Route | File | What |
 |-------|------|------|
-| `/` | `index.html` | Static marketing landing. **Section 2 is the free DCA calculator** (`#dca`). |
+| `/` | `index.html` | Static marketing landing. **Section 2 is the free DCA calculator** (`#dca`) — architecture, math & roadmap in [`CALCULATOR.md`](CALCULATOR.md). |
 | `/app` | `app.html` → React | The tracker (auth, portfolios, coins, transactions, account). |
 | `/admin` | `admin.html` → React | **Separate** admin app (own login + `{admin:true}` check). Not in the user bundle. |
 | `/edge` | React | Education guide. |
