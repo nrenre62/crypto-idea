@@ -9,7 +9,9 @@ export default function CoinsView({ holdings, empty, onAsk }) {
       {empty ? (
         <EmptyState />
       ) : (
-        holdings.map((h, i) => <CoinCard key={h.id} holding={h} index={i} onAsk={onAsk} />)
+        <div className="coins-grid">
+          {holdings.map((h, i) => <CoinCard key={h.id} holding={h} index={i} onAsk={onAsk} />)}
+        </div>
       )}
     </div>
   );
