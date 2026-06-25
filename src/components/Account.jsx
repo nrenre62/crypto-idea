@@ -17,7 +17,7 @@ function ToggleRow({ label, hint, checked, onChange }) {
 export function Account() {
   const {
     setScreen, user, isPremium, isPro, portfolios, maxPortfolios, maxCoinsPerPort,
-    maxTxPerCoin, portfolio, startUpgrade, startDowngrade, fmtDate, setActivePortId,
+    maxTxPerCoin, aiMonthlyCents, portfolio, startUpgrade, startDowngrade, fmtDate, setActivePortId,
     activePortId, deletePortfolio, newPortName, setNewPortName, addPortfolio,
     downloadMyData, downloadCsv, acctBusy, deleteMyAccount, delConfirm, setDelConfirm, acctMsg, logout,
     delPass, setDelPass, delType, setDelType, cancelDelete,
@@ -86,6 +86,12 @@ export function Account() {
             <div className="usage-top"><span className="usage-k">Total transactions</span><span className="usage-v">{totalTxAllPorts.toLocaleString()} / {maxTotalTx.toLocaleString()}</span></div>
             <Bar pct={txPct}/>
             <div className="usage-note">Up to {maxTxPerCoin.toLocaleString()} per coin</div>
+          </div>
+
+          {/* AI research allowance — server-authoritative (from /api/config plans); informational until B2 */}
+          <div className="usage-row">
+            <div className="usage-top"><span className="usage-k">AI research / month</span><span className="usage-v">{aiMonthlyCents>0?`≈ ${aiMonthlyCents.toLocaleString()} analyses`:"Offline"}</span></div>
+            <div className="usage-note">{aiMonthlyCents>0?`$${(aiMonthlyCents/100).toFixed(0)}/mo live-AI budget · resets monthly`:"Live AI research is a Pro feature — upgrade to enable"}</div>
           </div>
 
           <div className="usage-row" style={{borderBottom:"none"}}>

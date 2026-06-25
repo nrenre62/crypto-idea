@@ -368,6 +368,10 @@ export default function CryptoIdea(){
   const maxPortfolios=isPremium?(premLimits.portfolios||_planLim("portfolios",15)):_planLim("portfolios",isPro?3:1);
   const maxCoinsPerPort=isPremium?(premLimits.coins||_planLim("coins",1000)):_planLim("coins",isPro?50:10);
   const maxTxPerCoin=isPremium?(premLimits.transactions||_planLim("transactions",5000)):_planLim("transactions",isPro?2000:50);
+  // AI research allowance (server-authoritative): the tier's monthly $-budget for live
+  // AI, in cents, from /api/config plans (free 0 / pro 400 / premium 2500). Informational
+  // until the B2 enforcement counter ships; each analysis costs ~1¢ (so cents≈analyses).
+  const aiMonthlyCents=_planLim("aiMonthlyCents",isPremium?2500:isPro?400:0);
 
 
   const addPortfolio=async()=>{
@@ -551,7 +555,7 @@ export default function CryptoIdea(){
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
     portfolios,setActivePortId,activePortId,
     resetSwipe,onTouchS,onTouchM,onTouchE,touchStart,swipeId,swipeX,
-    maxTxPerCoin,startDowngrade,fmtDate,deletePortfolio,newPortName,setNewPortName,addPortfolio,
+    maxTxPerCoin,aiMonthlyCents,startDowngrade,fmtDate,deletePortfolio,newPortName,setNewPortName,addPortfolio,
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     delPass,setDelPass,delType,setDelType,cancelDelete,
     pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,

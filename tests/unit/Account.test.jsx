@@ -9,7 +9,7 @@ import { Account } from "../../src/components/Account.jsx";
 const base = {
   setScreen: vi.fn(), isPremium: false, isPro: false,
   portfolios: [{ id: "default", name: "My Portfolio", coins: [] }],
-  maxPortfolios: 1, maxCoinsPerPort: 10, maxTxPerCoin: 50, portfolio: [],
+  maxPortfolios: 1, maxCoinsPerPort: 10, maxTxPerCoin: 50, aiMonthlyCents: 0, portfolio: [],
   startUpgrade: vi.fn(), startDowngrade: vi.fn(), fmtDate: () => "Jan 1, 2027",
   setActivePortId: vi.fn(), activePortId: "default", deletePortfolio: vi.fn(),
   newPortName: "", setNewPortName: vi.fn(), addPortfolio: vi.fn(),
@@ -32,6 +32,18 @@ describe("Account screen (extracted, via AppContext)", () => {
     expect(screen.getByText("Your Plan Usage")).toBeInTheDocument();
     expect(screen.getByText("Free User")).toBeInTheDocument();
     expect(screen.getByText("Upgrade to Pro")).toBeInTheDocument();
+  });
+
+  it("shows the AI allowance as Offline for a free user (U9)", () => {
+    provide({ aiMonthlyCents: 0 });
+    expect(screen.getByText("AI research / month")).toBeInTheDocument();
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+  });
+
+  it("shows the server-authoritative AI budget for a paid tier (U9)", () => {
+    provide({ isPro: true, aiMonthlyCents: 400, user: { ...base.user, tier: "pro" } });
+    expect(screen.getByText("≈ 400 analyses")).toBeInTheDocument();
+    expect(screen.getByText(/\$4\/mo live-AI budget/)).toBeInTheDocument();
   });
 
   it("shows the renewal date for an active Pro subscription", () => {
