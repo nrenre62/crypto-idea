@@ -11,7 +11,9 @@ import {
   sendPasswordResetEmail,
   onAuthStateChanged,
   updateProfile,
-  sendEmailVerification
+  sendEmailVerification,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { auth, db } from "./firebase.config.js";
@@ -115,6 +117,19 @@ export async function verifyEmail() {
   } catch (error) {
     return { success: false, error: getErrorMessage(error.code) };
   }
+}
+
+
+// ─── Re-authentication (the security core) ───
+// Firebase throws `auth/requires-recent-login` for sensitive ops (change email/
+// password, delete account). One shared helper re-proves the password just before
+// those ops; callers catch a throw and re-prompt instead of failing silently.
+// Throws on wrong password or a stale session — never returns false.
+export async function confirmPassword(currentPassword) {
+  const u = auth.currentUser;
+  if (!u || !u.email) throw new Error("Not signed in");
+  const cred = EmailAuthProvider.credential(u.email, currentPassword);
+  await reauthenticateWithCredential(u, cred);
 }
 
 

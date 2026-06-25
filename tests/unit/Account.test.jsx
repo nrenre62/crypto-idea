@@ -13,8 +13,9 @@ const base = {
   startUpgrade: vi.fn(), startDowngrade: vi.fn(), fmtDate: () => "Jan 1, 2027",
   setActivePortId: vi.fn(), activePortId: "default", deletePortfolio: vi.fn(),
   newPortName: "", setNewPortName: vi.fn(), addPortfolio: vi.fn(),
-  downloadMyData: vi.fn(), acctBusy: false, deleteMyAccount: vi.fn(),
+  downloadMyData: vi.fn(), downloadCsv: vi.fn(), acctBusy: false, deleteMyAccount: vi.fn(),
   delConfirm: false, setDelConfirm: vi.fn(), acctMsg: "", logout: vi.fn(),
+  delPass: "", setDelPass: vi.fn(), delType: "", setDelType: vi.fn(), cancelDelete: vi.fn(),
   user: { name: "Free User", email: "free@test.com", tier: "free", joined: "2026-01-01" },
 };
 const provide = (value) =>
@@ -52,6 +53,26 @@ describe("Account screen (extracted, via AppContext)", () => {
     provide({ setDelConfirm });
     fireEvent.click(screen.getByText("Delete my account"));
     expect(setDelConfirm).toHaveBeenCalledWith(true);
+  });
+
+  it("requires password + type-DELETE before delete is enabled (U5/S6)", () => {
+    provide({ delConfirm: true });
+    expect(screen.getByPlaceholderText("Your password")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Type DELETE to confirm")).toBeInTheDocument();
+    // The destructive button stays disabled until BOTH a password and "DELETE" are present.
+    expect(screen.getByText(/Yes, delete my account/i)).toBeDisabled();
+  });
+
+  it("enables the destructive delete once DELETE is typed and a password is present", () => {
+    provide({ delConfirm: true, delType: "DELETE", delPass: "secret" });
+    expect(screen.getByText(/Yes, delete my account/i)).not.toBeDisabled();
+  });
+
+  it("Cancel backs out of the delete flow without deleting", () => {
+    const cancelDelete = vi.fn();
+    provide({ delConfirm: true, cancelDelete });
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(cancelDelete).toHaveBeenCalled();
   });
 
   it("calls logout from the Logout button", () => {

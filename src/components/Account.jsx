@@ -10,6 +10,7 @@ export function Account() {
     maxTxPerCoin, portfolio, startUpgrade, startDowngrade, fmtDate, setActivePortId,
     activePortId, deletePortfolio, newPortName, setNewPortName, addPortfolio,
     downloadMyData, downloadCsv, acctBusy, deleteMyAccount, delConfirm, setDelConfirm, acctMsg, logout,
+    delPass, setDelPass, delType, setDelType, cancelDelete,
   } = useApp();
   return (
     <div className="ci-app screen-bg">
@@ -126,8 +127,11 @@ export function Account() {
           <button onClick={downloadMyData} disabled={acctBusy} className="priv-btn ghost">{acctBusy?"…":"Download all my data (JSON)"}</button>
           {delConfirm?(
             <>
-              <div className="priv-confirm">You'll be signed out and your account moved to trash. You can restore it within <strong>30 days</strong> by logging back in — after that it's deleted forever.</div>
-              <button onClick={deleteMyAccount} disabled={acctBusy} className="priv-btn danger-solid">{acctBusy?"…":"Yes, delete my account (restorable for 30 days)"}</button>
+              <div className="priv-confirm">You'll be signed out and your account moved to trash. You can restore it within <strong>30 days</strong> by logging back in — after that it's deleted forever. Confirm your password and type <strong>DELETE</strong> to continue.</div>
+              <input type="password" value={delPass||""} onChange={e=>setDelPass(e.target.value)} placeholder="Your password" autoComplete="current-password" className="field-input"/>
+              <input type="text" value={delType||""} onChange={e=>setDelType(e.target.value)} placeholder="Type DELETE to confirm" autoCapitalize="characters" autoComplete="off" className="field-input"/>
+              <button onClick={deleteMyAccount} disabled={acctBusy||delType!=="DELETE"||!delPass} className="priv-btn danger-solid">{acctBusy?"…":"Yes, delete my account (restorable for 30 days)"}</button>
+              <button onClick={cancelDelete} disabled={acctBusy} className="priv-btn ghost">Cancel</button>
             </>
           ):(
             <button onClick={()=>setDelConfirm(true)} disabled={acctBusy} className="priv-btn danger">Delete my account</button>

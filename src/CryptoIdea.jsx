@@ -18,7 +18,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
-import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, CONSENT_VERSION } from "./api/firebase-auth.js";
+import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, CONSENT_VERSION } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
@@ -218,12 +218,15 @@ export default function CryptoIdea(){
   const logout=async()=>{
     // Sign out of Firebase; onAuthChange will clear the session. No credentials are kept on the device.
     await logoutUser();
-    setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("");setAuthAgreeTerms(false);setAuthAgreePrivacy(false);setAuthAgreeMarketing(false)};
+    setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("");setAuthAgreeTerms(false);setAuthAgreePrivacy(false);setAuthAgreeMarketing(false);setDelConfirm(false);setDelPass("");setDelType("")};
 
   // ── Self-service privacy (GDPR/CCPA): export + delete your own data ──
   const [acctBusy,setAcctBusy]=useState(false);
   const [acctMsg,setAcctMsg]=useState("");
   const [delConfirm,setDelConfirm]=useState(false);
+  // Account-delete friction (S6): re-auth (password) + type-DELETE before the callable.
+  const [delPass,setDelPass]=useState("");
+  const [delType,setDelType]=useState("");
   // Email-verify nudge (USER-CREATION.md §5): dismissible banner + resend.
   const [verifyDismissed,setVerifyDismissed]=useState(false);
   const [verifyMsg,setVerifyMsg]=useState("");
@@ -259,16 +262,29 @@ export default function CryptoIdea(){
     setAcctBusy(false);
   };
   const deleteMyAccount=async()=>{
+    // S6: irreversible action → type-the-word + fresh re-auth. The re-auth blocks an
+    // open/hijacked session from deleting; the type-DELETE blocks a fat-finger.
+    if(delType!=="DELETE"){setAcctMsg('Type DELETE to confirm');return}
+    if(!delPass){setAcctMsg("Enter your password to confirm");return}
     setAcctBusy(true);setAcctMsg("");
+    try{
+      await confirmPassword(delPass);                 // throws on wrong pw / stale session
+    }catch(e){
+      setAcctBusy(false);
+      setAcctMsg("Re-authentication failed — check your password and try again.");
+      return;
+    }
     try{
       const res=await apiDeleteMyAccount();           // soft delete (kept in trash ~30 days)
       const days=(res&&res.graceDays)||30;
       await logoutUser();
-      setUser(null);setDelConfirm(false);setAcctBusy(false);setScreen("login");
+      setUser(null);setDelConfirm(false);setDelPass("");setDelType("");setAcctBusy(false);setScreen("login");
       // Toast persists across the screen change so the user sees the recovery window.
       showErr(`Account deleted. You can restore it within ${days} days by logging back in — after that it's gone forever.`);
     }catch(e){setAcctMsg((e&&e.message)||"Delete failed");setAcctBusy(false);}
   };
+  // Back out of the delete flow, clearing the sensitive inputs.
+  const cancelDelete=()=>{setDelConfirm(false);setDelPass("");setDelType("");setAcctMsg("")};
   // Restore the caller's own soft-deleted account (within the 30-day window).
   const restoreAccount=async()=>{
     setAcctBusy(true);setAcctMsg("");
@@ -482,6 +498,7 @@ export default function CryptoIdea(){
     resetSwipe,onTouchS,onTouchM,onTouchE,touchStart,swipeId,swipeX,
     maxTxPerCoin,startDowngrade,fmtDate,deletePortfolio,newPortName,setNewPortName,addPortfolio,
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
+    delPass,setDelPass,delType,setDelType,cancelDelete,
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site,
