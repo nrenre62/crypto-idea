@@ -89,6 +89,9 @@
 .ci-app .j-challenged { background:var(--sr-s); color:var(--sr); }
 /* Read-back of a saved thesis in the Journal detail overlay (preserves line breaks) */
 .ci-app .j-read { font-size:14px; line-height:1.6; color:var(--ink-soft); margin-top:6px; white-space:pre-wrap; }
+/* Responsive: thesis entries reflow to 2-up on desktop, 1-up on mobile (gap matches the 11px stack). */
+.ci-app .j-grid { gap:11px; }
+.ci-app .j-grid .j-entry { margin-bottom:0; }
 
 /* ── Learn ────────────────────────────────────────────── */
 .ci-app .learn-hero { padding:14px 18px 18px; border-bottom:1px solid var(--line); }

@@ -138,6 +138,7 @@ export function Journal() {
           </>
         ) : (
           <>
+            <div className="grid-auto j-grid">
             {entries.map((c) => {
               const st = STATUS[c.journal.status] || STATUS.intact;
               return (
@@ -154,6 +155,7 @@ export function Journal() {
                 </div>
               );
             })}
+            </div>
             <div className="disclaimer">Your journal entries are private to your account.</div>
           </>
         )}
