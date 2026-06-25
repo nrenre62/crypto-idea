@@ -11,6 +11,8 @@ export function Login() {
     setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user, setUser,
     saveProfile, calcEndDate, setScreen, authMode, setAuthMode, authErr, setAuthErr,
     authName, setAuthName, authEmail, setAuthEmail, authPass, setAuthPass, handleAuth, site,
+    authAgreeTerms, setAuthAgreeTerms, authAgreePrivacy, setAuthAgreePrivacy,
+    authAgreeMarketing, setAuthAgreeMarketing,
   } = useApp();
   if(showPlan){
     const tierLabel={free:"Starter",pro:"Pro",premium:"Premium"}[showWelcome||"free"];
@@ -101,6 +103,7 @@ export function Login() {
           <div className="plan-cta prem">Choose Premium</div>
         </div>
       </div>
+      <div className="auth-link" style={{marginTop:14}}><span onClick={()=>{setShowPlan(false);setUpgradeStep("billing");setScreen("portfolio")}}>Skip for now · explore Starter →</span></div>
     </div>);
   }
   return(<div className="ci-app screen-bg auth-wrap">
@@ -115,6 +118,22 @@ export function Login() {
       {authMode==="register"&&<input type="text" value={authName} onChange={e=>setAuthName(e.target.value.replace(/[^a-zA-Z\s]/g,""))} placeholder="First and last name" autoComplete="name" className="field-input"/>}
       <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="name@email.com" autoComplete="email" inputMode="email" className="field-input"/>
       <input type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} placeholder="Min 8: Aa1 + special (!@#)" autoComplete={authMode==="login"?"current-password":"new-password"} className="field-input"/>
+      {authMode==="register"&&(
+        <div className="auth-consent">
+          <label className="consent-row">
+            <input type="checkbox" checked={!!authAgreeTerms} onChange={e=>setAuthAgreeTerms(e.target.checked)}/>
+            <span>I agree to the <a href="/terms.html" target="_blank" rel="noopener noreferrer">Terms of Service</a></span>
+          </label>
+          <label className="consent-row">
+            <input type="checkbox" checked={!!authAgreePrivacy} onChange={e=>setAuthAgreePrivacy(e.target.checked)}/>
+            <span>I have read the <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a></span>
+          </label>
+          <label className="consent-row">
+            <input type="checkbox" checked={!!authAgreeMarketing} onChange={e=>setAuthAgreeMarketing(e.target.checked)}/>
+            <span>Email me product updates &amp; offers <span className="consent-opt">(optional)</span></span>
+          </label>
+        </div>
+      )}
       {authErr&&<div className="auth-err" style={{color:"#FF3B30"}}>{authErr}</div>}
       <button onClick={handleAuth} className="btn-primary">{authMode==="login"?"Login":"Create Account"}</button>
       {authMode==="login"&&<div className="auth-link"><span onClick={()=>setScreen("forgotPass")}>Forgot password?</span></div>}

@@ -14,6 +14,9 @@ const base = {
   authMode: "login", setAuthMode: vi.fn(), authErr: "", setAuthErr: vi.fn(),
   authName: "", setAuthName: vi.fn(), authEmail: "", setAuthEmail: vi.fn(),
   authPass: "", setAuthPass: vi.fn(), handleAuth: vi.fn(), site: { signupsEnabled: true },
+  authAgreeTerms: false, setAuthAgreeTerms: vi.fn(),
+  authAgreePrivacy: false, setAuthAgreePrivacy: vi.fn(),
+  authAgreeMarketing: false, setAuthAgreeMarketing: vi.fn(),
 };
 const provide = (value) =>
   render(<AppContext.Provider value={{ ...base, ...value }}><Login /></AppContext.Provider>);
@@ -29,6 +32,16 @@ describe("Login screen (extracted, via AppContext)", () => {
     provide({ site: { signupsEnabled: false } });
     expect(screen.getByText(/New signups are paused/i)).toBeInTheDocument();
     expect(screen.getByText("Register")).toBeDisabled();
+  });
+
+  it("shows required Terms/Privacy + optional marketing consent in register mode (U2/C1)", () => {
+    provide({ authMode: "register" });
+    expect(screen.getByText(/I agree to the/i)).toBeInTheDocument();
+    expect(screen.getByText("Terms of Service")).toHaveAttribute("href", "/terms.html");
+    expect(screen.getByText("Privacy Policy")).toHaveAttribute("href", "/privacy.html");
+    expect(screen.getByText(/product updates/i)).toBeInTheDocument();
+    // Three checkboxes (terms, privacy, marketing).
+    expect(screen.getAllByRole("checkbox")).toHaveLength(3);
   });
 
   it("renders the auth error in red (regression: was c.rd, undefined)", () => {

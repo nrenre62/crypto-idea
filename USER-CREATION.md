@@ -20,7 +20,7 @@ the reusable framework is the **`user-creation`** skill.
 | C1 | **Consent at signup** | Terms **required** + Privacy **required** + marketing **opt-in (default off)** | GDPR-demonstrable, granular, standard. Records survive disputes. |
 | C2 | **Email verification** | **Soft nudge + gate sensitive ops** — explore freely, resendable banner, verify required before money/PII ops | Low onboarding friction; protects what matters. Password sign-ups start unverified, so first profile create is never blocked. |
 | C3 | **Password policy** | Fix the error message now (`6`→`8`); enforce server-side via **Identity Platform require-mode** at go-live | Client checks are bypassable; backend policy is the real boundary, but staging it keeps this increment small. |
-| C4 | **Atomic onboarding write** | User doc + default portfolio + `portfolioCount:1` in **one batch** | All-or-nothing; no "profile with no portfolio" half-state. |
+| C4 | **Atomic onboarding write** | **Sequenced two-write create**: profile (`portfolioCount:0`), then a batch (default portfolio + counter→1) | A literal single batch is impossible: the counter rule needs the parent user doc to pre-exist (`getAfter==get+1`) and Firestore forbids two writes to one doc per batch. This is the rules-compatible equivalent; a failed 2nd step leaves a user with no portfolio (recoverable), never a corrupt half-state. |
 | C5 | **Plan picker** | Add **"Skip for now / Explore Starter"** | Starter is already the default; don't force a choice before value is shown. |
 | C6 | **Abuse prevention** | App Check enforcement + `beforeCreate` blocking function = **go-live checklist**, documented as such until then | Needs Blaze + console config; today the app is demo-grade against bot signups. |
 | C7 | **Server-side input validation** | Trim + bounds-check name/email in `registerUser`, backed by a `validUserData()` **rules** create constraint | Client validation alone is bypassable via a crafted request. |
@@ -42,10 +42,11 @@ Register form (Login.jsx)
   createUserWithEmailAndPassword
   updateProfile({ displayName: name })
   sendEmailVerification               (non-fatal)
-  ── ONE writeBatch ──────────────────────────────────────
-   set users/{uid}      { profile + consent + settings, portfolioCount:0 → 1 }
+  ── (1) profile write ───────────────────────────────────
+   set users/{uid}      { profile + consent + settings, portfolioCount:0 }
+  ── (2) ONE writeBatch (counter rule needs the parent to exist first) ──
    set users/{uid}/portfolios/default { name:"My Portfolio", coinCount:0 }
-   update portfolioCount: increment(1)
+   update users/{uid}.portfolioCount: increment(1)   → 1
   ─────────────────────────────────────────────────────────
         │
         ▼  Plan picker (Starter default)  ──[Skip for now]──► Portfolio

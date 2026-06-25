@@ -16,37 +16,77 @@ import {
 import { doc, setDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { auth, db } from "./firebase.config.js";
 
+// Version stamp stored on the consent record (USER-CREATION.md C1). Bump this when the
+// Terms/Privacy documents change so a re-acceptance can be required.
+export const CONSENT_VERSION = "2026-06-24";
+
+// Server-side (defense-in-depth) input checks — the client form is advisory, a crafted
+// request must still pass here. Mirror the client rules (name 2–30 letters/spaces).
+const NAME_RE = /^[A-Za-z\s]{2,30}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 
 // ─── Register New User ───
-// Creates auth account + user profile in Firestore
-export async function registerUser(email, password, name) {
+// Creates the Firebase Auth account + the Firestore profile (with a validated consent
+// record + closed settings map) + the default portfolio. `consent` (optional) is
+// { termsVersion, privacyVersion, marketing } captured at signup.
+//
+// NOTE on atomicity: the counter rule for the first portfolio needs the parent user
+// doc to ALREADY exist (getAfter(portfolioCount) == get(portfolioCount)+1), and
+// Firestore forbids two writes to the same doc in one batch — so a single all-in-one
+// batch is impossible. The rules-compatible equivalent is a sequenced two-write create:
+// (1) profile with portfolioCount:0, then (2) a batch that creates the default
+// portfolio and increments the counter to 1. If (2) fails the user simply has no
+// portfolio yet (recoverable on next load), never a corrupt half-state.
+export async function registerUser(email, password, name, consent = null) {
+  const cleanName = (name || "").trim();
+  const cleanEmail = (email || "").toLowerCase().trim();
+  if (!NAME_RE.test(cleanName)) return { success: false, error: "Name: letters only, 2-30 characters" };
+  if (!EMAIL_RE.test(cleanEmail)) return { success: false, error: "Enter a valid email address" };
+
   try {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
+    const result = await createUserWithEmailAndPassword(auth, cleanEmail, password);
     const user = result.user;
 
     // Set display name
-    await updateProfile(user, { displayName: name });
+    await updateProfile(user, { displayName: cleanName });
 
     // Send a verification email (anti-abuse + confirms a real inbox).
     // Non-fatal: a transient email error must not break account creation.
     try { await sendEmailVerification(user); } catch (e) { /* ignore */ }
 
-    // Create user profile in Firestore (portfolioCount starts at 0)
+    const now = new Date().toISOString();
+    // Marketing is a WITHDRAWABLE consent, so it lives in the settings map (where the
+    // Privacy tab can flip it) and doubles as the signup opt-in (GDPR Art. 7(3)).
+    const settings = {
+      theme: "light",
+      currency: "usd",
+      emailDigest: false,
+      emailMarketing: !!(consent && consent.marketing),
+      consentAnalytics: false,
+      updatedAt: now,
+    };
+    // Mandatory acceptances (Terms + Privacy) are a RECORD with version + timestamp.
+    const consentRecord = consent && consent.termsVersion ? {
+      termsVersion: String(consent.termsVersion).slice(0, 20),
+      termsAcceptedAt: now,
+      privacyVersion: String(consent.privacyVersion || consent.termsVersion).slice(0, 20),
+      privacyAcceptedAt: now,
+    } : null;
+
+    // (1) Profile doc — must exist (portfolioCount:0) before the first portfolio create.
     await setDoc(doc(db, "users", user.uid), {
-      email: email,
-      name: name,
-      tier: "free",           // "free" or "pro"
+      email: cleanEmail,
+      name: cleanName,
+      tier: "free",           // free (UI label "Starter") · pro · premium — internal key is always "free"
       joined: serverTimestamp(),
       lastLogin: serverTimestamp(),
       portfolioCount: 0,
-      settings: {
-        currency: "usd",
-        theme: "light"
-      }
+      settings,
+      ...(consentRecord ? { consent: consentRecord } : {}),
     });
 
-    // Create the default portfolio in a batch that bumps portfolioCount to 1,
-    // so it satisfies the counter-based tier-limit rule.
+    // (2) Default portfolio + counter bump to 1, satisfying the counter-based tier rule.
     const batch = writeBatch(db);
     batch.set(doc(db, "users", user.uid, "portfolios", "default"), {
       name: "My Portfolio",
@@ -58,6 +98,20 @@ export async function registerUser(email, password, name) {
     await batch.commit();
 
     return { success: true, user };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error.code) };
+  }
+}
+
+
+// ─── Resend the verification email ───
+// Backs the "Verify your email — Resend" banner (USER-CREATION.md §5). Never blocks
+// the app; gating of sensitive ops on email_verified lives in the rules/callables.
+export async function verifyEmail() {
+  try {
+    if (!auth.currentUser) return { success: false, error: "Not signed in" };
+    await sendEmailVerification(auth.currentUser);
+    return { success: true };
   } catch (error) {
     return { success: false, error: getErrorMessage(error.code) };
   }
@@ -117,7 +171,7 @@ function getErrorMessage(code) {
   const messages = {
     "auth/email-already-in-use": "Email already registered",
     "auth/invalid-email": "Invalid email address",
-    "auth/weak-password": "Password must be at least 6 characters",
+    "auth/weak-password": "Password must be at least 8 characters",
     "auth/user-not-found": "No account with this email",
     "auth/wrong-password": "Incorrect password",
     "auth/too-many-requests": "Too many attempts. Try again later",

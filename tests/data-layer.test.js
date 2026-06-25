@@ -19,15 +19,20 @@ import {
 } from "../src/api/firebase-database.js";
 
 // Point the SDK at the local emulators (DEV auto-connect only happens under Vite).
-connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
-connectFirestoreEmulator(db, "127.0.0.1", 8080);
+// Follow the ports the emulator actually bound — `firebase emulators:exec` exports
+// FIREBASE_AUTH_EMULATOR_HOST / FIRESTORE_EMULATOR_HOST, so this adapts to an isolated
+// emulator on non-default ports when the standard ones are busy (full start:all up).
+const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
+const [FS_HOST, FS_PORT] = (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080").split(":");
+connectAuthEmulator(auth, "http://" + AUTH_HOST, { disableWarnings: true });
+connectFirestoreEmulator(db, FS_HOST, Number(FS_PORT));
 
 const email = `tester_${Date.now()}@example.com`;
 const pass = "Aa1!aaaa";
 let uid;
 
 test("register creates the user + default portfolio (counters seeded)", async () => {
-  const res = await registerUser(email, pass, "Tester");
+  const res = await registerUser(email, pass, "Tester", { termsVersion: "2026-06-24", privacyVersion: "2026-06-24", marketing: true });
   assert.ok(res.success, "register should succeed: " + JSON.stringify(res));
   uid = res.user.uid;
 
@@ -46,6 +51,19 @@ test("getUserProfile reads the server-authoritative profile (tier) for the user"
 
   const missing = await getUserProfile("no-such-uid");
   assert.equal(missing.success, false, "a missing profile returns success:false");
+});
+
+test("registration writes the consent record + closed settings map (U2)", async () => {
+  // The consent (Terms/Privacy) record and the validated settings map are written
+  // atomically at signup and satisfy validConsent/validSettings in the rules.
+  const prof = await getUserProfile(uid);
+  assert.ok(prof.success);
+  assert.equal(prof.consent.termsVersion, "2026-06-24", "Terms version recorded");
+  assert.equal(prof.consent.privacyVersion, "2026-06-24", "Privacy version recorded");
+  assert.ok(prof.consent.termsAcceptedAt, "Terms acceptance timestamp stamped");
+  assert.equal(prof.settings.emailMarketing, true, "marketing opt-in persisted to settings");
+  assert.equal(prof.settings.theme, "light", "default theme persisted");
+  assert.equal(prof.settings.emailDigest, false, "digest defaults off");
 });
 
 test("free tier: a 2nd portfolio is rejected by the rules", async () => {

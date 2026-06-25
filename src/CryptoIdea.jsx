@@ -18,7 +18,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
-import { registerUser, loginUser, logoutUser, resetPassword } from "./api/firebase-auth.js";
+import { registerUser, loginUser, logoutUser, resetPassword, CONSENT_VERSION } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
@@ -77,6 +77,10 @@ export default function CryptoIdea(){
   const[authPass,setAuthPass]=useState("");
   const[authName,setAuthName]=useState("");
   const[authErr,setAuthErr]=useState("");
+  // Signup consent (USER-CREATION.md C1): Terms + Privacy required, marketing opt-in.
+  const[authAgreeTerms,setAuthAgreeTerms]=useState(false);
+  const[authAgreePrivacy,setAuthAgreePrivacy]=useState(false);
+  const[authAgreeMarketing,setAuthAgreeMarketing]=useState(false);
   const[showPlan,setShowPlan]=useState(false);
   const[proBilling,setProBilling]=useState("yearly");
   const[proStep,setProStep]=useState("pick");
@@ -190,9 +194,11 @@ export default function CryptoIdea(){
       if(!/[!@#$%^&*()_+\-={}|;:,.<>?]/.test(authPass)){setAuthErr("Password needs at least 1 special character (!@#$%...)");return}
       if(!authName){setAuthErr("Enter your name");return}
       if(!nameRegex.test(authName.trim())){setAuthErr("Name: letters only, 2-30 characters");return}
+      if(!authAgreeTerms||!authAgreePrivacy){setAuthErr("Please accept the Terms and Privacy Policy to continue");return}
       const em=authEmail.toLowerCase().trim();
-      // Create the account in Firebase Auth (password is stored securely by Firebase, never locally)
-      const res=await registerUser(em,authPass,authName.trim());
+      // Create the account in Firebase Auth (password is stored securely by Firebase, never locally).
+      // Consent record (mandatory Terms/Privacy + the withdrawable marketing opt-in) is written atomically.
+      const res=await registerUser(em,authPass,authName.trim(),{termsVersion:CONSENT_VERSION,privacyVersion:CONSENT_VERSION,marketing:authAgreeMarketing});
       if(!res.success){setAuthErr(res.error||"Could not create account");return}
       const newUser={uid:res.user.uid,email:em,name:authName.trim()||em.split("@")[0],tier:"free",joined:new Date().toISOString().split("T")[0]};
       setUser(newUser);
@@ -210,7 +216,7 @@ export default function CryptoIdea(){
   const logout=async()=>{
     // Sign out of Firebase; onAuthChange will clear the session. No credentials are kept on the device.
     await logoutUser();
-    setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("")};
+    setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("");setAuthAgreeTerms(false);setAuthAgreePrivacy(false);setAuthAgreeMarketing(false)};
 
   // ── Self-service privacy (GDPR/CCPA): export + delete your own data ──
   const [acctBusy,setAcctBusy]=useState(false);
@@ -468,7 +474,8 @@ export default function CryptoIdea(){
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
-    authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site};
+    authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site,
+    authAgreeTerms,setAuthAgreeTerms,authAgreePrivacy,setAuthAgreePrivacy,authAgreeMarketing,setAuthAgreeMarketing};
   // Responsive shell: tab screens render inside a centered column (.app-shell) that
   // widens on desktop. Card-collection screens opt into the wider 1040px track as
   // their grids land (§R). Same markup mobile↔desktop — no @media needed.
