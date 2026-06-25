@@ -14,7 +14,8 @@ import {
   sendEmailVerification,
   reauthenticateWithCredential,
   EmailAuthProvider,
-  updatePassword
+  updatePassword,
+  verifyBeforeUpdateEmail
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { auth, db } from "./firebase.config.js";
@@ -146,6 +147,43 @@ export async function changePassword(currentPassword, newPassword) {
   try {
     await confirmPassword(currentPassword);
     await updatePassword(auth.currentUser, newPassword);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error.code) };
+  }
+}
+
+
+// ─── Edit display name ───
+// Updates the Auth displayName AND mirrors it to the Firestore profile (the rules
+// validate the name shape on update). Returns the cleaned name on success.
+export async function updateDisplayName(name) {
+  const clean = (name || "").trim();
+  if (!NAME_RE.test(clean)) return { success: false, error: "Name: letters only, 2-30 characters" };
+  try {
+    const u = auth.currentUser;
+    if (!u) return { success: false, error: "Not signed in" };
+    await updateProfile(u, { displayName: clean });
+    await setDoc(doc(db, "users", u.uid), { name: clean }, { merge: true });
+    return { success: true, name: clean };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error.code) };
+  }
+}
+
+
+// ─── Change email (behind re-auth, verify-before-update) ───
+// Re-auth, then send a confirmation link to the NEW address. The email swaps in Auth
+// only after that link is clicked — never optimistically. We do NOT use updateEmail
+// (deprecated under email-enumeration protection, default-on since 2023-09-15). The
+// app reads the email from Auth, so the new address shows after the user confirms.
+export async function changeEmail(currentPassword, newEmail) {
+  const clean = (newEmail || "").toLowerCase().trim();
+  if (!EMAIL_RE.test(clean)) return { success: false, error: "Enter a valid email address" };
+  try {
+    await confirmPassword(currentPassword);   // throws on wrong pw / stale session
+    const url = (typeof window !== "undefined" && window.location ? window.location.origin : "") + "/app";
+    await verifyBeforeUpdateEmail(auth.currentUser, clean, { url });
     return { success: true };
   } catch (error) {
     return { success: false, error: getErrorMessage(error.code) };

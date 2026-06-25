@@ -19,6 +19,8 @@ vi.mock("../../src/api/firebase-auth.js", () => ({
   verifyEmail: vi.fn(), confirmPassword: vi.fn(),
   changePassword: vi.fn().mockResolvedValue({ success: true }),
   passwordError: vi.fn(() => null), CONSENT_VERSION: "test",
+  updateDisplayName: vi.fn().mockResolvedValue({ success: true, name: "X" }),
+  changeEmail: vi.fn().mockResolvedValue({ success: true }),
 }));
 vi.mock("../../src/api/firebase-database.js", () => ({
   getPortfolios: vi.fn().mockResolvedValue({ success: true, portfolios: [] }),

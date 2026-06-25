@@ -12,6 +12,7 @@ export function Account() {
     downloadMyData, downloadCsv, acctBusy, deleteMyAccount, delConfirm, setDelConfirm, acctMsg, logout,
     delPass, setDelPass, delType, setDelType, cancelDelete,
     pwCur, setPwCur, pwNew, setPwNew, pwMsg, changeMyPassword, signOutEverywhere,
+    profName, setProfName, profMsg, saveDisplayName, emNew, setEmNew, emPass, setEmPass, emMsg, requestEmailChange,
   } = useApp();
   return (
     <div className="ci-app screen-bg">
@@ -29,6 +30,22 @@ export function Account() {
       </div>
 
       <div className="pad">
+        {/* Profile — editable display name + change email (verify-before-update) */}
+        <div className="card">
+          <div className="card-title">Profile</div>
+          <label className="acct-label">Display name</label>
+          <input type="text" value={profName||""} onChange={e=>setProfName(e.target.value.replace(/[^a-zA-Z\s]/g,""))} placeholder="Your name" autoComplete="name" className="field-input"/>
+          <button onClick={saveDisplayName} disabled={acctBusy||!profName||!profName.trim()||profName.trim()===user?.name} className="acct-btn accent">Save name</button>
+          {profMsg&&<div className="priv-msg">{profMsg}</div>}
+          <div className="acct-divider"/>
+          <label className="acct-label">Change email</label>
+          <div className="acct-current">Current: {user?.email}{user?.emailVerified===false?" · unverified":""}</div>
+          <input type="email" value={emNew||""} onChange={e=>setEmNew(e.target.value)} placeholder="New email address" autoComplete="email" inputMode="email" className="field-input"/>
+          <input type="password" value={emPass||""} onChange={e=>setEmPass(e.target.value)} placeholder="Current password (confirm)" autoComplete="current-password" className="field-input"/>
+          <button onClick={requestEmailChange} disabled={acctBusy||!emNew||!emPass} className="acct-btn">Send confirmation link</button>
+          {emMsg&&<div className="priv-msg">{emMsg}</div>}
+        </div>
+
         {(() => {
           const totalTxAllPorts = portfolios.reduce((s,p) => s + p.coins.reduce((cs,c) => cs + (c.entries?.length || 0), 0), 0);
           const maxTotalTx = maxPortfolios * maxCoinsPerPort * maxTxPerCoin;

@@ -18,6 +18,8 @@ const base = {
   delPass: "", setDelPass: vi.fn(), delType: "", setDelType: vi.fn(), cancelDelete: vi.fn(),
   pwCur: "", setPwCur: vi.fn(), pwNew: "", setPwNew: vi.fn(), pwMsg: "",
   changeMyPassword: vi.fn(), signOutEverywhere: vi.fn(),
+  profName: "Free User", setProfName: vi.fn(), profMsg: "", saveDisplayName: vi.fn(),
+  emNew: "", setEmNew: vi.fn(), emPass: "", setEmPass: vi.fn(), emMsg: "", requestEmailChange: vi.fn(),
   user: { name: "Free User", email: "free@test.com", tier: "free", joined: "2026-01-01" },
 };
 const provide = (value) =>
@@ -75,6 +77,25 @@ describe("Account screen (extracted, via AppContext)", () => {
     provide({ delConfirm: true, cancelDelete });
     fireEvent.click(screen.getByText("Cancel"));
     expect(cancelDelete).toHaveBeenCalled();
+  });
+
+  it("renders the Profile card: editable name + change-email (U7)", () => {
+    provide({});
+    expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.getByText("Display name")).toBeInTheDocument();
+    // Save name is disabled while the name is unchanged from the current profile name.
+    expect(screen.getByText("Save name")).toBeDisabled();
+    expect(screen.getByPlaceholderText("New email address")).toBeInTheDocument();
+    expect(screen.getByText(/^Current:/)).toBeInTheDocument();
+  });
+
+  it("enables Save name when the name is edited and wires the handler (U7)", () => {
+    const saveDisplayName = vi.fn();
+    provide({ profName: "New Name", saveDisplayName });
+    const btn = screen.getByText("Save name");
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(saveDisplayName).toHaveBeenCalled();
   });
 
   it("renders the Security card: change-password fields + sign-out-everywhere (U6/S7)", () => {

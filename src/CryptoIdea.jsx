@@ -18,7 +18,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
-import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, CONSENT_VERSION } from "./api/firebase-auth.js";
+import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, CONSENT_VERSION } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
@@ -214,7 +214,7 @@ export default function CryptoIdea(){
   const logout=async()=>{
     // Sign out of Firebase; onAuthChange will clear the session. No credentials are kept on the device.
     await logoutUser();
-    setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("");setAuthAgreeTerms(false);setAuthAgreePrivacy(false);setAuthAgreeMarketing(false);setDelConfirm(false);setDelPass("");setDelType("");setPwCur("");setPwNew("");setPwMsg("")};
+    setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("");setAuthAgreeTerms(false);setAuthAgreePrivacy(false);setAuthAgreeMarketing(false);setDelConfirm(false);setDelPass("");setDelType("");setPwCur("");setPwNew("");setPwMsg("");setProfMsg("");setEmNew("");setEmPass("");setEmMsg("")};
 
   // ── Self-service privacy (GDPR/CCPA): export + delete your own data ──
   const [acctBusy,setAcctBusy]=useState(false);
@@ -227,6 +227,30 @@ export default function CryptoIdea(){
   const [pwCur,setPwCur]=useState("");
   const [pwNew,setPwNew]=useState("");
   const [pwMsg,setPwMsg]=useState("");
+  // Profile card (U7): editable display name + change-email (verify-before-update).
+  const [profName,setProfName]=useState("");
+  const [profMsg,setProfMsg]=useState("");
+  const [emNew,setEmNew]=useState("");
+  const [emPass,setEmPass]=useState("");
+  const [emMsg,setEmMsg]=useState("");
+  // Keep the name field in sync with the loaded/updated profile name.
+  useEffect(()=>{ if(user?.name) setProfName(user.name); },[user?.name]);
+  const saveDisplayName=async()=>{
+    setProfMsg("");
+    const res=await updateDisplayName(profName);
+    if(res.success){setUser(u=>u?{...u,name:res.name}:u);setProfMsg("Name updated ✓");}
+    else setProfMsg(res.error||"Couldn't update name");
+  };
+  const requestEmailChange=async()=>{
+    setEmMsg("");
+    if(!emPass){setEmMsg("Enter your current password");return}
+    if(!emNew){setEmMsg("Enter the new email");return}
+    setAcctBusy(true);
+    const res=await changeEmail(emPass,emNew);
+    setAcctBusy(false);
+    if(res.success){setEmNew("");setEmPass("");setEmMsg("Check your new inbox to confirm the change.");}
+    else setEmMsg(res.error||"Couldn't change email");
+  };
   // Email-verify nudge (USER-CREATION.md §5): dismissible banner + resend.
   const [verifyDismissed,setVerifyDismissed]=useState(false);
   const [verifyMsg,setVerifyMsg]=useState("");
@@ -524,6 +548,7 @@ export default function CryptoIdea(){
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     delPass,setDelPass,delType,setDelType,cancelDelete,
     pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,
+    profName,setProfName,profMsg,saveDisplayName,emNew,setEmNew,emPass,setEmPass,emMsg,requestEmailChange,
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site,

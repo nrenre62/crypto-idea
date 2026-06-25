@@ -334,6 +334,10 @@
 .ci-app .acct-btn.accent { background:var(--accent); color:#fff; }
 .ci-app .acct-btn.prem { background:#7d4bbf; color:#fff; }
 .ci-app .acct-btn.ghost { background:var(--paper-2); color:var(--ink-soft); border:1px solid var(--line-strong); font-weight:600; font-size:13px; padding:11px; margin-top:8px; }
+/* Profile / Security card form bits (U6/U7) */
+.ci-app .acct-label { display:block; font-size:11px; font-weight:600; color:var(--ink-faint); margin:6px 0 5px; letter-spacing:.02em; }
+.ci-app .acct-current { font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
+.ci-app .acct-divider { height:1px; background:var(--line-2); margin:16px 0 4px; }
 .ci-app .port-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2); }
 .ci-app .port-row .pr-name { font-size:14px; font-weight:500; cursor:pointer; }
 .ci-app .port-row .pr-name.active { font-weight:700; color:var(--accent); }
