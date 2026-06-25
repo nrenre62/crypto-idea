@@ -18,6 +18,7 @@ vi.mock("../../src/api/firebase-auth.js", () => ({
   passwordError: vi.fn(() => null),
   updateDisplayName: vi.fn().mockResolvedValue({ success: true, name: "X" }),
   changeEmail: vi.fn().mockResolvedValue({ success: true }),
+  updateUserSettings: vi.fn().mockResolvedValue({ success: true }),
   CONSENT_VERSION: "test",
 }));
 vi.mock("../../src/api/firebase-database.js", () => ({

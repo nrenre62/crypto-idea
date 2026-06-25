@@ -18,7 +18,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
-import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, CONSENT_VERSION } from "./api/firebase-auth.js";
+import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, updateUserSettings, CONSENT_VERSION } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
@@ -250,6 +250,13 @@ export default function CryptoIdea(){
     setAcctBusy(false);
     if(res.success){setEmNew("");setEmPass("");setEmMsg("Check your new inbox to confirm the change.");}
     else setEmMsg(res.error||"Couldn't change email");
+  };
+  // Auto-save a single preference toggle (notifications / withdrawable consents) to the
+  // validated settings map. Optimistic: update the UI immediately, then persist.
+  const toggleSetting=async(key,value)=>{
+    if(!user?.uid)return;
+    setUser(u=>u?{...u,settings:{...(u.settings||{}),[key]:value}}:u);
+    await updateUserSettings(user.uid,{[key]:value});
   };
   // Email-verify nudge (USER-CREATION.md §5): dismissible banner + resend.
   const [verifyDismissed,setVerifyDismissed]=useState(false);
@@ -548,7 +555,7 @@ export default function CryptoIdea(){
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     delPass,setDelPass,delType,setDelType,cancelDelete,
     pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,
-    profName,setProfName,profMsg,saveDisplayName,emNew,setEmNew,emPass,setEmPass,emMsg,requestEmailChange,
+    profName,setProfName,profMsg,saveDisplayName,emNew,setEmNew,emPass,setEmPass,emMsg,requestEmailChange,toggleSetting,
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site,

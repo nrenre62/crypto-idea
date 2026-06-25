@@ -20,7 +20,8 @@ const base = {
   changeMyPassword: vi.fn(), signOutEverywhere: vi.fn(),
   profName: "Free User", setProfName: vi.fn(), profMsg: "", saveDisplayName: vi.fn(),
   emNew: "", setEmNew: vi.fn(), emPass: "", setEmPass: vi.fn(), emMsg: "", requestEmailChange: vi.fn(),
-  user: { name: "Free User", email: "free@test.com", tier: "free", joined: "2026-01-01" },
+  toggleSetting: vi.fn(),
+  user: { name: "Free User", email: "free@test.com", tier: "free", joined: "2026-01-01", settings: {} },
 };
 const provide = (value) =>
   render(<AppContext.Provider value={{ ...base, ...value }}><Account /></AppContext.Provider>);
@@ -114,6 +115,18 @@ describe("Account screen (extracted, via AppContext)", () => {
     expect(screen.getByText("Save new password")).not.toBeDisabled();
     fireEvent.click(screen.getByText("Sign out everywhere"));
     expect(signOutEverywhere).toHaveBeenCalled();
+  });
+
+  it("renders auto-save Notifications + analytics-consent toggles wired to toggleSetting (U8)", () => {
+    const toggleSetting = vi.fn();
+    provide({ toggleSetting, user: { ...base.user, settings: { emailDigest: false, emailMarketing: true, consentAnalytics: false } } });
+    expect(screen.getByText("Notifications")).toBeInTheDocument();
+    expect(screen.getByText("Weekly portfolio digest")).toBeInTheDocument();
+    expect(screen.getByText("Allow product analytics")).toBeInTheDocument();
+    const switches = screen.getAllByRole("switch");
+    // Order: [digest, marketing, analytics]. Toggling the digest auto-saves it on.
+    fireEvent.click(switches[0]);
+    expect(toggleSetting).toHaveBeenCalledWith("emailDigest", true);
   });
 
   it("calls logout from the Logout button", () => {

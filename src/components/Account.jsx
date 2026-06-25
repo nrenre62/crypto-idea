@@ -1,6 +1,16 @@
 import { useApp } from "../hooks/app-context.js";
 import { Ic } from "./ui.jsx";
 
+// Auto-saving preference toggle (a labelled switch). Used by Notifications + Privacy.
+function ToggleRow({ label, hint, checked, onChange }) {
+  return (
+    <label className="toggle-row">
+      <span className="toggle-label">{label}{hint && <span className="toggle-hint">{hint}</span>}</span>
+      <input type="checkbox" role="switch" checked={!!checked} onChange={e => onChange(e.target.checked)} />
+    </label>
+  );
+}
+
 // Account screen: profile, plan-usage bars, subscription status, portfolio manager,
 // GDPR privacy actions, and logout. All state + handlers come from context.
 // Restyled to the .ci-app design system; all data/handlers are unchanged.
@@ -13,7 +23,9 @@ export function Account() {
     delPass, setDelPass, delType, setDelType, cancelDelete,
     pwCur, setPwCur, pwNew, setPwNew, pwMsg, changeMyPassword, signOutEverywhere,
     profName, setProfName, profMsg, saveDisplayName, emNew, setEmNew, emPass, setEmPass, emMsg, requestEmailChange,
+    toggleSetting,
   } = useApp();
+  const settings = user?.settings || {};
   return (
     <div className="ci-app screen-bg">
       <div className="detail-head">
@@ -127,6 +139,14 @@ export function Account() {
           <button onClick={signOutEverywhere} disabled={acctBusy} className="acct-btn ghost">Sign out everywhere</button>
         </div>
 
+        {/* Notifications (email preferences — auto-save) */}
+        <div className="card">
+          <div className="card-title">Notifications</div>
+          <ToggleRow label="Weekly portfolio digest" checked={settings.emailDigest} onChange={v=>toggleSetting("emailDigest",v)}/>
+          <ToggleRow label="Product updates & offers" checked={settings.emailMarketing} onChange={v=>toggleSetting("emailMarketing",v)}/>
+          <div className="usage-note">Security &amp; payment emails are always sent — you can't opt out of those.</div>
+        </div>
+
         {/* Portfolio Manager */}
         <div className="card">
           <div className="card-title">Portfolios ({portfolios.length}/{maxPortfolios})</div>
@@ -151,7 +171,8 @@ export function Account() {
         {/* Privacy & your data (GDPR/CCPA self-service) */}
         <div className="card">
           <div className="card-title">Privacy & your data</div>
-          <div className="priv-text">Download your portfolio as a spreadsheet (CSV) — your coin list, how much you hold, and every transaction. Or export everything we hold (JSON), or permanently delete your account.</div>
+          <ToggleRow label="Allow product analytics" hint="Helps us improve — withdraw anytime" checked={settings.consentAnalytics} onChange={v=>toggleSetting("consentAnalytics",v)}/>
+          <div className="priv-text" style={{marginTop:12}}>Download your portfolio as a spreadsheet (CSV) — your coin list, how much you hold, and every transaction. Or export everything we hold (JSON), or permanently delete your account.</div>
           <button onClick={downloadCsv} disabled={acctBusy} className="priv-btn solid">{acctBusy?"…":"Download CSV (spreadsheet)"}</button>
           <button onClick={downloadMyData} disabled={acctBusy} className="priv-btn ghost">{acctBusy?"…":"Download all my data (JSON)"}</button>
           {delConfirm?(

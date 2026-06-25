@@ -108,6 +108,24 @@ export async function registerUser(email, password, name, consent = null) {
 }
 
 
+// ─── Update preferences (auto-save) ───
+// Persists a PARTIAL change to the user's closed settings map. merge:true deep-merges
+// into the existing map (so other prefs survive); the rules validate the full result
+// via validSettings. Stamps updatedAt. Used by the Notifications/Privacy toggles.
+export async function updateUserSettings(uid, partial) {
+  try {
+    await setDoc(
+      doc(db, "users", uid),
+      { settings: { ...partial, updatedAt: new Date().toISOString() } },
+      { merge: true }
+    );
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: getErrorMessage(error.code) };
+  }
+}
+
+
 // ─── Resend the verification email ───
 // Backs the "Verify your email — Resend" banner (USER-CREATION.md §5). Never blocks
 // the app; gating of sensitive ops on email_verified lives in the rules/callables.

@@ -11,7 +11,7 @@ import assert from "node:assert";
 import { auth, db } from "../src/api/firebase.config.js";
 import { connectAuthEmulator } from "firebase/auth";
 import { connectFirestoreEmulator } from "firebase/firestore";
-import { registerUser } from "../src/api/firebase-auth.js";
+import { registerUser, updateUserSettings } from "../src/api/firebase-auth.js";
 import {
   getPortfolios, createPortfolio, getCoins,
   addCoin, addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
@@ -64,6 +64,18 @@ test("registration writes the consent record + closed settings map (U2)", async 
   assert.equal(prof.settings.emailMarketing, true, "marketing opt-in persisted to settings");
   assert.equal(prof.settings.theme, "light", "default theme persisted");
   assert.equal(prof.settings.emailDigest, false, "digest defaults off");
+});
+
+test("settings auto-save: updateUserSettings merges a toggle into the validated map (U8)", async () => {
+  const r = await updateUserSettings(uid, { emailDigest: true, consentAnalytics: true });
+  assert.ok(r.success, "settings update must satisfy validSettings: " + JSON.stringify(r));
+  const prof = await getUserProfile(uid);
+  assert.equal(prof.settings.emailDigest, true, "toggled digest persisted");
+  assert.equal(prof.settings.consentAnalytics, true, "analytics consent persisted");
+  // merge:true preserved the unrelated fields written at registration.
+  assert.equal(prof.settings.theme, "light", "merge kept theme");
+  assert.equal(prof.settings.emailMarketing, true, "merge kept marketing opt-in");
+  assert.ok(prof.settings.updatedAt, "updatedAt re-stamped");
 });
 
 test("free tier: a 2nd portfolio is rejected by the rules", async () => {

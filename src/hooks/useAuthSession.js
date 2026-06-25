@@ -64,6 +64,9 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
             // `deleted` is true the app shows the restore screen instead of the portfolio.
             deleted: server.deleted === true,
             deletedAt: server.deletedAt || null,
+            // Preferences live in Firestore so they sync across devices; the server copy
+            // wins over the local cache. The Notifications/Privacy toggles read these.
+            settings: server.settings || profile.settings || {},
           } : {}),
           uid: fbUser.uid,
           email: fbUser.email,

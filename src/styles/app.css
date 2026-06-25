@@ -338,6 +338,12 @@
 .ci-app .acct-label { display:block; font-size:11px; font-weight:600; color:var(--ink-faint); margin:6px 0 5px; letter-spacing:.02em; }
 .ci-app .acct-current { font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
 .ci-app .acct-divider { height:1px; background:var(--line-2); margin:16px 0 4px; }
+/* Auto-saving preference toggles (Notifications / Privacy) — U8 */
+.ci-app .toggle-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--line-2); cursor:pointer; }
+.ci-app .toggle-row:last-of-type { border-bottom:0; }
+.ci-app .toggle-label { font-size:13px; font-weight:500; color:var(--ink); display:flex; flex-direction:column; gap:2px; }
+.ci-app .toggle-hint { font-size:11px; font-weight:400; color:var(--ink-faint); }
+.ci-app .toggle-row input[type=checkbox] { width:20px; height:20px; flex:0 0 auto; accent-color:var(--accent); cursor:pointer; }
 .ci-app .port-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2); }
 .ci-app .port-row .pr-name { font-size:14px; font-weight:500; cursor:pointer; }
 .ci-app .port-row .pr-name.active { font-weight:700; color:var(--accent); }
