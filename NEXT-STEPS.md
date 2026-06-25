@@ -474,6 +474,26 @@ mobile↔desktop, no `@media`, no new deps), **design unchanged**. As-built deta
   (not tiled); only homogeneous card lists gridded. Each phase: build + 217/217 unit green + browser-probed
   (grids reflow 1→2→3 cols by width, collapse to 1 on mobile).
 
+## D. Design revamp — match the canonical Portfolio mockup  (PLANNED)
+
+Founder-approved mockup (desktop + mobile) is the canonical visual target. Full plan, current→target
+deltas, and phases live in [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md). Headline change: Portfolio value →
+white summary card, and Portfolio assets **ROW → CARD GRID on the 1040 wide track** (this supersedes
+§R's "Portfolio rows kept"); plus a floating bottom-nav pill and a token/pill/card consistency pass.
+Dark mode preserved; KISS, no new deps.
+
+- [x] **Mobile mockups for all screens** — produced 2026-06-25 in the approved language
+  (Portfolio/Research/Journal/Learn/Search + CoinInfo/Detail/AddEntry/Account/Login) to validate before building.
+- [ ] **Desktop mockups for all screens** — **NEXT**: render every screen at desktop width — Portfolio on
+  the **1040 wide track with the 3-up asset grid**, Research/Journal/Learn 2-up, drill-ins/forms on the
+  560/720 tracks — so the desktop target is locked before any code.
+- [ ] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster).
+- [ ] **D-2** assets → card grid + wide track + tinted % pills (first confirm the swipe→card interaction).
+- [ ] **D-3** floating bottom-nav pill · **D-4** token-circle consistency · **D-5** Search/Detail/CoinInfo/
+  Account/Login parity · **D-6** dark-mode verification across all redesigned screens.
+
+(See [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) §3 for per-phase scope + DoD and §4 for open decisions.)
+
 ## 5. Housekeeping
 
 - [x] Ran `npm audit fix` (no `--force`): patched the `protobufjs` prod advisory → **production

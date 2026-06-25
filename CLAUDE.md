@@ -53,6 +53,10 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   `.grid-auto`. Same markup mobile↔desktop, **no `@media`, no new deps, design unchanged** (rows/forms kept,
   nothing restyled). As-built: [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) (+ backlog §R); method = `responsive-app` skill.
   Gotcha: shell classes are compound (`.ci-app.app-shell`) — same-element classes need a compound selector, not a descendant one.
+- **Design revamp (PLANNED, 2026-06-25):** a founder-approved mockup is the canonical visual target — plan in
+  [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) (backlog §D). Headline: Portfolio value → white summary card, and
+  Portfolio assets **row → card grid on the 1040 wide track** (supersedes "rows kept" above); + floating nav
+  + token/pill/card consistency pass; dark mode preserved. Mobile mockups done; **desktop mockups are next**.
 - **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 
 ## Admin & privacy (functions/index.js)

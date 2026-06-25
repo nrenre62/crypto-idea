@@ -294,6 +294,11 @@ design, so they don't; nothing is restyled. The bottom tab bar stays a centered 
 See [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) for the as-built detail and the reusable
 `responsive-app` method.
 
+A **design revamp** is planned to align the whole app to the founder-approved Portfolio mockup — the
+value summary becomes a white card, Portfolio assets become a **card grid on the wide track** (rows
+retired), plus a floating nav and a token/pill/card consistency pass. Plan + phases:
+[`DESIGN-REVAMP.md`](DESIGN-REVAMP.md). Mobile mockups are done; **desktop mockups are the next step**.
+
 # Pages & routes
 
 Multi-page app (Vite build + Firebase Hosting rewrites):
