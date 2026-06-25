@@ -132,7 +132,9 @@ export function Learn() {
       )}
 
       <div className="module-list">
-        {modules.map((m) => (<Module key={m.id} m={m} isComplete={isComplete} onOpen={() => openModule(m)} />))}
+        <div className="grid-auto module-grid">
+          {modules.map((m) => (<Module key={m.id} m={m} isComplete={isComplete} onOpen={() => openModule(m)} />))}
+        </div>
         <div className="disclaimer">Timeless investing principles distilled into the CryptoIdea research framework. For educational purposes only — not financial advice.</div>
       </div>
 

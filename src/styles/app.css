@@ -124,6 +124,10 @@
 .ci-app .m-prog-label { font-size:11px; color:var(--ink-faint); margin-top:4px; font-weight:600; }
 .ci-app .m-cta { display:flex; align-items:center; justify-content:flex-end; margin-top:11px; }
 .ci-app .m-btn { font-family:var(--body); font-size:12px; font-weight:700; color:var(--accent-ink); background:var(--accent-soft); border:0; border-radius:999px; padding:6px 14px; cursor:pointer; }
+/* Responsive: modules reflow to 2-up on desktop, 1-up on mobile. Gap matches the
+   original 11px stack spacing so mobile is visually unchanged. */
+.ci-app .module-grid { gap:11px; }
+.ci-app .module-grid .module { margin-bottom:0; }
 
 /* ── Portfolio ────────────────────────────────────────── */
 .ci-app .port-total-label { font-size:12px; color:var(--ink-faint); font-weight:500; padding:0 18px; margin-top:4px; }
