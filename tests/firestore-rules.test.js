@@ -285,6 +285,45 @@ test("premium coins are hard-clamped at 1,000 even when config sets a higher num
   await assertFails(over.commit());
 });
 
+test("premium per-user premiumLimits override is enforced (U11/S8)", async () => {
+  await seed(async (db) => {
+    // Admin-set per-user override LOWERS this premium user's coin cap to 3 (tier
+    // default is 1,000). The owner can't write premiumLimits (covered elsewhere).
+    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 1, premiumLimits: { coins: 3 } });
+    await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 2 });
+  });
+  const db = carolDb();
+  // 2 -> 3: at the per-user override -> allowed
+  const ok = writeBatch(db);
+  ok.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c3"), { symbol: "AAA", name: "Coin A", txCount: 0 });
+  ok.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertSucceeds(ok.commit());
+  // 3 -> 4: exceeds the override of 3 -> rejected (even though the tier default is 1,000)
+  const over = writeBatch(db);
+  over.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c4"), { symbol: "BBB", name: "Coin B", txCount: 0 });
+  over.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(over.commit());
+});
+
+test("premium premiumLimits override is still hard-clamped to 1,000 coins (U11/#20)", async () => {
+  await seed(async (db) => {
+    // A tampered/over-generous override tries to lift coins above the 1,000 ceiling.
+    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 1, premiumLimits: { coins: 5000 } });
+    await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 999 });
+  });
+  const db = carolDb();
+  // 999 -> 1000: at the hard clamp -> allowed
+  const ok = writeBatch(db);
+  ok.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c1000"), { symbol: "AAA", name: "Coin A", txCount: 0 });
+  ok.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertSucceeds(ok.commit());
+  // 1000 -> 1001: override says 5,000 but the rule clamps to 1,000 -> rejected
+  const over = writeBatch(db);
+  over.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c1001"), { symbol: "BBB", name: "Coin B", txCount: 0 });
+  over.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(over.commit());
+});
+
 test("coin journal: valid thesis accepted, owner can update status, bad data + strangers rejected", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });

@@ -61,6 +61,9 @@ export function Account() {
         {(() => {
           const totalTxAllPorts = portfolios.reduce((s,p) => s + p.coins.reduce((cs,c) => cs + (c.entries?.length || 0), 0), 0);
           const maxTotalTx = maxPortfolios * maxCoinsPerPort * maxTxPerCoin;
+          // Per-user custom limits (premium overrides) — flag which caps are non-default.
+          const custom = (isPremium && user?.premiumLimits) || {};
+          const Cust = ({k}) => custom[k] != null ? <span className="custom-tag">custom</span> : null;
           const portPct = Math.min(100, (portfolios.length / maxPortfolios) * 100);
           const coinPct = portfolio.length > 0 ? Math.min(100, (portfolio.length / maxCoinsPerPort) * 100) : 0;
           const txPct = Math.min(100, (totalTxAllPorts / maxTotalTx) * 100);
@@ -73,19 +76,19 @@ export function Account() {
           <div className="card-title">Your Plan Usage</div>
 
           <div className="usage-row">
-            <div className="usage-top"><span className="usage-k">Portfolios</span><span className="usage-v">{portfolios.length} / {maxPortfolios}</span></div>
+            <div className="usage-top"><span className="usage-k">Portfolios <Cust k="portfolios"/></span><span className="usage-v">{portfolios.length} / {maxPortfolios}</span></div>
             <Bar pct={portPct}/>
           </div>
 
           <div className="usage-row">
-            <div className="usage-top"><span className="usage-k">Coins in active portfolio</span><span className="usage-v">{portfolio.length} / {maxCoinsPerPort}</span></div>
+            <div className="usage-top"><span className="usage-k">Coins in active portfolio <Cust k="coins"/></span><span className="usage-v">{portfolio.length} / {maxCoinsPerPort}</span></div>
             <Bar pct={coinPct}/>
           </div>
 
           <div className="usage-row">
             <div className="usage-top"><span className="usage-k">Total transactions</span><span className="usage-v">{totalTxAllPorts.toLocaleString()} / {maxTotalTx.toLocaleString()}</span></div>
             <Bar pct={txPct}/>
-            <div className="usage-note">Up to {maxTxPerCoin.toLocaleString()} per coin</div>
+            <div className="usage-note">Up to {maxTxPerCoin.toLocaleString()} per coin {custom.transactions!=null?"· custom":""}</div>
           </div>
 
           {/* AI research allowance — server-authoritative (from /api/config plans); informational until B2 */}

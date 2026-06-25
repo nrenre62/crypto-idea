@@ -6,7 +6,7 @@ vi.mock("../../src/api/firebase.config.js", () => ({ functions: { _tag: "fns" } 
 import { httpsCallable } from "firebase/functions";
 import {
   getStats, listUsers, listAudit, lookupUser,
-  setUserTier, suspendUser, deleteUser, getAdminConfig, saveConfig,
+  setUserTier, setPremiumLimits, suspendUser, deleteUser, getAdminConfig, saveConfig,
 } from "../../src/api/admin.js";
 
 // Each wrapper should target its named callable on the shared functions instance
@@ -53,6 +53,15 @@ describe("api/admin", () => {
     expect(call).toHaveBeenCalledWith({ uid: "u1", disabled: true });
     await deleteUser("u1");
     expect(call).toHaveBeenCalledWith({ uid: "u1" });
+  });
+
+  it("setPremiumLimits forwards uid+limits and returns the stored payload (U11/S8)", async () => {
+    const call = vi.fn().mockResolvedValue({ data: { success: true, uid: "u1", premiumLimits: { coins: 800 } } });
+    httpsCallable.mockReturnValue(call);
+    const out = await setPremiumLimits("u1", { coins: 800 });
+    expect(httpsCallable).toHaveBeenCalledWith({ _tag: "fns" }, "setPremiumLimits");
+    expect(call).toHaveBeenCalledWith({ uid: "u1", limits: { coins: 800 } });
+    expect(out).toEqual({ success: true, uid: "u1", premiumLimits: { coins: 800 } });
   });
 
   it("getAdminConfig returns the config object (defaults to {})", async () => {

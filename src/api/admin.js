@@ -36,6 +36,14 @@ export async function setUserTier(uid, tier) {
   await httpsCallable(functions, "setUserTier")({ uid, tier });
 }
 
+// Set/clear a user's per-user custom limits (premium overrides, S8). `limits` is
+// { portfolios?, coins?, transactions? }; an empty object clears the override. The
+// server clamps each value to the product hard-max. Returns the stored limits.
+export async function setPremiumLimits(uid, limits) {
+  const res = await httpsCallable(functions, "setPremiumLimits")({ uid, limits });
+  return res.data;
+}
+
 // Suspend / un-suspend a user account. Throws on failure.
 export async function suspendUser(uid, disabled) {
   await httpsCallable(functions, "suspendUser")({ uid, disabled });

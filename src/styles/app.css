@@ -344,6 +344,8 @@
 .ci-app .toggle-label { font-size:13px; font-weight:500; color:var(--ink); display:flex; flex-direction:column; gap:2px; }
 .ci-app .toggle-hint { font-size:11px; font-weight:400; color:var(--ink-faint); }
 .ci-app .toggle-row input[type=checkbox] { width:20px; height:20px; flex:0 0 auto; accent-color:var(--accent); cursor:pointer; }
+/* "custom" tag on a usage row when a premium per-user override is set (U11/S8) */
+.ci-app .custom-tag { display:inline-block; margin-left:5px; padding:1px 7px; border-radius:999px; background:#f3ecfb; color:#7d4bbf; font-size:9px; font-weight:700; letter-spacing:.04em; vertical-align:middle; }
 .ci-app .port-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2); }
 .ci-app .port-row .pr-name { font-size:14px; font-weight:500; cursor:pointer; }
 .ci-app .port-row .pr-name.active { font-weight:700; color:var(--accent); }

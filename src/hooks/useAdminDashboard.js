@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, lookupUser, setUserTier, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn } from "../api/admin.js";
+import { getStats, listUsers, listAudit, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn } from "../api/admin.js";
 
 // Combined real usage shown on the Overview before getStats resolves (no fake data).
 const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0, grossRevenue: 0, paymentFees: 0, netRevenue: 0, proPrice: 9.99, premiumPrice: 49.99 };
@@ -136,6 +136,19 @@ export function useAdminDashboard() {
     catch (e) { setActionMsg((e && e.message) || "Failed"); }
     setBusy(false);
   };
+  // Set/clear a premium user's per-user custom limits (S8). `limits` =
+  // { portfolios?, coins?, transactions? } ({} clears it). The server clamps + persists.
+  const changePremiumLimits = async (limits) => {
+    setBusy(true); setActionMsg("");
+    try {
+      const r = await setPremiumLimits(found.uid, limits);
+      const premiumLimits = (r && r.premiumLimits) || {};
+      setFound({ ...found, premiumLimits });
+      setUserList(l => l && l.map(x => x.uid === found.uid ? { ...x, premiumLimits } : x));
+      setActionMsg("Custom limits updated ✓");
+    } catch (e) { setActionMsg((e && e.message) || "Failed"); }
+    setBusy(false);
+  };
   const toggleSuspend = async () => {
     setBusy(true); setActionMsg("");
     try { const d = !found.disabled; await suspendUser(found.uid, d); setFound({ ...found, disabled: d });
@@ -175,7 +188,7 @@ export function useAdminDashboard() {
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,
     s,
-    loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, toggleSuspend, doDelete,
+    loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, changePremiumLimits, toggleSuspend, doDelete,
     restoreFromTrash, purgeFromTrash,
   };
 }

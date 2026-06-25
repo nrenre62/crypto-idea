@@ -419,6 +419,31 @@ exports.setUserTier = functions.https.onCall(async (data, context) => {
   return { success: true, uid, tier };
 });
 
+// ─── Admin: set a user's per-user custom limits (premium overrides, S8) ───
+// Writes users/{uid}.premiumLimits {portfolios?,coins?,transactions?}. Each value is
+// clamped to the SAME hard ceiling as mergePlans / firestore.rules (#20: coins ≤ 1,000)
+// so a custom limit can only raise WITHIN — never past — the product ceiling. Owners
+// can't write this field (rules blocklist); only admins, here. An empty object clears
+// the override (back to tier defaults).
+exports.setPremiumLimits = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const uid = data && data.uid;
+  if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  const raw = (data && data.limits) || {};
+  const num = (x) => (typeof x === "number" && isFinite(x) && x >= 0 ? Math.round(x) : null);
+  const caps = { portfolios: 100000, coins: 1000, transactions: 1000000 };
+  const out = {};
+  for (const k of ["portfolios", "coins", "transactions"]) {
+    const v = num(raw[k]);
+    if (v !== null) out[k] = Math.min(v, caps[k]);
+  }
+  await db.collection("users").doc(uid).set({ premiumLimits: out }, { merge: true });
+  await writeAudit(context, "setPremiumLimits", { targetUid: uid, details: JSON.stringify(out) });
+  return { success: true, uid, premiumLimits: out };
+});
+
 // ─── Admin: suspend / un-suspend a user (admins only) — reversible ───
 // Disables the Auth account so they can't sign in.
 exports.suspendUser = functions.https.onCall(async (data, context) => {

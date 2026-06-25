@@ -1,5 +1,48 @@
+import { useState, useEffect } from "react";
 import { useAdminDashboard } from "../hooks/useAdminDashboard.js";
 import { trashDaysLeft, partitionUsers } from "../utils/trash.js";
+
+// Per-user custom-limits editor (Premium overrides, S8). Transient form state lives
+// here (presentation only); the actual write goes through the hook's changePremiumLimits
+// → setPremiumLimits callable. Blank field = tier default; the server clamps each value.
+function PremiumLimitsEditor({ found, busy, onSave, c }) {
+  const [pl, setPl] = useState({ portfolios: "", coins: "", transactions: "" });
+  useEffect(() => {
+    const x = found.premiumLimits || {};
+    setPl({ portfolios: x.portfolios ?? "", coins: x.coins ?? "", transactions: x.transactions ?? "" });
+  }, [found.uid]);
+  const save = () => {
+    const out = {};
+    for (const k of ["portfolios", "coins", "transactions"]) {
+      if (pl[k] !== "" && pl[k] != null) { const n = Number(pl[k]); if (isFinite(n) && n >= 0) out[k] = n; }
+    }
+    onSave(out);
+  };
+  const field = (k, label, max) => (
+    <label style={{ flex:1, fontSize:10, color:c.dm }}>{label}
+      <input type="number" min="0" max={max} value={pl[k]} disabled={busy} placeholder="default"
+        onChange={e => setPl(p => ({ ...p, [k]: e.target.value }))}
+        style={{ width:"100%", marginTop:3, padding:"7px 8px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:12, boxSizing:"border-box" }} />
+    </label>
+  );
+  return (
+    <div style={{ marginBottom:14 }}>
+      <div style={{ fontSize:10, fontWeight:700, color:c.dm, letterSpacing:1, marginBottom:8 }}>CUSTOM LIMITS (PREMIUM)</div>
+      <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+        {field("portfolios", "Portfolios")}
+        {field("coins", "Coins (≤1000)", "1000")}
+        {field("transactions", "Transactions")}
+      </div>
+      <div style={{ display:"flex", gap:6 }}>
+        <button disabled={busy} onClick={save}
+          style={{ flex:1, padding:"9px", borderRadius:8, border:"none", background:c.gr, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>Save custom limits</button>
+        <button disabled={busy} onClick={() => onSave({})}
+          style={{ flex:1, padding:"9px", borderRadius:8, border:`1px solid ${c.bd}`, background:c.w, color:c.dm, fontSize:12, fontWeight:600, cursor:"pointer" }}>Clear</button>
+      </div>
+      <div style={{ fontSize:10, color:c.dm, marginTop:6 }}>Blank = tier default. Server clamps to the product ceiling (coins ≤ 1,000).</div>
+    </div>
+  );
+}
 
 const TIERS = {
   free:    { label:"Starter", color:"#FF9500", limits:{ portfolios:1, coins:10, transactions:50 }, storage:"5 MB", price:"$0" },
@@ -8,7 +51,7 @@ const TIERS = {
 };
 
 // Friendly labels for audit-log action codes.
-const ACTION_LABELS = { setUserTier: "Changed tier", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", restoreUser: "Restored account", grantAdmin: "Granted admin", revokeAdmin: "Revoked admin", saveConfig: "Saved settings" };
+const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "Set custom limits", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", restoreUser: "Restored account", grantAdmin: "Granted admin", revokeAdmin: "Revoked admin", saveConfig: "Saved settings" };
 
 // Presentation only — all state, data-loading and admin actions live in the hook.
 export default function AdminDashboard() {
@@ -21,7 +64,7 @@ export default function AdminDashboard() {
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,
     s,
-    loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, toggleSuspend, doDelete,
+    loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, changePremiumLimits, toggleSuspend, doDelete,
     restoreFromTrash, purgeFromTrash,
   } = useAdminDashboard();
 
@@ -209,6 +252,11 @@ export default function AdminDashboard() {
                 </button>
               ))}
             </div>
+
+            {/* Custom limits (Premium per-user overrides, S8) */}
+            {found.tier === "premium" && (
+              <PremiumLimitsEditor found={found} busy={busy} onSave={changePremiumLimits} c={c} />
+            )}
 
             {/* Moderation */}
             <div style={{ display:"flex", gap:6 }}>

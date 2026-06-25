@@ -67,6 +67,9 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
             // Preferences live in Firestore so they sync across devices; the server copy
             // wins over the local cache. The Notifications/Privacy toggles read these.
             settings: server.settings || profile.settings || {},
+            // Admin-set per-user custom limits (premium overrides, S8) — server-only
+            // (owners can't write them). Loaded so the client's caps match the rules.
+            premiumLimits: server.premiumLimits || {},
           } : {}),
           uid: fbUser.uid,
           email: fbUser.email,
