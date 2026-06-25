@@ -276,12 +276,23 @@ exports.paypalWebhook = functions.https.onRequest(async (req, res) => {
       }
       case "BILLING.SUBSCRIPTION.CANCELLED":
       case "BILLING.SUBSCRIPTION.SUSPENDED": {
+        // Downgrade to free, but first record the tier they're leaving as
+        // `tierBeforeFailure` (the last paid tier) so support + analytics keep "was
+        // Pro/Premium" after the auto-downgrade (S9). SUSPENDED is PayPal's
+        // payment-failure state; CANCELLED is user-initiated — both lose the paid tier.
+        const downgrade = async (ref) => {
+          const snap = await ref.get();
+          const prior = snap.exists ? snap.data().tier : null;
+          const patch = { tier: "free" };
+          if (prior && prior !== "free") patch.tierBeforeFailure = prior;
+          await ref.update(patch);
+        };
         const userId = resource.custom_id;
         if (userId) {
-          await db.doc(`users/${userId}`).update({ tier: "free" });
+          await downgrade(db.doc(`users/${userId}`));
         } else if (resource.id) {
           const users = await db.collection("users").where("paypalSubscriptionId", "==", resource.id).get();
-          await Promise.all(users.docs.map((doc) => doc.ref.update({ tier: "free" })));
+          await Promise.all(users.docs.map((doc) => downgrade(doc.ref)));
         }
         break;
       }

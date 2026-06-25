@@ -57,6 +57,18 @@ describe("Account screen (extracted, via AppContext)", () => {
     expect(fmtDate).toHaveBeenCalledWith("2027-01-01");
   });
 
+  it("hides the Update-payment-method link for a free user (U12/S9)", () => {
+    provide({});
+    expect(screen.queryByText(/Update payment method/i)).not.toBeInTheDocument();
+  });
+
+  it("links Update-payment-method to PayPal's hosted page for a paid user (U12/S9)", () => {
+    provide({ isPro: true, user: { ...base.user, tier: "pro" } });
+    const link = screen.getByText(/Update payment method/i);
+    expect(link).toHaveAttribute("href", "https://www.paypal.com/myaccount/autopay/");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
   it("shows the cancellation notice for a cancelled subscription", () => {
     provide({
       isPro: true,

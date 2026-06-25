@@ -239,6 +239,13 @@ export default function AdminDashboard() {
               ))}
             </div>
 
+            {/* Last paid tier — survives an auto-downgrade so "was Pro/Premium" isn't lost (S9) */}
+            {found.tierBeforeFailure && found.tier === "free" && (
+              <div style={{ fontSize:11, color:c.dm, marginBottom:10 }}>
+                Last paid tier: <strong style={{ color: TIERS[found.tierBeforeFailure]?.color || c.tx }}>{TIERS[found.tierBeforeFailure]?.label || found.tierBeforeFailure}</strong> · downgraded
+              </div>
+            )}
+
             {/* Change tier (manual upgrade / refund) */}
             <div style={{ fontSize:10, fontWeight:700, color:c.dm, letterSpacing:1, marginBottom:8 }}>CHANGE TIER</div>
             <div style={{ display:"flex", gap:6, marginBottom:14 }}>

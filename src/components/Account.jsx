@@ -133,6 +133,8 @@ export function Account() {
           {isPro&&!isPremium&&<button onClick={()=>startUpgrade("premium")} className="acct-btn prem">Upgrade to Premium</button>}
           {isPro&&!isPremium&&!user?.subscription?.cancelled&&<button onClick={()=>startDowngrade("free")} className="acct-btn ghost">Cancel Pro · Switch to Starter</button>}
           {isPremium&&!user?.subscription?.cancelled&&<button onClick={()=>startDowngrade("pro")} className="acct-btn ghost">Downgrade to Pro</button>}
+          {/* Self-service billing (S9): deep-link to PayPal's hosted recurring-payments page */}
+          {isPro&&<a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" className="acct-btn ghost pay-link">Update payment method ↗</a>}
         </div>
           );
         })()}
