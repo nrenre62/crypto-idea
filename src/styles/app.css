@@ -40,6 +40,7 @@
    NOTE: compound selector — ci-app + app-shell sit on the SAME element. */
 .ci-app.app-shell { max-width:720px; margin:0 auto; }
 .ci-app.app-shell.app-shell-wide { max-width:1040px; }
+.ci-app.app-shell.app-shell-narrow { max-width:560px; }
 .ci-app .grid-auto { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; align-items:start; }
 
 /* ── Shared layout primitives ─────────────────────────── */

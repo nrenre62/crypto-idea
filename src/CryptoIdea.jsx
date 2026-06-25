@@ -473,6 +473,7 @@ export default function CryptoIdea(){
   // widens on desktop. Card-collection screens opt into the wider 1040px track as
   // their grids land (§R). Same markup mobile↔desktop — no @media needed.
   const WIDE_SCREENS=new Set([]);
+  const NARROW_SCREENS=new Set(["detail","addEntry","coinInfo"]); // forms/detail read better narrower
   return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {/* Floating toast: fixed so a limit/error message is always visible, even when the action
         (e.g. "Add portfolio" on the scrolled Account screen) is far below the top of the page. */}
@@ -528,7 +529,7 @@ export default function CryptoIdea(){
     })()}
     {/* A soft-deleted (trashed) user sees only the restore screen — never the app. */}
     {user?.deleted&&screen!=="login"&&screen!=="loading"?<RestoreAccount/>:<>
-    <div className={"ci-app app-shell"+(WIDE_SCREENS.has(screen)?" app-shell-wide":"")}>
+    <div className={"ci-app app-shell"+(WIDE_SCREENS.has(screen)?" app-shell-wide":NARROW_SCREENS.has(screen)?" app-shell-narrow":"")}>
     {screen==="account"&&<Account/>}
     {screen==="portfolio"&&<Portfolio/>}
     {screen==="search"&&<Search/>}

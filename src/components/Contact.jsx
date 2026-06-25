@@ -11,7 +11,7 @@ export function Contact() {
     <div style={{fontSize:14,color:c.dim,textAlign:"center",lineHeight:1.55,maxWidth:300,marginBottom:32}}>We'll review your account needs and get back to you within 24 hours.</div>
     <button onClick={()=>{setContactSent(false);setScreen("portfolio")}} style={{padding:"14px 36px",borderRadius:14,border:"none",fontSize:15,fontWeight:600,cursor:"pointer",background:c.txt,color:"#fff"}}>Back to Portfolio</button>
   </div>);
-  return (<div>
+  return (<div style={{maxWidth:560,margin:"0 auto"}}>
     {hdr(<button onClick={()=>setScreen("portfolio")} style={{background:"none",border:"none",cursor:"pointer",padding:0}}>{Ic.back}</button>,"Premium Plan",null)}
     <div style={{padding:"20px 18px"}}>
       <div style={{fontSize:15,fontWeight:600,marginBottom:8}}>Need higher limits?</div>
