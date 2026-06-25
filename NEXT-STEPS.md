@@ -232,35 +232,44 @@ now; **Wave B** = Blaze / Identity Platform (code now, verify at go-live).
 > *beyond* the KISS default: **U6** builds the sign-out-everywhere revoke callable now, and
 > **U11** implements `premiumLimits` end-to-end (not a stub).
 
+> **Progress (2026-06-25):** Wave A **U1–U8 + U10 are DONE** (committed; unit 232 /
+> integration 10 / rules 18 all green). **Remaining:** U9 (AI meter), U11 (premiumLimits
+> end-to-end), U12 (billing), the **Appearance/dark-mode** half of U8, and Wave B
+> (U13–U15, go-live). Two caveats: the **U6 `signOutEverywhere` callable** is wired +
+> client/UI-tested but needs a functions-emulator restart to exercise end-to-end; **U8's
+> dark-mode theme** was split out (the app mixes CSS-var theming with hardcoded inline
+> colors in `utils/theme.js`, so a correct light/dark/system theme is its own increment —
+> toggles + persistence shipped, `theme`/`currency` stay validated+stored, application deferred).
+
 ### Wave A — local-first (build + verify on the emulator now)
 
-- [ ] **U1 · rules + data model (FOUNDATION — do first):** add `validUserData()` (name 2–50),
+- [x] **U1 · rules + data model (FOUNDATION — do first):** add `validUserData()` (name 2–50),
   `validConsent()`, `validSettings()` (closed / typed / size-capped) to `firestore.rules`; add
   `premiumLimits` to the owner-update blocklist; shape-check `name` / `settings` / `consent` when
   present on create AND update. `test:rules` FIRST: happy path + every reject branch (oversized
   name, junk settings key, owner writing `premiumLimits` / `tier` / `deleted`). No data migration.
   Refs: USER-SETTINGS §4–5, USER-CREATION §4.
-- [ ] **U2 · atomic registration + server validation + consent:** `registerUser(email,pw,name,consent)`
+- [x] **U2 · atomic registration + server validation + consent:** `registerUser(email,pw,name,consent)`
   → ONE `writeBatch` (user doc + default portfolio + `portfolioCount:1`); server-side trim/bounds the
   name + email; write the `consent` record + `settings` defaults; fix the pw error `6`→`8`; add a
   `verifyEmail()` resend. Integration test: register → doc shape + consent + atomicity. USER-CREATION §2–5.
-- [ ] **U3 · register form (consent + skip):** Terms-required + Privacy-required checkboxes (links) +
+- [x] **U3 · register form (consent + skip):** Terms-required + Privacy-required checkboxes (links) +
   marketing opt-in (default off); submit gated until both required are checked; pass `consent` through.
   Add a "Skip for now / Explore Starter" button to the plan picker. Component tests (gating, default-off,
   skip nav).
-- [ ] **U4 · email-verify nudge:** `useAuthSession` reads `fbUser.emailVerified` → a non-blocking,
+- [x] **U4 · email-verify nudge:** `useAuthSession` reads `fbUser.emailVerified` → a non-blocking,
   dismissible banner + Resend on Portfolio. Hook/component tests (verified → none; unverified → banner).
-- [ ] **U5 · re-auth core + delete hardening (S5/S6):** one shared `confirmPassword()` helper
+- [x] **U5 · re-auth core + delete hardening (S5/S6):** one shared `confirmPassword()` helper
   (`reauthenticateWithCredential`, catch `auth/requires-recent-login`) + a reusable modal; gate
   account-delete behind **type `DELETE` + confirmPassword** in an isolated red Danger Zone. Tests:
   modal flow, wrong-pw error, delete needs both gates.
-- [ ] **U6 · Security tab (S7):** change-password form behind re-auth → `updatePassword` (same
+- [x] **U6 · Security tab (S7):** change-password form behind re-auth → `updatePassword` (same
   8+/Aa1+special rule); **`signOutEverywhere` callable** (`admin.auth().revokeRefreshTokens(uid)`) +
   button. Tests: unit (form) + integration (callable auth-gated + revokes).
-- [ ] **U7 · Profile tab (S10):** editable display name (`updateProfile` + `saveProfile`, 2–30,
+- [x] **U7 · Profile tab (S10):** editable display name (`updateProfile` + `saveProfile`, 2–30,
   explicit Save + inline "Saved"); change-email behind re-auth via `verifyBeforeUpdateEmail` (mirror to
   Firestore only after the link is clicked, on next login — never optimistically). Component tests.
-- [ ] **U8 · Notifications + Appearance + Privacy tabs (S3/S4):** a `settings` save handler; **auto-save**
+- [~] **U8 · Notifications + Appearance + Privacy tabs (S3/S4):** a `settings` save handler; **auto-save**
   toggles with inline confirm — `emailDigest` / `emailMarketing` (notifications) + marketing /
   `consentAnalytics` (privacy, withdrawable); wire `settings.theme` light/dark/system via a root class +
   CSS vars + localStorage; store `currency` (formatting deferred). Tests: toggle persists, theme applies,
@@ -269,7 +278,7 @@ now; **Wave B** = Blaze / Identity Platform (code now, verify at go-live).
   `getUserProfile`) → an AI-allowance meter in Account; usage bars read the **configured** caps
   (`site.plans`), not hardcoded numbers. Tests: meter from the server value, bars from config.
   (The enforcement counter itself is §0 B2.)
-- [ ] **U10 · downgrade-trim fix:** pass `site.plans` into `useUpgrade` / `trimToTier` so a downgrade
+- [x] **U10 · downgrade-trim fix:** pass `site.plans` into `useUpgrade` / `trimToTier` so a downgrade
   trims to the **configured** ceiling, not the hardcoded `TIER_LIMITS` (silent data-loss bug if an admin
   raised a cap). Unit + a rules-backed test with an overridden cap.
 - [ ] **U11 · premiumLimits end-to-end (S8):** `setPremiumLimits` admin callable + admin UI →
