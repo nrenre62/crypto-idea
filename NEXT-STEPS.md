@@ -232,14 +232,16 @@ now; **Wave B** = Blaze / Identity Platform (code now, verify at go-live).
 > *beyond* the KISS default: **U6** builds the sign-out-everywhere revoke callable now, and
 > **U11** implements `premiumLimits` end-to-end (not a stub).
 
-> **Progress (2026-06-25):** Wave A **U1–U8 + U10 are DONE** (committed; unit 232 /
-> integration 10 / rules 18 all green). **Remaining:** U9 (AI meter), U11 (premiumLimits
-> end-to-end), U12 (billing), the **Appearance/dark-mode** half of U8, and Wave B
-> (U13–U15, go-live). Two caveats: the **U6 `signOutEverywhere` callable** is wired +
-> client/UI-tested but needs a functions-emulator restart to exercise end-to-end; **U8's
-> dark-mode theme** was split out (the app mixes CSS-var theming with hardcoded inline
-> colors in `utils/theme.js`, so a correct light/dark/system theme is its own increment —
-> toggles + persistence shipped, `theme`/`currency` stay validated+stored, application deferred).
+> **Progress (2026-06-25): ALL of Wave A (U1–U12) is DONE** — committed; unit 238 /
+> integration 10 / rules 20 all green. Includes full light/dark/system theming (U8,
+> verified in-app) and `premiumLimits` end-to-end (U11, rules-enforced + clamped).
+> **Remaining: only Wave B (U13–U15)** — go-live items needing Blaze + Identity Platform
+> / App Check console config (not locally buildable; code sketches in USER-CREATION §6) —
+> plus the deferred `currency` Intl.NumberFormat wiring. Two server callables added this
+> pass — **U6 `signOutEverywhere`** and **U11 `setPremiumLimits`** — are wired +
+> rules/UI/wrapper-tested; exercising the Admin-SDK writes needs a functions-emulator
+> restart (new triggers register on restart), and the **U12 `tierBeforeFailure`** webhook
+> path is syntax-checked but verifies live with the PayPal webhook (all go-live).
 
 ### Wave A — local-first (build + verify on the emulator now)
 
@@ -269,23 +271,23 @@ now; **Wave B** = Blaze / Identity Platform (code now, verify at go-live).
 - [x] **U7 · Profile tab (S10):** editable display name (`updateProfile` + `saveProfile`, 2–30,
   explicit Save + inline "Saved"); change-email behind re-auth via `verifyBeforeUpdateEmail` (mirror to
   Firestore only after the link is clicked, on next login — never optimistically). Component tests.
-- [~] **U8 · Notifications + Appearance + Privacy tabs (S3/S4):** a `settings` save handler; **auto-save**
+- [x] **U8 · Notifications + Appearance + Privacy tabs (S3/S4):** a `settings` save handler; **auto-save**
   toggles with inline confirm — `emailDigest` / `emailMarketing` (notifications) + marketing /
   `consentAnalytics` (privacy, withdrawable); wire `settings.theme` light/dark/system via a root class +
   CSS vars + localStorage; store `currency` (formatting deferred). Tests: toggle persists, theme applies,
   shape valid.
-- [ ] **U9 · tier display:** surface `aiMonthlyCents` **server-authoritatively** (add it to
+- [x] **U9 · tier display:** surface `aiMonthlyCents` **server-authoritatively** (add it to
   `getUserProfile`) → an AI-allowance meter in Account; usage bars read the **configured** caps
   (`site.plans`), not hardcoded numbers. Tests: meter from the server value, bars from config.
   (The enforcement counter itself is §0 B2.)
 - [x] **U10 · downgrade-trim fix:** pass `site.plans` into `useUpgrade` / `trimToTier` so a downgrade
   trims to the **configured** ceiling, not the hardcoded `TIER_LIMITS` (silent data-loss bug if an admin
   raised a cap). Unit + a rules-backed test with an overridden cap.
-- [ ] **U11 · premiumLimits end-to-end (S8):** `setPremiumLimits` admin callable + admin UI →
+- [x] **U11 · premiumLimits end-to-end (S8):** `setPremiumLimits` admin callable + admin UI →
   `users/{uid}.premiumLimits`; `configuredLimit()` reads per-user `premiumLimits` first for premium
   (clamped to `hardMax`, coins ≤ 1,000 — #20); Account shows "custom vs default". Replaces the dead
   `CryptoIdea.jsx:277` override. Tests: rules (override enforced + clamped; owner can't write it).
-- [ ] **U12 · billing resilience (S9):** an "Update payment method" link (Pro+) → the PayPal-hosted
+- [x] **U12 · billing resilience (S9):** an "Update payment method" link (Pro+) → the PayPal-hosted
   flow; record `tierBeforeFailure` on a PayPal failure event so the paid tier survives an auto-downgrade;
   admin "last paid tier". Tests: link visibility, webhook handler.
 
