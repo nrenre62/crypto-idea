@@ -9,6 +9,13 @@ framework = the **`user-settings`** skill.
 > Decisions locked in the 2026-06-24 founder interview. Tiers: `free` (UI **Starter**),
 > `pro`, `premium` — internal key is always `free`. Limits/pricing: [PRICING.md](PRICING.md).
 
+> **Status (2026-06-25): BUILT.** Every S1–S10 decision below is implemented and committed
+> (`NEXT-STEPS.md` §U **U1–U12**; unit 238 / integration 10 / rules 20 green), including full
+> light/dark/system theming and `premiumLimits` end-to-end. The **as-built dev guide**
+> (file map, testing, caveats) is [USER-SETTINGS-README.md](USER-SETTINGS-README.md). Only
+> **Wave B** (MFA, App Check — go-live) remains. This doc stays the **design record**: the
+> "Today" column in §3 and the **Done ✓** statuses in §8 reflect that the work shipped.
+
 ---
 
 ## 1. Locked decisions (settings)
@@ -228,24 +235,24 @@ Starter."* Ensure no code ever checks `'starter'`.
 
 ## 8. Gaps → status
 
-**Now** = first increment (S2) · **Go-live** = launch checklist · **Deferred** = backlog.
+**Done ✓** = shipped (`NEXT-STEPS.md` §U U1–U12) · **Go-live** = launch checklist (Wave B) · **Deferred** = backlog.
 
 | Gap | Sev | Fix | Status |
 |---|---|---|---|
-| No change-password (must sign out) | High | §6 re-auth + `updatePassword` | **Now** |
-| Account delete has no re-auth | High | §6 S6 re-auth + type DELETE | **Now** |
-| No display-name edit | Med | §3 editable name + validation | **Now** |
-| Orphan `settings` map (unread, unvalidated) | Med→Low | §4 wired + `validSettings` | **Now** |
-| Theme never applied (no dark mode) | Low | §7 wire `settings.theme` | **Now** |
-| No notification prefs | Med | §4 digest + marketing toggles | **Now** |
-| No consent toggles / withdrawal | High | §4 marketing/analytics toggles | **Now** |
-| AI allowance invisible / client-sourced | High | §7 server-authoritative meter | **Now** |
-| `premiumLimits` phantom dead code | High | §7 implement end-to-end (S8) | **Now** |
-| Downgrade trims to hardcoded, not configured, caps | High | §7 pass `site.plans` to trim | **Now** |
-| No "sign out everywhere" | High | §6 revoke callable (S7) | **Now** |
-| No "Update payment method" (churn on failure) | High | §7 PayPal link (S9) | **Now** |
-| Change-email naive `updateEmail` would fail/hijack | High | §6 `verifyBeforeUpdateEmail` (S10) | **Now** |
-| Lost paid tier after payment-fail downgrade | Med | §7 `tierBeforeFailure` | **Now** |
+| No change-password (must sign out) | High | §6 re-auth + `updatePassword` | **Done ✓** |
+| Account delete has no re-auth | High | §6 S6 re-auth + type DELETE | **Done ✓** |
+| No display-name edit | Med | §3 editable name + validation | **Done ✓** |
+| Orphan `settings` map (unread, unvalidated) | Med→Low | §4 wired + `validSettings` | **Done ✓** |
+| Theme never applied (no dark mode) | Low | §7 wire `settings.theme` | **Done ✓** |
+| No notification prefs | Med | §4 digest + marketing toggles | **Done ✓** |
+| No consent toggles / withdrawal | High | §4 marketing/analytics toggles | **Done ✓** |
+| AI allowance invisible / client-sourced | High | §7 server-authoritative meter | **Done ✓** |
+| `premiumLimits` phantom dead code | High | §7 implement end-to-end (S8) | **Done ✓** |
+| Downgrade trims to hardcoded, not configured, caps | High | §7 pass `site.plans` to trim | **Done ✓** |
+| No "sign out everywhere" | High | §6 revoke callable (S7) | **Done ✓** |
+| No "Update payment method" (churn on failure) | High | §7 PayPal link (S9) | **Done ✓** |
+| Change-email naive `updateEmail` would fail/hijack | High | §6 `verifyBeforeUpdateEmail` (S10) | **Done ✓** |
+| Lost paid tier after payment-fail downgrade | Med | §7 `tierBeforeFailure` | **Done ✓** |
 | Default-portfolio pref only in localStorage | Low | §3 `defaultPortfolioId` | **Deferred** |
 | Restore has no cooldown (delete/restore harassment) | Low | 24h `restoreLockedUntil` | **Deferred** |
 | In-app card details (last-4/expiry) | — | PayPal vault + SSRF-safe proxy | **Deferred** |
@@ -279,17 +286,20 @@ Starter."* Ensure no code ever checks `'starter'`.
 
 ## 10. Build order & Definition of Done
 
-1. **Rules + model** — `validSettings`/`validConsent`/`validUserData`, owner-update
+> **Steps 1–6 are DONE** (shipped as `NEXT-STEPS.md` §U U1–U12, each TDD'd + committed);
+> step 7 (Go-live) is Wave B. As-built detail: [USER-SETTINGS-README.md](USER-SETTINGS-README.md).
+
+1. ✓ **Rules + model** — `validSettings`/`validConsent`/`validUserData`, owner-update
    blocklist incl. `premiumLimits`. `test:rules` green first (TDD).
-2. **Re-auth core** — `confirmPassword()` helper + shared modal; gate delete (re-auth +
+2. ✓ **Re-auth core** — `confirmPassword()` helper + shared modal; gate delete (re-auth +
    type DELETE).
-3. **Security tab** — change password; `signOutEverywhere` callable + button.
-4. **Profile tab** — editable name; email-verify banner/resend; change-email
+3. ✓ **Security tab** — change password; `signOutEverywhere` callable + button.
+4. ✓ **Profile tab** — editable name; email-verify banner/resend; change-email
    (`verifyBeforeUpdateEmail`).
-5. **Notifications + Appearance + Privacy tabs** — digest/marketing/analytics toggles
-   (auto-save); theme light/dark/system applied via root class + localStorage; currency
-   stored.
-6. **Tier surface** — server-authoritative AI meter; configured-cap usage bars;
+5. ✓ **Notifications + Appearance + Privacy tabs** — digest/marketing/analytics toggles
+   (auto-save); theme light/dark/system applied via a root `data-theme` attribute + shared
+   CSS-variable tokens; currency stored.
+6. ✓ **Tier surface** — server-authoritative AI meter; configured-cap usage bars;
    downgrade-trim fix; `premiumLimits` end-to-end (admin + rules + display); PayPal
    update link; `tierBeforeFailure`.
 7. **Go-live** — MFA, App Check (shared with USER-CREATION §6).

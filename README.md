@@ -320,6 +320,18 @@ next step (a secure Cloud Function proxy holding the Anthropic key — see `NEXT
 
 The free DCA calculator lives **inline on the landing** (no login, no separate page) — it is **not** in the app. It's built so visitors add **~0 backend calls**: it fetches the full ~3,000-coin list **once** from `/api/coinlist` (CDN-cached 24h) and searches **client-side** (no per-keystroke calls), then a calculation fetches only that coin's `/api/history` (CDN-cached; price history is immutable) and uses its latest point as "today's price" — no per-calc `/api/prices` call. So thousands of visitors share a couple of cached responses; scheduled jobs refresh the data at most daily. (CDN caching applies on the deployed site, not the local dev server.)
 
+# Accounts & settings
+
+Registration (Terms/Privacy consent + email-verify nudge), and the **Account** screen: profile
+edit, change-password / change-email **behind re-auth**, **sign out everywhere**, notification +
+**appearance (light/dark/system)** + privacy-consent toggles (auto-save), a **Plan & Usage** card
+(configured-cap bars, server-authoritative AI-allowance meter, admin per-user custom limits), and a
+**type-`DELETE` + re-auth** danger zone (soft-delete, 30-day trash). All owner-writable data is a
+closed, rules-validated shape. As-built file map / data model / security model / testing live in
+[`USER-SETTINGS-README.md`](USER-SETTINGS-README.md); the design specs are
+[`USER-CREATION.md`](USER-CREATION.md) + [`USER-SETTINGS.md`](USER-SETTINGS.md) (reusable methods:
+the `user-creation` + `user-settings` skills). Wave A is built; MFA / App Check are go-live.
+
 # Admin app (`/admin` — `admin.html` / `src/admin-main.jsx` / `src/admin-dashboard.jsx`)
 
 A **separate app** from the user-facing one, served at **`/admin`**. It has its own login that verifies the Firebase `{admin:true}` custom claim and **signs out any non-admin**. The admin code is **not** bundled into the user app, so regular users never download it. A different URL is *not* the security boundary — the claim check (enforced server-side in every admin function, re-checked in the admin app) is; the split additionally keeps admin code off users' devices. **2FA for admins is deferred to go-live** (needs Blaze + Identity Platform MFA). Tabs:
