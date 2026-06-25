@@ -1,6 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { useUpgrade, TIER_LIMITS, dueDowngrade } from "../../src/hooks/useUpgrade.js";
+import { useUpgrade, TIER_LIMITS, dueDowngrade, limitsForTier } from "../../src/hooks/useUpgrade.js";
 
 // Pure subscription-expiry decision (extracted from CryptoIdea.checkSubscriptionStatus).
 describe("dueDowngrade", () => {
@@ -40,11 +40,31 @@ const overflowPorts = () => [
   { id: "p2", name: "P2", coins: [{ id: "c2", entries: mkEntries(3) }] },
 ];
 
-function setup(portfolios = []) {
+function setup(portfolios = [], plans = null) {
   const setPortfolios = vi.fn();
-  const view = renderHook(() => useUpgrade({ portfolios, setPortfolios }));
+  const view = renderHook(() => useUpgrade({ portfolios, setPortfolios, plans }));
   return { setPortfolios, view };
 }
+
+// U10: the downgrade trim must use the SAME (configured) limits the rules enforce,
+// clamped to the product hard-max — not the hardcoded TIER_LIMITS defaults.
+describe("limitsForTier (configured caps win, clamped to hard-max)", () => {
+  it("falls back to the built-in defaults when no plans are configured", () => {
+    expect(limitsForTier("free", null)).toEqual({ ports: 1, coins: 10, tx: 50 });
+    expect(limitsForTier("pro", undefined)).toEqual({ ports: 3, coins: 50, tx: 2000 });
+  });
+  it("admin-configured plan values override the defaults", () => {
+    expect(limitsForTier("free", { free: { portfolios: 2, coins: 20, transactions: 100 } }))
+      .toEqual({ ports: 2, coins: 20, tx: 100 });
+  });
+  it("clamps a configured value to the hard-max (coins can never exceed 1,000)", () => {
+    expect(limitsForTier("premium", { premium: { coins: 5000 } }))
+      .toEqual({ ports: 15, coins: 1000, tx: 5000 });
+  });
+  it("returns null for an unknown tier", () => {
+    expect(limitsForTier("bogus", null)).toBeNull();
+  });
+});
 
 describe("useUpgrade", () => {
   describe("calcEndDate", () => {
@@ -84,6 +104,16 @@ describe("useUpgrade", () => {
         portsToDelete: 0, coinsToDelete: 0, txToDelete: 0,
       });
     });
+
+    it("deletes LESS when an admin has raised the configured caps (U10 fix)", () => {
+      // Admin raised free to 2 ports / 20 coins, tx left at 50. The same overflow that
+      // would lose 1 port + 3 coins + 8 tx against hardcoded defaults now only sheds
+      // the 5 over-cap transactions — no silent deletion of admin-permitted data.
+      const { view } = setup(overflowPorts(), { free: { portfolios: 2, coins: 20, transactions: 50 } });
+      expect(view.result.current.getTrimImpact("free")).toEqual({
+        portsToDelete: 0, coinsToDelete: 0, txToDelete: 5,
+      });
+    });
   });
 
   describe("trimToTier", () => {
@@ -113,6 +143,16 @@ describe("useUpgrade", () => {
       act(() => view.result.current.trimToTier("free"));
       const next = setPortfolios.mock.calls[0][0]([]);
       expect(next).toEqual([{ id: "default", name: "My Portfolio", coins: [] }]);
+    });
+
+    it("keeps coins up to the CONFIGURED cap, not the hardcoded default (U10 fix)", () => {
+      const start = overflowPorts(); // p1 has 12 coins
+      const { setPortfolios, view } = setup(start, { free: { portfolios: 1, coins: 20, transactions: 50 } });
+      act(() => view.result.current.trimToTier("free"));
+      const next = setPortfolios.mock.calls[0][0](start);
+      expect(next).toHaveLength(1);
+      expect(next[0].coins).toHaveLength(12);   // all 12 kept (cap 20), NOT trimmed to 10
+      expect(next[0].coins[0].entries).toHaveLength(50); // tx still capped at 50
     });
   });
 });

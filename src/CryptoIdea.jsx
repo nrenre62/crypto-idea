@@ -98,7 +98,9 @@ export default function CryptoIdea(){
   const {portfolios,setPortfolios,activePortId,setActivePortId,portfolio,setPortfolio}=usePortfolios();
   // Subscription/tier-limit logic (end-date, downgrade impact + trim). UI flow state
   // for the upgrade overlay stays here (shared with the auth/Login flow) — see useUpgrade.
-  const {calcEndDate,getTrimImpact,trimToTier}=useUpgrade({portfolios,setPortfolios});
+  // Pass the admin-configured plans so the downgrade trim keeps exactly what the rules
+  // allow (configured caps), not the hardcoded defaults — avoids silent data loss (U10).
+  const {calcEndDate,getTrimImpact,trimToTier}=useUpgrade({portfolios,setPortfolios,plans:site.plans});
   const[showPortManager,setShowPortManager]=useState(false);
   const[newPortName,setNewPortName]=useState("");
   // Auth session: owns user/dataLoaded + the auth-watch & profile-save effects.

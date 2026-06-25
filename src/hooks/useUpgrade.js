@@ -1,14 +1,35 @@
 import { useCallback } from "react";
 
-// Per-tier resource ceilings used by the downgrade/trim logic. These mirror the
-// built-in plan defaults (the `_planLim` fallbacks in CryptoIdea.jsx). Live limit
-// enforcement reads admin-configured plans (`site.plans`) with these as the fallback;
-// the downgrade trim intentionally uses the fixed defaults.
+// Per-tier resource ceilings — the built-in plan defaults (the `_planLim` fallbacks
+// in CryptoIdea.jsx). The downgrade trim and live enforcement BOTH read admin-
+// configured plans (`site.plans`) first with these as the fallback (see limitsForTier).
 export const TIER_LIMITS = {
   free:    { ports: 1,  coins: 10,   tx: 50 },
   pro:     { ports: 3,  coins: 50,   tx: 2000 },
   premium: { ports: 15, coins: 1000, tx: 5000 },
 };
+
+// Hard ceilings a configured limit can never exceed — mirror firestore.rules
+// configuredLimit() hardMax (portfolios 100000, coins 1000, tx 1000000), so the
+// client trim and the server rules agree on the literal ceiling.
+const HARD_MAX = { ports: 100000, coins: 1000, tx: 1000000 };
+
+// Pure: the EFFECTIVE ceilings for a tier. Admin-configured plans (`plans[tier]`,
+// shape {portfolios, coins, transactions}) win over the built-in defaults, each
+// clamped to the product hard-max. The downgrade trim uses these so it keeps exactly
+// what the rules would allow — never silently deleting data an admin chose to permit
+// by raising a cap (the U10 bug: trimming to hardcoded defaults below the live limit).
+export function limitsForTier(toTier, plans) {
+  const def = TIER_LIMITS[toTier];
+  if (!def) return null;
+  const cfg = (plans && plans[toTier]) || {};
+  const pick = (key, d, hard) => Math.min(cfg[key] != null ? cfg[key] : d, hard);
+  return {
+    ports: pick("portfolios", def.ports, HARD_MAX.ports),
+    coins: pick("coins", def.coins, HARD_MAX.coins),
+    tx: pick("transactions", def.tx, HARD_MAX.tx),
+  };
+}
 
 // The shape a fully-trimmed (now-empty) account falls back to.
 const FALLBACK_PORTFOLIO = { id: "default", name: "My Portfolio", coins: [] };
@@ -57,7 +78,7 @@ export function dueDowngrade(subscription, now) {
 //   calcEndDate(billing)  -> ISO string : end of a new subscription's billing cycle
 //   getTrimImpact(toTier)               : how much data a downgrade would delete
 //   trimToTier(toTier)                  : apply the downgrade by trimming stored data
-export function useUpgrade({ portfolios, setPortfolios }) {
+export function useUpgrade({ portfolios, setPortfolios, plans = null }) {
   const calcEndDate = useCallback((billing) => {
     const d = new Date();
     if (billing === "yearly") d.setFullYear(d.getFullYear() + 1);
@@ -66,7 +87,7 @@ export function useUpgrade({ portfolios, setPortfolios }) {
   }, []);
 
   const getTrimImpact = useCallback((toTier) => {
-    const lim = TIER_LIMITS[toTier];
+    const lim = limitsForTier(toTier, plans);
     if (!lim) return null;
     const portsToDelete = Math.max(0, portfolios.length - lim.ports);
     let coinsToDelete = 0, txToDelete = 0;
@@ -82,13 +103,13 @@ export function useUpgrade({ portfolios, setPortfolios }) {
       p.coins.forEach(coin => { coinsToDelete++; txToDelete += (coin.entries?.length || 0); });
     });
     return { portsToDelete, coinsToDelete, txToDelete };
-  }, [portfolios]);
+  }, [portfolios, plans]);
 
   const trimToTier = useCallback((toTier) => {
-    const lim = TIER_LIMITS[toTier];
+    const lim = limitsForTier(toTier, plans);
     if (!lim) return;
     setPortfolios(prev => trimPortfolios(prev, lim));
-  }, [setPortfolios]);
+  }, [setPortfolios, plans]);
 
   return { calcEndDate, getTrimImpact, trimToTier };
 }
