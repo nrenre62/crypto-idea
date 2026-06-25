@@ -266,6 +266,11 @@
 .ci-app .consent-row input { width:17px; height:17px; margin:0; flex:0 0 auto; accent-color:var(--accent); cursor:pointer; }
 .ci-app .consent-row a { color:var(--accent); font-weight:600; }
 .ci-app .consent-opt { color:var(--ink-faint); }
+/* Email-verify nudge banner (non-blocking) — USER-CREATION.md §5 */
+.ci-app .verify-banner { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 14px 0; padding:10px 14px; background:#FFF8E1; border:1px solid #FFE082; border-radius:12px; font-size:12.5px; color:#92400E; line-height:1.4; }
+.ci-app .vb-actions { display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+.ci-app .vb-resend { border:0; background:var(--accent); color:#fff; font-size:12px; font-weight:600; padding:6px 12px; border-radius:9px; cursor:pointer; }
+.ci-app .vb-x { border:0; background:transparent; color:#92400E; font-size:14px; cursor:pointer; padding:4px 6px; line-height:1; }
 .ci-app .auth-h { font-family:var(--display); font-size:27px; font-weight:500; letter-spacing:-.01em; margin-bottom:4px; text-align:center; }
 .ci-app .auth-h span { font-weight:700; }
 .ci-app .auth-sub { font-size:14px; color:var(--ink-soft); margin-bottom:24px; text-align:center; }

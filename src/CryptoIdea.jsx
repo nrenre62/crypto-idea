@@ -18,7 +18,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
-import { registerUser, loginUser, logoutUser, resetPassword, CONSENT_VERSION } from "./api/firebase-auth.js";
+import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, CONSENT_VERSION } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
@@ -224,6 +224,14 @@ export default function CryptoIdea(){
   const [acctBusy,setAcctBusy]=useState(false);
   const [acctMsg,setAcctMsg]=useState("");
   const [delConfirm,setDelConfirm]=useState(false);
+  // Email-verify nudge (USER-CREATION.md §5): dismissible banner + resend.
+  const [verifyDismissed,setVerifyDismissed]=useState(false);
+  const [verifyMsg,setVerifyMsg]=useState("");
+  const resendVerification=async()=>{
+    setVerifyMsg("Sending…");
+    const res=await verifyEmail();
+    setVerifyMsg(res.success?"Verification email sent ✓":(res.error||"Couldn't send — try again"));
+  };
   const downloadMyData=async()=>{
     setAcctBusy(true);setAcctMsg("");
     try{
@@ -539,6 +547,15 @@ export default function CryptoIdea(){
     {/* A soft-deleted (trashed) user sees only the restore screen — never the app. */}
     {user?.deleted&&screen!=="login"&&screen!=="loading"?<RestoreAccount/>:<>
     <div className={"ci-app app-shell"+(WIDE_SCREENS.has(screen)?" app-shell-wide":NARROW_SCREENS.has(screen)?" app-shell-narrow":"")}>
+    {user&&user.emailVerified===false&&!verifyDismissed&&!["login","loading","forgotPass","contact"].includes(screen)&&(
+      <div className="verify-banner" role="status">
+        <span className="vb-text">📧 Verify your email to secure your account.{verifyMsg?" "+verifyMsg:""}</span>
+        <span className="vb-actions">
+          <button className="vb-resend" onClick={resendVerification}>Resend</button>
+          <button className="vb-x" aria-label="Dismiss" onClick={()=>setVerifyDismissed(true)}>✕</button>
+        </span>
+      </div>
+    )}
     {screen==="account"&&<Account/>}
     {screen==="portfolio"&&<Portfolio/>}
     {screen==="search"&&<Search/>}

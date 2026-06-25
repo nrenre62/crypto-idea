@@ -68,6 +68,9 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
           uid: fbUser.uid,
           email: fbUser.email,
           name: fbUser.displayName || profile.name || (fbUser.email ? fbUser.email.split("@")[0] : ""),
+          // Mailbox-ownership flag (fresh from Auth, not the cache) — drives the
+          // "verify your email" nudge. Sensitive ops are gated server-side, not here.
+          emailVerified: fbUser.emailVerified === true,
         };
         await loadPortfolios(fbUser.uid);
         // Apply any subscription expiry / payment-failure downgrade before showing.
