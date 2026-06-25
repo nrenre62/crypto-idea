@@ -15,6 +15,11 @@ import {
 import { doc, setDoc, getDoc, updateDoc, writeBatch, increment } from "firebase/firestore";
 
 const PROJECT_ID = "demo-crypto-idea";
+// Follow whatever port the emulator actually bound. `firebase emulators:exec` sets
+// FIRESTORE_EMULATOR_HOST for the child process, so this adapts when the default 8080
+// is busy (e.g. a full `start:all` is already running) and the suite is pointed at an
+// isolated emulator on another port. Falls back to the standard 8080.
+const [EMU_HOST, EMU_PORT] = (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080").split(":");
 let testEnv;
 
 before(async () => {
@@ -22,8 +27,8 @@ before(async () => {
     projectId: PROJECT_ID,
     firestore: {
       rules: readFileSync("firestore.rules", "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
+      host: EMU_HOST,
+      port: Number(EMU_PORT),
     },
   });
 });
@@ -56,17 +61,25 @@ test("a user can read their own profile, a stranger cannot", async () => {
   await assertFails(getDoc(doc(bobDb(), "users", "alice")));
 });
 
-test("creating your profile requires free tier + zero portfolioCount", async () => {
+test("creating your profile requires free tier + zero portfolioCount + a valid name", async () => {
   await assertSucceeds(
-    setDoc(doc(aliceDb(), "users", "alice"), { tier: "free", portfolioCount: 0 })
+    setDoc(doc(aliceDb(), "users", "alice"), { name: "Alice", tier: "free", portfolioCount: 0 })
   );
   // Wrong uid
   await assertFails(
-    setDoc(doc(aliceDb(), "users", "someone-else"), { tier: "free", portfolioCount: 0 })
+    setDoc(doc(aliceDb(), "users", "someone-else"), { name: "Alice", tier: "free", portfolioCount: 0 })
   );
   // Trying to start as pro
   await assertFails(
-    setDoc(doc(bobDb(), "users", "bob"), { tier: "pro", portfolioCount: 0 })
+    setDoc(doc(bobDb(), "users", "bob"), { name: "Bob", tier: "pro", portfolioCount: 0 })
+  );
+  // Missing name -> rejected by validUserData (no nameless accounts)
+  await assertFails(
+    setDoc(doc(carolDb(), "users", "carol"), { tier: "free", portfolioCount: 0 })
+  );
+  // Too-short name (< 2 chars) -> rejected
+  await assertFails(
+    setDoc(doc(carolDb(), "users", "carol"), { name: "A", tier: "free", portfolioCount: 0 })
   );
 });
 
@@ -86,6 +99,67 @@ test("a user cannot set the soft-delete fields (server-only); an admin can", asy
   // be able to trash or un-trash their own doc directly.
   await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { deleted: true, deletedAt: 1 }));
   await assertSucceeds(updateDoc(doc(adminDb(), "users", "alice"), { deleted: true, deletedAt: 1 }));
+});
+
+test("user profile shape on create: validUserData / validConsent / validSettings (U1)", async () => {
+  const goodConsent = {
+    termsVersion: "2026-06-24", termsAcceptedAt: "2026-06-24T10:00:00.000Z",
+    privacyVersion: "2026-06-24", privacyAcceptedAt: "2026-06-24T10:00:00.000Z",
+  };
+  const goodSettings = {
+    theme: "dark", currency: "usd", emailDigest: false,
+    emailMarketing: true, consentAnalytics: false, updatedAt: "2026-06-24T10:00:00.000Z",
+  };
+  // A full, valid signup doc (name + consent record + settings map) is accepted.
+  await assertSucceeds(
+    setDoc(doc(aliceDb(), "users", "alice"),
+      { name: "Ada Lovelace", email: "ada@example.com", tier: "free", portfolioCount: 0, consent: goodConsent, settings: goodSettings })
+  );
+  // Oversized name (> 50) -> rejected by validUserData
+  await assertFails(
+    setDoc(doc(bobDb(), "users", "bob"), { name: "x".repeat(51), tier: "free", portfolioCount: 0 })
+  );
+  // Unknown key inside settings -> rejected (hasOnly closes the shape)
+  await assertFails(
+    setDoc(doc(bobDb(), "users", "bob"), { name: "Bob", tier: "free", portfolioCount: 0, settings: { ...goodSettings, hacker: true } })
+  );
+  // Bad theme enum -> rejected
+  await assertFails(
+    setDoc(doc(bobDb(), "users", "bob"), { name: "Bob", tier: "free", portfolioCount: 0, settings: { ...goodSettings, theme: "neon" } })
+  );
+  // Non-bool notification toggle -> rejected
+  await assertFails(
+    setDoc(doc(bobDb(), "users", "bob"), { name: "Bob", tier: "free", portfolioCount: 0, settings: { ...goodSettings, emailDigest: "yes" } })
+  );
+  // Unknown key inside consent -> rejected (hasOnly)
+  await assertFails(
+    setDoc(doc(bobDb(), "users", "bob"), { name: "Bob", tier: "free", portfolioCount: 0, consent: { ...goodConsent, extra: "x" } })
+  );
+});
+
+test("user profile update: owner edits name/settings within shape, never premiumLimits (U1)", async () => {
+  const goodSettings = {
+    theme: "light", currency: "usd", emailDigest: false,
+    emailMarketing: false, consentAnalytics: false, updatedAt: "2026-06-24T10:00:00.000Z",
+  };
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"),
+      { name: "Ada", tier: "free", portfolioCount: 0, settings: goodSettings });
+  });
+  const db = aliceDb();
+  // Auto-saving a valid settings change (e.g. toggling dark mode) is allowed.
+  await assertSucceeds(updateDoc(doc(db, "users", "alice"),
+    { settings: { ...goodSettings, theme: "dark", updatedAt: "2026-06-25T00:00:00.000Z" } }));
+  // Editing the display name within bounds is allowed.
+  await assertSucceeds(updateDoc(doc(db, "users", "alice"), { name: "Ada L." }));
+  // Oversized name on update -> rejected.
+  await assertFails(updateDoc(doc(db, "users", "alice"), { name: "x".repeat(51) }));
+  // Settings with an unknown key on update -> rejected.
+  await assertFails(updateDoc(doc(db, "users", "alice"), { settings: { ...goodSettings, hacker: true } }));
+  // Owner CANNOT write the admin-only premiumLimits override (S8, server-authoritative).
+  await assertFails(updateDoc(doc(db, "users", "alice"), { premiumLimits: { coins: 99999 } }));
+  // An admin CAN set premiumLimits.
+  await assertSucceeds(updateDoc(doc(adminDb(), "users", "alice"), { premiumLimits: { coins: 800 } }));
 });
 
 test("an admin (custom claim) can read another user's profile", async () => {

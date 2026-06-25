@@ -89,21 +89,32 @@ service cloud.firestore {
 
       allow read: if isOwner(userId) || isAdmin();
 
-      // Create yourself, on the free tier, with a zeroed portfolio counter
+      // Create yourself, on the free tier, with a zeroed portfolio counter.
+      // The profile shape is validated: name is required + bounded (validUserData),
+      // and the optional consent record + preferences/settings map are shape-checked
+      // when present (USER-CREATION.md §4, USER-SETTINGS.md §4).
       allow create: if isOwner(userId)
                     && request.resource.data.tier == 'free'
-                    && request.resource.data.get('portfolioCount', 0) == 0;
+                    && request.resource.data.get('portfolioCount', 0) == 0
+                    && validUserData(request.resource.data)
+                    && (!('consent'  in request.resource.data) || validConsent(request.resource.data.consent))
+                    && (!('settings' in request.resource.data) || validSettings(request.resource.data.settings));
 
       // Admins can change anything (e.g. grant a paid tier after payment).
-      // Owners may update their profile but NOT 'tier'/'joined', and not the
-      // soft-delete fields 'deleted'/'deletedAt' (set server-side only, so a user
-      // can't self-trash or un-trash outside the deleteMyAccount/restore callables).
-      // They may only nudge portfolioCount by ±1 (kept in sync with portfolio create/delete).
+      // Owners may update their profile but NOT the server-authoritative fields
+      // 'tier'/'joined', the soft-delete fields 'deleted'/'deletedAt', or the admin-set
+      // 'premiumLimits' override (all set server-side only, so a user can't self-trash,
+      // self-promote, or raise their own custom limits outside the Admin-SDK callables).
+      // They may only nudge portfolioCount by ±1 (kept in sync with portfolio create/
+      // delete), and any name/settings/consent they DO write must keep the closed shape.
       allow update: if isAdmin() || (
                       isOwner(userId)
                       && !request.resource.data.diff(resource.data)
-                            .affectedKeys().hasAny(['tier', 'joined', 'deleted', 'deletedAt'])
+                            .affectedKeys().hasAny(['tier', 'joined', 'deleted', 'deletedAt', 'premiumLimits'])
                       && counterDeltaOk('portfolioCount')
+                      && (!('name'     in request.resource.data) || validUserData(request.resource.data))
+                      && (!('settings' in request.resource.data) || validSettings(request.resource.data.settings))
+                      && (!('consent'  in request.resource.data) || validConsent(request.resource.data.consent))
                     );
 
       allow delete: if isAdmin();
@@ -184,6 +195,41 @@ service cloud.firestore {
     }
 
     // ═══ Validation Functions ═══
+
+    // ── User profile shape (USER-CREATION.md §4 / USER-SETTINGS.md §4–§5) ──
+    // Closed, typed, size-capped so an owner can't smuggle a 1,000-char name or an
+    // arbitrary settings blob. Privileged fields (tier/joined/deleted*/premiumLimits)
+    // are blocked separately in the users update rule, not here.
+    function validUserData(d) {
+      return d.name is string && d.name.size() >= 2 && d.name.size() <= 50;
+    }
+
+    // Mandatory acceptances captured at signup (Terms + Privacy) — a RECORD, not a
+    // withdrawable toggle. Withdrawable marketing/analytics consents live in settings.
+    function validConsent(c) {
+      return c is map
+             && c.keys().hasOnly(['termsVersion', 'termsAcceptedAt', 'privacyVersion', 'privacyAcceptedAt'])
+             && c.termsVersion is string && c.termsVersion.size() <= 20
+             && c.termsAcceptedAt is string && c.termsAcceptedAt.size() <= 40
+             && c.privacyVersion is string && c.privacyVersion.size() <= 20
+             && c.privacyAcceptedAt is string && c.privacyAcceptedAt.size() <= 40;
+    }
+
+    // Owner-writable preferences + withdrawable consents — one closed, typed map (the
+    // validLearnProgress discipline). 'theme' is wired (dark mode); 'currency' is
+    // validated but its display-formatting is deferred. Each key is optional but,
+    // when present, must match its type/enum; hasOnly blocks any unknown key.
+    // Transactional email (security/payment) has no toggle — it always sends.
+    function validSettings(s) {
+      return s is map
+             && s.keys().hasOnly(['theme', 'currency', 'emailDigest', 'emailMarketing', 'consentAnalytics', 'updatedAt'])
+             && (!('theme' in s)            || s.theme in ['light', 'dark', 'system'])
+             && (!('currency' in s)         || (s.currency is string && s.currency.size() <= 8))
+             && (!('emailDigest' in s)      || s.emailDigest is bool)
+             && (!('emailMarketing' in s)   || s.emailMarketing is bool)
+             && (!('consentAnalytics' in s) || s.consentAnalytics is bool)
+             && (!('updatedAt' in s)        || (s.updatedAt is string && s.updatedAt.size() <= 40));
+    }
 
     function validPortfolioData() {
       let data = request.resource.data;
