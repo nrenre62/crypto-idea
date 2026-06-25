@@ -469,7 +469,11 @@ export default function CryptoIdea(){
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site};
-  return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:430,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
+  // Responsive shell: tab screens render inside a centered column (.app-shell) that
+  // widens on desktop. Card-collection screens opt into the wider 1040px track as
+  // their grids land (§R). Same markup mobile↔desktop — no @media needed.
+  const WIDE_SCREENS=new Set([]);
+  return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:c.bg,color:c.txt,minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {/* Floating toast: fixed so a limit/error message is always visible, even when the action
         (e.g. "Add portfolio" on the scrolled Account screen) is far below the top of the page. */}
     {err&&<div role="alert" style={{position:"fixed",top:10,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:398,padding:"12px 16px",background:"#FFF0F0",color:c.red,borderRadius:12,fontSize:13,fontWeight:600,border:"1px solid #FFD0D0",boxShadow:"0 6px 24px rgba(0,0,0,0.15)",zIndex:9500,textAlign:"center"}}>{err}</div>}
@@ -524,6 +528,7 @@ export default function CryptoIdea(){
     })()}
     {/* A soft-deleted (trashed) user sees only the restore screen — never the app. */}
     {user?.deleted&&screen!=="login"&&screen!=="loading"?<RestoreAccount/>:<>
+    <div className={"ci-app app-shell"+(WIDE_SCREENS.has(screen)?" app-shell-wide":"")}>
     {screen==="account"&&<Account/>}
     {screen==="portfolio"&&<Portfolio/>}
     {screen==="search"&&<Search/>}
@@ -533,6 +538,7 @@ export default function CryptoIdea(){
     {screen==="research"&&<Research/>}
     {screen==="journal"&&<Journal/>}
     {screen==="learn"&&<Learn/>}
+    </div>
     {screen!=="login"&&screen!=="loading"&&screen!=="forgotPass"&&screen!=="contact"&&(
       <nav className="ci-app tabbar">
         {[

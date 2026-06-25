@@ -32,6 +32,16 @@
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }
 
+/* ── Responsive shell ─────────────────────────────────────
+   Tab screens render inside this centered column. It stays a comfortable
+   single-column width by default and widens to the admin 1040px track for
+   card-grid screens (.app-shell-wide). Same markup on mobile (full width)
+   and desktop — no @media needed; max-width + margin auto do the reflow.
+   NOTE: compound selector — ci-app + app-shell sit on the SAME element. */
+.ci-app.app-shell { max-width:720px; margin:0 auto; }
+.ci-app.app-shell.app-shell-wide { max-width:1040px; }
+.ci-app .grid-auto { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; align-items:start; }
+
 /* ── Shared layout primitives ─────────────────────────── */
 .ci-app .pad { padding:0 18px; }
 .ci-app .apphead { padding:14px 18px; display:flex; align-items:flex-start; justify-content:space-between; }
