@@ -274,6 +274,26 @@ Only the built `dist/` folder reaches the browser. **No backend code or secret e
 
 The only config in the bundle is the **public** Firebase web config (`VITE_FIREBASE_*`) — safe by design; security is enforced by the rules, not by hiding it.
 
+# Responsive layout (mobile + desktop)
+
+The user app is **one responsive layout** — the same markup works on a phone and a desktop, with
+**no `@media` queries and no separate desktop build**. Tab screens render inside a centered
+`.app-shell` (`src/styles/app.css`) whose width adapts per screen:
+
+| Track | Max width | Screens |
+|-------|-----------|---------|
+| default | 720px | Portfolio, Search, Account |
+| narrow | 560px | Detail, AddEntry, CoinInfo (+ Contact) — forms/detail read better tighter |
+| wide | 1040px | reserved for future full-width grids (built, currently unused) |
+
+Homogeneous **card lists reflow into columns** via the reusable `.grid-auto` utility
+(`repeat(auto-fit, minmax(280px,1fr))`): **Learn** modules, **Journal** thesis entries, and
+**Research** coin cards go **1-up on mobile → 2-up on desktop → 3-up on very wide screens**,
+automatically. Rows (Portfolio/Search) and forms stay single-column — gridding them would change the
+design, so they don't; nothing is restyled. The bottom tab bar stays a centered pill on desktop.
+See [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) for the as-built detail and the reusable
+`responsive-app` method.
+
 # Pages & routes
 
 Multi-page app (Vite build + Firebase Hosting rewrites):
@@ -290,7 +310,7 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 ### Research tab (AI insights)
 
 One of the app's five bottom-nav tabs (**Portfolio · Research · Journal · Learn · Search**) is a self-contained feature in
-`src/features/research/`. (The Journal/thesis tab is wired — a thesis persists on the coin doc; Learn is still a design-only shell — see the design-system note below.) Three sub-views: **Overview** (daily brief, Portfolio Pulse, allocation,
+`src/features/research/`. (The Journal/thesis and Learn tabs are both wired — Journal persists a thesis on the coin doc; Learn has real XP/levels + quiz-gated progress.) Three sub-views: **Overview** (daily brief, Portfolio Pulse, allocation,
 risk meter, stress test), **Coins** (per-holding cards with a 7-day sparkline + cost/now/P&L), and
 **Ask** (chat about your holdings). It reads your **real** active portfolio and reuses the app's
 existing `/api` proxy only — current price + 24h from live prices, and 7d/30d change + sparkline
