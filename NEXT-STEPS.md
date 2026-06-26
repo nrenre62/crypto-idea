@@ -474,7 +474,7 @@ mobile↔desktop, no `@media`, no new deps), **design unchanged**. As-built deta
   (not tiled); only homogeneous card lists gridded. Each phase: build + 217/217 unit green + browser-probed
   (grids reflow 1→2→3 cols by width, collapse to 1 on mobile).
 
-## D. Design revamp — match the canonical Portfolio mockup  (PLANNED)
+## D. Design revamp — match the canonical Portfolio mockup  (BUILT 2026-06-26)
 
 Founder-approved mockup (desktop + mobile) is the canonical visual target. Full plan, current→target
 deltas, and phases live in [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md). Headline change: Portfolio value →
@@ -518,8 +518,12 @@ settings/words/functions unless §7 says otherwise.
   (thesis feeds the AI); **"Needs a thesis" section + add-thesis-later** via a new `addThesis` handler →
   `updateCoinJournal` (no schema change). 248/248 unit green; browser-verified (write a thesis → coin moves
   needs→theses).
-- [ ] **D-8** Research/Coins **desktop-only richer card** (cost·now·P&L·30d + full conviction + catalysts +
-  bigger sparkline; mobile stays compact) **+ verify Portfolio→Research auto-sync & view-only** — **NEXT**.
+- [x] **D-8** Research/Coins **desktop-only richer card** (commit `bd034b5`): cost·now·P&L·**30d** + full
+  conviction always visible + bigger sparkline, shown by default on desktop (no tap); mobile stays
+  compact. Verified Portfolio→Research auto-sync (a new holding surfaced the coin) and view-only (no
+  delete). 248/248 unit green.
+
+**§D Design revamp — COMPLETE (2026-06-26).** D-1…D-8 shipped; all founder-review items (§7) addressed.
 
 (See [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) §3 for per-phase scope + DoD, §4 for the interaction decision, §7 for the founder review.)
 

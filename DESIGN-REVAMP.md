@@ -1,8 +1,10 @@
 # Crypto Idea — Design Revamp Plan (match the canonical mockup)
 
-**Status: PLANNED** (written 2026-06-25). This is the implementation plan to align the whole app —
-desktop **and** mobile — to the approved Portfolio mockup (the realized design from our earlier
-product/design interviews). No code has changed yet; this doc is the build spec.
+**Status: BUILT (2026-06-26).** Phases D-1…D-8 shipped — the whole app (desktop **and** mobile) now
+matches the approved Portfolio mockup and all founder-review items in §7. Commits: D-1 `455f17c` ·
+D-2 `335a1b9` · D-3 `cba5b2b` · D-4 `c4b36f0` · D-5 `72bc52c`/`4b4b1d1` · D-6 `7842975` ·
+D-7 `8cc0223` · D-8 `bd034b5`. Each was TDD-guarded, browser-verified (light + dark), and committed;
+248/248 unit green. This doc remains the spec/record.
 
 > **Source of truth:** the two mockup screens (desktop + mobile **Portfolio**). The rounded
 > browser-window frame (desktop) and phone frame (mobile) in the mockups are *presentation only* —
