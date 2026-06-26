@@ -16,10 +16,13 @@ import { CI } from "./ui.jsx";
  * presentation-only. Scoped under .ci-app.
  */
 const STATUS = {
-  intact:     { cls: "j-intact",     label: "Thesis intact",     dot: "🟢" },
-  review:     { cls: "j-review",     label: "Review signals",    dot: "🟡" },
-  challenged: { cls: "j-challenged", label: "Thesis challenged", dot: "🔴" },
+  intact:     { cls: "j-intact",     label: "Intact",     dot: "🟢" },
+  review:     { cls: "j-review",     label: "Review",     dot: "🟡" },
+  challenged: { cls: "j-challenged", label: "Challenged", dot: "🔴" },
 };
+
+// One honest line: the journal is private to the user, AND the thesis feeds the AI.
+const JOURNAL_NOTE = "Only you can see your journal. Your thesis helps the AI give you better Research & Ask answers.";
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -93,16 +96,84 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onClose }) {
   );
 }
 
-export function Journal() {
-  const { portfolio, setScreen, reviewThesis, saveFunnel } = useApp();
-  const [openCoin, setOpenCoin] = useState(null);
+// Add-thesis overlay for a coin added without one (Journal "Needs a thesis"). Editable
+// thesis + change-my-mind + the manual-research funnel; on save it writes the full
+// journal via the addThesis handler (→ updateCoinJournal). Mirrors the Buy-Journal prompt.
+function AddThesis({ coin, onSave, onClose }) {
+  const [thesis, setThesis] = useState("");
+  const [changeMind, setChangeMind] = useState("");
+  const [funnel, setFunnel] = useState({});
+  const [busy, setBusy] = useState(false);
+  const setF = (k, v) => setFunnel((p) => ({ ...p, [k]: v }));
+  const save = async () => {
+    setBusy(true);
+    const ok = await onSave({ thesis, changeMyMind: changeMind, funnel });
+    setBusy(false);
+    if (ok) onClose();
+  };
+  return (
+    <div className="ci-app overlay">
+      <div className="overlay-head">
+        <div className="back-btn" onClick={onClose}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
+        </div>
+        <div className="overlay-head-title">Add your thesis</div>
+      </div>
+      <div className="overlay-body">
+        <div className="bj-callout">
+          <div className="bjc-label">Write it down while the conviction is fresh</div>
+          <div className="bjc-text">Your thesis lives with this coin and powers your Research &amp; Ask. When the market drops, you'll know exactly why you bought — and whether that reason still holds.</div>
+        </div>
+        <div className="bj-coin-head">
+          <CI thumb={coin.thumb} symbol={coin.symbol} size={40} />
+          <div>
+            <div className="bj-coin-name">{coin.name}</div>
+            <div className="bj-coin-price">{coin.symbol}</div>
+          </div>
+        </div>
+        <div className="journal-q">
+          <div className="q-label">Why are you buying this?</div>
+          <div className="q-sub">What makes you believe in this project? What's the fundamental case?</div>
+          <textarea value={thesis} onChange={(e) => setThesis(e.target.value)} placeholder="e.g. active GitHub, founder talks publicly, real revenue, upcoming catalyst..." />
+        </div>
+        <div className="journal-q">
+          <div className="q-label">What would change your mind?</div>
+          <div className="q-sub">What signal would tell you your thesis is wrong?</div>
+          <textarea value={changeMind} onChange={(e) => setChangeMind(e.target.value)} placeholder="e.g. GitHub goes quiet, founder departs, unlock event overwhelms demand..." />
+        </div>
+        <div className="journal-q" style={{ marginBottom: 10 }}>
+          <div className="q-label">Manual research findings (optional)</div>
+          <div className="q-sub">{FUNNEL_BRIDGE}</div>
+        </div>
+        {FUNNEL_FIELDS.map((field) => (
+          <div className="journal-q" key={field.key}>
+            <div className="q-label">{field.label}</div>
+            <div className="q-sub">{field.sub}</div>
+            <textarea value={funnel[field.key] || ""} onChange={(e) => setF(field.key, e.target.value)} placeholder={field.placeholder} />
+          </div>
+        ))}
+        <button className="btn-primary ov-btn-gap" disabled={busy || (!thesis.trim() && !changeMind.trim())} onClick={save}>{busy ? "Saving…" : "Save thesis"}</button>
+        <button className="btn-ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
 
+export function Journal() {
+  const { portfolio, setScreen, reviewThesis, saveFunnel, addThesis } = useApp();
+  const [openCoin, setOpenCoin] = useState(null);
+  const [addCoinId, setAddCoinId] = useState(null);
+
+  const hasJournal = (c) => c.journal && (c.journal.thesis || c.journal.changeMyMind || c.journal.funnel);
   const entries = portfolio
-    .filter((c) => c.journal && (c.journal.thesis || c.journal.changeMyMind || c.journal.funnel))
+    .filter(hasJournal)
     .sort((a, b) => new Date(b.journal.createdAt || 0) - new Date(a.journal.createdAt || 0));
+  // Coins added without a thesis — surfaced so the user can write one any time.
+  const needs = portfolio.filter((c) => !hasJournal(c));
 
   // Re-read the open coin from live state so a review decision reflects immediately.
   const detail = openCoin ? portfolio.find((c) => c.id === openCoin) : null;
+  const addTarget = addCoinId ? portfolio.find((c) => c.id === addCoinId) : null;
 
   const decide = (status) => { reviewThesis(openCoin, status); setOpenCoin(null); };
 
@@ -118,7 +189,7 @@ export function Journal() {
       </div>
 
       <div className="pad">
-        {entries.length === 0 ? (
+        {portfolio.length === 0 ? (
           <>
             <div className="empty-state">
               <div className="empty-ic">📓</div>
@@ -134,29 +205,54 @@ export function Journal() {
                 Add your first coin →
               </button>
             </div>
-            <div className="disclaimer">Your journal entries are private to your account.</div>
+            <div className="disclaimer">{JOURNAL_NOTE}</div>
           </>
         ) : (
           <>
-            <div className="grid-auto j-grid">
-            {entries.map((c) => {
-              const st = STATUS[c.journal.status] || STATUS.intact;
-              return (
-                <div key={c.id} className="j-entry" onClick={() => setOpenCoin(c.id)}>
-                  <div className="j-top">
+            {needs.length > 0 && (
+              <div className="nt-sec">
+                <div className="sec-label"><h2>Needs a thesis ({needs.length})</h2></div>
+                {needs.map((c) => (
+                  <div key={c.id} className="nt-row">
                     <CI thumb={c.thumb} symbol={c.symbol} size={36} />
-                    <div>
-                      <div className="j-coin">{c.name}</div>
-                      <div className="j-date">Added {fmtDate(c.journal.createdAt)}</div>
+                    <div className="nt-id">
+                      <div className="nt-name">{c.name}</div>
+                      <div className="nt-sym">{c.symbol}</div>
                     </div>
+                    <button className="nt-btn" onClick={() => setAddCoinId(c.id)}>Add thesis</button>
                   </div>
-                  <div className="j-excerpt">{excerptOf(c.journal)}</div>
-                  <div className={"j-status " + st.cls}>{st.dot} {st.label}</div>
+                ))}
+              </div>
+            )}
+
+            {entries.length > 0 ? (
+              <>
+                {needs.length > 0 && <div className="sec-label"><h2>Your theses ({entries.length})</h2></div>}
+                <div className="grid-auto j-grid">
+                {entries.map((c) => {
+                  const st = STATUS[c.journal.status] || STATUS.intact;
+                  return (
+                    <div key={c.id} className="j-entry" onClick={() => setOpenCoin(c.id)}>
+                      <div className="j-top">
+                        <CI thumb={c.thumb} symbol={c.symbol} size={36} />
+                        <div>
+                          <div className="j-coin">{c.name}</div>
+                          <div className="j-date">Added {fmtDate(c.journal.createdAt)}</div>
+                        </div>
+                      </div>
+                      <div className="j-excerpt">{excerptOf(c.journal)}</div>
+                      <div className={"j-status " + st.cls}>{st.dot} {st.label}</div>
+                    </div>
+                  );
+                })}
                 </div>
-              );
-            })}
-            </div>
-            <div className="disclaimer">Your journal entries are private to your account.</div>
+              </>
+            ) : (
+              <div className="empty-p" style={{ textAlign: "center", padding: "20px 24px" }}>
+                No theses yet — tap “Add thesis” above to start your journal.
+              </div>
+            )}
+            <div className="disclaimer">{JOURNAL_NOTE}</div>
           </>
         )}
       </div>
@@ -168,6 +264,14 @@ export function Journal() {
           onReview={decide}
           onSaveFunnel={(funnel) => saveFunnel(openCoin, funnel)}
           onClose={() => setOpenCoin(null)}
+        />
+      )}
+      {addTarget && (
+        <AddThesis
+          key={addTarget.id}
+          coin={addTarget}
+          onSave={(input) => addThesis(addCoinId, input)}
+          onClose={() => setAddCoinId(null)}
         />
       )}
     </div>

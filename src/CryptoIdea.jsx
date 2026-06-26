@@ -435,6 +435,21 @@ export default function CryptoIdea(){
     const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
     if(!res.success){showErr("Couldn't save. Check your connection.");return false}
     setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));return true;};
+  // Write a thesis for a coin that was added without one (Journal "Needs a thesis").
+  // Builds the full journal object (same shape as the Buy-Journal prompt) and persists
+  // it via updateCoinJournal — no new collection/schema. Returns false (no-op) if the
+  // user typed nothing.
+  const addThesis=async(coinId,input)=>{
+    const coin=portfolio.find(x=>x.id===coinId);
+    if(!coin)return false;
+    if(!user?.uid){showErr("Please sign in again");return false}
+    const t=(input?.thesis||"").trim(),m=(input?.changeMyMind||"").trim();
+    const f=cleanFunnel(input?.funnel||{});
+    if(!t&&!m&&!f)return false;
+    const journal={thesis:t,changeMyMind:m,status:"intact",priceAtAdd:prices[coinId]?.usd||0,createdAt:new Date().toISOString(),...(f?{funnel:f}:{})};
+    const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
+    if(!res.success){showErr("Couldn't save. Check your connection.");return false}
+    setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));return true;};
   const remCoin=async(id)=>{
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbRemoveCoin(user.uid,activePortId,id);
@@ -542,7 +557,7 @@ export default function CryptoIdea(){
   // Shared state + handlers for extracted screens (grows as screens migrate).
   const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,handleReset,
     user,contactMsg,setContactMsg,contactSent,setContactSent,
-    sq,setSq,searchResults,portfolio,addCoin,reviewThesis,saveFunnel,
+    sq,setSq,searchResults,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
     infoCoin,setInfoCoin,prices,
     confirmDel,setConfirmDel,remCoin,remEntry,

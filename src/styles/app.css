@@ -124,6 +124,13 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 /* Responsive: thesis entries reflow to 2-up on desktop, 1-up on mobile (gap matches the 11px stack). */
 .ci-app .j-grid { gap:11px; }
 .ci-app .j-grid .j-entry { margin-bottom:0; }
+/* "Needs a thesis" — coins added without a thesis, each with an Add-thesis CTA. */
+.ci-app .nt-sec { margin-bottom:18px; }
+.ci-app .nt-row { display:flex; align-items:center; gap:11px; background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:11px 14px; margin-bottom:9px; box-shadow:var(--sh-sm); }
+.ci-app .nt-id { min-width:0; }
+.ci-app .nt-name { font-weight:700; font-size:14px; }
+.ci-app .nt-sym { font-size:11.5px; color:var(--ink-faint); margin-top:1px; }
+.ci-app .nt-btn { margin-left:auto; font-family:var(--body); font-size:12px; font-weight:700; color:var(--accent); background:var(--accent-soft); border:0; border-radius:999px; padding:7px 13px; cursor:pointer; white-space:nowrap; }
 
 /* ── Learn ────────────────────────────────────────────── */
 .ci-app .learn-hero { padding:14px 18px 18px; border-bottom:1px solid var(--line); }
