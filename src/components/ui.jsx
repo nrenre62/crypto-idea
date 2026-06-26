@@ -32,7 +32,16 @@ export function coinColor(symbol){
 }
 
 // Coin icon: shows the coin thumbnail, falling back to a colored uppercase monogram.
-export const CI=({thumb,symbol,size=38})=>{const[e,setE]=useState(false);const sym=(symbol||"").toUpperCase();const bg=coinColor(symbol);return(<div style={{width:size,height:size,borderRadius:size/2,background:thumb&&!e?c.inp:bg+"30",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.32,fontWeight:700,flexShrink:0,color:thumb&&!e?c.dim:bg,border:thumb&&!e?"none":`1.5px solid ${bg}30`}}>{thumb&&!e?<img src={thumb} alt="" style={{width:size,height:size}} onError={()=>setE(true)}/>:(sym||"?").slice(0,2)}</div>)};
+// The monogram passes its brand color via the --ci custom property and styles itself
+// through .ci-mono, so dark mode can lighten dark brand colors (ADA/XLM/TAO…) for
+// contrast (see app.css). The thumbnail path stays inline.
+export const CI=({thumb,symbol,size=38})=>{
+  const[e,setE]=useState(false);
+  const sym=(symbol||"").toUpperCase();
+  const px={width:size,height:size,borderRadius:size/2,fontSize:Math.round(size*0.32)};
+  if(thumb&&!e)return(<div style={{...px,background:c.inp,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><img src={thumb} alt="" style={{width:size,height:size}} onError={()=>setE(true)}/></div>);
+  return(<div className="ci-mono" style={{...px,"--ci":coinColor(symbol)}}>{(sym||"?").slice(0,2)}</div>);
+};
 
 // Screen header row: (left, title, right) -> JSX.
 export const hdr=(left,title,right)=>(<div style={{padding:"14px 18px 6px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>{left}<span style={{fontSize:17,fontWeight:600}}>{title}</span>{right||<div style={{width:24}}/>}</div>);

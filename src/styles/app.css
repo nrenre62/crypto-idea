@@ -11,7 +11,7 @@
  */
 .ci-app {
   --ink:#15140f; --ink-soft:#55534b; --ink-faint:#928f85;
-  --paper:#f8f7f3; --paper-2:#ffffff; --paper-3:#fcfbf8;
+  --paper:#f8f7f3; --paper-2:#ffffff; --paper-3:#fcfbf8; --bar-bg:rgba(248,247,243,.93);
   --line:#ece9e1; --line-2:rgba(21,20,15,.06); --line-strong:#ddd9cf;
   --accent:#0a6b4d; --accent-soft:#e9f2ed; --accent-ink:#07503a;
   --ai-1:#0a6b4d; --ai-2:#3f7df0; --warn:#bf4730; --amber:#b8841f;
@@ -41,7 +41,7 @@ html[data-theme="dark"] body { background:var(--app-bg); color:var(--app-fg); }
 html[data-theme="dark"] .ci-app,
 html[data-theme="dark"] .research-root {
   --ink:#ece9e1; --ink-soft:#b5b1a6; --ink-faint:#86837a;
-  --paper:#14130f; --paper-2:#1c1b17; --paper-3:#211f19;
+  --paper:#14130f; --paper-2:#1c1b17; --paper-3:#211f19; --bar-bg:rgba(20,19,15,.92);
   --line:#2c2a24; --line-2:rgba(236,233,225,.08); --line-strong:#3a382f;
   --accent-soft:rgba(31,157,85,.18); --accent-ink:#5cd6a6;
 }
@@ -71,6 +71,10 @@ html[data-theme="dark"] .research-root {
 /* BETA badge — matches the Research tab's .beta exactly */
 .ci-app .beta { font-family:var(--body); font-size:9.5px; font-weight:700; letter-spacing:.1em; color:var(--ai-2); background:rgba(63,125,240,.09); padding:3px 7px; border-radius:6px; position:relative; top:-2px; }
 .ci-app .avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(155deg,#26241d,#15140f); color:var(--paper); display:grid; place-items:center; font-weight:700; font-size:13px; flex:none; }
+/* Token monogram circle (the CI fallback). Brand color comes in via --ci; dark mode
+   lightens dark brand colors (ADA/XLM/TAO…) so the initials stay legible on dark paper. */
+.ci-app .ci-mono { display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; overflow:hidden; background:color-mix(in srgb, var(--ci) 18%, transparent); color:var(--ci); border:1.5px solid color-mix(in srgb, var(--ci) 32%, transparent); }
+html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52%, #fff); border-color:color-mix(in srgb, var(--ci) 42%, transparent); }
 .ci-app .card { background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); padding:18px; margin-bottom:16px; box-shadow:var(--sh-sm); }
 .ci-app .sec-label { display:flex; align-items:center; justify-content:space-between; margin:0 2px 12px; }
 .ci-app .sec-label h2 { font-size:11.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); }
@@ -88,7 +92,7 @@ html[data-theme="dark"] .research-root {
 
 /* ── Bottom tab bar (fixed; mirrors the app's centered max-width column) ─── */
 .ci-app.tabbar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; height:80px;
-  background:rgba(248,247,243,.93); backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
+  background:var(--bar-bg); backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
   border-top:1px solid var(--line-2); display:flex; align-items:center; justify-content:space-around; padding:0 4px 22px; z-index:100; }
 .ci-app .tb { display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink-faint); font-family:var(--body); font-size:9.5px; font-weight:600; letter-spacing:.02em; cursor:pointer; border:0; background:none; padding:4px 6px; border-radius:10px; min-width:52px; transition:color .2s var(--ease); }
 .ci-app .tb svg { width:22px; height:22px; }
@@ -204,7 +208,7 @@ html[data-theme="dark"] .research-root {
 .ci-app .up { color:var(--accent); }
 .ci-app .dn { color:var(--warn); }
 .ci-app .limit-banner { margin:0 18px 8px; padding:10px 14px; border-radius:10px; font-size:12px; font-weight:500; text-align:center; line-height:1.5; }
-.ci-app .limit-banner.warn { background:#fdf3e0; color:#876314; }
+.ci-app .limit-banner.warn { background:var(--sa-s); color:var(--amber); }
 .ci-app .limit-banner.over { background:var(--sr-s); color:var(--sr); }
 .ci-app .limit-banner a { font-weight:700; text-decoration:underline; cursor:pointer; }
 
@@ -249,7 +253,7 @@ html[data-theme="dark"] .research-root {
 .ci-app .kv-row.kv-sm .kv-k { font-size:11px; color:var(--ink-faint); }
 .ci-app .kv-row.kv-sm .kv-v { font-size:12px; font-weight:400; color:var(--ink-faint); }
 .ci-app .pnl-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 12px; border-radius:10px; margin-top:10px; background:var(--accent-soft); }
-.ci-app .pnl-row.dn { background:#fbede9; }
+.ci-app .pnl-row.dn { background:var(--sr-s); }
 .ci-app .pnl-row .pnl-label { font-size:13px; font-weight:600; color:var(--ink); }
 .ci-app .pnl-row .pnl-val { font-size:14px; font-weight:700; color:var(--accent-ink); }
 .ci-app .pnl-row.dn .pnl-val { color:var(--warn); }
