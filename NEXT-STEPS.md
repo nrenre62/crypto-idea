@@ -502,9 +502,10 @@ settings/words/functions unless §7 says otherwise.
 - [x] **D-2** assets → 3-up card grid + wide (1040) track + tinted % pills + dropped "held" word
   (commit `335a1b9`). Card tap → CoinInfo; Edit/Delete on Detail; swipe machinery removed. Reflow
   3/2/1 @1040/720/375 verified; 242/242 unit green.
-- [ ] **D-3** floating bottom-nav pill → **solid-white on desktop** (per screenshot) — **NEXT** · **D-4** token-circle
-  consistency · **D-5** Search/Detail/CoinInfo/AddEntry(keep date+time)/Account(keep all functions)/Login
-  new design · **D-6** dark-mode verification across all redesigned screens.
+- [x] **D-3** desktop bottom-nav → **solid-white floating pill** (commit `cba5b2b`); mobile bar unchanged;
+  min-width:760px override, token-driven (dark OK). Verified @1280/@375.
+- [ ] **D-4** token-circle consistency — **NEXT** · **D-5** Search/Detail/CoinInfo/AddEntry(keep date+time)/
+  Account(keep all functions)/Login new design · **D-6** dark-mode verification across all redesigned screens.
 - [ ] **D-7** Journal: new design + short labels + corrected note + **"Needs a thesis" section + Add-thesis-
   later** (reuses Buy-Journal prompt → `updateCoinJournal`; no schema change).
 - [ ] **D-8** Research/Coins **desktop-only richer card** (cost·now·P&L·30d + full conviction + catalysts +
