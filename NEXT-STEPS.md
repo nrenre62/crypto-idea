@@ -496,9 +496,10 @@ Journal note → "Only you can see your journal. Your thesis helps the AI give y
 answers."; **remove the "Prices updating live" line** (both widths). Guardrail: design-only — keep all
 settings/words/functions unless §7 says otherwise.
 
-- [ ] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster) **+ remove live line**.
-  — **NEXT** (start here; mockups are signed-off targets).
-- [ ] **D-2** assets → card grid + wide track + tinted % pills **+ drop "held" word**. Interaction
+- [x] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster) **+ removed live line**
+  (commit `455f17c`). New `portfolio24hPct` helper; `.value-card` flex (desktop-right / mobile-row); 240/240
+  unit green, build clean, browser-verified (incl. dark mode).
+- [ ] **D-2** assets → card grid + wide track + tinted % pills **+ drop "held" word**. — **NEXT**. Interaction
   **DECIDED**: card tap → CoinInfo; Edit/Delete on Detail; swipe retired (DESIGN-REVAMP.md §4).
 - [ ] **D-3** floating bottom-nav pill → **solid-white on desktop** (per screenshot) · **D-4** token-circle
   consistency · **D-5** Search/Detail/CoinInfo/AddEntry(keep date+time)/Account(keep all functions)/Login
