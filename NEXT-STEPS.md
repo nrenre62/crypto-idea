@@ -506,9 +506,12 @@ settings/words/functions unless §7 says otherwise.
   min-width:760px override, token-driven (dark OK). Verified @1280/@375.
 - [x] **D-4** token-circle consistency (commit `c4b36f0`): pure `coinColor()`, 6-digit guard (TAO bug fixed),
   case-insensitive, deterministic curated fallback + more coins. 245/245 unit green; browser-verified.
-- [ ] **D-5** Search/Detail/CoinInfo/AddEntry(keep date+time)/Account(keep all functions)/Login new design
-  — **NEXT** (design-only; keep settings/words/functions). · **D-6** dark-mode verification across all
-  redesigned screens.
+- [x] **D-5** consistency pass (design-only; settings/words/functions kept). **Search** — tinted % pill +
+  muted "Added" (`72bc52c`). **Detail + CoinInfo** — consolidated tinted `chg-pill`, price-history
+  `kv-chg` now a tinted pill, dedup CSS (`4b4b1d1`). **AddEntry / Account / Login** — already matched the
+  new design (no change): AddEntry keeps datetime-local (date+time); Account keeps every function; Login
+  keeps the inline `#FF3B30` error (browser-verified). 245/245 unit green; build clean.
+- [ ] **D-6** dark-mode verification across all redesigned screens — **NEXT**.
 - [ ] **D-7** Journal: new design + short labels + corrected note + **"Needs a thesis" section + Add-thesis-
   later** (reuses Buy-Journal prompt → `updateCoinJournal`; no schema change).
 - [ ] **D-8** Research/Coins **desktop-only richer card** (cost·now·P&L·30d + full conviction + catalysts +
