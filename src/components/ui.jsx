@@ -15,8 +15,24 @@ export const Ic={
     rsch:(a)=><svg width="21" height="21" fill="none" stroke={a?c.ac:c.dim} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>,
   };
 
-// Coin icon: shows the coin thumbnail, falling back to a colored monogram.
-export const CI=({thumb,symbol,size=38})=>{const[e,setE]=useState(false);const colors={"BTC":"#F7931A","ETH":"#627EEA","BNB":"#F3BA2F","SOL":"#9945FF","XRP":"#23292F","ADA":"#0D1E30","DOGE":"#C2A633","USDT":"#26A17B","USDC":"#2775CA","DOT":"#E6007A","AVAX":"#E84142","LINK":"#2A5ADA","UNI":"#FF007A","MATIC":"#8247E5","SHIB":"#FFA409","LTC":"#BFBBBB","ATOM":"#2E3148","NEAR":"#00C08B","TRX":"#FF0013","FTM":"#1969FF","INJ":"#00F2FE","SUI":"#4DA2FF","ARB":"#28A0F0","OP":"#FF0420","AAVE":"#B6509E","MKR":"#1AAB9B","TAO":"#000","PEPE":"#479F51"};const bg=colors[symbol]||"#"+((symbol||"XX").charCodeAt(0)*123456).toString(16).slice(0,6);return(<div style={{width:size,height:size,borderRadius:size/2,background:thumb&&!e?c.inp:bg+"30",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.32,fontWeight:700,flexShrink:0,color:thumb&&!e?c.dim:bg,border:thumb&&!e?"none":`1.5px solid ${bg}30`}}>{thumb&&!e?<img src={thumb} alt="" style={{width:size,height:size}} onError={()=>setE(true)}/>:(symbol||"?").slice(0,2)}</div>)};
+// Brand colors for the token monogram circles. ALL 6-digit hex so the "+30" alpha
+// tint (background + border) is always valid. Keyed by uppercase symbol.
+const COIN_COLORS={BTC:"#F7931A",ETH:"#627EEA",BNB:"#F3BA2F",SOL:"#9945FF",XRP:"#23292F",ADA:"#0D1E30",DOGE:"#C2A633",USDT:"#26A17B",USDC:"#2775CA",DOT:"#E6007A",AVAX:"#E84142",LINK:"#2A5ADA",UNI:"#FF007A",MATIC:"#8247E5",SHIB:"#FFA409",LTC:"#9F9F9F",ATOM:"#2E3148",NEAR:"#00C08B",TRX:"#E50914",FTM:"#1969FF",INJ:"#0AC2D6",SUI:"#4DA2FF",ARB:"#28A0F0",OP:"#FF0420",AAVE:"#B6509E",MKR:"#1AAB9B",TAO:"#1A1A1A",PEPE:"#479F51",XLM:"#1B1B1B",ETC:"#329C45",FIL:"#0090FF",HBAR:"#2A2A2A",VET:"#15BDFF",ALGO:"#1A1A1A",GRT:"#6F4CFF",RNDR:"#CF1E1E",IMX:"#0D9DE0",STX:"#5546FF"};
+// Curated fallback palette for long-tail coins — picked deterministically by a hash
+// of the FULL symbol, so a given coin always gets the same legible, distinct color
+// (the old fallback hashed only the first letter and could yield broken/duplicate hex).
+const COIN_FALLBACK=["#E8833A","#3F7DF0","#11B886","#8B5CF6","#E0467E","#0EA5A0","#D6A21E","#5B86C4","#C2553A","#7C6CF0","#2A9D8F","#C44569"];
+
+// Pure, testable: symbol -> 6-digit brand/fallback hex (case-insensitive).
+export function coinColor(symbol){
+  const s=(symbol||"").toUpperCase();
+  if(COIN_COLORS[s])return COIN_COLORS[s];
+  let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;
+  return COIN_FALLBACK[Math.abs(h)%COIN_FALLBACK.length];
+}
+
+// Coin icon: shows the coin thumbnail, falling back to a colored uppercase monogram.
+export const CI=({thumb,symbol,size=38})=>{const[e,setE]=useState(false);const sym=(symbol||"").toUpperCase();const bg=coinColor(symbol);return(<div style={{width:size,height:size,borderRadius:size/2,background:thumb&&!e?c.inp:bg+"30",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.32,fontWeight:700,flexShrink:0,color:thumb&&!e?c.dim:bg,border:thumb&&!e?"none":`1.5px solid ${bg}30`}}>{thumb&&!e?<img src={thumb} alt="" style={{width:size,height:size}} onError={()=>setE(true)}/>:(sym||"?").slice(0,2)}</div>)};
 
 // Screen header row: (left, title, right) -> JSX.
 export const hdr=(left,title,right)=>(<div style={{padding:"14px 18px 6px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>{left}<span style={{fontSize:17,fontWeight:600}}>{title}</span>{right||<div style={{width:24}}/>}</div>);
