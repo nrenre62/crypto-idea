@@ -511,11 +511,15 @@ settings/words/functions unless §7 says otherwise.
   `kv-chg` now a tinted pill, dedup CSS (`4b4b1d1`). **AddEntry / Account / Login** — already matched the
   new design (no change): AddEntry keeps datetime-local (date+time); Account keeps every function; Login
   keeps the inline `#FF3B30` error (browser-verified). 245/245 unit green; build clean.
-- [ ] **D-6** dark-mode verification across all redesigned screens — **NEXT**.
-- [ ] **D-7** Journal: new design + short labels + corrected note + **"Needs a thesis" section + Add-thesis-
-  later** (reuses Buy-Journal prompt → `updateCoinJournal`; no schema change).
+- [x] **D-6** dark-mode sweep (commit `7842975`): fixed token-circle contrast (color-mix via `--ci`),
+  the mobile nav bar (now `--bar-bg` theme var), and `pnl-row.dn`/`limit-banner.warn` hardcoded light
+  tints → tokens. Verified in browser.
+- [x] **D-7** Journal new design (commit `8cc0223`): short labels Intact/Review/Challenged; corrected note
+  (thesis feeds the AI); **"Needs a thesis" section + add-thesis-later** via a new `addThesis` handler →
+  `updateCoinJournal` (no schema change). 248/248 unit green; browser-verified (write a thesis → coin moves
+  needs→theses).
 - [ ] **D-8** Research/Coins **desktop-only richer card** (cost·now·P&L·30d + full conviction + catalysts +
-  bigger sparkline; mobile stays compact) **+ verify Portfolio→Research auto-sync & view-only**.
+  bigger sparkline; mobile stays compact) **+ verify Portfolio→Research auto-sync & view-only** — **NEXT**.
 
 (See [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) §3 for per-phase scope + DoD, §4 for the interaction decision, §7 for the founder review.)
 
