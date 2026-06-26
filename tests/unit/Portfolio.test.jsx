@@ -25,13 +25,30 @@ describe("Portfolio screen (extracted, via AppContext)", () => {
     expect(screen.getByText(/My Assets/)).toBeInTheDocument();
   });
 
-  it("renders a held coin with its value in the asset list", () => {
+  it("renders a held coin as an asset card (value + amount, no 'held' word)", () => {
     const coin = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "",
       entries: [{ id: "t1", type: "buy", amount: 2, priceAtBuy: 100, date: "2024-01-01" }] };
-    provide(Portfolio, { portfolio: [coin], prices: { bitcoin: { usd: 50, usd_24h_change: 1 } }, tv: 100 });
+    const { container } = provide(Portfolio, { portfolio: [coin], prices: { bitcoin: { usd: 50, usd_24h_change: 1 } }, tv: 100 });
     expect(screen.getByText("Bitcoin")).toBeInTheDocument();
-    // 2 BTC * $50 = $100.00
-    expect(screen.getByText("$100.00")).toBeInTheDocument();
+    const card = container.querySelector(".asset-card");
+    expect(card).toBeTruthy();
+    // 2 BTC * $50 = $100.00 (value carries faint cents in a nested span)
+    expect(card.querySelector(".ac-val").textContent).toBe("$100.00");
+    // amount shows the unit and drops the word "held"
+    expect(card.querySelector(".ac-amt").textContent).toBe("2 BTC");
+    expect(card.textContent).not.toContain("held");
+  });
+
+  it("a whole asset card taps through to CoinInfo (swipe edit/delete retired)", () => {
+    const coin = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "",
+      entries: [{ id: "t1", type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01" }] };
+    const setScreen = vi.fn(), setInfoCoin = vi.fn();
+    const { container } = provide(Portfolio, {
+      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, setInfoCoin,
+    });
+    fireEvent.click(container.querySelector(".asset-card"));
+    expect(setInfoCoin).toHaveBeenCalledWith(coin);
+    expect(setScreen).toHaveBeenCalledWith("coinInfo");
   });
 
   it("renders the value summary card (eyebrow + gain line + INVESTED/24H/ASSETS) and no live line", () => {

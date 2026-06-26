@@ -171,15 +171,24 @@ html[data-theme="dark"] .research-root {
 .ci-app .assets-head h3 { font-size:15px; font-weight:700; }
 .ci-app .assets-head h3 span { font-weight:500; color:var(--ink-faint); }
 .ci-app .add-btn { background:var(--accent); color:#fff; border:0; border-radius:12px; padding:8px 16px; font-family:var(--body); font-size:13.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
-.ci-app .coin-swipe { position:relative; overflow:hidden; border-bottom:1px solid var(--line-2); }
-.ci-app .coin-row { display:flex; align-items:center; gap:12px; padding:11px 18px; background:var(--paper); position:relative; z-index:2; }
-.ci-app .coin-info { flex:1; min-width:0; }
-.ci-app .coin-name { font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ci-app .coin-amt { font-size:12px; color:var(--ink-faint); margin-top:1px; }
-.ci-app .coin-vals { text-align:right; }
-.ci-app .coin-val { font-weight:600; font-size:14.5px; }
-.ci-app .coin-price { font-size:11px; color:var(--ink-faint); margin-top:1px; }
-.ci-app .coin-chg { font-size:11px; font-weight:600; margin-top:1px; }
+/* Asset card grid (replaces the old swipe rows). .grid-auto reflows 3-up @1040 /
+   2-up @720 / 1-up phone. A whole card taps through to CoinInfo; Edit/Delete live
+   on the Detail screen (reached from there) — the swipe row UX is retired. */
+.ci-app .assets-grid { padding:0 18px; }
+.ci-app .asset-card { background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); box-shadow:var(--sh-sm); padding:16px; cursor:pointer; transition:box-shadow .2s var(--ease); }
+.ci-app .asset-card:hover { box-shadow:var(--sh); }
+.ci-app .ac-top { display:flex; align-items:center; gap:11px; margin-bottom:12px; }
+.ci-app .ac-id { min-width:0; }
+.ci-app .ac-name { font-weight:700; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ci-app .ac-amt { font-size:12px; color:var(--ink-faint); margin-top:1px; }
+.ci-app .ac-val { font-family:var(--display); font-size:25px; font-weight:500; letter-spacing:-.01em; line-height:1.1; }
+.ci-app .ac-val .cents { font-size:.5em; opacity:.5; }
+.ci-app .ac-val.muted { color:var(--ink-faint); }
+.ci-app .ac-bot { display:flex; align-items:center; justify-content:space-between; margin-top:10px; }
+.ci-app .ac-price { font-size:12.5px; color:var(--ink-faint); }
+.ci-app .chg-pill { font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; }
+.ci-app .chg-pill.up { background:var(--sg-s); color:var(--sg); }
+.ci-app .chg-pill.dn { background:var(--sr-s); color:var(--sr); }
 .ci-app .up { color:var(--accent); }
 .ci-app .dn { color:var(--warn); }
 .ci-app .limit-banner { margin:0 18px 8px; padding:10px 14px; border-radius:10px; font-size:12px; font-weight:500; text-align:center; line-height:1.5; }

@@ -122,9 +122,6 @@ export default function CryptoIdea(){
   const[ePrice,setEPrice]=useState("");
   const[eDate,setEDate]=useState(new Date().toISOString().slice(0,16));
   const[confirmDel,setConfirmDel]=useState(false);
-  const[swipeId,setSwipeId]=useState(null);
-  const[swipeX,setSwipeX]=useState(0);
-  const[touchStart,setTouchStart]=useState(null);
   const[editEntry,setEditEntry]=useState(null);
   const[infoCoin,setInfoCoin]=useState(null);
   const[eTxType,setETxType]=useState("buy");
@@ -515,26 +512,6 @@ export default function CryptoIdea(){
     return updated;
   };
 
-  // ── Swipe Handlers ──
-  const onTouchS=(id,e)=>{const x=e.touches?e.touches[0].clientX:e.clientX;const y=e.touches?e.touches[0].clientY:e.clientY;setTouchStart({x,y,id})};
-  const onTouchM=(e)=>{
-    if(!touchStart)return;
-    const cx=e.touches?e.touches[0].clientX:e.clientX;
-    const cy=e.touches?e.touches[0].clientY:e.clientY;
-    const dx=cx-touchStart.x;
-    const dy=cy-touchStart.y;
-    if(Math.abs(dy)>Math.abs(dx))return;
-    const clamped=Math.max(-80,Math.min(80,dx));
-    setSwipeId(touchStart.id);setSwipeX(clamped);
-  };
-  const onTouchE=()=>{
-    if(!touchStart)return;
-    if(Math.abs(swipeX)<40){setSwipeId(null);setSwipeX(0)}
-    else{setSwipeX(swipeX<0?-80:80)}
-    setTouchStart(null);
-  };
-  const resetSwipe=()=>{setSwipeId(null);setSwipeX(0);setTouchStart(null)};
-
   // ── Portfolio ──
   // ── Portfolio Screen (+ PortfolioBar) → components/Portfolio.jsx (reads context) ──
 
@@ -571,7 +548,6 @@ export default function CryptoIdea(){
     confirmDel,setConfirmDel,remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
     portfolios,setActivePortId,activePortId,
-    resetSwipe,onTouchS,onTouchM,onTouchE,touchStart,swipeId,swipeX,
     maxTxPerCoin,aiMonthlyCents,startDowngrade,fmtDate,deletePortfolio,newPortName,setNewPortName,addPortfolio,
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     delPass,setDelPass,delType,setDelType,cancelDelete,
@@ -584,7 +560,7 @@ export default function CryptoIdea(){
   // Responsive shell: tab screens render inside a centered column (.app-shell) that
   // widens on desktop. Card-collection screens opt into the wider 1040px track as
   // their grids land (§R). Same markup mobile↔desktop — no @media needed.
-  const WIDE_SCREENS=new Set([]);
+  const WIDE_SCREENS=new Set(["portfolio"]); // Portfolio uses the 1040 track for the 3-up asset card grid
   const NARROW_SCREENS=new Set(["detail","addEntry","coinInfo"]); // forms/detail read better narrower
   return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {/* Floating toast: fixed so a limit/error message is always visible, even when the action

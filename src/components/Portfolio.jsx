@@ -4,15 +4,14 @@ import { portfolio24hPct } from "../utils/pnl.js";
 import { CI } from "./ui.jsx";
 import { PortfolioBar } from "./PortfolioBar.jsx";
 
-// Main logged-in screen: total value + return header, portfolio switcher, and the
-// swipeable asset list. Totals, tier flags, the active portfolio, live prices, and
-// swipe-gesture state/handlers all come from context. Restyled to the .ci-app
-// design system; all data/handlers are unchanged.
+// Main logged-in screen: the value summary card, portfolio switcher, and the asset
+// CARD GRID (3-up @1040 / 2-up @720 / 1-up phone). A whole card taps through to
+// CoinInfo; Edit/Delete live on the Detail screen (reached from there). Totals, tier
+// flags, the active portfolio and live prices come from context; data/handlers unchanged.
 export function Portfolio() {
   const {
     api, tv, totalBuys, tpnl, tpp, portfolio, maxCoinsPerPort, usagePct,
-    prices, isPro, isPremium, setScreen, startUpgrade, setSel, setInfoCoin,
-    remCoin, resetSwipe, onTouchS, onTouchM, onTouchE, touchStart, swipeId, swipeX, user,
+    prices, isPro, isPremium, setScreen, startUpgrade, setInfoCoin, user,
   } = useApp();
   const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
   const cents = (tv % 1).toFixed(2).slice(2);
@@ -87,47 +86,33 @@ export function Portfolio() {
           <div className="empty-p">Tap <strong style={{ color: "var(--accent)" }}>+ Add</strong> to search and add your first crypto.</div>
         </div>
       ) : (
-        sorted.map((coin) => {
-          const p = prices[coin.id];
-          const pr = p?.usd;
-          const ch = p?.usd_24h_change;
-          const h = Math.max(0, coin.entries.reduce((s, e) => (e.type === "sell" ? s - e.amount : s + e.amount), 0));
-          const v = h * (pr || 0);
-          return (
-            <div key={coin.id} className="coin-swipe">
-              {/* Edit action (right swipe) */}
-              <div onClick={() => { setSel(coin); setScreen("detail"); resetSwipe(); }} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 80, background: "#007AFF", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 2, cursor: "pointer" }}>
-                <span style={{ fontSize: 18 }}>✏️</span>
-                <span style={{ fontSize: 9, fontWeight: 700, color: "#fff" }}>Edit</span>
-              </div>
-              {/* Delete action (left swipe) */}
-              <div onClick={() => { remCoin(coin.id); resetSwipe(); }} style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 80, background: "var(--warn)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 2, cursor: "pointer" }}>
-                <span style={{ fontSize: 18 }}>🗑️</span>
-                <span style={{ fontSize: 9, fontWeight: 700, color: "#fff" }}>Delete</span>
-              </div>
-              {/* Sliding coin row */}
-              <div
-                className="coin-row"
-                onTouchStart={(e) => onTouchS(coin.id, e)} onTouchMove={onTouchM} onTouchEnd={onTouchE}
-                onMouseDown={(e) => onTouchS(coin.id, e)} onMouseMove={(e) => { if (touchStart) onTouchM(e); }} onMouseUp={onTouchE} onMouseLeave={onTouchE}
-                style={{ transform: `translateX(${swipeId === coin.id ? swipeX : 0}px)`, transition: touchStart ? "none" : "transform 0.3s ease" }}
-              >
-                <div onClick={() => { if (swipeId) { resetSwipe(); return; } setInfoCoin(coin); setScreen("coinInfo"); }} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, cursor: "pointer" }}>
+        <div className="grid-auto assets-grid">
+          {sorted.map((coin) => {
+            const p = prices[coin.id];
+            const pr = p?.usd;
+            const ch = p?.usd_24h_change;
+            const h = Math.max(0, coin.entries.reduce((s, e) => (e.type === "sell" ? s - e.amount : s + e.amount), 0));
+            const v = h * (pr || 0);
+            return (
+              <div key={coin.id} className="asset-card" onClick={() => { setInfoCoin(coin); setScreen("coinInfo"); }}>
+                <div className="ac-top">
                   <CI thumb={coin.thumb} symbol={coin.symbol} />
-                  <div className="coin-info">
-                    <div className="coin-name">{coin.name}</div>
-                    <div className="coin-amt">{coin.symbol} · {h > 0 ? h.toLocaleString("en-US", { maximumFractionDigits: 6 }) : "0"} held</div>
+                  <div className="ac-id">
+                    <div className="ac-name">{coin.name}</div>
+                    <div className="ac-amt">{h > 0 ? h.toLocaleString("en-US", { maximumFractionDigits: 6 }) : "0"} {coin.symbol}</div>
                   </div>
                 </div>
-                <div className="coin-vals" onClick={() => { if (swipeId) { resetSwipe(); return; } setSel(coin); setScreen("detail"); }} style={{ cursor: "pointer", padding: "4px 0 4px 12px" }}>
-                  {v > 0 ? <div className="coin-val">${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div> : <div className="coin-val" style={{ color: "var(--ink-faint)" }}>$0.00</div>}
-                  <div className="coin-price">{fmtP(pr)}</div>
-                  <div className={"coin-chg " + (ch >= 0 ? "up" : "dn")}>{fmtPct(ch)}</div>
+                {v > 0
+                  ? <div className="ac-val">${Math.floor(v).toLocaleString()}<span className="cents">.{(v % 1).toFixed(2).slice(2)}</span></div>
+                  : <div className="ac-val muted">$0.00</div>}
+                <div className="ac-bot">
+                  <span className="ac-price">{fmtP(pr)}</span>
+                  <span className={"chg-pill " + (ch >= 0 ? "up" : "dn")}>{fmtPct(ch)}</span>
                 </div>
               </div>
-            </div>
-          );
-        })
+            );
+          })}
+        </div>
       )}
       <div className="disclaimer">Prices via CoinGecko · Updated live · Not financial advice</div>
     </div>
