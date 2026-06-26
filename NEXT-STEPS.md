@@ -499,9 +499,10 @@ settings/words/functions unless §7 says otherwise.
 - [x] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster) **+ removed live line**
   (commit `455f17c`). New `portfolio24hPct` helper; `.value-card` flex (desktop-right / mobile-row); 240/240
   unit green, build clean, browser-verified (incl. dark mode).
-- [ ] **D-2** assets → card grid + wide track + tinted % pills **+ drop "held" word**. — **NEXT**. Interaction
-  **DECIDED**: card tap → CoinInfo; Edit/Delete on Detail; swipe retired (DESIGN-REVAMP.md §4).
-- [ ] **D-3** floating bottom-nav pill → **solid-white on desktop** (per screenshot) · **D-4** token-circle
+- [x] **D-2** assets → 3-up card grid + wide (1040) track + tinted % pills + dropped "held" word
+  (commit `335a1b9`). Card tap → CoinInfo; Edit/Delete on Detail; swipe machinery removed. Reflow
+  3/2/1 @1040/720/375 verified; 242/242 unit green.
+- [ ] **D-3** floating bottom-nav pill → **solid-white on desktop** (per screenshot) — **NEXT** · **D-4** token-circle
   consistency · **D-5** Search/Detail/CoinInfo/AddEntry(keep date+time)/Account(keep all functions)/Login
   new design · **D-6** dark-mode verification across all redesigned screens.
 - [ ] **D-7** Journal: new design + short labels + corrected note + **"Needs a thesis" section + Add-thesis-
