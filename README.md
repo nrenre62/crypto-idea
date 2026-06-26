@@ -276,28 +276,36 @@ The only config in the bundle is the **public** Firebase web config (`VITE_FIREB
 
 # Responsive layout (mobile + desktop)
 
-The user app is **one responsive layout** — the same markup works on a phone and a desktop, with
-**no `@media` queries and no separate desktop build**. Tab screens render inside a centered
-`.app-shell` (`src/styles/app.css`) whose width adapts per screen:
+The user app is **one responsive layout** — the same markup works on a phone and a desktop. It's
+near-zero `@media` (the shell + auto-fit grids do the reflow); the only deliberate breakpoints are two
+desktop-only refinements noted below. Tab screens render inside a centered `.app-shell`
+(`src/styles/app.css`) whose width adapts per screen:
 
 | Track | Max width | Screens |
 |-------|-----------|---------|
-| default | 720px | Portfolio, Search, Account |
-| narrow | 560px | Detail, AddEntry, CoinInfo (+ Contact) — forms/detail read better tighter |
-| wide | 1040px | reserved for future full-width grids (built, currently unused) |
+| wide | 1040px | **Portfolio** (3-up asset **card grid**) |
+| default | 720px | Search, Account, Research, Journal, Learn |
+| narrow | 560px | Detail, AddEntry, CoinInfo, Login (+ Contact) — forms/detail read better tighter |
 
 Homogeneous **card lists reflow into columns** via the reusable `.grid-auto` utility
-(`repeat(auto-fit, minmax(280px,1fr))`): **Learn** modules, **Journal** thesis entries, and
-**Research** coin cards go **1-up on mobile → 2-up on desktop → 3-up on very wide screens**,
-automatically. Rows (Portfolio/Search) and forms stay single-column — gridding them would change the
-design, so they don't; nothing is restyled. The bottom tab bar stays a centered pill on desktop.
-See [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) for the as-built detail and the reusable
-`responsive-app` method.
+(`repeat(auto-fit, minmax(280px,1fr))`): Portfolio assets, Learn modules, Journal entries, and
+Research coins go **1-up on mobile → 2-up → 3-up** automatically. Forms and the coin-detail body stay
+single-column (capped on the narrow track). The **two deliberate desktop-only `@media (min-width:760px)`
+refinements**: the bottom nav becomes a **solid-white floating pill** (mobile keeps the flush bar), and
+each **Research coin card shows its position detail by default** (mobile stays tap-to-expand).
 
-A **design revamp** is planned to align the whole app to the founder-approved Portfolio mockup — the
-value summary becomes a white card, Portfolio assets become a **card grid on the wide track** (rows
-retired), plus a floating nav and a token/pill/card consistency pass. Plan + phases:
-[`DESIGN-REVAMP.md`](DESIGN-REVAMP.md). Mobile mockups are done; **desktop mockups are the next step**.
+## Design system (`.ci-app`, `src/styles/app.css`)
+
+The whole user app now matches the **founder-approved mockup** (design revamp **BUILT 2026-06-26** —
+[`DESIGN-REVAMP.md`](DESIGN-REVAMP.md), phases D-1…D-8; visual gallery
+[`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html)). Editorial cream-paper look
+(Fraunces + Hanken), scoped under `.ci-app`. Reusable class sets: `.value-card` (portfolio summary +
+INVESTED/24H/ASSETS), `.asset-card` grid (token circle + serif value + tinted % pill; whole-card tap →
+CoinInfo, Edit/Delete on Detail — swipe retired), `.chg-pill` (one tinted green/red % pill everywhere),
+the `CI` token circle (`coinColor()` brand map, dark-safe via `color-mix`), `.nt-*` (Journal "Needs a
+thesis"), plus the coin-drill-in / form / auth class sets. **Dark mode** (U8 light/dark/system) is fully
+token-driven — every surface flips, including the nav (`--bar-bg`) and token circles. Method captured in
+the `responsive-app` skill; see [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) for the responsive shell.
 
 # Pages & routes
 

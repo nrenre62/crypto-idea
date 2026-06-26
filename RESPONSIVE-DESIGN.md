@@ -1,5 +1,12 @@
 # Crypto Idea — Responsive App Design (one layout, mobile → desktop)
 
+> **⚠ Partly SUPERSEDED by the design revamp (BUILT 2026-06-26 — [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md)).**
+> The responsive *shell + width tracks + `.grid-auto`* below are still the foundation, but the open
+> **"rows vs tiles"** decision is **resolved**: **Portfolio assets are now a 3-up card grid on the wide
+> (1040) track** (swipe retired; whole-card tap → CoinInfo). The nav is a solid-white floating pill on
+> desktop, and the design *was* restyled (value card, tinted pills, dark-safe token circles). Treat any
+> "rows kept / decision pending" notes below as historical; DESIGN-REVAMP.md is the current source.
+
 > **Status: BUILT (R-0…R-4) — 2026-06-25.** Shipped as one responsive layout with the design
 > unchanged (no colors, fonts, or components altered — width/flow only). Commits: `9fed965` (shell),
 > `28a74f6` (Learn grid), `0653d6b` (Journal grid), `bd14965` (Research grid), `da32f03` (forms/detail
