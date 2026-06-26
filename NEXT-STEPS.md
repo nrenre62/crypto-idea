@@ -491,8 +491,9 @@ Dark mode preserved; KISS, no new deps.
   (open in a real browser for true widths). Verified: 12 frames, Fraunces+Hanken load, 3-up/2-up grids,
   Login `#FF3B30` error preserved, dark mode flips, clean console.
 - [ ] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster). — **NEXT** (start
-  here; mockups are signed-off targets). Confirm the §4 swipe→card interaction before D-2.
-- [ ] **D-2** assets → card grid + wide track + tinted % pills (first confirm the swipe→card interaction).
+  here; mockups are signed-off targets).
+- [ ] **D-2** assets → card grid + wide track + tinted % pills. Interaction **DECIDED**: card tap →
+  CoinInfo; Edit/Delete on Detail; swipe retired (see DESIGN-REVAMP.md §4).
 - [ ] **D-3** floating bottom-nav pill · **D-4** token-circle consistency · **D-5** Search/Detail/CoinInfo/
   Account/Login parity · **D-6** dark-mode verification across all redesigned screens.
 

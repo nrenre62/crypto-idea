@@ -154,10 +154,10 @@ nested preview — see the preview-verification memory); commit with a clear mes
 
 ## 4. Decisions to confirm before building
 
-1. **Asset card interaction (replaces swipe edit/delete).** Recommended: card taps → **CoinInfo**;
-   **Edit/Delete on the Detail screen** (reachable from there); optional `⋯` quick-menu on the card.
-   Alternative: keep swipe **only on mobile**, cards on desktop (more code, two interaction models).
-   → *Pick one before D-2.*
+1. **Asset card interaction (replaces swipe edit/delete). — DECIDED 2026-06-26 (founder):** whole
+   asset card **taps → CoinInfo**; **Edit/Delete live on the Detail screen** (reachable from CoinInfo,
+   already there). **The swipe-to-edit/delete row UX is retired** (no `⋯` menu, no mobile-only swipe —
+   one interaction model on every width). Build D-2 to this.
 2. **Portfolio-level 24h %** — confirm it exists; if not, compute it weighted (cheap pure helper).
 3. **"+ New" portfolio pill** currently routes to Account; mockup shows it inline in the switcher —
    keep routing to Account, or add an inline create? (KISS: keep current behavior.)
