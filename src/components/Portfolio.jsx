@@ -1,5 +1,6 @@
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct } from "../utils/format.js";
+import { portfolio24hPct } from "../utils/pnl.js";
 import { CI } from "./ui.jsx";
 import { PortfolioBar } from "./PortfolioBar.jsx";
 
@@ -20,6 +21,7 @@ export function Portfolio() {
     .sort((a, b) => b.val - a.val)
     .map((x) => x.coin);
   const initial = (user?.name || user?.email || "C").trim().charAt(0).toUpperCase();
+  const p24 = portfolio24hPct(portfolio, prices);
 
   return (
     <div className="ci-app screen-bg">
@@ -34,23 +36,29 @@ export function Portfolio() {
         <div className="avatar" onClick={() => setScreen("account")} style={{ cursor: "pointer" }}>{initial}</div>
       </div>
 
-      <div className="port-total-label">Portfolio</div>
-      <div className="port-total">${Math.floor(tv).toLocaleString()}<span className="cents">.{cents}</span></div>
-      <div className="port-meta">
-        <div>
-          <div className="m-label">Invested</div>
-          <div className="m-val">${totalBuys.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+      <div className="value-card">
+        <div className="vc-main">
+          <div className="vc-eyebrow">Portfolio value</div>
+          <div className="port-total">${Math.floor(tv).toLocaleString()}<span className="cents">.{cents}</span></div>
+          <div className={"vc-gain" + (tpnl >= 0 ? "" : " dn")}>
+            {tpnl >= 0 ? "▲" : "▼"} {tpnl >= 0 ? "+" : "−"}${Math.abs(tpnl).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({fmtPct(tpp)})
+          </div>
         </div>
-        <div>
-          <div className="m-label">Return</div>
-          <div className="m-val">
-            <span className={"port-return" + (tpnl >= 0 ? "" : " dn")}>
-              {tpnl >= 0 ? "+" : "−"}${Math.abs(tpnl).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({fmtPct(tpp)})
-            </span>
+        <div className="vc-stats">
+          <div className="vc-stat">
+            <div className="vc-slabel">Invested</div>
+            <div className="vc-sval">${totalBuys.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          </div>
+          <div className="vc-stat">
+            <div className="vc-slabel">24h</div>
+            <div className={"vc-sval " + (p24 >= 0 ? "up" : "dn")}>{fmtPct(p24)}</div>
+          </div>
+          <div className="vc-stat">
+            <div className="vc-slabel">Assets</div>
+            <div className="vc-sval">{portfolio.length}</div>
           </div>
         </div>
       </div>
-      <div className="live-pill"><span className="live-dot" />{api === "live" ? "Prices updating live" : "Showing last known prices"}</div>
 
       <PortfolioBar />
 

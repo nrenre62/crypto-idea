@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { holdings, buysCost, sellsGain, coinPnl, portfolioPnl } from "../../src/utils/pnl.js";
+import { holdings, buysCost, sellsGain, coinPnl, portfolioPnl, portfolio24hPct } from "../../src/utils/pnl.js";
 
 const buy = (amount, priceAtBuy) => ({ type: "buy", amount, priceAtBuy });
 const sell = (amount, priceAtBuy) => ({ type: "sell", amount, priceAtBuy });
@@ -66,5 +66,29 @@ describe("utils/pnl", () => {
     const r = portfolioPnl([{ id: "x", entries: [buy(1, 100)] }], {});
     expect(r.value).toBe(0);
     expect(r.pnl).toBe(-100);
+  });
+
+  it("portfolio24hPct value-weights each holding's 24h change", () => {
+    const coins = [
+      { id: "btc", entries: [buy(1, 100)] },   // value 150
+      { id: "eth", entries: [buy(1, 50)] },    // value 60
+    ];
+    const prices = { btc: { usd: 150, usd_24h_change: 10 }, eth: { usd: 60, usd_24h_change: -5 } };
+    // weighted = 150*10 + 60*(-5) = 1200 ; totalVal = 210 ; pct = 1200/210
+    expect(portfolio24hPct(coins, prices)).toBeCloseTo(5.7142857, 5);
+  });
+
+  it("portfolio24hPct treats a missing 24h change or price as 0 and is 0 for an empty book", () => {
+    const coins = [
+      { id: "btc", entries: [buy(1, 100)] },   // value 100, change +20
+      { id: "eth", entries: [buy(1, 50)] },    // value 50, change missing -> 0
+    ];
+    const prices = { btc: { usd: 100, usd_24h_change: 20 }, eth: { usd: 50 } };
+    // weighted = 100*20 + 50*0 = 2000 ; totalVal = 150 ; pct = 13.333...
+    expect(portfolio24hPct(coins, prices)).toBeCloseTo(13.3333333, 5);
+    expect(portfolio24hPct([], {})).toBe(0);
+    expect(portfolio24hPct(undefined, undefined)).toBe(0);
+    // zero total value (no price) -> 0, not NaN
+    expect(portfolio24hPct([{ id: "z", entries: [buy(1, 100)] }], {})).toBe(0);
   });
 });

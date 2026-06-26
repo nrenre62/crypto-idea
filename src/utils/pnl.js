@@ -43,3 +43,19 @@ export function portfolioPnl(coins, prices) {
   const pnlPct = totalBuys > 0 ? (pnl / totalBuys) * 100 : 0;
   return { value, totalBuys, totalSells, invested: totalBuys - totalSells, pnl, pnlPct };
 }
+
+// Portfolio-level 24h % — the value-weighted average of each holding's 24h change
+// (weight = the holding's share of current value). A missing price or 24h change
+// counts as 0; returns 0 (never NaN) for an empty book or zero total value.
+export function portfolio24hPct(coins, prices) {
+  let totalVal = 0, weighted = 0;
+  for (const c of coins || []) {
+    const p = prices && prices[c.id];
+    const price = (p && p.usd) || 0;
+    const val = holdings(c.entries) * price;
+    const ch = p && p.usd_24h_change != null ? Number(p.usd_24h_change) : 0;
+    totalVal += val;
+    weighted += val * ch;
+  }
+  return totalVal > 0 ? weighted / totalVal : 0;
+}

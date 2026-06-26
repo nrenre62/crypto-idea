@@ -34,6 +34,23 @@ describe("Portfolio screen (extracted, via AppContext)", () => {
     expect(screen.getByText("$100.00")).toBeInTheDocument();
   });
 
+  it("renders the value summary card (eyebrow + gain line + INVESTED/24H/ASSETS) and no live line", () => {
+    const coin = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "",
+      entries: [{ id: "t1", type: "buy", amount: 2, priceAtBuy: 100, date: "2024-01-01" }] };
+    provide(Portfolio, {
+      portfolio: [coin], prices: { bitcoin: { usd: 150, usd_24h_change: 4 } },
+      tv: 300, totalBuys: 200, tpnl: 100, tpp: 50,
+    });
+    expect(screen.getByText("Portfolio value")).toBeInTheDocument();
+    expect(screen.getByText("Invested")).toBeInTheDocument();
+    expect(screen.getByText("24h")).toBeInTheDocument();
+    expect(screen.getByText("Assets")).toBeInTheDocument();
+    // gain line carries the return + % together
+    expect(screen.getByText(/\+\$100\.00 \(\+50\.00%\)/)).toBeInTheDocument();
+    // the redundant "Prices updating live" line is gone (LIVE badge covers it)
+    expect(screen.queryByText(/Prices updating live/)).toBeNull();
+  });
+
   it("shows the free-tier upgrade nudge at 100% usage", () => {
     provide(Portfolio, { usagePct: 100, isPro: false });
     expect(screen.getByText(/reached your account limit/i)).toBeInTheDocument();

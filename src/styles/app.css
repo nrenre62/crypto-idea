@@ -151,16 +151,22 @@ html[data-theme="dark"] .research-root {
 .ci-app .module-grid .module { margin-bottom:0; }
 
 /* ── Portfolio ────────────────────────────────────────── */
-.ci-app .port-total-label { font-size:12px; color:var(--ink-faint); font-weight:500; padding:0 18px; margin-top:4px; }
-.ci-app .port-total { font-family:var(--display); font-size:38px; font-weight:500; letter-spacing:-.03em; padding:0 18px 2px; }
-.ci-app .port-total .cents { font-size:22px; opacity:.6; }
-.ci-app .port-meta { display:flex; gap:20px; padding:0 18px 14px; font-size:13px; }
-.ci-app .port-meta .m-label { color:var(--ink-faint); margin-bottom:3px; font-size:11.5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
-.ci-app .port-meta .m-val { font-weight:600; font-size:15px; }
-.ci-app .port-return { display:inline-flex; align-items:center; gap:5px; background:var(--accent-soft); color:var(--accent-ink); padding:3px 10px; border-radius:999px; font-weight:700; font-size:12.5px; }
-.ci-app .port-return.dn { background:#fbede9; color:var(--warn); }
-.ci-app .live-pill { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:var(--accent); margin:0 18px 14px; background:rgba(10,107,77,.07); padding:4px 11px; border-radius:999px; }
-.ci-app .live-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); }
+/* Value summary — a white card with a gain line + an INVESTED / 24H / ASSETS
+   cluster. flex + flex-wrap gives the cluster on the right at desktop width and
+   wrapped to a divided row below the value on a phone — no @media needed. */
+.ci-app .value-card { display:flex; flex-wrap:wrap; gap:14px 24px; align-items:flex-end; justify-content:space-between; background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); box-shadow:var(--sh-sm); padding:18px 20px; margin:6px 18px 14px; }
+.ci-app .vc-eyebrow { text-transform:uppercase; letter-spacing:.1em; font-size:11px; font-weight:700; color:var(--ink-faint); }
+.ci-app .value-card .port-total { font-family:var(--display); font-size:40px; font-weight:500; letter-spacing:-.03em; line-height:1.05; padding:6px 0 0; }
+.ci-app .value-card .port-total .cents { font-size:.5em; opacity:.5; }
+.ci-app .vc-gain { color:var(--sg); font-weight:600; font-size:14.5px; margin-top:8px; }
+.ci-app .vc-gain.dn { color:var(--warn); }
+.ci-app .vc-stats { display:flex; }
+.ci-app .vc-stat { padding:0 18px; border-left:1px solid var(--line); }
+.ci-app .vc-stat:first-child { padding-left:0; border-left:0; }
+.ci-app .vc-slabel { text-transform:uppercase; letter-spacing:.1em; font-size:11px; font-weight:700; color:var(--ink-faint); }
+.ci-app .vc-sval { font-family:var(--display); font-size:18px; font-weight:500; margin-top:4px; }
+.ci-app .vc-sval.up { color:var(--sg); }
+.ci-app .vc-sval.dn { color:var(--warn); }
 .ci-app .assets-head { display:flex; align-items:center; justify-content:space-between; padding:0 18px; margin-bottom:10px; }
 .ci-app .assets-head h3 { font-size:15px; font-weight:700; }
 .ci-app .assets-head h3 span { font-weight:500; color:var(--ink-faint); }
