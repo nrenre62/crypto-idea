@@ -158,6 +158,16 @@
 .research-root .cc-detail{max-height:0;overflow:hidden;transition:max-height .42s var(--ease)}
 .research-root .coin-card.open .cc-detail{max-height:420px}
 .research-root .cc-detail-inner{padding-top:15px;margin-top:15px;border-top:1px solid var(--line)}
+/* Desktop only: show each coin's position detail (cost / now / P&L / 30d + Ask) by
+   default and enlarge the sparkline — a richer Coins card per the founder review.
+   Mobile keeps the compact tap-to-expand card. */
+@media (min-width:760px){
+  .research-root .cc-detail{max-height:420px}
+  .research-root .coin-card{cursor:default}
+  .research-root .coin-card.open{box-shadow:var(--sh-sm);border-color:var(--line-2)}
+  .research-root .chev{display:none}
+  .research-root .cc-spark{width:74px;height:24px}
+}
 .research-root .pos-stats{display:flex;gap:8px;margin-bottom:14px}
 .research-root .pos-stat{flex:1;background:var(--paper-3);border:1px solid var(--line);border-radius:var(--radius-xs);padding:11px 12px}
 .research-root .pos-stat .ps-l{font-size:10px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.07em}
