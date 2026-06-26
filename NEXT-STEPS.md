@@ -490,14 +490,25 @@ Dark mode preserved; KISS, no new deps.
   gallery with a light/dark toggle: [`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html)
   (open in a real browser for true widths). Verified: 12 frames, Fraunces+Hanken load, 3-up/2-up grids,
   Login `#FF3B30` error preserved, dark mode flips, clean console.
-- [ ] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster). — **NEXT** (start
-  here; mockups are signed-off targets).
-- [ ] **D-2** assets → card grid + wide track + tinted % pills. Interaction **DECIDED**: card tap →
-  CoinInfo; Edit/Delete on Detail; swipe retired (see DESIGN-REVAMP.md §4).
-- [ ] **D-3** floating bottom-nav pill · **D-4** token-circle consistency · **D-5** Search/Detail/CoinInfo/
-  Account/Login parity · **D-6** dark-mode verification across all redesigned screens.
+**Founder review locked 2026-06-26** (full per-screen decisions in [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) §7).
+Locked wording: drop "held" → just the amount (`0.52 BTC`); Journal labels **Intact/Review/Challenged**;
+Journal note → "Only you can see your journal. Your thesis helps the AI give you better Research & Ask
+answers."; **remove the "Prices updating live" line** (both widths). Guardrail: design-only — keep all
+settings/words/functions unless §7 says otherwise.
 
-(See [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) §3 for per-phase scope + DoD and §4 for open decisions.)
+- [ ] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster) **+ remove live line**.
+  — **NEXT** (start here; mockups are signed-off targets).
+- [ ] **D-2** assets → card grid + wide track + tinted % pills **+ drop "held" word**. Interaction
+  **DECIDED**: card tap → CoinInfo; Edit/Delete on Detail; swipe retired (DESIGN-REVAMP.md §4).
+- [ ] **D-3** floating bottom-nav pill → **solid-white on desktop** (per screenshot) · **D-4** token-circle
+  consistency · **D-5** Search/Detail/CoinInfo/AddEntry(keep date+time)/Account(keep all functions)/Login
+  new design · **D-6** dark-mode verification across all redesigned screens.
+- [ ] **D-7** Journal: new design + short labels + corrected note + **"Needs a thesis" section + Add-thesis-
+  later** (reuses Buy-Journal prompt → `updateCoinJournal`; no schema change).
+- [ ] **D-8** Research/Coins **desktop-only richer card** (cost·now·P&L·30d + full conviction + catalysts +
+  bigger sparkline; mobile stays compact) **+ verify Portfolio→Research auto-sync & view-only**.
+
+(See [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) §3 for per-phase scope + DoD, §4 for the interaction decision, §7 for the founder review.)
 
 ## 5. Housekeeping
 

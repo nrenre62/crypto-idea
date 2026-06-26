@@ -137,12 +137,14 @@ Verify each redesigned surface in dark.
 
 | Phase | Scope | Primary files |
 |---|---|---|
-| **D-1** | Portfolio **value card** (white card, gain line, INVESTED/24H/ASSETS cluster; desktop-right / mobile-row) | `Portfolio.jsx`, `app.css`, a 24h-weighted helper in `utils/` |
-| **D-2** | Portfolio **assets → card grid** + **wide (1040) track** + tinted % pills + interaction migration | `Portfolio.jsx`, `CryptoIdea.jsx`, `app.css` |
-| **D-3** | Bottom-nav **floating pill** | `app.css` |
+| **D-1** | Portfolio **value card** (white card, gain line, INVESTED/24H/ASSETS cluster; desktop-right / mobile-row) **+ remove the "Prices updating live" line** (both widths) | `Portfolio.jsx`, `app.css`, a 24h-weighted helper in `utils/` |
+| **D-2** | Portfolio **assets → card grid** + **wide (1040) track** + tinted % pills + interaction migration (§4.1) **+ drop the "held" word → show just the amount** | `Portfolio.jsx`, `CryptoIdea.jsx`, `app.css` |
+| **D-3** | Bottom-nav **floating pill** → **solid-white** on desktop (per the founder screenshot) | `app.css` |
 | **D-4** | **Token-circle** color/consistency pass | `ui.jsx`, `app.css` |
-| **D-5** | **Consistency pass**: Search list, Detail/CoinInfo/AddEntry/Account/Login parity | per screen |
+| **D-5** | **Consistency pass** (new design, **keep settings/words/functions**): Search list (drop "held"), Detail/CoinInfo/AddEntry (**keep date+time**)/Account (**port every function**)/Login | per screen |
 | **D-6** | **Dark-mode** verification across every redesigned screen | (verification only) |
+| **D-7** | **Journal** new design: short labels (Intact/Review/Challenged), corrected privacy note, **"Needs a thesis" section + Add-thesis-later** entry (reuses the Buy-Journal prompt → `updateCoinJournal`) | `Journal.jsx`, `app.css`, Search prompt component |
+| **D-8** | **Research/Coins desktop-only richer card** (cost·now·P&L·30d + full 4-axis conviction + catalysts + bigger sparkline; mobile stays compact) **+ verify Portfolio→Research auto-sync & view-only** | `features/research/components/*` |
 
 **Per-phase DoD:** KISS + no new dep; `npm run test:unit` green (watch the **Login `#FF3B30`** inline-color
 test, the **walkthrough/smoke** tests, and **Portfolio/Account** tests — assertions that key on the old
@@ -181,6 +183,57 @@ logic/data/security changes** (presentation only); the **calculator** scope is u
 - Update [`CLAUDE.md`](CLAUDE.md) design pointer + this file's status PLANNED → BUILT.
 - **Coordinate with the parallel U-track session** before touching `Account.jsx` / theme / `CryptoIdea.jsx`
   (it recently shipped U7/U8/U11 there).
+
+## 7. Founder design review — 2026-06-26 (LOCKED)
+
+Reviewed the full desktop + mobile mockup gallery ([`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html)).
+Decisions below are locked and **override anything above them**. **Guardrail reaffirmed:** every design
+change keeps existing **settings, words (where noted), and backend behavior** intact — presentation-only
+unless a new entry point is explicitly listed here. *"Add every setting in all tabs"* = carry **all**
+existing functionality into each redesigned screen; **drop nothing**.
+
+### Locked wording
+- **Holdings line:** drop the word — show just the amount, e.g. **`0.52 BTC`** (was "… held"). Applies on
+  **Portfolio** asset cards, **Research** coin cards, **Search** rows.
+- **Journal status pills:** short labels **Intact / Review / Challenged** (🟢/🟡/🔴).
+- **Journal note** (replaces the false "private to your account"):
+  **"Only you can see your journal. Your thesis helps the AI give you better Research & Ask answers."**
+  (The thesis **is** shared with the AI for Research/Ask — copy must be honest about it.)
+- **Remove the "Prices updating live" line** on **both** mobile & desktop — the ● LIVE badge already says it.
+
+### Mobile — per screen
+- **Portfolio** — good. Apply held-word drop + remove live line.
+- **Research/Coins** — good. Auto-mirrors Portfolio holdings; **view-only (no delete here)**; tab order
+  **Overview · Coins · Ask**. (Verify the Portfolio→Research sync; no backend change.)
+- **Journal** — adopt the new simpler design + words. Add a **"Needs a thesis"** section listing portfolio
+  coins with no `journal.thesis`, each with an **Add thesis** button → opens the existing Buy-Journal prompt
+  for that coin (writes via `updateCoinJournal`; **no new collection/schema**). New labels + corrected note.
+- **Learn** — keep as-is (approved).
+- **CoinInfo** — keep words + settings; **restyle only** (new design/colors).
+- **Detail (holding/transactions)** — keep all words + settings; **restyle only**.
+- **Add transaction** — new design; **keep date AND time** (datetime-local, not date-only).
+- **Account** — new design; **keep every function** — port them all in, delete nothing.
+- **Login** — new design.
+
+### Desktop — per screen
+- **Portfolio** — new design as-is; remove the live line.
+- **Bottom nav / tabs** — make it a **solid-white floating pill** (per the screenshot): cleaner/more
+  prominent than the mobile translucent pill. Bottom nav only; Research's in-page segmented control unchanged.
+- **Research/Coins** — desktop-only **richer card**: **avg cost · current price · P&L · 30d change**, the
+  **full 4-axis conviction breakdown + reason chips**, **catalysts**, and a **bigger 7-day sparkline**, all
+  visible without expanding. **Mobile keeps the compact card** (intentional mobile↔desktop content divergence).
+- **Research/Overview, Journal, Learn, Search, Detail, CoinInfo, Account, Login, Payment, New transaction**
+  — approved; build the new design. Detail/CoinInfo stay settings+words-identical (design-only).
+- **Journal (desktop)** — new design good; same short labels + corrected note as mobile.
+
+### Backend / consistency
+- **No backend setting changes.** Only new wiring: the **Add-thesis-later** entry (reuses `updateCoinJournal`)
+  and the **"Needs a thesis"** list (derived from portfolio coins lacking `journal.thesis`).
+- **Research Coins** stays a read-only mirror of the active portfolio (add in Portfolio → shows in Research;
+  no delete in Research). Verify end-to-end (D-8).
+- Journal thesis is **shared with the AI** (Research/Ask) by design — reflect in copy, not just the note line.
+
+---
 
 See also: [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) (the width tracks this builds on),
 [`CALCULATOR.md`](CALCULATOR.md), [`CLAUDE.md`](CLAUDE.md). Method: the `responsive-app` +
