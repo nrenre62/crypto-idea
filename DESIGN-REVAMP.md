@@ -8,6 +8,12 @@ product/design interviews). No code has changed yet; this doc is the build spec.
 > browser-window frame (desktop) and phone frame (mobile) in the mockups are *presentation only* —
 > the app itself is the cream content inside; we do **not** build those frames.
 
+> **Visual targets (signed-off, build the code to match these):** mockups now exist for **every**
+> screen — mobile (2026-06-25) and **desktop (2026-06-26)**. The desktop set is a durable, self-contained
+> gallery with a light/dark toggle: [`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html)
+> (Portfolio on the 1040 wide track with the 3-up asset grid; Research/Journal/Learn 2-up; drill-ins/forms
+> on 560/720). Implement phases D-1…D-6 to reproduce them.
+
 **Guardrails (unchanged):** preserve all logic / handlers / data; keep **dark mode** working (U8
 light/dark/system) by styling through the existing CSS vars; **KISS + no new dependency** (no chart
 lib, no CSS framework); tests stay green; verify desktop **and** mobile before "done." This plan

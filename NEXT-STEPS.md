@@ -484,10 +484,14 @@ Dark mode preserved; KISS, no new deps.
 
 - [x] **Mobile mockups for all screens** — produced 2026-06-25 in the approved language
   (Portfolio/Research/Journal/Learn/Search + CoinInfo/Detail/AddEntry/Account/Login) to validate before building.
-- [ ] **Desktop mockups for all screens** — **NEXT**: render every screen at desktop width — Portfolio on
-  the **1040 wide track with the 3-up asset grid**, Research/Journal/Learn 2-up, drill-ins/forms on the
-  560/720 tracks — so the desktop target is locked before any code.
-- [ ] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster).
+- [x] **Desktop mockups for all screens** — produced 2026-06-26: every screen at its desktop width
+  (Portfolio on the **1040 wide track with the 3-up asset grid**, Research/Journal/Learn 2-up,
+  drill-ins/forms on 560/720) in the approved cream-paper language. Saved as a durable, self-contained
+  gallery with a light/dark toggle: [`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html)
+  (open in a real browser for true widths). Verified: 12 frames, Fraunces+Hanken load, 3-up/2-up grids,
+  Login `#FF3B30` error preserved, dark mode flips, clean console.
+- [ ] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster). — **NEXT** (start
+  here; mockups are signed-off targets). Confirm the §4 swipe→card interaction before D-2.
 - [ ] **D-2** assets → card grid + wide track + tinted % pills (first confirm the swipe→card interaction).
 - [ ] **D-3** floating bottom-nav pill · **D-4** token-circle consistency · **D-5** Search/Detail/CoinInfo/
   Account/Login parity · **D-6** dark-mode verification across all redesigned screens.
