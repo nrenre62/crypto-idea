@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
-import { fmtP } from "../utils/format.js";
+import { fmtP, fmtPct } from "../utils/format.js";
 import { cleanFunnel } from "../utils/journal.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { CI } from "./ui.jsx";
@@ -58,7 +58,8 @@ export function Search() {
                 <div className="trend-name">{coin.name}</div>
                 <div className="trend-sub">{coin.symbol}{coin.rank ? " · #" + coin.rank : ""}</div>
               </div>
-              {coin.mockPrice != null && <span style={{ fontSize: 12, fontWeight: 600, marginRight: 6 }}>{fmtP(coin.mockPrice)}</span>}
+              {coin.mockPrice != null && <span className="trend-price">{fmtP(coin.mockPrice)}</span>}
+              {coin.mockChange != null && <span className={"chg-pill " + (coin.mockChange >= 0 ? "up" : "dn")}>{fmtPct(coin.mockChange)}</span>}
               <button className="add-pill" onClick={() => !ad && setJournalFor(coin)} disabled={!!ad}>{ad ? "Added" : "+ Add"}</button>
             </div>
           );
