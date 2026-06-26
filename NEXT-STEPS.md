@@ -504,8 +504,11 @@ settings/words/functions unless §7 says otherwise.
   3/2/1 @1040/720/375 verified; 242/242 unit green.
 - [x] **D-3** desktop bottom-nav → **solid-white floating pill** (commit `cba5b2b`); mobile bar unchanged;
   min-width:760px override, token-driven (dark OK). Verified @1280/@375.
-- [ ] **D-4** token-circle consistency — **NEXT** · **D-5** Search/Detail/CoinInfo/AddEntry(keep date+time)/
-  Account(keep all functions)/Login new design · **D-6** dark-mode verification across all redesigned screens.
+- [x] **D-4** token-circle consistency (commit `c4b36f0`): pure `coinColor()`, 6-digit guard (TAO bug fixed),
+  case-insensitive, deterministic curated fallback + more coins. 245/245 unit green; browser-verified.
+- [ ] **D-5** Search/Detail/CoinInfo/AddEntry(keep date+time)/Account(keep all functions)/Login new design
+  — **NEXT** (design-only; keep settings/words/functions). · **D-6** dark-mode verification across all
+  redesigned screens.
 - [ ] **D-7** Journal: new design + short labels + corrected note + **"Needs a thesis" section + Add-thesis-
   later** (reuses Buy-Journal prompt → `updateCoinJournal`; no schema change).
 - [ ] **D-8** Research/Coins **desktop-only richer card** (cost·now·P&L·30d + full conviction + catalysts +
