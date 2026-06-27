@@ -1,12 +1,13 @@
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct, fmtMc } from "../utils/format.js";
 import { TOP_COINS, PRICE_HISTORY, getHistoricalPrice } from "../utils/coins.js";
+import { coinPnl } from "../utils/pnl.js";
 import { Ic, CI } from "./ui.jsx";
 
-// Read-only coin overview (price, market data, your position, price-history
-// milestones). The viewed coin (infoCoin), live prices, and the active portfolio
-// come from context. Restyled to the .ci-app design system; all data/handlers
-// are unchanged.
+// Read-only coin overview: price + 24h, MARKET DATA, YOUR POSITION, and price-history
+// milestones. The viewed coin (infoCoin), live prices, and the active portfolio come
+// from context. 24h volume + circulating supply come from the /api/prices feed when
+// available and fall back to "—" (never NaN). Restyled to the .ci-app design system.
 export function CoinInfo() {
   const { infoCoin, setInfoCoin, prices, portfolio, setSel, setScreen } = useApp();
   if(!infoCoin)return null;
@@ -16,11 +17,10 @@ export function CoinInfo() {
   const pr=p?.usd||cd?.mockPrice||0;
   const ch=p?.usd_24h_change||cd?.mockChange||0;
   const mc=p?.usd_market_cap||cd?.mockMcap||0;
+  const vol=p?.usd_24h_vol||0;            // 24h trading volume — "—" until the proxy supplies it
+  const circ=p?.circulating||0;           // circulating supply — "—" until the proxy supplies it
+  const rank=cd?.rank;
   const portCoin=portfolio.find(x=>x.id===coin.id);
-  const holdings=portCoin?Math.max(0,portCoin.entries.reduce((s,e)=>e.type==="sell"?s-e.amount:s+e.amount,0)):0;
-  const holdValue=holdings*pr;
-  const rank=cd?.rank||"—";
-  const launchDate=cd?.launch||"Unknown";
 
   return(
     <div className="ci-app screen-bg">
@@ -33,9 +33,9 @@ export function CoinInfo() {
       {/* Price header */}
       <div className="price-hero">
         <div className="ph-icon"><CI thumb={coin.thumb} symbol={coin.symbol} size={48}/></div>
-        <div className="ph-sub">{coin.symbol} · Rank #{rank}</div>
+        <div className="ph-sub">{coin.symbol}{rank?" · Rank #"+rank:""}</div>
         <div className="ph-price">{fmtP(pr)}</div>
-        <div><span className={"chg-pill"+(ch>=0?"":" dn")}>{fmtPct(ch)} (24h)</span></div>
+        <div><span className={"chg-pill"+(ch>=0?"":" dn")}>{fmtPct(ch)} today</span></div>
       </div>
 
       <div className="pad">
@@ -43,9 +43,10 @@ export function CoinInfo() {
         <div className="card">
           <div className="card-title">Market Data</div>
           {[
-            ["Market Cap",fmtMc(mc)],
-            ["Rank","#"+rank],
-            ["First tracked",launchDate],
+            ["Rank",rank?"#"+rank:"—"],
+            ["Market cap",fmtMc(mc)],
+            ["24h volume",fmtMc(vol)],
+            ["Circulating",circ?circ.toLocaleString("en-US",{maximumFractionDigits:0})+" "+coin.symbol:"—"],
           ].map(([k,v])=>(
             <div key={k} className="kv-row">
               <span className="kv-k">{k}</span>
@@ -54,21 +55,23 @@ export function CoinInfo() {
           ))}
         </div>
 
-        {/* Your Position */}
-        {portCoin&&<div className="card">
-          <div className="card-title">Your Position</div>
-          {[
-            ["Holdings",holdings.toLocaleString("en-US",{maximumFractionDigits:8})+" "+coin.symbol],
-            ["Value","$"+holdValue.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})],
-            ["Transactions",portCoin.entries.length.toString()],
-          ].map(([k,v])=>(
-            <div key={k} className="kv-row">
-              <span className="kv-k">{k}</span>
-              <span className="kv-v">{v}</span>
+        {/* Your Position — only when the active portfolio holds this coin */}
+        {portCoin&&(()=>{
+          const { holding, buysCost } = coinPnl(portCoin.entries, pr);
+          const boughtCoins=portCoin.entries.filter(e=>e.type!=="sell").reduce((s,e)=>s+e.amount,0);
+          const avgBuy=boughtCoins>0?buysCost/boughtCoins:0;
+          const costBasisHeld=avgBuy*holding;            // cost of the units still held
+          const unreal=holding*pr-costBasisHeld;         // value of held units − their cost basis (excludes realised sells)
+          const unrealPct=costBasisHeld>0?(unreal/costBasisHeld)*100:0;
+          return(
+            <div className="card">
+              <div className="card-title">Your Position</div>
+              <div className="kv-row"><span className="kv-k">Held</span><span className="kv-v">{holding.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol}</span></div>
+              <div className="kv-row"><span className="kv-k">Avg cost</span><span className="kv-v">{fmtP(avgBuy)}</span></div>
+              <div className={"pnl-row"+(unreal>=0?"":" dn")}><span className="pnl-label">Unrealised P/L</span><span className="pnl-val">{unreal>=0?"+":""}${Math.abs(unreal).toLocaleString("en-US",{minimumFractionDigits:2})} ({fmtPct(unrealPct)})</span></div>
             </div>
-          ))}
-          <button className="btn-primary" style={{marginTop:14}} onClick={()=>{setSel(portCoin);setScreen("detail");setInfoCoin(null)}}>View Transactions</button>
-        </div>}
+          );
+        })()}
 
         {/* Price at key dates */}
         {cd&&PRICE_HISTORY[coin.id]&&<div className="card">
