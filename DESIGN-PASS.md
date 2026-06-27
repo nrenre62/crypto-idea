@@ -106,7 +106,7 @@ badge + amount, date·time; right: price + Cost/Recv stacked, right-aligned). Ke
 1. **DP-1 Foundations** — icons + shared CSS (enables the rest).
 2. **DP-2 Quick wins** — Portfolio switcher (move + restyle) + Add-transaction coin head.
 3. **DP-3 Persistent avatar** — shell-level, remove Portfolio's dup.
-4. **DP-4 Learn** — hero card, module icons, footer row, dark fixes.
+4. **DP-4 Learn** — hero card, module icons, footer row, dark fixes. — ✅ BUILT 2026-06-27. Per-module SVG icons in `src/components/learn-icons.jsx` (currentColor, lock for locked); hero white card + streak/lessons chips; one-row footer; tokenized today-lesson/module.active/m-icon.done for dark.
 5. **DP-5 Account** — drill-in list + detail views (the biggest).
 6. **DP-6 Search trending** — `/api/trending` + hook + UI.
 7. **DP-8 Login** — password eye toggle + "Log in" wording.

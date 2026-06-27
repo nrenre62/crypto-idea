@@ -609,9 +609,14 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
 - [x] **DP-3 Persistent avatar** — ✅ DONE 2026-06-27. One shell-level avatar (`.app-avatar` in a
   relative `.screen-wrap`, below the verify banner) on all 5 tab screens → opens Account; Portfolio's
   duplicate removed; hidden on drill-in screens. Browser-verified on every tab.
-- [ ] **DP-4 Learn** — hero → white card (XP + `🔥 streak`/`N lessons` chips); per-module SVG icons
-  (fills the empty circles); module footer one-row (`X/Y lessons` · `%`/`Start →`); footer wording;
-  dark-mode gradient fixes. Keep sequential unlock.
+- [x] **DP-4 Learn** — ✅ DONE 2026-06-27. Hero band → white card (`.learn-hero`) with XP bar + chips
+  (`🔥 N-day streak` hidden at 0 · `N of M lessons`); per-module SVG line icons (new
+  `src/components/learn-icons.jsx`, `stroke=currentColor`, lock for locked) replacing the near-invisible
+  emoji; icon color `--accent-ink` (adapts light/dark, ~8:1 / ~7.5:1). Module footer collapsed to ONE row
+  (`.m-foot`: `X/Y lessons · Z%` + Start/Continue/Review), progress bar kept above. Dark-mode fix: tokenized
+  the 3 hardcoded values (today-lesson + module.active gradients → accent-soft/paper-2; m-icon.done →
+  `--sg-s`/`--sg`). Sequential unlock untouched. 257 unit green (+3), build clean, browser light+dark +
+  mobile/desktop. NB: badges-row left as-is (out of scope).
 - [ ] **DP-5 Account** — drill-in settings list (home = mockup) + detail views (Profile / Plan & billing /
   Portfolios / Security / Privacy & data); "Product updates & offers" toggle moves into Privacy & data;
   Logout at bottom. Every handler preserved, only relocated.
