@@ -213,8 +213,74 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
   Learn surfaces are **undiagrammed** — each needs a new `docs/diagrams/` SVG (use `drawing-diagram`).
 
 ### Still genuinely open (does NOT block Wave A)
-- CoinGecko plan tier under on-demand engine load (cost modeling; ~44k calls/mo on the price proxy alone today).
-- Which model runs the `0d` judge (Gemini cheaper/structured vs Claude better at naming-wall nuance) — decide at B2.
+- ~~CoinGecko plan tier under on-demand engine load~~ **DECIDED 2026-06-27: CoinGecko Lite (~100k/mo), keep `HOT_PAGES=5`** (see [`BACKEND-ADMIN-DECISIONS.md`](BACKEND-ADMIN-DECISIONS.md) D16).
+- ~~Which model runs the `0d` judge~~ **DECIDED 2026-06-27: Claude only (Opus 4.8)** for both prose and structured — there is no Gemini, which **voids trap #3** (the Gemini no-train key requirement). See D17.
+
+---
+
+## BL. Backend & admin go-live — 2026-06-27 deep-dive + decisions
+
+Canonical: [`BACKEND-ADMIN-DECISIONS.md`](BACKEND-ADMIN-DECISIONS.md) (full workflow map, 27-gap inventory,
+18 locked decisions D1–D18, founder provisioning checklist). A 14-agent codebase audit found the gaps; the
+founder interview locked scope. **Founder chose the full secure path:** live AI in v1, server-enforced
+signups, admin 2FA. This section is the **build order** for those decisions; it composes with §0 Wave B and
+§U Wave B (shared App Check / Identity Platform). Each item = a small increment to the AGILE.md Definition of Done.
+
+### BL-1 · Security foundation (local-buildable; build once, reuse everywhere)
+- [ ] **Shared per-uid rate limiter (Firestore) + `context.app` App Check gate** as pure, unit-tested helpers
+  (D4/D5). This is the **same per-uid budget mechanism** the AI proxy needs (50/300 daily) and the addCoin
+  guard reuses — build it here, not three times.
+- [ ] **PayPal webhook idempotency** — store each processed `event.id`, skip duplicates (D6). Same commit:
+  fix `serverTimestamp()`→`Date.now()` (it's `undefined` in the emulator and types the field as a Timestamp
+  while everything else is ms), and **persist the billing cycle** so annual revenue in `getStats` is correct.
+- [ ] **`createSubscription` already-paid guard + per-uid cooldown** (D5) — block spam/duplicate subs.
+- [ ] **Audit expansion** — `writeAudit` on `deleteMyAccount`/`restoreMyAccount`/`signOutEverywhere`/
+  `exportMyData`/`createSubscription`/`cancelSubscription` (D11).
+- [ ] **Quick admin fixes** (no decision needed): `lookupUser` returns `tierBeforeFailure` + `premiumLimits`
+  (+ `emailVerified`) so the "last paid tier" note + limits-editor pre-fill actually populate; fix the
+  premium custom-limit-`0` falsy bug (`||` → `!=null`, mirror the rules); give `getStats` a distinct error
+  state (don't render a failure as a real all-zero/$0 dashboard).
+
+### BL-2 · Admin panel capabilities
+- [ ] **Grant/revoke admin UI** — wrapper for the existing `setAdminClaim`, gated behind a confirm step + the
+  new admin MFA (D7). Closes the "lose a co-admin → need a terminal + service-account key" trap.
+- [ ] **Admin soft-delete + Empty-trash bulk action** (D8) — admin parity with the self-service 30-day trash.
+- [ ] **Admin "sign out of all devices"** for a target user (admin-target `revokeRefreshTokens`) (D9).
+- [ ] **Reserve the AI Settings section** — Anthropic key field (`keep()` idiom) + manual conviction-cache
+  controls (invalidate / force-refresh a coin) (D10).
+
+### BL-3 · AI proxy (Claude-only) — extends §0 Wave B; validator-first
+- [ ] **B1** Anthropic (Claude) key in `config/app` + AI Settings (set-flag). **No Gemini** (D17 voids trap #3).
+- [ ] **B2 (keystone)** `researchAsk` callable — Claude prose + structured + **`validateOutput` (A9) wired in,
+  fail-closed** + per-uid daily budget (BL-1 limiter) + **`context.app` gate** (D4) + server tier-gate.
+- [ ] **B3** `addCoinGuarded` — reuses the BL-1 limiter + App Check gate.
+- [ ] **B4** swap `ai-client.js` body → `researchAsk` (gated on A9 + B2 green); lights up Pulse + Ask and
+  **flips the AI "coming soon" label → the real metered number** (D13).
+- [ ] **B5–B7/B8** per-coin `convictionCache` + `getConviction` (on-demand, TTL by tier), Pulse per-user
+  cache, PWA offline copy, templated tutor (as §0 Wave B, Claude-only).
+
+### BL-4 · Identity Platform hardening (needs Blaze + console)
+- [ ] **U14** `beforeCreate` blocking function enforcing `signupsEnabled` server-side + IP rate-limit; enable
+  App Check enforcement in console (D2/D4).
+- [ ] **U13** server password policy (Identity Platform require-mode).
+- [ ] **U15** admin MFA (TOTP enrollment + challenge in the admin app) (D3) — **gates BL-2's grant UI**.
+
+### BL-5 · Transactional email + legal/analytics + CSP
+- [ ] **GetResponse transactional path** (welcome / verification / receipts) — makes `email.fromEmail` real
+  (D14/D15/D18). Confirm the GetResponse plan supports transactional/SMTP.
+- [ ] **Termly (3 IDs) + cookie banner + Plausible** into Settings; verify privacy/terms pages (D18).
+- [ ] **Drop `unsafe-inline`** — move inline landing/site-meta scripts to external/hashed files (D12).
+
+### BL-6 · Display honesty + docs cleanup (quick; can run early)
+- [ ] AI allowance line "coming soon" until metered + fix the raw-`aiMonthlyCents` print (D13).
+- [ ] Keep `email.fromEmail` labeled "reserved / not yet used" until BL-5 (D14).
+- [ ] Fix stale `functions:config:set` docs (done in §4 above); confirm `.env` + service-account JSON are
+  git-ignored before any remote is added.
+
+### BL — minor/optional hardening (low, undecided)
+- Lock `/api/subscribe` CORS to own-origin (read proxy can stay open).
+- Optional periodic `/api/config` re-poll so maintenance mode evacuates already-open sessions.
+- In-app "estimated price" signal when CoinGecko degrades (moot once Lite is bought; keeps resilience honest).
 
 ---
 
@@ -414,7 +480,7 @@ want explicit MVC separation:**
 
 - [ ] Create real Firebase project; enable Email/Password Auth + Firestore.
 - [ ] Put web config in `.env` (`VITE_FIREBASE_*`); `firebase deploy` (Blaze plan needed for functions).
-- [ ] `firebase functions:config:set coingecko.demo_key=… paypal.*=… app.url=…`.
+- [ ] ~~`firebase functions:config:set …`~~ **(removed in firebase-functions v7 — a no-op).** Set secrets via the **admin Settings** form (writes the locked `config/app` doc); PayPal **plan IDs + `APP_URL`** are the only env-only secrets → `functions/.env`. See [`BACKEND-ADMIN-DECISIONS.md`](BACKEND-ADMIN-DECISIONS.md) §1.5.
 - [ ] Deploy `firestore.rules`; bootstrap the first admin via `functions/scripts/set-admin.js`.
 - [ ] Register + promote a **second** admin; store both admins' creds in a password manager (`MIN_ADMINS=2`).
 - [ ] Add a free **CoinGecko Demo key** (unlocks DCA history beyond 365 days + higher rate limit).
