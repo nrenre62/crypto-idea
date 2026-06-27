@@ -71,6 +71,9 @@ html[data-theme="dark"] .research-root {
 /* BETA badge — matches the Research tab's .beta exactly */
 .ci-app .beta { font-family:var(--body); font-size:9.5px; font-weight:700; letter-spacing:.1em; color:var(--ai-2); background:rgba(63,125,240,.09); padding:3px 7px; border-radius:6px; position:relative; top:-2px; }
 .ci-app .avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(155deg,#26241d,#15140f); color:var(--paper); display:grid; place-items:center; font-weight:700; font-size:13px; flex:none; }
+/* Persistent account avatar — top-right of every tab screen (opens Account) */
+.ci-app .screen-wrap { position:relative; }
+.ci-app .app-avatar { position:absolute; top:14px; right:18px; z-index:5; border:0; cursor:pointer; }
 /* Token monogram circle (the CI fallback). Brand color comes in via --ci; dark mode
    lightens dark brand colors (ADA/XLM/TAO…) so the initials stay legible on dark paper. */
 .ci-app .ci-mono { display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; overflow:hidden; background:color-mix(in srgb, var(--ci) 18%, transparent); color:var(--ci); border:1.5px solid color-mix(in srgb, var(--ci) 32%, transparent); }
@@ -286,6 +289,15 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .tx-row .tx-meta { font-size:11px; color:var(--ink-faint); margin-top:3px; display:flex; align-items:center; gap:4px; }
 .ci-app .tx-row .tx-price { font-size:10.5px; color:var(--ink-faint); margin-top:1px; }
 .ci-app .tx-row .tx-del { background:none; border:0; cursor:pointer; padding:6px; flex:none; }
+/* Transaction list — rows in a card, two columns (left: badge+amount+date · right: price+cost) */
+.ci-app .tx-list { margin:0 18px; background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius-sm); box-shadow:var(--sh-sm); overflow:hidden; }
+.ci-app .tx-list .tx-row { padding:12px 14px; }
+.ci-app .tx-list .tx-row:last-child { border-bottom:0; }
+.ci-app .tx-left { flex:1; min-width:0; }
+.ci-app .tx-left .tx-line { display:flex; align-items:center; gap:6px; }
+.ci-app .tx-right { text-align:right; flex:none; }
+.ci-app .tx-right .tx-rprice { font-size:12.5px; font-weight:600; color:var(--ink-soft); }
+.ci-app .tx-right .tx-rcost { font-size:11px; color:var(--ink-faint); margin-top:2px; }
 
 /* ── Forms (AddEntry; reused by Login / Account) ──────── */
 .ci-app .form-body { padding:14px 18px 28px; display:flex; flex-direction:column; gap:15px; }
@@ -298,6 +310,10 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .field-input { width:100%; padding:13px 15px; background:var(--paper-2); border:1px solid var(--line-strong); border-radius:var(--radius-sm); color:var(--ink); font-family:var(--body); font-size:15px; outline:none; box-sizing:border-box; }
 .ci-app .field-input:focus { border-color:var(--accent); }
 .ci-app .field-input::placeholder { color:var(--ink-faint); }
+/* Password field with a show/hide eye toggle (Login) */
+.ci-app .pw-wrap { position:relative; }
+.ci-app .pw-wrap .field-input { padding-right:44px; }
+.ci-app .pw-eye { position:absolute; top:50%; right:10px; transform:translateY(-50%); background:none; border:0; padding:4px; cursor:pointer; color:var(--ink-faint); display:flex; }
 .ci-app .field-hint { font-size:10.5px; color:var(--amber); margin-top:5px; }
 .ci-app .field-warn { font-size:11px; color:var(--amber); margin-top:5px; display:flex; align-items:center; gap:5px; }
 .ci-app .seg { display:flex; gap:7px; }

@@ -577,6 +577,8 @@ export default function CryptoIdea(){
   // their grids land (§R). Same markup mobile↔desktop — no @media needed.
   const WIDE_SCREENS=new Set(["portfolio"]); // Portfolio uses the 1040 track for the 3-up asset card grid
   const NARROW_SCREENS=new Set(["detail","addEntry","coinInfo"]); // forms/detail read better narrower
+  const TAB_SCREENS=new Set(["portfolio","research","journal","learn","search"]); // bottom-nav tabs get the persistent account avatar
+  const acctInitial=(user?.name||user?.email||"C").trim().charAt(0).toUpperCase();
   return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {/* Floating toast: fixed so a limit/error message is always visible, even when the action
         (e.g. "Add portfolio" on the scrolled Account screen) is far below the top of the page. */}
@@ -642,6 +644,10 @@ export default function CryptoIdea(){
         </span>
       </div>
     )}
+    <div className="screen-wrap">
+    {TAB_SCREENS.has(screen)&&(
+      <button className="avatar app-avatar" onClick={()=>setScreen("account")} aria-label="Account">{acctInitial}</button>
+    )}
     {screen==="account"&&<Account/>}
     {screen==="portfolio"&&<Portfolio/>}
     {screen==="search"&&<Search/>}
@@ -651,6 +657,7 @@ export default function CryptoIdea(){
     {screen==="research"&&<Research/>}
     {screen==="journal"&&<Journal/>}
     {screen==="learn"&&<Learn/>}
+    </div>
     </div>
     {screen!=="login"&&screen!=="loading"&&screen!=="forgotPass"&&screen!=="contact"&&(
       <nav className="ci-app tabbar">

@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
+import { Ic } from "./ui.jsx";
 
 // Login/Register screen + the post-registration plan picker and the upgrade/billing
 // flow (shown via showPlan — reused as a full-screen overlay from the shell too).
@@ -14,6 +16,7 @@ export function Login() {
     authAgreeTerms, setAuthAgreeTerms, authAgreePrivacy, setAuthAgreePrivacy,
     authAgreeMarketing, setAuthAgreeMarketing,
   } = useApp();
+  const [showPass,setShowPass]=useState(false);
   if(showPlan){
     const tierLabel={free:"Starter",pro:"Pro",premium:"Premium"}[showWelcome||"free"];
 
@@ -111,13 +114,16 @@ export function Login() {
     <div className="auth-tagline">Know why you own every coin.</div>
     <div className="auth-col">
       <div className="auth-toggle">
-        <button onClick={()=>{setAuthMode("login");setAuthErr("")}} className={authMode==="login"?"on":""}>Login</button>
+        <button onClick={()=>{setAuthMode("login");setAuthErr("")}} className={authMode==="login"?"on":""}>Log in</button>
         <button disabled={!site.signupsEnabled} onClick={()=>{if(!site.signupsEnabled)return;setAuthMode("register");setAuthErr("")}} title={site.signupsEnabled?"":"Signups are paused"} className={authMode==="register"?"on":""}>Register</button>
       </div>
       {!site.signupsEnabled&&<div className="auth-note">New signups are paused right now.</div>}
       {authMode==="register"&&<input type="text" value={authName} onChange={e=>setAuthName(e.target.value.replace(/[^a-zA-Z\s]/g,""))} placeholder="First and last name" autoComplete="name" className="field-input"/>}
-      <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="name@email.com" autoComplete="email" inputMode="email" className="field-input"/>
-      <input type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} placeholder="Min 8: Aa1 + special (!@#)" autoComplete={authMode==="login"?"current-password":"new-password"} className="field-input"/>
+      <input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="you@email.com" autoComplete="email" inputMode="email" className="field-input"/>
+      <div className="pw-wrap">
+        <input type={showPass?"text":"password"} value={authPass} onChange={e=>setAuthPass(e.target.value)} placeholder="Min 8: Aa1 + special (!@#)" autoComplete={authMode==="login"?"current-password":"new-password"} className="field-input"/>
+        <button type="button" className="pw-eye" onClick={()=>setShowPass(s=>!s)} aria-label={showPass?"Hide password":"Show password"}>{showPass?Ic.eyeOff:Ic.eye}</button>
+      </div>
       {authMode==="register"&&(
         <div className="auth-consent">
           <label className="consent-row">
@@ -135,7 +141,7 @@ export function Login() {
         </div>
       )}
       {authErr&&<div className="auth-err" style={{color:"#FF3B30"}}>{authErr}</div>}
-      <button onClick={handleAuth} className="btn-primary">{authMode==="login"?"Login":"Create Account"}</button>
+      <button onClick={handleAuth} className="btn-primary">{authMode==="login"?"Log in":"Create Account"}</button>
       {authMode==="login"&&<div className="auth-link"><span onClick={()=>setScreen("forgotPass")}>Forgot password?</span></div>}
     </div>
   </div>);

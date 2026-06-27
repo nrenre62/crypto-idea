@@ -606,8 +606,9 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   restyled to design-system pills (`.port-pill*`, dark-safe, active = soft-green); Add-transaction
   **coin-name header** (`.tx-coin-head`, `Bitcoin · BTC` + token circle) above Buy/Sell, title
   "Add transaction". Verified: unit 251 green, build clean, browser-verified mobile + desktop.
-- [ ] **DP-3 Persistent avatar** — one shell-level account avatar (top-right) on all 5 tab screens →
-  opens Account; remove Portfolio's duplicate. Not on drill-in screens.
+- [x] **DP-3 Persistent avatar** — ✅ DONE 2026-06-27. One shell-level avatar (`.app-avatar` in a
+  relative `.screen-wrap`, below the verify banner) on all 5 tab screens → opens Account; Portfolio's
+  duplicate removed; hidden on drill-in screens. Browser-verified on every tab.
 - [ ] **DP-4 Learn** — hero → white card (XP + `🔥 streak`/`N lessons` chips); per-module SVG icons
   (fills the empty circles); module footer one-row (`X/Y lessons` · `%`/`Start →`); footer wording;
   dark-mode gradient fixes. Keep sequential unlock.
@@ -616,13 +617,15 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   Logout at bottom. Every handler preserved, only relocated.
 - [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
   + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
-- [ ] **DP-8 Login** — password show/hide eye toggle; "Login" → "Log in" (tab + button); email
-  placeholder `you@email.com`. Keep the inline `#FF3B30` auth-error (test-locked).
+- [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);
+  "Login" → "Log in" (tab + button); email placeholder `you@email.com`. `#FF3B30` auth-error preserved.
+  Browser-verified (toggle password↔text).
 - [ ] **DP-9 Coin info** — MARKET DATA = Rank/Market cap/24h volume/Circulating; YOUR POSITION =
   Held/Avg cost/Unrealised P&L (reuse `coinPnl`); chg pill "+X% today"; keep Transactions pill +
   Price-history card. Caveat: add 24h-vol/circulating to `/api/prices` if missing, else show `—`.
-- [ ] **DP-10 Transactions (Detail)** — wrap the tx list in a card + two-column rows (badge+amount+date
-  left; price + Cost/Recv right-aligned). Summary card + green TOTAL P/L already match.
+- [x] **DP-10 Transactions (Detail)** — ✅ DONE 2026-06-27. Tx list wrapped in a card (`.tx-list`) +
+  two-column rows (`.tx-left` badge+amount+date · `.tx-right` price + Cost/Recv, right-aligned). Summary
+  card + green TOTAL P/L already matched. Browser-verified (added a tx → renders in the card).
 - [ ] **DP-7 Polish** — full dark-mode + mobile/desktop browser verify, docs, final commit.
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·

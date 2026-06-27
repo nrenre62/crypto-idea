@@ -63,19 +63,22 @@ export function Detail() {
       </div>
       {coin.entries.length===0
         ?(<div className="tx-empty">No transactions yet.</div>)
-        :[...coin.entries].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(e=>{const isSell=e.type==="sell";return(
+        :<div className="tx-list">{[...coin.entries].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(e=>{const isSell=e.type==="sell";return(
           <div key={e.id} className="tx-row" onClick={()=>{setEditEntry(e);setEAmt(e.amount.toString());setEPrice(e.priceAtBuy.toString());setEDate(e.date);setETxType(e.type||"buy");setScreen("addEntry")}}>
-            <div>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div className="tx-left">
+              <div className="tx-line">
                 <span className={"tx-badge "+(isSell?"sell":"buy")}>{isSell?"SELL":"BUY"}</span>
                 <span className="tx-amt">{e.amount.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol}</span>
               </div>
               <div className="tx-meta">{Ic.clock} {fmtDT(e.date)}</div>
-              <div className="tx-price">Price: {fmtP(e.priceAtBuy)} · {isSell?"Received":"Cost"}: ${(e.amount*e.priceAtBuy).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+            </div>
+            <div className="tx-right">
+              <div className="tx-rprice">{fmtP(e.priceAtBuy)}</div>
+              <div className="tx-rcost">{isSell?"Recv":"Cost"} ${(e.amount*e.priceAtBuy).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
             </div>
             <button className="tx-del" onClick={(ev)=>{ev.stopPropagation();remEntry(coin.id,e.id)}}>{Ic.trash}</button>
           </div>
-        )})}
+        )})}</div>}
     </div>
   );
 }

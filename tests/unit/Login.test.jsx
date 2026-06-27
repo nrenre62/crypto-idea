@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { AppContext } from "../../src/hooks/app-context.js";
 import { Login } from "../../src/components/Login.jsx";
@@ -25,7 +25,18 @@ describe("Login screen (extracted, via AppContext)", () => {
   it("renders the login form by default", () => {
     provide({});
     expect(screen.getByText(/Know why you own every coin/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("name@email.com")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("you@email.com")).toBeInTheDocument();
+  });
+
+  it("toggles password visibility with the eye button", () => {
+    const { container } = provide({ authPass: "secret123" });
+    const pw = container.querySelector(".pw-wrap .field-input");
+    const eye = container.querySelector(".pw-eye");
+    expect(pw.getAttribute("type")).toBe("password");
+    fireEvent.click(eye);
+    expect(pw.getAttribute("type")).toBe("text");
+    fireEvent.click(eye);
+    expect(pw.getAttribute("type")).toBe("password");
   });
 
   it("disables registration and shows a notice when signups are paused", () => {

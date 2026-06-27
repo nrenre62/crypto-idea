@@ -11,7 +11,7 @@ import { PortfolioBar } from "./PortfolioBar.jsx";
 export function Portfolio() {
   const {
     api, tv, totalBuys, tpnl, tpp, portfolio, maxCoinsPerPort, usagePct,
-    prices, isPro, isPremium, setScreen, startUpgrade, setInfoCoin, user,
+    prices, isPro, isPremium, setScreen, startUpgrade, setInfoCoin,
   } = useApp();
   const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
   const cents = (tv % 1).toFixed(2).slice(2);
@@ -19,7 +19,6 @@ export function Portfolio() {
     .map((coin) => ({ coin, val: Math.max(0, coin.entries.reduce((s, e) => (e.type === "sell" ? s - e.amount : s + e.amount), 0)) * (prices[coin.id]?.usd || 0) }))
     .sort((a, b) => b.val - a.val)
     .map((x) => x.coin);
-  const initial = (user?.name || user?.email || "C").trim().charAt(0).toUpperCase();
   const p24 = portfolio24hPct(portfolio, prices);
 
   return (
@@ -32,7 +31,6 @@ export function Portfolio() {
             <span className="badge badge-plan" onClick={() => setScreen("account")} style={{ cursor: "pointer" }}>{plan}</span>
           </div>
         </div>
-        <div className="avatar" onClick={() => setScreen("account")} style={{ cursor: "pointer" }}>{initial}</div>
       </div>
 
       <PortfolioBar />
