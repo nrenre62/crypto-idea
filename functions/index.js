@@ -816,7 +816,8 @@ async function refreshUniverse({ pages = UNIVERSE_PAGES, prune = false } = {}) {
       coins[c.id] = {
         s: String(c.symbol || "").toUpperCase(), n: c.name, img: c.image || "",
         rank: c.market_cap_rank || null, p: c.current_price,
-        ch: c.price_change_percentage_24h, mc: c.market_cap, at: Date.now(),
+        ch: c.price_change_percentage_24h, mc: c.market_cap,
+        v: c.total_volume, cs: c.circulating_supply, at: Date.now(),
       };
     }
   }
@@ -891,9 +892,9 @@ exports.api = functions.https.onRequest(async (req, res) => {
         // every 5 min). A long-tail coin (refreshed only daily) goes "stale" after
         // HOT_TTL → refetched on demand below. Missing coins are stale too.
         if (m && (now - (m.at || 0)) < HOT_TTL) {
-          out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc };
+          out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc, usd_24h_vol: m.v, circulating: m.cs };
         } else {
-          if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc }; // last-known, refreshed just below
+          if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc, usd_24h_vol: m.v, circulating: m.cs }; // last-known, refreshed just below
           stale.push(id);
         }
       }
