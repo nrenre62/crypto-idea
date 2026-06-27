@@ -1,17 +1,18 @@
 import { useApp } from "../hooks/app-context.js";
-import { c } from "../utils/theme.js";
 
 // Horizontal portfolio switcher, shown only when there's more than one portfolio
 // (or the user is Pro). Reads the portfolio list + active id from context.
+// Styled with the .ci-app design system (dark-safe pills) and placed directly
+// under the header, above the value card (see Portfolio.jsx).
 export function PortfolioBar() {
   const { portfolios, isPro, setActivePortId, activePortId, maxPortfolios, setScreen } = useApp();
   if(!(portfolios.length>1||isPro))return null;
   return (
-    <div style={{padding:"6px 18px 2px",display:"flex",gap:6,overflowX:"auto"}}>
+    <div className="port-pills">
       {portfolios.map(p=>(
-        <button key={p.id} onClick={()=>setActivePortId(p.id)} style={{padding:"6px 14px",borderRadius:20,border:p.id===activePortId?"1.5px solid "+c.ac:"1.5px solid #E8E8ED",background:p.id===activePortId?c.acd:"#fff",fontSize:11,fontWeight:600,color:p.id===activePortId?c.ac:c.dim,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>{p.name}</button>
+        <button key={p.id} onClick={()=>setActivePortId(p.id)} className={"port-pill"+(p.id===activePortId?" active":"")}>{p.name}</button>
       ))}
-      {portfolios.length<maxPortfolios&&<button onClick={()=>setScreen("account")} style={{padding:"6px 10px",borderRadius:20,border:"1.5px dashed #E8E8ED",background:"none",fontSize:11,color:c.dim,cursor:"pointer",flexShrink:0}}>+</button>}
+      {portfolios.length<maxPortfolios&&<button onClick={()=>setScreen("account")} className="port-pill-add" aria-label="Add portfolio">+</button>}
     </div>
   );
 }

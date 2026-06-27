@@ -175,6 +175,12 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 /* Value summary — a white card with a gain line + an INVESTED / 24H / ASSETS
    cluster. flex + flex-wrap gives the cluster on the right at desktop width and
    wrapped to a divided row below the value on a phone — no @media needed. */
+/* Portfolio switcher pills — sits under the header, above the value card */
+.ci-app .port-pills { display:flex; gap:7px; overflow-x:auto; padding:2px 18px 12px; -webkit-overflow-scrolling:touch; }
+.ci-app .port-pill { flex:none; padding:7px 16px; border-radius:999px; border:1px solid var(--line-strong); background:var(--paper-2); color:var(--ink-soft); font-family:var(--body); font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; transition:.15s var(--ease); }
+.ci-app .port-pill.active { background:var(--accent-soft); color:var(--accent-ink); border-color:color-mix(in srgb, var(--accent) 35%, transparent); }
+.ci-app .port-pill-add { flex:none; padding:7px 13px; border-radius:999px; border:1px dashed var(--line-strong); background:none; color:var(--ink-faint); font-size:15px; line-height:1; cursor:pointer; }
+
 .ci-app .value-card { display:flex; flex-wrap:wrap; gap:14px 24px; align-items:flex-end; justify-content:space-between; background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); box-shadow:var(--sh-sm); padding:18px 20px; margin:6px 18px 14px; }
 .ci-app .vc-eyebrow { text-transform:uppercase; letter-spacing:.1em; font-size:11px; font-weight:700; color:var(--ink-faint); }
 .ci-app .value-card .port-total { font-family:var(--display); font-size:40px; font-weight:500; letter-spacing:-.03em; line-height:1.05; padding:6px 0 0; }
@@ -283,6 +289,9 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 
 /* ── Forms (AddEntry; reused by Login / Account) ──────── */
 .ci-app .form-body { padding:14px 18px 28px; display:flex; flex-direction:column; gap:15px; }
+.ci-app .tx-coin-head { display:flex; align-items:center; gap:11px; }
+.ci-app .tx-coin-head .tx-coin-name { font-size:16px; font-weight:700; }
+.ci-app .tx-coin-head .tx-coin-sym { color:var(--ink-faint); font-weight:500; font-size:14px; }
 .ci-app .field-label { display:block; font-size:12px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; }
 .ci-app .field-label .lbl-accent { color:var(--accent); font-weight:700; }
 .ci-app .field-label .lbl-sub { color:var(--ink-faint); font-weight:400; }

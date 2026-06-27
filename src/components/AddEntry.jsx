@@ -2,7 +2,7 @@ import { useApp } from "../hooks/app-context.js";
 import { useCoinHistory } from "../hooks/useCoinHistory.js";
 import { fmtP, fmtPriceInput } from "../utils/format.js";
 import { TOP_COINS, getHistoricalPrice, priceAtDate } from "../utils/coins.js";
-import { Ic } from "./ui.jsx";
+import { Ic, CI } from "./ui.jsx";
 
 // Buy/sell transaction form (new or edit). Selected coin, the e* form fields, and
 // the addEntry handler come from context. Date is clamped to the coin's launch and
@@ -46,10 +46,16 @@ export function AddEntry() {
     <div className="ci-app screen-bg">
       <div className="detail-head">
         <button className="icon-btn" onClick={()=>{setScreen("detail");setEditEntry(null)}}>{Ic.back}</button>
-        <span className="dh-title">{editEntry?"Edit Transaction":"New Transaction"}</span>
+        <span className="dh-title">{editEntry?"Edit transaction":"Add transaction"}</span>
         <span style={{width:22}}/>
       </div>
       <div className="form-body">
+        {sel&&(
+          <div className="tx-coin-head">
+            <CI thumb={sel.thumb} symbol={sel.symbol} size={36}/>
+            <div className="tx-coin-name">{sel.name} <span className="tx-coin-sym">· {sel.symbol}</span></div>
+          </div>
+        )}
         <div className="seg">
           <button onClick={()=>setETxType("buy")} className={"seg-btn"+(eTxType==="buy"?" on-buy":"")}>Buy</button>
           <button onClick={()=>setETxType("sell")} className={"seg-btn"+(eTxType==="sell"?" on-sell":"")}>Sell</button>

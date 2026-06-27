@@ -602,8 +602,10 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   Learn: 9 module icons + check/target) + shared CSS (pill `.switch`, `.set-row*`, `.port-pill*`,
   `.tx-coin-head`, `.app-avatar`, Learn hero-card/module-footer/icon sizing, trending label, dark-mode
   tokenizations). Enables the rest.
-- [ ] **DP-2 Quick wins** — Portfolio switcher moved **above** the value card + restyled to design-system
-  pills (dark-safe); Add-transaction **coin-name header** above Buy/Sell (title "Add transaction").
+- [x] **DP-2 Quick wins** — ✅ DONE 2026-06-27. Portfolio switcher moved **above** the value card +
+  restyled to design-system pills (`.port-pill*`, dark-safe, active = soft-green); Add-transaction
+  **coin-name header** (`.tx-coin-head`, `Bitcoin · BTC` + token circle) above Buy/Sell, title
+  "Add transaction". Verified: unit 251 green, build clean, browser-verified mobile + desktop.
 - [ ] **DP-3 Persistent avatar** — one shell-level account avatar (top-right) on all 5 tab screens →
   opens Account; remove Portfolio's duplicate. Not on drill-in screens.
 - [ ] **DP-4 Learn** — hero → white card (XP + `🔥 streak`/`N lessons` chips); per-module SVG icons

@@ -68,6 +68,19 @@ describe("Portfolio screen (extracted, via AppContext)", () => {
     expect(screen.queryByText(/Prices updating live/)).toBeNull();
   });
 
+  it("renders the switcher pills above the value card", () => {
+    const { container } = provide(Portfolio, {
+      portfolios: [{ id: "p1", name: "Portfolio 1" }, { id: "p2", name: "Portfolio 2" }],
+      activePortId: "p1", maxPortfolios: 10, isPro: true,
+    });
+    const pills = container.querySelector(".port-pills");
+    const card = container.querySelector(".value-card");
+    expect(pills).toBeTruthy();
+    expect(card).toBeTruthy();
+    // pills come before the value card in document order
+    expect(pills.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("shows the free-tier upgrade nudge at 100% usage", () => {
     provide(Portfolio, { usagePct: 100, isPro: false });
     expect(screen.getByText(/reached your account limit/i)).toBeInTheDocument();
@@ -97,5 +110,14 @@ describe("PortfolioBar (extracted, via AppContext)", () => {
     });
     fireEvent.click(screen.getByText("Alt"));
     expect(setActivePortId).toHaveBeenCalledWith("p2");
+  });
+
+  it("marks the active portfolio pill with the active class", () => {
+    const { container } = provide(PortfolioBar, {
+      portfolios: [{ id: "p1", name: "Main" }, { id: "p2", name: "Alt" }],
+      activePortId: "p2", maxPortfolios: 10,
+    });
+    const active = container.querySelector(".port-pill.active");
+    expect(active.textContent).toBe("Alt");
   });
 });

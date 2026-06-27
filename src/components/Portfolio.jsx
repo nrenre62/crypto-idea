@@ -35,6 +35,8 @@ export function Portfolio() {
         <div className="avatar" onClick={() => setScreen("account")} style={{ cursor: "pointer" }}>{initial}</div>
       </div>
 
+      <PortfolioBar />
+
       <div className="value-card">
         <div className="vc-main">
           <div className="vc-eyebrow">Portfolio value</div>
@@ -58,8 +60,6 @@ export function Portfolio() {
           </div>
         </div>
       </div>
-
-      <PortfolioBar />
 
       <div className="assets-head">
         <h3>My Assets <span>({portfolio.length}/{maxCoinsPerPort})</span></h3>

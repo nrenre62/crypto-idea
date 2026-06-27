@@ -27,17 +27,28 @@ function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), s
 }
 
 describe("AddEntry screen (extracted, via AppContext)", () => {
-  it("renders the new-transaction form with Buy/Sell toggle and amount field", () => {
+  it("renders the add-transaction form with Buy/Sell toggle and amount field", () => {
     render(<Harness />);
-    expect(screen.getByText("New Transaction")).toBeInTheDocument();
+    expect(screen.getByText("Add transaction")).toBeInTheDocument();
     expect(screen.getByText("Buy")).toBeInTheDocument();
     expect(screen.getByText("Sell")).toBeInTheDocument();
     expect(screen.getByText(/Amount \(BTC\)/)).toBeInTheDocument();
   });
 
+  it("shows the coin name + symbol header above the Buy/Sell toggle", () => {
+    const { container } = render(<Harness />);
+    const head = container.querySelector(".tx-coin-head .tx-coin-name");
+    expect(head).toBeTruthy();
+    expect(head.textContent).toContain("Bitcoin");
+    expect(head.textContent).toContain("BTC");
+    // the coin head precedes the Buy/Sell segmented control in the DOM
+    const seg = container.querySelector(".seg");
+    expect(container.querySelector(".tx-coin-head").compareDocumentPosition(seg) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("shows the edit-mode title when editing an existing entry", () => {
     render(<Harness editEntry={{ id: "t1" }} />);
-    expect(screen.getByText("Edit Transaction")).toBeInTheDocument();
+    expect(screen.getByText("Edit transaction")).toBeInTheDocument();
     expect(screen.getByText("Save Changes")).toBeInTheDocument();
   });
 
