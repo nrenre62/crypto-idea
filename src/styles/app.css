@@ -55,7 +55,7 @@ html[data-theme="dark"] .research-root {
    card-grid screens (.app-shell-wide). Same markup on mobile (full width)
    and desktop — no @media needed; max-width + margin auto do the reflow.
    NOTE: compound selector — ci-app + app-shell sit on the SAME element. */
-.ci-app.app-shell { max-width:720px; margin:0 auto; }
+.ci-app.app-shell { max-width:720px; margin:0 auto; padding-bottom:96px; } /* clear the floating nav pill */
 .ci-app.app-shell.app-shell-wide { max-width:1040px; }
 .ci-app.app-shell.app-shell-narrow { max-width:560px; }
 .ci-app .grid-auto { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; align-items:start; }
@@ -93,22 +93,20 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .empty-h { font-family:var(--display); font-size:18px; font-weight:500; margin-bottom:6px; }
 .ci-app .empty-p { font-size:13.5px; color:var(--ink-soft); line-height:1.55; max-width:260px; margin:0 auto 18px; }
 
-/* ── Bottom tab bar (fixed; mirrors the app's centered max-width column) ─── */
-.ci-app.tabbar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; height:80px;
-  background:var(--bar-bg); backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
-  border-top:1px solid var(--line-2); display:flex; align-items:center; justify-content:space-around; padding:0 4px 22px; z-index:100; }
-.ci-app .tb { display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink-faint); font-family:var(--body); font-size:9.5px; font-weight:600; letter-spacing:.02em; cursor:pointer; border:0; background:none; padding:4px 6px; border-radius:10px; min-width:52px; transition:color .2s var(--ease); }
+/* ── Bottom tab bar — white floating rounded pill on ALL sizes (founder review 2026-06-27).
+   Token-driven (`--paper-2` = white in light, dark surface in dark) so it stays dark-safe.
+   `width:auto` + `max-width:calc(100% - 24px)` keeps it from touching the edges on phones. ─── */
+.ci-app.tabbar { position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+  display:flex; align-items:center; justify-content:center; gap:2px; max-width:calc(100% - 24px);
+  background:var(--paper-2); border:1px solid var(--line); border-radius:999px; box-shadow:var(--sh);
+  padding:7px 8px; z-index:100; }
+.ci-app .tb { display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink-faint); font-family:var(--body); font-size:9.5px; font-weight:600; letter-spacing:.02em; cursor:pointer; border:0; background:none; padding:6px 11px; border-radius:14px; min-width:0; transition:color .2s var(--ease), background .2s var(--ease); }
 .ci-app .tb svg { width:22px; height:22px; }
-.ci-app .tb.active { color:var(--accent); }
-/* Desktop: the bottom nav becomes a solid-white floating rounded pill (founder review
-   2026-06-26) — cleaner/more prominent than the mobile translucent bar, which stays as
-   above. Bottom nav only; the Research sub-tabs are unchanged. Token-driven (dark OK). */
+.ci-app .tb.active { color:var(--accent); background:var(--accent-soft); }
+/* Desktop: a touch more bottom offset + horizontal padding per tab. */
 @media (min-width:760px) {
-  .ci-app.tabbar { bottom:18px; width:auto; max-width:none; height:auto; gap:4px;
-    background:var(--paper-2); backdrop-filter:none; -webkit-backdrop-filter:none;
-    border:1px solid var(--line); border-radius:999px; box-shadow:var(--sh); padding:8px 10px; }
-  .ci-app .tb { padding:6px 16px; border-radius:14px; transition:color .2s var(--ease), background .2s var(--ease); }
-  .ci-app .tb.active { background:var(--accent-soft); }
+  .ci-app.tabbar { bottom:18px; gap:4px; padding:8px 10px; }
+  .ci-app .tb { padding:6px 16px; }
 }
 
 /* ── Journal ──────────────────────────────────────────── */

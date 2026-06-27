@@ -575,7 +575,7 @@ export default function CryptoIdea(){
   // Responsive shell: tab screens render inside a centered column (.app-shell) that
   // widens on desktop. Card-collection screens opt into the wider 1040px track as
   // their grids land (§R). Same markup mobile↔desktop — no @media needed.
-  const WIDE_SCREENS=new Set(["portfolio"]); // Portfolio uses the 1040 track for the 3-up asset card grid
+  const WIDE_SCREENS=new Set(["portfolio","research","journal","learn","search"]); // all 5 tab screens share the 1040 track so they're the same width on desktop
   const NARROW_SCREENS=new Set(["detail","addEntry","coinInfo"]); // forms/detail read better narrower
   const TAB_SCREENS=new Set(["portfolio","research","journal","learn","search"]); // bottom-nav tabs get the persistent account avatar
   const acctInitial=(user?.name||user?.email||"C").trim().charAt(0).toUpperCase();

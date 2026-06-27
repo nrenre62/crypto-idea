@@ -626,6 +626,15 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
 - [x] **DP-10 Transactions (Detail)** — ✅ DONE 2026-06-27. Tx list wrapped in a card (`.tx-list`) +
   two-column rows (`.tx-left` badge+amount+date · `.tx-right` price + Cost/Recv, right-aligned). Summary
   card + green TOTAL P/L already matched. Browser-verified (added a tx → renders in the card).
+- [x] **DP-11 White mobile nav** — ✅ DONE 2026-06-27. Hoisted the desktop white floating pill to ALL
+  sizes (`.tabbar` → `--paper-2` white bg, `border-radius:999px`, shadow, floating `bottom:14px`,
+  `max-width:calc(100% - 24px)`); active tab gets the soft-green highlight on mobile too; dark-safe
+  (token-driven). Added `app-shell` `padding-bottom:96px` to clear the floating pill. Browser-verified
+  mobile (white pill + active highlight) + desktop.
+- [x] **DP-12 Consistent tab widths** — ✅ DONE 2026-06-27. All 5 tab screens now use the 1040 wide track
+  (added research/journal/learn/search to `WIDE_SCREENS`) so they're the same size as Portfolio on
+  desktop (also aligns the persistent avatar's right edge across tabs). Verified all tabs = 1040 @1280.
+  NB: Research Overview's single-column cards stretch wide at 1040 — cap inner width later if desired.
 - [ ] **DP-7 Polish** — full dark-mode + mobile/desktop browser verify, docs, final commit.
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
