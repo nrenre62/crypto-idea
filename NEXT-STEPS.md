@@ -633,7 +633,11 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [ ] **R2-2** Learn: remove the `.badges-row` "graph icon" (not needed) — trivial.
   - [ ] **R2-3** Research › Portfolio Pulse: new design (Share/Regenerate pills + period headline pill); KEEP 24H/7D/30D where they are + KEEP the offline note.
   - [ ] **R2-4** Research › Portfolio Risk: new design (segmented gradient meter Low/Moderate/High + status badge + lock footer); keep the computation.
-  - [ ] **R2-5** Add transaction: restyle ONLY the Buy/Sell tab style + fonts + "AUTO" on the right side of the price input.
+  - [ ] **R2-5** Add transaction: restyle ONLY the Buy/Sell tab style + fonts + "AUTO" on the right side of the price input + the "Total cost" row (large display amount).
+  - [ ] **R2-6** Journal: new design — serif "Journal" header + avatar + "Write before you buy." + entry cards with coin circle + status pill (Intact/Review/Challenged) + thesis excerpt. Keep logic.
+  - [ ] **R2-7** Research › Allocation: color each bar segment + legend dot by the coin's original brand color (`coinColor`) so none repeat.
+  - [ ] **R2-8** Research dark-mode bug: "A note on diversification" card is light-on-light (unreadable) — tokenize + audit sibling cards.
+  - [ ] **R2-9** Learn dark-mode bug: lesson overlay "THE KEY INSIGHT" box (`.lesson-insight`) light gradient unreadable in dark — tokenize.
 - [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
   + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
 - [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);

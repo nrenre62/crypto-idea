@@ -146,11 +146,30 @@ badge + amount, date·time; right: price + Cost/Recv stacked, right-aligned). Ke
   High** labels beneath; a **status badge** top-right (e.g. amber "Elevated"); the holdings-concentration
   explanation text; a **lock-icon footer** "Calculated from your holdings — updates automatically and
   isn't adjustable." Keep the existing risk computation. Research module, `.research-root` scoped. (img 4)
-- **R2-5 — Add transaction: restyle (tabs · fonts · AUTO).** Per screenshot — **ONLY** these three, no
-  functional/handler changes: (a) **Buy/Sell segmented tab style** — white rounded container, active =
-  white pill with subtle shadow, inactive = muted; (b) **text/font** treatment of the field labels +
-  inputs; (c) move the **"AUTO"** indicator inline to the **right side of the "Price per coin" input**
-  (green). Keep the coin-head row (DP-2), Amount/Price fields, and the dynamic submit button. (img 6)
+- **R2-5 — Add transaction: restyle (tabs · fonts · AUTO · Total cost).** Per screenshots — **ONLY**
+  styling, no functional/handler changes: (a) **Buy/Sell segmented tab style** — white rounded container,
+  active = white pill with subtle shadow, inactive = muted; (b) **text/font** treatment of the field labels
+  + inputs; (c) move the **"AUTO"** indicator inline to the **right side of the "Price per coin" input**
+  (green); (d) **"Total cost" row** restyle — muted label left, amount right in the **large display/serif
+  font** (e.g. `$31,115`), sitting just above the green "Add to portfolio" button. Keep the coin-head row
+  (DP-2), Amount/Price/Date fields, the total computation, and the dynamic submit button. (img: add-tx 1 + 2)
+- **R2-6 — Journal → new design.** Per screenshot: a big **serif "Journal"** title + the account avatar
+  top-right + **"Write before you buy."** subtitle; entry **cards** = coin brand-color circle (`CI`) + coin
+  name + muted "Added <date>" + a **status pill** on the right (Intact = green · Review = amber · Challenged
+  = red) + a 2-line thesis excerpt. Restyle the Journal header + entry cards + status pills + fonts to match.
+  **Keep all journal logic/handlers** (thesis add/edit, review-status). `.ci-app`. (img: Journal)
+- **R2-7 — Research › Allocation: original coin colors.** The allocation bar + legend currently **repeat
+  colors** (e.g. SOL & BNB both render green). Color each bar segment + legend dot by the coin's **original
+  brand color** (the `coinColor(symbol)` brand palette — SOL purple, BNB gold, RNDR red, …) so every coin is
+  distinct. Research feature module (`src/features/research/`). (img: ALLOCATION)
+- **R2-8 — Research dark-mode contrast fix.** In dark mode the **"A note on diversification"** card renders
+  **light background + light text → unreadable** (its bg/text don't flip). Tokenize it and audit sibling
+  Research cards (stress-test note, daily brief, etc.) so they're dark-safe + consistent with the other dark
+  cards. Research module (`styles/research-tab.css`, `.research-root` dark overrides). **Readability bug.**
+- **R2-9 — Learn lesson dark-mode contrast fix.** In the lesson overlay the **"THE KEY INSIGHT"** box
+  (`.lesson-insight`) uses a light gradient that stays light in dark mode → unclear text/background; check
+  the quiz card too. Tokenize so it's readable in dark. `.ci-app`. **Readability bug.**
 
-**Status:** captured 2026-06-27; awaiting the rest of the founder's round-2 list, then confirm R2-1
-placement + finalize build order before building.
+**Status:** captured 2026-06-27 (founder adding more — "do the plan now, build later"). Before building:
+get the rest of the list, confirm R2-1 avatar placement, finalize build order. R2-8/R2-9 are dark-mode
+readability bugs (bump priority within the round).
