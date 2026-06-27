@@ -94,7 +94,8 @@ describe("CryptoIdea (smoke)", () => {
     await screen.findByText(/My Assets/i);
     // Header tier badge (free user -> "STARTER") -> screen "account" -> <Account/>.
     fireEvent.click(screen.getByText("STARTER"));
-    expect(await screen.findByText("Your Plan Usage")).toBeInTheDocument();
-    expect(screen.getByText("Privacy & your data")).toBeInTheDocument();
+    // Account is a drill-in list: home shows the plan-usage summary + nav rows.
+    expect(await screen.findByText("Plan usage")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Privacy & data/ })).toBeInTheDocument();
   });
 });

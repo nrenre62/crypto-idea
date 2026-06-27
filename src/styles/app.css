@@ -433,6 +433,27 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .theme-seg { display:flex; gap:4px; background:var(--paper-3); border:1px solid var(--line-2); border-radius:12px; padding:4px; }
 .ci-app .theme-opt { flex:1; padding:9px 0; border:0; background:none; border-radius:9px; font-family:var(--body); font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer; transition:.2s var(--ease); }
 .ci-app .theme-opt.on { background:var(--ink); color:var(--paper); }
+
+/* DP-5 Account drill-in: settings rows + pill switch (token-based, dark-safe) */
+.ci-app .card.acct-list { padding:4px 18px; }
+.ci-app .settings-row { display:flex; align-items:center; gap:12px; width:100%; padding:13px 0; border:0; border-bottom:1px solid var(--line-2); background:none; font-family:var(--body); text-align:left; color:var(--ink); }
+.ci-app .acct-list > .settings-row:last-child { border-bottom:0; }
+.ci-app .settings-row.pressable { cursor:pointer; }
+.ci-app .settings-row .sr-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; background:var(--paper-3); color:var(--ink-soft); flex:none; }
+.ci-app .settings-row .sr-icon svg { width:18px; height:18px; }
+.ci-app .settings-row .sr-label { flex:1; font-size:14px; font-weight:600; color:var(--ink); }
+.ci-app .settings-row .sr-value { font-size:13px; font-weight:600; color:var(--ink-faint); }
+.ci-app .settings-row .sr-chev { display:flex; color:var(--ink-faint); }
+.ci-app .settings-row .sr-chev svg { width:18px; height:18px; }
+.ci-app .settings-row .sr-ctrl { flex:none; display:flex; align-items:center; }
+.ci-app .settings-row.settings-row-stack { flex-direction:column; align-items:stretch; gap:11px; }
+.ci-app .settings-row-stack .sr-head { display:flex; align-items:center; gap:12px; }
+.ci-app .switch { position:relative; display:inline-block; width:42px; height:24px; flex:none; }
+.ci-app .switch input { position:absolute; opacity:0; width:0; height:0; }
+.ci-app .switch .slider { position:absolute; inset:0; background:var(--line-strong); border-radius:999px; transition:.2s var(--ease); }
+.ci-app .switch .slider::before { content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s var(--ease); box-shadow:0 1px 2px rgba(0,0,0,.2); }
+.ci-app .switch input:checked + .slider { background:var(--accent); }
+.ci-app .switch input:checked + .slider::before { transform:translateX(18px); }
 .ci-app .port-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2); }
 .ci-app .port-row .pr-name { font-size:14px; font-weight:500; cursor:pointer; }
 .ci-app .port-row .pr-name.active { font-weight:700; color:var(--accent); }

@@ -160,7 +160,8 @@ describe("User walkthrough — all functions", () => {
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
     fireEvent.click(screen.getByText("STARTER")); // plan badge -> Account
-    expect(await screen.findByText("Your Plan Usage")).toBeInTheDocument();
-    expect(screen.getByText("Privacy & your data")).toBeInTheDocument();
+    // Account is a drill-in list: home shows the plan-usage summary + nav rows.
+    expect(await screen.findByText("Plan usage")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Privacy & data/ })).toBeInTheDocument();
   });
 });
