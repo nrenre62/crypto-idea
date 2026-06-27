@@ -593,6 +593,34 @@ settings/words/functions unless §7 says otherwise.
 
 (See [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) §3 for per-phase scope + DoD, §4 for the interaction decision, §7 for the founder review.)
 
+## DP. Design Pass 2 — founder mockup alignment  (2026-06-27, PLANNED)
+
+Canonical: [`DESIGN-PASS.md`](DESIGN-PASS.md) (4 design changes + decisions). Design-only except the new
+cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built as ONE batch in order:
+
+- [ ] **DP-1 Foundations** — add the icon set (Account: lock/bell/palette/shield/chevron/user/card/folder;
+  Learn: 9 module icons + check/target) + shared CSS (pill `.switch`, `.set-row*`, `.port-pill*`,
+  `.tx-coin-head`, `.app-avatar`, Learn hero-card/module-footer/icon sizing, trending label, dark-mode
+  tokenizations). Enables the rest.
+- [ ] **DP-2 Quick wins** — Portfolio switcher moved **above** the value card + restyled to design-system
+  pills (dark-safe); Add-transaction **coin-name header** above Buy/Sell (title "Add transaction").
+- [ ] **DP-3 Persistent avatar** — one shell-level account avatar (top-right) on all 5 tab screens →
+  opens Account; remove Portfolio's duplicate. Not on drill-in screens.
+- [ ] **DP-4 Learn** — hero → white card (XP + `🔥 streak`/`N lessons` chips); per-module SVG icons
+  (fills the empty circles); module footer one-row (`X/Y lessons` · `%`/`Start →`); footer wording;
+  dark-mode gradient fixes. Keep sequential unlock.
+- [ ] **DP-5 Account** — drill-in settings list (home = mockup) + detail views (Profile / Plan & billing /
+  Portfolios / Security / Privacy & data); "Product updates & offers" toggle moves into Privacy & data;
+  Logout at bottom. Every handler preserved, only relocated.
+- [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
+  + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
+- [ ] **DP-7 Polish** — full dark-mode + mobile/desktop browser verify, docs, final commit.
+
+**DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
+browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
+
+---
+
 ## 5. Housekeeping
 
 - [x] Ran `npm audit fix` (no `--force`): patched the `protobufjs` prod advisory → **production
