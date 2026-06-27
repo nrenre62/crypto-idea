@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useLearn } from "../hooks/useLearn.js";
+import { MODULE_ICONS, LockIcon } from "./learn-icons.jsx";
 
 /**
  * Learn tab — real gamified learning, wired to persisted progress.
@@ -19,7 +20,7 @@ function Module({ m, isComplete, onOpen }) {
   return (
     <div className={"module" + (isActive ? " active" : "") + (isLocked ? " locked" : "")}>
       <div className="m-top">
-        <div className={"m-icon" + (isDone ? " done" : "") + (isLocked ? " locked-icon" : "")}>{isLocked ? "🔒" : m.icon}</div>
+        <div className={"m-icon" + (isDone ? " done" : "") + (isLocked ? " locked-icon" : "")}>{isLocked ? LockIcon : (MODULE_ICONS[m.id] || m.icon)}</div>
         <div className="m-info">
           <div className="m-title">
             {m.title}
@@ -30,12 +31,14 @@ function Module({ m, isComplete, onOpen }) {
         </div>
       </div>
       {!isLocked && (
-        <div className="m-prog">
+        <>
           <div className="m-prog-bar"><div className={"m-prog-fill " + (isDone ? "done-fill" : "active-fill")} style={{ width: m.pct + "%" }} /></div>
-          <div className="m-prog-label">{m.done}/{m.total} lessons · {m.pct}% complete</div>
-        </div>
+          <div className="m-foot">
+            <span className="m-foot-count">{m.done}/{m.total} lessons · {m.pct}%</span>
+            <button className="m-btn" onClick={onOpen}>{isDone ? "Review →" : m.done > 0 ? "Continue →" : "Start →"}</button>
+          </div>
+        </>
       )}
-      {(isActive || isDone) && <div className="m-cta"><button className="m-btn" onClick={onOpen}>{isDone ? "Review →" : m.done > 0 ? "Continue →" : "Start →"}</button></div>}
     </div>
   );
 }
@@ -94,13 +97,20 @@ export function Learn() {
   const openLesson = (lesson, moduleTitle) => setActive({ lesson, moduleTitle });
   const openModule = (m) => openLesson(m.lessons.find((l) => !isComplete(l.id)) || m.lessons[0], m.title);
 
+  const lessonsDone = progress.completedLessons.length;
+  const lessonsTotal = modules.reduce((s, m) => s + m.total, 0);
+
   return (
     <div className="ci-app screen-bg">
       <div className="learn-hero">
-        <div className="learn-level">Level {level.level} · {level.title}{progress.streak > 0 ? `  ·  🔥 ${progress.streak}-day streak` : ""}</div>
+        <div className="learn-level">Level {level.level} · {level.title}</div>
         <div className="learn-title">Your Investing Edge <span className="beta">BETA</span></div>
         <div className="xp-bar"><div className="xp-fill" style={{ width: level.pct + "%" }} /></div>
         <div className="xp-label">{level.nextAt != null ? `${level.xp} / ${level.nextAt} XP to Level ${level.level + 1}` : `${level.xp} XP · Max level`}</div>
+        <div className="learn-chips">
+          {progress.streak > 0 && <span className="learn-chip">🔥 {progress.streak}-day streak</span>}
+          <span className="learn-chip">📚 {lessonsDone} of {lessonsTotal} lessons</span>
+        </div>
       </div>
 
       <div className="badges-row">

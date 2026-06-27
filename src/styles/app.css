@@ -134,15 +134,17 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .nt-btn { margin-left:auto; font-family:var(--body); font-size:12px; font-weight:700; color:var(--accent); background:var(--accent-soft); border:0; border-radius:999px; padding:7px 13px; cursor:pointer; white-space:nowrap; }
 
 /* ── Learn ────────────────────────────────────────────── */
-.ci-app .learn-hero { padding:14px 18px 18px; border-bottom:1px solid var(--line); }
+.ci-app .learn-hero { margin:16px 18px 0; background:var(--paper-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:16px 18px; box-shadow:var(--sh-sm); }
 .ci-app .learn-level { font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:4px; }
 .ci-app .learn-title { font-family:var(--display); font-size:22px; font-weight:500; margin-bottom:12px; }
 .ci-app .xp-bar { height:7px; background:var(--line); border-radius:999px; overflow:hidden; }
 .ci-app .xp-fill { height:100%; background:linear-gradient(90deg,var(--ai-1),var(--ai-2)); border-radius:999px; }
 .ci-app .xp-label { font-size:11px; color:var(--ink-faint); margin-top:5px; font-weight:600; }
+.ci-app .learn-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.ci-app .learn-chip { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:var(--ink-soft); background:var(--paper-3); border:1px solid var(--line-2); border-radius:999px; padding:5px 11px; }
 .ci-app .badges-row { display:flex; gap:7px; padding:14px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
 .ci-app .badge-chip { font-size:14px; width:38px; height:38px; border-radius:11px; background:var(--paper-2); border:1px solid var(--line); display:grid; place-items:center; box-shadow:var(--sh-sm); }
-.ci-app .today-lesson { margin:16px 18px 0; background:linear-gradient(135deg,#f0faf4,#f0f4fd); border:1px solid var(--line); border-radius:var(--radius-sm); padding:16px; }
+.ci-app .today-lesson { margin:16px 18px 0; background:linear-gradient(135deg, var(--accent-soft), var(--paper-2)); border:1px solid var(--line); border-radius:var(--radius-sm); padding:16px; }
 .ci-app .tl-label { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:6px; }
 .ci-app .tl-title { font-size:15px; font-weight:700; margin-bottom:5px; }
 .ci-app .tl-excerpt { font-size:13px; color:var(--ink-soft); line-height:1.5; margin-bottom:11px; }
@@ -151,21 +153,20 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .module-list { padding:16px 18px 0; }
 .ci-app .module { background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:15px; margin-bottom:11px; box-shadow:var(--sh-sm); }
 .ci-app .module.locked { opacity:.55; }
-.ci-app .module.active { border-color:rgba(10,107,77,.3); background:linear-gradient(135deg,#f9fdfb,#fff); }
+.ci-app .module.active { border-color:color-mix(in srgb, var(--accent) 30%, transparent); background:linear-gradient(135deg, var(--accent-soft), var(--paper-2)); }
 .ci-app .m-top { display:flex; align-items:flex-start; gap:11px; }
-.ci-app .m-icon { width:38px; height:38px; border-radius:11px; background:var(--accent-soft); display:grid; place-items:center; font-size:18px; flex:none; }
-.ci-app .m-icon.done { background:rgba(31,157,85,.12); }
-.ci-app .m-icon.locked-icon { background:var(--paper-3); }
+.ci-app .m-icon { width:38px; height:38px; border-radius:11px; background:var(--accent-soft); color:var(--accent-ink); display:grid; place-items:center; font-size:18px; flex:none; }
+.ci-app .m-icon.done { background:var(--sg-s); color:var(--sg); }
+.ci-app .m-icon.locked-icon { background:var(--paper-3); color:var(--ink-faint); }
 .ci-app .m-info { flex:1; }
 .ci-app .m-title { font-weight:700; font-size:14px; margin-bottom:2px; display:flex; align-items:center; gap:6px; }
 .ci-app .m-subtitle { font-size:12px; color:var(--ink-faint); line-height:1.4; }
-.ci-app .m-prog { margin-top:10px; }
-.ci-app .m-prog-bar { height:4px; background:var(--line); border-radius:999px; overflow:hidden; }
+.ci-app .m-prog-bar { height:4px; background:var(--line); border-radius:999px; overflow:hidden; margin-top:12px; }
 .ci-app .m-prog-fill { height:100%; border-radius:999px; }
 .ci-app .m-prog-fill.done-fill { background:var(--sg); }
 .ci-app .m-prog-fill.active-fill { background:linear-gradient(90deg,var(--ai-1),var(--ai-2)); }
-.ci-app .m-prog-label { font-size:11px; color:var(--ink-faint); margin-top:4px; font-weight:600; }
-.ci-app .m-cta { display:flex; align-items:center; justify-content:flex-end; margin-top:11px; }
+.ci-app .m-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:9px; }
+.ci-app .m-foot-count { font-size:11.5px; color:var(--ink-faint); font-weight:600; }
 .ci-app .m-btn { font-family:var(--body); font-size:12px; font-weight:700; color:var(--accent-ink); background:var(--accent-soft); border:0; border-radius:999px; padding:6px 14px; cursor:pointer; }
 /* Responsive: modules reflow to 2-up on desktop, 1-up on mobile. Gap matches the
    original 11px stack spacing so mobile is visually unchanged. */

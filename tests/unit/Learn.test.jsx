@@ -51,4 +51,31 @@ describe("Learn tab (wired to useLearn)", () => {
     fireEvent.click(screen.getByText("The token is now undervalued")); // a wrong option
     expect(saveLearnProgress).not.toHaveBeenCalled();
   });
+
+  it("shows the hero streak + lessons chips (DP-4)", async () => {
+    getLearnProgress.mockResolvedValue({ success: true, xp: 50, streak: 2, lastActivity: "2026-06-23", completedLessons: ["markets-1"] });
+    renderLearn();
+    await screen.findByText("Your Investing Edge");
+    expect(screen.getByText(/🔥 2-day streak/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of \d+ lessons/)).toBeInTheDocument();
+  });
+
+  it("renders an SVG icon for every module incl. a lock for locked ones (DP-4)", async () => {
+    getLearnProgress.mockResolvedValue(fresh);
+    const { container } = renderLearn();
+    await screen.findByText("Your Investing Edge");
+    // one icon per module (active/done show the module SVG, locked shows the lock SVG)
+    expect(container.querySelectorAll(".m-icon svg").length).toBeGreaterThanOrEqual(9);
+    expect(container.querySelector(".m-icon.locked-icon svg")).toBeTruthy();
+  });
+
+  it("module footer is a single row with count + CTA (DP-4)", async () => {
+    getLearnProgress.mockResolvedValue(fresh);
+    const { container } = renderLearn();
+    await screen.findByText("Your Investing Edge");
+    const foot = container.querySelector(".m-foot");          // markets is the only unlocked module for a fresh learner
+    expect(foot).toBeTruthy();
+    expect(foot.querySelector(".m-foot-count").textContent).toMatch(/0\/\d+ lessons/);
+    expect(foot.querySelector(".m-btn").textContent).toBe("Start →");
+  });
 });
