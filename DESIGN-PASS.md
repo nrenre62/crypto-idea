@@ -74,6 +74,25 @@ white-card hero with streak/lessons **chips** (supersedes the earlier "two heade
 
 ---
 
+## 7. Login → match the mockup
+Already on the paper design (serif "Crypto Idea", tagline, Log in/Register segmented, **black**
+`btn-primary`, Forgot password). Gaps: add a **password show/hide eye toggle** (the 👁 in the mockup;
+toggles input `type`); wording "Login" → **"Log in"** (tab + button); email placeholder → `you@email.com`.
+**Preserve the inline `#FF3B30` auth-error** (Login.test asserts it).
+
+## 8. Coin info → match the mockup (same mobile + desktop)
+Reconcile to the emphasized mobile mockup: **MARKET DATA** = Rank · Market cap · 24h volume ·
+Circulating supply; **YOUR POSITION** (held) = Held · Avg cost · Unrealised P&L (reuse `coinPnl`);
+chg pill → "+X% today"; keep the header **Transactions** pill + the existing Price-history card.
+**Data caveat:** confirm `prices[id]` carries 24h volume + circulating supply; if not, add
+`include_24hr_vol` to the cached `/api/prices` fetch + circulating from coin metadata, else show `—`
+(never NaN).
+
+## 9. Transactions (Detail) → match the mockup (same mobile + desktop)
+The summary card (Holding/Current value/Bought/Avg buy price + green **TOTAL P/L** box, already a tinted
+`pnl-row`) matches. Change: **wrap the tx list in a white card** + **two-column rows** (left: BUY/SELL
+badge + amount, date·time; right: price + Cost/Recv stacked, right-aligned). Keep price-hero + header.
+
 ## Shared work (do once, used across screens)
 - **Icon set:** add `lock, bell, palette, shield, chevron, user, card, folder` (Account) + the 9
   Learn module icons + a check/target. Inline SVGs in `ui.jsx` (or a co-located `learn-icons` map),
@@ -90,7 +109,10 @@ white-card hero with streak/lessons **chips** (supersedes the earlier "two heade
 4. **DP-4 Learn** — hero card, module icons, footer row, dark fixes.
 5. **DP-5 Account** — drill-in list + detail views (the biggest).
 6. **DP-6 Search trending** — `/api/trending` + hook + UI.
-7. **DP-7 Polish** — full dark-mode + mobile/desktop verify, docs, final commit.
+7. **DP-8 Login** — password eye toggle + "Log in" wording.
+8. **DP-9 Coin info** — Market data (Rank/Market cap/24h vol/Circulating) + Your position (Held/Avg cost/Unrealised P&L).
+9. **DP-10 Transactions** — tx list in a card + two-column rows.
+10. **DP-7 Polish** — full dark-mode + mobile/desktop verify, docs, final commit.
 
 **DoD per phase:** TDD-light (adjust/extend the screen's tests first) · `npm run test:unit` green ·
 `npm run build` clean · browser-verify mobile (~390) + desktop (~1040), light + dark · commit · docs.

@@ -616,6 +616,13 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   Logout at bottom. Every handler preserved, only relocated.
 - [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
   + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
+- [ ] **DP-8 Login** — password show/hide eye toggle; "Login" → "Log in" (tab + button); email
+  placeholder `you@email.com`. Keep the inline `#FF3B30` auth-error (test-locked).
+- [ ] **DP-9 Coin info** — MARKET DATA = Rank/Market cap/24h volume/Circulating; YOUR POSITION =
+  Held/Avg cost/Unrealised P&L (reuse `coinPnl`); chg pill "+X% today"; keep Transactions pill +
+  Price-history card. Caveat: add 24h-vol/circulating to `/api/prices` if missing, else show `—`.
+- [ ] **DP-10 Transactions (Detail)** — wrap the tx list in a card + two-column rows (badge+amount+date
+  left; price + Cost/Recv right-aligned). Summary card + green TOTAL P/L already match.
 - [ ] **DP-7 Polish** — full dark-mode + mobile/desktop browser verify, docs, final commit.
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
