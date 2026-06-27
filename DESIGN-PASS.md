@@ -110,7 +110,7 @@ badge + amount, date·time; right: price + Cost/Recv stacked, right-aligned). Ke
 5. **DP-5 Account** — drill-in list + detail views (the biggest).
 6. **DP-6 Search trending** — `/api/trending` + hook + UI.
 7. **DP-8 Login** — password eye toggle + "Log in" wording.
-8. **DP-9 Coin info** — Market data (Rank/Market cap/24h vol/Circulating) + Your position (Held/Avg cost/Unrealised P&L).
+8. **DP-9 Coin info** — Market data (Rank/Market cap/24h vol/Circulating) + Your position (Held/Avg cost/Unrealised P&L). — ✅ BUILT 2026-06-27. Label shipped as "Unrealised P/L" (matches Detail's "Total P/L", excludes realised sells); also enriched `/api/prices` with `usd_24h_vol`+`circulating` (DP-9b) so vol/circulating are real, em-dash fallback for the long tail.
 9. **DP-10 Transactions** — tx list in a card + two-column rows.
 10. **DP-7 Polish** — full dark-mode + mobile/desktop verify, docs, final commit.
 

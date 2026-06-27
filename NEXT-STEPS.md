@@ -620,9 +620,15 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
 - [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);
   "Login" → "Log in" (tab + button); email placeholder `you@email.com`. `#FF3B30` auth-error preserved.
   Browser-verified (toggle password↔text).
-- [ ] **DP-9 Coin info** — MARKET DATA = Rank/Market cap/24h volume/Circulating; YOUR POSITION =
-  Held/Avg cost/Unrealised P&L (reuse `coinPnl`); chg pill "+X% today"; keep Transactions pill +
-  Price-history card. Caveat: add 24h-vol/circulating to `/api/prices` if missing, else show `—`.
+- [x] **DP-9 Coin info** — ✅ DONE 2026-06-27 (two commits). **DP-9a (client, design-only):** MARKET DATA =
+  Rank/Market cap/24h volume/Circulating; YOUR POSITION = Held/Avg cost/**Unrealised P/L** (reuses `coinPnl`,
+  excludes realised sells; colored `pnl-row`, dark-safe); chg pill "(24h)" → "today"; dropped "First tracked" +
+  the redundant Value/Transactions rows & in-card button (header Transactions pill kept); Price-history card
+  kept. 24h vol + circulating read `prices[id].usd_24h_vol`/`.circulating` with an em-dash fallback (never
+  NaN). No new CSS. **DP-9b (backend):** `refreshUniverse` now persists `v` (total_volume) + `cs`
+  (circulating_supply) — already returned by `coins/markets`, so **zero extra upstream cost** — and the
+  `/api/prices` handler emits `usd_24h_vol` + `circulating`. Verified: 254 unit green, build clean, live API
+  probe + browser (light+dark) → "$25.81B" / "20,048,900 BTC".
 - [x] **DP-10 Transactions (Detail)** — ✅ DONE 2026-06-27. Tx list wrapped in a card (`.tx-list`) +
   two-column rows (`.tx-left` badge+amount+date · `.tx-right` price + Cost/Recv, right-aligned). Summary
   card + green TOTAL P/L already matched. Browser-verified (added a tx → renders in the card).
