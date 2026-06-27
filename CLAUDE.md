@@ -62,6 +62,16 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   Login parity (design-only); **Journal** new design + "Needs a thesis"/add-thesis-later; **Research** desktop
   richer Coins card; full dark-mode sweep. "held" dropped on cards; live line removed. Mockups:
   [`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html).
+- **Design Pass 2 (IN PROGRESS, 2026-06-27):** founder-mockup alignment, screen by screen — canonical spec
+  [`DESIGN-PASS.md`](DESIGN-PASS.md), live status [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP. Built so far:
+  DP-2/3 (Portfolio switcher pills + persistent account avatar on all tabs), DP-4 (Learn hero card +
+  per-module SVG icons `src/components/learn-icons.jsx` + dark fixes), DP-5 (Account → drill-in settings
+  list + detail views; new `.switch`/`.settings-row*` + 8 `Ic` row icons), DP-8 (Login eye toggle),
+  DP-9 (Coin info MARKET DATA/YOUR POSITION + `/api/prices` vol/circulating), DP-10/11/12. Remaining: a
+  **Round 2** of founder follow-ups (R2-1..R2-9: avatar consistency, remove Learn badge, Research Pulse +
+  Risk redesigns, allocation coin-colors, Add-tx restyle, Journal redesign, two dark-mode readability bugs),
+  then DP-6 (Search trending → new cached `/api/trending`) and DP-7 (polish). **Design-only + dark-safe;
+  reuse `.ci-app` tokens; verify mobile + desktop, light + dark.**
 - **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 
 ## Admin & privacy (functions/index.js)
@@ -89,7 +99,8 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - **CSS** (`styles/research-tab.css`) is fully scoped under `.research-root` so it can't leak into the rest of the app; the design's standalone phone-frame/`.tabbar` rules were dropped. `app.html` loads Fraunces + Hanken Grotesk for the tab's editorial type.
 
 ## Known notes
-- **One shared coin universe (HYBRID):** `cache/universe` (one Firestore doc, ~3,000 coins = metadata + price) backs BOTH front-ends. `refreshPrices` (5 min) refreshes only the HOT set (`HOT_PAGES`=5, top ~1,250, always merges); `refreshUniverseDaily` (24h) refreshes all ~3,000 + prunes delisted. `/api/prices` serves a coin from cache only if fresh (`HOT_TTL`); stale long-tail / off-list held coins are refetched on demand and folded back (metadata preserved; price-only entries skipped by search/coinlist). Endpoints: `/api/coinlist` (DCA, +price, CDN 24h), `/api/search` + `/api/prices` (app). Replaced the old `cache/markets`+`cache/coinlist`+`cache/longtail` trio. Diagrams: `docs/diagrams/`.
+- **One shared coin universe (HYBRID):** `cache/universe` (one Firestore doc, ~3,000 coins = metadata + price + 24h volume + circulating supply) backs BOTH front-ends. `refreshPrices` (5 min) refreshes only the HOT set (`HOT_PAGES`=5, top ~1,250, always merges); `refreshUniverseDaily` (24h) refreshes all ~3,000 + prunes delisted. `/api/prices` serves a coin from cache only if fresh (`HOT_TTL`); stale long-tail / off-list held coins are refetched on demand and folded back (metadata preserved; price-only entries skipped by search/coinlist). Endpoints: `/api/coinlist` (DCA, +price, CDN 24h), `/api/search` + `/api/prices` (app). Replaced the old `cache/markets`+`cache/coinlist`+`cache/longtail` trio. Diagrams: `docs/diagrams/`.
+  - **`/api/prices` shape** = `{ usd, usd_24h_change, usd_market_cap, usd_24h_vol, circulating }`. `usd_24h_vol` (`v`) + `circulating` (`cs`) were added 2026-06-27 (DP-9b) for the Coin-info screen — pulled from the existing `coins/markets` payload (no extra upstream calls). The on-demand `simple/price` refetch for stale long-tail coins carries neither, so those fall back to an em-dash client-side.
 - **Cost (hybrid):** hot ~1,250 @ 5 min ≈ **~44k CoinGecko calls/month → needs a PAID plan** (Lite ~100k/mo fits; flat regardless of user count). Free Demo tier degrades gracefully (only top coins 5-min-fresh; 429'd pages skipped). Raise `HOT_PAGES` to 12 for all-3,000-hot (~105k/mo, Analyst plan); lower it to save calls.
 - **Landing DCA calculator** (`index.html` `#dca`) is the ONLY DCA calc (removed from the app). ~0 backend calls per visitor: loads the list ONCE from `/api/coinlist` (now with price, CDN-cached 24h) and searches client-side; a calc fetches only `/api/history` (CDN-cached). The APP auto-fills buy-date prices from real history too (`useCoinHistory` → cached `/api/history`, fallback to the built-in estimate). CDN caching is a deployed-Hosting behavior — the local dev server invokes the function each time, so test the "no per-visitor calls" effect after deploy. **Full write-up: [`CALCULATOR.md`](CALCULATOR.md)** (architecture, DCA math, offline estimate + 12s timeout); reusable method = the `crypto-calculator` skill.
 - **Config:** `functions.config()` was removed in firebase-functions v7 (now on v7 + firebase-tools v15). Secrets come from the locked `config/app` doc (primary) or env / `functions/.env` (fallback; PayPal plan IDs + `APP_URL` are env-only). See `functions/.env.example`.
