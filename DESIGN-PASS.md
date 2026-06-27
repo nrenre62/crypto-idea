@@ -107,7 +107,7 @@ badge + amount, date·time; right: price + Cost/Recv stacked, right-aligned). Ke
 2. **DP-2 Quick wins** — Portfolio switcher (move + restyle) + Add-transaction coin head.
 3. **DP-3 Persistent avatar** — shell-level, remove Portfolio's dup.
 4. **DP-4 Learn** — hero card, module icons, footer row, dark fixes. — ✅ BUILT 2026-06-27. Per-module SVG icons in `src/components/learn-icons.jsx` (currentColor, lock for locked); hero white card + streak/lessons chips; one-row footer; tokenized today-lesson/module.active/m-icon.done for dark.
-5. **DP-5 Account** — drill-in list + detail views (the biggest).
+5. **DP-5 Account** — drill-in list + detail views (the biggest). — ✅ BUILT 2026-06-27. Local `view` sub-state (no router change); home = identity + plan-usage summary + settings-list (NavRows + Email-digest `.switch` + Appearance `.theme-seg`); detail views relocate each card verbatim; marketing toggle → Privacy & data. New: 8 `Ic` row icons + `.switch` + `.settings-row*` (all token-based).
 6. **DP-6 Search trending** — `/api/trending` + hook + UI.
 7. **DP-8 Login** — password eye toggle + "Log in" wording.
 8. **DP-9 Coin info** — Market data (Rank/Market cap/24h vol/Circulating) + Your position (Held/Avg cost/Unrealised P&L). — ✅ BUILT 2026-06-27. Label shipped as "Unrealised P/L" (matches Detail's "Total P/L", excludes realised sells); also enriched `/api/prices` with `usd_24h_vol`+`circulating` (DP-9b) so vol/circulating are real, em-dash fallback for the long tail.

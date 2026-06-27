@@ -617,9 +617,16 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   the 3 hardcoded values (today-lesson + module.active gradients → accent-soft/paper-2; m-icon.done →
   `--sg-s`/`--sg`). Sequential unlock untouched. 257 unit green (+3), build clean, browser light+dark +
   mobile/desktop. NB: badges-row left as-is (out of scope).
-- [ ] **DP-5 Account** — drill-in settings list (home = mockup) + detail views (Profile / Plan & billing /
-  Portfolios / Security / Privacy & data); "Product updates & offers" toggle moves into Privacy & data;
-  Logout at bottom. Every handler preserved, only relocated.
+- [x] **DP-5 Account** — ✅ DONE 2026-06-27. Drill-in settings list via a local `view` sub-state (no router
+  change; Account had no local state — all from `useApp` — so nothing was lifted). HOME = identity avatar +
+  "Plan usage" summary (Portfolios + Coins bars) + a settings-list card: NavRows (Profile / Plan & billing /
+  Portfolios / Security / Privacy & data → chevron) + inline Email-digest pill `.switch` + Appearance
+  segmented (reused `.theme-seg`) + Logout. DETAIL views relocate each existing card verbatim (Plan & billing
+  = full usage + subscription + upgrade/PayPal). "Product updates & offers" marketing toggle moved into
+  Privacy & data; Notifications card dissolved. New token-based/dark-safe primitives: 8 `Ic` row icons
+  (chevR/user/card/folder/shield/bell/palette/lock, `currentColor`), `.switch`, `.settings-row*`. Tests
+  rewritten for the drill-in (21 cases) + 2 e2e nav tests updated. 259 unit green, build clean, verified
+  light+dark + mobile/desktop.
 - [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
   + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
 - [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);
