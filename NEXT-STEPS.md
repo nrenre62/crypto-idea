@@ -627,6 +627,13 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   (chevR/user/card/folder/shield/bell/palette/lock, `currentColor`), `.switch`, `.settings-row*`. Tests
   rewritten for the drill-in (21 cases) + 2 e2e nav tests updated. 259 unit green, build clean, verified
   light+dark + mobile/desktop.
+- [ ] **Round 2 — founder follow-ups (2026-06-27, capturing; build BEFORE DP-6)** — full spec in
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 2". Founder still adding items; don't build until they say go.
+  - [ ] **R2-1** Account avatar consistent on Learn + all tabs (currently overlaps the Learn hero card) — ⚠ confirm placement.
+  - [ ] **R2-2** Learn: remove the `.badges-row` "graph icon" (not needed) — trivial.
+  - [ ] **R2-3** Research › Portfolio Pulse: new design (Share/Regenerate pills + period headline pill); KEEP 24H/7D/30D where they are + KEEP the offline note.
+  - [ ] **R2-4** Research › Portfolio Risk: new design (segmented gradient meter Low/Moderate/High + status badge + lock footer); keep the computation.
+  - [ ] **R2-5** Add transaction: restyle ONLY the Buy/Sell tab style + fonts + "AUTO" on the right side of the price input.
 - [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
   + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
 - [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);

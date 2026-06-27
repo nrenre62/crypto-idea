@@ -116,3 +116,41 @@ badge + amount, date·time; right: price + Cost/Recv stacked, right-aligned). Ke
 
 **DoD per phase:** TDD-light (adjust/extend the screen's tests first) · `npm run test:unit` green ·
 `npm run build` clean · browser-verify mobile (~390) + desktop (~1040), light + dark · commit · docs.
+
+---
+
+## Round 2 — founder follow-up changes (2026-06-27, IN PROGRESS — more coming)
+
+> A second batch of founder design tweaks captured from screenshots, to build **before DP-6**. Same
+> guardrails: design-only (no logic/handler changes) unless noted; reuse `.ci-app` tokens; dark-safe;
+> verify mobile + desktop. **Founder is still adding items — do not start building until they say go.**
+> Items below numbered R2-n; they'll be slotted into NEXT-STEPS §DP build order once the list is final.
+
+- **R2-1 — Account avatar consistency (Learn + ALL tabs).** The persistent account avatar
+  (`.app-avatar`, the black "A" circle, top-right) must be placed/styled **consistently and integrate
+  cleanly with each tab's design**. On Learn it currently overlaps the new white hero card's top-right
+  corner. Make the placement uniform across all five tab screens so it reads as intentional on every page.
+  **⚠ CONFIRM exact placement with founder** (e.g. aligned inside the card/header's top-right vs. a
+  consistent header band above content) — screenshots show it overlapping the Learn hero card. (img 1/2)
+- **R2-2 — Learn: remove the badge "graph icon".** Remove the `.badges-row` from `Learn.jsx` (the earned-
+  badge chip that renders the module 📈 emoji in a white square below the hero) — founder says it's not
+  needed. Trivial + unambiguous (can be done immediately on request). (img 1/2)
+- **R2-3 — Research › Portfolio Pulse: new design.** Per screenshot: **keep** the `24H / 7D / 30D`
+  period toggle exactly where it is (left side — DO NOT move it) and **keep** the amber "AI is offline …"
+  note. New: add **"Share"** + **"Regenerate"** outlined pill buttons top-right of the card; a **headline**
+  = selected period label + its change as a tinted pill (e.g. `30D  +12.4%`, green up / red down); the
+  data-driven summary paragraph below. Design-only — keep the offline-fallback logic + `usePulse` wiring.
+  Lives in the Research feature module (`src/features/research/`, scoped under `.research-root`). (img 3)
+- **R2-4 — Research › Portfolio Risk: new design.** Per screenshot: a **segmented gradient risk meter**
+  (~20 cells, green→amber→red, filled up to the computed risk level, rest grey) with **Low / Moderate /
+  High** labels beneath; a **status badge** top-right (e.g. amber "Elevated"); the holdings-concentration
+  explanation text; a **lock-icon footer** "Calculated from your holdings — updates automatically and
+  isn't adjustable." Keep the existing risk computation. Research module, `.research-root` scoped. (img 4)
+- **R2-5 — Add transaction: restyle (tabs · fonts · AUTO).** Per screenshot — **ONLY** these three, no
+  functional/handler changes: (a) **Buy/Sell segmented tab style** — white rounded container, active =
+  white pill with subtle shadow, inactive = muted; (b) **text/font** treatment of the field labels +
+  inputs; (c) move the **"AUTO"** indicator inline to the **right side of the "Price per coin" input**
+  (green). Keep the coin-head row (DP-2), Amount/Price fields, and the dynamic submit button. (img 6)
+
+**Status:** captured 2026-06-27; awaiting the rest of the founder's round-2 list, then confirm R2-1
+placement + finalize build order before building.
