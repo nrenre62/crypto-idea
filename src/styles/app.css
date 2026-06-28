@@ -83,6 +83,10 @@ html[data-theme="dark"] .ci-app .acct-btn.ghost { color:var(--ink); }
    initial, accent ring — clearly tappable. Covers the header avatar + the Account one. */
 html[data-theme="dark"] .ci-app .avatar,
 html[data-theme="dark"] .ci-app .acct-avatar { background:var(--accent-soft); color:var(--accent-ink); border:1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+/* R2-9: the lesson "THE KEY INSIGHT" box has a hardcoded light-blue gradient stop
+   (#f0f4fd) that stays bright in dark, making the --ink text unreadable. Dark-only:
+   a token-based green-tinted gradient. (The quiz card already uses flipping tokens.) */
+html[data-theme="dark"] .ci-app .lesson-insight { background:linear-gradient(135deg, var(--accent-soft), var(--paper-2)); border-color:color-mix(in srgb, var(--accent) 30%, transparent); }
 
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }
