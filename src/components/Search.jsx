@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct } from "../utils/format.js";
-import { cleanFunnel } from "../utils/journal.js";
+import { cleanFunnel, thesisError } from "../utils/journal.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { CI } from "./ui.jsx";
 
@@ -18,17 +18,23 @@ export function Search() {
   const [thesis, setThesis] = useState("");
   const [changeMind, setChangeMind] = useState("");
   const [funnel, setFunnel] = useState({});
+  const [err, setErr] = useState("");
   const setF = (k, v) => setFunnel((p) => ({ ...p, [k]: v }));
 
-  const closeOverlay = () => { setJournalFor(null); setThesis(""); setChangeMind(""); setFunnel({}); };
+  const closeOverlay = () => { setJournalFor(null); setThesis(""); setChangeMind(""); setFunnel({}); setErr(""); };
 
   const confirmAdd = (save) => {
     const coin = journalFor;
+    // §J3: saving a thesis requires BOTH questions; "Skip for now" adds the coin with none.
+    if (save) {
+      const msg = thesisError(thesis, changeMind);
+      if (msg) { setErr(msg); return; }   // keep the overlay open so the user can fix or Skip
+    }
     const t = thesis.trim(), m = changeMind.trim();
     const f = cleanFunnel(funnel);
     closeOverlay();
     if (!coin) return;
-    const journal = (save && (t || m || f))
+    const journal = save
       ? { thesis: t, changeMyMind: m, status: "intact", priceAtAdd: coin.mockPrice || 0, createdAt: new Date().toISOString(), ...(f ? { funnel: f } : {}) }
       : null;
     addCoin(coin, journal);
@@ -116,6 +122,7 @@ export function Search() {
               </div>
             ))}
             <div className="bj-note">This is for your own reflection — not financial advice. CryptoIdea never tells you what to buy or sell.</div>
+            {err && <div className="j-err" role="alert">{err}</div>}
             <button className="btn-primary ov-btn-gap" onClick={() => confirmAdd(true)}>Save to Journal &amp; add coin</button>
             <button className="btn-ghost" onClick={() => confirmAdd(false)}>Skip for now</button>
           </div>

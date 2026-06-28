@@ -85,7 +85,7 @@ describe("User walkthrough — all functions", () => {
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
     tab("Journal");
-    expect(await screen.findByText("Investment Journal")).toBeInTheDocument();
+    expect(await screen.findByText("Write before you buy.")).toBeInTheDocument();
     expect(screen.getByText("Your journal is empty")).toBeInTheDocument();
     expect(screen.getByText("Add your first coin →")).toBeInTheDocument();
   });
@@ -121,9 +121,10 @@ describe("User walkthrough — all functions", () => {
     // Buy-Journal overlay appears ("write before you buy")
     expect(await screen.findByText(/Before you add Bitcoin/i)).toBeInTheDocument();
     expect(screen.getByText("Why are you buying this?")).toBeInTheDocument();
-    // Fill the thesis (design-only) and save
+    // Fill BOTH required questions (§J3) and save
     const areas = document.querySelectorAll(".journal-q textarea");
     fireEvent.change(areas[0], { target: { value: "Hard cap, real adoption." } });
+    fireEvent.change(areas[1], { target: { value: "Adoption stalls or supply cap changes." } });
     fireEvent.click(screen.getByText(/Save to Journal/i));
     await new Promise((r) => setTimeout(r, 50)); // addCoin is async (awaits dbAddCoin)
     // addCoin -> back to Portfolio with Bitcoin held

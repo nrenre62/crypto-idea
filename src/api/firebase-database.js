@@ -18,7 +18,7 @@
 
 import {
   collection, doc, setDoc, getDoc, getDocFromServer, getDocs,
-  deleteDoc, updateDoc, query, orderBy,
+  deleteDoc, updateDoc, deleteField, query, orderBy,
   serverTimestamp, writeBatch, increment
 } from "firebase/firestore";
 import { db } from "./firebase.config.js";
@@ -184,6 +184,19 @@ export async function updateCoinJournal(uid, portfolioId, coinId, journal) {
   try {
     const ref = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId);
     await updateDoc(ref, { journal });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Delete a coin's thesis journal (§J2) — removes the `journal` field so the coin
+// returns to "Needs a thesis". The coin/holding itself is untouched; firestore.rules
+// allows a coin with no journal (validCoinData: journal is optional).
+export async function clearCoinJournal(uid, portfolioId, coinId) {
+  try {
+    const ref = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId);
+    await updateDoc(ref, { journal: deleteField() });
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

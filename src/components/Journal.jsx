@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP } from "../utils/format.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
+import { thesisError } from "../utils/journal.js";
 import { CI } from "./ui.jsx";
 
 /**
@@ -37,7 +38,7 @@ function excerptOf(j) {
 // Detail overlay for one journal entry. Holds local funnel-input state seeded from
 // the saved findings (mounts fresh per coin), so the user can record/update the
 // manual checks; the review decision stays a separate, independent action.
-function JournalDetail({ coin, onReview, onSaveFunnel, onClose }) {
+function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, onClose }) {
   const j = coin.journal;
   const [funnel, setFunnel] = useState(() =>
     Object.fromEntries(FUNNEL_FIELDS.map(({ key }) => [key, (j.funnel && j.funnel[key]) || ""]))
@@ -46,6 +47,26 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onClose }) {
   const setF = (k, v) => { setFunnel((p) => ({ ...p, [k]: v })); setSaved(false); };
   // Only show the confirmation after the async save actually succeeds.
   const saveFindings = async () => { if (await onSaveFunnel(funnel)) setSaved(true); };
+
+  // §J1 — edit the two thesis questions inline (preserves status/date/price).
+  const [editing, setEditing] = useState(false);
+  const [thesis, setThesis] = useState(j.thesis || "");
+  const [changeMind, setChangeMind] = useState(j.changeMyMind || "");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const saveThesis = async () => {
+    const msg = thesisError(thesis, changeMind);   // §J3: both questions required
+    if (msg) { setErr(msg); return; }
+    setErr(""); setBusy(true);
+    const ok = await onSaveThesis({ thesis, changeMyMind: changeMind, funnel });
+    setBusy(false);
+    if (ok) setEditing(false);
+  };
+  const cancelEdit = () => { setThesis(j.thesis || ""); setChangeMind(j.changeMyMind || ""); setErr(""); setEditing(false); };
+
+  // §J2 — delete the thesis (two-step confirm). The coin/holding stays.
+  const [confirmDel, setConfirmDel] = useState(false);
+  const del = async () => { if (await onDelete()) onClose(); };
 
   return (
     <div className="ci-app overlay">
@@ -65,14 +86,36 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onClose }) {
             </div>
           </div>
         </div>
-        <div className="journal-q">
-          <div className="q-label">Why you bought it</div>
-          <div className="j-read">{j.thesis || "—"}</div>
-        </div>
-        <div className="journal-q">
-          <div className="q-label">What would change your mind</div>
-          <div className="j-read">{j.changeMyMind || "—"}</div>
-        </div>
+
+        {editing ? (
+          <>
+            <div className="journal-q">
+              <div className="q-label">Why you bought it</div>
+              <textarea value={thesis} onChange={(e) => setThesis(e.target.value)} placeholder="e.g. active GitHub, founder talks publicly, real revenue, upcoming catalyst..." />
+            </div>
+            <div className="journal-q">
+              <div className="q-label">What would change your mind</div>
+              <textarea value={changeMind} onChange={(e) => setChangeMind(e.target.value)} placeholder="e.g. GitHub goes quiet, founder departs, unlock event overwhelms demand..." />
+            </div>
+            {err && <div className="j-err" role="alert">{err}</div>}
+            <button className="btn-primary ov-btn-gap" disabled={busy} onClick={saveThesis}>{busy ? "Saving…" : "Save changes"}</button>
+            <button className="btn-ghost" onClick={cancelEdit}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <div className="journal-q">
+              <div className="j-q-head">
+                <div className="q-label">Why you bought it</div>
+                <button className="j-edit-btn" onClick={() => setEditing(true)}>Edit</button>
+              </div>
+              <div className="j-read">{j.thesis || "—"}</div>
+            </div>
+            <div className="journal-q">
+              <div className="q-label">What would change your mind</div>
+              <div className="j-read">{j.changeMyMind || "—"}</div>
+            </div>
+          </>
+        )}
 
         <div className="journal-q" style={{ marginBottom: 10 }}>
           <div className="q-label">Manual research findings</div>
@@ -90,7 +133,19 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onClose }) {
         <div className="journal-q"><div className="q-label">Is your thesis still intact?</div></div>
         <button className="btn-primary ov-btn-gap" onClick={() => onReview("intact")}>Yes, still holding</button>
         <button className="btn-ghost ov-btn-gap" onClick={() => onReview("review")}>Need to research</button>
-        <button className="btn-ghost" onClick={() => onReview("challenged")}>Reconsidering</button>
+        <button className="btn-ghost ov-btn-gap" onClick={() => onReview("challenged")}>Reconsidering</button>
+
+        <div className="j-delete-wrap">
+          {confirmDel ? (
+            <>
+              <div className="j-del-confirm">Delete this thesis? Your coin stays in the portfolio — only the thesis is removed.</div>
+              <button className="priv-btn danger-solid" onClick={del}>Yes, delete thesis</button>
+              <button className="btn-ghost" onClick={() => setConfirmDel(false)}>Keep it</button>
+            </>
+          ) : (
+            <button className="j-delete-btn" onClick={() => setConfirmDel(true)}>Delete thesis</button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -104,8 +159,12 @@ function AddThesis({ coin, onSave, onClose }) {
   const [changeMind, setChangeMind] = useState("");
   const [funnel, setFunnel] = useState({});
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const setF = (k, v) => setFunnel((p) => ({ ...p, [k]: v }));
   const save = async () => {
+    const msg = thesisError(thesis, changeMind);   // §J3: both questions required
+    if (msg) { setErr(msg); return; }
+    setErr("");
     setBusy(true);
     const ok = await onSave({ thesis, changeMyMind: changeMind, funnel });
     setBusy(false);
@@ -152,7 +211,8 @@ function AddThesis({ coin, onSave, onClose }) {
             <textarea value={funnel[field.key] || ""} onChange={(e) => setF(field.key, e.target.value)} placeholder={field.placeholder} />
           </div>
         ))}
-        <button className="btn-primary ov-btn-gap" disabled={busy || (!thesis.trim() && !changeMind.trim())} onClick={save}>{busy ? "Saving…" : "Save thesis"}</button>
+        {err && <div className="j-err" role="alert">{err}</div>}
+        <button className="btn-primary ov-btn-gap" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save thesis"}</button>
         <button className="btn-ghost" onClick={onClose}>Cancel</button>
       </div>
     </div>
@@ -160,7 +220,7 @@ function AddThesis({ coin, onSave, onClose }) {
 }
 
 export function Journal() {
-  const { portfolio, setScreen, reviewThesis, saveFunnel, addThesis } = useApp();
+  const { portfolio, setScreen, reviewThesis, saveFunnel, addThesis, editThesis, deleteThesis } = useApp();
   const [openCoin, setOpenCoin] = useState(null);
   const [addCoinId, setAddCoinId] = useState(null);
 
@@ -181,9 +241,9 @@ export function Journal() {
     <div className="ci-app screen-bg">
       <div className="apphead">
         <div>
-          <div className="title" style={{ fontSize: 24 }}>Investment Journal <span className="beta">BETA</span></div>
+          <div className="title" style={{ fontSize: 24 }}>Journal <span className="beta">BETA</span></div>
           <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 2 }}>
-            Every great investor writes before they act.
+            Write before you buy.
           </div>
         </div>
       </div>
@@ -263,6 +323,8 @@ export function Journal() {
           coin={detail}
           onReview={decide}
           onSaveFunnel={(funnel) => saveFunnel(openCoin, funnel)}
+          onSaveThesis={(input) => editThesis(openCoin, input)}
+          onDelete={() => deleteThesis(openCoin)}
           onClose={() => setOpenCoin(null)}
         />
       )}

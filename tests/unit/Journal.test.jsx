@@ -10,7 +10,9 @@ function provide(value) {
   return render(
     <AppContext.Provider value={{
       setScreen: vi.fn(), reviewThesis: vi.fn(), saveFunnel: vi.fn(),
-      addThesis: vi.fn().mockResolvedValue(true), portfolio: [], ...value,
+      addThesis: vi.fn().mockResolvedValue(true),
+      editThesis: vi.fn().mockResolvedValue(true), deleteThesis: vi.fn().mockResolvedValue(true),
+      portfolio: [], ...value,
     }}>
       <Journal />
     </AppContext.Provider>
@@ -59,12 +61,48 @@ describe("Journal tab (extracted, via AppContext)", () => {
     provide({ portfolio: [noThesis], addThesis });
     fireEvent.click(screen.getByText("Add thesis"));
     expect(screen.getByText("Add your thesis")).toBeInTheDocument();
+    // §J3: both questions are required to save
     fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: "Real on-chain usage and a credible roadmap." } });
+    fireEvent.change(screen.getAllByRole("textbox")[1], { target: { value: "Usage collapses or devs leave." } });
     fireEvent.click(screen.getByText("Save thesis"));
     expect(addThesis).toHaveBeenCalledWith(
       "cardano",
-      expect.objectContaining({ thesis: "Real on-chain usage and a credible roadmap." })
+      expect.objectContaining({ thesis: "Real on-chain usage and a credible roadmap.", changeMyMind: "Usage collapses or devs leave." })
     );
+  });
+
+  it("blocks saving with only one question + shows a friendly error (§J3)", () => {
+    const addThesis = vi.fn().mockResolvedValue(true);
+    provide({ portfolio: [noThesis], addThesis });
+    fireEvent.click(screen.getByText("Add thesis"));
+    fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: "only the why" } });
+    fireEvent.click(screen.getByText("Save thesis"));
+    expect(addThesis).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toMatch(/What would change your mind/i);
+  });
+
+  it("edits an existing thesis and persists via editThesis (§J1)", () => {
+    const editThesis = vi.fn().mockResolvedValue(true);
+    provide({ portfolio: [withThesis], editThesis });
+    fireEvent.click(screen.getByText("Bitcoin"));   // open detail
+    fireEvent.click(screen.getByText("Edit"));       // enter edit mode
+    const boxes = screen.getAllByRole("textbox");
+    fireEvent.change(boxes[0], { target: { value: "Updated: real revenue now" } });
+    fireEvent.click(screen.getByText("Save changes"));
+    expect(editThesis).toHaveBeenCalledWith(
+      "bitcoin",
+      expect.objectContaining({ thesis: "Updated: real revenue now", changeMyMind: "Devs go quiet" })
+    );
+  });
+
+  it("deletes a thesis after a confirm step via deleteThesis (§J2)", () => {
+    const deleteThesis = vi.fn().mockResolvedValue(true);
+    provide({ portfolio: [withThesis], deleteThesis });
+    fireEvent.click(screen.getByText("Bitcoin"));        // open detail
+    fireEvent.click(screen.getByText("Delete thesis"));  // step 1: reveal confirm
+    expect(deleteThesis).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Yes, delete thesis")); // confirm
+    expect(deleteThesis).toHaveBeenCalledWith("bitcoin");
   });
 
   it("opens the detail overlay and records a review decision", () => {

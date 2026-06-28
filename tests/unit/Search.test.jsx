@@ -27,12 +27,15 @@ describe("Search — Buy-Journal capture", () => {
     expect(addCoin.mock.calls[0][1] == null).toBe(true); // no journal passed
   });
 
-  it("Save persists the typed thesis with the coin", () => {
+  it("Save persists the typed thesis (both questions) with the coin", () => {
     const addCoin = vi.fn();
     provide({ addCoin });
     fireEvent.click(screen.getByText("+ Add"));
     fireEvent.change(screen.getByPlaceholderText(/active GitHub/), {
       target: { value: "Real revenue + active devs" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/GitHub goes quiet/), {
+      target: { value: "Revenue dries up" },
     });
     fireEvent.click(screen.getByText("Save to Journal & add coin"));
     expect(addCoin).toHaveBeenCalledTimes(1);
@@ -40,23 +43,26 @@ describe("Search — Buy-Journal capture", () => {
     expect(coin.id).toBe("bitcoin");
     expect(journal).toBeTruthy();
     expect(journal.thesis).toBe("Real revenue + active devs");
+    expect(journal.changeMyMind).toBe("Revenue dries up");
     expect(journal.status).toBe("intact");
     expect(journal.priceAtAdd).toBe(50000);
   });
 
-  it("Save with empty fields just adds the coin (no empty journal)", () => {
+  it("Save with empty fields shows an error and does NOT add the coin (§J3)", () => {
     const addCoin = vi.fn();
     provide({ addCoin });
     fireEvent.click(screen.getByText("+ Add"));
     fireEvent.click(screen.getByText("Save to Journal & add coin"));
-    expect(addCoin).toHaveBeenCalledTimes(1);
-    expect(addCoin.mock.calls[0][1] == null).toBe(true);
+    expect(addCoin).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toMatch(/haven.t written/i);
   });
 
-  it("captures the manual funnel findings (#27) into the journal", () => {
+  it("captures the manual funnel findings (#27) when both questions are filled", () => {
     const addCoin = vi.fn();
     provide({ addCoin });
     fireEvent.click(screen.getByText("+ Add"));
+    fireEvent.change(screen.getByPlaceholderText(/active GitHub/), { target: { value: "thesis" } });
+    fireEvent.change(screen.getByPlaceholderText(/GitHub goes quiet/), { target: { value: "mind-change" } });
     fireEvent.change(screen.getByPlaceholderText(/supply unlocks/i), {
       target: { value: "  40% unlocks next year  " },
     });
@@ -68,7 +74,7 @@ describe("Search — Buy-Journal capture", () => {
     expect(journal.funnel).toEqual({ dilution: "40% unlocks next year", volume: "thin order book" });
   });
 
-  it("funnel-only (no thesis) still saves a journal with the findings", () => {
+  it("funnel-only without the two questions is blocked (§J3 — Skip instead)", () => {
     const addCoin = vi.fn();
     provide({ addCoin });
     fireEvent.click(screen.getByText("+ Add"));
@@ -76,9 +82,7 @@ describe("Search — Buy-Journal capture", () => {
       target: { value: "real protocol fees" },
     });
     fireEvent.click(screen.getByText("Save to Journal & add coin"));
-    const [, journal] = addCoin.mock.calls[0];
-    expect(journal).toBeTruthy();
-    expect(journal.thesis).toBe("");
-    expect(journal.funnel).toEqual({ yield: "real protocol fees" });
+    expect(addCoin).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 });

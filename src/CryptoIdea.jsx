@@ -26,6 +26,7 @@ import {
   deletePortfolio as dbDeletePortfolio,
   addCoin as dbAddCoin,
   updateCoinJournal as dbUpdateCoinJournal,
+  clearCoinJournal as dbClearCoinJournal,
   removeCoin as dbRemoveCoin,
   addTransaction as dbAddTransaction,
   updateTransaction as dbUpdateTransaction,
@@ -450,6 +451,29 @@ export default function CryptoIdea(){
     const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
     if(!res.success){showErr("Couldn't save. Check your connection.");return false}
     setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));return true;};
+  // Edit an EXISTING thesis (§J1): update the two questions + funnel, preserving the
+  // original status/createdAt/priceAtAdd. Both questions required (the form validates).
+  const editThesis=async(coinId,input)=>{
+    const coin=portfolio.find(x=>x.id===coinId);
+    if(!coin||!coin.journal)return false;
+    if(!user?.uid){showErr("Please sign in again");return false}
+    const t=(input?.thesis||"").trim(),m=(input?.changeMyMind||"").trim();
+    if(!t||!m)return false;
+    const f=cleanFunnel(input?.funnel||coin.journal.funnel||{});
+    const journal={...coin.journal,thesis:t,changeMyMind:m};
+    if(f)journal.funnel=f;else delete journal.funnel;
+    const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
+    if(!res.success){showErr("Couldn't save. Check your connection.");return false}
+    setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));return true;};
+  // Delete a thesis (§J2): clears the coin's journal so it returns to "Needs a thesis".
+  // The coin/holding stays.
+  const deleteThesis=async(coinId)=>{
+    const coin=portfolio.find(x=>x.id===coinId);
+    if(!coin)return false;
+    if(!user?.uid){showErr("Please sign in again");return false}
+    const res=await dbClearCoinJournal(user.uid,activePortId,coinId);
+    if(!res.success){showErr("Couldn't delete. Check your connection.");return false}
+    setPortfolio(p=>p.map(x=>{if(x.id!==coinId)return x;const c={...x};delete c.journal;return c;}));return true;};
   const remCoin=async(id)=>{
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbRemoveCoin(user.uid,activePortId,id);
@@ -557,7 +581,7 @@ export default function CryptoIdea(){
   // Shared state + handlers for extracted screens (grows as screens migrate).
   const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,handleReset,
     user,contactMsg,setContactMsg,contactSent,setContactSent,
-    sq,setSq,searchResults,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,
+    sq,setSq,searchResults,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,editThesis,deleteThesis,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
     infoCoin,setInfoCoin,prices,
     confirmDel,setConfirmDel,remCoin,remEntry,
