@@ -275,7 +275,7 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 /* ── Coin drill-in (CoinInfo + Detail: header / price hero / key-value rows) ── */
 .ci-app .detail-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 18px 6px; }
 .ci-app .detail-head .dh-title { font-family:var(--display); font-size:18px; font-weight:500; flex:1; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ci-app .icon-btn { background:none; border:0; padding:0; cursor:pointer; display:grid; place-items:center; flex:none; }
+.ci-app .icon-btn { background:none; border:0; padding:0; cursor:pointer; display:grid; place-items:center; flex:none; color:var(--ink); }
 .ci-app .pill-ghost { background:none; border:1px solid var(--line-strong); border-radius:999px; padding:6px 13px; font-family:var(--body); font-size:11.5px; font-weight:700; color:var(--ink-soft); cursor:pointer; white-space:nowrap; flex:none; }
 .ci-app .pill-danger { background:var(--warn); color:#fff; border:0; border-radius:999px; padding:6px 13px; font-family:var(--body); font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap; flex:none; }
 .ci-app .price-hero { padding:16px 18px 18px; text-align:center; }
