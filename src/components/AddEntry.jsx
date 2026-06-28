@@ -65,8 +65,11 @@ export function AddEntry() {
           <input type="number" step="any" value={eAmt} onChange={e=>setEAmt(e.target.value)} placeholder="0.00" className="field-input"/>
         </div>
         <div>
-          <label className="field-label">Price per coin (USD) {histPrice?<span className="lbl-accent">· auto-filled</span>:""}</label>
-          <input type="number" step="any" value={ePrice} onChange={e=>setEPrice(e.target.value)} placeholder="0.00" className="field-input"/>
+          <label className="field-label">Price per coin (USD)</label>
+          <div className="price-wrap">
+            <input type="number" step="any" value={ePrice} onChange={e=>setEPrice(e.target.value)} placeholder="0.00" className="field-input"/>
+            {priceIsHist&&<span className="auto-badge">AUTO</span>}
+          </div>
           {histPrice&&!priceIsHist&&<div className="field-hint">Suggested price: {fmtP(histPrice)}</div>}
         </div>
         <div>
@@ -74,7 +77,12 @@ export function AddEntry() {
           <input type="datetime-local" step="1" value={eDate} min={launchDateTime} onChange={e=>onDateChange(e.target.value)} className="field-input"/>
           {isBeforeLaunch&&<div className="field-warn"><span style={{fontSize:14}}>⚠️</span>{sel?.name} launched on {launchDate}. Date adjusted to earliest available.</div>}
         </div>
-        {eAmt&&ePrice&&(<div className="calc-box">{eTxType==="sell"?"Sell value":"Total cost"}: <strong>${(parseFloat(eAmt||0)*parseFloat(ePrice||0)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>)}
+        {eAmt&&ePrice&&(
+          <div className="tx-total">
+            <span className="tx-total-label">{eTxType==="sell"?"Sell value":"Total cost"}</span>
+            <span className="tx-total-amt">${(parseFloat(eAmt||0)*parseFloat(ePrice||0)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+          </div>
+        )}
         <button onClick={addEntry} disabled={!eAmt||!ePrice} className={"submit-buy"+(eTxType==="sell"?" submit-sell":"")}>{editEntry?"Save Changes":eTxType==="sell"?"Add Sell":"Add Buy"}</button>
       </div>
     </div>

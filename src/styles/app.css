@@ -368,11 +368,18 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .pw-eye { position:absolute; top:50%; right:10px; transform:translateY(-50%); background:none; border:0; padding:4px; cursor:pointer; color:var(--ink-faint); display:flex; }
 .ci-app .field-hint { font-size:10.5px; color:var(--amber); margin-top:5px; }
 .ci-app .field-warn { font-size:11px; color:var(--amber); margin-top:5px; display:flex; align-items:center; gap:5px; }
-.ci-app .seg { display:flex; gap:7px; }
-.ci-app .seg-btn { flex:1; padding:11px; border-radius:var(--radius-sm); border:1px solid var(--line-strong); background:var(--paper-2); color:var(--ink-faint); font-family:var(--body); font-size:14px; font-weight:700; cursor:pointer; }
-.ci-app .seg-btn.on-buy { border-color:var(--accent); background:var(--accent); color:#fff; }
-.ci-app .seg-btn.on-sell { border-color:var(--warn); background:var(--warn); color:#fff; }
-.ci-app .calc-box { padding:11px 14px; background:var(--accent-soft); border-radius:var(--radius-sm); font-size:13px; color:var(--ink); }
+/* R2-5: segmented control — a track with a white active pill (iOS-style) */
+.ci-app .seg { display:flex; gap:4px; background:var(--paper-3); border:1px solid var(--line); border-radius:14px; padding:4px; }
+.ci-app .seg-btn { flex:1; padding:10px; border-radius:10px; border:0; background:transparent; color:var(--ink-faint); font-family:var(--body); font-size:14px; font-weight:700; cursor:pointer; transition:background .15s var(--ease), color .15s var(--ease); }
+.ci-app .seg-btn.on-buy { background:var(--paper-2); color:var(--accent-ink); box-shadow:var(--sh-sm); }
+.ci-app .seg-btn.on-sell { background:var(--paper-2); color:var(--sr); box-shadow:var(--sh-sm); }
+/* R2-5: AUTO badge inside the price input + the Total cost display row */
+.ci-app .price-wrap { position:relative; }
+.ci-app .price-wrap .field-input { padding-right:64px; }
+.ci-app .auto-badge { position:absolute; top:50%; right:12px; transform:translateY(-50%); font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--accent-ink); background:var(--accent-soft); padding:3px 8px; border-radius:6px; pointer-events:none; }
+.ci-app .tx-total { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:14px 4px 4px; }
+.ci-app .tx-total-label { font-size:13px; font-weight:600; color:var(--ink-soft); }
+.ci-app .tx-total-amt { font-family:var(--display); font-size:26px; font-weight:500; color:var(--ink); letter-spacing:-.01em; }
 .ci-app .submit-buy { display:block; width:100%; padding:14px; border:0; border-radius:var(--radius-sm); font-family:var(--body); font-size:15px; font-weight:700; cursor:pointer; background:var(--accent); color:#fff; }
 .ci-app .submit-buy.submit-sell { background:var(--warn); }
 .ci-app .submit-buy:disabled { opacity:.4; cursor:default; }

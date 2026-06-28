@@ -67,4 +67,12 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     fireEvent.click(btn);
     expect(addEntry).toHaveBeenCalled();
   });
+
+  it("shows Total cost as a labelled display row (R2-5)", () => {
+    const { container } = render(<Harness amt="0.5" price="40000" />);
+    const total = container.querySelector(".tx-total");
+    expect(total).toBeTruthy();
+    expect(total.querySelector(".tx-total-label").textContent).toMatch(/Total cost/i);
+    expect(total.querySelector(".tx-total-amt").textContent).toMatch(/\$20,000\.00/);
+  });
 });
