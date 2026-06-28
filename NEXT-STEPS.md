@@ -689,6 +689,44 @@ browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update
 
 ---
 
+## J. Journal thesis — edit / delete / required-two-questions  (2026-06-28, PLAN ONLY)
+
+Founder request from the Journal thesis detail. **Functional** (not design-pass). Today a thesis can be
+WRITTEN but **not edited or deleted**, and save-validation is weak. Grounded in code (verified 2026-06-28).
+Build on founder go.
+
+- [ ] **J1 — Edit an existing thesis (per coin).** JournalDetail currently shows "Why you bought it" +
+  "What would change your mind" **read-only** (`Journal.jsx:68-75`, `.j-read`); only the funnel findings +
+  the review decision are editable. Add an edit mode (toggle the two `.j-read` blocks → textareas + Save),
+  reusing the AddThesis pattern. Persist via `updateCoinJournal` preserving `status`/`createdAt`/`priceAtAdd`
+  and updating `thesis`/`changeMyMind` (funnel already editable). No rule change.
+- [ ] **J2 — Delete a thesis (per coin).** No delete exists. Add a "Delete thesis" action in JournalDetail
+  **with a confirm**; clears `coin.journal` so the coin returns to "Needs a thesis" (the holding itself
+  stays). Data layer: `updateCoinJournal` only SETS (`updateDoc(ref,{journal})`, `firebase-database.js:183`)
+  — add a clear path via `deleteField()` (`updateDoc(ref,{journal:deleteField()})`) or a `clearCoinJournal`.
+  Rules already allow a coin with no journal (`validCoinData` → journal optional), so **no rule change**;
+  client drops `journal` from the coin in `setPortfolio`.
+- [ ] **J3 — Require BOTH questions to save + friendly errors.** Minimum to save = **"Why you bought it"**
+  (`thesis`) AND **"What would change your mind"** (`changeMyMind`); the manual-research funnel stays
+  **optional**. Today the AddThesis Save button is only *disabled* when BOTH are empty (`Journal.jsx:155`) —
+  it silently allows saving with only ONE and shows no message; the Search Buy-Journal "Save" (`Search.jsx:119`)
+  has NO validation. Change to a click-through + **inline error** so the user learns *why*:
+  - **both empty** → "You haven't written your thesis yet. Fill in 'Why you bought it' and 'What would change
+    your mind' to save."
+  - **exactly one filled** → name the missing one: "You still need '&lt;missing question&gt;'. Both questions
+    are required to save." (missing = "Why you bought it" if `thesis` empty, else "What would change your mind").
+  - **both filled** → save.
+  Apply in: Journal AddThesis, the J1 edit form, AND the Search Buy-Journal prompt (the **Save** path only;
+  "Skip for now" still adds the coin with no journal). Update `addThesis` (`CryptoIdea.jsx:442`,
+  `if(!t&&!m&&!f)` → require `t && m`, returning a typed result so the form shows the right message) +
+  Search `confirmAdd`. This is a **client UX rule** — `firestore.rules validJournal` already allows empty
+  strings, so no rule change. Error styling: reuse the app's error treatment, dark-safe.
+
+**DoD:** TDD (add the 3 validation cases + edit/delete tests first) · `npm run test:unit` green · build clean
+· browser-verify add/edit/delete + each error message, light + dark, mobile + desktop · commit. PLAN ONLY.
+
+---
+
 ## 5. Housekeeping
 
 - [x] Ran `npm audit fix` (no `--force`): patched the `protobufjs` prod advisory → **production
