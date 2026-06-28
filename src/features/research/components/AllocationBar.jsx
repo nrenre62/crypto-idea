@@ -1,8 +1,11 @@
 // components/AllocationBar.jsx — pure UI. Receives already-computed holdings.
-import { visualFor } from '../utils/coins';
+// R2-7: colour each segment + legend dot by the coin's ORIGINAL brand colour (the same
+// coinColor map the token circles use) so no two coins repeat (the old PALETTE fallback
+// gave SOL and BNB the same green).
+import { coinColor } from '../../../components/ui.jsx';
 
 export default function AllocationBar({ holdings }) {
-  let items = holdings.map((h, i) => ({ name: h.sym, alloc: h.alloc, c: visualFor(h, i).color }));
+  let items = holdings.map((h) => ({ name: h.sym, alloc: h.alloc, c: coinColor(h.sym) }));
   if (items.length > 5) {
     const other = items.slice(4).reduce((s, x) => s + x.alloc, 0);
     items = [...items.slice(0, 4), { name: 'Other', alloc: other, c: '#c9c6bc' }];
