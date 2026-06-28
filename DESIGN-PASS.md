@@ -188,6 +188,17 @@ readability bugs (bump priority within the round).
 > modes; **`--accent` (#0a6b4d), `--warn`, `--sg/--sa/--sr` do NOT flip** (use them only where they already
 > read on both — e.g. a solid accent background with white text).
 
+> **⭐ Guiding principle (founder requirement, 2026-06-28): every Round 3 fix is DARK-MODE-ONLY.** Add
+> overrides inside the `html[data-theme="dark"] .ci-app` (or `.research-root`) block; **do not edit base
+> rules** — light/normal mode must stay byte-for-byte unchanged ("black-mode and white-mode changes are
+> separated"). This **refines R3-1…R3-4 above**: implement each as a dark-block override rather than a
+> shared-rule change — e.g. R3-1 → `html[data-theme="dark"] .ci-app .port-add .add-name { color:var(--paper) }`;
+> R3-3 → duplicate the accent *foreground* selectors in the dark block with `color:var(--accent-ink)`
+> (leaving the light `var(--accent)` rules exactly as-is). The one exception is **R3-2** (the back chevron is
+> a hardcoded SVG `stroke`, not a CSS rule): there the fix is `stroke="currentColor"` + a single
+> `.icon-btn { color:var(--ink) }` that resolves correctly in *both* modes via the flipping token — verify
+> light is unchanged.
+
 - **R3-1 — Add-portfolio "+ Add" button: white-on-white, invisible in dark.** (img: "Portfolios (1/15)")
   - **Where:** `.add-name` — `src/styles/app.css:463` (`.port-add .add-name { … background:var(--ink); color:#fff }`), rendered in the **Account → Portfolios** view at `src/components/Account.jsx:239`.
   - **Root cause:** `background:var(--ink)` **flips** to near-white `#ece9e1` in dark, but the text is **hardcoded `color:#fff`** (doesn't flip) → cream button + white text = illegible. (This is a *different* button from the green add-**coin** `.add-btn`.)
@@ -210,20 +221,71 @@ readability bugs (bump priority within the round).
     `html[data-theme="dark"] .ci-app .avatar, html[data-theme="dark"] .ci-app .acct-avatar { background:var(--accent-soft); color:var(--accent-ink); border:1px solid color-mix(in srgb, var(--accent) 45%, transparent); }`
     → a clearly-visible tinted-green circle + bright initial + subtle ring, on-brand. **Alternative** (neutral, if founder prefers no green): `background:var(--paper-2); color:var(--ink); border:1px solid var(--line-strong)`. **Build together with R2-1** (avatar placement) since both touch the same element.
 
-**Also flagged by founder (NOT design — backend bug):**
-- **B-PORT — "Couldn't create portfolio. Check your connection." fails for every account.** `addPortfolio()`
-  (`CryptoIdea.jsx:391-398`) → `createPortfolio()` batch (`firebase-database.js:79-95`) → the create rule
-  `firestore.rules:140-144` (reads `portfolioCount` via `get(userRef())`, checks the `getAfter` increment +
-  `≤ maxPortfolios`). The toast is a generic catch-all that hides the real error. **Hypothesis:** the user
-  doc's `portfolioCount` is missing/uninitialized, or a doc-shape/increment mismatch trips the rule → the
-  batch is rejected atomically. **Next diagnostic (not a fix):** temporarily surface `error.code/message`
-  from the catch and/or read the emulator's Firestore rule-rejection log on a real create attempt; confirm
-  `portfolioCount` is initialized at signup. Tracked in NEXT-STEPS (not part of the dark-mode design work).
+- **R3-5 — Header tags + colored numbers/pills not "shiny" in dark (systematic).** (img: Portfolio header)
+  Founder: tags/numbers/buttons should be uniformly bright in dark, on every screen.
+  - **Where / root cause:** the **semantic** colors don't flip, so colored text/pills/badges read dull on
+    black: `.badge-live` hardcoded `#1a7a3c` (`app.css:68`); `.beta`/`.badge-pro` use `--ai-2` `#3f7df0`
+    (70/72); `.badge-plan` (PREMIUM) uses `--amber` (69); `.chg-pill.up/.dn` use `--sg`/`--sr` (220-222);
+    `.vc-gain`/`.vc-sval.up/.dn` use `--sg`/`--warn` (190-191/197-198); `.kv-chg` (260-261), `.up` (223),
+    conviction pills `.csig-*` (480-482), journal pills `.j-*` (120-122) — all `--sg/--sr`. `--sg #1f9d55`,
+    `--sr #cf3a2c`, `--sa #e0a423`, `--ai-2 #3f7df0`, `--amber #b8841f` are **defined once, never in the dark
+    block**.
+  - **Fix (systematic, dark-block-only):** in `html[data-theme="dark"] .ci-app`, **brighten the semantic
+    foreground tokens** to vivid values (e.g. `--sg:#2ecc71; --sr:#ff6b6b; --sa:#f4c54a; --ai-2:#5b9bff;`)
+    and override `.badge-live { color:#4ecb78; background/border ↑ }`. One small block makes every colored
+    number, %-pill, and tag bright in dark, app-wide and consistent. **Verify:** `--sg/--sr/--sa` are also
+    used for small dot/fill accents (`.csig-* .sd`, `.m-prog-fill.done-fill`, quiz radio) — brightening
+    those reads fine; the faint `*-s` rgba tints are separate and unchanged. Light mode untouched.
+- **R3-6 — Account fields + buttons: white/dull/invisible in dark.** (img: Profile, Privacy & data)
+  - **Where / root cause:** `.priv-btn.solid` (`app.css:466`) = `background:var(--ink)` (flips to near-white
+    in dark) + hardcoded `color:#fff` → **white-on-white, invisible** (the "Download CSV" button).
+    `.priv-btn.danger` (468) + `.logout-btn` (474) hardcode `background:#fdecea` + `#f0c4bd` border → light
+    salmon stays in dark, washed-out. `.acct-btn` base (414) has no bg ("Send confirmation link" reads flat);
+    `.acct-btn.accent` (415) white-on-`--accent` is OK but could be brighter; `.acct-btn.ghost` (417) +
+    `.field-input` (309-311) flip fine (verify contrast). 
+  - **Fix (dark-block-only):** override in dark — `.priv-btn.solid { background:var(--accent); color:#fff }`
+    (visible green); `.priv-btn.danger` + `.logout-btn { background:var(--sr-s); color:var(--warn);
+    border-color:color-mix(in srgb,var(--warn) 35%,transparent) }` (dark-safe red tint); optional
+    `.acct-btn.accent { color:#fff }` already fine, and brighten ghost text to `--ink`. Light untouched.
+- **R3-7 — Upgrade/Downgrade confirm modal: white sheet + invisible title in dark.** (img: "Downgrade to Pro?")
+  - **Where / root cause:** the modal is **inline-styled** in `CryptoIdea.jsx:597-634` and rendered **outside**
+    `.ci-app`, so dark tokens never reach it: sheet `background:"#fff"` (602, hardcoded), the title (604) has
+    **no color** (inherits dark text → invisible on white in dark), and the ENDS/DELETE boxes + "Keep My Plan"
+    button use hardcoded light pinks/yellows. Inline styles also win over plain CSS.
+  - **Fix (dark-only; light inline styles untouched):** add classNames to the modal nodes (e.g.
+    `.dg-sheet/.dg-title/.dg-text/.dg-ends/.dg-warn/.dg-keep/.dg-confirm`) — **no logic change** — then add a
+    `html[data-theme="dark"]` CSS block (with `!important` to beat the inline styles): sheet →
+    `var(--paper-2)`, title → `var(--ink)`, body → `var(--ink-soft)`, ENDS box → `--sr-s`/`--warn`, DELETE box
+    → `--sa-s`/`--amber`, "Keep My Plan" → `var(--paper-2)` + `var(--line-strong)` + `var(--ink)`, "Confirm
+    Downgrade" stays red. *(Alternative, cleaner long-term: convert the inline styles to `.ci-app` token
+    classes so it flips automatically — but that rewrites the light styling, so only with founder OK.)*
+    Note: this is the only Round 3 item needing a (style-only, no-logic) JSX edit.
+- **R3-8 — Research "Ask" panel: black-on-black in dark.** (img: Research → Ask) — **`.research-root` scoped.**
+  - **Where / root cause:** `.ask` (`research-tab.css:180`) is intentionally a **dark hero card**
+    (`linear-gradient(#1b1a15,#100f0b)` + white-ish children) on the light page — correct in light. In dark
+    the page is also near-black, so the panel **blends into the background** (no edge), and the `.ask h3`
+    inherits `color:var(--paper)` which **flips to dark `#14130f`** → invisible title. (The subp/input/prompts
+    use explicit `rgba(255,255,255,…)` so they stay readable on the dark panel.)
+  - **Fix (minimal, dark-block-only in `.research-root`):** `html[data-theme="dark"] .research-root .ask {
+    border:1px solid var(--line-strong); color:var(--ink); }` — the border separates it from the page and
+    `color:var(--ink)` (light in dark) restores the title. Optional: bump `.ask-input`/`.prompt` rgba bgs for
+    a touch more pop. **Cross-ref R2-8** (other Research dark cards). Light untouched.
 
-**Status:** captured 2026-06-28 from founder screenshots; investigated read-only (all file:line + tokens
-verified first-hand). **Plan only — founder said more black-mode items are coming; do not build until they
-say go.** When building: bundle R3 as a "dark-mode visibility" sweep (R3-1…R3-4 are independent one-token
-fixes; R3-4 + R2-1 share the avatar; R3-3 also relates to R2-8/R2-9). Keep a running dark-mode audit since
-more are expected. DoD per item: extend the screen's test where it asserts a color/role, `npm run test:unit`
-green, `npm run build` clean, **browser-verify in DARK** (computed-style probe per
-[[preview-verification-gotchas]] — transitions fool getComputedStyle) + light, mobile + desktop, commit.
+**Also flagged by founder (NOT design — backend bug → see [`ERRORS.md`](ERRORS.md) §A1):**
+- **B-PORT — "Couldn't create portfolio. Check your connection."** **CONFIRMED via live emulator repro
+  (2026-06-28):** it is **not** a connection or rules bug — the create is correctly **denied** because the
+  user is **at their plan's portfolio cap** (free 1 / pro 3 / premium 15), and the app **mislabels** the
+  `permission-denied` as a connection error. It surfaces when the **client tier > the DB tier** (a local/demo
+  "upgrade" the server never persists, since users can't write their own `tier`), so the client cap-check
+  (`CryptoIdea.jsx:392`) passes and the rule then denies. Earlier "getAfter can't see increment" guess was
+  **disproven** (pro@test.com succeeded with that exact batch). **Full diagnosis + fix in ERRORS.md §A1/§A2.**
+  Not part of the dark-mode design work.
+
+**Status:** captured 2026-06-28 from founder screenshots; investigated read-only + **B-PORT reproduced live**
+(file:line + tokens verified first-hand). **Plan only — founder said more black-mode items are coming; do not
+build until they say go.** When building: bundle R3 as ONE "dark-mode visibility" sweep — **all dark-block-only,
+light untouched** (R3-1…R3-8). R3-4 + R2-1 share the avatar; R3-3/R3-5 are the systematic accent + semantic
+brightening; R3-8 relates to R2-8/R2-9. Keep a running dark-mode audit (more expected). DoD per item: extend
+the screen's test where it asserts a color/role, `npm run test:unit` green, `npm run build` clean,
+**browser-verify in DARK** (computed-style probe per [[preview-verification-gotchas]] — transitions fool
+getComputedStyle) **and confirm light is unchanged**, mobile + desktop, commit.

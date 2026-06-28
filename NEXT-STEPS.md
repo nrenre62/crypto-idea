@@ -639,18 +639,23 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [ ] **R2-8** Research dark-mode bug: "A note on diversification" card is light-on-light (unreadable) — tokenize + audit sibling cards.
   - [ ] **R2-9** Learn dark-mode bug: lesson overlay "THE KEY INSIGHT" box (`.lesson-insight`) light gradient unreadable in dark — tokenize.
 - [ ] **Round 3 — dark-mode visibility bugs (2026-06-28, PLAN ONLY; more coming)** — full spec in
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 3". Design-only, all one-token fixes; light mode untouched. Don't build until founder says go.
-  - [ ] **R3-1** Add-portfolio "+ Add" button invisible in dark — `.add-name` (`app.css:463`) uses `background:var(--ink)` (flips light) + hardcoded `color:#fff` → fix text to `var(--paper)`.
-  - [ ] **R3-2** Back chevron `<` invisible on every drill-in (CoinInfo/Detail/AddEntry/Account) — `Ic.back` (`ui.jsx:9`) `stroke={c.txt}` (#1A1A1A) + `.icon-btn` has no color → set `stroke="currentColor"` + add `color:var(--ink)` to `.ci-app .icon-btn`.
-  - [ ] **R3-3** Accent green dull on black — `--accent` doesn't flip; switch **foreground** accent rules (`.nt-btn` "Add thesis" + ~11 others + Portfolio.jsx:84 inline) `var(--accent)`→`var(--accent-ink)` (bright #5cd6a6 in dark). Keep `--accent` on solid-bg+white-text buttons & borders.
-  - [ ] **R3-4** Account avatar black-on-black (can't find it) — `.avatar`/`.acct-avatar` hardcode a near-black gradient; add a dark-only override (`--accent-soft` bg + `--accent-ink` initial + accent ring). Build with R2-1.
-- [ ] **B-PORT — BACKEND BUG (not design): "Couldn't create portfolio. Check your connection." fails for
-  every account.** `addPortfolio` (`CryptoIdea.jsx:391-398`) → `createPortfolio` batch
-  (`firebase-database.js:79-95`) → create rule `firestore.rules:140-144`. Generic toast hides the real
-  error. Hypothesis: `portfolioCount` missing/uninitialized on the user doc, or doc-shape/increment
-  mismatch trips the rule → batch rejected. Next: surface the real `error.code/message` + read the emulator
-  rule-rejection log on a real create; confirm `portfolioCount` is set at signup. (Flagged by founder
-  2026-06-28; tracked here, fix on request — not part of the dark-mode design work.)
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 3". **Founder rule: every fix is DARK-MODE-ONLY (`html[data-theme="dark"]`); light mode byte-for-byte unchanged.** Don't build until founder says go.
+  - [ ] **R3-1** Add-portfolio "+ Add" button invisible in dark — `.add-name` (`app.css:463`) `background:var(--ink)` (flips light) + hardcoded `color:#fff` → dark-block override text `var(--paper)`.
+  - [ ] **R3-2** Back chevron `<` invisible on every drill-in (CoinInfo/Detail/AddEntry/Account) — `Ic.back` (`ui.jsx:9`) `stroke={c.txt}` (#1A1A1A) + `.icon-btn` has no color → set `stroke="currentColor"` + add `color:var(--ink)` to `.ci-app .icon-btn` (flips correctly both modes).
+  - [ ] **R3-3** Accent green dull on black — `--accent` doesn't flip; in the dark block, override **foreground** accent rules (`.nt-btn` + ~11 others + Portfolio.jsx:84 inline) to `var(--accent-ink)` (bright #5cd6a6). Keep `--accent` on solid-bg+white-text buttons & borders.
+  - [ ] **R3-4** Account avatar black-on-black — `.avatar`/`.acct-avatar` hardcode a near-black gradient; dark-only override (`--accent-soft` bg + `--accent-ink` initial + accent ring). Build with R2-1.
+  - [ ] **R3-5** Header tags + colored numbers/pills not shiny (systematic) — `--sg/--sr/--sa/--ai-2/--amber` + `.badge-live` (#1a7a3c) don't flip → dull on black. Dark-block: brighten the semantic tokens (e.g. `--sg:#2ecc71; --sr:#ff6b6b; --sa:#f4c54a; --ai-2:#5b9bff;`) + override `.badge-live`. Makes all tags/%-pills/numbers bright app-wide.
+  - [ ] **R3-6** Account fields + buttons white/dull in dark — `.priv-btn.solid` (`app.css:466`, `var(--ink)` bg + `#fff` = invisible), `.priv-btn.danger`/`.logout-btn` hardcoded `#fdecea`. Dark-block overrides (solid→accent; danger/logout→`--sr-s`/`--warn`).
+  - [ ] **R3-7** Upgrade/Downgrade modal white + invisible title in dark — inline-styled in `CryptoIdea.jsx:597-634`, outside `.ci-app`, `background:"#fff"` + title has no color. Add classNames (no logic) + dark-block CSS (`!important`): sheet→`--paper-2`, title→`--ink`, boxes→tinted, "Keep My Plan"→dark.
+  - [ ] **R3-8** Research "Ask" panel black-on-black — `.ask` (`research-tab.css:180`) dark hero blends into dark page + `h3` inherits `var(--paper)` (flips dark). Dark-block in `.research-root`: add border + `color:var(--ink)`. Cross-ref R2-8.
+- [x] **B-PORT — diagnosed (backend, not design). "Couldn't create portfolio. Check your connection."**
+  **CONFIRMED via live emulator repro (2026-06-28):** NOT a connection/rules bug — the create is correctly
+  denied because the user is **at their plan's portfolio cap** (free 1/pro 3/premium 15), and the app
+  **mislabels** the `permission-denied` as a connection error. Surfaces when the **client tier > DB tier** (a
+  local/demo upgrade the server never persists; users can't write their own `tier`). Earlier "getAfter can't
+  see increment" guess **disproven** (pro@test.com succeeded with the exact batch). **Full diagnosis + fix in
+  [ERRORS.md](ERRORS.md) §A1 + §A2** (surface `error.code` → plan-limit message vs connection; sync client
+  tier to DB tier). Fix ready, not yet applied — **apply on request.**
 - [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
   + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
 - [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);
