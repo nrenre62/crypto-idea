@@ -306,6 +306,12 @@ the `CI` token circle (`coinColor()` brand map, dark-safe via `color-mix`), `.nt
 thesis"), plus the coin-drill-in / form / auth class sets. **Dark mode** (U8 light/dark/system) is fully
 token-driven — every surface flips, including the nav (`--bar-bg`) and token circles. Method captured in
 the `responsive-app` skill; see [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) for the responsive shell.
+A subsequent **Design Pass 2** ([`DESIGN-PASS.md`](DESIGN-PASS.md), BUILT 2026-06-28) screen-by-screen
+aligned the app to founder mockups and hardened dark mode — **dark-mode fixes are dark-block-only
+(`html[data-theme="dark"]`) so light mode is byte-for-byte unchanged**: accent text uses the dark-remapped
+`--accent-ink`, semantic colours (`--sg/--sr/--sa/--ai-2`) brighten in dark, and the rule is *foreground →
+bright, but a solid-accent background under white text stays as-is* (brightening it would lower contrast).
+Diagnosed backend issues are logged in [`ERRORS.md`](ERRORS.md).
 
 # Pages & routes
 
@@ -323,7 +329,7 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 ### Research tab (AI insights)
 
 One of the app's five bottom-nav tabs (**Portfolio · Research · Journal · Learn · Search**) is a self-contained feature in
-`src/features/research/`. (The Journal/thesis and Learn tabs are both wired — Journal persists a thesis on the coin doc; Learn has real XP/levels + quiz-gated progress.) Three sub-views: **Overview** (daily brief, Portfolio Pulse, allocation,
+`src/features/research/`. (The Journal/thesis and Learn tabs are both wired — Journal persists a thesis on the coin doc and supports **write / edit / delete** with both questions — "why you bought it" + "what would change your mind" — required to save; Learn has real XP/levels + quiz-gated progress.) Three sub-views: **Overview** (daily brief, Portfolio Pulse, allocation,
 risk meter, stress test), **Coins** (per-holding cards with a 7-day sparkline + cost/now/P&L), and
 **Ask** (chat about your holdings). It reads your **real** active portfolio and reuses the app's
 existing `/api` proxy only — current price + 24h from live prices, and 7d/30d change + sparkline
