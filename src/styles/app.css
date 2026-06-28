@@ -44,7 +44,40 @@ html[data-theme="dark"] .research-root {
   --paper:#14130f; --paper-2:#1c1b17; --paper-3:#211f19; --bar-bg:rgba(20,19,15,.92);
   --line:#2c2a24; --line-2:rgba(236,233,225,.08); --line-strong:#3a382f;
   --accent-soft:rgba(31,157,85,.18); --accent-ink:#5cd6a6;
+  /* R3-5: brighten the semantic colours so coloured numbers / %-pills / tags read
+     "shiny" on the dark paper. They're used as foreground/fills only (never as a
+     background under white text), so brightening is safe. The faint *-s rgba tints
+     are separate and intentionally left unchanged. */
+  --sg:#2ecc71; --sr:#ff6b6b; --sa:#f4c54a; --ai-2:#5b9bff;
 }
+
+/* ── Dark-mode visibility fixes (Round 3) — dark-block-only; light mode untouched ── */
+/* R3-3: accent used as TEXT/icon must use the dark-adapted --accent-ink (bright green),
+   not the non-flipping --accent. Solid accent backgrounds with white text stay as-is. */
+html[data-theme="dark"] .ci-app .sec-link,
+html[data-theme="dark"] .ci-app .tb.active,
+html[data-theme="dark"] .ci-app .nt-btn,
+html[data-theme="dark"] .ci-app .learn-level,
+html[data-theme="dark"] .ci-app .up,
+html[data-theme="dark"] .ci-app .field-label .lbl-accent,
+html[data-theme="dark"] .ci-app .auth-link span,
+html[data-theme="dark"] .ci-app .consent-row a,
+html[data-theme="dark"] .ci-app .priv-links a,
+html[data-theme="dark"] .ci-app .port-row .pr-name.active,
+html[data-theme="dark"] .ci-app .empty-ic,
+html[data-theme="dark"] .ci-app .welcome-check { color:var(--accent-ink); }
+/* down-numbers use --warn (kept for buttons/errors) — show them in the brightened red */
+html[data-theme="dark"] .ci-app .vc-gain.dn,
+html[data-theme="dark"] .ci-app .vc-sval.dn { color:var(--sr); }
+/* R3-5: the ● LIVE tag is a hardcoded dark green; brighten via the (now bright) --sg */
+html[data-theme="dark"] .ci-app .badge-live { color:var(--sg); background:var(--sg-s); border-color:color-mix(in srgb, var(--sg) 28%, transparent); }
+/* R3-1: the "+ Add" portfolio button bg (var(--ink)) flips near-white — flip its text too */
+html[data-theme="dark"] .ci-app .port-add .add-name { color:var(--paper); }
+/* R3-6: account / privacy buttons that used a flipping bg or hardcoded light colours */
+html[data-theme="dark"] .ci-app .priv-btn.solid { color:var(--paper); }
+html[data-theme="dark"] .ci-app .priv-btn.danger,
+html[data-theme="dark"] .ci-app .logout-btn { background:var(--sr-s); color:var(--sr); border-color:color-mix(in srgb, var(--sr) 35%, transparent); }
+html[data-theme="dark"] .ci-app .acct-btn.ghost { color:var(--ink); }
 
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }
