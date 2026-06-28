@@ -55,7 +55,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] data export (`exportMyData` → JSON + holdings/transactions CSV via `buildPortfolioCsv`)
 - [x] admin Trash tab (restore / purge-now, days-left countdown, server-only `deleted` flag)
 - [x] Research tab module (`src/features/research/` — Overview / Coins / Ask; app-native data, no new API calls)
-- [ ] App Controls & feature flags (`config/app.flags` → public `/api/config`, maintenance / signups-off)
+- [x] App Controls & feature flags (`config/app.flags` → public `/api/config`, maintenance / signups-off) — covered by [config-and-feature-flags.svg](config-and-feature-flags.svg)
 - [ ] analytics & legal injection (`config/app.analytics`+`legal` → `/api/config` → `site-meta.js`, Termly/GA4/Plausible + CSP)
 
 ## Conventions (see the `drawing-diagram` skill for the full guide)
