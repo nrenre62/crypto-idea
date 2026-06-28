@@ -170,9 +170,14 @@ badge + amount, date·time; right: price + Cost/Recv stacked, right-aligned). Ke
   (`.lesson-insight`) uses a light gradient that stays light in dark mode → unclear text/background; check
   the quiz card too. Tokenize so it's readable in dark. `.ci-app`. **Readability bug.**
 
-**Status:** captured 2026-06-27 (founder adding more — "do the plan now, build later"). Before building:
-get the rest of the list, confirm R2-1 avatar placement, finalize build order. R2-8/R2-9 are dark-mode
-readability bugs (bump priority within the round).
+**Status:** ✅ **ALL BUILT 2026-06-28** (founder: "do the design plan now until you finish it, do TDD every
+change"). R2-1 avatar placement resolved by reserving top-right header clearance (`.apphead`/`.learn-title`
+padding) so the avatar never overlaps a title. R2-2 done. **R2-3 (Portfolio Pulse) + R2-4 (Risk meter) were
+already implemented** in the Research module (Pulse.jsx Share/Regenerate/period-headline + offline note;
+RiskMeter.jsx segmented gradient + status badge + lock footer) — verified against the mockups, no change
+needed. R2-5 (Add-tx restyle), R2-6 (Journal header) + §J (edit/delete/validation), R2-7 (allocation brand
+colours), R2-8 (Research diversification/offline dark) all built + verified (light + dark, mobile + desktop),
+272 unit green, build clean.
 
 ---
 
@@ -281,11 +286,11 @@ readability bugs (bump priority within the round).
   **disproven** (pro@test.com succeeded with that exact batch). **Full diagnosis + fix in ERRORS.md §A1/§A2.**
   Not part of the dark-mode design work.
 
-**Status:** captured 2026-06-28 from founder screenshots; investigated read-only + **B-PORT reproduced live**
-(file:line + tokens verified first-hand). **Plan only — founder said more black-mode items are coming; do not
-build until they say go.** When building: bundle R3 as ONE "dark-mode visibility" sweep — **all dark-block-only,
-light untouched** (R3-1…R3-8). R3-4 + R2-1 share the avatar; R3-3/R3-5 are the systematic accent + semantic
-brightening; R3-8 relates to R2-8/R2-9. Keep a running dark-mode audit (more expected). DoD per item: extend
-the screen's test where it asserts a color/role, `npm run test:unit` green, `npm run build` clean,
-**browser-verify in DARK** (computed-style probe per [[preview-verification-gotchas]] — transitions fool
-getComputedStyle) **and confirm light is unchanged**, mobile + desktop, commit.
+**Status:** ✅ **ALL BUILT 2026-06-28** — dark-block-only, light mode byte-for-byte unchanged (verified via
+computed-style probes per [[preview-verification-gotchas]]). R3-1 add-portfolio button, R3-2 back chevron
+(ui.jsx currentColor + `.icon-btn` color), R3-3 accent→`--accent-ink` foreground, R3-4 avatar (tinted-green
+circle), R3-5 brightened semantic tokens (`--sg/--sr/--sa/--ai-2`) + `.badge-live`, R3-6 account/privacy
+buttons, R3-7 Upgrade/Downgrade modal (classNames + `!important` dark CSS), R3-8 Research Ask panel. Each
+browser-verified dark (bright/visible) + light (unchanged). 272 unit green, build clean.
+**B-PORT** (mislabeled plan-limit) remains a separate backend fix in [`ERRORS.md`](ERRORS.md) §A1 — not part
+of this design build.

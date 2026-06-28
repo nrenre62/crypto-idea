@@ -67,11 +67,14 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   DP-2/3 (Portfolio switcher pills + persistent account avatar on all tabs), DP-4 (Learn hero card +
   per-module SVG icons `src/components/learn-icons.jsx` + dark fixes), DP-5 (Account → drill-in settings
   list + detail views; new `.switch`/`.settings-row*` + 8 `Ic` row icons), DP-8 (Login eye toggle),
-  DP-9 (Coin info MARKET DATA/YOUR POSITION + `/api/prices` vol/circulating), DP-10/11/12. Remaining: a
-  **Round 2** of founder follow-ups (R2-1..R2-9: avatar consistency, remove Learn badge, Research Pulse +
-  Risk redesigns, allocation coin-colors, Add-tx restyle, Journal redesign, two dark-mode readability bugs),
-  then DP-6 (Search trending → new cached `/api/trending`) and DP-7 (polish). **Design-only + dark-safe;
-  reuse `.ci-app` tokens; verify mobile + desktop, light + dark.**
+  DP-9 (Coin info MARKET DATA/YOUR POSITION + `/api/prices` vol/circulating), DP-10/11/12. **Round 2
+  (R2-1..R2-9), Round 3 dark-mode visibility (R3-1..R3-8), and §J Journal thesis edit/delete/required-two-
+  questions are ALL BUILT 2026-06-28** (272 unit green, build clean; Round 3 is dark-block-only so light mode
+  is byte-for-byte unchanged; R2-3 Pulse + R2-4 Risk were already implemented). **Only DP-6 (Search trending →
+  new cached `/api/trending`) remains.** Notable new bits: `thesisError`/`clearCoinJournal`/`editThesis`/
+  `deleteThesis` (Journal); `coinColor` now also colours the Research allocation bar; a `.switch`-style
+  segmented Add-tx control + AUTO badge. Known separate backend bug: **B-PORT** (mislabeled plan-limit) in
+  [`ERRORS.md`](ERRORS.md). **Design-only + dark-safe; reuse `.ci-app` tokens; verify mobile + desktop, light + dark.**
 - **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 - **Error catalog:** [`ERRORS.md`](ERRORS.md) records diagnosed bugs/warnings + their fixes + by-design caveats (what the error is and how to fix it). Add an entry whenever you diagnose a non-trivial error; dark-mode CSS readability issues live in `DESIGN-PASS.md` "Round 3" instead. Diagnoses are verified against the running emulator. **Notable:** the "Couldn't create portfolio. Check your connection." toast (ERRORS.md §A1) is a **mislabeled plan-limit** (`permission-denied` = at the portfolio cap free 1/pro 3/premium 15), surfacing when the client tier > the DB tier (a local/demo upgrade the server never persists, since users can't write their own `tier`).
 

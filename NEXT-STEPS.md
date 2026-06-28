@@ -627,8 +627,8 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   (chevR/user/card/folder/shield/bell/palette/lock, `currentColor`), `.switch`, `.settings-row*`. Tests
   rewritten for the drill-in (21 cases) + 2 e2e nav tests updated. 259 unit green, build clean, verified
   light+dark + mobile/desktop.
-- [ ] **Round 2 — founder follow-ups (2026-06-27, capturing; build BEFORE DP-6)** — full spec in
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 2". Founder still adding items; don't build until they say go.
+- [x] **Round 2 — founder follow-ups — ✅ ALL BUILT 2026-06-28** — full spec in
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 2". R2-3 (Pulse) + R2-4 (Risk) were already implemented; R2-1/2/5/6/7/8 built + verified (TDD, 272 unit green, light+dark, mobile+desktop).
   - [ ] **R2-1** Account avatar consistent on Learn + all tabs (currently overlaps the Learn hero card) — ⚠ confirm placement.
   - [ ] **R2-2** Learn: remove the `.badges-row` "graph icon" (not needed) — trivial.
   - [ ] **R2-3** Research › Portfolio Pulse: new design (Share/Regenerate pills + period headline pill); KEEP 24H/7D/30D where they are + KEEP the offline note.
@@ -638,8 +638,8 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [ ] **R2-7** Research › Allocation: color each bar segment + legend dot by the coin's original brand color (`coinColor`) so none repeat.
   - [ ] **R2-8** Research dark-mode bug: "A note on diversification" card is light-on-light (unreadable) — tokenize + audit sibling cards.
   - [ ] **R2-9** Learn dark-mode bug: lesson overlay "THE KEY INSIGHT" box (`.lesson-insight`) light gradient unreadable in dark — tokenize.
-- [ ] **Round 3 — dark-mode visibility bugs (2026-06-28, PLAN ONLY; more coming)** — full spec in
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 3". **Founder rule: every fix is DARK-MODE-ONLY (`html[data-theme="dark"]`); light mode byte-for-byte unchanged.** Don't build until founder says go.
+- [x] **Round 3 — dark-mode visibility bugs — ✅ ALL BUILT 2026-06-28** — full spec in
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 3". All dark-block-only (light byte-for-byte unchanged); R3-1…R3-8 built + browser-verified dark + light.
   - [ ] **R3-1** Add-portfolio "+ Add" button invisible in dark — `.add-name` (`app.css:463`) `background:var(--ink)` (flips light) + hardcoded `color:#fff` → dark-block override text `var(--paper)`.
   - [ ] **R3-2** Back chevron `<` invisible on every drill-in (CoinInfo/Detail/AddEntry/Account) — `Ic.back` (`ui.jsx:9`) `stroke={c.txt}` (#1A1A1A) + `.icon-btn` has no color → set `stroke="currentColor"` + add `color:var(--ink)` to `.ci-app .icon-btn` (flips correctly both modes).
   - [ ] **R3-3** Accent green dull on black — `--accent` doesn't flip; in the dark block, override **foreground** accent rules (`.nt-btn` + ~11 others + Portfolio.jsx:84 inline) to `var(--accent-ink)` (bright #5cd6a6). Keep `--accent` on solid-bg+white-text buttons & borders.
@@ -689,11 +689,12 @@ browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update
 
 ---
 
-## J. Journal thesis — edit / delete / required-two-questions  (2026-06-28, PLAN ONLY)
+## J. Journal thesis — edit / delete / required-two-questions  (✅ BUILT 2026-06-28)
 
-Founder request from the Journal thesis detail. **Functional** (not design-pass). Today a thesis can be
-WRITTEN but **not edited or deleted**, and save-validation is weak. Grounded in code (verified 2026-06-28).
-Build on founder go.
+Founder request from the Journal thesis detail. **Functional** (not design-pass). **All built + TDD'd
+2026-06-28** (`thesisError` helper + Journal add/edit/delete/validation + Search updated; new `editThesis`/
+`deleteThesis` handlers + `clearCoinJournal` deleteField path; 272 unit green; add→edit→delete round-trip
+verified live on the emulator). Original spec below.
 
 - [ ] **J1 — Edit an existing thesis (per coin).** JournalDetail currently shows "Why you bought it" +
   "What would change your mind" **read-only** (`Journal.jsx:68-75`, `.j-read`); only the funnel findings +
