@@ -1,0 +1,138 @@
+<svg viewBox="0 0 940 880" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — Research tab feature module (src/features/research/)</title>
+  <desc>The Research tab is a self-contained vertical-slice feature module under src/features/research/ with its own components, hooks, utils, api and styles, scoped CSS under .research-root. One bridge file, Research.jsx, reads the app via useApp() (AppContext) and passes the active portfolio's coins and the app's live prices into ResearchTab.jsx, the container that owns the view + timeframe state and calls the hooks. The hooks read app-native data only: useHoldings turns the portfolio coins/entries into net amount + weighted average cost (holdingsFromCoins); usePrices combines useLivePrices (current price + 24h change) with each coin's /api/history (CDN- and module-cached) to derive 7d/30d change + a 7-day sparkline (buildResearchPrices); usePortfolio runs the pure computePortfolio/deriveRisk/portfolioContext utils; usePulse and useAsk call askClaude which throws today, so they fall back to built-in data-driven summaries. It never calls CoinGecko or Anthropic directly from the browser, so the shared /api proxy keeps backend cost flat regardless of users, and missing history degrades to 0% rather than NaN. Three views render: Overview (daily brief, Portfolio Pulse, allocation bar, risk meter, stress test), Coins (per-holding card, 7-day sparkline, cost/now/P&L, and 4-state conviction pills), and Ask (chat about the user's holdings). Two pluggable seams stay mock today and go live in Wave B: conviction.js is a pure rubric reducer with a 2-source accuracy gate, four states, reason chips and catalyst expiry, fed by mock-conviction.js until a per-coin live-AI cache replaces it; ai-client.js will be swapped for a server-side Cloud Function proxy that holds the Anthropic key and runs the fail-closed output validator.</desc>
+  <defs>
+    <marker id="rt_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="rt_b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-info,#2c7fb8)"/></marker>
+    <marker id="rt_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+  </defs>
+
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Research Tab — Self-Contained Feature Module (src/features/research/)</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">A vertical slice bridged to the app via AppContext · app-native data only (no new external calls) · AI + conviction are mock seams (live = Wave B)</text>
+  <line x1="500" y1="24" x2="524" y2="24" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="2.5"/><text x="530" y="28" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">feature (client)</text>
+  <line x1="640" y1="24" x2="664" y2="24" stroke="var(--color-text-info,#2c7fb8)" stroke-width="2.5"/><text x="670" y="28" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">cached /api proxy</text>
+  <line x1="800" y1="24" x2="824" y2="24" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="830" y="28" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">server / Wave B</text>
+
+  <!-- ① bridge -->
+  <text x="24" y="64" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">① Bridge — one file connects the module to the app</text>
+  <rect x="24" y="72" width="210" height="50" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="91" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">AppContext · useApp()</text>
+  <text x="40" y="108" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">{ portfolio, prices }</text>
+
+  <rect x="268" y="72" width="224" height="50" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="380" y="91" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">Research.jsx — app wrapper</text>
+  <text x="380" y="108" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">the ONLY bridge into the module</text>
+
+  <rect x="526" y="72" width="250" height="50" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="651" y="91" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">ResearchTab.jsx — container</text>
+  <text x="651" y="108" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">owns view + timeframe state · calls the hooks</text>
+
+  <line x1="234" y1="97" x2="266" y2="97" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#rt_a)"/>
+  <line x1="492" y1="97" x2="524" y2="97" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#rt_a)"/>
+  <text x="790" y="92" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">self-contained slice:</text>
+  <text x="790" y="104" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">components / hooks /</text>
+  <text x="790" y="116" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">utils / api / styles</text>
+
+  <line x1="600" y1="122" x2="250" y2="164" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#rt_a)"/>
+  <text x="430" y="146" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">calls the hooks ↓</text>
+
+  <!-- ② hooks (left) read data (right) -->
+  <text x="24" y="160" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">② Hooks (logic) read app-native data — no new external calls</text>
+  <!-- hook boxes -->
+  <rect x="24" y="170" width="420" height="46" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="189" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">useHoldings(coins)</text>
+  <text x="40" y="206" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">holdingsFromCoins → net amount + weighted avg cost · carries journal</text>
+
+  <rect x="24" y="222" width="420" height="46" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="241" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">usePrices(ids, source, livePrices)</text>
+  <text x="40" y="258" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">live price + 24h ⊕ /api/history → c7d / c30d / 7-day sparkline</text>
+
+  <rect x="24" y="274" width="420" height="46" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="293" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">usePortfolio(holdings, prices)</text>
+  <text x="40" y="310" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">computePortfolio · deriveRisk · portfolioContext (pure utils)</text>
+
+  <rect x="24" y="326" width="420" height="46" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="345" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">usePulse(tf) · useAsk(context)</text>
+  <text x="40" y="362" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">askClaude() throws today → built-in offline summary</text>
+
+  <!-- data boxes -->
+  <rect x="470" y="170" width="446" height="60" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="486" y="190" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Active portfolio · coins[].entries</text>
+  <text x="486" y="208" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">from AppContext — buys / sells · priceAtBuy · type</text>
+  <text x="486" y="222" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">→ feeds useHoldings</text>
+
+  <rect x="470" y="238" width="446" height="60" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="486" y="258" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">useLivePrices (the app's price poll)</text>
+  <text x="486" y="276" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">current price + 24h change</text>
+  <text x="486" y="290" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">→ feeds usePrices</text>
+
+  <rect x="470" y="306" width="446" height="60" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.6"/>
+  <text x="486" y="326" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">/api/history — shared cached proxy</text>
+  <text x="486" y="344" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">CDN + module cache → 7d / 30d + sparkline · same data the DCA calc uses</text>
+  <text x="486" y="358" font-size="8" fill="var(--color-text-info,#2c7fb8)">→ feeds usePrices (never CoinGecko from the browser)</text>
+
+  <line x1="468" y1="196" x2="446" y2="193" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4" marker-end="url(#rt_a)"/>
+  <line x1="468" y1="262" x2="446" y2="248" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4" marker-end="url(#rt_a)"/>
+  <line x1="468" y1="332" x2="446" y2="256" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.4" marker-end="url(#rt_b)"/>
+
+  <text x="24" y="392" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">No CoinGecko / Anthropic calls from the browser → the shared /api proxy keeps backend cost FLAT regardless of users · missing history → 0%, never NaN.</text>
+
+  <!-- ③ views -->
+  <text x="24" y="414" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">③ Views (UI) — plain data + callbacks from the container / hooks</text>
+  <line x1="230" y1="372" x2="430" y2="402" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" marker-end="url(#rt_a)"/>
+  <line x1="430" y1="404" x2="160" y2="420" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" marker-end="url(#rt_a)"/>
+  <line x1="430" y1="404" x2="465" y2="420" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" marker-end="url(#rt_a)"/>
+  <line x1="430" y1="404" x2="770" y2="420" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" marker-end="url(#rt_a)"/>
+
+  <rect x="24" y="422" width="288" height="82" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="443" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Overview</text>
+  <text x="40" y="461" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">daily brief + Portfolio Pulse</text>
+  <text x="40" y="477" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">allocation bar · risk meter</text>
+  <text x="40" y="493" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">stress test (beta-scaled scenario)</text>
+
+  <rect x="330" y="422" width="270" height="82" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="346" y="443" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Coins</text>
+  <text x="346" y="461" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">per-holding card + 7-day sparkline</text>
+  <text x="346" y="477" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">cost / now / P&amp;L</text>
+  <text x="346" y="493" font-size="9" fill="var(--color-text-primary,#1a1a1a)">4-state conviction pills (rubric)</text>
+
+  <rect x="624" y="422" width="292" height="82" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="640" y="443" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Ask</text>
+  <text x="640" y="461" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">chat about YOUR holdings</text>
+  <text x="640" y="477" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">context-grounded answers</text>
+  <text x="640" y="493" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">suggested follow-ups</text>
+
+  <!-- ④ seams -->
+  <text x="24" y="524" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">④ Pluggable seams — mock today, live in Wave B</text>
+  <rect x="24" y="532" width="440" height="84" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="552" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">conviction.js — pure rubric reducer</text>
+  <text x="40" y="570" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">≥2-source gate · 🟢 🟡 🔴 ⬛ · reason chips · catalyst expiry (#8 / #9 / #11)</text>
+  <text x="40" y="587" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">fed by mock-conviction.js</text>
+  <text x="40" y="604" font-size="8.5" fill="var(--color-text-primary,#1a1a1a)">→ Wave B: same seam fed by a per-coin live-AI cache</text>
+
+  <rect x="486" y="532" width="430" height="84" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="502" y="552" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">api/ai-client.js — askClaude()</text>
+  <text x="502" y="570" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">throws today → offline, data-driven Pulse / Ask summaries</text>
+  <text x="502" y="587" font-size="8.5" fill="var(--color-text-primary,#1a1a1a)">live = Wave B Cloud Function proxy (Anthropic key server-side)</text>
+  <text x="502" y="604" font-size="8.5" fill="var(--color-text-primary,#1a1a1a)">+ fail-closed validate-output.js (no names / targets / advice)</text>
+
+  <line x1="244" y1="530" x2="430" y2="506" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#rt_a)"/>
+  <text x="300" y="522" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">grades the Coins pills</text>
+  <line x1="700" y1="530" x2="770" y2="506" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" marker-end="url(#rt_a)"/>
+  <text x="690" y="522" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">AI text for Pulse / Ask</text>
+
+  <!-- why -->
+  <rect x="24" y="630" width="892" height="236" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="651" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="671" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Self-contained vertical slice — its own components / hooks / utils / api / styles behind one bridge file (Research.jsx); portable + testable in isolation.</text>
+  <text x="40" y="689" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Scoped CSS — every rule lives under .research-root so it can't collide with the rest of the app's .ci-app design (both reuse generic class names).</text>
+  <text x="40" y="707" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• App-native data only — reuses the cached /api proxy + useLivePrices, so adding Research costs ZERO extra upstream calls (flat-cost model intact).</text>
+  <text x="40" y="725" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Never CoinGecko / Anthropic from the browser — rate limits + API keys stay server-side; the shared proxy is the single upstream.</text>
+  <text x="40" y="743" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Layered like the app — components (UI) → hooks (logic) → utils (pure) / api (I/O); the pure utils (portfolio / priceAdapter / conviction) are unit-tested directly.</text>
+  <text x="40" y="761" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Degrade, never crash — missing history → 0% not NaN; AI offline → built-in summaries, so the tab is fully usable + secure today.</text>
+  <text x="40" y="779" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Accuracy-gated conviction — a ≥2-source rule blocks single-source guesses; ⬛ "insufficient data" shows a reason chip, never a silent blank.</text>
+  <text x="40" y="797" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Clean Wave-B seam — swap mock evidence for a live per-coin AI cache, and ai-client for a server proxy guarded by the fail-closed output validator.</text>
+  <text x="40" y="822" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: src/features/research/ — Research.jsx · components/ResearchTab.jsx + views · hooks/{useHoldings,usePrices,usePortfolio,usePulse,useAsk}.js</text>
+  <text x="40" y="836" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">· utils/{portfolio,priceAdapter,conviction,coins}.js · api/ai-client.js · data/mock-conviction.js · styles/research-tab.css · functions/validate-output.js (Wave B).</text>
+  <text x="40" y="855" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Related: frontend-layered-architecture.svg · live-prices-polling.svg · app-buy-date-history.svg · coin-data-flow.svg.</text>
+</svg>
