@@ -112,10 +112,10 @@ export function Login() {
   return(<div className="ci-app screen-bg auth-wrap">
     <div className="auth-logo">Crypto <span>Idea</span></div>
     <div className="auth-tagline">Know why you own every coin.</div>
-    <div className="auth-col">
+    <form className="auth-col" onSubmit={e=>{e.preventDefault();handleAuth();}}>
       <div className="auth-toggle">
-        <button onClick={()=>{setAuthMode("login");setAuthErr("")}} className={authMode==="login"?"on":""}>Log in</button>
-        <button disabled={!site.signupsEnabled} onClick={()=>{if(!site.signupsEnabled)return;setAuthMode("register");setAuthErr("")}} title={site.signupsEnabled?"":"Signups are paused"} className={authMode==="register"?"on":""}>Register</button>
+        <button type="button" onClick={()=>{setAuthMode("login");setAuthErr("")}} className={authMode==="login"?"on":""}>Log in</button>
+        <button type="button" disabled={!site.signupsEnabled} onClick={()=>{if(!site.signupsEnabled)return;setAuthMode("register");setAuthErr("")}} title={site.signupsEnabled?"":"Signups are paused"} className={authMode==="register"?"on":""}>Register</button>
       </div>
       {!site.signupsEnabled&&<div className="auth-note">New signups are paused right now.</div>}
       {authMode==="register"&&<input type="text" value={authName} onChange={e=>setAuthName(e.target.value.replace(/[^a-zA-Z\s]/g,""))} placeholder="First and last name" autoComplete="name" className="field-input"/>}
@@ -141,8 +141,8 @@ export function Login() {
         </div>
       )}
       {authErr&&<div className="auth-err" style={{color:"#FF3B30"}}>{authErr}</div>}
-      <button onClick={handleAuth} className="btn-primary">{authMode==="login"?"Log in":"Create Account"}</button>
+      <button type="submit" className="btn-primary">{authMode==="login"?"Log in":"Create Account"}</button>
       {authMode==="login"&&<div className="auth-link"><span onClick={()=>setScreen("forgotPass")}>Forgot password?</span></div>}
-    </div>
+    </form>
   </div>);
 }

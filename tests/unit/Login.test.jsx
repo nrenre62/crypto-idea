@@ -74,4 +74,25 @@ describe("Login screen (extracted, via AppContext)", () => {
     expect(screen.getByText("Choose Pro")).toBeInTheDocument();
     expect(screen.getByText("Choose Premium")).toBeInTheDocument();
   });
+
+  // The auth fields live in a <form> so pressing Enter (implicit submit) logs in —
+  // not only clicking the button.
+  it("submitting the auth form calls handleAuth (Enter-to-login)", () => {
+    const handleAuth = vi.fn();
+    const { container } = provide({ handleAuth, authEmail: "a@b.com", authPass: "secret123!" });
+    const form = container.querySelector("form.auth-col");
+    expect(form).toBeTruthy();
+    fireEvent.submit(form);
+    expect(handleAuth).toHaveBeenCalledTimes(1);
+  });
+
+  it("the mode-toggle buttons are type=button so they don't submit the form", () => {
+    const handleAuth = vi.fn();
+    const { container } = provide({ handleAuth });
+    const toggles = container.querySelectorAll(".auth-toggle button");
+    expect(toggles.length).toBe(2);
+    toggles.forEach((b) => expect(b.getAttribute("type")).toBe("button"));
+    fireEvent.click(toggles[0]);
+    expect(handleAuth).not.toHaveBeenCalled();
+  });
 });
