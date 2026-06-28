@@ -638,6 +638,19 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [ ] **R2-7** Research › Allocation: color each bar segment + legend dot by the coin's original brand color (`coinColor`) so none repeat.
   - [ ] **R2-8** Research dark-mode bug: "A note on diversification" card is light-on-light (unreadable) — tokenize + audit sibling cards.
   - [ ] **R2-9** Learn dark-mode bug: lesson overlay "THE KEY INSIGHT" box (`.lesson-insight`) light gradient unreadable in dark — tokenize.
+- [ ] **Round 3 — dark-mode visibility bugs (2026-06-28, PLAN ONLY; more coming)** — full spec in
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 3". Design-only, all one-token fixes; light mode untouched. Don't build until founder says go.
+  - [ ] **R3-1** Add-portfolio "+ Add" button invisible in dark — `.add-name` (`app.css:463`) uses `background:var(--ink)` (flips light) + hardcoded `color:#fff` → fix text to `var(--paper)`.
+  - [ ] **R3-2** Back chevron `<` invisible on every drill-in (CoinInfo/Detail/AddEntry/Account) — `Ic.back` (`ui.jsx:9`) `stroke={c.txt}` (#1A1A1A) + `.icon-btn` has no color → set `stroke="currentColor"` + add `color:var(--ink)` to `.ci-app .icon-btn`.
+  - [ ] **R3-3** Accent green dull on black — `--accent` doesn't flip; switch **foreground** accent rules (`.nt-btn` "Add thesis" + ~11 others + Portfolio.jsx:84 inline) `var(--accent)`→`var(--accent-ink)` (bright #5cd6a6 in dark). Keep `--accent` on solid-bg+white-text buttons & borders.
+  - [ ] **R3-4** Account avatar black-on-black (can't find it) — `.avatar`/`.acct-avatar` hardcode a near-black gradient; add a dark-only override (`--accent-soft` bg + `--accent-ink` initial + accent ring). Build with R2-1.
+- [ ] **B-PORT — BACKEND BUG (not design): "Couldn't create portfolio. Check your connection." fails for
+  every account.** `addPortfolio` (`CryptoIdea.jsx:391-398`) → `createPortfolio` batch
+  (`firebase-database.js:79-95`) → create rule `firestore.rules:140-144`. Generic toast hides the real
+  error. Hypothesis: `portfolioCount` missing/uninitialized on the user doc, or doc-shape/increment
+  mismatch trips the rule → batch rejected. Next: surface the real `error.code/message` + read the emulator
+  rule-rejection log on a real create; confirm `portfolioCount` is set at signup. (Flagged by founder
+  2026-06-28; tracked here, fix on request — not part of the dark-mode design work.)
 - [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
   + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
 - [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);

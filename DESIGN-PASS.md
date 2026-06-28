@@ -173,3 +173,57 @@ badge + amount, date·time; right: price + Cost/Recv stacked, right-aligned). Ke
 **Status:** captured 2026-06-27 (founder adding more — "do the plan now, build later"). Before building:
 get the rest of the list, confirm R2-1 avatar placement, finalize build order. R2-8/R2-9 are dark-mode
 readability bugs (bump priority within the round).
+
+---
+
+## Round 3 — dark-mode visibility bugs (2026-06-28, PLAN ONLY — founder adding more)
+
+> A batch of **dark-mode ("black mode") visibility** bugs from founder screenshots: controls that are
+> invisible because a color was **hardcoded** or used a **non-flipping token** instead of the dark-safe
+> one. All **design-only**, all small, all fixable by swapping to an existing token (no new tokens, no new
+> deps, light mode untouched). Each item below is grounded in the actual file:line + token (verified
+> first-hand, not guessed). **Founder said "do the plan now… I will share more of black mode later" — do
+> NOT build until they say go.** The token rule throughout: **flip-aware tokens** (`--ink`, `--ink-soft`,
+> `--paper`, `--paper-2`, `--line-strong`, `--accent-soft`, `--accent-ink`) are contrast-safe in both
+> modes; **`--accent` (#0a6b4d), `--warn`, `--sg/--sa/--sr` do NOT flip** (use them only where they already
+> read on both — e.g. a solid accent background with white text).
+
+- **R3-1 — Add-portfolio "+ Add" button: white-on-white, invisible in dark.** (img: "Portfolios (1/15)")
+  - **Where:** `.add-name` — `src/styles/app.css:463` (`.port-add .add-name { … background:var(--ink); color:#fff }`), rendered in the **Account → Portfolios** view at `src/components/Account.jsx:239`.
+  - **Root cause:** `background:var(--ink)` **flips** to near-white `#ece9e1` in dark, but the text is **hardcoded `color:#fff`** (doesn't flip) → cream button + white text = illegible. (This is a *different* button from the green add-**coin** `.add-btn`.)
+  - **Fix (1 token):** `color:#fff` → `color:var(--paper)` (paper flips: white in light, `#14130f` in dark) → always paper-on-ink, dark-safe both modes. No logic change.
+
+- **R3-2 — Back chevron (`<`): dark-on-dark, invisible on every drill-in.** (img: BNB Coin info — no visible back arrow)
+  - **Where:** all four screen back buttons are `<button className="icon-btn">{Ic.back}</button>` — `CoinInfo.jsx:28`, `Detail.jsx:23`, `AddEntry.jsx:48`, `Account.jsx:75`. `Ic.back` is defined in `src/components/ui.jsx:9`; `.icon-btn` in `app.css:245`.
+  - **Root cause:** `Ic.back`'s SVG uses `stroke={c.txt}` where `c.txt = "#1A1A1A"` (hardcoded near-black in `src/utils/theme.js`, not a token), and `.icon-btn` sets **no color** → the chevron is fixed dark-gray, invisible on the dark paper. (The Journal overlay's `.back-btn` is already correct — `stroke="currentColor"` + `color:var(--ink-soft)`; copy that pattern.)
+  - **Fix (covers all four at once):** (a) `ui.jsx:9` `stroke={c.txt}` → `stroke="currentColor"`; (b) add `color:var(--ink)` to `.ci-app .icon-btn`. Light = `#15140f` (visible on paper), dark = `#ece9e1` (visible on dark). **Blast radius is safe:** only `Ic.back` uses `c.txt`; `Ic.plus` already uses `currentColor` (now inherits `--ink`, fine); `Ic.trash` keeps its own red.
+
+- **R3-3 — Accent green not "shiny" on black (low-contrast foreground).** (img: Journal "Add thesis" green button) — founder wants accent green clearly visible/"shiny" on black **on any screen or tab**.
+  - **Where (reported):** `.nt-btn` "Add thesis" — `Journal.jsx:222`, `app.css:134` (`color:var(--accent); background:var(--accent-soft)`).
+  - **Root cause:** `--accent` (#0a6b4d) is defined once and **NOT in the dark override block**, so every rule using accent as **text/icon** stays dim dark-green on the black paper. The token system already ships the fix — `--accent-ink` flips to bright **`#5cd6a6`** in dark — but these rules used `--accent` instead. (The buttons that *already* look right in dark — `.m-btn`, `.m-icon`, `.tl-cta`, `.pnl-val`, `.tier-badge.pro` — are exactly the ones that use `--accent-ink`.)
+  - **Fix (the token rule, applied consistently):** **accent as foreground → `--accent-ink`**; **accent as solid background with white text → keep `--accent`** (white-on-dark-green is fine; do **not** brighten `--accent`, that would *worsen* white-text contrast). Convert these **foreground** rules `var(--accent)` → `var(--accent-ink)`: `.sec-link` (84), `.empty-ic` icon (92), `.tb.active` (105), `.nt-btn` (134), `.learn-level` (138), `.up` gain-% (223), `.field-label .lbl-accent` (307), `.auth-link span` (343), `.consent-row a` (348), `.welcome-check` icon (383), `.port-row .pr-name.active` (459), `.priv-links a` (473) — plus the inline `<strong style={{color:"var(--accent)"}}>` in `Portfolio.jsx:84`. **Leave as `--accent`** (correct): every `background:var(--accent); color:#fff` button (`.add-btn`, `.add-pill`, `.seg-btn.on-buy`, `.submit-buy`, `.vb-resend`, `.plan-cta.accent`, `.plan-badge`, `.acct-btn.accent`, `.switch:checked`) and all accent **borders**. Light mode barely changes (`#07503a` ≈ `#0a6b4d`). **Cross-ref R2-8** for the Research module's own `--accent` foreground uses (separate `.research-root` CSS).
+
+- **R3-4 — Account avatar: black-on-black, can't find it to open Account.** (img: header — "A" circle invisible)
+  - **Where:** `.avatar` (`app.css:73`, used by the persistent header avatar `className="avatar app-avatar"`, `CryptoIdea.jsx:649`) **and** `.acct-avatar` (`app.css:392`, the Account screen's big avatar). Both: `background:linear-gradient(155deg,#26241d,#15140f)` (near-black, **never** flips) + `color:var(--paper)` (flips to dark `#14130f` in dark).
+  - **Root cause:** dark circle on dark paper, with a dark initial → fully invisible in dark (fine in light: dark circle on light page).
+  - **Fix (dark-only override; light untouched):** add to the dark block —
+    `html[data-theme="dark"] .ci-app .avatar, html[data-theme="dark"] .ci-app .acct-avatar { background:var(--accent-soft); color:var(--accent-ink); border:1px solid color-mix(in srgb, var(--accent) 45%, transparent); }`
+    → a clearly-visible tinted-green circle + bright initial + subtle ring, on-brand. **Alternative** (neutral, if founder prefers no green): `background:var(--paper-2); color:var(--ink); border:1px solid var(--line-strong)`. **Build together with R2-1** (avatar placement) since both touch the same element.
+
+**Also flagged by founder (NOT design — backend bug):**
+- **B-PORT — "Couldn't create portfolio. Check your connection." fails for every account.** `addPortfolio()`
+  (`CryptoIdea.jsx:391-398`) → `createPortfolio()` batch (`firebase-database.js:79-95`) → the create rule
+  `firestore.rules:140-144` (reads `portfolioCount` via `get(userRef())`, checks the `getAfter` increment +
+  `≤ maxPortfolios`). The toast is a generic catch-all that hides the real error. **Hypothesis:** the user
+  doc's `portfolioCount` is missing/uninitialized, or a doc-shape/increment mismatch trips the rule → the
+  batch is rejected atomically. **Next diagnostic (not a fix):** temporarily surface `error.code/message`
+  from the catch and/or read the emulator's Firestore rule-rejection log on a real create attempt; confirm
+  `portfolioCount` is initialized at signup. Tracked in NEXT-STEPS (not part of the dark-mode design work).
+
+**Status:** captured 2026-06-28 from founder screenshots; investigated read-only (all file:line + tokens
+verified first-hand). **Plan only — founder said more black-mode items are coming; do not build until they
+say go.** When building: bundle R3 as a "dark-mode visibility" sweep (R3-1…R3-4 are independent one-token
+fixes; R3-4 + R2-1 share the avatar; R3-3 also relates to R2-8/R2-9). Keep a running dark-mode audit since
+more are expected. DoD per item: extend the screen's test where it asserts a color/role, `npm run test:unit`
+green, `npm run build` clean, **browser-verify in DARK** (computed-style probe per
+[[preview-verification-gotchas]] — transitions fool getComputedStyle) + light, mobile + desktop, commit.
