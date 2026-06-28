@@ -27,6 +27,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [data-export.svg](data-export.svg) | The two download paths from "Privacy & your data" — both call `exportMyData` (caller uid only), then JSON saves the raw payload and CSV runs the pure `buildPortfolioCsv` into a HOLDINGS summary + chronological TRANSACTIONS ledger (BOM-prefixed for Excel, cost-basis only). |
 | [gdpr-self-service.svg](gdpr-self-service.svg) | User-driven data rights from the "Privacy & your data" card — exportMyData (JSON + holdings CSV), deleteMyAccount as a SOFT delete (deleted/deletedAt, data kept, Auth not disabled), restoreMyAccount within 30 days, the re-login Restore screen, and the daily purgeExpiredTrash that erases accounts past the window. No IDOR; soft-delete fields are server-only. |
 | [admin-operations.svg](admin-operations.svg) | Admin-only callables behind the claim gate — read/insight (getStats, listUsers, lookupUser, listAudit, getAdminConfig) vs audited mutations (setUserTier, suspendUser, deleteUser, setAdminClaim, saveConfig); self-target blocked, MIN_ADMINS=2, no holdings exposed. |
+| [admin-trash-tab.svg](admin-trash-tab.svg) | The 30-day soft-delete trash — a user's `deleteMyAccount` sets server-only `deleted`/`deletedAt`; the admin Trash tab (`partitionUsers` split, `trashDaysLeft` countdown) offers Restore (`restoreUser`, reversible) vs Delete now (`deleteUser`, permanent, self-block + MIN_ADMINS guard), and `purgeExpiredTrash` auto-erases past the window. |
 
 ## Backlog — diagram everything (the auto-loop worklist)
 The drawing loop draws **one per iteration**, ticks it, commits, and stops when all are done.
@@ -51,7 +52,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] emulator dev stack (`start:all` one-lifecycle, ports, on-demand cache fill)
 - [x] GDPR self-service & soft-delete (`deleteMyAccount` → 30-day trash → `restoreMyAccount` / `purgeExpiredTrash`)
 - [x] data export (`exportMyData` → JSON + holdings/transactions CSV via `buildPortfolioCsv`)
-- [ ] admin Trash tab (restore / purge-now, days-left countdown, server-only `deleted` flag)
+- [x] admin Trash tab (restore / purge-now, days-left countdown, server-only `deleted` flag)
 - [ ] Research tab module (`src/features/research/` — Overview / Coins / Ask; app-native data, no new API calls)
 - [ ] App Controls & feature flags (`config/app.flags` → public `/api/config`, maintenance / signups-off)
 - [ ] analytics & legal injection (`config/app.analytics`+`legal` → `/api/config` → `site-meta.js`, Termly/GA4/Plausible + CSP)

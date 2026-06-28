@@ -1,0 +1,126 @@
+<svg viewBox="0 0 920 770" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — admin Trash tab (restore / purge soft-deleted accounts)</title>
+  <desc>A user's self-delete is a soft delete: deleteMyAccount marks users/{uid} with deleted:true and deletedAt=now, keeps the data and does NOT disable Auth, opening a 30-day grace window. The admin dashboard opens the Users/Trash tab, calls listUsers (admin-gated) which returns the deleted/deletedAt fields, and partitionUsers (a pure util) splits the one fetched list into the active Users tab and the trashed Trash tab. The Trash tab lists each soft-deleted account with a days-left countdown from trashDaysLeft, sorted oldest-first, showing no holdings. Restore calls the restoreUser callable (admin gate) to set deleted:false/deletedAt:null and write an audit entry, and the account rejoins the active list. Delete now calls deleteUser (admin gate, blocks self-target, enforces the MIN_ADMINS=2 floor) which recursively deletes the user tree plus the Auth account and audits it — permanent. Separately, the scheduled purgeExpiredTrash runs every 24h and permanently erases any account whose deletedAt is older than 30 days, with no admin action. The deleted/deletedAt fields are server-only: firestore.rules blocks owners from writing them.</desc>
+  <defs>
+    <marker id="tr_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="tr_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+  </defs>
+
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Admin Trash Tab — Restore / Purge Soft-Deleted Accounts</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">A self-delete is a SOFT delete: 30-day recoverable trash · server-only flags · restore (reversible) vs delete-now (permanent) · daily auto-purge</text>
+  <line x1="560" y1="24" x2="584" y2="24" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="2.5"/><text x="590" y="28" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">client (app / admin)</text>
+  <line x1="730" y1="24" x2="754" y2="24" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="760" y="28" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">server callable / job</text>
+
+  <!-- ① how it enters trash -->
+  <text x="24" y="62" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">① How an account enters Trash</text>
+  <rect x="24" y="70" width="208" height="64" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="91" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">User · Account → Privacy</text>
+  <text x="40" y="109" font-size="9.5" fill="var(--color-text-primary,#1a1a1a)">▸ Delete my account</text>
+  <text x="40" y="125" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">(self-service, own uid)</text>
+
+  <rect x="286" y="70" width="280" height="64" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="426" y="90" font-size="11" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">deleteMyAccount() — callable</text>
+  <text x="426" y="107" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">sets deleted:true · deletedAt = now</text>
+  <text x="426" y="123" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">keeps data · Auth NOT disabled · 30-day window</text>
+
+  <rect x="620" y="70" width="276" height="64" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.4"/>
+  <text x="758" y="90" font-size="11" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">users/{uid} — Firestore</text>
+  <text x="758" y="107" font-size="9" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">deleted:true · deletedAt</text>
+  <text x="758" y="123" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">server-only (rules block the owner)</text>
+
+  <line x1="232" y1="102" x2="284" y2="102" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#tr_a)"/>
+  <line x1="566" y1="102" x2="618" y2="102" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#tr_a)"/>
+
+  <!-- ② admin reads the list -->
+  <text x="24" y="160" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">② Admin reads one list, split in two</text>
+  <rect x="24" y="168" width="244" height="56" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="189" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Admin opens Users / Trash tab</text>
+  <text x="40" y="207" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">loadUserList() — fetched once, both tabs share it</text>
+
+  <rect x="320" y="168" width="252" height="56" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="446" y="189" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">listUsers() — callable (admin gate)</text>
+  <text x="446" y="207" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">returns deleted · deletedAt per user</text>
+
+  <rect x="624" y="168" width="272" height="56" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.4"/>
+  <text x="760" y="188" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">partitionUsers(list) — pure util</text>
+  <text x="760" y="206" font-size="8.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">!deleted → Users · deleted → Trash (1 source of truth)</text>
+
+  <line x1="268" y1="196" x2="318" y2="196" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#tr_a)"/>
+  <line x1="572" y1="196" x2="622" y2="196" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#tr_a)"/>
+  <line x1="758" y1="134" x2="760" y2="166" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#tr_a)"/>
+  <text x="772" y="152" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">listUsers reads the doc</text>
+
+  <!-- ③ trash tab panel (mock) -->
+  <text x="24" y="252" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">③ Trash tab — restore or purge each account</text>
+  <rect x="24" y="260" width="536" height="208" rx="12" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5"/>
+  <text x="40" y="282" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Admin · Trash — soft-deleted accounts</text>
+  <text x="40" y="297" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">kept 30 days, recoverable; then auto-purged · sorted oldest-first · no holdings shown</text>
+  <line x1="40" y1="305" x2="544" y2="305" stroke="var(--color-border-tertiary,#e2e2e2)" stroke-width="1"/>
+
+  <!-- row 1 -->
+  <text x="40" y="324" font-size="10" font-weight="600" fill="var(--color-text-primary,#1a1a1a)">alice@example.com</text>
+  <text x="40" y="337" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">27 days left to restore</text>
+  <rect x="352" y="312" width="84" height="24" rx="7" fill="var(--color-text-success,#1a7f4b)"/>
+  <text x="394" y="328" font-size="10" font-weight="700" text-anchor="middle" fill="#ffffff">Restore</text>
+  <rect x="444" y="312" width="100" height="24" rx="7" fill="none" stroke="var(--color-text-danger,#c0392b)" stroke-width="1.3"/>
+  <text x="494" y="328" font-size="10" font-weight="600" text-anchor="middle" fill="var(--color-text-danger,#c0392b)">Delete now</text>
+
+  <!-- row 2 -->
+  <line x1="40" y1="350" x2="544" y2="350" stroke="var(--color-border-tertiary,#e2e2e2)" stroke-width="1"/>
+  <text x="40" y="369" font-size="10" font-weight="600" fill="var(--color-text-primary,#1a1a1a)">bob@example.com</text>
+  <text x="40" y="382" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">3 days left to restore</text>
+  <rect x="352" y="357" width="84" height="24" rx="7" fill="var(--color-text-success,#1a7f4b)"/>
+  <text x="394" y="373" font-size="10" font-weight="700" text-anchor="middle" fill="#ffffff">Restore</text>
+  <rect x="444" y="357" width="100" height="24" rx="7" fill="none" stroke="var(--color-text-danger,#c0392b)" stroke-width="1.3"/>
+  <text x="494" y="373" font-size="10" font-weight="600" text-anchor="middle" fill="var(--color-text-danger,#c0392b)">Delete now</text>
+
+  <!-- row 3 -->
+  <line x1="40" y1="395" x2="544" y2="395" stroke="var(--color-border-tertiary,#e2e2e2)" stroke-width="1"/>
+  <text x="40" y="414" font-size="10" font-weight="600" fill="var(--color-text-primary,#1a1a1a)">carol@example.com</text>
+  <text x="40" y="427" font-size="8.5" fill="var(--color-text-danger,#c0392b)">Expired — will be purged</text>
+  <rect x="352" y="402" width="84" height="24" rx="7" fill="var(--color-text-success,#1a7f4b)"/>
+  <text x="394" y="418" font-size="10" font-weight="700" text-anchor="middle" fill="#ffffff">Restore</text>
+  <rect x="444" y="402" width="100" height="24" rx="7" fill="none" stroke="var(--color-text-danger,#c0392b)" stroke-width="1.3"/>
+  <text x="494" y="418" font-size="10" font-weight="600" text-anchor="middle" fill="var(--color-text-danger,#c0392b)">Delete now</text>
+
+  <text x="40" y="450" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">trashDaysLeft(deletedAt) = max(0, ⌈(30d − (now − deletedAt)) / day⌉) — rounds up, so "0 / Expired" only once truly past 30 days</text>
+
+  <!-- restore action -->
+  <rect x="584" y="262" width="312" height="92" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="600" y="283" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Restore → restoreUser() callable</text>
+  <text x="600" y="301" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">{admin:true} gate (re-checked server-side)</text>
+  <text x="600" y="316" font-size="9" fill="var(--color-text-primary,#1a1a1a)">set deleted:false · deletedAt:null</text>
+  <text x="600" y="331" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">writeAudit('restoreUser')</text>
+  <text x="600" y="346" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">account rejoins the active list (partition)</text>
+
+  <!-- delete-now action -->
+  <rect x="584" y="364" width="312" height="104" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.7"/>
+  <text x="600" y="385" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Delete now → deleteUser() callable</text>
+  <text x="600" y="403" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">admin gate · blocks self-target</text>
+  <text x="600" y="418" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">MIN_ADMINS = 2 floor (can't wipe out admins)</text>
+  <text x="600" y="433" font-size="9" fill="var(--color-text-primary,#1a1a1a)">recursiveDelete(users/{uid}) + Auth delete</text>
+  <text x="600" y="450" font-size="8.5" fill="var(--color-text-danger,#c0392b)">writeAudit('deleteUser') · PERMANENT</text>
+
+  <line x1="750" y1="224" x2="430" y2="258" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#tr_a)"/>
+  <text x="566" y="244" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">feeds the Trash list</text>
+  <line x1="546" y1="324" x2="582" y2="308" stroke="var(--color-text-success,#1a7f4b)" stroke-width="1.5" marker-end="url(#tr_a)"/>
+  <line x1="546" y1="414" x2="582" y2="410" stroke="var(--color-text-danger,#c0392b)" stroke-width="1.5" marker-end="url(#tr_a)"/>
+
+  <!-- ④ auto-purge -->
+  <text x="24" y="492" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">④ Auto-purge (no admin action)</text>
+  <rect x="24" y="500" width="872" height="54" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6" stroke-dasharray="5 3"/>
+  <text x="40" y="521" font-size="11" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">purgeExpiredTrash — scheduled (every 24 h)</text>
+  <text x="40" y="538" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">deletedAt ≤ now − 30 days → recursiveDelete(users/{uid}) + Auth delete · Cloud Scheduler in prod (manual-trigger in the emulator)</text>
+
+  <!-- why -->
+  <rect x="24" y="566" width="872" height="190" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="587" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="607" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Soft delete, not hard — a user's "delete" stays recoverable for 30 days (mistakes / rage-quits), then the auto-purge still honors true erasure.</text>
+  <text x="40" y="625" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Server-only fields — deleted / deletedAt are set ONLY by the Admin-SDK callables; firestore.rules blocks owners (no self-trash, no self-restore).</text>
+  <text x="40" y="643" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Reversible vs permanent — Restore undoes a delete; "Delete now" is final. The countdown rounds up, so "Expired" shows only once past 30 days.</text>
+  <text x="40" y="661" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Single source of truth — partitionUsers splits ONE fetched list; a restored account leaves Trash and rejoins the active list with no extra fetch.</text>
+  <text x="40" y="679" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Guardrails on erase — deleteUser blocks self-target + the MIN_ADMINS=2 floor; every restore / purge is appended to the audit log.</text>
+  <text x="40" y="697" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• No holdings exposed — the row shows name / email + days-left only, the same no-financial-data rule as the rest of the admin panel.</text>
+  <text x="40" y="724" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: functions/index.js (restoreUser / deleteUser / deleteMyAccount / purgeExpiredTrash) · src/hooks/useAdminDashboard.js (restoreFromTrash / purgeFromTrash)</text>
+  <text x="40" y="738" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">· src/components/admin-dashboard.jsx (Trash tab) · src/utils/trash.js (trashDaysLeft / partitionUsers) · firestore.rules · Related: gdpr-self-service.svg, admin-operations.svg.</text>
+</svg>
