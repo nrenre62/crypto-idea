@@ -78,6 +78,11 @@ html[data-theme="dark"] .ci-app .priv-btn.solid { color:var(--paper); }
 html[data-theme="dark"] .ci-app .priv-btn.danger,
 html[data-theme="dark"] .ci-app .logout-btn { background:var(--sr-s); color:var(--sr); border-color:color-mix(in srgb, var(--sr) 35%, transparent); }
 html[data-theme="dark"] .ci-app .acct-btn.ghost { color:var(--ink); }
+/* R3-4: the avatar hardcodes a near-black gradient (+ var(--paper) initial that flips
+   dark) → invisible black-on-black in dark. Dark-only: a tinted-green circle, bright
+   initial, accent ring — clearly tappable. Covers the header avatar + the Account one. */
+html[data-theme="dark"] .ci-app .avatar,
+html[data-theme="dark"] .ci-app .acct-avatar { background:var(--accent-soft); color:var(--accent-ink); border:1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
 
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }
@@ -95,7 +100,9 @@ html[data-theme="dark"] .ci-app .acct-btn.ghost { color:var(--ink); }
 
 /* ── Shared layout primitives ─────────────────────────── */
 .ci-app .pad { padding:0 18px; }
-.ci-app .apphead { padding:14px 18px; display:flex; align-items:flex-start; justify-content:space-between; }
+/* R2-1: right padding reserves the top-right corner for the shell account avatar so
+   the header title never runs under it (the avatar is position:absolute, top-right). */
+.ci-app .apphead { padding:14px 56px 14px 18px; display:flex; align-items:flex-start; justify-content:space-between; }
 .ci-app .apphead .title { font-family:var(--display); font-weight:500; font-size:28px; letter-spacing:-.025em; display:flex; align-items:center; gap:8px; }
 .ci-app .badge { font-family:var(--body); font-size:9.5px; font-weight:700; letter-spacing:.1em; padding:3px 8px; border-radius:6px; position:relative; top:-2px; }
 .ci-app .badge-live { color:#1a7a3c; background:rgba(26,122,60,.1); border:1px solid rgba(26,122,60,.2); }
@@ -171,7 +178,7 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
    screen ~16px lower than every other tab (whose headers sit flush at the top). */
 .ci-app .learn-hero { margin:0 18px; background:var(--paper-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:16px 18px; box-shadow:var(--sh-sm); }
 .ci-app .learn-level { font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:4px; }
-.ci-app .learn-title { font-family:var(--display); font-size:22px; font-weight:500; margin-bottom:12px; }
+.ci-app .learn-title { font-family:var(--display); font-size:22px; font-weight:500; margin-bottom:12px; padding-right:40px; } /* R2-1: clear the avatar */
 .ci-app .xp-bar { height:7px; background:var(--line); border-radius:999px; overflow:hidden; }
 .ci-app .xp-fill { height:100%; background:linear-gradient(90deg,var(--ai-1),var(--ai-2)); border-radius:999px; }
 .ci-app .xp-label { font-size:11px; color:var(--ink-faint); margin-top:5px; font-weight:600; }
