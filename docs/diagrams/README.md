@@ -29,6 +29,7 @@ files in any browser or VS Code. Authored per the **`drawing-diagram`** skill;
 | [admin-operations.svg](admin-operations.svg) | Admin-only callables behind the claim gate — read/insight (getStats, listUsers, lookupUser, listAudit, getAdminConfig) vs audited mutations (setUserTier, suspendUser, deleteUser, setAdminClaim, saveConfig); self-target blocked, MIN_ADMINS=2, no holdings exposed. |
 | [admin-trash-tab.svg](admin-trash-tab.svg) | The 30-day soft-delete trash — a user's `deleteMyAccount` sets server-only `deleted`/`deletedAt`; the admin Trash tab (`partitionUsers` split, `trashDaysLeft` countdown) offers Restore (`restoreUser`, reversible) vs Delete now (`deleteUser`, permanent, self-block + MIN_ADMINS guard), and `purgeExpiredTrash` auto-erases past the window. |
 | [research-tab-module.svg](research-tab-module.svg) | The `src/features/research/` vertical slice — one bridge file (`Research.jsx` via AppContext) feeds the container + hooks (`useHoldings`/`usePrices`/`usePortfolio`/`usePulse`/`useAsk`), which read app-native data only (portfolio entries + `useLivePrices` + cached `/api/history`) and render Overview / Coins / Ask; conviction (rubric reducer, mock-fed) + AI (`ai-client` offline) are clean Wave-B seams. Never calls CoinGecko/Anthropic from the browser. |
+| [analytics-and-legal-injection.svg](analytics-and-legal-injection.svg) | How admin-set, non-secret analytics/legal IDs reach the page — `saveConfig` → locked `config/app.analytics`+`legal` → public `/api/config` (fresh, 60s CDN) → `site-meta.js` conditionally injects the Termly cookie banner (consent first, auto-block) + GA4 + Plausible, and `privacy.html`/`terms.html` embed the Termly docs by id; every external script is gated by the `firebase.json` CSP allow-list. No redeploy, off by default. |
 
 ## Backlog — diagram everything (the auto-loop worklist)
 The drawing loop draws **one per iteration**, ticks it, commits, and stops when all are done.
@@ -56,7 +57,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] admin Trash tab (restore / purge-now, days-left countdown, server-only `deleted` flag)
 - [x] Research tab module (`src/features/research/` — Overview / Coins / Ask; app-native data, no new API calls)
 - [x] App Controls & feature flags (`config/app.flags` → public `/api/config`, maintenance / signups-off) — covered by [config-and-feature-flags.svg](config-and-feature-flags.svg)
-- [ ] analytics & legal injection (`config/app.analytics`+`legal` → `/api/config` → `site-meta.js`, Termly/GA4/Plausible + CSP)
+- [x] analytics & legal injection (`config/app.analytics`+`legal` → `/api/config` → `site-meta.js`, Termly/GA4/Plausible + CSP)
 
 ## Conventions (see the `drawing-diagram` skill for the full guide)
 - **Blue** = public / DCA flow.  **Grey** = app flow.  **Dark** = upstream / refresh / external.
@@ -82,10 +83,10 @@ How to trigger it (either works):
 Same workflow every time (see the `drawing-diagram` skill): render inline + save the `.svg` +
 update this index/backlog with **targeted edits** + commit **only** `docs/diagrams/` paths.
 
-> **Coverage gap to work through:** the app has grown past the original backlog — the Research tab
-> (`src/features/research/`), soft-delete/30-day trash + restore, CSV/JSON data export, GDPR
-> self-service, analytics/legal config, and public App Controls flags are all built but not yet
-> diagrammed. Add these to the backlog as the loop drains the current list.
+> **Backlog drained (2026-06-28):** every item above is checked — the once-undiagrammed features
+> (Research tab, soft-delete/30-day trash + restore, CSV/JSON data export, GDPR self-service,
+> analytics/legal injection, App Controls flags) are now all covered. The loop stops when the backlog
+> is empty; to restart it, add a new backlog line for the next built/changed component and re-arm `/loop`.
 
 ## Status note
 `coin-data-flow.svg` matches the **implemented** hybrid: `refreshPrices` refreshes

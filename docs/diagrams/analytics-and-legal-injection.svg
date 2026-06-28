@@ -1,0 +1,120 @@
+<svg viewBox="0 0 940 820" xmlns="http://www.w3.org/2000/svg" role="img" font-family="system-ui, -apple-system, sans-serif">
+  <title>Crypto Idea — analytics &amp; legal injection (GA4 / Plausible / Termly via config)</title>
+  <desc>The owner sets non-secret analytics and legal IDs in the admin Settings "Analytics & Legal" card — GA4 measurement id, Plausible domain, Termly cookie-banner UUID and Termly Privacy/Terms document IDs — which saveConfig writes into the one locked config/app doc under analytics and legal. The public /api/config endpoint publishes that non-secret subset, read fresh with a 60-second CDN cache and never any API keys. Three client surfaces read it on load: public/site-meta.js (on the landing + app pages) conditionally injects the Termly cookie banner first with auto-block on, so GA4 and Plausible trackers are blocked until the user consents (Plausible is cookieless), and each injection only runs if its ID is set; privacy.html and terms.html auto-embed the Termly Privacy/Terms document by id, showing a placeholder until an id is configured. None of these external scripts can run unless their domains are explicitly allow-listed in the Content-Security-Policy in firebase.json (googletagmanager, google-analytics, plausible.io, app.termly.io, cdn.termly.io); everything else is denied (object-src none, frame-ancestors none). It all changes live from the dashboard with no redeploy.</desc>
+  <defs>
+    <marker id="al_a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-secondary,#6b6b6b)"/></marker>
+    <marker id="al_b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-info,#2c7fb8)"/></marker>
+    <marker id="al_d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--color-text-primary,#1a1a1a)"/></marker>
+  </defs>
+
+  <text x="24" y="28" font-size="19" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Analytics &amp; Legal Injection — GA4 / Plausible / Termly</text>
+  <text x="24" y="47" font-size="12" fill="var(--color-text-secondary,#6b6b6b)">Non-secret IDs in the locked config/app → public /api/config → injected on the client (consent first), all gated by the CSP allow-list</text>
+  <line x1="470" y1="24" x2="494" y2="24" stroke="var(--color-text-info,#2c7fb8)" stroke-width="2.5"/><text x="500" y="28" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">public config</text>
+  <line x1="600" y1="24" x2="624" y2="24" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="2.5"/><text x="630" y="28" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">client page / script</text>
+  <line x1="772" y1="24" x2="796" y2="24" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="2.5"/><text x="802" y="28" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">external / CSP</text>
+
+  <!-- ① admin → doc → endpoint -->
+  <text x="24" y="64" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">① Admin sets non-secret IDs → one locked doc → public endpoint</text>
+  <rect x="24" y="72" width="274" height="100" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="92" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Admin · Settings → Analytics &amp; Legal</text>
+  <text x="40" y="110" font-size="9" fill="var(--color-text-primary,#1a1a1a)">saveConfig({ analytics, legal })</text>
+  <text x="40" y="128" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">• GA4 ID · Plausible domain</text>
+  <text x="40" y="144" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">• Termly cookie-banner UUID</text>
+  <text x="40" y="160" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">• Termly Privacy / Terms doc IDs</text>
+
+  <rect x="322" y="72" width="270" height="100" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.8"/>
+  <text x="457" y="92" font-size="10.5" font-weight="700" text-anchor="middle" fill="var(--color-text-primary,#1a1a1a)">config/app — one locked doc</text>
+  <text x="338" y="112" font-size="9" fill="var(--color-text-info,#2c7fb8)">analytics: { ga4, plausible }</text>
+  <text x="338" y="128" font-size="9" fill="var(--color-text-info,#2c7fb8)">legal: { termlyUuid,</text>
+  <text x="338" y="143" font-size="9" fill="var(--color-text-info,#2c7fb8)">  termlyPrivacyId, termlyTermsId,</text>
+  <text x="338" y="158" font-size="9" fill="var(--color-text-info,#2c7fb8)">  cookieBanner }</text>
+  <text x="457" y="170" font-size="8" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">server-only doc · rules deny clients</text>
+
+  <rect x="616" y="72" width="280" height="100" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.7"/>
+  <text x="632" y="92" font-size="10.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">/api/config — PUBLIC subset</text>
+  <text x="632" y="110" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">fresh read · NO keys, ever</text>
+  <text x="632" y="128" font-size="9" fill="var(--color-text-primary,#1a1a1a)">→ { analytics, legal, flags,</text>
+  <text x="632" y="143" font-size="9" fill="var(--color-text-primary,#1a1a1a)">   signups, plans }</text>
+  <text x="632" y="162" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">CDN max-age=60 → ~1 call/min</text>
+
+  <line x1="298" y1="122" x2="320" y2="122" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.5" marker-end="url(#al_a)"/>
+  <text x="309" y="115" font-size="7.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">write</text>
+  <line x1="592" y1="122" x2="614" y2="122" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.5" marker-end="url(#al_b)"/>
+  <text x="603" y="115" font-size="7.5" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">publish</text>
+
+  <!-- ② readers -->
+  <text x="24" y="196" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">② Three client surfaces read it on load</text>
+  <rect x="24" y="204" width="436" height="70" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="40" y="224" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">public/site-meta.js — landing + app pages</text>
+  <text x="40" y="242" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">fetch('/api/config') → conditionally inject analytics + consent</text>
+  <text x="40" y="258" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">no-ops when nothing is configured (try / catch · falsy guards)</text>
+
+  <rect x="480" y="204" width="416" height="70" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.6"/>
+  <text x="496" y="224" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">privacy.html / terms.html</text>
+  <text x="496" y="242" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">fetch('/api/config') → auto-embed the Termly doc by ID</text>
+  <text x="496" y="258" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">placeholder text shown until an ID is set</text>
+
+  <line x1="720" y1="172" x2="300" y2="202" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.4" marker-end="url(#al_b)"/>
+  <line x1="790" y1="172" x2="690" y2="202" stroke="var(--color-text-info,#2c7fb8)" stroke-width="1.4" marker-end="url(#al_b)"/>
+  <text x="470" y="190" font-size="8" text-anchor="middle" fill="var(--color-text-secondary,#6b6b6b)">read on load</text>
+
+  <!-- ③ injected third-parties -->
+  <text x="24" y="298" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">③ What loads (only if its ID is set) — consent first</text>
+  <rect x="24" y="306" width="212" height="104" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="40" y="326" font-size="9.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Termly cookie banner</text>
+  <text x="40" y="343" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">embed.min.js</text>
+  <text x="40" y="357" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">data-auto-block = on</text>
+  <text x="40" y="373" font-size="8" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">LOADS FIRST — blocks</text>
+  <text x="40" y="385" font-size="8" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">GA4 / Plausible till consent</text>
+  <text x="40" y="401" font-size="7.5" fill="var(--color-text-secondary,#6b6b6b)">(if cookieBanner + UUID)</text>
+
+  <rect x="252" y="306" width="212" height="104" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="268" y="326" font-size="9.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Google Analytics 4</text>
+  <text x="268" y="343" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">gtag/js?id=GA4</text>
+  <text x="268" y="357" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">dataLayer · config(ga4)</text>
+  <text x="268" y="373" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">cookie-based</text>
+  <text x="268" y="385" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">gated by consent</text>
+  <text x="268" y="401" font-size="7.5" fill="var(--color-text-secondary,#6b6b6b)">(if ga4 set)</text>
+
+  <rect x="480" y="306" width="212" height="104" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="496" y="326" font-size="9.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Plausible</text>
+  <text x="496" y="343" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">script.js</text>
+  <text x="496" y="357" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">data-domain</text>
+  <text x="496" y="373" font-size="8" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">privacy-friendly,</text>
+  <text x="496" y="385" font-size="8" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">COOKIELESS</text>
+  <text x="496" y="401" font-size="7.5" fill="var(--color-text-secondary,#6b6b6b)">(if plausible set)</text>
+
+  <rect x="708" y="306" width="212" height="104" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6"/>
+  <text x="724" y="326" font-size="9.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Termly Privacy / Terms</text>
+  <text x="724" y="343" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">embed-policy.min.js</text>
+  <text x="724" y="357" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">name=termly-embed</text>
+  <text x="724" y="373" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">data-id = doc ID · iframe</text>
+  <text x="724" y="385" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">on privacy / terms pages</text>
+  <text x="724" y="401" font-size="7.5" fill="var(--color-text-secondary,#6b6b6b)">(if doc ID set)</text>
+
+  <line x1="200" y1="274" x2="120" y2="304" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.2" marker-end="url(#al_d)"/>
+  <line x1="240" y1="274" x2="350" y2="304" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.2" marker-end="url(#al_d)"/>
+  <line x1="280" y1="274" x2="572" y2="304" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.2" marker-end="url(#al_d)"/>
+  <line x1="700" y1="274" x2="800" y2="304" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.2" marker-end="url(#al_d)"/>
+
+  <!-- ④ CSP gate -->
+  <text x="24" y="434" font-size="12" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">④ The CSP allow-list is what lets these load (firebase.json)</text>
+  <rect x="24" y="442" width="896" height="66" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.6" stroke-dasharray="5 3"/>
+  <text x="40" y="463" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Content-Security-Policy — only these external origins may load:</text>
+  <text x="40" y="481" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">script / style / img / connect / frame-src: googletagmanager.com · *.google-analytics.com · plausible.io · app.termly.io · cdn.termly.io</text>
+  <text x="40" y="497" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">everything else denied — object-src 'none' · frame-ancestors 'none' · base-uri 'self' · form-action 'self'</text>
+  <line x1="470" y1="440" x2="470" y2="414" stroke="var(--color-text-primary,#1a1a1a)" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#al_d)"/>
+  <text x="478" y="428" font-size="8" fill="var(--color-text-secondary,#6b6b6b)">3rd-parties run only if allow-listed here</text>
+
+  <!-- why -->
+  <rect x="24" y="522" width="896" height="282" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
+  <text x="40" y="543" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Why it's built this way</text>
+  <text x="40" y="564" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• No redeploy to change analytics / legal — the owner flips IDs in admin Settings; /api/config is fresh + 60s CDN, so changes apply within ~1 minute.</text>
+  <text x="40" y="582" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Non-secret by design — these are publishable IDs (GA4 / Plausible domain / Termly doc IDs), NOT API keys, so they ride the public /api/config subset, never the secret path.</text>
+  <text x="40" y="600" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Consent first — the Termly banner loads before trackers with data-auto-block=on, so GA4 / Plausible are blocked until the user consents; Plausible is cookieless.</text>
+  <text x="40" y="618" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• Off by default — each injection is guarded by its ID being set; site-meta.js and the privacy/terms pages no-op (and show placeholders) when nothing is configured.</text>
+  <text x="40" y="636" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• CSP is the real gate — third-party scripts run ONLY because their domains are explicitly allow-listed; object-src 'none' + frame-ancestors 'none' deny the rest.</text>
+  <text x="40" y="654" font-size="10.5" fill="var(--color-text-secondary,#6b6b6b)">• One source of truth — same locked config/app doc + same admin Settings card as flags &amp; plans (see config-and-feature-flags.svg), just the analytics / legal subset.</text>
+  <text x="40" y="680" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: public/site-meta.js · privacy.html / terms.html (Termly embed) · functions/index.js (/api/config action "config" · saveConfig · getAdminConfig)</text>
+  <text x="40" y="694" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">· firebase.json (Content-Security-Policy) · src/hooks/useAdminDashboard.js (analytics / legal form). Related: config-and-feature-flags.svg · api-key-flow.svg · deploy-hosting-cdn.svg.</text>
+</svg>
