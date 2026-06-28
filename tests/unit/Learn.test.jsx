@@ -29,6 +29,14 @@ describe("Learn tab (wired to useLearn)", () => {
     expect(screen.getByText("Reading the Fundamentals")).toBeInTheDocument();
   });
 
+  it("does not render the badges row (R2-2 removed)", async () => {
+    getLearnProgress.mockResolvedValue(fresh);
+    const { container } = renderLearn();
+    await screen.findByText("Your Investing Edge");
+    expect(container.querySelector(".badges-row")).toBeNull();
+    expect(screen.queryByText(/earn your first badge/i)).toBeNull();
+  });
+
   it("quiz-gated: a correct answer completes the lesson and persists it", async () => {
     getLearnProgress.mockResolvedValue(fresh);
     renderLearn();

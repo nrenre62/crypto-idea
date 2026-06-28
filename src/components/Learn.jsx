@@ -91,7 +91,7 @@ function LessonOverlay({ lesson, moduleTitle, done, onComplete, onClose }) {
 }
 
 export function Learn() {
-  const { level, modules, next, badges, isComplete, complete, progress } = useLearn();
+  const { level, modules, next, isComplete, complete, progress } = useLearn();
   const [active, setActive] = useState(null); // { lesson, moduleTitle }
 
   const openLesson = (lesson, moduleTitle) => setActive({ lesson, moduleTitle });
@@ -111,12 +111,6 @@ export function Learn() {
           {progress.streak > 0 && <span className="learn-chip">🔥 {progress.streak}-day streak</span>}
           <span className="learn-chip">📚 {lessonsDone} of {lessonsTotal} lessons</span>
         </div>
-      </div>
-
-      <div className="badges-row">
-        {badges.length
-          ? badges.map((b, i) => (<div className="badge-chip" key={i}>{b}</div>))
-          : <div style={{ display: "flex", alignItems: "center", padding: "0 4px", fontSize: 12, color: "var(--ink-faint)" }}>Complete a module to earn your first badge</div>}
       </div>
 
       {next ? (

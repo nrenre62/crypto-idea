@@ -144,8 +144,6 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .xp-label { font-size:11px; color:var(--ink-faint); margin-top:5px; font-weight:600; }
 .ci-app .learn-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
 .ci-app .learn-chip { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:var(--ink-soft); background:var(--paper-3); border:1px solid var(--line-2); border-radius:999px; padding:5px 11px; }
-.ci-app .badges-row { display:flex; gap:7px; padding:14px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
-.ci-app .badge-chip { font-size:14px; width:38px; height:38px; border-radius:11px; background:var(--paper-2); border:1px solid var(--line); display:grid; place-items:center; box-shadow:var(--sh-sm); }
 .ci-app .today-lesson { margin:16px 18px 0; background:linear-gradient(135deg, var(--accent-soft), var(--paper-2)); border:1px solid var(--line); border-radius:var(--radius-sm); padding:16px; }
 .ci-app .tl-label { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-ink); margin-bottom:6px; }
 .ci-app .tl-title { font-size:15px; font-weight:700; margin-bottom:5px; }
