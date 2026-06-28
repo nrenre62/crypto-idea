@@ -87,6 +87,15 @@ html[data-theme="dark"] .ci-app .acct-avatar { background:var(--accent-soft); co
    (#f0f4fd) that stays bright in dark, making the --ink text unreadable. Dark-only:
    a token-based green-tinted gradient. (The quiz card already uses flipping tokens.) */
 html[data-theme="dark"] .ci-app .lesson-insight { background:linear-gradient(135deg, var(--accent-soft), var(--paper-2)); border-color:color-mix(in srgb, var(--accent) 30%, transparent); }
+/* R3-7: the Downgrade/Upgrade confirm sheet is inline-styled and rendered OUTSIDE
+   .ci-app (so design tokens don't reach it) with a hardcoded white bg + light boxes
+   → unreadable in dark. Dark-only, literal values, !important to beat the inline
+   styles. The title + muted (#999) + red (#FF3B30) text already read on the dark sheet. */
+html[data-theme="dark"] .dg-sheet { background:#1c1b17 !important; }
+html[data-theme="dark"] .dg-ends { background:rgba(255,107,107,.12) !important; border-color:rgba(255,107,107,.32) !important; }
+html[data-theme="dark"] .dg-warn { background:rgba(244,197,74,.12) !important; border-color:rgba(244,197,74,.32) !important; }
+html[data-theme="dark"] .dg-warn-text { color:#e6c879 !important; }
+html[data-theme="dark"] .dg-keep { background:#211f19 !important; border-color:#3a382f !important; color:#ece9e1 !important; }
 
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }

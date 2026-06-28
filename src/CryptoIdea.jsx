@@ -599,21 +599,21 @@ export default function CryptoIdea(){
       const endDate=user?.subscription?.endDate||calcEndDate(user?.subscription?.billing||"monthly");
       const targetLabel=downgradeTo==="free"?"Starter":"Pro";
       return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}}>
-        <div style={{background:"#fff",borderTopLeftRadius:24,borderTopRightRadius:24,padding:"24px 22px 32px",width:"100%",maxWidth:430}}>
+        <div className="dg-sheet" style={{background:"#fff",borderTopLeftRadius:24,borderTopRightRadius:24,padding:"24px 22px 32px",width:"100%",maxWidth:430}}>
           <div style={{width:36,height:4,background:"#E8E8ED",borderRadius:2,margin:"0 auto 18px"}}/>
           <div style={{fontSize:20,fontWeight:700,marginBottom:8}}>Downgrade to {targetLabel}?</div>
           <div style={{fontSize:13,color:c.dim,lineHeight:1.6,marginBottom:18}}>Your subscription is paid until the end of the period. You'll keep your current access until then. After that date, your account will be downgraded.</div>
 
-          <div style={{padding:"12px 14px",borderRadius:12,background:"#FFF0F0",border:"1px solid #FFE0E0",marginBottom:18}}>
+          <div className="dg-ends" style={{padding:"12px 14px",borderRadius:12,background:"#FFF0F0",border:"1px solid #FFE0E0",marginBottom:18}}>
             <div style={{fontSize:11,fontWeight:700,color:c.red,marginBottom:4}}>SUBSCRIPTION ENDS</div>
             <div style={{fontSize:15,fontWeight:700,color:c.red}}>{fmtDate(endDate)}</div>
             <div style={{fontSize:11,color:c.dim,marginTop:4}}>You'll have full access until this date</div>
           </div>
 
           {impact&&(impact.portsToDelete>0||impact.coinsToDelete>0||impact.txToDelete>0)&&(
-            <div style={{padding:"14px",borderRadius:12,background:"#FFF8E1",border:"1px solid #FFE082",marginBottom:18}}>
+            <div className="dg-warn" style={{padding:"14px",borderRadius:12,background:"#FFF8E1",border:"1px solid #FFE082",marginBottom:18}}>
               <div style={{fontSize:11,fontWeight:700,color:"#F59E0B",marginBottom:8}}>⚠ DATA THAT WILL BE DELETED</div>
-              <div style={{fontSize:12,color:"#92400E",lineHeight:1.7}}>
+              <div className="dg-warn-text" style={{fontSize:12,color:"#92400E",lineHeight:1.7}}>
                 After {fmtDate(endDate)}, your account limit will drop to {targetLabel}. The following will be removed:
                 {impact.portsToDelete>0&&<div>• {impact.portsToDelete} portfolio{impact.portsToDelete>1?"s":""}</div>}
                 {impact.coinsToDelete>0&&<div>• {impact.coinsToDelete} coin{impact.coinsToDelete>1?"s":""}</div>}
@@ -626,7 +626,7 @@ export default function CryptoIdea(){
           <div style={{fontSize:11,color:c.dim,lineHeight:1.6,marginBottom:16,textAlign:"center"}}>No refunds. Your subscription remains active until the end of the paid period.</div>
 
           <div style={{display:"flex",gap:10}}>
-            <button onClick={()=>setDowngradeTo(null)} style={{flex:1,padding:"14px",borderRadius:14,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:14,fontWeight:600,cursor:"pointer"}}>Keep My Plan</button>
+            <button className="dg-keep" onClick={()=>setDowngradeTo(null)} style={{flex:1,padding:"14px",borderRadius:14,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:14,fontWeight:600,cursor:"pointer"}}>Keep My Plan</button>
             <button onClick={confirmDowngrade} style={{flex:1,padding:"14px",borderRadius:14,border:"none",background:c.red,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>Confirm Downgrade</button>
           </div>
         </div>
