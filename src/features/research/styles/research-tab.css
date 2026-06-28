@@ -240,3 +240,14 @@
   .research-root *,.research-root *::before,.research-root *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   .research-root .view.active{animation:none}
 }
+
+/* ── Dark-mode fixes (R2-8 / R3-8) — dark-block-only; light mode untouched ──
+   These rules hardcoded light colours that don't flip with the design tokens. */
+/* R2-8: "A note on diversification" card was a light gradient (light-on-light in dark) */
+html[data-theme="dark"] .research-root .diversify{background:linear-gradient(135deg,var(--accent-soft),var(--paper-2));border-color:var(--line)}
+html[data-theme="dark"] .research-root .diversify .dic{background:var(--paper-3);border-color:var(--line-strong)}
+/* the "AI is offline" note kept a light amber box — tint it for dark, stay amber */
+html[data-theme="dark"] .research-root .ai-note{color:var(--amber);background:rgba(184,132,31,.14);border-color:rgba(184,132,31,.32)}
+/* R3-8: the Ask hero is a dark gradient that blends into the dark page, and its h3
+   inherits color:var(--paper) (which flips dark → invisible). Add an edge + light text. */
+html[data-theme="dark"] .research-root .ask{color:var(--ink);border:1px solid var(--line-strong)}
