@@ -297,8 +297,13 @@ of this design build.
 
 ---
 
-## Round 4 — founder follow-up (2026-06-28, PLAN ONLY)
+## Round 4 — founder follow-up (2026-06-28 plan · ✅ ALL BUILT 2026-06-29)
 
+> **✅ BUILT 2026-06-29 — R4-1…R4-4 all shipped, TDD'd, browser-verified (light + dark, mobile +
+> desktop), committed.** 293 unit green; build clean. Commits: R4-1 `8323fc7` (stat-row CSS) ·
+> R4-4 `b9dc369` (header tags) · R4-2 `373b66d` (Portfolio click-zones) · R4-3 `f420e5e` (delete
+> guard). Build notes per item are appended to each bullet below. Original plan follows.
+>
 > A fourth batch from founder screenshots + a new safety rule. **Two are design-only** (R4-1 Research
 > stat-row, R4-4 header tags); **two add small, production-ready logic** (R4-2 Portfolio click-zones,
 > R4-3 delete-coin guard) — flagged below. Same guardrails: reuse `.ci-app`/`.research-root` tokens, KISS,
@@ -341,6 +346,18 @@ of this design build.
 
 **Build order (suggested, smallest-blast-radius first):** R4-1 (CSS) → R4-4 (header tags, repetitive but isolated) → R4-2 (Portfolio click-zones + `startAddTx`/`txReturn`) → R4-3 (delete guard modal). Commit per item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-06-28)** — awaiting founder "go" to build. All four decisions locked
-(header tags = all 5 tabs · delete warning = only when the coin has transactions · simple Cancel/Delete-anyway
-popup · warn about transactions + thesis, hard delete).
+**Status:** ✅ **ALL BUILT 2026-06-29.** All four decisions honored (header tags = all 5 tabs · delete
+warning = only when the coin has transactions · simple Cancel/Delete-anyway popup · warn about transactions
++ thesis, hard delete). As-built deltas vs the plan:
+- **R4-1** — done exactly as planned (`.ps-l` nowrap + smaller font/letter-spacing + ellipsis safety net;
+  `.pos-stat` `min-width:0`/center). Added a structural test (4 boxes/card). Browser-verified equal-width
+  single-line labels at 375 (light+dark) and 1280.
+- **R4-4** — extracted a shared `<HeaderTags/>` for the 3 `.ci-app` tabs (Journal/Learn/Search); Portfolio
+  kept its existing inline pills; Research got a `.research-root`-scoped copy + a dark `--sg` override for
+  `● LIVE`. NB: the plan said R3-5 had brightened `--amber` — it hadn't, but the plan pill matches
+  Portfolio's shipped amber exactly (consistent + legible ~5:1 in dark), so left as-is.
+- **R4-2** — `startAddTx(coin,type,from)` in ctx (reused by Detail's Buy/Sell, replacing its local
+  `openNewTx`); `txReturn` makes BOTH the back button and the post-save return to the origin (portfolio
+  vs detail). Image wrapped in `.ac-img` (hover-ring affordance).
+- **R4-3** — modal reuses the `.dg-*` classes (dark-safe sheet `#1c1b17` / warn-text `#e6c879` confirmed);
+  no change to `remCoin`/`dbRemoveCoin`. Trigger = `coin.entries.length > 0`.

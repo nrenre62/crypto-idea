@@ -657,14 +657,23 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   (§A1+§A2 fixed together). Verified end-to-end on the emulator (free@ at cap → plan-limit message); 277 unit
   green, build clean. **Part 2** (client tier ↔ DB tier sync) stays operational (admin/seed locally; PayPal
   webhook at go-live). Full write-up in [ERRORS.md](ERRORS.md) §A1 + §A2.
-- [ ] **Round 4 — founder follow-up — 📋 PLAN ONLY (2026-06-28, awaiting "go")** — full spec in
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 4". Decisions locked via AskUserQuestion (header tags = all 5 tabs ·
-  delete warning = only when the coin has transactions · simple Cancel/Delete-anyway popup · warn about
-  transactions + thesis, hard delete). Build order: R4-1 → R4-4 → R4-2 → R4-3, commit per item, TDD each.
-  - [ ] **R4-1** Research › Coins: stat-row consistent (design-only CSS, `.research-root`). `CoinCard.jsx:66-72` / `research-tab.css:171-174`. No per-card code exists — "AVG COST" **wraps** at narrow widths → uneven boxes. Fix: `.ps-l { white-space:nowrap }` + `.pos-stat { flex:1; min-width:0; text-align:center }` so every coin card is identical mobile+desktop. **Layout change → applies to BOTH modes** (not dark-only). Keep wording.
-  - [ ] **R4-2** Portfolio card split click-zones (logic+design). `Portfolio.jsx:95` whole-card→coinInfo today. New: **image** tap → CoinInfo (wrap `<CI/>` `Portfolio.jsx:97` + `stopPropagation` + tap affordance); **card background** tap → Add transaction (default Buy; `AddEntry.jsx:59-62` has in-form Buy/Sell toggle). Add ctx `startAddTx(coin,type="buy")` mirroring `Detail.jsx:19` `openNewTx` (reuse for Detail's Buy/Sell too) + `txReturn` state so AddEntry back returns to origin (portfolio vs detail). **Update the old whole-card→coinInfo test.**
-  - [ ] **R4-3** Delete-coin warning when it has transactions (logic+design, safety rule). `Detail.jsx:25-27` has NO tx check; `remCoin`→`dbRemoveCoin` (`firebase-database.js:247-265`) already cascades coin+txs+thesis. Trash → if `coin.entries.length>0` show a **Cancel / "Delete anyway"** modal (reuse dark-safe `.dg-*` classes from R3-7) warning that **transactions + thesis** are lost, hard delete; else keep the current quick 2-tap. No change to `remCoin`. Title "Delete {name}?" / body "This coin has {n} buy/sell transaction(s) and your saved thesis. If you delete it from your portfolio you'll lose that data — this can't be undone."
-  - [ ] **R4-4** LIVE + plan tags on all 5 main-tab headers (design+wiring). Only Portfolio has them (`Portfolio.jsx:29-31`). Add `● LIVE` (when `api==="live"`) + clickable plan pill (STARTER/PRO/PREMIUM → account) to **Journal** (`Journal.jsx:241-248`), **Learn** (`Learn.jsx:103-114` hero, respect R2-1 avatar clearance), **Search** (`Search.jsx:44-50`), **Research** (`ResearchTab.jsx:48-57`, scoped `.research-root` — thread `api`/`plan`, add scoped badge rules + dark overrides). `api`/`isPro`/`isPremium` already in ctx. Keep BETA. Drill-in screens stay minimal. Dark-safe via R3-5 (verify Research-scoped copies).
+- [x] **Round 4 — founder follow-up — ✅ ALL BUILT 2026-06-29** — full spec + as-built notes in
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 4". Decisions honored (header tags = all 5 tabs · delete warning =
+  only when the coin has transactions · simple Cancel/Delete-anyway popup · warn about transactions + thesis,
+  hard delete). TDD'd + browser-verified (light+dark, mobile+desktop); 293 unit green; build clean.
+  - [x] **R4-1** Research › Coins stat-row consistent (commit `8323fc7`) — `.ps-l` nowrap + smaller
+    font/letter-spacing + ellipsis; `.pos-stat` `min-width:0`/center. Layout-only (both modes). Structural
+    test added; verified equal-width single-line labels @375 (light+dark) + @1280.
+  - [x] **R4-2** Portfolio card split click-zones (commit `373b66d`) — image→CoinInfo (`.ac-img` + hover
+    ring + stopPropagation); card background→Add-transaction (Buy). New ctx `startAddTx(coin,type,from)`
+    (reused by Detail Buy/Sell, replacing local `openNewTx`) + `txReturn` so back **and** post-save return
+    to origin. Tests updated.
+  - [x] **R4-3** Delete-coin warning when it has transactions (commit `f420e5e`) — `coin.entries.length>0`
+    → Cancel/"Delete anyway" modal (reuses dark-safe `.dg-*`), names tx + thesis lost, hard delete; no-tx
+    coins keep the quick 2-tap. No change to `remCoin`. Verified dark-safe + the quick path.
+  - [x] **R4-4** LIVE + plan tags on all 5 main-tab headers (commit `b9dc369`) — shared `<HeaderTags/>` for
+    Journal/Learn/Search; Portfolio kept inline; Research scoped copy + dark `--sg` `● LIVE` override.
+    Per-tab wiring tests + HeaderTags logic tests. Verified all 5 tabs, light+dark.
 - [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
   + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
 - [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);
