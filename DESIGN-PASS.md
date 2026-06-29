@@ -552,6 +552,14 @@ the **single-element gradient-border technique** (`border:1px solid transparent`
   the existing dark override at `research-tab.css:258` only touches the box bg/border, so the flipping glyph colour
   needs no new dark rule). Both modes covered.
 
+- **R7-6 — hover-lift on the unified cards (founder follow-up).** Portfolio `.asset-card` lifts its shadow on
+  hover (`transition:box-shadow .2s var(--ease)` + `:hover{box-shadow:var(--sh)}`, app.css:260-261) — it reads as
+  "selecting" the card and is more user-friendly. `.j-entry` (`app.css:166`) has **NO** hover state and the new
+  `.trend-card` (R7-2) won't either. Add the same transition + `:hover` shadow-lift to **`.j-entry`** (Journal
+  thesis cards) and **`.trend-card`** (Search trending) so every selectable card shares the affordance. Design-
+  only, token-based (dark-safe; no new dark rule). *(Skip `.nt-row` — it's a needs-a-thesis prompt with its own
+  button, not a whole-card click target.)*
+
 - **Out of scope / unchanged:** card **internal content** (Portfolio value/price; Journal thesis excerpt + status
   pill; Search SYM·#rank + Add) is untouched — only the **container** (chrome/radius/grid) + the two Pulse fixes.
   Portfolio `.asset-card` is the base reference (unchanged). Typed search **results** stay the compact `.trend-item`
@@ -568,9 +576,89 @@ the **single-element gradient-border technique** (`border:1px solid transparent`
   pills, readable in dark. Confirm **light mode is unchanged** outside the intended frame/pill/icon changes.
 - **Gate:** `npm run test:unit` green + `npm run build` clean + browser-verify (mobile + desktop, light + dark).
 
-**Build order (when "go"):** R7-1 (radius) → R7-4 (button CSS) → R7-5 (icon) → R7-3 (value-card frame) → R7-2
-(Search card-ify + grid — biggest, needs test updates + reflow verify). Commit per item. Slotted into
-[`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+**Build order (when "go"):** R7-1 (radius) → R7-6 (hover-lift) → R7-4 (button CSS) → R7-5 (icon) → R7-3
+(value-card frame) → R7-2 (Search card-ify + grid — biggest, needs test updates + reflow verify). Commit per
+item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
 **Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (hero-only frame · soft-green pills · accent-tinted
 diversification glyph). Supersedes Round 5. Zero new dark rules; light mode unchanged. Build on founder "go".
+
+## Round 8 — Journal thesis readability: previews, white-card popups, a Read/Breakdown view (2026-06-29, PLAN ONLY)
+
+> Founder follow-up (Journal screenshots): on the LIST, long thesis text isn't limited consistently (long
+> unbroken strings overflow); the thesis DETAIL popup has no length handling and no clean reading view; and the
+> popups should be **closable with an X**, **look like the white portfolio cards**, and offer a **"Read"** button
+> (next to "Edit") that opens a separate **Breakdown** popup to read the full thesis comfortably. Grounded
+> first-hand via a 3-agent read-only mapping (list excerpt, detail overlay, app popup/close patterns + length cap).
+> **Plan only — build on founder "go".**
+
+**Decisions locked via AskUserQuestion (2026-06-29):**
+1. **Read/Breakdown popup = the FULL breakdown** — "Why you bought it" + "What would change your mind" + the three
+   Manual research findings (dilution / real volume / real yield), read-only.
+2. **"Read" button = always shown** next to "Edit" (not only-when-long).
+3. **Close = replace the back-arrow with an X (top-right)** on the Journal thesis popups.
+4. **List cards = 2-line preview, equal height** (+ fix long-string wrapping).
+
+**Gap checked (no work needed):** thesis text is **already capped server-side at 2000 chars per field**
+(`firestore.rules` `validJournal`/`validFunnel`, lines 259-279: `thesis`/`changeMyMind`/`funnel.{dilution,volume,
+yield}` each `.size() <= 2000`). So the garbled long strings are a **display** bug only — no storage-abuse hole,
+no rule change. *(Optional future nicety: a client char-counter on the textareas — out of scope unless asked.)*
+
+**Grounded current state:** the detail is a **full-screen `.ci-app.overlay`** (slide-up, max-width 430, back-arrow
+top-left, NO X — `Journal.jsx:73-77`); read display `.j-read` (`app.css:177`) is `white-space:pre-wrap` but has
+**no `overflow-wrap`** → no-space strings overflow horizontally; the list `.j-excerpt` (`app.css:171`) is 2-line
+clamp + `overflow:hidden` but **no `overflow-wrap`** → long strings clip oddly; there is **no reusable X glyph**
+(only `Ic.back` in `ui.jsx:9`); the white-card chrome to match = `.value-card`/`.asset-card`/`.card`
+(`--paper-2`/`--line-2`/`--radius`/`--sh-sm`).
+
+- **R8-1 — list preview consistency.** `.j-excerpt` (`app.css:171`): add `overflow-wrap:anywhere; word-break:
+  break-word` so long unbroken strings wrap (keep `-webkit-line-clamp:2`), and reserve a **2-line min-height**
+  (`min-height:calc(2 * 1.5em)` ≈ 39px at 13px/1.5) so all `.j-entry` cards align in the grid regardless of text
+  length. Design-only, token-based. *(`excerptOf()` already returns one field's text; the CSS does the limiting —
+  no JS change.)*
+
+- **R8-2 — detail popup: wrap text + white cards + X + "Read" button.**
+  - **Wrap:** add `overflow-wrap:anywhere` to `.j-read` (`app.css:177`) so long strings don't overflow the popup.
+  - **White cards:** wrap each read block (`.journal-q` Why / change-my-mind, and the Manual-findings section)
+    in the **white-card chrome** (`--paper-2`/`--line-2`/`--radius`/`--sh-sm`) so the popup "looks like the
+    portfolio cards" (the overlay page bg stays `--paper`; the content sits in white cards). Add a `.j-card` (or
+    reuse `.card`) wrapper — KISS: prefer reusing `.card`.
+  - **X close (replace arrow):** drop the `.back-btn` from this overlay's `.overlay-head` and add an **X button
+    top-right** — new `Ic.close` glyph in `ui.jsx` (`<path d="M18 6 6 18M6 6l12 12"/>`, `stroke=currentColor`) +
+    a `.ov-close` button reusing the `.back-btn` circle look, absolutely positioned top-right. **Scoped to the
+    Journal thesis overlays** (detail + Read popup + the Add-thesis edit overlay) — do NOT mutate the shared
+    `.overlay-head`/`.back-btn` (the Search "before you add" buy-journal overlay keeps its back-arrow; flag for
+    optional later unification).
+  - **"Read" button:** add an always-visible **Read** pill next to the existing **Edit** pill (`j-edit-btn`,
+    `Journal.jsx:110`) → opens R8-3. New `j-read-btn` styled like `j-edit-btn` (ghost/neutral variant so Edit
+    stays the accent action). *(Read is in the read view only, not edit mode.)*
+
+- **R8-3 — new Read / "Breakdown" popup (read-only, full).** A separate `.ci-app.overlay` (reuse the slide-up
+  infra) opened from the Read button, X-close top-right, that renders the FULL thesis read-only in white cards:
+  **Why you bought it** · **What would change your mind** · **Manual research findings** (dilution / real volume
+  / real yield — show only fields with content; "—" if a whole section is empty), each `white-space:pre-wrap;
+  overflow-wrap:anywhere` so everything is readable however long. Header = coin name + "Thesis written {date} ·
+  {price}" (reuse `.bj-coin-head`). New local state (e.g. `reading`) in `JournalDetail`, or a small
+  `ThesisBreakdown` component. No data/handler change — pure read of `coin.journal`.
+
+- **Out of scope / unchanged:** edit mode (textareas + Save/Cancel) is untouched; the funnel **editor** in the
+  detail stays inline-editable (Read popup is the read-only mirror); Search buy-journal + Account overlays keep
+  their back-arrow; server rules unchanged (cap already in place).
+
+**TDD / verify:**
+- **R8-2/R8-3** (jsdom-testable): render `JournalDetail` for a coin with a long thesis → assert the **Read**
+  button shows; click Read → the Breakdown popup renders the thesis + change-my-mind + funnel text; the **X**
+  closes both the Breakdown and the detail overlay. Update any existing Journal test/walkthrough that asserts the
+  back-arrow on the detail (now an X). Add a coin with empty funnel → Breakdown shows the two answers + "—" findings.
+- **R8-1** (CSS, not jsdom-meaningful): browser-verify the list at ~375 (1-up) and ~1040 (multi-up) — a pasted
+  no-space string wraps inside the card, all cards equal height; light + dark.
+- **Verify the white-card look + X** in the detail + Breakdown popups, light + dark, mobile + desktop. Zero new
+  dark rules expected (all token-based) — confirm light unchanged.
+- **Gate:** `npm run test:unit` green + `npm run build` clean + browser-verify.
+
+**Build order (when "go"):** R8-1 (list CSS) → R8-2 (detail: wrap + white cards + X + Read button) → R8-3
+(Breakdown popup). Commit per item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (full breakdown · always-show Read · X replaces
+arrow · 2-line equal-height). Length cap already enforced (no security work). Zero new dark rules; light unchanged.
+Build on founder "go".

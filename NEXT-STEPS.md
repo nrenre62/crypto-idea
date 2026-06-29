@@ -826,8 +826,22 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   single-element `padding-box/border-box` technique (no wrapper, no handler change) + lift shadow to `--sh`;
   **R7-4** Pulse `.regen` Share/Regenerate → `.tx-btn.buy` soft-green pill (also fixes its dark invisibility);
   **R7-5** populate the empty `.dic` "diversification" icon (`OverviewView.jsx:74` is `<div className="dic" />`)
-  with a glyph tinted `--accent` (visible light + dark). **Zero new dark rules** (frame is theme-invariant; pill/
-  icon tokens already flip); light mode unchanged. Build R7-1 → R7-4 → R7-5 → R7-3 → R7-2 on "go".
+  with a glyph tinted `--accent` (visible light + dark); **R7-6** add the Portfolio `.asset-card:hover`
+  shadow-lift (`transition` + `:hover{box-shadow:var(--sh)}`) to `.j-entry` + `.trend-card` so selectable cards
+  share the affordance. **Zero new dark rules** (frame is theme-invariant; pill/icon tokens already flip); light
+  mode unchanged. Build R7-1 → R7-6 → R7-4 → R7-5 → R7-3 → R7-2 on "go".
+- [ ] **Round 8 — Journal thesis readability (previews · white-card popups · Read/Breakdown · X-close) — 📋 PLAN
+  ONLY (2026-06-29)** (founder Journal screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 8").
+  Grounded via a 3-agent read-only mapping. **Gap checked:** thesis text already capped 2000 chars/field server-
+  side (`firestore.rules` validJournal/validFunnel) → display bug only, no rule change. Decisions locked
+  (AskUserQuestion): Read popup = **full breakdown** (Why + change-my-mind + dilution/volume/yield); **Read shown
+  always** next to Edit; **X replaces the back-arrow** on the Journal thesis popups; list cards = **2-line preview,
+  equal height**. **R8-1** `.j-excerpt` add `overflow-wrap:anywhere` + 2-line `min-height` (consistent cards);
+  **R8-2** detail popup → wrap `.j-read` (`overflow-wrap`), wrap read blocks in white `.card` chrome, replace
+  back-arrow with an **X** top-right (new `Ic.close`, scoped `.ov-close` — don't mutate shared `.overlay-head`),
+  add an always-on **Read** pill next to Edit; **R8-3** new read-only **Breakdown** overlay (reuse `.ci-app.overlay`,
+  X-close, white cards, all fields `pre-wrap`+`overflow-wrap`). No data/handler change; zero new dark rules. Build
+  R8-1 → R8-2 → R8-3 on "go".
 - [ ] **Round 5 — card design consistency — ⤴️ SUPERSEDED by Round 7 (2026-06-29).** Earlier, plainer version
   (unify on `.asset-card`); Round 7 keeps its two moves but upgrades the canonical chrome to the Pulse card and
   adds the button + icon fixes. See [DESIGN-PASS.md](DESIGN-PASS.md) "Round 5" (marked superseded). Build Round 7.
