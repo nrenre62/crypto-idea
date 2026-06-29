@@ -146,6 +146,44 @@ Learn so a second device's edits appear live. *Rationale:* the founder chose ful
 KISS fetch-once default. *Impact:* better correctness; modest extra Firestore reads, **bounded** to
 owner-only docs (no fan-out risk).
 
+### Second-pass decisions (2026-06-29 round 2 — C13–C16)
+
+A deeper adversarial sweep (verified against code, two reader claims discarded as misreads) surfaced
+four genuinely-new gaps outside C1–C12. Founder decisions:
+
+**C13 — Local persistence: own it via `localStorage` + clear on logout.**
+`src/utils/storage.js` wraps a `window.storage` that is **defined nowhere** — so "remember active
+portfolio" + the profile cache silently no-op today, and `logout()` never clears those keys (a latent
+shared-device leak if `window.storage` is ever provided). Decision: replace the dead indirection with a
+direct `localStorage` wrapper so the feature works, **and** `db.del('ci-active-port')` +
+`db.del('ci-profile-'+uid)` in `logout()` — one commit. *Impact:* makes a built feature actually
+function and closes the leak before persistence ever goes live. Evidence: `CryptoIdea.jsx:154,186,238`,
+`useAuthSession.js:39,48`.
+
+**C14 — `cache/universe` size: guarded single-doc write + hard-cap + alert (no sharding yet).**
+The shared universe is **one Firestore doc already ~67% of the 1 MiB hard limit** at ~3,000 coins
+(~90% at 4,000); the write (`functions/index.js:827`) has no size guard, so growth past 1 MiB *throws*
+and breaks prices for the app **and** the DCA calculator at once. Decision (KISS): keep one doc, hold
+`UNIVERSE_PAGES` at 12 (~3,000), and wrap the write so it **logs/alerts above ~850 KiB and trims the
+lowest-rank tail instead of throwing**. Revisit sharding only if a real need for >3,500 coins appears.
+*Impact:* a few lines remove a structural single-point-of-failure for the whole market layer.
+
+**C15 — Audit retention: documented legitimate-interest + fixed TTL purge (no per-delete scrub).**
+GDPR hard-delete (`deleteUser` / `purgeExpiredTrash`) never touches the `audit` collection, so a
+deleted user's email + uid persist there. Decision: **keep audit logs** as company operational data,
+**disclose** in `privacy.html` that they are retained N months post-deletion under legitimate-interest,
+and add a **fixed scheduled TTL purge** so entries age out regardless of account deletion. *Rationale:*
+the founder chose to preserve the full admin-action trail over per-account scrubbing; the TTL + the
+disclosure keep erasure defensible. *Impact:* operational trail intact; retention bounded + documented.
+*(Note: `audit` is already client-deny-by-default — admins-only via `listAudit`.)*
+
+**C16 — AI budget resets at UTC midnight.**
+C3 locked the budget *unit* (daily cold-run count) but not the reset point. Decision: **UTC midnight** —
+store a UTC `dayKey` (`YYYY-MM-DD`) on the per-uid counter. *Rationale:* KISS, matches how almost every
+API quota works, no timezone/DST handling. Document "quota resets at 00:00 UTC". **Lock this before
+building the counter (C-B2/B3)** so the schema is right the first time. *Impact:* sets the budget-counter
+data model.
+
 ---
 
 ## 4. Gaps & fixes — prioritized build order
@@ -183,6 +221,36 @@ Detail + checkboxes in [`NEXT-STEPS.md`](NEXT-STEPS.md) §C. Ranked by leverage.
 - **Surfacing "as of" to users** — capability built (metadata stored, C6), display deferred until the
   founder decides to show it.
 - **Splitting market-cap onto its own SLOW-MOVING TTL** — skipped (KISS) unless a real need appears.
+
+### 🔵 Round-2 items (2026-06-29 second-pass — C13–C16 + 4 fixes)
+
+**Decisions to build (mostly local):**
+- **C13 · own local persistence** — swap `window.storage` → direct `localStorage` wrapper in
+  `storage.js`; add `db.del()` of `ci-active-port` + `ci-profile-<uid>` to `logout()`. *Local, now.*
+- **C14 · universe size guard** — wrap the `cache/universe` write: log/alert above ~850 KiB, trim the
+  lowest-rank tail instead of throwing; keep `UNIVERSE_PAGES` ≤ 12. *Local-buildable (emulator).*
+- **C15 · audit retention** — add a scheduled audit-TTL purge (fixed N months) + the retention line in
+  `privacy.html`. *Purge job local; disclosure copy now.*
+- **C16 · budget reset = UTC `dayKey`** — bake into the C-B2 counter schema. *Wave B (with the counter).*
+
+**Fixes — no decision, just schedule (obvious answer):**
+- **Fire-and-forget writes** — `toggleSetting` (`CryptoIdea.jsx:280`) + `saveLearnProgress`
+  (`useLearn.js:52`) don't `await`/catch; a flake silently drops a settings toggle or earned XP while the
+  UI shows success. Await + revert + toast on failure (match the `addCoin`/`addEntry` pattern). *Local.*
+- **Universe write contention** — guard the on-demand `/api/prices` fold-back (`functions/index.js:951`)
+  with a per-coin `at` freshness check so a stale 5-min hot refresh can't clobber a just-refetched
+  long-tail price. *Local; self-healing today, fix when convenient.*
+- **Cache stampede** — coalesce duplicate in-flight upstream long-tail fetches with a module-level
+  `{coinId → Promise}` map (`functions/index.js:937`). CDN masks it in prod; unbounded in a cold window.
+- **`historyCache` pruning** — never pruned; add a sweep of docs older than `HISTORY_TTL` to the daily
+  job so delisted coins don't leave zombie docs.
+
+**Confirmed clean (probed, found fine):** optimistic writes do NOT lose data (`addCoin`/`editThesis`/
+`addEntry`/`addPortfolio` all await + toast on failure); `historyCache` read/write share one sanitized
+ref (no key mismatch); rules deny-by-default already block client reads of `cache`/`historyCache`/future
+`convictionCache`; the service worker serves build-stamped static (the unversioned `API_CACHE` is only on
+the effectively-dead direct-CoinGecko branch); tier-limit + counter rules verified airtight; GDPR
+self-service callables are IDOR-safe.
 
 ---
 

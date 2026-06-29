@@ -334,6 +334,31 @@ extend B5/B6/BL-2, they don't replace them.
 - [ ] **C-B7 · admin AI usage/cost dashboard (C7)** — the hidden meter's home: per-uid + aggregate AI
   usage and $-cost in the admin app (with the C-B2 counter). Reserve under BL-2's AI Settings section.
 
+### C-R2 · Second-pass gaps (2026-06-29 — C13–C16 + fixes; mostly local)
+A deeper adversarial sweep found gaps outside C1–C12 (full detail + evidence in `CACHE-POLICY.md` §3
+round-2 + §4 🔵). Decisions locked; build order:
+- [ ] **C-R2a · own local persistence (C13)** — `window.storage` is referenced but defined nowhere, so
+  "remember active portfolio" + the profile cache silently no-op AND `logout()` never clears them (latent
+  shared-device leak). Swap `src/utils/storage.js` → a direct `localStorage` wrapper; add
+  `db.del('ci-active-port')` + `db.del('ci-profile-'+uid)` to `logout()` (`CryptoIdea.jsx:238`). Unit-test
+  persist + the logout-clear. *Local, do early.*
+- [ ] **C-R2b · `cache/universe` size guard (C14)** — one doc is ~67% of the 1 MiB hard limit at ~3,000
+  coins; a >1 MiB write throws and breaks BOTH front-ends. Wrap the write (`functions/index.js:827`): log/
+  alert above ~850 KiB, **trim the lowest-rank tail instead of throwing**; hold `UNIVERSE_PAGES` ≤ 12. No
+  sharding yet (KISS). Test: a synthetic oversized universe trims + logs, never throws.
+- [ ] **C-R2c · audit retention (C15)** — keep audit logs (legitimate-interest); add a scheduled
+  **audit-TTL purge** (fixed N months) so entries age out regardless of account deletion, + a retention
+  line in `privacy.html`. No per-account scrub. *Purge job local; disclosure copy now.*
+- [ ] **C-R2d · budget reset = UTC midnight (C16)** — bake a UTC `dayKey` (`YYYY-MM-DD`) into the C-B2
+  per-uid counter schema. **Lock before building the counter.** *(Wave B, with C-B2.)*
+- [ ] **C-R2e · fix fire-and-forget writes** — `toggleSetting` (`CryptoIdea.jsx:280`) + `saveLearnProgress`
+  (`useLearn.js:52`) don't await/catch → a flake silently drops a settings toggle / earned XP. Await +
+  revert + toast on failure (match `addCoin`/`addEntry`). *Local. Obvious fix, no fork.*
+- [ ] **C-R2f · universe write-contention + stampede + history prune** — guard the on-demand fold-back
+  (`:951`) with a per-coin `at` freshness check; coalesce duplicate in-flight long-tail fetches (`:937`)
+  via a module-level `{coinId→Promise}` map; prune `historyCache` docs older than `HISTORY_TTL` on the
+  daily job. *Local; obvious fixes, batch when convenient.*
+
 ### Refinements applied to existing items (so they don't drift)
 - **§0 Wave B price bullets:** unchanged — C1 confirms 5-min shared prices stay, presented as "live."
 - **B5 (conviction):** now carries C4/C5/C9 (admin-capped TTL knobs + lazy allowlist invalidation) and
