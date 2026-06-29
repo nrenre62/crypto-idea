@@ -816,13 +816,21 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
 §J · Round 4 + follow-up · DP-6 · DP-7). Whole app aligned to the founder mockups, verified light + dark,
 mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
 
-- [ ] **Round 5 — card design consistency across tabs — 📋 PLAN ONLY (2026-06-29)** (founder follow-up; full
-  spec in [DESIGN-PASS.md](DESIGN-PASS.md) "Round 5"). Unify the coin/thesis/search cards on the Portfolio
-  `.asset-card` white-card chrome. Grounded: Portfolio + Journal are already white cards; **Search `.trend-item`
-  is the flat-list outlier**. Decisions locked (AskUserQuestion): **R5-1** card-ify Search **trending only**
-  (new `.trend-card` + `.grid-auto`, multi-up on desktop; typed results stay `.trend-item`); **R5-2** bump
-  Journal `.j-entry`/`.nt-row` radius `--radius-sm`→`--radius` to match. Design-only, token-based (dark-safe).
-  Build R5-2 → R5-1 on "go".
+- [ ] **Round 7 — card consistency aligned to the Research _Portfolio Pulse_ card — 📋 PLAN ONLY (2026-06-29)**
+  (founder follow-up; full spec in [DESIGN-PASS.md](DESIGN-PASS.md) "Round 7"; **supersedes Round 5**). Grounded
+  via a 6-agent read-only mapping. Decisions locked (AskUserQuestion): frame scope = **match base chrome
+  everywhere, gradient frame on hero cards only**; Pulse buttons = **soft green pill**; diversification icon =
+  **accent-tinted glyph**. **R7-1** Journal `.j-entry`/`.nt-row` radius `--radius-sm`→`--radius` (= old R5-2);
+  **R7-2** card-ify Search **trending only** (`.trend-card` base chrome + `.grid-auto`, typed results stay
+  `.trend-item`; = old R5-1); **R7-3** Portfolio `.value-card` → Pulse green→blue gradient frame via the
+  single-element `padding-box/border-box` technique (no wrapper, no handler change) + lift shadow to `--sh`;
+  **R7-4** Pulse `.regen` Share/Regenerate → `.tx-btn.buy` soft-green pill (also fixes its dark invisibility);
+  **R7-5** populate the empty `.dic` "diversification" icon (`OverviewView.jsx:74` is `<div className="dic" />`)
+  with a glyph tinted `--accent` (visible light + dark). **Zero new dark rules** (frame is theme-invariant; pill/
+  icon tokens already flip); light mode unchanged. Build R7-1 → R7-4 → R7-5 → R7-3 → R7-2 on "go".
+- [ ] **Round 5 — card design consistency — ⤴️ SUPERSEDED by Round 7 (2026-06-29).** Earlier, plainer version
+  (unify on `.asset-card`); Round 7 keeps its two moves but upgrades the canonical chrome to the Pulse card and
+  adds the button + icon fixes. See [DESIGN-PASS.md](DESIGN-PASS.md) "Round 5" (marked superseded). Build Round 7.
 - [ ] **Round 6 — dark-mode visibility follow-up — 📋 PLAN ONLY (2026-06-29)** (founder screenshots; full spec
   in [DESIGN-PASS.md](DESIGN-PASS.md) "Round 6"). Three **dark-block-only** fixes (light untouched): **R6-1**
   tab footer `.disclaimer` (+ `.research-root .disclaimer`) `--ink-faint`→`--ink-soft` (readable on dark);

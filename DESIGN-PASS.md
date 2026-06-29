@@ -441,8 +441,9 @@ warning = only when the coin has transactions · simple Cancel/Delete-anyway pop
 **Build order:** R5-2 (radius CSS, trivial) → R5-1 (Search card-ify + grid). Commit per item. Slotted into
 [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (trending-only · match grid on desktop · Portfolio
-radius for all coin/thesis/search cards). Build on founder "go".
+**Status:** ⤴️ **SUPERSEDED by Round 7 (2026-06-29).** Round 7 keeps R5's two moves (R7-1 = R5-2 radius;
+R7-2 = R5-1 card-ify trending + grid) but **upgrades the canonical chrome from the plain `.asset-card` to the
+Research _Portfolio Pulse_ card** (founder follow-up) and adds two Pulse fixes. Build from **Round 7**, not here.
 
 ## Round 6 — dark-mode visibility follow-up (2026-06-29, PLAN ONLY)
 
@@ -483,3 +484,93 @@ unchanged** (only `html[data-theme="dark"]` rules added + the R6-3 token swap, w
 `npm run test:unit` green + `npm run build` clean. **Build order:** R6-3 (1 line) → R6-1 → R6-2, commit per item.
 
 **Status:** 📋 **PLAN ONLY (2026-06-29)** — build on founder "go". All dark-block-only; light mode untouched.
+
+## Round 7 — card consistency aligned to the Research _Portfolio Pulse_ card (2026-06-29, PLAN ONLY)
+
+> Founder follow-up (Research-Overview screenshots): make the cards **consistent across the whole app with the
+> Research _Portfolio Pulse_ card** — use the Pulse card's **border + colors** for Portfolio / thesis / Search-
+> trending cards; restyle the Pulse **Share/Regenerate** buttons to the app's button design; and the **"A note on
+> diversification"** card icon is **missing** (blank in both light & dark) — give it a visible icon for both modes.
+> Grounded first-hand via a 6-agent read-only mapping (Pulse chrome, Portfolio/Journal/Search cards, buttons, the
+> note icon, plan reconciliation). **Supersedes Round 5.** **Plan only — build on founder "go".**
+
+**Decisions locked via AskUserQuestion (2026-06-29):**
+1. **Frame scope = "match base, frame on hero cards."** All card families share the Pulse _base_ chrome (white
+   inner + rounded + soft shadow), but the green→blue **gradient frame** is reserved for the **hero/summary card**
+   (Portfolio value card) so it stays a premium accent and the dense coin/thesis/trending lists stay clean. *(Not
+   the gradient-on-every-card literal reading — chosen on taste to avoid a busy UI + keep Pulse special.)*
+2. **Pulse Share/Regenerate = soft green pill** (the app's secondary-action style, = `.tx-btn.buy`).
+3. **Diversification icon** = a visible monochrome glyph tinted with the flipping `--accent` token (light + dark).
+
+**Why this is cheap & safe:** the Pulse frame uses **non-flipping rgba** colors → renders identically in light &
+dark (the Pulse card itself has _no_ dark override — confirmed); the pills use `--accent-soft`/`--accent-ink`
+(which already have dark overrides in `research-tab.css`); the icon uses `--accent` (flips). ⇒ **Round 7 adds ZERO
+new `html[data-theme="dark"]` rules** and light mode stays byte-for-byte unchanged. KISS: the frame is applied with
+the **single-element gradient-border technique** (`border:1px solid transparent` + double `background` with
+`padding-box`/`border-box`) — **no wrapper div, no JSX/handler changes** (so R4-2 split click-zones are untouched).
+
+**Canonical reference — the Pulse card** (`Pulse.jsx:20`, `research-tab.css:67-68`):
+- Outer `.pulse`: `border-radius:24px; padding:1px; background:linear-gradient(135deg,rgba(10,107,77,.38),rgba(63,125,240,.32)); box-shadow:var(--sh)`.
+- Inner `.pulse-inner`: `background:var(--paper-2); border-radius:23px; padding:21px`.
+- **Base chrome** (what every card matches): `background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); box-shadow:var(--sh-sm)` — i.e. Portfolio `.asset-card` (`app.css:260`) **is already the base** (the reference; unchanged).
+- **Hero frame** (hero cards only): swap the flat border for the gradient frame + lift the shadow to `var(--sh)`.
+
+- **R7-1 — unify card radius (base).** Journal `.j-entry` (`app.css:166`) and `.nt-row` (`app.css:183`):
+  `border-radius:var(--radius-sm)` → `var(--radius)` so Portfolio/Journal/Search cards share one radius. Pure CSS,
+  token-based, light+dark safe. *(Absorbs the old R5-2.)*
+
+- **R7-2 — card-ify Search TRENDING + grid (base).** `Search.jsx` **trending branch only** (typed-results keep the
+  compact `.trend-item` list, `Search.jsx:88` / `app.css:291`): map each trending coin to a card class `.trend-card`
+  = the `.trend-item` flex layout **+ base chrome** (`background:var(--paper-2); border:1px solid var(--line-2);
+  border-radius:var(--radius); box-shadow:var(--sh-sm); padding:14px 16px`), **drop the `border-bottom` divider**,
+  and wrap the trending list in `<div className="grid-auto trend-grid">` so it reflows multi-column on the 1040 wide
+  track (1-up mobile, 2-up+ desktop) like Portfolio/Journal. Row content unchanged (CI + name + "SYM · #rank" + green
+  **Add** → existing `setJournalFor`). No logic change. *(Absorbs the old R5-1, now on the canonical base chrome.)*
+
+- **R7-3 — Portfolio value card → Pulse gradient frame (HERO).** `.value-card` (`app.css:239`): replace
+  `background:var(--paper-2)` + `border:1px solid var(--line-2)` with the **single-element gradient frame** —
+  `border:1px solid transparent; background:linear-gradient(var(--paper-2),var(--paper-2)) padding-box,
+  linear-gradient(135deg,rgba(10,107,77,.38),rgba(63,125,240,.32)) border-box;` and lift `box-shadow:var(--sh-sm)`
+  → `var(--sh)` (Pulse's depth). Radius stays `var(--radius)` (token-consistent; the frame + colours are the match).
+  **No markup change** — the `.vc-main`/`.vc-stats` children are untouched. Dark-safe (paper-2 flips, gradient rgba
+  is theme-invariant — identical to Pulse). **Asset coin cards stay on base chrome (no frame)** per decision #1.
+
+- **R7-4 — Pulse Share/Regenerate → soft green pill.** `.research-root .regen` (`research-tab.css:72`):
+  `border:1px solid var(--line-strong)` → `border:0`; `background:var(--paper-3)` → `var(--accent-soft)`;
+  `color:var(--ink-soft)` → `var(--accent-ink)` (= the proven `.tx-btn.buy` pattern, `app.css:337`). Hover (line 73):
+  drop the border-color/colour swap, use `opacity:.85` (keep `transform:translateY(-1px)`). Disabled (line 74)
+  unchanged. **Fixes the current dark-mode invisibility for free** (the old `.regen` had no dark override → the
+  cream `--paper-3` bg + muddy `--ink-soft` text vanished on dark paper; the new tokens have dark overrides).
+
+- **R7-5 — fix the empty "A note on diversification" icon (light + dark).** Root cause: `OverviewView.jsx:74` is
+  `<div className="dic" />` — an **empty** 40×40 box (no glyph), so it reads as a blank white/`--paper-3` square in
+  **both** themes (this is why R2-8 + DP-7 missed it — they fixed colour/contrast, but the slot had no content).
+  Fix: (a) put a monochrome glyph inside — `<div className="dic" aria-hidden="true">▦</div>` (a grid/allocation
+  mark = diversification; distinct from the brief-row glyphs ▲ ◆ !; **swappable**); (b) add to
+  `.research-root .diversify .dic` (`research-tab.css:135`) `color:var(--accent); font-size:18px; font-weight:700;`
+  (`--accent` = #0a6b4d light / #5cd6a6 dark → visible on the white box (light) and the `--paper-3` box (dark);
+  the existing dark override at `research-tab.css:258` only touches the box bg/border, so the flipping glyph colour
+  needs no new dark rule). Both modes covered.
+
+- **Out of scope / unchanged:** card **internal content** (Portfolio value/price; Journal thesis excerpt + status
+  pill; Search SYM·#rank + Add) is untouched — only the **container** (chrome/radius/grid) + the two Pulse fixes.
+  Portfolio `.asset-card` is the base reference (unchanged). Typed search **results** stay the compact `.trend-item`
+  list. Research's other scoped cards (coin cards, risk) are a separate module — not restyled here.
+
+**TDD / verify:** mostly CSS + one small structural change (R7-2) + one markup tweak (R7-5).
+- **R7-2** — Search test: trending renders as cards (assert `.trend-card` + the grid wrapper) and Add still opens the
+  Buy-Journal overlay (extend the DP-6 trending tests; update class queries). Browser-verify trending at ~375 (1-up)
+  and ~1040 (multi-up): white cards + shadow + spacing, light + dark.
+- **R7-5** — assert the `.dic` element now renders a glyph (non-empty text) in `OverviewView`. Browser-verify the
+  diversification card shows the icon in light **and** dark.
+- **R7-1 / R7-3 / R7-4** — token/CSS values (not jsdom-meaningful) → browser-verify: one shared radius across tabs;
+  the value card shows the green→blue frame (light + dark) while asset cards stay flat; Share/Regenerate are soft-green
+  pills, readable in dark. Confirm **light mode is unchanged** outside the intended frame/pill/icon changes.
+- **Gate:** `npm run test:unit` green + `npm run build` clean + browser-verify (mobile + desktop, light + dark).
+
+**Build order (when "go"):** R7-1 (radius) → R7-4 (button CSS) → R7-5 (icon) → R7-3 (value-card frame) → R7-2
+(Search card-ify + grid — biggest, needs test updates + reflow verify). Commit per item. Slotted into
+[`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (hero-only frame · soft-green pills · accent-tinted
+diversification glyph). Supersedes Round 5. Zero new dark rules; light mode unchanged. Build on founder "go".
