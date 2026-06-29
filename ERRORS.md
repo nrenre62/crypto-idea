@@ -134,6 +134,23 @@
   offline fallback) — throttle to Slow-3G and confirm it errors gracefully, no infinite spinner, no NaN.
   **Status:** 🔎 verify (likely already handled).
 
+### B7 · Cache-refresh routes can stampede CoinGecko under a cold-cache burst 🔎 (low, pre-existing)
+- **Where:** `functions/index.js` `getUniverse()` (~831) feeding `/api/search` + `/api/coinlist` + `/api/prices`,
+  and `getTrending()` (~862) feeding `/api/trending` (added in DP-6). **Cause:** all use the same lazy pattern —
+  when the cache is stale (past TTL), the *next* request triggers a refresh; N concurrent requests in that
+  window each see stale data and each fire their own CoinGecko fetch + Firestore write (a thundering herd). All
+  share the general 60/min-per-IP limit (only `/api/subscribe` has a dedicated tighter one). **Assessment
+  (DP-6 review, 2026-06-29):** a review flagged `/api/trending` specifically as "high — add a dedicated limit",
+  but that's **overstated**: refresh is TTL-gated (30 min), not per-request, and `/api/trending` is the
+  *cheapest* of the group (1 CoinGecko call vs the universe refresh's 12 pages). DP-6 introduces **no new
+  risk** — it follows the established `getUniverse` pattern exactly. A bespoke limit on only the cheapest route
+  would be inconsistent (the pricier universe refresh would remain the weaker link). **Fix (if/when it matters,
+  codebase-wide — NOT a DP-6 blocker):** coalesce concurrent refreshes behind a single in-flight promise per
+  cache doc (so a burst triggers ONE upstream call), applied to `getUniverse` + `getTrending` together; and/or
+  a scheduled `refreshTrending` so cold-cache refreshes never land in the request path (mirrors `refreshPrices`).
+  **Verify:** fire many concurrent cold-cache requests → exactly one upstream fetch. **Status:** 🔎 backlog
+  hardening (low; accepted tradeoff today, same as the existing universe routes — see line 785-787 notes).
+
 ---
 
 ## C. By design — NOT bugs (documented so they aren't "fixed" by mistake)
