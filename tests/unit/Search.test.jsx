@@ -85,4 +85,13 @@ describe("Search — Buy-Journal capture", () => {
     expect(addCoin).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toBeInTheDocument();
   });
+
+  // R4-4 — the LIVE + plan header pills are wired into this tab.
+  it("renders the LIVE + plan header pills (R4-4)", () => {
+    const setScreen = vi.fn();
+    provide({ api: "live", isPro: true, setScreen });
+    expect(screen.getByText(/● LIVE/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("PRO"));
+    expect(setScreen).toHaveBeenCalledWith("account");
+  });
 });

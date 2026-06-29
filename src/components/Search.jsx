@@ -4,6 +4,7 @@ import { fmtP, fmtPct } from "../utils/format.js";
 import { cleanFunnel, thesisError } from "../utils/journal.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { CI } from "./ui.jsx";
+import { HeaderTags } from "./HeaderTags.jsx";
 
 // Add-coin search screen. Live search results, the active portfolio, and the
 // addCoin handler come from context. Restyled to the .ci-app design system.
@@ -44,7 +45,7 @@ export function Search() {
     <div className="ci-app screen-bg">
       <div className="apphead">
         <div>
-          <div className="title" style={{ fontSize: 24 }}>Add Coin <span className="beta">BETA</span></div>
+          <div className="title" style={{ fontSize: 24 }}>Add Coin <span className="beta">BETA</span><HeaderTags /></div>
           <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 2 }}>Find any coin. Research before you add.</div>
         </div>
       </div>

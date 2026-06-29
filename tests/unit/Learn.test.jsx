@@ -86,4 +86,19 @@ describe("Learn tab (wired to useLearn)", () => {
     expect(foot.querySelector(".m-foot-count").textContent).toMatch(/0\/\d+ lessons/);
     expect(foot.querySelector(".m-btn").textContent).toBe("Start →");
   });
+
+  // R4-4 — the LIVE + plan header pills are wired into the Learn hero.
+  it("renders the LIVE + plan header pills in the hero (R4-4)", async () => {
+    getLearnProgress.mockResolvedValue(fresh);
+    const setScreen = vi.fn();
+    render(
+      <AppContext.Provider value={{ user: { uid: "u1" }, api: "live", isPro: true, setScreen }}>
+        <Learn />
+      </AppContext.Provider>
+    );
+    await screen.findByText("Your Investing Edge");
+    expect(screen.getByText(/● LIVE/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("PRO"));
+    expect(setScreen).toHaveBeenCalledWith("account");
+  });
 });

@@ -4,6 +4,7 @@ import { fmtP } from "../utils/format.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { thesisError } from "../utils/journal.js";
 import { CI } from "./ui.jsx";
+import { HeaderTags } from "./HeaderTags.jsx";
 
 /**
  * Journal tab — the "write before you buy" thesis log.
@@ -241,7 +242,7 @@ export function Journal() {
     <div className="ci-app screen-bg">
       <div className="apphead">
         <div>
-          <div className="title" style={{ fontSize: 24 }}>Journal <span className="beta">BETA</span></div>
+          <div className="title" style={{ fontSize: 24 }}>Journal <span className="beta">BETA</span><HeaderTags /></div>
           <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 2 }}>
             Write before you buy.
           </div>

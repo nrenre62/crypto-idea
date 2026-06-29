@@ -27,7 +27,7 @@ const TABS = [
 // Props:
 //   coins      — the active portfolio's coin objects (with their `entries`).
 //   livePrices — the app's live price map: { [id]: { usd, usd_24h_change, ... } }.
-export default function ResearchTab({ coins, livePrices }) {
+export default function ResearchTab({ coins, livePrices, api, plan, onAccount }) {
   const [tab, setTab] = useState('overview');
   const [tf, setTf] = useState('30d');
 
@@ -49,7 +49,10 @@ export default function ResearchTab({ coins, livePrices }) {
     <div className="research-root">
       <div className="apphead">
         <div>
-          <div className="title">Research <span className="beta">BETA</span></div>
+          <div className="title">Research <span className="beta">BETA</span>
+            {api === 'live' && <span className="badge badge-live">● LIVE</span>}
+            {plan && <span className="badge badge-plan" onClick={onAccount} style={{ cursor: 'pointer' }}>{plan}</span>}
+          </div>
           <div className="sub">
             {empty ? 'No coins in this portfolio yet' : `AI insights across your ${holdings.length} holding${holdings.length === 1 ? '' : 's'}`}
           </div>

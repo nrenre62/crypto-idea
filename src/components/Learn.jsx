@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useLearn } from "../hooks/useLearn.js";
 import { MODULE_ICONS, LockIcon } from "./learn-icons.jsx";
+import { HeaderTags } from "./HeaderTags.jsx";
 
 /**
  * Learn tab — real gamified learning, wired to persisted progress.
@@ -104,7 +105,7 @@ export function Learn() {
     <div className="ci-app screen-bg">
       <div className="learn-hero">
         <div className="learn-level">Level {level.level} · {level.title}</div>
-        <div className="learn-title">Your Investing Edge <span className="beta">BETA</span></div>
+        <div className="learn-title">Your Investing Edge <span className="beta">BETA</span><HeaderTags /></div>
         <div className="xp-bar"><div className="xp-fill" style={{ width: level.pct + "%" }} /></div>
         <div className="xp-label">{level.nextAt != null ? `${level.xp} / ${level.nextAt} XP to Level ${level.level + 1}` : `${level.xp} XP · Max level`}</div>
         <div className="learn-chips">

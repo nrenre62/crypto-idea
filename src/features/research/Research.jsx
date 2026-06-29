@@ -7,6 +7,17 @@ import { useApp } from '../../hooks/app-context';
 import ResearchTab from './components/ResearchTab';
 
 export default function Research() {
-  const { portfolio, prices } = useApp();
-  return <ResearchTab coins={portfolio} livePrices={prices} />;
+  const { portfolio, prices, api, isPro, isPremium, setScreen } = useApp();
+  const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
+  // R4-4: thread the live/plan header pills + the Account route into the (otherwise
+  // self-contained) feature so its header matches the other tabs.
+  return (
+    <ResearchTab
+      coins={portfolio}
+      livePrices={prices}
+      api={api}
+      plan={plan}
+      onAccount={() => setScreen("account")}
+    />
+  );
 }
