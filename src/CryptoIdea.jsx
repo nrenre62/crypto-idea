@@ -34,6 +34,7 @@ import {
 } from "./api/firebase-database.js";
 import { fetchSiteConfig } from "./api/config.js";
 import { useCoinSearch } from "./hooks/useCoinSearch.js";
+import { useTrending } from "./hooks/useTrending.js";
 import { useLivePrices } from "./hooks/useLivePrices.js";
 import { useAuthSession } from "./hooks/useAuthSession.js";
 import { usePortfolios, DEFAULT_PORTFOLIOS } from "./hooks/usePortfolios.js";
@@ -172,6 +173,8 @@ export default function CryptoIdea(){
 
   // Coin search for the Add Coin screen (built-in matches + debounced live results).
   const searchResults=useCoinSearch(sq);
+  // DP-6: trending coins for the Search tab's empty state (cached /api/trending).
+  const trending=useTrending();
 
   const showErr=(m)=>{setErr(m);setTimeout(()=>setErr(""),3000)};
 
@@ -594,7 +597,7 @@ export default function CryptoIdea(){
   // Shared state + handlers for extracted screens (grows as screens migrate).
   const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,handleReset,
     user,contactMsg,setContactMsg,contactSent,setContactSent,
-    sq,setSq,searchResults,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,editThesis,deleteThesis,
+    sq,setSq,searchResults,trending,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,editThesis,deleteThesis,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
     startAddTx,
     infoCoin,setInfoCoin,prices,

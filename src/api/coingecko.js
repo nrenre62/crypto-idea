@@ -40,3 +40,16 @@ export async function searchCoins(q) {
     return null;
   }
 }
+
+// Currently-trending coins (cached /api/trending proxy) -> array of {id,symbol,name,thumb,rank},
+// or null on error. Powers the Search tab's empty-state TRENDING list.
+export async function fetchTrending() {
+  try {
+    const r = await fetch("/api/trending");
+    if (!r.ok) return null;
+    const d = await r.json();
+    return Array.isArray(d.coins) ? d.coins : null;
+  } catch {
+    return null;
+  }
+}

@@ -95,3 +95,37 @@ describe("Search — Buy-Journal capture", () => {
     expect(setScreen).toHaveBeenCalledWith("account");
   });
 });
+
+// DP-6 — the empty search box shows a TRENDING list of coins to add.
+describe("Search — TRENDING empty state (DP-6)", () => {
+  const trending = [
+    { id: "solana", symbol: "SOL", name: "Solana", rank: 7 },
+    { id: "chainlink", symbol: "LINK", name: "Chainlink", rank: 14 },
+  ];
+
+  it("shows the TRENDING list (name + SYMBOL · #rank) when the box is empty", () => {
+    provide({ sq: "", searchResults: [], trending });
+    expect(screen.getByText("Trending")).toBeInTheDocument();
+    expect(screen.getByText("Solana")).toBeInTheDocument();
+    expect(screen.getByText("SOL · #7")).toBeInTheDocument();
+    expect(screen.getByText("Chainlink")).toBeInTheDocument();
+    expect(screen.getByText("LINK · #14")).toBeInTheDocument();
+  });
+
+  it("falls back to built-in top coins so the section is never blank", () => {
+    provide({ sq: "", searchResults: [], trending: [] });
+    expect(screen.getByText("Trending")).toBeInTheDocument();
+    expect(screen.getByText("Bitcoin")).toBeInTheDocument();   // TOP_COINS[0]
+  });
+
+  it("Add on a trending row opens the Buy-Journal overlay (this tab adds coins)", () => {
+    provide({ sq: "", searchResults: [], trending: [trending[0]] });
+    fireEvent.click(screen.getByText("Add"));
+    expect(screen.getByText(/Before you add Solana/)).toBeInTheDocument();
+  });
+
+  it("a trending coin already held shows 'Added' and is disabled", () => {
+    provide({ sq: "", searchResults: [], trending: [trending[0]], portfolio: [{ id: "solana" }] });
+    expect(screen.getByText("Added")).toBeDisabled();
+  });
+});

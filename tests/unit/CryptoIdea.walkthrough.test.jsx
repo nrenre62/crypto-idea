@@ -38,6 +38,7 @@ vi.mock("../../src/api/coingecko.js", () => ({
   fetchPrices: vi.fn().mockResolvedValue(null),
   searchCoins: vi.fn().mockResolvedValue(null),
   fetchHistory: vi.fn().mockResolvedValue(null),
+  fetchTrending: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn().mockResolvedValue(null) }));
 
@@ -111,9 +112,9 @@ describe("User walkthrough — all functions", () => {
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
     tab("Search");
-    expect(await screen.findByText("Add Coin")).toBeInTheDocument();
+    expect(await screen.findByText("Trending")).toBeInTheDocument();   // DP-6 empty-state list
     // Type a top-coin query -> local result appears
-    fireEvent.change(screen.getByPlaceholderText(/Search coins/i), { target: { value: "bitcoin" } });
+    fireEvent.change(screen.getByPlaceholderText(/Search any coin/i), { target: { value: "bitcoin" } });
     const result = await screen.findByText("Bitcoin");
     // Click the "+ Add" pill in that result row
     const row = result.closest(".trend-item");

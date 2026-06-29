@@ -38,6 +38,7 @@ vi.mock("../../src/api/firebase-database.js", () => ({
 vi.mock("../../src/api/coingecko.js", () => ({
   fetchPrices: vi.fn().mockResolvedValue(null),
   searchCoins: vi.fn().mockResolvedValue(null),
+  fetchTrending: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn().mockResolvedValue(null) }));
 
@@ -79,10 +80,11 @@ describe("CryptoIdea (smoke)", () => {
     });
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
-    // Bottom-nav "Search" tab -> screen "search" -> <Search/> renders its empty state.
+    // Bottom-nav "Search" tab -> screen "search" -> <Search/> renders its empty state
+    // (DP-6: a TRENDING list of coins to add).
     fireEvent.click(screen.getByText("Search"));
-    expect(await screen.findByText("Add Coin")).toBeInTheDocument();
-    expect(screen.getByText("Search any coin")).toBeInTheDocument();
+    expect(await screen.findByText("Trending")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Search any coin/i)).toBeInTheDocument();
   });
 
   it("navigates from portfolio to the Account screen via the tier badge (Account via context)", async () => {

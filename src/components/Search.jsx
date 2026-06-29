@@ -3,6 +3,7 @@ import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct } from "../utils/format.js";
 import { cleanFunnel, thesisError } from "../utils/journal.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
+import { TOP_COINS } from "../utils/coins.js";
 import { CI } from "./ui.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
 
@@ -14,7 +15,10 @@ import { HeaderTags } from "./HeaderTags.jsx";
 // coin's journal); "Skip" adds the coin with no journal. Either way the add logic
 // and tier limits are unchanged.
 export function Search() {
-  const { sq, setSq, searchResults, portfolio, addCoin } = useApp();
+  const { sq, setSq, searchResults, trending, portfolio, addCoin } = useApp();
+  // DP-6: live trending coins for the empty state; fall back to the built-in top
+  // coins so the section is never blank (offline-degrade, same as price fallbacks).
+  const trendCoins = (trending && trending.length) ? trending : TOP_COINS.slice(0, 8);
   const [journalFor, setJournalFor] = useState(null);
   const [thesis, setThesis] = useState("");
   const [changeMind, setChangeMind] = useState("");
@@ -45,14 +49,14 @@ export function Search() {
     <div className="ci-app screen-bg">
       <div className="apphead">
         <div>
-          <div className="title" style={{ fontSize: 24 }}>Add Coin <span className="beta">BETA</span><HeaderTags /></div>
-          <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 2 }}>Find any coin. Research before you add.</div>
+          <div className="title" style={{ fontSize: 24 }}>Search <span className="beta">BETA</span><HeaderTags /></div>
+          <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 2 }}>Find any coin and add it to your portfolio.</div>
         </div>
       </div>
 
       <div className="search-box">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
-        <input type="text" value={sq} onChange={(e) => setSq(e.target.value)} placeholder="Search coins... (Bitcoin, ETH, SOL...)" autoFocus />
+        <input type="text" value={sq} onChange={(e) => setSq(e.target.value)} placeholder="Search any coin..." autoFocus />
       </div>
 
       {searchResults.length > 0 ? (
@@ -74,11 +78,24 @@ export function Search() {
       ) : sq.length >= 1 ? (
         <div style={{ textAlign: "center", padding: 36, color: "var(--ink-faint)", fontSize: 13 }}>No results for "{sq}"</div>
       ) : (
-        <div className="empty-state">
-          <div className="empty-ic">🔍</div>
-          <div className="empty-h">Search any coin</div>
-          <div className="empty-p">Type to find any coin, live.</div>
-        </div>
+        // DP-6: empty box → TRENDING. Tapping Add opens the same Buy-Journal flow,
+        // so the tab clearly reads as "this is where you add coins".
+        <>
+          <div className="pad"><div className="sec-label"><h2>Trending</h2></div></div>
+          {trendCoins.map((coin) => {
+            const ad = portfolio.find((x) => x.id === coin.id);
+            return (
+              <div key={coin.id} className="trend-item" style={{ opacity: ad ? 0.5 : 1 }}>
+                <CI thumb={coin.thumb} symbol={coin.symbol} size={36} />
+                <div className="trend-info">
+                  <div className="trend-name">{coin.name}</div>
+                  <div className="trend-sub">{coin.symbol}{coin.rank ? " · #" + coin.rank : ""}</div>
+                </div>
+                <button className="add-pill" onClick={() => !ad && setJournalFor(coin)} disabled={!!ad}>{ad ? "Added" : "Add"}</button>
+              </div>
+            );
+          })}
+        </>
       )}
 
       {journalFor && (

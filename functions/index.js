@@ -791,6 +791,8 @@ const UNIVERSE_TTL = 5 * 60 * 1000;              // lazy full-refresh window (wh
 const HOT_TTL = 5 * 60 * 1000;                   // per-coin price freshness for the app (long tail refetched past this)
 const HISTORY_TTL = 30 * 24 * 60 * 60 * 1000;    // per-coin history: 30 days (past data never changes)
 const UNIVERSE_DOC = "cache/universe";
+const TRENDING_DOC = "cache/trending";
+const TRENDING_TTL = 30 * 60 * 1000;            // trending refreshes lazily every 30 min (volatile, but cheap)
 
 // Fetch up to `pages` pages of /coins/markets (metadata + price in one call) into
 // the shared universe doc. REPLACES the doc (pruning delisted coins) only on a
@@ -833,6 +835,35 @@ async function getUniverse() {
   try { const snap = await db.doc(UNIVERSE_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
   if (!data || (Date.now() - (data.updatedAt || 0)) > UNIVERSE_TTL) {
     try { return await refreshUniverse({ pages: UNIVERSE_PAGES }); } catch (e) { if (data) return data.coins; throw e; }
+  }
+  return data.coins;
+}
+
+// Trending coins from CoinGecko's /search/trending (a different endpoint than the
+// universe), cached in its own small doc. Each refresh REPLACES the doc — trending
+// is the current snapshot, not an accumulating list. Returns a normalized array
+// [{id, symbol, name, thumb, rank}]; never throws here (caller handles failure).
+async function refreshTrending() {
+  const r = await fetch(`${CG_BASE}/search/trending`, { headers: await cgHeaders() });
+  if (!r.ok) throw new Error("trending " + r.status);
+  const d = await r.json();
+  const coins = (Array.isArray(d.coins) ? d.coins : [])
+    .map((x) => {
+      const it = x.item || x;                      // /search/trending wraps each coin in `.item`
+      return { id: it.id, symbol: String(it.symbol || "").toUpperCase(), name: it.name, thumb: it.thumb || it.small || "", rank: it.market_cap_rank || null };
+    })
+    .filter((c) => c.id && c.name);
+  await db.doc(TRENDING_DOC).set({ updatedAt: Date.now(), coins });
+  return coins;
+}
+
+// Read the shared trending list; lazily refresh on demand if missing/stale (works
+// without a scheduler). Falls back to the last-good cache if a refresh fails.
+async function getTrending() {
+  let data = null;
+  try { const snap = await db.doc(TRENDING_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
+  if (!data || (Date.now() - (data.updatedAt || 0)) > TRENDING_TTL) {
+    try { return await refreshTrending(); } catch (e) { if (data) return data.coins; throw e; }
   }
   return data.coins;
 }
@@ -961,6 +992,15 @@ exports.api = functions.https.onRequest(async (req, res) => {
       res.json({ coins });
       return;
     }
+    if (action === "trending") {
+      // Currently-trending coins (CoinGecko /search/trending) for the Search tab's
+      // empty state. Cached in cache/trending + on the CDN, so it's ~free per visitor.
+      let coins = [];
+      try { coins = await getTrending(); } catch (e) { coins = []; }   // empty → client falls back to its built-in list
+      res.set("Cache-Control", "public, max-age=300, s-maxage=300");
+      res.json({ coins });
+      return;
+    }
     if (action === "config") {
       // PUBLIC, non-secret app config the client reads on load (maintenance banner,
       // signups on/off, and later analytics/legal IDs). Never includes API keys.
@@ -1063,7 +1103,7 @@ exports.api = functions.https.onRequest(async (req, res) => {
       }
       return;
     }
-    res.status(404).json({ error: "unknown action — use /api/prices, /api/search, /api/history, or /api/subscribe" });
+    res.status(404).json({ error: "unknown action — use /api/prices, /api/search, /api/trending, /api/history, or /api/subscribe" });
   } catch (e) {
     console.error("api error:", e);
     res.status(500).json({ error: "server error" });

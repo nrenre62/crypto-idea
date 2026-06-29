@@ -745,7 +745,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [x] **R4-5** (2026-06-29) — AddEntry **AUTO** is now an always-visible, clickable button: shown whenever a
     market price exists, taps to apply it, `.on` when the price matches. Fixes AUTO vanishing after a manual
     edit / after switching coins. Dark-safe. 294 unit green; build clean; browser-verified.
-- [ ] **DP-6 Search trending + tab redesign** (founder mockup 2026-06-29) — align the Search tab to the
+- [x] **DP-6 Search trending + tab redesign — ✅ BUILT 2026-06-29** (founder mockup) — align the Search tab to the
   approved mockup: header title **"Search"** (keep BETA + R4-4 HeaderTags so the add affordance stays clear) +
   "Search any coin…" box; when the box is **empty**, show a **TRENDING** section — a list of trending coins,
   each row = token circle (`CI`/`coinColor`) + name + "SYMBOL · #rank" + a green **Add** button (reuses
