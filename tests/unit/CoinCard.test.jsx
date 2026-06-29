@@ -26,6 +26,17 @@ describe("CoinCard — conviction pills (A8)", () => {
     expect(screen.getByText(/Protocol upgrade/)).toBeInTheDocument();
   });
 
+  // R4-1 — every coin card renders the SAME four position-stat boxes with the same
+  // labels (BTC == ETH == any coin). The founder's "inconsistency" was a CSS label-wrap,
+  // not markup divergence; this guards the markup from drifting so the CSS fix holds.
+  it("renders exactly four position-stat boxes with consistent labels on every card", () => {
+    render(<CoinCard holding={holding()} index={0} onAsk={vi.fn()} />);
+    const stats = document.querySelectorAll(".pos-stat");
+    expect(stats.length).toBe(4);
+    const labels = [...document.querySelectorAll(".pos-stat .ps-l")].map((n) => n.textContent);
+    expect(labels).toEqual(["Avg cost", "Now", "P / L", "30d"]);
+  });
+
   it("an insufficient-data axis shows its reason chip, never a silent blank (#9)", () => {
     // Pick a coin id whose mock evidence yields at least one ⬛ axis (deterministic).
     const ids = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel"];

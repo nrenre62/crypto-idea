@@ -169,9 +169,13 @@
   .research-root .cc-spark{width:74px;height:24px}
 }
 .research-root .pos-stats{display:flex;gap:8px;margin-bottom:14px}
-.research-root .pos-stat{flex:1;background:var(--paper-3);border:1px solid var(--line);border-radius:var(--radius-xs);padding:11px 12px}
-.research-root .pos-stat .ps-l{font-size:10px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.07em}
-.research-root .pos-stat .ps-v{font-size:14px;font-weight:600;margin-top:4px}
+/* R4-1: every stat box is equal-width and centered, and the labels never wrap
+   ("AVG COST" used to break to two lines at narrow column widths, making cards
+   look uneven). nowrap + min-width:0 keeps all four identical at any width,
+   mobile + desktop, light + dark (layout only — no colour change). */
+.research-root .pos-stat{flex:1;min-width:0;text-align:center;background:var(--paper-3);border:1px solid var(--line);border-radius:var(--radius-xs);padding:11px 8px}
+.research-root .pos-stat .ps-l{font-size:9.5px;color:var(--ink-faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.research-root .pos-stat .ps-v{font-size:14px;font-weight:600;margin-top:4px;white-space:nowrap}
 .research-root .cc-ask{width:100%;border:1px solid var(--line-strong);background:var(--paper-3);border-radius:var(--radius-xs);padding:12px;font-family:var(--body);font-size:13px;font-weight:600;color:var(--accent-ink);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:.2s var(--ease)}
 .research-root .cc-ask:hover{border-color:var(--accent);background:var(--accent-soft)}
 .research-root .chev{margin-left:8px;color:var(--ink-faint);transition:transform .32s var(--ease);flex:none}
