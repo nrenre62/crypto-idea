@@ -816,6 +816,14 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
 §J · Round 4 + follow-up · DP-6 · DP-7). Whole app aligned to the founder mockups, verified light + dark,
 mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
 
+- [ ] **Round 5 — card design consistency across tabs — 📋 PLAN ONLY (2026-06-29)** (founder follow-up; full
+  spec in [DESIGN-PASS.md](DESIGN-PASS.md) "Round 5"). Unify the coin/thesis/search cards on the Portfolio
+  `.asset-card` white-card chrome. Grounded: Portfolio + Journal are already white cards; **Search `.trend-item`
+  is the flat-list outlier**. Decisions locked (AskUserQuestion): **R5-1** card-ify Search **trending only**
+  (new `.trend-card` + `.grid-auto`, multi-up on desktop; typed results stay `.trend-item`); **R5-2** bump
+  Journal `.j-entry`/`.nt-row` radius `--radius-sm`→`--radius` to match. Design-only, token-based (dark-safe).
+  Build R5-2 → R5-1 on "go".
+
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
 

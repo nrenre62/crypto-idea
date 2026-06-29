@@ -396,3 +396,50 @@ warning = only when the coin has transactions · simple Cancel/Delete-anyway pop
   vs detail). Image wrapped in `.ac-img` (hover-ring affordance).
 - **R4-3** — modal reuses the `.dg-*` classes (dark-safe sheet `#1c1b17` / warn-text `#e6c879` confirmed);
   no change to `remCoin`/`dbRemoveCoin`. Trigger = `coin.entries.length > 0`.
+
+## Round 5 — card design consistency across tabs (2026-06-29, PLAN ONLY)
+
+> Founder follow-up (Search mockup): the coin / thesis / search cards should look the **same across tabs**.
+> Grounded read: Portfolio (`.asset-card`) and Journal (`.j-entry`/`.nt-row`) are **already white cards**, but
+> **Search's `.trend-item` is the outlier** — a flat bottom-bordered list, not cards. Unify on the Portfolio
+> card chrome. **Decisions locked via AskUserQuestion 2026-06-29:** card-ify **trending only** (typed results
+> stay the compact list) · trending cards **reflow to the grid on desktop** like Portfolio/Journal · standardize
+> **all** coin/thesis/search cards on **Portfolio's radius**. **Plan only — build on founder "go".**
+
+- **Canonical card = Portfolio `.asset-card`** (`app.css:260`): `background:var(--paper-2); border:1px solid
+  var(--line-2); border-radius:var(--radius); box-shadow:var(--sh-sm); padding:16px`. All token-based → already
+  dark-safe (no dark-block work needed; the tokens flip).
+
+- **R5-1 — Search TRENDING rows → white cards in a grid.** `Search.jsx` trending branch maps each coin to
+  `.trend-item` (`app.css:291`: `display:flex; padding:10px 18px; border-bottom:1px solid var(--line-2)` — flat,
+  no card). Change ONLY the trending list (the typed-results branch keeps `.trend-item` as-is per the decision):
+  give trending rows a card class (`.trend-card` = the `.trend-item` flex row + the canonical card chrome, drop
+  the bottom-border) and wrap the trending list in `<div className="grid-auto trend-grid">` so it reflows
+  multi-column on the 1040 wide track (Search is already on it via DP-12). Keep the row content unchanged
+  (CI + name + "SYM · #rank" + green **Add** → existing `setJournalFor`). Mobile 1-up, desktop multi-up — matches
+  Portfolio/Journal. **No logic change.** *(Use a distinct class — or modifier `.trend-item.trend-card` — so the
+  shared typed-results list is untouched.)*
+
+- **R5-2 — radius unification (the "match across all tabs" alignment).** Bump Journal `.j-entry` (`app.css:166`)
+  and `.nt-row` (`app.css:183`) from `--radius-sm` → `--radius` so they match the Portfolio asset card + the new
+  Search cards. Pure CSS, token-based (light + dark safe). Portfolio `.asset-card` already uses `--radius` (the
+  reference). *(Optional: factor the shared chrome into one `.coin-card` utility class the four card types
+  compose — KISS says only if it reduces duplication cleanly; otherwise just align the values.)*
+
+- **Out of scope / unchanged:** each card's **internal content** stays as-is (Portfolio = value/price; Journal =
+  thesis excerpt + status pill; Search = SYM·#rank + Add) — only the card **container** (bg/border/radius/shadow/
+  spacing + desktop grid) is unified. Typed search **results** stay the compact `.trend-item` list (decision).
+  Portfolio cards unchanged (they're the reference). Research's scoped coin cards are a separate module, not in scope.
+
+**TDD plan:** mostly CSS + a small structural change.
+- **R5-1** — Search test: trending rows render as cards (assert the `.trend-card`/grid wrapper) and the Add flow
+  still opens the Buy-Journal overlay (extend the DP-6 trending tests; update any class query). Browser-verify
+  trending at ~375 (1-up) and ~1040 (multi-up): white cards w/ shadow + spacing, light + dark.
+- **R5-2** — token value, not jsdom-meaningful → browser-verify the three tabs' cards share one radius.
+- **Gate:** `npm run test:unit` green + `npm run build` clean + browser-verify (mobile + desktop, light + dark).
+
+**Build order:** R5-2 (radius CSS, trivial) → R5-1 (Search card-ify + grid). Commit per item. Slotted into
+[`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (trending-only · match grid on desktop · Portfolio
+radius for all coin/thesis/search cards). Build on founder "go".
