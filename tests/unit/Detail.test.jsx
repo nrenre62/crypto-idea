@@ -59,4 +59,51 @@ describe("Detail screen (extracted, via AppContext)", () => {
     fireEvent.click(screen.getByText("- Sell"));
     expect(startAddTx).toHaveBeenCalledWith(COIN, "sell", "detail");
   });
+
+  // R4-3: deleting a coin that has transactions warns first (transactions + thesis lost).
+  it("trashing a coin WITH transactions requests a confirm (no immediate delete)", () => {
+    const setConfirmDel = vi.fn(), remCoin = vi.fn();
+    const { container } = provide({ sel: COIN, portfolio: [COIN], confirmDel: false, setConfirmDel, remCoin });
+    // header shows the trash icon (not a quick Remove pill) for a coin with entries
+    expect(screen.queryByText("Remove")).toBeNull();
+    fireEvent.click(container.querySelector(".detail-head .icon-btn:last-child"));
+    expect(setConfirmDel).toHaveBeenCalledWith(true);
+    expect(remCoin).not.toHaveBeenCalled();
+  });
+
+  it("the warning modal names the lost transactions + thesis and can't-undo", () => {
+    provide({ sel: COIN, portfolio: [COIN], confirmDel: true });
+    expect(screen.getByText("Delete Bitcoin?")).toBeInTheDocument();
+    const warn = document.querySelector(".dg-warn-text").textContent;
+    expect(warn).toMatch(/2 buy\/sell transactions/i);
+    expect(warn).toMatch(/thesis/i);
+    expect(warn).toMatch(/can.t be undone/i);
+  });
+
+  it("'Cancel' dismisses the warning without deleting", () => {
+    const setConfirmDel = vi.fn(), remCoin = vi.fn();
+    provide({ sel: COIN, portfolio: [COIN], confirmDel: true, setConfirmDel, remCoin });
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(setConfirmDel).toHaveBeenCalledWith(false);
+    expect(remCoin).not.toHaveBeenCalled();
+  });
+
+  it("'Delete anyway' hard-deletes via remCoin", () => {
+    const remCoin = vi.fn();
+    provide({ sel: COIN, portfolio: [COIN], confirmDel: true, remCoin });
+    fireEvent.click(screen.getByText("Delete anyway"));
+    expect(remCoin).toHaveBeenCalledWith("bitcoin");
+  });
+
+  it("a coin with NO transactions keeps the quick two-tap delete (no modal)", () => {
+    const remCoin = vi.fn();
+    const empty = { ...COIN, entries: [] };
+    provide({ sel: empty, portfolio: [empty], confirmDel: true, remCoin });
+    // no warning modal for a transaction-less coin
+    expect(screen.queryByText("Delete anyway")).toBeNull();
+    expect(document.querySelector(".dg-warn-text")).toBeNull();
+    // the quick inline "Remove" pill deletes directly
+    fireEvent.click(screen.getByText("Remove"));
+    expect(remCoin).toHaveBeenCalledWith("bitcoin");
+  });
 });

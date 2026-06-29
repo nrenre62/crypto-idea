@@ -1,6 +1,7 @@
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct, fmtMc, fmtDT } from "../utils/format.js";
 import { coinPnl } from "../utils/pnl.js";
+import { c } from "../utils/theme.js";
 import { Ic, CI } from "./ui.jsx";
 
 // Coin detail: live price, holdings + P/L summary, and the transaction list (each
@@ -21,7 +22,9 @@ export function Detail() {
       <div className="detail-head">
         <button className="icon-btn" onClick={()=>{setScreen("portfolio");setSel(null);setConfirmDel(false)}}>{Ic.back}</button>
         <span className="dh-title">{coin.name}</span>
-        {!confirmDel
+        {/* R4-3: a coin WITH transactions opens a warning modal (below); a coin with
+            none keeps the quick two-tap trash → "Remove" pill. */}
+        {(!confirmDel||coin.entries.length>0)
           ?<button className="icon-btn" onClick={()=>setConfirmDel(true)}>{Ic.trash}</button>
           :<button className="pill-danger" style={{animation:"fadeIn 0.15s"}} onClick={()=>{remCoin(coin.id);setConfirmDel(false)}}>Remove</button>}
       </div>
@@ -78,6 +81,27 @@ export function Detail() {
             <button className="tx-del" onClick={(ev)=>{ev.stopPropagation();remEntry(coin.id,e.id)}}>{Ic.trash}</button>
           </div>
         )})}</div>}
+
+      {/* R4-3: deleting a coin that has transactions is destructive (it cascades the
+          coin + every buy/sell + the saved thesis, hard delete). Warn first. Reuses
+          the dark-safe .dg-* classes (R3-7) so no new modal CSS is needed. */}
+      {confirmDel&&coin.entries.length>0&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}}>
+          <div className="dg-sheet" style={{background:"#fff",borderTopLeftRadius:24,borderTopRightRadius:24,padding:"24px 22px 32px",width:"100%",maxWidth:430}}>
+            <div style={{width:36,height:4,background:"#E8E8ED",borderRadius:2,margin:"0 auto 18px"}}/>
+            <div style={{fontSize:20,fontWeight:700,marginBottom:12,color:c.txt}}>Delete {coin.name}?</div>
+            <div className="dg-warn" style={{padding:"14px",borderRadius:12,background:"#FFF8E1",border:"1px solid #FFE082",marginBottom:20}}>
+              <div className="dg-warn-text" style={{fontSize:13,color:"#92400E",lineHeight:1.7}}>
+                This coin has {coin.entries.length} buy/sell transaction{coin.entries.length>1?"s":""} and your saved thesis. If you delete it from your portfolio you'll lose that data — this can't be undone.
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button className="dg-keep" onClick={()=>setConfirmDel(false)} style={{flex:1,padding:"14px",borderRadius:14,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancel</button>
+              <button onClick={()=>{remCoin(coin.id);setConfirmDel(false)}} style={{flex:1,padding:"14px",borderRadius:14,border:"none",background:c.red,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>Delete anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
