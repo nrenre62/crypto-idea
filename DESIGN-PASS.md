@@ -112,7 +112,20 @@ badge + amount, date·time; right: price + Cost/Recv stacked, right-aligned). Ke
 7. **DP-8 Login** — password eye toggle + "Log in" wording.
 8. **DP-9 Coin info** — Market data (Rank/Market cap/24h vol/Circulating) + Your position (Held/Avg cost/Unrealised P&L). — ✅ BUILT 2026-06-27. Label shipped as "Unrealised P/L" (matches Detail's "Total P/L", excludes realised sells); also enriched `/api/prices` with `usd_24h_vol`+`circulating` (DP-9b) so vol/circulating are real, em-dash fallback for the long tail.
 9. **DP-10 Transactions** — tx list in a card + two-column rows.
-10. **DP-7 Polish** — full dark-mode + mobile/desktop verify, docs, final commit.
+10. **DP-7 Polish** — full dark-mode + mobile/desktop verify, docs, final commit. — ✅ BUILT 2026-06-29.
+    Systematic dark-mode contrast sweep across all 5 tabs + every drill-in (CoinInfo/Detail/AddEntry/Account)
+    via computed-style probes (catch dark-on-dark / invisible text). Result: **clean** except two Research
+    daily-brief icon stragglers the earlier rounds missed — `.ic-up` used the non-flipping `--accent` (dull
+    green ~2.9:1 in dark) and `.ic-watch` hardcoded a light-pink `#fbede9` bg (stayed bright in dark). Fixed
+    **dark-block-only** in `research-tab.css` (`.ic-up`→`--accent-ink`; `.ic-watch`→`--sr-s`/`--sr`); light
+    untouched. Verified the fixes + re-swept; 304 unit green; build clean.
+
+**✅ DESIGN PASS 2 — COMPLETE (2026-06-29).** All phases shipped: DP-1…DP-12, Round 2 (R2-1…R2-9),
+Round 3 dark-mode (R3-1…R3-8), §J Journal edit/delete/validation, Round 4 (R4-1…R4-4 + R4-2-fix + R4-5),
+DP-6 (Search trending + tab redesign), and this DP-7 polish. The whole app is aligned to the founder mockups
+and verified light + dark, mobile + desktop. The separate backend **B-PORT** bug is also fixed (ERRORS.md
+§A1/§A2). Remaining open items are tracked elsewhere (ERRORS.md B-series hardening; Wave B live-AI in
+NEXT-STEPS §0/§BL) — not part of Design Pass 2.
 
 **DoD per phase:** TDD-light (adjust/extend the screen's tests first) · `npm run test:unit` green ·
 `npm run build` clean · browser-verify mobile (~390) + desktop (~1040), light + dark · commit · docs.

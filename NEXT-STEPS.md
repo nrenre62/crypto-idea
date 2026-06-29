@@ -782,7 +782,14 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   (added research/journal/learn/search to `WIDE_SCREENS`) so they're the same size as Portfolio on
   desktop (also aligns the persistent avatar's right edge across tabs). Verified all tabs = 1040 @1280.
   NB: Research Overview's single-column cards stretch wide at 1040 — cap inner width later if desired.
-- [ ] **DP-7 Polish** — full dark-mode + mobile/desktop browser verify, docs, final commit.
+- [x] **DP-7 Polish — ✅ BUILT 2026-06-29.** Systematic dark-mode contrast sweep (computed-style probes) across
+  all 5 tabs + every drill-in → clean except two Research daily-brief icons (`.ic-up` non-flipping `--accent`;
+  `.ic-watch` hardcoded light-pink bg), fixed dark-block-only in `research-tab.css`. Re-swept clean; 304 unit
+  green; build clean; light + dark, mobile + desktop verified.
+
+**✅ §DP DESIGN PASS 2 — COMPLETE (2026-06-29).** Every phase shipped (DP-1…DP-12 · Round 2 · Round 3 ·
+§J · Round 4 + follow-up · DP-6 · DP-7). Whole app aligned to the founder mockups, verified light + dark,
+mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.

@@ -68,19 +68,18 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   Login parity (design-only); **Journal** new design + "Needs a thesis"/add-thesis-later; **Research** desktop
   richer Coins card; full dark-mode sweep. "held" dropped on cards; live line removed. Mockups:
   [`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html).
-- **Design Pass 2 (IN PROGRESS, 2026-06-27):** founder-mockup alignment, screen by screen — canonical spec
-  [`DESIGN-PASS.md`](DESIGN-PASS.md), live status [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP. Built so far:
-  DP-2/3 (Portfolio switcher pills + persistent account avatar on all tabs), DP-4 (Learn hero card +
-  per-module SVG icons `src/components/learn-icons.jsx` + dark fixes), DP-5 (Account → drill-in settings
-  list + detail views; new `.switch`/`.settings-row*` + 8 `Ic` row icons), DP-8 (Login eye toggle),
-  DP-9 (Coin info MARKET DATA/YOUR POSITION + `/api/prices` vol/circulating), DP-10/11/12. **Round 2
-  (R2-1..R2-9), Round 3 dark-mode visibility (R3-1..R3-8), and §J Journal thesis edit/delete/required-two-
-  questions are ALL BUILT 2026-06-28** (272 unit green, build clean; Round 3 is dark-block-only so light mode
-  is byte-for-byte unchanged; R2-3 Pulse + R2-4 Risk were already implemented). **Only DP-6 (Search trending →
-  new cached `/api/trending`) remains.** Notable new bits: `thesisError`/`clearCoinJournal`/`editThesis`/
-  `deleteThesis` (Journal); `coinColor` now also colours the Research allocation bar; a `.switch`-style
-  segmented Add-tx control + AUTO badge. Known separate backend bug: **B-PORT** (mislabeled plan-limit) in
-  [`ERRORS.md`](ERRORS.md). **Design-only + dark-safe; reuse `.ci-app` tokens; verify mobile + desktop, light + dark.**
+- **Design Pass 2 (✅ COMPLETE, 2026-06-29):** founder-mockup alignment, screen by screen — canonical spec
+  [`DESIGN-PASS.md`](DESIGN-PASS.md), status [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP. Shipped: DP-1…DP-12, Round 2
+  (R2-1…R2-9), Round 3 dark-mode visibility (R3-1…R3-8, dark-block-only so light is byte-for-byte unchanged),
+  §J Journal thesis edit/delete/required-two-questions, **Round 4** (R4-1 Research stat-row · R4-2 Portfolio
+  split click-zones — **image→CoinInfo, card background→Detail** [R4-2-fix] · R4-3 delete-coin-with-tx warning ·
+  R4-4 LIVE+plan tags on all 5 tabs · R4-5 always-on clickable AUTO price), **DP-6** (Search tab redesign +
+  cached **`/api/trending`** + `fetchTrending`/`useTrending`, TRENDING empty-state w/ `TOP_COINS` fallback),
+  and **DP-7** polish (dark-mode contrast sweep; fixed the Research brief `.ic-up`/`.ic-watch` stragglers).
+  Notable bits: shared `<HeaderTags/>`; ctx `startAddTx`; `apiErrorMessage` (`src/utils/errors.js`);
+  `thesisError`/`clearCoinJournal`/`editThesis`/`deleteThesis`; `coinColor` also colours the Research allocation
+  bar. Backend **B-PORT** (mislabeled plan-limit) is **FIXED** — [`ERRORS.md`](ERRORS.md) §A1/§A2. **All
+  design-only + dark-safe; verified mobile + desktop, light + dark.**
 - **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 - **Error catalog:** [`ERRORS.md`](ERRORS.md) records diagnosed bugs/warnings + their fixes + by-design caveats (what the error is and how to fix it). Add an entry whenever you diagnose a non-trivial error; dark-mode CSS readability issues live in `DESIGN-PASS.md` "Round 3" instead. Diagnoses are verified against the running emulator. **Notable:** the "Couldn't create portfolio. Check your connection." toast (ERRORS.md §A1) is a **mislabeled plan-limit** (`permission-denied` = at the portfolio cap free 1/pro 3/premium 15), surfacing when the client tier > the DB tier (a local/demo upgrade the server never persists, since users can't write their own `tier`).
 

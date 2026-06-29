@@ -261,3 +261,8 @@ html[data-theme="dark"] .research-root .ai-note{color:var(--amber);background:rg
 /* R3-8: the Ask hero is a dark gradient that blends into the dark page, and its h3
    inherits color:var(--paper) (which flips dark → invisible). Add an edge + light text. */
 html[data-theme="dark"] .research-root .ask{color:var(--ink);border:1px solid var(--line-strong)}
+/* DP-7: daily-brief icons — .ic-up used the non-flipping --accent (dull green on dark)
+   and .ic-watch hardcoded a light-pink bg (#fbede9, stays bright in dark). Dark-only:
+   brighten the up arrow to --accent-ink and tint the watch chip to the dark-safe red. */
+html[data-theme="dark"] .research-root .ic-up{color:var(--accent-ink)}
+html[data-theme="dark"] .research-root .ic-watch{background:var(--sr-s);color:var(--sr)}
