@@ -284,6 +284,71 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
 
 ---
 
+## C. Caching policy — 2026-06-29 cache deep-dive + decisions
+
+Canonical: [`CACHE-POLICY.md`](CACHE-POLICY.md) (6-agent cache audit, the 4-tier model mapped to code,
+12 locked decisions C1–C12). **The market-data layer is already built and cost-effective — it *is* the
+4-tier model in code.** The open work is the **AI tier** (planned, unbuilt) plus small UX/correctness
+cleanups. North star (C6): **caching is an internal cost lever, invisible to users — everything reads
+"live"; store the freshness metadata so it *can* be surfaced later.** This section is the build order;
+it **refines** (does not duplicate) §0 Wave B + §BL — the convictionCache/TTL/allowlist items below
+extend B5/B6/BL-2, they don't replace them.
+
+### C-A · Now — local-buildable + emulator-verifiable (no keys)
+- [ ] **C-A1 · kill the stale mock date** — `mock-conviction.js` is stamped a fixed `2026-06-22` (reads
+  stale today). Drive the mock "as-of" off a relative/today value (or drop the visible date) so the
+  demo seam never shows a misleading date pre-live. (C6 hygiene.) *Tiny.*
+- [ ] **C-A2 · history-cache eviction** — `src/hooks/useCoinHistory.js` `_cache` Map has no eviction
+  (unbounded session growth). Add a small LRU cap (~50 coins). Unit-test the eviction. *Tiny.*
+- [ ] **C-A3 · multi-device listeners (C12)** — replace fetch-once-on-auth with `onSnapshot` on
+  owner-only data (portfolios / coins / journal / Learn) so a second device's edits appear live. Bounded
+  to owner docs (no fan-out). DoD: emulator integration test (write on ctx A → ctx B sees it); confirm
+  no extra reads on the hot path beyond the active portfolio.
+- [ ] **C-A4 · hide the user-facing AI meter (C7)** — remove the U9 AI-allowance meter from the user
+  Account UI (usage/cost becomes admin-only, see C-B7). Users see "AI: live". **Supersedes BL-6/D13**
+  ("coming soon until metered" → never user-facing). Update U9's note + USER-SETTINGS. *Small.*
+
+### C-B · Wave B — needs Blaze + keys (refines §0 Wave B / §BL)
+- [ ] **C-B1 · validator wired fail-closed (P0)** — restated keystone: `validateOutput` (A9) runs INSIDE
+  the B2 proxy, fail-closed, **before** the B4 body-swap. Error contract: throw → offline fallback,
+  never the held-back text. (Same as §0 "the one critical re-sequence" — listed here as a P0 gate.)
+- [ ] **C-B2 · per-uid AI budget = daily cold-run COUNT + hidden cost breaker (C3)** — build BL-1's
+  limiter as a daily count (Starter 0 / Pro 50 / Premium 300) with a hidden server-side token-cost
+  circuit-breaker behind it. **Reconciles the 3 conflicting specs** (count vs. token-decrement vs.
+  `aiMonthlyCents`) → the count is the ceiling, the breaker is the safety. Server-enforced, never
+  user-visible (C6/C7).
+- [ ] **C-B3 · App Check + `addCoinGuarded` alongside the proxy (C11)** — every *novel* coin = one paid
+  cold run, so the per-uid add-limiter + `context.app` gate ship in the **same** Wave B push (B2/B3),
+  before exposure. (Already mandated #20/D4/D5 — C11 confirms the sequencing.)
+- [ ] **C-B4 · convictionCache TTL: admin-editable + hard-capped (C4/C5) + lazy invalidation (C9)** —
+  extends **B5**. Read-time TTL Premium 24h / Pro 48h / Starter read-only; the TTLs are `config/app`
+  knobs **clamped to safe min/max** (price ≥5min, conviction ≥12h — mirror the #20 `min(config,hardMax)`
+  clamp). Editing the news allowlist marks conviction **stale → regenerate on next view** (no eager
+  burst). Stamp hidden `cachedAt`/`asOf` on every cache doc (C6).
+- [ ] **C-B5 · news allowlist = admin CRUD + seed + frontend wiring (C8)** — extends **B5 + BL-2 (D10)**.
+  Admin panel add/delete domains, seeded with founder-approved defaults, wired to the **Founders &
+  Community** axes (and Ask sources, C10). Replaces the "deferred / no owner" status — without it those
+  two axes ship permanently ⬛. `safeProviderOrigin()` reads the live allowlist.
+- [ ] **C-B6 · Ask reuses shared caches + sources allowlist (C10)** — extends **B6**. Ask reads cached
+  conviction/price/news data and cites only allowlisted domains; no fresh per-question fetch.
+- [ ] **C-B7 · admin AI usage/cost dashboard (C7)** — the hidden meter's home: per-uid + aggregate AI
+  usage and $-cost in the admin app (with the C-B2 counter). Reserve under BL-2's AI Settings section.
+
+### Refinements applied to existing items (so they don't drift)
+- **§0 Wave B price bullets:** unchanged — C1 confirms 5-min shared prices stay, presented as "live."
+- **B5 (conviction):** now carries C4/C5/C9 (admin-capped TTL knobs + lazy allowlist invalidation) and
+  the C8 admin-CRUD allowlist; B5's "news allowlist deferred" note is now **owned** by C-B5.
+- **B6 (Pulse/Ask):** Ask gains the C10 sources-allowlist contract.
+- **U9 (AI meter):** flipped from user-facing to admin-only by C-A4/C7.
+
+### DoD (every C-increment)
+KISS + secure; `test:unit` / `test:rules` / `test:integration` green; **no user-facing freshness date or
+budget number** (C6); TTL knobs proven clamped by a rules/unit test (a config below the floor is rejected
+or clamped); verify mobile + desktop; committed; [`CACHE-POLICY.md`](CACHE-POLICY.md) updated if a
+decision changed.
+
+---
+
 ## U. User accounts & settings — 2026-06-24 build roadmap  (parallel track)
 
 Canonical specs: [`USER-CREATION.md`](USER-CREATION.md) + [`USER-SETTINGS.md`](USER-SETTINGS.md)
@@ -680,8 +745,19 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [x] **R4-5** (2026-06-29) — AddEntry **AUTO** is now an always-visible, clickable button: shown whenever a
     market price exists, taps to apply it, `.on` when the price matches. Fixes AUTO vanishing after a manual
     edit / after switching coins. Dark-safe. 294 unit green; build clean; browser-verified.
-- [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
-  + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
+- [ ] **DP-6 Search trending + tab redesign** (founder mockup 2026-06-29) — align the Search tab to the
+  approved mockup: header title **"Search"** (keep BETA + R4-4 HeaderTags so the add affordance stays clear) +
+  "Search any coin…" box; when the box is **empty**, show a **TRENDING** section — a list of trending coins,
+  each row = token circle (`CI`/`coinColor`) + name + "SYMBOL · #rank" + a green **Add** button (reuses
+  `.trend-item`/`.trend-info`/`.add-pill`; Add → existing `setJournalFor(coin)` Buy-Journal flow). The tab must
+  read clearly as "this is where you add coins". Data: **cached `/api/trending`** (CoinGecko `/search/trending`
+  → new `cache/trending` Firestore doc, lazy refresh + `Cache-Control` max-age+s-maxage; mirror
+  `refreshUniverse`/`getUniverse`/`/api/search` in `functions/index.js`; extract `coins[].item`; add to the 404
+  list) + client `fetchTrending()` (mirror `searchCoins`) + `useTrending()` hook (load-once module cache →
+  `{trending,loading,error}`). **Offline-degrade:** when trending is empty/loading, fall back to a curated
+  `TOP_COINS` slice so the section is never blank (same offline philosophy as prices). TDD: fetchTrending +
+  useTrending + Search (empty→TRENDING renders w/ rank + Add; Add opens Buy-Journal). Verify mobile+desktop,
+  light+dark.
 - [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);
   "Login" → "Log in" (tab + button); email placeholder `you@email.com`. `#FF3B30` auth-error preserved.
   Browser-verified (toggle password↔text).

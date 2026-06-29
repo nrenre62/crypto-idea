@@ -38,6 +38,12 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - **Product direction:** [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) is the canonical record of
   product/AI/pricing decisions (2026-06-22 founder interview) — it **wins over any stale planning doc**;
   the reconciled planning docs live in [`docs/planning/`](docs/planning/). Current build order: `NEXT-STEPS.md` §0.
+- **Caching policy:** [`CACHE-POLICY.md`](CACHE-POLICY.md) is the canonical record of cache tiers/TTLs/
+  freshness-UX/cost decisions (2026-06-29 founder interview, C1–C12). North star: **caching is an internal
+  cost lever, invisible to users — everything reads "live"; store freshness metadata so it *can* be shown
+  later.** The market-data layer is already built + flat-cost; the open work is the AI tier. Build order:
+  `NEXT-STEPS.md` §C (refines §0 Wave B + §BL, doesn't duplicate). Note: C7 flips the U9 AI meter to
+  admin-only (users never see a budget number).
 - **KISS by design:** build the simplest thing that works — plain readable code, fewer moving
   parts, no new dependency when a few lines do, no premature optimization. Simple = fewer bugs,
   faster loads, easier fixes, smaller attack surface. Pairs with security-first below.
