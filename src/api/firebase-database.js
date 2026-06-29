@@ -53,7 +53,7 @@ export async function getUserProfile(uid, _retriesLeft = 2) {
       await new Promise(r => setTimeout(r, 400));
       return getUserProfile(uid, _retriesLeft - 1);
     }
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -70,7 +70,7 @@ export async function getPortfolios(uid) {
     const portfolios = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     return { success: true, portfolios };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -90,7 +90,7 @@ export async function createPortfolio(uid, name, order = 0) {
     await batch.commit();
     return { success: true, id: ref.id };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -117,7 +117,7 @@ export async function deletePortfolio(uid, portfolioId) {
     await batch.commit();
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -149,7 +149,7 @@ export async function getCoins(uid, portfolioId) {
 
     return { success: true, coins };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -173,7 +173,7 @@ export async function addCoin(uid, portfolioId, coinData, journal = null) {
     await batch.commit();
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -186,7 +186,7 @@ export async function updateCoinJournal(uid, portfolioId, coinId, journal) {
     await updateDoc(ref, { journal });
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -199,7 +199,7 @@ export async function clearCoinJournal(uid, portfolioId, coinId) {
     await updateDoc(ref, { journal: deleteField() });
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -219,7 +219,7 @@ export async function getLearnProgress(uid) {
     }
     return { success: true, ...snap.data() };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -239,7 +239,7 @@ export async function saveLearnProgress(uid, progress) {
     await setDoc(doc(db, "users", uid, "learn", "progress"), record);
     return { success: true, ...record };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -260,7 +260,7 @@ export async function removeCoin(uid, portfolioId, coinId) {
     await batch.commit();
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -287,7 +287,7 @@ export async function addTransaction(uid, portfolioId, coinId, txData) {
     await batch.commit();
     return { success: true, id: ref.id };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -305,7 +305,7 @@ export async function updateTransaction(uid, portfolioId, coinId, txId, txData) 
     });
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 
@@ -320,7 +320,7 @@ export async function deleteTransaction(uid, portfolioId, coinId, txId) {
     await batch.commit();
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, code: error.code };
   }
 }
 

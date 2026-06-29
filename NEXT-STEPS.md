@@ -648,14 +648,15 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [ ] **R3-6** Account fields + buttons white/dull in dark — `.priv-btn.solid` (`app.css:466`, `var(--ink)` bg + `#fff` = invisible), `.priv-btn.danger`/`.logout-btn` hardcoded `#fdecea`. Dark-block overrides (solid→accent; danger/logout→`--sr-s`/`--warn`).
   - [ ] **R3-7** Upgrade/Downgrade modal white + invisible title in dark — inline-styled in `CryptoIdea.jsx:597-634`, outside `.ci-app`, `background:"#fff"` + title has no color. Add classNames (no logic) + dark-block CSS (`!important`): sheet→`--paper-2`, title→`--ink`, boxes→tinted, "Keep My Plan"→dark.
   - [ ] **R3-8** Research "Ask" panel black-on-black — `.ask` (`research-tab.css:180`) dark hero blends into dark page + `h3` inherits `var(--paper)` (flips dark). Dark-block in `.research-root`: add border + `color:var(--ink)`. Cross-ref R2-8.
-- [x] **B-PORT — diagnosed (backend, not design). "Couldn't create portfolio. Check your connection."**
-  **CONFIRMED via live emulator repro (2026-06-28):** NOT a connection/rules bug — the create is correctly
-  denied because the user is **at their plan's portfolio cap** (free 1/pro 3/premium 15), and the app
-  **mislabels** the `permission-denied` as a connection error. Surfaces when the **client tier > DB tier** (a
-  local/demo upgrade the server never persists; users can't write their own `tier`). Earlier "getAfter can't
-  see increment" guess **disproven** (pro@test.com succeeded with the exact batch). **Full diagnosis + fix in
-  [ERRORS.md](ERRORS.md) §A1 + §A2** (surface `error.code` → plan-limit message vs connection; sync client
-  tier to DB tier). Fix ready, not yet applied — **apply on request.**
+- [x] **B-PORT — ✅ FIXED 2026-06-29 (backend, not design). "Couldn't create portfolio. Check your connection."**
+  Was: the create is correctly denied because the user is **at their plan's portfolio cap** (free 1/pro 3/
+  premium 15), and the app **mislabelled** the `permission-denied` as a connection error (surfaces when the
+  **client tier > DB tier** — a local/demo upgrade the server never persists; users can't write their own
+  `tier`). **Fix (part 1 — the message):** new pure mapper `src/utils/errors.js` `apiErrorMessage`; data layer
+  returns `code: error.code`; the ~10 CRUD toasts now show an honest plan-limit/auth/connection message
+  (§A1+§A2 fixed together). Verified end-to-end on the emulator (free@ at cap → plan-limit message); 277 unit
+  green, build clean. **Part 2** (client tier ↔ DB tier sync) stays operational (admin/seed locally; PayPal
+  webhook at go-live). Full write-up in [ERRORS.md](ERRORS.md) §A1 + §A2.
 - [ ] **Round 4 — founder follow-up — 📋 PLAN ONLY (2026-06-28, awaiting "go")** — full spec in
   [DESIGN-PASS.md](DESIGN-PASS.md) "Round 4". Decisions locked via AskUserQuestion (header tags = all 5 tabs ·
   delete warning = only when the coin has transactions · simple Cancel/Delete-anyway popup · warn about

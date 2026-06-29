@@ -14,7 +14,7 @@
 
 ## A. Confirmed bugs
 
-### A1 · B-PORT — "Couldn't create portfolio. Check your connection." 🟡 (high)
+### A1 · B-PORT — "Couldn't create portfolio. Check your connection." ✅ (high)
 
 - **Symptom:** Adding a portfolio shows the toast *"Couldn't create portfolio. Check your connection."* —
   appears like a network/backend outage, "for every account."
@@ -55,9 +55,19 @@
     reflect the enforced limit (or read "limit reached — upgrade") so the user isn't invited to a denied action.
 - **Verify:** A `free`-tier user at 1 portfolio adding a 2nd → sees a **plan-limit** message (not "connection").
   A `pro` user under cap → succeeds (confirmed in repro). After part 2, a DB-`premium` user gets 15.
-- **Severity:** high (blocks a core action + misleading message). **Status:** 🟡 fix ready, not yet applied.
+- **Severity:** high (blocks a core action + misleading message).
+- **Status:** ✅ **FIXED 2026-06-29** (part 1 — the message). New pure mapper
+  [`src/utils/errors.js`](src/utils/errors.js) `apiErrorMessage(res, fallback, limitMsg)`:
+  `permission-denied` → the limit/upgrade message, `unauthenticated` → "Please sign in again.",
+  else the connection fallback. Every `createPortfolio`/data-layer catch now returns `code: error.code`
+  ([`firebase-database.js`](src/api/firebase-database.js)); `addPortfolio` ([`CryptoIdea.jsx:397`](src/CryptoIdea.jsx))
+  shows *"You've reached your plan's portfolio limit — upgrade for more."* Verified end-to-end on the live
+  emulator: `free@test.com` at cap → `createPortfolio` returns `code:"permission-denied"` → mapped to the
+  plan-limit message (unit: `tests/unit/errors.test.js`; 277 unit green; build clean). **Part 2** (keep the
+  client tier in sync with the DB tier) stays an **operational** note — in local/demo set the tier via the
+  Admin panel / seed; at go-live the PayPal webhook persists `tier` server-side. No code change for part 2.
 
-### A2 · Generic error toasts hide the real cause (≈10 places) 🟡 (high)
+### A2 · Generic error toasts hide the real cause (≈10 places) ✅ (high)
 
 - **Symptom:** Many failures show "… Check your connection." regardless of the *actual* error
   (permission-denied = limit/upgrade, unauthenticated, schema-invalid, offline). A1 is the visible example.
@@ -73,7 +83,13 @@
   `code`+`message` for triage.
 - **Verify:** Add coins past the free cap (10) → the toast says *limit*, not *connection*. Disconnect the
   emulator → it says *connection*.
-- **Severity:** high (root reason A1 was confusing). **Status:** 🟡 fix ready.
+- **Severity:** high (root reason A1 was confusing).
+- **Status:** ✅ **FIXED 2026-06-29** (with A1). All ~10 CRUD handlers in
+  [`CryptoIdea.jsx`](src/CryptoIdea.jsx) now route their failure toast through `apiErrorMessage(res, …)`:
+  the create/add paths (portfolio / coin / transaction) carry an upgrade-hook limit message; the rest fall
+  back to a generic *"That action isn't allowed — you may have reached a plan limit."* on `permission-denied`,
+  *"Please sign in again."* on `unauthenticated`, else the connection string. Every data-layer catch returns
+  `code: error.code`. (Centralised in one pure, unit-tested helper rather than a per-handler `switch`.)
 
 ---
 
