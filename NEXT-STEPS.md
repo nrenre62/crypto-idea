@@ -842,6 +842,19 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   add an always-on **Read** pill next to Edit; **R8-3** new read-only **Breakdown** overlay (reuse `.ci-app.overlay`,
   X-close, white cards, all fields `pre-wrap`+`overflow-wrap`). No data/handler change; zero new dark rules. Build
   R8-1 → R8-2 → R8-3 on "go".
+- [ ] **Round 9 — login polish · Research card heights · in-tab portfolio popup — 📋 PLAN ONLY (2026-06-29)**
+  (founder follow-ups; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 9"). Grounded via a 3-agent read-only
+  mapping. Decisions locked (AskUserQuestion): login = all three (white toggle pill + align Forgot-password +
+  dark-safe error); portfolio popup = **centered card dialog** with X. **R9-1** login: (a) `.auth-toggle button.on`
+  near-black → **white pill** like `.seg` (`app.css:407`; matches screenshot, both modes, dark-safe); (b) restyle
+  `ForgotPass.jsx` (one-off inline) onto the auth design; (c) dark-block `html[data-theme="dark"] .auth-err
+  {background:var(--sr-s)}` (keep test-locked `#FF3B30`). **R9-2** Research Coins equal-height: `.coins-grid`
+  `align-items:start`→`stretch` + `.coin-card{height:100%;display:flex;flex-direction:column}` (root cause: cards
+  size to content; `.research-root`, dark-safe). **R9-3** Portfolio "+" (`PortfolioBar.jsx:15`, today
+  `setScreen("account")`) → opens a centered white dialog (`.cm-scrim`/`.cm-card`, X via new shared `Ic.close`)
+  with a name field → existing `addPortfolio` (plan-limit toast already wired); only shows when below the cap
+  (free1/pro3/premium15); Account Portfolios mgmt unchanged. One new dark rule (R9-1c); light otherwise unchanged.
+  Build R9-2 → R9-1a → R9-1c → R9-1b → R9-3 on "go".
 - [ ] **Round 5 — card design consistency — ⤴️ SUPERSEDED by Round 7 (2026-06-29).** Earlier, plainer version
   (unify on `.asset-card`); Round 7 keeps its two moves but upgrades the canonical chrome to the Pulse card and
   adds the button + icon fixes. See [DESIGN-PASS.md](DESIGN-PASS.md) "Round 5" (marked superseded). Build Round 7.

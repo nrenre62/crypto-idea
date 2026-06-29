@@ -662,3 +662,78 @@ clamp + `overflow:hidden` but **no `overflow-wrap`** → long strings clip oddly
 **Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (full breakdown · always-show Read · X replaces
 arrow · 2-line equal-height). Length cap already enforced (no security work). Zero new dark rules; light unchanged.
 Build on founder "go".
+
+## Round 9 — login polish · Research card heights · in-tab portfolio popup (2026-06-29, PLAN ONLY)
+
+> Three founder follow-ups (login screenshot + Research Coins screenshot + Portfolio header). Grounded first-hand
+> via a 3-agent read-only mapping (login as-built, Research coins grid sizing, portfolio switcher + add flow).
+> **Plan only — build on founder "go".**
+
+**Decisions locked via AskUserQuestion (2026-06-29):**
+1. **Login** — do all three: active toggle → **white pill**; **align the Forgot-password screen** to the app
+   design; **dark-safe error box**.
+2. **Portfolio popup** = a **centered card dialog** (not the bottom-sheet) with an X close.
+
+- **R9-1 — login alignment to the screenshot / app design.** The login already uses the shared `.field-input` /
+  `.btn-primary` / Fraunces logo; three gaps remain (mapping verdict):
+  - **(a) Active toggle → white pill.** `.auth-toggle button.on` (`app.css:407`) is currently
+    `background:var(--ink); color:var(--paper)` → a **near-black** active pill (light mode), which does NOT match
+    the screenshot's white pill. Align `.auth-toggle` to the app's `.seg` pattern (`app.css:376-379`): track
+    `background:var(--paper-3)` + small inset padding; active `.on` button → `background:var(--paper-2);
+    color:var(--ink); box-shadow:var(--sh-sm)` (white pill, dark text, subtle lift); inactive stays
+    `--paper-3`/`--ink-faint`. Token-based → dark-safe (active becomes a dark-panel pill in dark, the app standard;
+    no new dark rule). *(This intentionally changes BOTH modes to the unified seg look — not a dark-only fix.)*
+  - **(b) Forgot-password screen → app design.** `ForgotPass.jsx` is currently **one-off inline styles** (doesn't
+    match the auth design). Restyle it to reuse `.auth-wrap` / `.auth-logo` / `.auth-tagline` / `.field-input` /
+    `.btn-primary` / `.auth-link` like `Login.jsx` (design-only; keep its reset-email handler/logic untouched).
+  - **(c) Dark-safe error box.** `.auth-err` (`app.css:410`) hardcodes `background:#fdecea` (light red) with no
+    dark override → red-on-light-red in dark. Add a **dark-block-only** rule: `html[data-theme="dark"] .ci-app
+    .auth-err { background:var(--sr-s) }` (red tint that flips). Keep the inline `#FF3B30` text colour
+    (`Login.jsx:143`, **test-locked**) — readable on the dark tint. *(Optional same-batch: add `.consent-row a`
+    to the dark accent flip → `--accent-ink`, for consistency with other links.)*
+
+- **R9-2 — Research "Coins" cards equal height.** Root cause (mapping): `.research-root .coins-grid`
+  (`research-tab.css:144`) uses `align-items:start` and `.coin-card` (`:146`) has no `height:100%` → cards size to
+  their own content, so a card with more reason chips + a catalyst row + a longer narrative (e.g. card 3) is taller
+  than its row-mates. Fix (scoped `.research-root`, design-only, dark-safe): `.coins-grid { align-items:stretch }`
+  + `.coin-card { height:100%; display:flex; flex-direction:column }` (optionally `.cc-detail { flex:1 }`) so every
+  card in a row matches the tallest. No-op on mobile 1-up; fixes the desktop multi-up row. No colour/logic change.
+
+- **R9-3 — in-tab "name your portfolio" popup (centered dialog + X), Pro/Premium.** Today the **"+"** pill in the
+  portfolio switcher (`PortfolioBar.jsx:15`, `.port-pill-add`) does `setScreen("account")` (jumps to Settings) and
+  only shows when `portfolios.length < maxPortfolios` (free 1 / pro 3 / premium 15 — so free never sees it, matching
+  "when I have Pro or Premium"). Change the "+" to open a **centered white card dialog** instead:
+  - **Dialog:** a NEW centered modal (the founder chose centered, not the bottom-sheet) — full-screen dimmed
+    backdrop (`rgba(0,0,0,.5)`, `display:grid; place-items:center`) + a white card `.cm-card`
+    (`background:var(--paper-2); border-radius:var(--radius); box-shadow:var(--sh-lg); padding:22px; max-width:360px;
+    position:relative`) with: title "New portfolio", a `.field-input` name field, a Save button (`.btn-primary`),
+    and an **X** close top-right. New minimal CSS `.cm-scrim`/`.cm-card` (token-based → dark-safe).
+  - **X glyph:** add `Ic.close` to `ui.jsx` (`<path d="M18 6 6 18M6 6l12 12"/>`, `stroke=currentColor`) + a
+    circular close button — **shared with Round 8** (whichever round builds first adds `Ic.close` + the close
+    button; the other reuses it).
+  - **Wiring:** new state (e.g. `showPortModal`) in `CryptoIdea.jsx`, threaded to `PortfolioBar` via ctx; Save
+    calls the existing **`addPortfolio`** (`CryptoIdea.jsx:398`) which already validates the name and surfaces the
+    plan-limit toast via `apiErrorMessage` (B-PORT) — on success it adds + switches to the new portfolio; then
+    close the dialog. **No data-layer / rules change** (the cap is already enforced server-side).
+  - **Keep Settings unchanged:** Account → Portfolios still does add/rename/delete (founder: "keep the portfolio
+    settings the same"). The dialog is an additive fast path on the Portfolio tab.
+
+- **Out of scope / unchanged:** login fields/logo/button (already match); Research card CONTENT + expand behaviour
+  (only the grid/card height boxing changes); Account Portfolios management; server rules.
+
+**TDD / verify:**
+- **R9-3** (jsdom-testable): with `isPro` + portfolios < max, the "+" renders → click opens the dialog (assert
+  title + name field); type a name + Save → `addPortfolio` runs, dialog closes; X closes the dialog. Update any
+  `PortfolioBar` test that asserted "+ → account".
+- **R9-1(a/b)** (mostly CSS/structural): browser-verify the white active pill (light + dark) and the restyled
+  Forgot-password screen; keep the test-locked `#FF3B30` inline. **R9-1(c)** dark-block → browser-verify the error
+  box in dark. **R9-2** (CSS): browser-verify equal-height cards at ~1040 (multi-up), light + dark.
+- **Gate:** `npm run test:unit` green + `npm run build` clean + browser-verify (mobile + desktop, light + dark).
+  Confirm light mode unchanged except the intended toggle/forgot-pass/dialog changes; only one new dark rule (R9-1c).
+
+**Build order (when "go"):** R9-2 (grid CSS, trivial) → R9-1a (toggle) → R9-1c (error dark) → R9-1b (forgot-pass
+restyle) → R9-3 (portfolio dialog — biggest; new state + `Ic.close` + tests). Commit per item. Slotted into
+[`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (white toggle pill · align Forgot-password · dark-safe
+error · equal-height Research cards · centered portfolio dialog with X). Build on founder "go".
