@@ -1,6 +1,5 @@
 import { useApp } from "../hooks/app-context.js";
-import { fmtP, fmtPct, fmtMc, fmtDT, fmtPriceInput } from "../utils/format.js";
-import { getHistoricalPrice } from "../utils/coins.js";
+import { fmtP, fmtPct, fmtMc, fmtDT } from "../utils/format.js";
 import { coinPnl } from "../utils/pnl.js";
 import { Ic, CI } from "./ui.jsx";
 
@@ -11,12 +10,12 @@ export function Detail() {
   const {
     sel, portfolio, prices, setScreen, setSel, confirmDel, setConfirmDel,
     remCoin, remEntry, setEditEntry, setETxType, setEPrice, setEAmt, setEDate,
+    startAddTx, setTxReturn,
   } = useApp();
   if(!sel)return null;
   const coin=portfolio.find(x=>x.id===sel.id)||sel;
   const p=prices[coin.id];const pr=p?.usd;const ch=p?.usd_24h_change;const mc=p?.usd_market_cap;
   const { holding:h, value:v, buysCost, sellsGain, pnl:totalPnl, pnlPct:totalPnlPct } = coinPnl(coin.entries, pr);
-  const openNewTx=(type)=>{setEditEntry(null);setETxType(type);const now=new Date();const nowStr=now.toISOString().slice(0,16);const hp=getHistoricalPrice(coin.id,now);const priceStr=fmtPriceInput(hp)||(pr?pr.toString():"");setEPrice(priceStr);setEAmt("");setEDate(nowStr);setScreen("addEntry")};
   return(
     <div className="ci-app screen-bg">
       <div className="detail-head">
@@ -57,14 +56,14 @@ export function Detail() {
       <div className="tx-head">
         <span className="tx-title">Transactions ({coin.entries.length})</span>
         <div className="tx-actions">
-          <button className="tx-btn buy" onClick={()=>openNewTx("buy")}>+ Buy</button>
-          <button className="tx-btn sell" onClick={()=>openNewTx("sell")}>- Sell</button>
+          <button className="tx-btn buy" onClick={()=>startAddTx(coin,"buy","detail")}>+ Buy</button>
+          <button className="tx-btn sell" onClick={()=>startAddTx(coin,"sell","detail")}>- Sell</button>
         </div>
       </div>
       {coin.entries.length===0
         ?(<div className="tx-empty">No transactions yet.</div>)
         :<div className="tx-list">{[...coin.entries].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(e=>{const isSell=e.type==="sell";return(
-          <div key={e.id} className="tx-row" onClick={()=>{setEditEntry(e);setEAmt(e.amount.toString());setEPrice(e.priceAtBuy.toString());setEDate(e.date);setETxType(e.type||"buy");setScreen("addEntry")}}>
+          <div key={e.id} className="tx-row" onClick={()=>{setTxReturn("detail");setEditEntry(e);setEAmt(e.amount.toString());setEPrice(e.priceAtBuy.toString());setEDate(e.date);setETxType(e.type||"buy");setScreen("addEntry")}}>
             <div className="tx-left">
               <div className="tx-line">
                 <span className={"tx-badge "+(isSell?"sell":"buy")}>{isSell?"SELL":"BUY"}</span>

@@ -260,6 +260,10 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .asset-card { background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); box-shadow:var(--sh-sm); padding:16px; cursor:pointer; transition:box-shadow .2s var(--ease); }
 .ci-app .asset-card:hover { box-shadow:var(--sh); }
 .ci-app .ac-top { display:flex; align-items:center; gap:11px; margin-bottom:12px; }
+/* R4-2: the coin image is its own tap target → CoinInfo (the card background opens
+   Add-transaction). A hover ring marks the small circle as separately interactive. */
+.ci-app .ac-img { display:inline-flex; border-radius:50%; cursor:pointer; transition:box-shadow .15s var(--ease); }
+.ci-app .ac-img:hover { box-shadow:0 0 0 3px var(--accent-soft); }
 .ci-app .ac-id { min-width:0; }
 .ci-app .ac-name { font-weight:700; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ci-app .ac-amt { font-size:12px; color:var(--ink-faint); margin-top:1px; }

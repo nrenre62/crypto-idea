@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { AppContext } from "../../src/hooks/app-context.js";
 import { Detail } from "../../src/components/Detail.jsx";
@@ -12,6 +12,7 @@ function provide(value) {
       setScreen: vi.fn(), setSel: vi.fn(), confirmDel: false, setConfirmDel: vi.fn(),
       remCoin: vi.fn(), remEntry: vi.fn(), setEditEntry: vi.fn(), setETxType: vi.fn(),
       setEPrice: vi.fn(), setEAmt: vi.fn(), setEDate: vi.fn(),
+      startAddTx: vi.fn(), setTxReturn: vi.fn(),
       ...value,
     }}>
       <Detail />
@@ -47,5 +48,15 @@ describe("Detail screen (extracted, via AppContext)", () => {
   it("shows the empty state when the coin has no transactions", () => {
     provide({ sel: { ...COIN, entries: [] }, portfolio: [{ ...COIN, entries: [] }] });
     expect(screen.getByText("No transactions yet.")).toBeInTheDocument();
+  });
+
+  // R4-2: Buy/Sell route through the shared startAddTx, tagged as detail-launched.
+  it("the Buy and Sell buttons open Add-transaction via startAddTx (from detail)", () => {
+    const startAddTx = vi.fn();
+    provide({ sel: COIN, portfolio: [COIN], startAddTx });
+    fireEvent.click(screen.getByText("+ Buy"));
+    expect(startAddTx).toHaveBeenCalledWith(COIN, "buy", "detail");
+    fireEvent.click(screen.getByText("- Sell"));
+    expect(startAddTx).toHaveBeenCalledWith(COIN, "sell", "detail");
   });
 });

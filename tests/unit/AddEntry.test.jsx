@@ -10,7 +10,7 @@ import { AddEntry } from "../../src/components/AddEntry.jsx";
 
 // AddEntry is reached via Detail -> +Buy/+Sell (needs a held coin), so we test it
 // in isolation against the real AppContext — same value shape CryptoIdea.jsx supplies.
-function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), setScreen = vi.fn() }) {
+function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), setScreen = vi.fn(), txReturn }) {
   const [eAmt, setEAmt] = useState(amt);
   const [ePrice, setEPrice] = useState(price);
   const [eDate, setEDate] = useState("2024-01-01T00:00");
@@ -19,7 +19,7 @@ function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), s
     <AppContext.Provider value={{
       sel: { id: "bitcoin", symbol: "BTC", name: "Bitcoin" },
       eAmt, setEAmt, ePrice, setEPrice, eDate, setEDate,
-      eTxType, setETxType, editEntry, setEditEntry: vi.fn(), addEntry, setScreen,
+      eTxType, setETxType, editEntry, setEditEntry: vi.fn(), addEntry, setScreen, txReturn,
     }}>
       <AddEntry />
     </AppContext.Provider>
@@ -66,6 +66,21 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     expect(screen.getByText(/\$20,000\.00/)).toBeInTheDocument();
     fireEvent.click(btn);
     expect(addEntry).toHaveBeenCalled();
+  });
+
+  // R4-2: the back button returns to wherever the form was opened from.
+  it("back returns to the origin screen (portfolio-launched → portfolio)", () => {
+    const setScreen = vi.fn();
+    const { container } = render(<Harness txReturn="portfolio" setScreen={setScreen} />);
+    fireEvent.click(container.querySelector(".detail-head .icon-btn"));
+    expect(setScreen).toHaveBeenCalledWith("portfolio");
+  });
+
+  it("back falls back to detail when no origin is set", () => {
+    const setScreen = vi.fn();
+    const { container } = render(<Harness setScreen={setScreen} />);
+    fireEvent.click(container.querySelector(".detail-head .icon-btn"));
+    expect(setScreen).toHaveBeenCalledWith("detail");
   });
 
   it("shows Total cost as a labelled display row (R2-5)", () => {

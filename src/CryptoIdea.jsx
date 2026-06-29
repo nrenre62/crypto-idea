@@ -44,6 +44,8 @@ import { portfolioPnl } from "./utils/pnl.js";
 import { usagePercents } from "./utils/usage.js";
 import { cleanFunnel } from "./utils/journal.js";
 import { apiErrorMessage } from "./utils/errors.js";
+import { getHistoricalPrice } from "./utils/coins.js";
+import { fmtPriceInput } from "./utils/format.js";
 import { Loading } from "./components/Loading.jsx";
 import { AppContext } from "./hooks/app-context.js";
 import { ForgotPass } from "./components/ForgotPass.jsx";
@@ -127,6 +129,9 @@ export default function CryptoIdea(){
   const[editEntry,setEditEntry]=useState(null);
   const[infoCoin,setInfoCoin]=useState(null);
   const[eTxType,setETxType]=useState("buy");
+  // R4-2: which screen the Add-transaction form was opened from ("portfolio"|"detail"),
+  // so its back button + post-save both return the user to where they started.
+  const[txReturn,setTxReturn]=useState("detail");
 
 
   useEffect(()=>{
@@ -480,6 +485,16 @@ export default function CryptoIdea(){
     const res=await dbRemoveCoin(user.uid,activePortId,id);
     if(!res.success){showErr(apiErrorMessage(res,"Couldn't remove coin. Check your connection."));return}
     setPortfolio(p=>p.filter(c=>c.id!==id));if(sel?.id===id){setSel(null);setScreen("portfolio")}};
+  // R4-2: open the Add-transaction form for any coin (Portfolio card background tap,
+  // Detail's Buy/Sell buttons). Mirrors Detail's old prefill; `from` records the origin
+  // so AddEntry returns there. One source of truth for "start a new transaction".
+  const startAddTx=(coin,type="buy",from="detail")=>{
+    if(!coin)return;
+    setSel(coin);setEditEntry(null);setETxType(type);
+    const now=new Date();const hp=getHistoricalPrice(coin.id,now);const pr=prices[coin.id]?.usd;
+    setEPrice(fmtPriceInput(hp)||(pr?pr.toString():""));setEAmt("");setEDate(now.toISOString().slice(0,16));
+    setTxReturn(from);setScreen("addEntry");
+  };
   const addEntry=async()=>{if(!eAmt||!ePrice)return;
     if(sel){
       const currentTxCount=sel.entries.filter(e=>!editEntry||e.id!==editEntry.id).length;
@@ -518,7 +533,7 @@ export default function CryptoIdea(){
       setPortfolio(p=>p.map(c=>c.id===sel.id?{...c,entries:[...c.entries,en]}:c));
       setSel(p=>({...p,entries:[...p.entries,en]}));
     }
-    setEAmt("");setEPrice("");setEditEntry(null);setScreen("detail")};
+    setEAmt("");setEPrice("");setEditEntry(null);setScreen(txReturn)};
   const remEntry=async(cid,eid)=>{
     const coin=portfolio.find(c=>c.id===cid);if(!coin)return;
     const remaining=coin.entries.filter(e=>e.id!==eid).sort((a,b)=>new Date(a.date)-new Date(b.date));
@@ -584,6 +599,7 @@ export default function CryptoIdea(){
     user,contactMsg,setContactMsg,contactSent,setContactSent,
     sq,setSq,searchResults,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,editThesis,deleteThesis,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
+    startAddTx,txReturn,setTxReturn,
     infoCoin,setInfoCoin,prices,
     confirmDel,setConfirmDel,remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,

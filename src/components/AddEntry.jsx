@@ -13,6 +13,7 @@ export function AddEntry() {
   const {
     sel, eAmt, setEAmt, ePrice, setEPrice, eDate, setEDate,
     eTxType, setETxType, editEntry, setEditEntry, addEntry, setScreen,
+    txReturn,
   } = useApp();
   const coinData = sel ? TOP_COINS.find(x => x.id === sel.id) : null;
   const launchDate = coinData?.launch || "2013-04-28";
@@ -45,7 +46,7 @@ export function AddEntry() {
   return (
     <div className="ci-app screen-bg">
       <div className="detail-head">
-        <button className="icon-btn" onClick={()=>{setScreen("detail");setEditEntry(null)}}>{Ic.back}</button>
+        <button className="icon-btn" onClick={()=>{setScreen(txReturn||"detail");setEditEntry(null)}}>{Ic.back}</button>
         <span className="dh-title">{editEntry?"Edit transaction":"Add transaction"}</span>
         <span style={{width:22}}/>
       </div>

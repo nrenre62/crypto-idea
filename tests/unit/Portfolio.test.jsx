@@ -9,7 +9,7 @@ import { PortfolioBar } from "../../src/components/PortfolioBar.jsx";
 const base = {
   api: "live", tv: 0, totalBuys: 0, tpnl: 0, tpp: 0, portfolio: [], maxCoinsPerPort: 10,
   usagePct: 0, prices: {}, isPro: false, isPremium: false, setScreen: vi.fn(),
-  startUpgrade: vi.fn(), setSel: vi.fn(), setInfoCoin: vi.fn(), remCoin: vi.fn(),
+  startUpgrade: vi.fn(), setSel: vi.fn(), setInfoCoin: vi.fn(), remCoin: vi.fn(), startAddTx: vi.fn(),
   resetSwipe: vi.fn(), onTouchS: vi.fn(), onTouchM: vi.fn(), onTouchE: vi.fn(),
   touchStart: null, swipeId: null, swipeX: 0,
   portfolios: [{ id: "default", name: "My Portfolio" }], setActivePortId: vi.fn(),
@@ -39,16 +39,31 @@ describe("Portfolio screen (extracted, via AppContext)", () => {
     expect(card.textContent).not.toContain("held");
   });
 
-  it("a whole asset card taps through to CoinInfo (swipe edit/delete retired)", () => {
+  // R4-2: split click zones — the coin IMAGE opens CoinInfo; the card BACKGROUND opens
+  // Add-transaction (default Buy), so users can record a position in one tap.
+  it("tapping the coin image opens CoinInfo (not the whole card)", () => {
     const coin = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "",
       entries: [{ id: "t1", type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01" }] };
-    const setScreen = vi.fn(), setInfoCoin = vi.fn();
+    const setScreen = vi.fn(), setInfoCoin = vi.fn(), startAddTx = vi.fn();
     const { container } = provide(Portfolio, {
-      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, setInfoCoin,
+      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, setInfoCoin, startAddTx,
     });
-    fireEvent.click(container.querySelector(".asset-card"));
+    fireEvent.click(container.querySelector(".asset-card .ac-img"));
     expect(setInfoCoin).toHaveBeenCalledWith(coin);
     expect(setScreen).toHaveBeenCalledWith("coinInfo");
+    expect(startAddTx).not.toHaveBeenCalled(); // image tap must not also open Add-transaction
+  });
+
+  it("tapping the card background opens Add-transaction (Buy, returning to portfolio)", () => {
+    const coin = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "",
+      entries: [{ id: "t1", type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01" }] };
+    const setScreen = vi.fn(), setInfoCoin = vi.fn(), startAddTx = vi.fn();
+    const { container } = provide(Portfolio, {
+      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, setInfoCoin, startAddTx,
+    });
+    fireEvent.click(container.querySelector(".asset-card"));
+    expect(startAddTx).toHaveBeenCalledWith(coin, "buy", "portfolio");
+    expect(setInfoCoin).not.toHaveBeenCalled();
   });
 
   it("renders the value summary card (eyebrow + gain line + INVESTED/24H/ASSETS) and no live line", () => {
