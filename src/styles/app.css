@@ -380,7 +380,12 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 /* R2-5: AUTO badge inside the price input + the Total cost display row */
 .ci-app .price-wrap { position:relative; }
 .ci-app .price-wrap .field-input { padding-right:64px; }
-.ci-app .auto-badge { position:absolute; top:50%; right:12px; transform:translateY(-50%); font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--accent-ink); background:var(--accent-soft); padding:3px 8px; border-radius:6px; pointer-events:none; }
+/* R4-5: AUTO is a clickable button — always visible when a market price exists.
+   Default = outline "tap to use"; .on = filled (the price already matches market).
+   Tokens are dark-safe (accent-ink/accent-soft). */
+.ci-app .auto-badge { position:absolute; top:50%; right:10px; transform:translateY(-50%); font-family:var(--body); font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--accent-ink); background:transparent; border:1px solid color-mix(in srgb, var(--accent-ink) 40%, transparent); padding:4px 9px; border-radius:6px; cursor:pointer; transition:background .15s var(--ease), border-color .15s var(--ease); }
+.ci-app .auto-badge:hover { background:var(--accent-soft); border-color:transparent; }
+.ci-app .auto-badge.on { background:var(--accent-soft); border-color:transparent; }
 .ci-app .tx-total { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:14px 4px 4px; }
 .ci-app .tx-total-label { font-size:13px; font-weight:600; color:var(--ink-soft); }
 .ci-app .tx-total-amt { font-family:var(--display); font-size:26px; font-weight:500; color:var(--ink); letter-spacing:-.01em; }

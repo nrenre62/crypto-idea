@@ -346,6 +346,28 @@ of this design build.
 
 **Build order (suggested, smallest-blast-radius first):** R4-1 (CSS) → R4-4 (header tags, repetitive but isolated) → R4-2 (Portfolio click-zones + `startAddTx`/`txReturn`) → R4-3 (delete guard modal). Commit per item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
+### Round 4 — follow-up corrections (2026-06-29, founder · ✅ BUILT)
+
+> ✅ **BUILT 2026-06-29** — R4-2-fix + R4-5 shipped, TDD'd, browser-verified (light + dark); 294 unit green;
+> build clean. R4-5 confirmed it fixes the reported bug: on a fresh AddEntry the price is prefilled with an
+> *estimate* that differs from the real market price, so the old AUTO was hidden — now it's always shown and
+> one tap applies the real market price (verified: estimate 84000 → tap AUTO → 59943.11, button goes active).
+
+- **R4-2-fix — card background opens DETAIL, not Add-transaction.** Founder clarified (screenshot of the
+  Solana **Detail** screen): tapping the card's white background should open the **Detail** view (holding /
+  P&L / transactions list + Buy/Sell), not jump straight into the Add-transaction form. The coin **image**
+  still opens CoinInfo. Change `Portfolio.jsx` card-background `onClick` → `setSel(coin); setScreen("detail")`.
+  Since the portfolio no longer launches AddEntry, the `txReturn` machinery added in R4-2 is now vestigial
+  (every AddEntry launch comes from Detail) → remove it: drop `txReturn` state + ctx, `startAddTx` loses its
+  `from` arg, AddEntry's back + addEntry's post-save both go to `"detail"`. Update the R4-2 tests.
+- **R4-5 — AUTO price is an always-visible, clickable button.** Today the `AUTO` badge
+  (`AddEntry.jsx`, `.auto-badge`) only appears when the typed price is within 15% of the date's market price,
+  and it's `pointer-events:none`. Founder wants it **always visible** (whenever a suggested market price
+  exists, any coin) and **clickable** to snap the price back to the market price for that date — so after
+  manually editing, or switching coins, AUTO is still there. Fix: render the badge whenever `histPrice` is
+  truthy as a `<button>` → `setEPrice(fmtPriceInput(histPrice))`; add an active `.on` state when the price
+  already matches (`priceIsHist`), an outline "tap to use" state otherwise. Dark-safe (accent-ink/accent-soft).
+
 **Status:** ✅ **ALL BUILT 2026-06-29.** All four decisions honored (header tags = all 5 tabs · delete
 warning = only when the coin has transactions · simple Cancel/Delete-anyway popup · warn about transactions
 + thesis, hard delete). As-built deltas vs the plan:

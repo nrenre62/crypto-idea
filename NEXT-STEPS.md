@@ -674,6 +674,12 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [x] **R4-4** LIVE + plan tags on all 5 main-tab headers (commit `b9dc369`) — shared `<HeaderTags/>` for
     Journal/Learn/Search; Portfolio kept inline; Research scoped copy + dark `--sg` `● LIVE` override.
     Per-tab wiring tests + HeaderTags logic tests. Verified all 5 tabs, light+dark.
+  - [x] **R4-2-fix** (founder correction 2026-06-29) — Portfolio card **background → Detail** (the position +
+    transactions screen), not Add-transaction; image still → CoinInfo. Removed the now-vestigial `txReturn`
+    machinery (AddEntry is only ever reached from Detail). Tests updated.
+  - [x] **R4-5** (2026-06-29) — AddEntry **AUTO** is now an always-visible, clickable button: shown whenever a
+    market price exists, taps to apply it, `.on` when the price matches. Fixes AUTO vanishing after a manual
+    edit / after switching coins. Dark-safe. 294 unit green; build clean; browser-verified.
 - [ ] **DP-6 Search trending** — cached `/api/trending` (CoinGecko `/search/trending`, shared doc + CDN)
   + `fetchTrending()` + `useTrending()`; show TRENDING when the search box is empty.
 - [x] **DP-8 Login** — ✅ DONE 2026-06-27. Password show/hide eye toggle (`.pw-eye`, `Ic.eye/eyeOff`);

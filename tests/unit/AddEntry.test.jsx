@@ -10,7 +10,7 @@ import { AddEntry } from "../../src/components/AddEntry.jsx";
 
 // AddEntry is reached via Detail -> +Buy/+Sell (needs a held coin), so we test it
 // in isolation against the real AppContext — same value shape CryptoIdea.jsx supplies.
-function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), setScreen = vi.fn(), txReturn }) {
+function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), setScreen = vi.fn() }) {
   const [eAmt, setEAmt] = useState(amt);
   const [ePrice, setEPrice] = useState(price);
   const [eDate, setEDate] = useState("2024-01-01T00:00");
@@ -19,7 +19,7 @@ function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), s
     <AppContext.Provider value={{
       sel: { id: "bitcoin", symbol: "BTC", name: "Bitcoin" },
       eAmt, setEAmt, ePrice, setEPrice, eDate, setEDate,
-      eTxType, setETxType, editEntry, setEditEntry: vi.fn(), addEntry, setScreen, txReturn,
+      eTxType, setETxType, editEntry, setEditEntry: vi.fn(), addEntry, setScreen,
     }}>
       <AddEntry />
     </AppContext.Provider>
@@ -68,15 +68,8 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     expect(addEntry).toHaveBeenCalled();
   });
 
-  // R4-2: the back button returns to wherever the form was opened from.
-  it("back returns to the origin screen (portfolio-launched → portfolio)", () => {
-    const setScreen = vi.fn();
-    const { container } = render(<Harness txReturn="portfolio" setScreen={setScreen} />);
-    fireEvent.click(container.querySelector(".detail-head .icon-btn"));
-    expect(setScreen).toHaveBeenCalledWith("portfolio");
-  });
-
-  it("back falls back to detail when no origin is set", () => {
+  // R4-2: AddEntry is always reached from Detail, so back returns there.
+  it("back returns to the Detail screen", () => {
     const setScreen = vi.fn();
     const { container } = render(<Harness setScreen={setScreen} />);
     fireEvent.click(container.querySelector(".detail-head .icon-btn"));
@@ -89,5 +82,22 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     expect(total).toBeTruthy();
     expect(total.querySelector(".tx-total-label").textContent).toMatch(/Total cost/i);
     expect(total.querySelector(".tx-total-amt").textContent).toMatch(/\$20,000\.00/);
+  });
+
+  // R4-5: AUTO is an always-visible, clickable button that applies the market price.
+  it("shows the AUTO button (inactive + suggestion hint) when the price is off-market", () => {
+    render(<Harness price="1" />);   // $1 is far from BTC's market price for the date
+    const auto = screen.getByRole("button", { name: "AUTO" });
+    expect(auto).toBeInTheDocument();
+    expect(auto.className).not.toContain("on");
+    expect(screen.getByText(/tap AUTO to use/i)).toBeInTheDocument();
+  });
+
+  it("clicking AUTO applies the market price and marks the button active", () => {
+    render(<Harness price="1" />);
+    fireEvent.click(screen.getByRole("button", { name: "AUTO" }));
+    // price now matches the market price → AUTO renders active, no more "tap to use" hint
+    expect(screen.getByRole("button", { name: "AUTO" }).className).toContain("on");
+    expect(screen.queryByText(/tap AUTO to use/i)).toBeNull();
   });
 });

@@ -9,7 +9,7 @@ import { PortfolioBar } from "../../src/components/PortfolioBar.jsx";
 const base = {
   api: "live", tv: 0, totalBuys: 0, tpnl: 0, tpp: 0, portfolio: [], maxCoinsPerPort: 10,
   usagePct: 0, prices: {}, isPro: false, isPremium: false, setScreen: vi.fn(),
-  startUpgrade: vi.fn(), setSel: vi.fn(), setInfoCoin: vi.fn(), remCoin: vi.fn(), startAddTx: vi.fn(),
+  startUpgrade: vi.fn(), setSel: vi.fn(), setInfoCoin: vi.fn(), remCoin: vi.fn(),
   resetSwipe: vi.fn(), onTouchS: vi.fn(), onTouchM: vi.fn(), onTouchE: vi.fn(),
   touchStart: null, swipeId: null, swipeX: 0,
   portfolios: [{ id: "default", name: "My Portfolio" }], setActivePortId: vi.fn(),
@@ -54,16 +54,17 @@ describe("Portfolio screen (extracted, via AppContext)", () => {
     expect(startAddTx).not.toHaveBeenCalled(); // image tap must not also open Add-transaction
   });
 
-  it("tapping the card background opens Add-transaction (Buy, returning to portfolio)", () => {
+  it("tapping the card background opens the Detail screen (position + transactions)", () => {
     const coin = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "",
       entries: [{ id: "t1", type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01" }] };
-    const setScreen = vi.fn(), setInfoCoin = vi.fn(), startAddTx = vi.fn();
+    const setScreen = vi.fn(), setSel = vi.fn(), setInfoCoin = vi.fn();
     const { container } = provide(Portfolio, {
-      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, setInfoCoin, startAddTx,
+      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, setSel, setInfoCoin,
     });
     fireEvent.click(container.querySelector(".asset-card"));
-    expect(startAddTx).toHaveBeenCalledWith(coin, "buy", "portfolio");
-    expect(setInfoCoin).not.toHaveBeenCalled();
+    expect(setSel).toHaveBeenCalledWith(coin);
+    expect(setScreen).toHaveBeenCalledWith("detail");
+    expect(setInfoCoin).not.toHaveBeenCalled(); // background must not open CoinInfo
   });
 
   it("renders the value summary card (eyebrow + gain line + INVESTED/24H/ASSETS) and no live line", () => {

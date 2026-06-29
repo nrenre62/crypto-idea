@@ -13,7 +13,6 @@ export function AddEntry() {
   const {
     sel, eAmt, setEAmt, ePrice, setEPrice, eDate, setEDate,
     eTxType, setETxType, editEntry, setEditEntry, addEntry, setScreen,
-    txReturn,
   } = useApp();
   const coinData = sel ? TOP_COINS.find(x => x.id === sel.id) : null;
   const launchDate = coinData?.launch || "2013-04-28";
@@ -46,7 +45,7 @@ export function AddEntry() {
   return (
     <div className="ci-app screen-bg">
       <div className="detail-head">
-        <button className="icon-btn" onClick={()=>{setScreen(txReturn||"detail");setEditEntry(null)}}>{Ic.back}</button>
+        <button className="icon-btn" onClick={()=>{setScreen("detail");setEditEntry(null)}}>{Ic.back}</button>
         <span className="dh-title">{editEntry?"Edit transaction":"Add transaction"}</span>
         <span style={{width:22}}/>
       </div>
@@ -69,9 +68,12 @@ export function AddEntry() {
           <label className="field-label">Price per coin (USD)</label>
           <div className="price-wrap">
             <input type="number" step="any" value={ePrice} onChange={e=>setEPrice(e.target.value)} placeholder="0.00" className="field-input"/>
-            {priceIsHist&&<span className="auto-badge">AUTO</span>}
+            {/* R4-5: AUTO is always shown when a market price exists for this coin+date,
+                and is clickable to (re)apply it — so after editing the price, or switching
+                coins, you can always snap back to the market price. `.on` = price matches. */}
+            {histPrice&&<button type="button" className={"auto-badge"+(priceIsHist?" on":"")} onClick={()=>{const f=fmtPriceInput(histPrice);if(f)setEPrice(f)}} title={priceIsHist?"Using the market price for this date":"Tap to use the market price for this date"}>AUTO</button>}
           </div>
-          {histPrice&&!priceIsHist&&<div className="field-hint">Suggested price: {fmtP(histPrice)}</div>}
+          {histPrice&&!priceIsHist&&<div className="field-hint">Suggested price: {fmtP(histPrice)} · tap AUTO to use</div>}
         </div>
         <div>
           <label className="field-label">Date & Time <span className="lbl-sub">· available from {launchDate}</span></label>

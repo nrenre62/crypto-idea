@@ -11,7 +11,7 @@ import { PortfolioBar } from "./PortfolioBar.jsx";
 export function Portfolio() {
   const {
     api, tv, totalBuys, tpnl, tpp, portfolio, maxCoinsPerPort, usagePct,
-    prices, isPro, isPremium, setScreen, startUpgrade, setInfoCoin, startAddTx,
+    prices, isPro, isPremium, setScreen, startUpgrade, setInfoCoin, setSel,
   } = useApp();
   const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
   const cents = (tv % 1).toFixed(2).slice(2);
@@ -92,7 +92,7 @@ export function Portfolio() {
             const h = Math.max(0, coin.entries.reduce((s, e) => (e.type === "sell" ? s - e.amount : s + e.amount), 0));
             const v = h * (pr || 0);
             return (
-              <div key={coin.id} className="asset-card" onClick={() => startAddTx(coin, "buy", "portfolio")}>
+              <div key={coin.id} className="asset-card" onClick={() => { setSel(coin); setScreen("detail"); }}>
                 <div className="ac-top">
                   <span className="ac-img" onClick={(e) => { e.stopPropagation(); setInfoCoin(coin); setScreen("coinInfo"); }} title={`View ${coin.name} info`}>
                     <CI thumb={coin.thumb} symbol={coin.symbol} />

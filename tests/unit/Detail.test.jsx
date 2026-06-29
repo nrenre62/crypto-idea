@@ -12,7 +12,7 @@ function provide(value) {
       setScreen: vi.fn(), setSel: vi.fn(), confirmDel: false, setConfirmDel: vi.fn(),
       remCoin: vi.fn(), remEntry: vi.fn(), setEditEntry: vi.fn(), setETxType: vi.fn(),
       setEPrice: vi.fn(), setEAmt: vi.fn(), setEDate: vi.fn(),
-      startAddTx: vi.fn(), setTxReturn: vi.fn(),
+      startAddTx: vi.fn(),
       ...value,
     }}>
       <Detail />
@@ -50,14 +50,14 @@ describe("Detail screen (extracted, via AppContext)", () => {
     expect(screen.getByText("No transactions yet.")).toBeInTheDocument();
   });
 
-  // R4-2: Buy/Sell route through the shared startAddTx, tagged as detail-launched.
-  it("the Buy and Sell buttons open Add-transaction via startAddTx (from detail)", () => {
+  // R4-2: Buy/Sell route through the shared startAddTx helper.
+  it("the Buy and Sell buttons open Add-transaction via startAddTx", () => {
     const startAddTx = vi.fn();
     provide({ sel: COIN, portfolio: [COIN], startAddTx });
     fireEvent.click(screen.getByText("+ Buy"));
-    expect(startAddTx).toHaveBeenCalledWith(COIN, "buy", "detail");
+    expect(startAddTx).toHaveBeenCalledWith(COIN, "buy");
     fireEvent.click(screen.getByText("- Sell"));
-    expect(startAddTx).toHaveBeenCalledWith(COIN, "sell", "detail");
+    expect(startAddTx).toHaveBeenCalledWith(COIN, "sell");
   });
 
   // R4-3: deleting a coin that has transactions warns first (transactions + thesis lost).
