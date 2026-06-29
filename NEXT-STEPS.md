@@ -823,6 +823,13 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (new `.trend-card` + `.grid-auto`, multi-up on desktop; typed results stay `.trend-item`); **R5-2** bump
   Journal `.j-entry`/`.nt-row` radius `--radius-sm`→`--radius` to match. Design-only, token-based (dark-safe).
   Build R5-2 → R5-1 on "go".
+- [ ] **Round 6 — dark-mode visibility follow-up — 📋 PLAN ONLY (2026-06-29)** (founder screenshots; full spec
+  in [DESIGN-PASS.md](DESIGN-PASS.md) "Round 6"). Three **dark-block-only** fixes (light untouched): **R6-1**
+  tab footer `.disclaimer` (+ `.research-root .disclaimer`) `--ink-faint`→`--ink-soft` (readable on dark);
+  **R6-2** `.field-input` dark border (`--line-strong`→`--ink-soft`) + placeholder (`--ink-faint`→`--ink-soft`)
+  so Account/form fields are visible (typed text already light); **R6-3** the R4-3 delete-coin modal title
+  (`Detail.jsx`, hardcoded `c.txt` #1A1A1A → dark-on-dark) → `var(--ink)` so the "Delete {coin}?" header shows
+  in dark. Build R6-3 → R6-1 → R6-2 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.

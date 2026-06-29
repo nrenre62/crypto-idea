@@ -443,3 +443,43 @@ warning = only when the coin has transactions · simple Cancel/Delete-anyway pop
 
 **Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (trending-only · match grid on desktop · Portfolio
 radius for all coin/thesis/search cards). Build on founder "go".
+
+## Round 6 — dark-mode visibility follow-up (2026-06-29, PLAN ONLY)
+
+> Three **dark-mode-only** readability fixes from founder screenshots. **All dark-block-only — light mode stays
+> byte-for-byte unchanged** (the Round 3 discipline: add `html[data-theme="dark"]` overrides, never touch base
+> rules). Grounded first-hand in the CSS/components below. **Plan only — build on founder "go".**
+
+- **R6-1 — tab footer disclaimer too dim in dark.** Every tab's bottom note uses `.disclaimer`
+  (`app.css:141`, `color:var(--ink-faint)` = #86837a → ~3:1 on dark paper, hard to read): **Portfolio**
+  (`Portfolio.jsx:117`), **Journal** (`Journal.jsx:269,316`), **Learn** (`Learn.jsx:88,143`), and the
+  **Research** AI/Stress-test note (`.research-root .disclaimer`, `research-tab.css:218`, `ResearchTab.jsx:77`).
+  **Fix (dark-block-only):** override `html[data-theme="dark"] .ci-app .disclaimer` **and**
+  `html[data-theme="dark"] .research-root .disclaimer` → `color:var(--ink-soft)` (#b5b1a6 — clearly readable).
+  (Founder said "white"; `--ink-soft` is the readable muted-light for a footer — go `--ink` for fully white if
+  preferred.) Light keeps `--ink-faint`.
+
+- **R6-2 — account/settings input fields dim in dark.** `.field-input` (`app.css:366`) in dark has a barely-
+  visible border (`border:1px solid var(--line-strong)` = #3a382f on dark paper) and a dim placeholder
+  (`::placeholder color:var(--ink-faint)`); the typed text is **already** light (`color:var(--ink)` → #ece9e1,
+  fine). Seen on **Account → Profile** (change-email/password fields), but it's the shared field class so the
+  fix improves every form. **Fix (dark-block-only):** `html[data-theme="dark"] .ci-app .field-input {
+  border-color:var(--ink-soft) }` + `html[data-theme="dark"] .ci-app .field-input::placeholder {
+  color:var(--ink-soft) }` (visible "white-ish" border + readable placeholder; typed text untouched). *(Related,
+  same screen: the disabled "Send confirmation link" `.acct-btn` (`Account.jsx:137`) is also low-contrast on
+  dark — optional same-batch polish to lift its disabled contrast in the dark block.)* Light untouched.
+
+- **R6-3 — delete-coin modal TITLE invisible in dark.** The R4-3 warning modal's title in `Detail.jsx`
+  hardcodes `color:c.txt` (#1A1A1A from `utils/theme.js`) → **dark-on-dark** on the dark `.dg-sheet`; the rest
+  of the modal is fine (`.dg-warn-text`/buttons have R3-7 dark overrides — the title doesn't, and the DP-7 sweep
+  missed it because the modal wasn't open). **Fix:** change the title color `c.txt` → `var(--ink)` (the flipping
+  token) → near-white in dark, near-black in light (light visually unchanged — both ≈ #1A1A1A/#15140f). One-line
+  inline-style change; mirrors how the Downgrade modal title stays visible (it inherits — no hardcoded colour).
+
+**TDD/verify:** all CSS / one inline colour — not jsdom-meaningful → **browser-verify in dark**: footer
+disclaimer readable on Portfolio/Research/Journal/Learn; field borders + placeholders visible on Account (+
+other forms); the delete modal title "Delete {coin}?" readable. Confirm **light mode is byte-for-byte
+unchanged** (only `html[data-theme="dark"]` rules added + the R6-3 token swap, which stays near-black in light).
+`npm run test:unit` green + `npm run build` clean. **Build order:** R6-3 (1 line) → R6-1 → R6-2, commit per item.
+
+**Status:** 📋 **PLAN ONLY (2026-06-29)** — build on founder "go". All dark-block-only; light mode untouched.
