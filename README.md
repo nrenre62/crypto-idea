@@ -168,7 +168,7 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 
 | Function | Type | Purpose |
 |----------|------|---------|
-| `api` | HTTP | CoinGecko proxy — `/api/prices`, `/api/search`, `/api/history` (see below) |
+| `api` | HTTP | CoinGecko proxy — `/api/prices`, `/api/search`, `/api/trending`, `/api/history` (see below) |
 | `refreshPrices` | Scheduled (every 5 min) | Keeps prices fresh for the **hot set** (top ~1,250, `HOT_PAGES`) in `cache/universe`; the long tail is priced on demand by `/api/prices` |
 | `refreshUniverseDaily` | Scheduled (every 24 h) | Refreshes all ~3,000 (metadata + price), guarantees the full list, and prunes coins that dropped off |
 | `paypalWebhook` | HTTP | Verifies PayPal signatures and updates a user's tier |
@@ -194,6 +194,7 @@ The app never calls CoinGecko directly. It calls the same-origin `/api/*` endpoi
 |----------|--------------|---------|
 | `GET /api/prices?ids=a,b,c` | Live prices for held coins | Reads `cache/universe`. Hot coins (top ~1,250, refreshed every 5 min) are served from cache; a long-tail or off-list held coin whose price is stale (> `HOT_TTL`) is refetched once on demand and folded back in, so the next request — for any user — is cached. Flat cost regardless of user count. |
 | `GET /api/search?q=term` | Search the ~3,000-coin universe | Reads `cache/universe` — **zero per-search upstream calls**. Only established (top-ranked) coins appear, which naturally excludes brand-new micro-caps. |
+| `GET /api/trending` | Currently-trending coins (CoinGecko `/search/trending`) for the **app Search tab's empty state** | Cached in its own `cache/trending` doc (lazy 30-min refresh) + CDN. Flat cost regardless of user count; on failure the client falls back to its built-in top-coins list. |
 | `GET /api/coinlist` | Full ~3,000-coin list **+ price** (for the landing DCA calculator) | Reads `cache/universe`; served from the CDN for 24 h so thousands of visitors add ~0 function calls. Price is included so the DCA tool shows a value with no per-visitor price call. |
 | `GET /api/history?id=coin` | Full daily price history (DCA backtests **and** the app's buy-date price auto-fill) | Cached per-coin in `historyCache/{coin}` for 30 days — fetched **once per coin**, reused for every date range and every user. With a key, covers each coin's full range (BTC from 2013). |
 
@@ -306,12 +307,16 @@ the `CI` token circle (`coinColor()` brand map, dark-safe via `color-mix`), `.nt
 thesis"), plus the coin-drill-in / form / auth class sets. **Dark mode** (U8 light/dark/system) is fully
 token-driven — every surface flips, including the nav (`--bar-bg`) and token circles. Method captured in
 the `responsive-app` skill; see [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) for the responsive shell.
-A subsequent **Design Pass 2** ([`DESIGN-PASS.md`](DESIGN-PASS.md), BUILT 2026-06-28) screen-by-screen
+A subsequent **Design Pass 2** ([`DESIGN-PASS.md`](DESIGN-PASS.md), **COMPLETE 2026-06-29**) screen-by-screen
 aligned the app to founder mockups and hardened dark mode — **dark-mode fixes are dark-block-only
 (`html[data-theme="dark"]`) so light mode is byte-for-byte unchanged**: accent text uses the dark-remapped
 `--accent-ink`, semantic colours (`--sg/--sr/--sa/--ai-2`) brighten in dark, and the rule is *foreground →
 bright, but a solid-accent background under white text stays as-is* (brightening it would lower contrast).
-Diagnosed backend issues are logged in [`ERRORS.md`](ERRORS.md).
+It shipped DP-1…DP-12, Rounds 2–4 (incl. the **Search tab redesign + cached `/api/trending` TRENDING list**,
+Portfolio split click-zones, the delete-coin-with-transactions warning, LIVE+plan header tags, and the
+always-on AUTO price button) and a final dark-mode sweep; the mislabeled-plan-limit backend bug (**B-PORT**)
+was fixed too. Two small founder follow-ups (Round 5 card-consistency, Round 6 dark-mode polish) are planned
+in `DESIGN-PASS.md`. Diagnosed backend issues are logged in [`ERRORS.md`](ERRORS.md).
 
 # Pages & routes
 
@@ -324,7 +329,7 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 | `/admin` | `admin.html` → React | **Separate** admin app (own login + `{admin:true}` check). Not in the user bundle. |
 | `/edge` | React | Education guide. |
 | `/pro-success` | React | PayPal return / upgrade confirmation. |
-| `/api/*` | `api` function | CoinGecko proxy: `prices` / `search` / `history` / `coinlist`; plus `config` = public app flags (maintenance, signups). All cached / CDN-friendly. |
+| `/api/*` | `api` function | CoinGecko proxy: `prices` / `search` / `trending` / `history` / `coinlist`; plus `config` = public app flags (maintenance, signups). All cached / CDN-friendly. |
 
 ### Research tab (AI insights)
 
