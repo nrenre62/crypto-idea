@@ -483,7 +483,9 @@ other forms); the delete modal title "Delete {coin}?" readable. Confirm **light 
 unchanged** (only `html[data-theme="dark"]` rules added + the R6-3 token swap, which stays near-black in light).
 `npm run test:unit` green + `npm run build` clean. **Build order:** R6-3 (1 line) → R6-1 → R6-2, commit per item.
 
-**Status:** 📋 **PLAN ONLY (2026-06-29)** — build on founder "go". All dark-block-only; light mode untouched.
+**Status:** ✅ **BUILT 2026-06-30** (commit `9cb0759`). All dark-block-only; light mode byte-for-byte
+unchanged. Verified: computed-style probe confirms the disclaimer/field-input lift to `--ink-soft` in dark
+and the delete-modal title resolves to `var(--ink)`; 311 unit green; build clean.
 
 ## Round 7 — card consistency aligned to the Research _Portfolio Pulse_ card (2026-06-29, PLAN ONLY)
 
@@ -580,8 +582,11 @@ the **single-element gradient-border technique** (`border:1px solid transparent`
 (value-card frame) → R7-2 (Search card-ify + grid — biggest, needs test updates + reflow verify). Commit per
 item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (hero-only frame · soft-green pills · accent-tinted
-diversification glyph). Supersedes Round 5. Zero new dark rules; light mode unchanged. Build on founder "go".
+**Status:** ✅ **BUILT 2026-06-30** (commit `3e9d1f1`). Hero-only frame · soft-green pills · accent-tinted
+diversification glyph. Supersedes Round 5. Zero new dark rules; light mode unchanged. Verified via computed-style
+probe (light + dark): `.value-card` = transparent border + double gradient (white fill light / `#1c1b17` dark,
+frame rgba identical); `.regen` = `--accent-soft`/border-0; `.dic` glyph = `--accent`; `.j-entry` radius 22px;
+`.trend-card` base chrome (white→dark). New OverviewView test guards the `.dic` glyph. 311 unit green; build clean.
 
 ## Round 8 — Journal thesis readability: previews, white-card popups, a Read/Breakdown view (2026-06-29, PLAN ONLY)
 
@@ -659,9 +664,10 @@ clamp + `overflow:hidden` but **no `overflow-wrap`** → long strings clip oddly
 **Build order (when "go"):** R8-1 (list CSS) → R8-2 (detail: wrap + white cards + X + Read button) → R8-3
 (Breakdown popup). Commit per item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (full breakdown · always-show Read · X replaces
-arrow · 2-line equal-height). Length cap already enforced (no security work). Zero new dark rules; light unchanged.
-Build on founder "go".
+**Status:** ✅ **BUILT 2026-06-30** (commit `c2e2079`). Full breakdown · always-show Read · X replaces arrow ·
+2-line equal-height. Length cap already enforced (no security work). Zero new dark rules; light unchanged. New
+shared `Ic.close`; new `ThesisBreakdown` component. Tests: Read opens the Breakdown (thesis/change-my-mind/funnel),
+X closes the detail. 311 unit green; build clean.
 
 ## Round 9 — login polish · Research card heights · in-tab portfolio popup (2026-06-29, PLAN ONLY)
 
@@ -735,5 +741,9 @@ Build on founder "go".
 restyle) → R9-3 (portfolio dialog — biggest; new state + `Ic.close` + tests). Commit per item. Slotted into
 [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-06-29)** — decisions locked (white toggle pill · align Forgot-password · dark-safe
-error · equal-height Research cards · centered portfolio dialog with X). Build on founder "go".
+**Status:** ✅ **BUILT 2026-06-30** (commit `1389418`). White toggle pill · aligned Forgot-password · dark-safe
+error · equal-height Research cards · centered portfolio dialog with X. One new dark rule (R9-1c); light otherwise
+unchanged. `addPortfolio` now returns a success bool (dialog closes on success); shared `Ic.close` reused from
+Round 8. Verified via computed-style probe (toggle `.on` flips to the dark-panel pill in dark; `.auth-err` →
+`--sr-s`; `.coins-grid` stretch + `.coin-card` flex-column). Tests: PortfolioBar dialog open/save/close; Login
+toggle + ForgotPass nav still green. 311 unit green; build clean.

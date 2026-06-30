@@ -816,7 +816,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
 §J · Round 4 + follow-up · DP-6 · DP-7). Whole app aligned to the founder mockups, verified light + dark,
 mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
 
-- [ ] **Round 7 — card consistency aligned to the Research _Portfolio Pulse_ card — 📋 PLAN ONLY (2026-06-29)**
+- [x] **Round 7 — card consistency aligned to the Research _Portfolio Pulse_ card — ✅ BUILT 2026-06-30 (`3e9d1f1`)**
   (founder follow-up; full spec in [DESIGN-PASS.md](DESIGN-PASS.md) "Round 7"; **supersedes Round 5**). Grounded
   via a 6-agent read-only mapping. Decisions locked (AskUserQuestion): frame scope = **match base chrome
   everywhere, gradient frame on hero cards only**; Pulse buttons = **soft green pill**; diversification icon =
@@ -830,8 +830,8 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   shadow-lift (`transition` + `:hover{box-shadow:var(--sh)}`) to `.j-entry` + `.trend-card` so selectable cards
   share the affordance. **Zero new dark rules** (frame is theme-invariant; pill/icon tokens already flip); light
   mode unchanged. Build R7-1 → R7-6 → R7-4 → R7-5 → R7-3 → R7-2 on "go".
-- [ ] **Round 8 — Journal thesis readability (previews · white-card popups · Read/Breakdown · X-close) — 📋 PLAN
-  ONLY (2026-06-29)** (founder Journal screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 8").
+- [x] **Round 8 — Journal thesis readability (previews · white-card popups · Read/Breakdown · X-close) — ✅ BUILT
+  2026-06-30 (`c2e2079`)** (founder Journal screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 8").
   Grounded via a 3-agent read-only mapping. **Gap checked:** thesis text already capped 2000 chars/field server-
   side (`firestore.rules` validJournal/validFunnel) → display bug only, no rule change. Decisions locked
   (AskUserQuestion): Read popup = **full breakdown** (Why + change-my-mind + dilution/volume/yield); **Read shown
@@ -842,7 +842,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   add an always-on **Read** pill next to Edit; **R8-3** new read-only **Breakdown** overlay (reuse `.ci-app.overlay`,
   X-close, white cards, all fields `pre-wrap`+`overflow-wrap`). No data/handler change; zero new dark rules. Build
   R8-1 → R8-2 → R8-3 on "go".
-- [ ] **Round 9 — login polish · Research card heights · in-tab portfolio popup — 📋 PLAN ONLY (2026-06-29)**
+- [x] **Round 9 — login polish · Research card heights · in-tab portfolio popup — ✅ BUILT 2026-06-30 (`1389418`)**
   (founder follow-ups; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 9"). Grounded via a 3-agent read-only
   mapping. Decisions locked (AskUserQuestion): login = all three (white toggle pill + align Forgot-password +
   dark-safe error); portfolio popup = **centered card dialog** with X. **R9-1** login: (a) `.auth-toggle button.on`
@@ -858,7 +858,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
 - [ ] **Round 5 — card design consistency — ⤴️ SUPERSEDED by Round 7 (2026-06-29).** Earlier, plainer version
   (unify on `.asset-card`); Round 7 keeps its two moves but upgrades the canonical chrome to the Pulse card and
   adds the button + icon fixes. See [DESIGN-PASS.md](DESIGN-PASS.md) "Round 5" (marked superseded). Build Round 7.
-- [ ] **Round 6 — dark-mode visibility follow-up — 📋 PLAN ONLY (2026-06-29)** (founder screenshots; full spec
+- [x] **Round 6 — dark-mode visibility follow-up — ✅ BUILT 2026-06-30 (`9cb0759`)** (founder screenshots; full spec
   in [DESIGN-PASS.md](DESIGN-PASS.md) "Round 6"). Three **dark-block-only** fixes (light untouched): **R6-1**
   tab footer `.disclaimer` (+ `.research-root .disclaimer`) `--ink-faint`→`--ink-soft` (readable on dark);
   **R6-2** `.field-input` dark border (`--line-strong`→`--ink-soft`) + placeholder (`--ink-faint`→`--ink-soft`)
