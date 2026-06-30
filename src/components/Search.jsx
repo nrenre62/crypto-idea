@@ -80,21 +80,28 @@ export function Search() {
       ) : (
         // DP-6: empty box → TRENDING. Tapping Add opens the same Buy-Journal flow,
         // so the tab clearly reads as "this is where you add coins".
+        // R7-2: trending coins as cards (Pulse base chrome) in a reflowing grid, so
+        // the empty-state matches Portfolio/Journal cards. Typed RESULTS above stay
+        // the compact .trend-item list. Row content + Add flow unchanged.
         <>
           <div className="pad"><div className="sec-label"><h2>Trending</h2></div></div>
-          {trendCoins.map((coin) => {
-            const ad = portfolio.find((x) => x.id === coin.id);
-            return (
-              <div key={coin.id} className="trend-item" style={{ opacity: ad ? 0.5 : 1 }}>
-                <CI thumb={coin.thumb} symbol={coin.symbol} size={36} />
-                <div className="trend-info">
-                  <div className="trend-name">{coin.name}</div>
-                  <div className="trend-sub">{coin.symbol}{coin.rank ? " · #" + coin.rank : ""}</div>
-                </div>
-                <button className="add-pill" onClick={() => !ad && setJournalFor(coin)} disabled={!!ad}>{ad ? "Added" : "Add"}</button>
-              </div>
-            );
-          })}
+          <div className="pad">
+            <div className="grid-auto trend-grid">
+              {trendCoins.map((coin) => {
+                const ad = portfolio.find((x) => x.id === coin.id);
+                return (
+                  <div key={coin.id} className="trend-card" style={{ opacity: ad ? 0.5 : 1 }}>
+                    <CI thumb={coin.thumb} symbol={coin.symbol} size={36} />
+                    <div className="trend-info">
+                      <div className="trend-name">{coin.name}</div>
+                      <div className="trend-sub">{coin.symbol}{coin.rank ? " · #" + coin.rank : ""}</div>
+                    </div>
+                    <button className="add-pill" onClick={() => !ad && setJournalFor(coin)} disabled={!!ad}>{ad ? "Added" : "Add"}</button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </>
       )}
 

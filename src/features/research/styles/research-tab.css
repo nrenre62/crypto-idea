@@ -69,8 +69,11 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .pulse-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
 .research-root .pulse-head .left{display:flex;align-items:center;gap:8px}
 .research-root .pulse-label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-.research-root .regen{border:1px solid var(--line-strong);background:var(--paper-3);border-radius:999px;padding:6px 13px;font-family:var(--body);font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;display:inline-flex;gap:6px;align-items:center;transition:.2s var(--ease)}
-.research-root .regen:hover{border-color:var(--ink);color:var(--ink);transform:translateY(-1px)}
+/* R7-4: Share/Regenerate as the app's soft-green secondary pill (= .ci-app .tx-btn.buy).
+   --accent-soft/--accent-ink already flip in dark, so this also fixes the old neutral
+   pill vanishing on the dark page (no new dark rule needed). */
+.research-root .regen{border:0;background:var(--accent-soft);border-radius:999px;padding:6px 13px;font-family:var(--body);font-size:12px;font-weight:700;color:var(--accent-ink);cursor:pointer;display:inline-flex;gap:6px;align-items:center;transition:.2s var(--ease)}
+.research-root .regen:hover{opacity:.85;transform:translateY(-1px)}
 .research-root .regen:disabled{opacity:.5;cursor:default;transform:none}
 .research-root .regen.spin svg{animation:rt-spin .9s linear infinite}
 @keyframes rt-spin{to{transform:rotate(360deg)}}
@@ -132,7 +135,10 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .scn-assume{font-size:10.5px;color:var(--ink-faint);margin-top:10px;line-height:1.45}
 
 .research-root .diversify{background:linear-gradient(135deg,#f3faf6,#f4f7fd);border:1px solid var(--line-2);border-radius:var(--radius);padding:19px;margin-bottom:18px;display:flex;gap:14px;align-items:flex-start;box-shadow:var(--sh-sm)}
-.research-root .diversify .dic{width:40px;height:40px;border-radius:12px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;flex:none;box-shadow:var(--sh-sm)}
+/* R7-5: the .dic box was empty (blank in both themes). The glyph (added in
+   OverviewView) is tinted with the flipping --accent token → visible on the white box
+   (light) and the --paper-3 box (dark, see the dark override below). */
+.research-root .diversify .dic{width:40px;height:40px;border-radius:12px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;flex:none;box-shadow:var(--sh-sm);color:var(--accent);font-size:18px;font-weight:700}
 .research-root .diversify h3{font-size:14px;font-weight:600;margin-bottom:5px;letter-spacing:-.01em}
 .research-root .diversify p{font-size:13px;color:var(--ink-soft);line-height:1.55}
 .research-root .diversify a{display:inline-block;margin-top:9px;font-size:13px;font-weight:600;color:var(--accent)}

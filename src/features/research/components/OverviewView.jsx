@@ -71,7 +71,9 @@ export default function OverviewView({ portfolio, empty, pulse, tf, onTf, status
       {!empty && <StressTest holdings={portfolio.holdings} />}
 
       <div className="diversify">
-        <div className="dic" />
+        {/* R7-5: a grid/allocation glyph = diversification (the slot was empty → blank
+            box in both themes). Tinted via .dic { color:var(--accent) }. */}
+        <div className="dic" aria-hidden="true">▦</div>
         <div>
           <h3>A note on diversification</h3>
           <p>{empty

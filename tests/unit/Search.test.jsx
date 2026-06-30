@@ -112,6 +112,17 @@ describe("Search — TRENDING empty state (DP-6)", () => {
     expect(screen.getByText("LINK · #14")).toBeInTheDocument();
   });
 
+  // R7-2: trending renders as cards (.trend-card) inside a reflowing grid (.grid-auto).
+  it("renders trending coins as cards in a grid (R7-2)", () => {
+    const { container } = provide({ sq: "", searchResults: [], trending });
+    expect(container.querySelector(".grid-auto.trend-grid")).toBeTruthy();
+    expect(container.querySelectorAll(".trend-card").length).toBe(2);
+    // typed RESULTS keep the compact list, not cards — no .trend-card here.
+    const typed = provide({ sq: "abc", searchResults: [{ id: "bitcoin", symbol: "BTC", name: "Bitcoin" }] });
+    expect(typed.container.querySelector(".trend-card")).toBeNull();
+    expect(typed.container.querySelector(".trend-item")).toBeTruthy();
+  });
+
   it("falls back to built-in top coins so the section is never blank", () => {
     provide({ sq: "", searchResults: [], trending: [] });
     expect(screen.getByText("Trending")).toBeInTheDocument();
