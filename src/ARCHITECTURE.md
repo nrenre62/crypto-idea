@@ -31,7 +31,7 @@ src/
     `activePortId` + `portfolio`/`setPortfolio`), `useUpgrade({portfolios,setPortfolios})`
     (tier-limit logic: `calcEndDate`/`getTrimImpact`/`trimToTier` + the `TIER_LIMITS` table),
     and `app-context.js` (`AppContext` + `useApp()`).
-  - `utils/storage.js` — `db` key/value wrapper over `window.storage` (JSON, error-swallowing).
+  - `utils/storage.js` — `db` key/value wrapper over `localStorage` (JSON, error-swallowing; cleared on logout).
   - `components/` — standalone page UIs (`education-page.jsx`, `pro-success.jsx`,
     `admin-dashboard.jsx`); shared primitives `ui.jsx` (`Ic`, `CI`, `hdr`) + `StatusDot.jsx`;
     and extracted screens `Loading.jsx`, `ForgotPass.jsx`, `Contact.jsx`, `Search.jsx`, `AddEntry.jsx`, `CoinInfo.jsx`, `Detail.jsx`, `Portfolio.jsx`+`PortfolioBar.jsx`, `Account.jsx`, `Login.jsx` (**all screens now extracted**). `src/` root now holds only the

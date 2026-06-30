@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock the entire api/ + firebase boundary so the component renders without any
@@ -46,7 +46,7 @@ import { onAuthChange } from "../../src/api/firebase-auth.js";
 import CryptoIdea from "../../src/CryptoIdea.jsx";
 
 describe("CryptoIdea (smoke)", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
 
   it("renders the login screen when logged out", async () => {
     onAuthChange.mockImplementation((cb) => { cb(null); return () => {}; });
@@ -85,6 +85,24 @@ describe("CryptoIdea (smoke)", () => {
     fireEvent.click(screen.getByText("Search"));
     expect(await screen.findByText("Trending")).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Search any coin/i)).toBeInTheDocument();
+  });
+
+  // C-R2a: logout clears this device's cached local data (active-portfolio id + cached
+  // profile) so the next account on a shared device doesn't inherit it.
+  it("clears cached local data on logout (C-R2a)", async () => {
+    onAuthChange.mockImplementation((cb) => {
+      cb({ uid: "u1", email: "free@test.com", displayName: "Free" });
+      return () => {};
+    });
+    localStorage.setItem("ci-profile-u1", JSON.stringify({ name: "Free" }));
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("STARTER"));        // → Account home
+    fireEvent.click(await screen.findByText("Logout"));  // → logout()
+    await waitFor(() => {
+      expect(localStorage.getItem("ci-active-port")).toBeNull();
+      expect(localStorage.getItem("ci-profile-u1")).toBeNull();
+    });
   });
 
   it("navigates from portfolio to the Account screen via the tier badge (Account via context)", async () => {

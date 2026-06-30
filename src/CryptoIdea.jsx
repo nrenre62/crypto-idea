@@ -234,6 +234,10 @@ export default function CryptoIdea(){
 
   const logout=async()=>{
     // Sign out of Firebase; onAuthChange will clear the session. No credentials are kept on the device.
+    // C-R2a: clear this device's cached local data (active-portfolio id + cached profile) so the next
+    // account signing in on a shared device doesn't inherit it.
+    const uid=user?.uid;
+    db.del("ci-active-port"); if(uid) db.del("ci-profile-"+uid);
     await logoutUser();
     setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("");setAuthAgreeTerms(false);setAuthAgreePrivacy(false);setAuthAgreeMarketing(false);setDelConfirm(false);setDelPass("");setDelType("");setPwCur("");setPwNew("");setPwMsg("");setProfMsg("");setEmNew("");setEmPass("");setEmMsg("")};
 
