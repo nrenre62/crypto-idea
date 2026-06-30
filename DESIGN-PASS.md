@@ -747,3 +747,55 @@ unchanged. `addPortfolio` now returns a success bool (dialog closes on success);
 Round 8. Verified via computed-style probe (toggle `.on` flips to the dark-panel pill in dark; `.auth-err` →
 `--sr-s`; `.coins-grid` stretch + `.coin-card` flex-column). Tests: PortfolioBar dialog open/save/close; Login
 toggle + ForgotPass nav still green. 311 unit green; build clean.
+
+## Round 10 — full-window paper background · positive-only Buy/Sell amounts (2026-06-30, PLAN ONLY)
+
+> Two founder follow-ups from the Add-transaction screenshot: (1) the page background should cover the whole
+> screen (mobile + desktop); (2) entering `-1` (or `-`) in a Buy/Sell amount must be blocked with a clear
+> message — today it slips through and surfaces the WRONG error. Grounded first-hand in the code below.
+> **Decisions locked via AskUserQuestion (2026-06-30):** (A) extend the **paper** background to the whole
+> window, both modes; (B) **both** — block typing negatives AND show a clear positive-only error on submit, for
+> Amount **and** Price. **Plan only — build on founder "go".**
+
+- **R10-1 — full-window paper background (both modes).** Root cause: the user app's outer chrome is **white**,
+  not paper. The body + the centered `maxWidth:1040` provider wrapper (`CryptoIdea.jsx:623`,
+  `background:"var(--app-bg)"`) use `--app-bg` (= `#ffffff` light / `#0f0e0c` dark), while each screen's
+  `.ci-app.screen-bg` paints `--paper` (`#f8f7f3` / `#14130f`) only within its own box — so white frames the
+  paper on wide desktop (beyond 1040) and can peek at the bottom (the wrapper's `paddingBottom` sits below the
+  paper). **Note the wrapper is OUTSIDE `.ci-app`, so `var(--paper)` won't resolve on it** — the clean fix is to
+  redefine the already-flipping `--app-bg` token to the paper tone: `app.css` `:root { --app-bg:#ffffff }` →
+  `#f8f7f3`, and `html[data-theme="dark"] { --app-bg:#0f0e0c }` → `#14130f` (= `--paper` dark). That makes the
+  body + the 1040 wrapper + the maintenance screen all paper, seamless edge-to-edge, both modes, with one
+  two-line change. (This INTENTIONALLY changes light too — it's the requested visible change, not a dark-only
+  fix.) The floating nav pill stays `--paper-2` (distinct from paper); screens already match → no seams. Verify
+  no element relied on the white frame for separation (none expected — every screen is paper).
+
+- **R10-2 — positive-numbers-only in Buy/Sell (functional fix + the misleading error).** Root cause
+  (**confirmed, same class as B-PORT**): `AddEntry.jsx:65,70` Amount/Price are `type="number" step="any"` with
+  **no `min` and no client validation**; `addEntry` (`CryptoIdea.jsx:500`) only guards `!eAmt||!ePrice`, so
+  `-1` passes. `firestore.rules` rejects it (`data.amount > 0`, line 299; `priceAtBuy >= 0`, line 302) →
+  `permission-denied` → `apiErrorMessage(res, …, limitMsg)` maps it to **"You've reached this coin's transaction
+  limit — upgrade for more."** (the screenshot). Fix (decision = both):
+  - **R10-2a (block typing):** Amount + Price inputs — strip `-` on input and add `min="0"` +
+    `inputMode="decimal"`, e.g. `onChange={e=>setEAmt(e.target.value.replace(/-/g,""))}` (same idea as the
+    register name-field filter). Prevents `-`/negatives ever being entered.
+  - **R10-2b (submit validation, the real fix):** in `addEntry`, right after `if(!eAmt||!ePrice)return;` and
+    **before** the tx-limit check (line 502, so order surfaces the right message), add
+    `const amt=parseFloat(eAmt), prc=parseFloat(ePrice);` → `if(!(amt>0)){showErr("Amount must be a positive
+    number.");return}` `if(!(prc>0)){showErr("Price must be a positive number.");return}`. Catches
+    negative/zero/NaN with a clear message *before* the doomed write, so the misleading "transaction limit"
+    error never shows for bad input. (`amt>0` matches the rule; `prc>0` is stricter than the rule's `>=0` —
+    acceptable per "only positive". If a $0 price should ever be allowed, use `prc>=0`.)
+  - Optional belt-and-suspenders: also disable submit when `parseFloat(eAmt)<=0 || parseFloat(ePrice)<=0`.
+
+**TDD / verify:** AddEntry test — typing `-1` strips to `1`; submitting a negative/zero shows "… must be a
+positive number" and `addEntry`/`dbAddTransaction` is NOT called; a valid positive still saves. (`AddEntry.test.jsx`
+exists.) Browser-verify: the paper background covers the whole window at ~390 and ~1280, light + dark; entering
+`-1` shows the positive-only message, not "transaction limit". `npm run test:unit` green + `npm run build` clean.
+
+**Build order (when "go"):** R10-2 (the bug — higher value) → R10-1 (background). Commit per item. Slotted into
+[`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-06-30)** — decisions locked (full paper window both modes · block-typing +
+clear submit error for Amount & Price). R10-2 is functional (the misleading error is the B-PORT permission-denied
+mislabel class). Build on founder "go".

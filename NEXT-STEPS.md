@@ -865,6 +865,17 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   so Account/form fields are visible (typed text already light); **R6-3** the R4-3 delete-coin modal title
   (`Detail.jsx`, hardcoded `c.txt` #1A1A1A → dark-on-dark) → `var(--ink)` so the "Delete {coin}?" header shows
   in dark. Build R6-3 → R6-1 → R6-2 on "go".
+- [ ] **Round 10 — full-window paper background · positive-only Buy/Sell amounts — 📋 PLAN ONLY (2026-06-30)**
+  (founder Add-transaction screenshot; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 10"). Decisions locked
+  (AskUserQuestion): (A) extend the **paper** bg to the whole window, both modes; (B) **both** block-typing +
+  clear submit error, for Amount & Price. **R10-1** redefine the `--app-bg` token to the paper tone (`app.css`
+  `:root` `#ffffff`→`#f8f7f3`; dark `#0f0e0c`→`#14130f`) so the body + the 1040 wrapper (`CryptoIdea.jsx:623`,
+  outside `.ci-app` so `var(--paper)` can't be used directly) + maintenance screen are seamless paper edge-to-edge
+  (intentionally changes light too). **R10-2** positive-only Buy/Sell (functional): `AddEntry` Amount/Price are
+  `type=number` with no `min`/validation → `-1` passes → rules reject (`amount>0`) → `permission-denied` →
+  `apiErrorMessage` mislabels it "transaction limit — upgrade" (B-PORT class). Fix: R10-2a strip `-` on input +
+  `min=0`/`inputMode=decimal`; R10-2b validate `amt>0`/`prc>0` in `addEntry` **before** the tx-limit check with a
+  clear "… must be a positive number" message. TDD `AddEntry.test.jsx`. Build R10-2 → R10-1 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
