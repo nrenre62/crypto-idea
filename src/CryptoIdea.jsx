@@ -498,6 +498,12 @@ export default function CryptoIdea(){
     setScreen("addEntry");
   };
   const addEntry=async()=>{if(!eAmt||!ePrice)return;
+    // R10-2b: only positive numbers (rules enforce amount>0 / priceAtBuy>=0). Catch it
+    // here with a clear message BEFORE any write, so a negative/zero never reaches the
+    // server and gets mislabelled as the "transaction limit" error (the B-PORT class).
+    const _amt=parseFloat(eAmt),_prc=parseFloat(ePrice);
+    if(!(_amt>0)){showErr("Amount must be a positive number.");return}
+    if(!(_prc>0)){showErr("Price must be a positive number.");return}
     if(sel){
       const currentTxCount=sel.entries.filter(e=>!editEntry||e.id!==editEntry.id).length;
       if(currentTxCount>=maxTxPerCoin){showErr("Max "+maxTxPerCoin+" transactions per coin"+(isPro?"":" · Upgrade to Pro for 2,000!"));return}

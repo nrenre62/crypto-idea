@@ -68,6 +68,18 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     expect(addEntry).toHaveBeenCalled();
   });
 
+  // R10-2a: only positive numbers — a "-" is stripped from Amount and Price on input,
+  // so a negative can't be typed/pasted (the screenshot's "-1" can no longer happen).
+  it("strips a minus sign from Amount and Price (R10-2)", () => {
+    const { container } = render(<Harness />);
+    const inputs = container.querySelectorAll(".field-input");
+    const amount = inputs[0], price = inputs[1];
+    fireEvent.change(amount, { target: { value: "-1" } });
+    expect(amount.value).toBe("1");
+    fireEvent.change(price, { target: { value: "-25.5" } });
+    expect(price.value).toBe("25.5");
+  });
+
   // R4-2: AddEntry is always reached from Detail, so back returns there.
   it("back returns to the Detail screen", () => {
     const setScreen = vi.fn();

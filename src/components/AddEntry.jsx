@@ -62,12 +62,15 @@ export function AddEntry() {
         </div>
         <div>
           <label className="field-label">Amount ({sel?.symbol})</label>
-          <input type="number" step="any" value={eAmt} onChange={e=>setEAmt(e.target.value)} placeholder="0.00" className="field-input"/>
+          {/* R10-2a: only positive numbers — strip any "-" on input + min/inputMode so
+              a negative can't be typed/pasted/spun (server rejects amount>0; addEntry
+              also validates before the write). */}
+          <input type="number" step="any" min="0" inputMode="decimal" value={eAmt} onChange={e=>setEAmt(e.target.value.replace(/-/g,""))} placeholder="0.00" className="field-input"/>
         </div>
         <div>
           <label className="field-label">Price per coin (USD)</label>
           <div className="price-wrap">
-            <input type="number" step="any" value={ePrice} onChange={e=>setEPrice(e.target.value)} placeholder="0.00" className="field-input"/>
+            <input type="number" step="any" min="0" inputMode="decimal" value={ePrice} onChange={e=>setEPrice(e.target.value.replace(/-/g,""))} placeholder="0.00" className="field-input"/>
             {/* R4-5: AUTO is always shown when a market price exists for this coin+date,
                 and is clickable to (re)apply it — so after editing the price, or switching
                 coins, you can always snap back to the market price. `.on` = price matches. */}
