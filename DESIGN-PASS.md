@@ -802,3 +802,72 @@ permission-denied mislabel class). As-built: R10-1 redefined the `--app-bg` toke
 base `body { background:var(--app-bg) }`** (light had no body-bg rule, so white showed beyond 1040 in light);
 verified via probe (body + 1040 wrapper = paper, light `rgb(248,247,243)` / dark `rgb(20,19,15)`). R10-2 strips
 `-` on input + validates `amt>0`/`prc>0` before the write. 312 unit green; build clean; no console errors.
+
+## Round 11 — dark-mode account/transaction text visibility · Learn quiz Submit rework (2026-06-30, PLAN ONLY)
+
+> Founder screenshots: (design) in dark mode the Account settings values (`Starter`/`Pro`/`Premium`, `1/1`),
+> Plan & billing labels, transaction `$`/`Cost` text, and add-transaction text are too dim to read; (error
+> fix) the Learn lesson quiz auto-reveals the correct answer the instant you tap ANY option, has no Submit
+> button, and closes via a back-arrow/Close button instead of an X. Grounded first-hand below.
+> **Decisions locked via AskUserQuestion (2026-06-30):** (1) **lift dim text, keep hierarchy** — named values
+> go fully white-in-dark / black-in-light; other secondary text is brightened to clearly readable in dark but
+> stays a touch softer than primary; (2) quiz = **pick freely → Submit → correct = green + complete, wrong =
+> red + constructive hint with retry** (stays quiz-gated — only a correct answer completes). **Plan only —
+> build on founder "go".**
+
+**Grounded current state:** `.sr-value` (`app.css:514`, the tier + `1/1` values on the Account home) =
+`var(--ink-faint)` → dim in BOTH modes. Settings secondary text is dim in dark: `.usage-k`(470,`--ink-soft`),
+`.usage-note`(472,`--ink-faint`), `.acct-label`(488,`--ink-faint`), `.acct-current`(489), `.priv-text`(533),
+`.priv-confirm`(539), `.priv-msg`(540), `.toggle-hint`(495), `.pr-sub`(529). Transactions: `.tx-rprice`
+(355,`--ink-soft`, the `$` amount) + `.tx-rcost`(356,`--ink-faint`, `Cost …`). Add-transaction: `.field-label`
+(363,`--ink-soft`), inactive `.seg-btn`(377,`--ink-faint`), `.tx-total-label`(390) — the input *values* are
+already `--ink` (white in dark). *(NB the screenshot's `-1` + "transaction limit" error is already fixed by
+Round 10 — R11 only adds the dark-text readability for that screen.)*
+
+- **R11-1 — Account values white-in-dark / black-in-light (BOTH modes).** `.sr-value` `var(--ink-faint)` →
+  `var(--ink)` so the tier (`Starter`/`Pro`/`Premium`) and the Portfolios `1/1` read clearly: near-white in
+  dark, near-black in light. This is the one item the founder explicitly wanted in both modes.
+
+- **R11-2 — transaction row text readable in dark (dark-block).** `html[data-theme="dark"] .ci-app .tx-rprice`
+  → `var(--ink)` (the `$` amount = primary value, full white); `.tx-rcost` → `var(--ink-soft)` (the `Cost …`
+  line = secondary, readable but a touch softer — keeps hierarchy per decision 1). Light untouched.
+
+- **R11-3 — account + form secondary-text readability lift (dark-block).** One dark-block group brightening
+  the genuinely-dim `--ink-faint` text to `--ink-soft` (clearly readable on dark paper, ~6:1, still softer than
+  the white primary text → hierarchy kept): `.usage-note`, `.acct-label`, `.acct-current`, `.priv-text`,
+  `.priv-confirm`, `.priv-msg`, `.toggle-hint`, `.pr-sub`, and the inactive `.seg-btn` (the dim Buy/Sell tab).
+  `.usage-k` (already `--ink-soft`) stays. Light mode byte-for-byte unchanged. *(These classes are
+  account/form-specific, so lifting them globally in dark effectively scopes to settings + the tx form.)*
+
+- **R11-Q — Learn quiz: select → Submit → feedback (FUNCTIONAL fix).** Rework `LessonOverlay`
+  (`Learn.jsx:47-92`). Today `choose(i)` calls `setAnswered(true)` on ANY tap → auto-reveals the correct
+  answer, and the footer is a back-arrow + "Close"/"Done" button. New flow (decision 2):
+  - **Select only:** clicking an option just sets `picked` (a NEUTRAL `.quiz-opt.selected` highlight — new
+    class, e.g. `border-color:var(--accent)` / `--accent-soft` bg); no correct-reveal, no completion. Re-picking
+    clears any previous result.
+  - **Always-on Submit:** a `.btn-primary` "Submit" shown every time the card opens (disabled until `picked
+    != null`). On click: `picked === correct` → green result banner + `onComplete(lesson.id)`; else → red
+    banner + a constructive hint ("Not quite — re-read **The key insight** above, then pick again and submit.")
+    and stay open for a retry (selection editable). Lesson completes ONLY on a correct submit (quiz-gating #25
+    preserved). After a correct submit, the button becomes "Done →" (closes).
+  - **Result banners:** new `.quiz-result.ok` (green: `--sg-s`/`--sg`) and `.quiz-result.bad` (red:
+    `--sr-s`/`--sr`) — token-based → dark-safe, no new dark rule.
+  - **X-close:** replace the overlay back-arrow with an **X** top-right — reuse the shared `Ic.close` +
+    `.ov-close` from Round 8 (don't mutate the shared `.overlay-head`/`.back-btn`). Drop the old footer "Close".
+  - A re-opened completed lesson starts fresh (picked=null) so Submit always works; a correct re-submit just
+    re-greens it. No data/handler change beyond the existing `onComplete`.
+
+**TDD / verify:** **R11-Q** (jsdom): tapping an option does NOT reveal the correct answer or call `onComplete`;
+Submit with a wrong pick → red hint + `onComplete` NOT called + you can re-pick; Submit with the correct pick →
+green + `onComplete(lessonId)`; the X closes the overlay (update Learn.test.jsx + any walkthrough/quiz assertion
+that relied on tap-to-complete). **R11-1/2/3** (CSS, not jsdom-meaningful) → computed-style probe (light +
+dark): `.sr-value` = `--ink` both modes; `.tx-rprice` white / `.tx-rcost` soft in dark; the lifted secondary
+text reads clearly in dark; light unchanged outside R11-1. `npm run test:unit` green + `npm run build` clean +
+browser-verify mobile + desktop, light + dark.
+
+**Build order (when "go"):** R11-1 → R11-2 → R11-3 (design CSS) → R11-Q (quiz rework — biggest; new state +
+`Ic.close` reuse + result banners + tests). Commit per item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-06-30)** — decisions locked (lift-dim-keep-hierarchy · quiz Submit with
+retry-until-correct). R11-Q is functional. R11-2/R11-3 dark-block-only; R11-1 both modes; zero new dark rules in
+R11-Q (token banners). Build on founder "go".

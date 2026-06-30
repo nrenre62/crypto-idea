@@ -877,6 +877,17 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `apiErrorMessage` mislabels it "transaction limit — upgrade" (B-PORT class). Fix: R10-2a strip `-` on input +
   `min=0`/`inputMode=decimal`; R10-2b validate `amt>0`/`prc>0` in `addEntry` **before** the tx-limit check with a
   clear "… must be a positive number" message. TDD `AddEntry.test.jsx`. Build R10-2 → R10-1 on "go".
+- [ ] **Round 11 — dark-mode account/transaction text visibility · Learn quiz Submit rework — 📋 PLAN ONLY
+  (2026-06-30)** (founder screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 11"). Decisions locked
+  (AskUserQuestion): (1) lift dim text, keep hierarchy; (2) quiz = pick → Submit → correct=green+complete,
+  wrong=red+hint+retry (gated). **R11-1** `.sr-value` (tier + `1/1`) `--ink-faint`→`--ink` (white dark / black
+  light, both modes). **R11-2** dark-block: `.tx-rprice`→`--ink` (white $), `.tx-rcost`→`--ink-soft`. **R11-3**
+  dark-block lift `--ink-faint`→`--ink-soft` for `.usage-note`/`.acct-label`/`.acct-current`/`.priv-text`/
+  `.priv-confirm`/`.priv-msg`/`.toggle-hint`/`.pr-sub` + inactive `.seg-btn`. **R11-Q (functional)** rework
+  `LessonOverlay` (`Learn.jsx:47`): select-only `.quiz-opt.selected` (no auto-reveal), always-on **Submit**
+  (disabled until picked) → correct=green banner+`onComplete`, wrong=red banner+constructive hint+retry (gated);
+  **X-close** (reuse Round 8 `Ic.close`/`.ov-close`); new `.quiz-result.ok/.bad` token banners. TDD Learn.test.jsx.
+  Build R11-1 → R11-2 → R11-3 → R11-Q on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
