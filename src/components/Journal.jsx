@@ -3,7 +3,7 @@ import { useApp } from "../hooks/app-context.js";
 import { fmtP } from "../utils/format.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { thesisError } from "../utils/journal.js";
-import { CI } from "./ui.jsx";
+import { CI, Ic } from "./ui.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
 
 /**
@@ -34,6 +34,52 @@ function fmtDate(iso) {
 
 function excerptOf(j) {
   return j.thesis || j.changeMyMind || Object.values(j.funnel || {})[0] || "Research findings recorded";
+}
+
+// R8-3 — read-only "Breakdown" popup: the FULL thesis in white cards, comfortable to
+// read however long (pre-wrap + overflow-wrap via .j-read). X-closes; no edit, no data
+// change — a pure read of coin.journal. Reached from the Read button in JournalDetail.
+function ThesisBreakdown({ coin, onClose }) {
+  const j = coin.journal;
+  const findings = FUNNEL_FIELDS
+    .map(({ key, label }) => ({ label, value: ((j.funnel && j.funnel[key]) || "").trim() }))
+    .filter((x) => x.value);
+  return (
+    <div className="ci-app overlay">
+      <div className="overlay-head">
+        <div className="overlay-head-title">Thesis breakdown</div>
+        <button className="ov-close" onClick={onClose} aria-label="Close">{Ic.close}</button>
+      </div>
+      <div className="overlay-body">
+        <div className="bj-coin-head">
+          <CI thumb={coin.thumb} symbol={coin.symbol} size={40} />
+          <div>
+            <div className="bj-coin-name">{coin.name}</div>
+            <div className="bj-coin-price">
+              Thesis written {fmtDate(j.createdAt)}{j.priceAtAdd ? " · " + fmtP(j.priceAtAdd) : ""}
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="journal-q"><div className="q-label">Why you bought it</div><div className="j-read">{j.thesis || "—"}</div></div>
+        </div>
+        <div className="card">
+          <div className="journal-q"><div className="q-label">What would change your mind</div><div className="j-read">{j.changeMyMind || "—"}</div></div>
+        </div>
+        <div className="card">
+          <div className="journal-q">
+            <div className="q-label">Manual research findings</div>
+            {findings.length ? findings.map((x, i) => (
+              <div className="j-finding" key={i}>
+                <div className="j-finding-label">{x.label}</div>
+                <div className="j-read">{x.value}</div>
+              </div>
+            )) : <div className="j-read">—</div>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // Detail overlay for one journal entry. Holds local funnel-input state seeded from
@@ -69,13 +115,16 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
   const [confirmDel, setConfirmDel] = useState(false);
   const del = async () => { if (await onDelete()) onClose(); };
 
+  // R8-3 — open the read-only Breakdown popup.
+  const [reading, setReading] = useState(false);
+  if (reading) return <ThesisBreakdown coin={coin} onClose={() => setReading(false)} />;
+
   return (
     <div className="ci-app overlay">
+      {/* R8-2: X (top-right) replaces the back-arrow on the Journal thesis popups. */}
       <div className="overlay-head">
-        <div className="back-btn" onClick={onClose}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
-        </div>
         <div className="overlay-head-title">{coin.name}</div>
+        <button className="ov-close" onClick={onClose} aria-label="Close">{Ic.close}</button>
       </div>
       <div className="overlay-body">
         <div className="bj-coin-head">
@@ -103,11 +152,16 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
             <button className="btn-ghost" onClick={cancelEdit}>Cancel</button>
           </>
         ) : (
-          <>
+          // R8-2: read view in a white card (matches the portfolio cards), with an
+          // always-on Read pill (→ Breakdown) next to the accent Edit pill.
+          <div className="card">
             <div className="journal-q">
               <div className="j-q-head">
                 <div className="q-label">Why you bought it</div>
-                <button className="j-edit-btn" onClick={() => setEditing(true)}>Edit</button>
+                <div className="j-q-actions">
+                  <button className="j-read-btn" onClick={() => setReading(true)}>Read</button>
+                  <button className="j-edit-btn" onClick={() => setEditing(true)}>Edit</button>
+                </div>
               </div>
               <div className="j-read">{j.thesis || "—"}</div>
             </div>
@@ -115,7 +169,7 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
               <div className="q-label">What would change your mind</div>
               <div className="j-read">{j.changeMyMind || "—"}</div>
             </div>
-          </>
+          </div>
         )}
 
         <div className="journal-q" style={{ marginBottom: 10 }}>
@@ -173,11 +227,10 @@ function AddThesis({ coin, onSave, onClose }) {
   };
   return (
     <div className="ci-app overlay">
+      {/* R8-2: X close (Journal thesis overlays use X, not the back-arrow). */}
       <div className="overlay-head">
-        <div className="back-btn" onClick={onClose}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
-        </div>
         <div className="overlay-head-title">Add your thesis</div>
+        <button className="ov-close" onClick={onClose} aria-label="Close">{Ic.close}</button>
       </div>
       <div className="overlay-body">
         <div className="bj-callout">

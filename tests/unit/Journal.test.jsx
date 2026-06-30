@@ -136,6 +136,26 @@ describe("Journal tab (extracted, via AppContext)", () => {
     expect(saveFunnel.mock.calls[0][1].dilution).toBe("big unlock cliff ahead");
   });
 
+  // R8 — a Read button opens the read-only Breakdown popup with the full thesis.
+  it("opens the read-only Breakdown popup from the Read button (R8)", () => {
+    const withFunnel = { ...withThesis, journal: { ...withThesis.journal, funnel: { dilution: "40% unlocks in 2027" } } };
+    provide({ portfolio: [withFunnel] });
+    fireEvent.click(screen.getByText("Bitcoin"));   // open detail
+    fireEvent.click(screen.getByText("Read"));        // open breakdown
+    expect(screen.getByText("Thesis breakdown")).toBeInTheDocument();
+    expect(screen.getByText("Devs go quiet")).toBeInTheDocument();        // change-my-mind
+    expect(screen.getByText("40% unlocks in 2027")).toBeInTheDocument();  // funnel finding
+  });
+
+  // R8 — the detail popup closes with the X (replaced the back-arrow).
+  it("closes the Journal detail popup with the X button (R8)", () => {
+    provide({ portfolio: [withThesis] });
+    fireEvent.click(screen.getByText("Bitcoin"));
+    expect(screen.getByText("Is your thesis still intact?")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Close"));
+    expect(screen.queryByText("Is your thesis still intact?")).toBeNull();
+  });
+
   // R4-4 — the LIVE + plan header pills are wired into this tab.
   it("renders the LIVE + plan header pills (R4-4)", () => {
     const setScreen = vi.fn();

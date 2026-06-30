@@ -184,13 +184,27 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .j-ic { width:36px; height:36px; border-radius:50%; flex:none; display:grid; place-items:center; font-weight:700; color:#fff; font-size:13px; }
 .ci-app .j-coin { font-weight:700; font-size:14px; }
 .ci-app .j-date { font-size:11.5px; color:var(--ink-faint); margin-top:1px; }
-.ci-app .j-excerpt { font-size:13px; color:var(--ink-soft); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+/* R8-1: wrap long no-space strings (pre-wrap doesn't break them) and reserve a 2-line
+   min-height so every card aligns in the grid regardless of thesis length. */
+.ci-app .j-excerpt { font-size:13px; color:var(--ink-soft); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; word-break:break-word; min-height:calc(2 * 1.5em); }
 .ci-app .j-status { display:inline-flex; align-items:center; gap:5px; margin-top:9px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; }
 .ci-app .j-intact { background:var(--sg-s); color:var(--sg); }
 .ci-app .j-review { background:var(--sa-s); color:#956c00; }
 .ci-app .j-challenged { background:var(--sr-s); color:var(--sr); }
 /* Read-back of a saved thesis in the Journal detail overlay (preserves line breaks) */
-.ci-app .j-read { font-size:14px; line-height:1.6; color:var(--ink-soft); margin-top:6px; white-space:pre-wrap; }
+/* R8-2: pre-wrap alone doesn't break no-space strings → add overflow-wrap so a long
+   thesis can't overflow the popup. */
+.ci-app .j-read { font-size:14px; line-height:1.6; color:var(--ink-soft); margin-top:6px; white-space:pre-wrap; overflow-wrap:anywhere; }
+/* R8-2/R8-3: Journal thesis popups — X close (replaces back-arrow, reuses the .back-btn
+   circle look), Read+Edit action pair, white-card read blocks, breakdown findings. All
+   token-based → dark-safe, zero new dark rules. Scoped to the Journal overlays only;
+   the shared .overlay-head/.back-btn are untouched (Search keeps its back-arrow). */
+.ci-app .ov-close { position:absolute; top:14px; right:14px; z-index:2; width:34px; height:34px; border-radius:50%; background:var(--paper-3); border:1px solid var(--line); display:grid; place-items:center; cursor:pointer; color:var(--ink-soft); }
+.ci-app .j-q-actions { display:flex; gap:7px; flex:none; }
+.ci-app .j-read-btn { font-family:var(--body); font-size:12px; font-weight:700; color:var(--ink-soft); background:var(--paper-3); border:1px solid var(--line-strong); border-radius:999px; padding:5px 12px; cursor:pointer; flex:none; }
+.ci-app .card > .journal-q:last-child { margin-bottom:0; }
+.ci-app .j-finding { margin-top:13px; }
+.ci-app .j-finding-label { font-size:11.5px; font-weight:700; color:var(--ink-soft); margin-bottom:3px; }
 /* Responsive: thesis entries reflow to 2-up on desktop, 1-up on mobile (gap matches the 11px stack). */
 .ci-app .j-grid { gap:11px; }
 .ci-app .j-grid .j-entry { margin-bottom:0; }
