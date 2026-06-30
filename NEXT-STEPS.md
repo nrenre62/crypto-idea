@@ -337,11 +337,12 @@ extend B5/B6/BL-2, they don't replace them.
 ### C-R2 · Second-pass gaps (2026-06-29 — C13–C16 + fixes; mostly local)
 A deeper adversarial sweep found gaps outside C1–C12 (full detail + evidence in `CACHE-POLICY.md` §3
 round-2 + §4 🔵). Decisions locked; build order:
-- [ ] **C-R2a · own local persistence (C13)** — `window.storage` is referenced but defined nowhere, so
-  "remember active portfolio" + the profile cache silently no-op AND `logout()` never clears them (latent
-  shared-device leak). Swap `src/utils/storage.js` → a direct `localStorage` wrapper; add
-  `db.del('ci-active-port')` + `db.del('ci-profile-'+uid)` to `logout()` (`CryptoIdea.jsx:238`). Unit-test
-  persist + the logout-clear. *Local, do early.*
+- [x] **C-R2a · own local persistence (C13) — ✅ BUILT 2026-06-30 (`48ed974`)** — `window.storage` was
+  referenced but defined nowhere, so "remember active portfolio" + the profile cache silently no-op'd AND
+  `logout()` couldn't clear them (latent shared-device leak). Fixed: `src/utils/storage.js` now backs `db` with
+  real `localStorage` (same async interface + error-swallowing degrade — no call sites changed); `logout()`
+  clears `ci-active-port` + `ci-profile-<uid>`. Tests: new `storage.test.js` (round-trip/del/missing/corrupt/
+  quota-degrade) + smoke asserts logout clears the keys. Verified end-to-end in-browser. 319 unit green.
 - [ ] **C-R2b · `cache/universe` size guard (C14)** — one doc is ~67% of the 1 MiB hard limit at ~3,000
   coins; a >1 MiB write throws and breaks BOTH front-ends. Wrap the write (`functions/index.js:827`): log/
   alert above ~850 KiB, **trim the lowest-rank tail instead of throwing**; hold `UNIVERSE_PAGES` ≤ 12. No

@@ -225,8 +225,9 @@ Detail + checkboxes in [`NEXT-STEPS.md`](NEXT-STEPS.md) §C. Ranked by leverage.
 ### 🔵 Round-2 items (2026-06-29 second-pass — C13–C16 + 4 fixes)
 
 **Decisions to build (mostly local):**
-- **C13 · own local persistence** — swap `window.storage` → direct `localStorage` wrapper in
-  `storage.js`; add `db.del()` of `ci-active-port` + `ci-profile-<uid>` to `logout()`. *Local, now.*
+- **C13 · own local persistence — ✅ BUILT 2026-06-30 (`48ed974`)** — `storage.js` now backs `db` with real
+  `localStorage` (same async interface, error-swallowing degrade); `logout()` clears `ci-active-port` +
+  `ci-profile-<uid>`. Tests: `storage.test.js` + smoke logout-clear; verified in-browser. 319 unit green.
 - **C14 · universe size guard** — wrap the `cache/universe` write: log/alert above ~850 KiB, trim the
   lowest-rank tail instead of throwing; keep `UNIVERSE_PAGES` ≤ 12. *Local-buildable (emulator).*
 - **C15 · audit retention** — add a scheduled audit-TTL purge (fixed N months) + the retention line in
