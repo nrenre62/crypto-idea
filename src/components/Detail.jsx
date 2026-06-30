@@ -89,7 +89,9 @@ export function Detail() {
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}}>
           <div className="dg-sheet" style={{background:"#fff",borderTopLeftRadius:24,borderTopRightRadius:24,padding:"24px 22px 32px",width:"100%",maxWidth:430}}>
             <div style={{width:36,height:4,background:"#E8E8ED",borderRadius:2,margin:"0 auto 18px"}}/>
-            <div style={{fontSize:20,fontWeight:700,marginBottom:12,color:c.txt}}>Delete {coin.name}?</div>
+            {/* R6-3: use the flipping --ink token so the title is readable in dark
+                (c.txt is a hardcoded near-black → invisible on the dark .dg-sheet). */}
+            <div style={{fontSize:20,fontWeight:700,marginBottom:12,color:"var(--ink)"}}>Delete {coin.name}?</div>
             <div className="dg-warn" style={{padding:"14px",borderRadius:12,background:"#FFF8E1",border:"1px solid #FFE082",marginBottom:20}}>
               <div className="dg-warn-text" style={{fontSize:13,color:"#92400E",lineHeight:1.7}}>
                 This coin has {coin.entries.length} buy/sell transaction{coin.entries.length>1?"s":""} and your saved thesis. If you delete it from your portfolio you'll lose that data — this can't be undone.

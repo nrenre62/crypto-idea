@@ -97,6 +97,19 @@ html[data-theme="dark"] .dg-warn { background:rgba(244,197,74,.12) !important; b
 html[data-theme="dark"] .dg-warn-text { color:#e6c879 !important; }
 html[data-theme="dark"] .dg-keep { background:#211f19 !important; border-color:#3a382f !important; color:#ece9e1 !important; }
 
+/* ── Dark-mode visibility fixes (Round 6) — dark-block-only; light mode untouched ── */
+/* R6-1: the tab footer note used --ink-faint (#86837a in dark) → ~3:1, hard to read.
+   Lift it to --ink-soft (the readable muted-light). (.research-root .disclaimer is
+   handled in research-tab.css.) */
+html[data-theme="dark"] .ci-app .disclaimer { color:var(--ink-soft); }
+/* R6-2: form fields in dark had a barely-visible border (--line-strong) + dim
+   placeholder (--ink-faint); typed text is already light. Lift both to --ink-soft so
+   every Account/form field reads clearly. The disabled "Send confirmation link" ghost
+   button (.acct-btn) is also low-contrast disabled — lift its disabled text too. */
+html[data-theme="dark"] .ci-app .field-input { border-color:var(--ink-soft); }
+html[data-theme="dark"] .ci-app .field-input::placeholder { color:var(--ink-soft); }
+html[data-theme="dark"] .ci-app .acct-btn:disabled { color:var(--ink-soft); }
+
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }
 

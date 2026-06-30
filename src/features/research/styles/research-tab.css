@@ -266,3 +266,6 @@ html[data-theme="dark"] .research-root .ask{color:var(--ink);border:1px solid va
    brighten the up arrow to --accent-ink and tint the watch chip to the dark-safe red. */
 html[data-theme="dark"] .research-root .ic-up{color:var(--accent-ink)}
 html[data-theme="dark"] .research-root .ic-watch{background:var(--sr-s);color:var(--sr)}
+/* R6-1: the Research AI/Stress-test footer note used --ink-faint (too dim on dark);
+   lift to --ink-soft to match the .ci-app tab footers. Dark-block-only. */
+html[data-theme="dark"] .research-root .disclaimer{color:var(--ink-soft)}
