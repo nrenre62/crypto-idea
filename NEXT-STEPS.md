@@ -865,7 +865,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   so Account/form fields are visible (typed text already light); **R6-3** the R4-3 delete-coin modal title
   (`Detail.jsx`, hardcoded `c.txt` #1A1A1A → dark-on-dark) → `var(--ink)` so the "Delete {coin}?" header shows
   in dark. Build R6-3 → R6-1 → R6-2 on "go".
-- [ ] **Round 10 — full-window paper background · positive-only Buy/Sell amounts — 📋 PLAN ONLY (2026-06-30)**
+- [x] **Round 10 — full-window paper background · positive-only Buy/Sell amounts — ✅ BUILT 2026-06-30 (`9246fda` R10-2 · `cd1922b` R10-1)**
   (founder Add-transaction screenshot; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 10"). Decisions locked
   (AskUserQuestion): (A) extend the **paper** bg to the whole window, both modes; (B) **both** block-typing +
   clear submit error, for Amount & Price. **R10-1** redefine the `--app-bg` token to the paper tone (`app.css`

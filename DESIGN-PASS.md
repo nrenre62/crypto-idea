@@ -796,6 +796,9 @@ exists.) Browser-verify: the paper background covers the whole window at ~390 an
 **Build order (when "go"):** R10-2 (the bug — higher value) → R10-1 (background). Commit per item. Slotted into
 [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-06-30)** — decisions locked (full paper window both modes · block-typing +
-clear submit error for Amount & Price). R10-2 is functional (the misleading error is the B-PORT permission-denied
-mislabel class). Build on founder "go".
+**Status:** ✅ **BUILT 2026-06-30** (R10-2 `9246fda` · R10-1 `cd1922b`). Full paper window both modes ·
+block-typing + clear submit error for Amount & Price. R10-2 was functional (the misleading error was the B-PORT
+permission-denied mislabel class). As-built: R10-1 redefined the `--app-bg` token to the paper tone **+ added a
+base `body { background:var(--app-bg) }`** (light had no body-bg rule, so white showed beyond 1040 in light);
+verified via probe (body + 1040 wrapper = paper, light `rgb(248,247,243)` / dark `rgb(20,19,15)`). R10-2 strips
+`-` on input + validates `amt>0`/`prc>0` before the write. 312 unit green; build clean; no console errors.
