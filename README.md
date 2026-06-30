@@ -315,8 +315,13 @@ bright, but a solid-accent background under white text stays as-is* (brightening
 It shipped DP-1…DP-12, Rounds 2–4 (incl. the **Search tab redesign + cached `/api/trending` TRENDING list**,
 Portfolio split click-zones, the delete-coin-with-transactions warning, LIVE+plan header tags, and the
 always-on AUTO price button) and a final dark-mode sweep; the mislabeled-plan-limit backend bug (**B-PORT**)
-was fixed too. Two small founder follow-ups (Round 5 card-consistency, Round 6 dark-mode polish) are planned
-in `DESIGN-PASS.md`. Diagnosed backend issues are logged in [`ERRORS.md`](ERRORS.md).
+was fixed too. **Follow-on founder rounds shipped 2026-06-30: Round 6** (dark-mode visibility), **7** (card
+consistency → the Research _Portfolio Pulse_ card; supersedes Round 5), **8** (Journal thesis readability —
+white-card Read/Breakdown popups, X-close), **9** (login white toggle pill + Research equal-height cards +
+in-tab "new portfolio" dialog), **10** (full-window paper background + **positive-only Buy/Sell amounts**, which
+also fixed a negative-input value surfacing the misleading "transaction limit" error — the B-PORT class). **Round
+11** (dark-mode account/transaction text + a Learn-quiz "select → Submit → feedback" rework) is planned in
+`DESIGN-PASS.md`. Diagnosed backend issues are logged in [`ERRORS.md`](ERRORS.md).
 
 # Pages & routes
 

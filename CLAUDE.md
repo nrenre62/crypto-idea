@@ -80,6 +80,17 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   `thesisError`/`clearCoinJournal`/`editThesis`/`deleteThesis`; `coinColor` also colours the Research allocation
   bar. Backend **B-PORT** (mislabeled plan-limit) is **FIXED** — [`ERRORS.md`](ERRORS.md) §A1/§A2. **All
   design-only + dark-safe; verified mobile + desktop, light + dark.**
+- **Design follow-on rounds (founder, 2026-06-30):** **Rounds 6–10 BUILT**, **Round 11 PLANNED** — canonical
+  [`DESIGN-PASS.md`](DESIGN-PASS.md), backlog `NEXT-STEPS.md` §DP. **R6** dark-mode visibility · **R7** card
+  consistency → the Research _Pulse_ card (hero gradient frame via the single-element `padding-box`/`border-box`
+  technique; supersedes Round 5) · **R8** Journal thesis Read/Breakdown popups + **X-close** (new shared
+  `Ic.close`) · **R9** login white toggle pill + Research equal-height coin cards + in-tab "new portfolio" dialog
+  (`addPortfolio` now returns a success bool) · **R10** full-window paper background (the `--app-bg` token = the
+  paper tone + a base `body` bg rule) + **positive-only Buy/Sell amounts** (strip `-` on input + validate
+  `amt>0`/`prc>0` in `addEntry` **before** the write, so a negative no longer surfaces the misleading "transaction
+  limit" error — the B-PORT class). **R11 (planned)** dark-mode account/transaction text + a Learn-quiz
+  "select → Submit → green/red feedback, retry" rework. Dark fixes stay **dark-block-only** except where a value
+  must change in both modes (R7 frame is theme-invariant; R10/R11-1 intentionally change light too).
 - **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 - **Error catalog:** [`ERRORS.md`](ERRORS.md) records diagnosed bugs/warnings + their fixes + by-design caveats (what the error is and how to fix it). Add an entry whenever you diagnose a non-trivial error; dark-mode CSS readability issues live in `DESIGN-PASS.md` "Round 3" instead. Diagnoses are verified against the running emulator. **Notable:** the "Couldn't create portfolio. Check your connection." toast (ERRORS.md §A1) is a **mislabeled plan-limit** (`permission-denied` = at the portfolio cap free 1/pro 3/premium 15), surfacing when the client tier > the DB tier (a local/demo upgrade the server never persists, since users can't write their own `tier`).
 
