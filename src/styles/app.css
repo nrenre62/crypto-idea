@@ -110,6 +110,11 @@ html[data-theme="dark"] .ci-app .field-input { border-color:var(--ink-soft); }
 html[data-theme="dark"] .ci-app .field-input::placeholder { color:var(--ink-soft); }
 html[data-theme="dark"] .ci-app .acct-btn:disabled { color:var(--ink-soft); }
 
+/* ── Dark-mode fix (Round 9) — dark-block-only ── */
+/* R9-1c: .auth-err hardcodes a light-red bg (#fdecea) → red-on-light-red in dark.
+   Use the flipping red tint. The #FF3B30 text (inline, test-locked) reads on it. */
+html[data-theme="dark"] .ci-app .auth-err { background:var(--sr-s); }
+
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }
 
@@ -443,9 +448,12 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .auth-logo span { font-weight:700; }
 .ci-app .auth-tagline { font-size:13px; color:var(--ink-soft); margin-bottom:34px; }
 .ci-app .auth-col { width:100%; max-width:340px; display:flex; flex-direction:column; gap:13px; text-align:left; }
-.ci-app .auth-toggle { display:flex; border-radius:var(--radius-sm); overflow:hidden; border:1px solid var(--line-strong); }
-.ci-app .auth-toggle button { flex:1; padding:11px; border:0; font-family:var(--body); font-size:14px; font-weight:600; cursor:pointer; background:var(--paper-3); color:var(--ink-faint); }
-.ci-app .auth-toggle button.on { background:var(--ink); color:var(--paper); }
+/* R9-1a: align to the .seg pattern — a paper-3 track with a WHITE active pill (matches
+   the founder screenshot). Active = --paper-2 + --ink + lift; tokens flip → dark-safe
+   (dark active becomes the dark-panel pill, the app standard). No new dark rule. */
+.ci-app .auth-toggle { display:flex; gap:4px; border-radius:var(--radius-sm); border:1px solid var(--line); background:var(--paper-3); padding:4px; }
+.ci-app .auth-toggle button { flex:1; padding:9px; border:0; border-radius:10px; font-family:var(--body); font-size:14px; font-weight:700; cursor:pointer; background:transparent; color:var(--ink-faint); transition:background .15s var(--ease), color .15s var(--ease); }
+.ci-app .auth-toggle button.on { background:var(--paper-2); color:var(--ink); box-shadow:var(--sh-sm); }
 .ci-app .auth-toggle button:disabled { cursor:not-allowed; opacity:.5; }
 .ci-app .auth-note { font-size:11px; color:var(--ink-faint); text-align:center; }
 .ci-app .auth-err { background:#fdecea; border-radius:10px; font-size:12px; text-align:center; padding:10px; } /* color set inline (#FF3B30) — locked by Login.test */
@@ -591,6 +599,15 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .csig-a { background:var(--sa-s); color:#956c00; } .ci-app .csig-a .sd { background:var(--sa); }
 .ci-app .csig-r { background:var(--sr-s); color:var(--sr); } .ci-app .csig-r .sd { background:var(--sr); }
 .ci-app .csig-d { background:var(--sd-s); color:var(--sd); } .ci-app .csig-d .sd { background:var(--sd); }
+
+/* ── Centered modal dialog (R9-3: in-tab "new portfolio") ──
+   A dimmed full-screen scrim centering a white card; X-close top-right. Token-based →
+   dark-safe (no new dark rule). Distinct from the slide-up .overlay (full-screen). */
+.ci-app .cm-scrim { position:fixed; inset:0; z-index:9500; background:rgba(0,0,0,.5); display:grid; place-items:center; padding:24px; animation:ci-fade .2s var(--ease); }
+.ci-app .cm-card { position:relative; width:100%; max-width:360px; background:var(--paper-2); border-radius:var(--radius); box-shadow:var(--sh-lg); padding:22px; }
+.ci-app .cm-close { position:absolute; top:12px; right:12px; width:32px; height:32px; border-radius:50%; background:var(--paper-3); border:1px solid var(--line); display:grid; place-items:center; cursor:pointer; color:var(--ink-soft); }
+.ci-app .cm-title { font-family:var(--display); font-size:20px; font-weight:500; margin-bottom:14px; padding-right:34px; }
+@keyframes ci-fade { from { opacity:0; } to { opacity:1; } }
 
 /* ── Overlays (buy-journal, lesson) ───────────────────── */
 .ci-app.overlay { position:fixed; inset:0; z-index:9000; background:var(--paper); overflow-y:auto; width:100%; max-width:430px; left:50%; transform:translateX(-50%); animation:ci-slide-up .3s var(--ease); }

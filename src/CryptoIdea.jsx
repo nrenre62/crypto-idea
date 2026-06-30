@@ -395,14 +395,16 @@ export default function CryptoIdea(){
   const aiMonthlyCents=_planLim("aiMonthlyCents",isPremium?2500:isPro?400:0);
 
 
+  // Returns true on success so callers (the R9-3 in-tab dialog) can close on success;
+  // Account's add field ignores the return — backward-compatible.
   const addPortfolio=async()=>{
-    if(portfolios.length>=maxPortfolios){showErr(isPro?("Max "+maxPortfolios+" portfolios"):"Starter: 1 portfolio — upgrade to Pro for 3");return}
-    if(!newPortName.trim()){showErr("Enter a portfolio name");return}
-    if(!user?.uid){showErr("Please sign in again");return}
+    if(portfolios.length>=maxPortfolios){showErr(isPro?("Max "+maxPortfolios+" portfolios"):"Starter: 1 portfolio — upgrade to Pro for 3");return false}
+    if(!newPortName.trim()){showErr("Enter a portfolio name");return false}
+    if(!user?.uid){showErr("Please sign in again");return false}
     const res=await dbCreatePortfolio(user.uid,newPortName.trim(),portfolios.length);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't create portfolio. Check your connection.","You've reached your plan's portfolio limit — upgrade for more."));return}
+    if(!res.success){showErr(apiErrorMessage(res,"Couldn't create portfolio. Check your connection.","You've reached your plan's portfolio limit — upgrade for more."));return false}
     const np={id:res.id,name:newPortName.trim(),coins:[]};
-    setPortfolios(prev=>[...prev,np]);setActivePortId(res.id);setNewPortName("")};
+    setPortfolios(prev=>[...prev,np]);setActivePortId(res.id);setNewPortName("");return true};
 
   const deletePortfolio=async(pid)=>{
     if(portfolios.length<=1){showErr("Need at least 1 portfolio");return}

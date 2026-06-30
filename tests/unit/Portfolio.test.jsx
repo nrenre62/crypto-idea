@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { AppContext } from "../../src/hooks/app-context.js";
 import { Portfolio } from "../../src/components/Portfolio.jsx";
@@ -135,5 +135,36 @@ describe("PortfolioBar (extracted, via AppContext)", () => {
     });
     const active = container.querySelector(".port-pill.active");
     expect(active.textContent).toBe("Alt");
+  });
+
+  // R9-3: the "+" pill opens a centered "New portfolio" dialog (not a jump to Settings).
+  const addCtx = (over) => ({
+    portfolios: [{ id: "p1", name: "Main" }], isPro: true, maxPortfolios: 3,
+    newPortName: "", setNewPortName: vi.fn(), addPortfolio: vi.fn(), ...over,
+  });
+
+  it("the + pill opens the New portfolio dialog (R9-3)", () => {
+    provide(PortfolioBar, addCtx());
+    fireEvent.click(screen.getByLabelText("Add portfolio"));
+    expect(screen.getByText("New portfolio")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Portfolio name")).toBeInTheDocument();
+  });
+
+  it("Save calls addPortfolio and closes the dialog on success (R9-3)", async () => {
+    const addPortfolio = vi.fn().mockResolvedValue(true);
+    provide(PortfolioBar, addCtx({ addPortfolio, newPortName: "Alts" }));
+    fireEvent.click(screen.getByLabelText("Add portfolio"));
+    fireEvent.click(screen.getByText("Save"));
+    expect(addPortfolio).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByText("New portfolio")).toBeNull());
+  });
+
+  it("X closes the dialog without adding (R9-3)", () => {
+    const addPortfolio = vi.fn();
+    provide(PortfolioBar, addCtx({ addPortfolio }));
+    fireEvent.click(screen.getByLabelText("Add portfolio"));
+    fireEvent.click(screen.getByLabelText("Close"));
+    expect(screen.queryByText("New portfolio")).toBeNull();
+    expect(addPortfolio).not.toHaveBeenCalled();
   });
 });

@@ -147,9 +147,13 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .sec-label h2{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
 .research-root .sec-label a{font-size:13px;font-weight:600;color:var(--accent)}
 /* Responsive: coin cards reflow to 2-up on desktop, 1-up on mobile (gap matches the 12px stack). */
-.research-root .coins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start}
+/* R9-2: equal-height cards in a multi-up row. align-items:start let each card size to
+   its own content (card 3 with more chips/catalyst/narrative was taller); stretch +
+   height:100% + flex-column make every card match the tallest in its row. No-op on
+   mobile 1-up. */
+.research-root .coins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:stretch}
 .research-root .coins-grid .coin-card{margin-bottom:0}
-.research-root .coin-card{background:var(--paper-2);border:1px solid var(--line-2);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;cursor:pointer;transition:transform .2s var(--ease),box-shadow .2s var(--ease),border-color .2s;box-shadow:var(--sh-sm)}
+.research-root .coin-card{background:var(--paper-2);border:1px solid var(--line-2);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px;cursor:pointer;transition:transform .2s var(--ease),box-shadow .2s var(--ease),border-color .2s;box-shadow:var(--sh-sm);height:100%;display:flex;flex-direction:column}
 .research-root .coin-card:hover{transform:translateY(-2px);box-shadow:var(--sh)}
 .research-root .coin-card.open{box-shadow:var(--sh-lg);border-color:var(--line-strong)}
 .research-root .cc-top{display:flex;align-items:center;gap:12px}
