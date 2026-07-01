@@ -1,11 +1,11 @@
 // utils/portfolio.js — portfolio math. Pure functions, fully testable.
 
 export const FALLBACK_PRICES = {
-  // marketCap added (R14) so the offline demo seam classifies into real risk tiers
-  // (btc/eth ≥ $100B → super-low; sol $1B–$100B → low), not all-unknown → high.
-  bitcoin: { price: 67000, c24: 3.1, c7d: 5.0, c30d: 12.4, marketCap: 1.3e12 },
-  ethereum: { price: 2745, c24: 1.8, c7d: 3.2, c30d: 9.4, marketCap: 3.3e11 },
-  solana: { price: 157, c24: -0.6, c7d: -1.0, c30d: -3.1, marketCap: 7e10 },
+  // marketCap added (R14) + rank added (R23) so the offline demo seam classifies into
+  // real risk (btc rank 1 → safest), not all-unknown → high.
+  bitcoin: { price: 67000, c24: 3.1, c7d: 5.0, c30d: 12.4, marketCap: 1.3e12, rank: 1 },
+  ethereum: { price: 2745, c24: 1.8, c7d: 3.2, c30d: 9.4, marketCap: 3.3e11, rank: 2 },
+  solana: { price: 157, c24: -0.6, c7d: -1.0, c30d: -3.1, marketCap: 7e10, rank: 5 },
 };
 
 export const BETA_BY_RANK = [1.0, 1.1, 1.4, 1.6, 1.8]; // by allocation rank, big→small
@@ -14,7 +14,7 @@ export const BETA_BY_RANK = [1.0, 1.1, 1.4, 1.6, 1.8]; // by allocation rank, bi
 export function computePortfolio(holdings, prices) {
   const out = holdings.map((h) => {
     const p = (prices && prices[h.id]) || FALLBACK_PRICES[h.id] || { price: 0, c24: 0, c7d: 0, c30d: 0 };
-    return { ...h, price: p.price, value: h.amount * p.price, c24: p.c24, c7d: p.c7d, c30d: p.c30d, spark: p.spark, marketCap: p.marketCap != null ? p.marketCap : null };
+    return { ...h, price: p.price, value: h.amount * p.price, c24: p.c24, c7d: p.c7d, c30d: p.c30d, spark: p.spark, marketCap: p.marketCap != null ? p.marketCap : null, rank: p.rank != null ? p.rank : null };
   });
   const total = out.reduce((s, h) => s + h.value, 0);
   out.forEach((h) => (h.alloc = total ? (h.value / total) * 100 : 0));
@@ -32,50 +32,81 @@ export function computePortfolio(holdings, prices) {
   };
 }
 
-// ── Portfolio risk = each coin's MARKET-CAP tier, allocation-weighted (R14) ──
-// Replaces the old concentration model (concentration now lives ONLY on the Allocation
-// bar). Tiers by market cap: <$100M High · $100M–$1B Medium · $1B–$100B Low · ≥$100B
-// Super-low. Unknown/missing cap → High (conservative). Scores + band cuts are tunable.
-export function marketCapTier(mc) {
-  if (mc == null || !isFinite(mc) || mc <= 0) return 'high';
-  if (mc >= 1e11) return 'superlow';   // ≥ $100B (BTC, ETH)
-  if (mc >= 1e9)  return 'low';        // $1B – $100B
-  if (mc >= 1e8)  return 'medium';     // $100M – $1B
-  return 'high';                       // < $100M (micro-cap)
+// ── Portfolio risk from each coin's REAL CoinGecKO rank (R23; supersedes the R14
+// discrete market-cap tiers). Per-coin risk is a smooth log-scale curve on rank
+// (rank 1 → ~0.02 … rank ≥1500 / unranked → 0.95), with a log-market-cap fallback
+// when rank is missing. The book is the allocation-weighted mean, and a $100B+
+// mega-cap anchor ≥40% of the book guarantees the meter can't read "High".
+// All constants are the tuning knobs — documented inline.
+const R_MIN = 2, R_MAX = 1500;   // rank curve endpoints (log10 scale)
+const GAMMA = 1.4;               // curve shape: rank ~50 ≈ .35, ~200 ≈ .6, ~500 ≈ .78
+const RISK_MIN = 0.02, RISK_MAX = 0.95;
+const MEGA_CAP = 1e11, MEGA_RANK = 10;   // "mega" = ≥$100B cap or top-10 rank
+const MEGA_FLOOR_ALLOC = 40;             // anchor % that caps the meter at Moderate
+const LOW_CUT = 0.34, HIGH_CUT = 0.67;   // 3-band cuts (unchanged from R14)
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+
+// Per-coin risk: rank first (the founder's "real risk"), cap as fallback, worst-case 0.95.
+export function coinRisk(h) {
+  const rank = h && h.rank;
+  if (rank != null && isFinite(rank) && rank >= 1) {
+    const t = clamp01((Math.log10(rank) - Math.log10(R_MIN)) / (Math.log10(R_MAX) - Math.log10(R_MIN)));
+    return Math.min(RISK_MAX, Math.max(RISK_MIN, Math.pow(t, GAMMA)));
+  }
+  const mc = h && h.marketCap;
+  if (mc != null && isFinite(mc) && mc > 0) {
+    const t = clamp01((12 - Math.log10(mc)) / 5);   // $1T → 0 … $10M → 1, log scale
+    return Math.min(RISK_MAX, Math.max(RISK_MIN, t));
+  }
+  return RISK_MAX;   // no rank, no cap → highest risk (decision 1)
 }
-export const TIER_SCORE = { superlow: 0.05, low: 0.30, medium: 0.65, high: 0.95 };
+
+const isMega = (h) =>
+  (h.marketCap != null && h.marketCap >= MEGA_CAP) || (h.rank != null && h.rank <= MEGA_RANK);
+// Note buckets by rank: top-50 / mid (51–500) / small-or-unranked.
+const rankBucket = (h) =>
+  h.rank != null && h.rank <= 50 ? 'top' : h.rank != null && h.rank <= 500 ? 'mid' : 'small';
 
 export function deriveRisk(holdings) {
   const total = holdings.reduce((s, h) => s + (h.alloc || 0), 0);
-  const breakdown = { superlow: 0, low: 0, medium: 0, high: 0 };
-  let score;
+  const breakdown = { top: 0, mid: 0, small: 0 };
+  let score, megaAlloc = 0;
   if (total > 0) {
     score = 0;
     for (const h of holdings) {
-      const tier = marketCapTier(h.marketCap);
-      breakdown[tier] += (h.alloc || 0);          // allocation % per tier (for the note)
-      score += ((h.alloc || 0) / total) * TIER_SCORE[tier];   // allocation-weighted mean
+      const alloc = h.alloc || 0;
+      breakdown[rankBucket(h)] += alloc;            // allocation % per bucket (for the note)
+      if (isMega(h)) megaAlloc += alloc;
+      score += (alloc / total) * coinRisk(h);       // allocation-weighted mean
     }
   } else {
-    score = TIER_SCORE.high;                       // no allocation data → treat as high
-    breakdown.high = 100;
+    score = RISK_MAX;                               // no allocation data → treat as high
+    breakdown.small = 100;
   }
-  // 3-band meter (Q4): the 4 tiers feed the numeric score; Super-low & Low land in green.
-  const level = score < 0.34 ? 'Low' : score < 0.67 ? 'Moderate' : 'High';
-  return { level, score, breakdown };
+  // Mega-cap safety floor (decision 2): a ≥40% $100B+ anchor guarantees the meter
+  // can't read High. Mega coins already carry the lowest coinRisk, so this is an
+  // explicit ceiling on top of the weighted mean, not double-counting.
+  if (megaAlloc >= MEGA_FLOOR_ALLOC && score >= HIGH_CUT) score = HIGH_CUT - 0.02;
+  const level = score < LOW_CUT ? 'Low' : score < HIGH_CUT ? 'Moderate' : 'High';
+  return { level, score, breakdown, megaAlloc };
 }
 
-// Plain-language, market-cap risk note for the meter (pure → unit-tested).
-export function riskNote(breakdown) {
-  const large = Math.round((breakdown.superlow || 0) + (breakdown.low || 0));  // ≥ $1B
-  const mid = Math.round(breakdown.medium || 0);                               // $100M–$1B
-  const micro = Math.round(breakdown.high || 0);                               // < $100M
-  const advice = micro >= 40
-    ? 'Micro-caps (under $100M) are the highest-risk tier — sizing them down would lower this.'
-    : large >= 60
-    ? 'Mostly large-cap, which keeps single-coin risk lower.'
-    : 'A mix of market-cap tiers.';
-  return `Large-caps ($1B+) are ${large}% of your book, mid-caps ${mid}%, micro-caps ${micro}%. ${advice}`;
+// Plain-language, rank-based risk note for the meter (pure → unit-tested).
+// Names the $100B+ anchor when the mega floor is active (megaAlloc ≥ 40%).
+export function riskNote(breakdown, megaAlloc = 0, level = '') {
+  const top = Math.round(breakdown.top || 0);
+  const mid = Math.round(breakdown.mid || 0);
+  const small = Math.round(breakdown.small || 0);
+  const mix = `Top-50 coins are ${top}% of your book, mid-ranked ${mid}%, small/unranked ${small}%.`;
+  if (megaAlloc >= MEGA_FLOOR_ALLOC) {
+    return `${mix} Your $100B+ anchor (${Math.round(megaAlloc)}%) is holding the risk at ${level}.`;
+  }
+  const advice = small >= 40
+    ? 'Small or unranked coins are the highest-risk tier — sizing them down would lower this.'
+    : top >= 60
+    ? 'Mostly top-ranked coins, which keeps single-coin risk lower.'
+    : 'A mix of ranks and sizes.';
+  return `${mix} ${advice}`;
 }
 
 // Stress test: model a broad market move (%), scaling each holding by its beta.

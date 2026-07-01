@@ -8,9 +8,10 @@ import { riskNote } from '../utils/portfolio';
 const SEGMENTS = 20;
 
 export default function RiskMeter({ risk, holdings }) {
-  // R14: fill + note come from the allocation-weighted market-cap risk (was concentration).
+  // R23: fill + note come from the allocation-weighted RANK risk (mega anchor named
+  // in the note when the ≥40% floor is active).
   const fill = Math.max(1, Math.min(SEGMENTS, Math.round(risk.score * SEGMENTS)));
-  const note = holdings[0] ? riskNote(risk.breakdown) : '';
+  const note = holdings[0] ? riskNote(risk.breakdown, risk.megaAlloc, risk.level) : '';
 
   return (
     <div className="risk">
