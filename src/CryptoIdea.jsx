@@ -24,6 +24,7 @@ import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
   createPortfolio as dbCreatePortfolio,
   deletePortfolio as dbDeletePortfolio,
+  updatePortfolioName as dbUpdatePortfolioName,
   addCoin as dbAddCoin,
   updateCoinJournal as dbUpdateCoinJournal,
   clearCoinJournal as dbClearCoinJournal,
@@ -431,6 +432,25 @@ export default function CryptoIdea(){
     setPortfolios(prev=>prev.filter(p=>p.id!==pid));
     if(activePortId===pid){setActivePortId(portfolios.find(p=>p.id!==pid)?.id||"default")}};
 
+  // R19-2: rename a portfolio via the shared Modal (reachable from Account → Portfolios
+  // and the switcher bar). `renameFor` holds the portfolio id being renamed; `renameName`
+  // is the edited text (prefilled from the current name by startRename). Rules already
+  // allow a name-only update (validPortfolioData bounds 1–50, coinCount untouched).
+  const [renameFor,setRenameFor]=useState(null);
+  const [renameName,setRenameName]=useState("");
+  const startRename=(pid)=>{const p=portfolios.find(x=>x.id===pid);if(!p)return;setRenameName(p.name);setRenameFor(pid);};
+  const closeRename=()=>{setRenameFor(null);setRenameName("");};
+  const renamePortfolio=async()=>{
+    const name=renameName.trim();
+    if(!name){showErr("Enter a portfolio name");return}
+    if(name.length>50){showErr("Name must be 50 characters or fewer");return}
+    if(!renameFor){return}
+    if(!user?.uid){showErr("Please sign in again");return}
+    const res=await dbUpdatePortfolioName(user.uid,renameFor,name);
+    if(!res.success){showErr(apiErrorMessage(res,"Couldn't rename portfolio. Check your connection."));return}
+    setPortfolios(prev=>prev.map(p=>p.id===renameFor?{...p,name}:p));
+    closeRename();};
+
   const addCoin=async(c,journal=null)=>{
     if(portfolio.find(x=>x.id===c.id)){showErr("Already added");return}
     const lim=maxCoinsPerPort;
@@ -630,7 +650,7 @@ export default function CryptoIdea(){
     remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
     portfolios,setActivePortId,activePortId,
-    maxTxPerCoin,aiMonthlyCents,startDowngrade,fmtDate,deletePortfolio,newPortName,setNewPortName,addPortfolio,
+    maxTxPerCoin,aiMonthlyCents,startDowngrade,fmtDate,deletePortfolio,startRename,newPortName,setNewPortName,addPortfolio,
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     delPass,setDelPass,delType,setDelType,cancelDelete,
     pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,
@@ -697,6 +717,16 @@ export default function CryptoIdea(){
           </div>
         </Modal>);
     })()}
+    {/* R19-2: shared "Rename portfolio" dialog (text form → no scrim-dismiss so a typed name isn't lost). */}
+    {renameFor&&(
+      <Modal size="sm" title="Rename portfolio" onClose={closeRename} dismissOnScrim={false}>
+        <input className="field-input" value={renameName} autoFocus maxLength={50}
+          onChange={e=>setRenameName(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter")renamePortfolio()}}
+          placeholder="Portfolio name"/>
+        <button className="btn-primary" style={{marginTop:14}} onClick={renamePortfolio}>Save</button>
+      </Modal>
+    )}
     {/* A soft-deleted (trashed) user sees only the restore screen — never the app. */}
     {user?.deleted&&screen!=="login"&&screen!=="loading"?<RestoreAccount/>:<>
     <div className={"ci-app app-shell"+(WIDE_SCREENS.has(screen)?" app-shell-wide":NARROW_SCREENS.has(screen)?" app-shell-narrow":"")}>

@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { Ic } from "./ui.jsx";
+import { Modal } from "./Modal.jsx";
+import { c } from "../utils/theme.js";
 
 // Usage-bar color by fill level (green < 70% < amber < 90% < red).
 const barColor = (pct) => pct >= 90 ? "var(--warn)" : pct >= 70 ? "var(--amber)" : "var(--accent)";
@@ -48,6 +50,49 @@ function CtrlRow({ icon, label, children }) {
 }
 
 const SECTION_TITLES = { profile: "Profile", billing: "Plan & billing", portfolios: "Portfolios", security: "Security", privacy: "Privacy & data" };
+
+// R19-1/R19-2: one portfolio row. The delete confirm MIRRORS the coin (Detail): an
+// EMPTY portfolio → quick two-tap trash → "Remove" pill (auto-disarms ~3s); a portfolio
+// WITH coins → a blocking warning modal (Cancel / Delete anyway). Confirm state is LOCAL
+// to the row so it never leaks across navigation (the R12 lesson). The ✎ opens the shared
+// rename dialog. Only shows delete when there's more than one portfolio.
+function PortRow({ p }) {
+  const { activePortId, setActivePortId, setScreen, deletePortfolio, startRename, portfolios } = useApp();
+  const [armed, setArmed] = useState(false); // empty-portfolio two-tap "Remove" pill
+  const [warn, setWarn] = useState(false);   // has-coins warning modal
+  const canDelete = portfolios.length > 1;
+  const hasCoins = (p.coins?.length || 0) > 0;
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(false), 3000);
+    return () => clearTimeout(t);
+  }, [armed]);
+  return (
+    <div className="port-row">
+      <div className="pr-name-wrap" onClick={() => { setActivePortId(p.id); setScreen("portfolio"); }} style={{ flex: 1, cursor: "pointer" }}>
+        <div className={"pr-name" + (p.id === activePortId ? " active" : "")}>{p.name}</div>
+        <div className="pr-sub">{p.coins.length} coins{p.id === activePortId ? " · Active" : ""}</div>
+      </div>
+      <button onClick={() => startRename(p.id)} className="icon-btn" style={{ padding: 4 }} aria-label="Rename portfolio">{Ic.edit}</button>
+      {canDelete && (armed
+        ? <button className="pill-danger" style={{ animation: "fadeIn 0.15s" }} onClick={() => deletePortfolio(p.id)}>Remove</button>
+        : <button onClick={() => { if (hasCoins) setWarn(true); else setArmed(true); }} className="icon-btn" style={{ padding: 4 }} aria-label="Delete portfolio">{Ic.trash}</button>)}
+      {warn && (
+        <Modal size="sm" title={`Delete ${p.name}?`} onClose={() => setWarn(false)}>
+          <div className="dg-warn" style={{ padding: "14px", borderRadius: 12, background: "#FFF8E1", border: "1px solid #FFE082" }}>
+            <div className="dg-warn-text" style={{ fontSize: 13, color: "#92400E", lineHeight: 1.7 }}>
+              This portfolio has {p.coins.length} coin{p.coins.length > 1 ? "s" : ""} and all their transactions and theses. Deleting it removes all of them — this can't be undone.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+            <button className="dg-keep" onClick={() => setWarn(false)} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "1px solid #E8E8ED", background: "#fff", color: c.txt, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+            <button onClick={() => { deletePortfolio(p.id); setWarn(false); }} style={{ flex: 1, padding: "14px", borderRadius: 14, border: "none", background: c.red, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Delete anyway</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
 
 // Account screen: a drill-in settings list (home) + detail views (Profile, Plan &
 // billing, Portfolios, Security, Privacy & data). All state + handlers come from
@@ -225,15 +270,7 @@ export function Account() {
         <div className="pad">
           <div className="card">
             <div className="card-title">Portfolios ({portfolios.length}/{maxPortfolios})</div>
-            {portfolios.map(p=>(
-              <div key={p.id} className="port-row">
-                <div className="pr-name-wrap" onClick={()=>{setActivePortId(p.id);setScreen("portfolio")}} style={{flex:1,cursor:"pointer"}}>
-                  <div className={"pr-name"+(p.id===activePortId?" active":"")}>{p.name}</div>
-                  <div className="pr-sub">{p.coins.length} coins{p.id===activePortId?" · Active":""}</div>
-                </div>
-                {portfolios.length>1&&<button onClick={()=>deletePortfolio(p.id)} className="icon-btn" style={{padding:4}}>{Ic.trash}</button>}
-              </div>
-            ))}
+            {portfolios.map(p=>(<PortRow key={p.id} p={p} />))}
             <div className="port-add">
               <input type="text" value={newPortName} onChange={e=>setNewPortName(e.target.value)} placeholder="New portfolio name" className="field-input"/>
               <button onClick={addPortfolio} className="add-name">+ Add</button>

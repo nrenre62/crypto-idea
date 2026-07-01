@@ -167,4 +167,11 @@ describe("PortfolioBar (extracted, via AppContext)", () => {
     expect(screen.queryByText("New portfolio")).toBeNull();
     expect(addPortfolio).not.toHaveBeenCalled();
   });
+
+  it("the ✎ pill renames the ACTIVE portfolio via startRename (R19-2)", () => {
+    const startRename = vi.fn();
+    provide(PortfolioBar, addCtx({ startRename, activePortId: "p1" }));
+    fireEvent.click(screen.getByLabelText("Rename active portfolio"));
+    expect(startRename).toHaveBeenCalledWith("p1");
+  });
 });

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { Modal } from "./Modal.jsx";
+import { Ic } from "./ui.jsx";
 
 // Horizontal portfolio switcher, shown only when there's more than one portfolio
 // (or the user is Pro). Reads the portfolio list + active id from context.
@@ -13,7 +14,7 @@ import { Modal } from "./Modal.jsx";
 // already wired); Account → Portfolios management is unchanged.
 export function PortfolioBar() {
   const { portfolios, isPro, setActivePortId, activePortId, maxPortfolios,
-    newPortName, setNewPortName, addPortfolio } = useApp();
+    newPortName, setNewPortName, addPortfolio, startRename } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   if (!(portfolios.length > 1 || isPro)) return null;
 
@@ -28,6 +29,8 @@ export function PortfolioBar() {
           <button key={p.id} onClick={() => setActivePortId(p.id)} className={"port-pill" + (p.id === activePortId ? " active" : "")}>{p.name}</button>
         ))}
         {portfolios.length < maxPortfolios && <button onClick={openAdd} className="port-pill-add" aria-label="Add portfolio">+</button>}
+        {/* R19-2: rename the ACTIVE portfolio via the shared dialog. */}
+        <button onClick={() => startRename(activePortId)} className="port-pill-edit" aria-label="Rename active portfolio">{Ic.edit}</button>
       </div>
 
       {showAdd && (

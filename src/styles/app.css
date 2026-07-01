@@ -150,7 +150,7 @@ html[data-theme="dark"] .ci-app .seg-btn { color:var(--ink-soft); }
 html[data-theme="dark"] .ci-app :is(.card,.j-entry,.nt-row,.module,.asset-card,.trend-card,.tx-list,.today-lesson) { border-color:var(--edge); }
 html[data-theme="dark"] .research-root :is(.card,.coin-card,.trend-card) { border-color:var(--edge); }
 html[data-theme="dark"] .ci-app .cm-card { border:1px solid var(--edge); }
-html[data-theme="dark"] .ci-app :is(.learn-chip,.port-pill,.port-pill-add,.pill-ghost,.btn-ghost,.seg-btn,.add-pill:disabled) { border-color:var(--edge); }
+html[data-theme="dark"] .ci-app :is(.learn-chip,.port-pill,.port-pill-add,.port-pill-edit,.pill-ghost,.btn-ghost,.seg-btn,.add-pill:disabled) { border-color:var(--edge); }
 html[data-theme="dark"] .research-root :is(.src-chip,.tf-pills,.seg) { border-color:var(--edge); }
 html[data-theme="dark"] .ci-app .trend-item { border-bottom-color:var(--edge); }
 
@@ -312,6 +312,8 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .port-pill { flex:none; padding:7px 16px; border-radius:999px; border:1px solid var(--line-strong); background:var(--paper-2); color:var(--ink-soft); font-family:var(--body); font-size:12.5px; font-weight:600; cursor:pointer; white-space:nowrap; transition:.15s var(--ease); }
 .ci-app .port-pill.active { background:var(--accent-soft); color:var(--accent-ink); border-color:color-mix(in srgb, var(--accent) 35%, transparent); }
 .ci-app .port-pill-add { flex:none; padding:7px 13px; border-radius:999px; border:1px dashed var(--line-strong); background:none; color:var(--ink-faint); font-size:15px; line-height:1; cursor:pointer; }
+/* R19-2: rename ✎ on the switcher bar — a neutral icon pill matching .port-pill. */
+.ci-app .port-pill-edit { flex:none; display:inline-flex; align-items:center; justify-content:center; padding:7px 11px; border-radius:999px; border:1px solid var(--line-strong); background:var(--paper-2); color:var(--ink-soft); cursor:pointer; }
 
 /* R7-3 (HERO): the green→blue Pulse gradient frame, applied with the single-element
    padding-box/border-box technique (no wrapper div, no JSX change). The gradient rgba

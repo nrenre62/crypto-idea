@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { AppContext } from "../../src/hooks/app-context.js";
 import { Account } from "../../src/components/Account.jsx";
@@ -12,7 +12,7 @@ const base = {
   portfolios: [{ id: "default", name: "My Portfolio", coins: [] }],
   maxPortfolios: 1, maxCoinsPerPort: 10, maxTxPerCoin: 50, aiMonthlyCents: 0, portfolio: [],
   startUpgrade: vi.fn(), startDowngrade: vi.fn(), fmtDate: () => "Jan 1, 2027",
-  setActivePortId: vi.fn(), activePortId: "default", deletePortfolio: vi.fn(),
+  setActivePortId: vi.fn(), activePortId: "default", deletePortfolio: vi.fn(), startRename: vi.fn(),
   newPortName: "", setNewPortName: vi.fn(), addPortfolio: vi.fn(),
   downloadMyData: vi.fn(), downloadCsv: vi.fn(), acctBusy: false, deleteMyAccount: vi.fn(),
   delConfirm: false, setDelConfirm: vi.fn(), acctMsg: "", logout: vi.fn(),
@@ -191,5 +191,51 @@ describe("Account screen (drill-in, via AppContext)", () => {
     open(/Privacy & data/);
     fireEvent.click(screen.getByText("Cancel"));
     expect(cancelDelete).toHaveBeenCalled();
+  });
+
+  // ── PORTFOLIOS detail: rename + delete confirm (R19-1/R19-2) ──
+  const twoEmpty = { portfolios: [{ id: "a", name: "Alpha", coins: [] }, { id: "b", name: "Beta", coins: [] }], maxPortfolios: 3 };
+
+  it("Portfolios: rename ✎ opens the shared dialog (startRename with the row id)", () => {
+    const startRename = vi.fn();
+    provide({ ...twoEmpty, startRename });
+    open(/Portfolios/);
+    fireEvent.click(screen.getAllByRole("button", { name: "Rename portfolio" })[0]);
+    expect(startRename).toHaveBeenCalledWith("a");
+  });
+
+  it("Portfolios: an EMPTY portfolio deletes via two-tap trash → Remove", () => {
+    const deletePortfolio = vi.fn();
+    provide({ ...twoEmpty, deletePortfolio });
+    open(/Portfolios/);
+    fireEvent.click(screen.getAllByRole("button", { name: "Delete portfolio" })[0]); // arm
+    expect(deletePortfolio).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Remove")); // confirm
+    expect(deletePortfolio).toHaveBeenCalledWith("a");
+  });
+
+  it("Portfolios: a portfolio WITH coins opens a warning modal (no immediate delete)", () => {
+    const deletePortfolio = vi.fn();
+    provide({ portfolios: [{ id: "a", name: "Alpha", coins: [{ id: "btc" }, { id: "eth" }] }, { id: "b", name: "Beta", coins: [] }], maxPortfolios: 3, deletePortfolio });
+    open(/Portfolios/);
+    fireEvent.click(screen.getAllByRole("button", { name: "Delete portfolio" })[0]);
+    expect(deletePortfolio).not.toHaveBeenCalled();
+    expect(screen.getByText(/This portfolio has 2 coins/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Delete anyway"));
+    expect(deletePortfolio).toHaveBeenCalledWith("a");
+  });
+
+  it("Portfolios: the empty-portfolio Remove pill auto-disarms after ~3s", () => {
+    vi.useFakeTimers();
+    try {
+      provide({ ...twoEmpty });
+      open(/Portfolios/);
+      fireEvent.click(screen.getAllByRole("button", { name: "Delete portfolio" })[0]);
+      expect(screen.getByText("Remove")).toBeInTheDocument();
+      act(() => { vi.advanceTimersByTime(3100); });
+      expect(screen.queryByText("Remove")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

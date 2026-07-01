@@ -239,6 +239,20 @@ test("pro tier caps at 3 portfolios; premium goes beyond (Round 17 — the real 
   await assertSucceeds(cb.commit());
 });
 
+test("owner can rename a portfolio; a >50-char name is rejected; a stranger is denied (R19-2)", async () => {
+  // Rename is a name-only update (coinCount untouched), so the EXISTING portfolio update
+  // rule already allows it: validPortfolioData bounds name 1–50 and counterDeltaOk passes
+  // on a 0 coinCount delta. This test proves that — R19-2 needs NO rules change.
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "One", coinCount: 0 });
+  });
+  const ref = doc(aliceDb(), "users", "alice", "portfolios", "p1");
+  await assertSucceeds(updateDoc(ref, { name: "Renamed" }));           // owner, in-bounds
+  await assertFails(updateDoc(ref, { name: "x".repeat(51) }));         // > 50 chars -> rejected
+  await assertFails(updateDoc(doc(bobDb(), "users", "alice", "portfolios", "p1"), { name: "Hacked" })); // stranger
+});
+
 test("creating a portfolio WITHOUT bumping the counter is rejected", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });

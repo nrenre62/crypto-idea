@@ -121,6 +121,18 @@ export async function deletePortfolio(uid, portfolioId) {
   }
 }
 
+// Rename a portfolio (name only). coinCount is left untouched, so the rules'
+// counterDeltaOk('coinCount') passes on a 0 delta and validPortfolioData bounds the
+// name (1–50) — no rules change needed. The client also validates before the write.
+export async function updatePortfolioName(uid, portfolioId, name) {
+  try {
+    await updateDoc(doc(db, "users", uid, "portfolios", portfolioId), { name });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message, code: error.code };
+  }
+}
+
 
 // ════════════════════════════════════════
 // COINS (within a portfolio)
