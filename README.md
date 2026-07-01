@@ -130,8 +130,8 @@ users/{uid}
 
 | Feature               | Free  | Pro        | Premium          |
 |----------------------|-------|------------|------------------|
-| Portfolios           | 1     | 10         | 50 (customizable)|
-| Coins per portfolio  | 10    | 200        | 500 (customizable)|
+| Portfolios           | 1     | 3          | 15 (customizable)|
+| Coins per portfolio  | 10    | 50         | 1,000 (customizable)|
 | Transactions per coin| 50    | 2,000      | 5,000 (customizable)|
 | DCA calculations/day | 20    | Unlimited  | Unlimited        |
 | Max storage          | 5 MB  | 500 MB     | 15 GB            |

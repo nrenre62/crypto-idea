@@ -80,7 +80,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   `thesisError`/`clearCoinJournal`/`editThesis`/`deleteThesis`; `coinColor` also colours the Research allocation
   bar. Backend **B-PORT** (mislabeled plan-limit) is **FIXED** — [`ERRORS.md`](ERRORS.md) §A1/§A2. **All
   design-only + dark-safe; verified mobile + desktop, light + dark.**
-- **Design follow-on rounds (founder, 2026-06-30):** **Rounds 6–10 BUILT**, **Round 11 PLANNED** — canonical
+- **Design follow-on rounds (founder, 2026-06-30 → 2026-07-01):** **Rounds 6–19 ALL BUILT** — canonical
   [`DESIGN-PASS.md`](DESIGN-PASS.md), backlog `NEXT-STEPS.md` §DP. **R6** dark-mode visibility · **R7** card
   consistency → the Research _Pulse_ card (hero gradient frame via the single-element `padding-box`/`border-box`
   technique; supersedes Round 5) · **R8** Journal thesis Read/Breakdown popups + **X-close** (new shared
@@ -91,6 +91,16 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   limit" error — the B-PORT class). **R11 (planned)** dark-mode account/transaction text + a Learn-quiz
   "select → Submit → green/red feedback, retry" rework. Dark fixes stay **dark-block-only** except where a value
   must change in both modes (R7 frame is theme-invariant; R10/R11-1 intentionally change light too).
+  **Rounds 11–19 BUILT (2026-07-01):** R11 dark account/tx text + Learn-quiz select→Submit rework · R12
+  delete-confirm leak fix (Detail-local state) + auto-disarm · R13 header uniformity (28px) + sub-title cleanup +
+  disclaimer + Research-Risk simplification · **R14** Portfolio Risk = market-cap tiers (allocation-weighted) ·
+  **R15** one shared `<Modal>` for every popup (`src/components/Modal.jsx`) · R16 Research card bottom-align ·
+  **R17** Pro/Premium portfolio fix (dev-only `devSetMyTier`, emulator-gated) · R18 dark `--edge` borders ·
+  **Round 19** portfolio delete-confirm + rename (`updatePortfolioName`, no rules change) + 2-step tx delete +
+  50/page pager + **newest-first tx order** (`src/utils/tx.js`) + mobile modal centering (sm centered / md
+  full-screen) + Learn header **"Learn"** + **cumulative XP bar** (`overallPct`/`LEVEL_MARKERS`) + **desktop-only
+  CoinInfo/Detail/Buy-Sell popups** (`useIsDesktop`; Buy/Sell stacks over Detail). Modal scrim uses a COMPOUND
+  `.ci-app.cm-scrim` selector (root-level dialogs have no `.ci-app` ancestor). Full spec: [`DESIGN-PASS.md`](DESIGN-PASS.md).
 - **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 - **Error catalog:** [`ERRORS.md`](ERRORS.md) records diagnosed bugs/warnings + their fixes + by-design caveats (what the error is and how to fix it). Add an entry whenever you diagnose a non-trivial error; dark-mode CSS readability issues live in `DESIGN-PASS.md` "Round 3" instead. Diagnoses are verified against the running emulator. **Notable:** the "Couldn't create portfolio. Check your connection." toast (ERRORS.md §A1) is a **mislabeled plan-limit** (`permission-denied` = at the portfolio cap free 1/pro 3/premium 15), surfacing when the client tier > the DB tier (a local/demo upgrade the server never persists, since users can't write their own `tier`).
 
