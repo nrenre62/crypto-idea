@@ -40,6 +40,7 @@ import { useLivePrices } from "./hooks/useLivePrices.js";
 import { useAuthSession } from "./hooks/useAuthSession.js";
 import { usePortfolios, DEFAULT_PORTFOLIOS } from "./hooks/usePortfolios.js";
 import { useUpgrade, dueDowngrade } from "./hooks/useUpgrade.js";
+import { useIsDesktop } from "./hooks/useIsDesktop.js";
 import { db } from "./utils/storage.js";
 import { c } from "./utils/theme.js";
 import { portfolioPnl } from "./utils/pnl.js";
@@ -632,6 +633,7 @@ export default function CryptoIdea(){
   // ── Coin Info ──
   // ── Coin Info Screen → components/CoinInfo.jsx (reads context) ──
 
+  const isDesktop=useIsDesktop();
   const at=(screen==="addEntry"||screen==="detail"||screen==="coinInfo"||screen==="account")?"portfolio":screen;
 
   if(site.maintenance) return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
@@ -645,7 +647,7 @@ export default function CryptoIdea(){
     user,contactMsg,setContactMsg,contactSent,setContactSent,
     sq,setSq,searchResults,trending,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,editThesis,deleteThesis,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
-    startAddTx,
+    startAddTx,isDesktop,
     infoCoin,setInfoCoin,prices,
     remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
@@ -664,6 +666,8 @@ export default function CryptoIdea(){
   // their grids land (§R). Same markup mobile↔desktop — no @media needed.
   const WIDE_SCREENS=new Set(["portfolio","research","journal","learn","search"]); // all 5 tab screens share the 1040 track so they're the same width on desktop
   const NARROW_SCREENS=new Set(["detail","addEntry","coinInfo"]); // forms/detail read better narrower
+  // R19-9: on desktop the drill-ins are popups OVER Portfolio → the shell keeps Portfolio's wide track behind them.
+  const baseScreen=(isDesktop&&NARROW_SCREENS.has(screen))?"portfolio":screen;
   const TAB_SCREENS=new Set(["portfolio","research","journal","learn","search"]); // bottom-nav tabs get the persistent account avatar
   const acctInitial=(user?.name||user?.email||"C").trim().charAt(0).toUpperCase();
   return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
@@ -729,7 +733,7 @@ export default function CryptoIdea(){
     )}
     {/* A soft-deleted (trashed) user sees only the restore screen — never the app. */}
     {user?.deleted&&screen!=="login"&&screen!=="loading"?<RestoreAccount/>:<>
-    <div className={"ci-app app-shell"+(WIDE_SCREENS.has(screen)?" app-shell-wide":NARROW_SCREENS.has(screen)?" app-shell-narrow":"")}>
+    <div className={"ci-app app-shell"+(WIDE_SCREENS.has(baseScreen)?" app-shell-wide":NARROW_SCREENS.has(baseScreen)?" app-shell-narrow":"")}>
     {user&&user.emailVerified===false&&!verifyDismissed&&!["login","loading","forgotPass","contact"].includes(screen)&&(
       <div className="verify-banner" role="status">
         <span className="vb-text">📧 Verify your email to secure your account.{verifyMsg?" "+verifyMsg:""}</span>
@@ -744,11 +748,22 @@ export default function CryptoIdea(){
       <button className="avatar app-avatar" onClick={()=>setScreen("account")} aria-label="Account">{acctInitial}</button>
     )}
     {screen==="account"&&<Account/>}
-    {screen==="portfolio"&&<Portfolio/>}
+    {(screen==="portfolio"||(isDesktop&&NARROW_SCREENS.has(screen)))&&<Portfolio/>}
     {screen==="search"&&<Search/>}
-    {screen==="detail"&&<Detail/>}
-    {screen==="addEntry"&&<AddEntry/>}
-    {screen==="coinInfo"&&<CoinInfo/>}
+    {screen==="detail"&&!isDesktop&&<Detail/>}
+    {screen==="addEntry"&&!isDesktop&&<AddEntry/>}
+    {screen==="coinInfo"&&!isDesktop&&<CoinInfo/>}
+    {/* R19-9: on desktop the drill-ins render as centered popups over the Portfolio base;
+        Buy/Sell (addEntry) stacks on top of the Detail popup. Mobile keeps them full-screen. */}
+    {isDesktop&&screen==="coinInfo"&&infoCoin&&(
+      <Modal size="lg" title={infoCoin.name} onClose={()=>{setScreen("portfolio");setInfoCoin(null)}}><CoinInfo/></Modal>
+    )}
+    {isDesktop&&(screen==="detail"||screen==="addEntry")&&sel&&(
+      <Modal size="lg" title={sel.name} onClose={()=>{setScreen("portfolio");setSel(null)}}><Detail/></Modal>
+    )}
+    {isDesktop&&screen==="addEntry"&&sel&&(
+      <Modal size="lg" title={(editEntry?"Edit ":eTxType==="sell"?"Sell ":"Buy ")+(sel.symbol||"")} dismissOnScrim={false} onClose={()=>setScreen("detail")}><AddEntry/></Modal>
+    )}
     {screen==="research"&&<Research/>}
     {screen==="journal"&&<Journal/>}
     {screen==="learn"&&<Learn/>}

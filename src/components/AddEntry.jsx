@@ -12,7 +12,7 @@ import { Ic, CI } from "./ui.jsx";
 export function AddEntry() {
   const {
     sel, eAmt, setEAmt, ePrice, setEPrice, eDate, setEDate,
-    eTxType, setETxType, editEntry, setEditEntry, addEntry, setScreen,
+    eTxType, setETxType, editEntry, setEditEntry, addEntry, setScreen, isDesktop,
   } = useApp();
   const coinData = sel ? TOP_COINS.find(x => x.id === sel.id) : null;
   const launchDate = coinData?.launch || "2013-04-28";
@@ -43,12 +43,15 @@ export function AddEntry() {
   const priceIsHist = histPrice && ePrice && Math.abs(parseFloat(ePrice)-histPrice)/histPrice < 0.15;
   const isBeforeLaunch = eDate && new Date(eDate) < new Date(launchDate);
   return (
-    <div className="ci-app screen-bg">
+    <div className={isDesktop ? "detail-popup" : "ci-app screen-bg"}>
+      {/* R19-9: desktop = popup stacked over the coin popup (Modal supplies title + X). */}
+      {!isDesktop && (
       <div className="detail-head">
         <button className="icon-btn" onClick={()=>{setScreen("detail");setEditEntry(null)}}>{Ic.back}</button>
         <span className="dh-title">{editEntry?"Edit transaction":"Add transaction"}</span>
         <span style={{width:22}}/>
       </div>
+      )}
       <div className="form-body">
         {sel&&(
           <div className="tx-coin-head">

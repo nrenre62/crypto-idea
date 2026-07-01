@@ -9,7 +9,7 @@ import { Ic, CI } from "./ui.jsx";
 // from context. 24h volume + circulating supply come from the /api/prices feed when
 // available and fall back to "—" (never NaN). Restyled to the .ci-app design system.
 export function CoinInfo() {
-  const { infoCoin, setInfoCoin, prices, portfolio, setSel, setScreen } = useApp();
+  const { infoCoin, setInfoCoin, prices, portfolio, setSel, setScreen, isDesktop } = useApp();
   if(!infoCoin)return null;
   const coin=infoCoin;
   const cd=TOP_COINS.find(x=>x.id===coin.id);
@@ -23,10 +23,12 @@ export function CoinInfo() {
   const portCoin=portfolio.find(x=>x.id===coin.id);
 
   return(
-    <div className="ci-app screen-bg">
+    <div className={isDesktop ? "detail-popup" : "ci-app screen-bg"}>
+      {/* R19-9: desktop = popup (Modal supplies title + X); keep the Transactions action. */}
       <div className="detail-head">
-        <button className="icon-btn" onClick={()=>{setScreen("portfolio");setInfoCoin(null)}}>{Ic.back}</button>
-        <span className="dh-title">{coin.name}</span>
+        {!isDesktop && <button className="icon-btn" onClick={()=>{setScreen("portfolio");setInfoCoin(null)}}>{Ic.back}</button>}
+        {!isDesktop && <span className="dh-title">{coin.name}</span>}
+        {isDesktop && <span style={{flex:1}} />}
         <button className="pill-ghost" onClick={()=>{setSel(portCoin||coin);setScreen("detail");setInfoCoin(null)}}>Transactions</button>
       </div>
 

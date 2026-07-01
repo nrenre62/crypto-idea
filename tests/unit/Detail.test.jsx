@@ -184,4 +184,13 @@ describe("Detail screen (extracted, via AppContext)", () => {
     const { container } = provide({ sel: COIN, portfolio: [COIN] });
     expect(container.querySelector(".tx-pager")).toBeNull();
   });
+
+  // ── R19-9: on desktop the screen renders body-only (the Modal wraps it) ──
+  it("R19-9: popup mode (isDesktop) drops screen-bg + the back-arrow, keeps the delete trash", () => {
+    const { container } = provide({ sel: COIN, portfolio: [COIN], isDesktop: true });
+    expect(container.querySelector(".detail-popup")).toBeTruthy();
+    expect(container.querySelector(".screen-bg")).toBeNull();
+    // header now holds only the delete trash (no back arrow) → a single .icon-btn
+    expect(container.querySelectorAll(".detail-head .icon-btn").length).toBe(1);
+  });
 });

@@ -15,7 +15,7 @@ export function Detail() {
   const {
     sel, portfolio, prices, setScreen, setSel,
     remCoin, remEntry, setEditEntry, setETxType, setEPrice, setEAmt, setEDate,
-    startAddTx,
+    startAddTx, isDesktop,
   } = useApp();
   // R12-1: the delete "armed" flag is LOCAL to this screen (was app-level context, which
   // leaked across navigation — arming delete then adding a tx re-fired the warning modal
@@ -53,10 +53,13 @@ export function Detail() {
   const pg = Math.min(txPage, pages);
   const rows = sorted.slice((pg - 1) * PAGE_SIZE, pg * PAGE_SIZE);
   return(
-    <div className="ci-app screen-bg">
+    <div className={isDesktop ? "detail-popup" : "ci-app screen-bg"}>
+      {/* R19-9: on desktop this screen is a popup — the Modal supplies the title + X, so hide
+          the back-arrow + title here; the delete trash/Remove stays on the right. */}
       <div className="detail-head">
-        <button className="icon-btn" onClick={()=>{setScreen("portfolio");setSel(null);setConfirmDel(false)}}>{Ic.back}</button>
-        <span className="dh-title">{coin.name}</span>
+        {!isDesktop && <button className="icon-btn" onClick={()=>{setScreen("portfolio");setSel(null);setConfirmDel(false)}}>{Ic.back}</button>}
+        {!isDesktop && <span className="dh-title">{coin.name}</span>}
+        {isDesktop && <span style={{flex:1}} />}
         {/* R4-3: a coin WITH transactions opens a warning modal (below); a coin with
             none keeps the quick two-tap trash → "Remove" pill. */}
         {(!confirmDel||coin.entries.length>0)

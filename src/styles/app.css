@@ -669,6 +669,12 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .cm-card { position:relative; display:flex; flex-direction:column; width:100%; max-width:440px; max-height:90vh; background:var(--paper-2); border-radius:var(--radius); box-shadow:var(--sh-lg); overflow:hidden; animation:ci-pop .2s var(--ease); }
 .ci-app .cm-card.cm-sm { max-width:360px; }
 .ci-app .cm-card.cm-md { max-width:440px; }
+/* R19-9: content drill-ins (CoinInfo/Detail/Buy-Sell) as desktop popups — a wider card, and
+   the drill-in's own spacing shows (drop the modal body's side/top padding). Desktop-only:
+   these modals mount only when isDesktop, so the phone @media never applies to .cm-lg. */
+.ci-app .cm-card.cm-lg { max-width:560px; }
+.ci-app .cm-body:has(.detail-popup) { padding:0 0 10px; }
+.ci-app .detail-popup .detail-head { padding-top:12px; }
 .ci-app .cm-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:20px 20px 0; flex:none; }
 .ci-app .cm-title { font-family:var(--display); font-size:20px; font-weight:500; }
 .ci-app .cm-close { flex:none; width:32px; height:32px; border-radius:50%; background:var(--paper-3); border:1px solid var(--line); display:grid; place-items:center; cursor:pointer; color:var(--ink-soft); }
