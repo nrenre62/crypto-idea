@@ -217,6 +217,28 @@ test("pro tier allows a 2nd portfolio where free would fail", async () => {
   await assertSucceeds(b.commit()); // count 1 -> 2, within pro limit of 3
 });
 
+test("pro tier caps at 3 portfolios; premium goes beyond (Round 17 — the real maximum)", async () => {
+  // Pro at the cap (3) — a 4th is rejected; a premium user at 3 CAN add a 4th. This is
+  // the cap the Round 17 dev tier-persist unlocks: once the DB tier is pro/premium (set
+  // via the Admin SDK, exactly like devSetMyTier), the rule grants the real maximum.
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "bob"), { tier: "pro", portfolioCount: 3 });
+    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 3 });
+  });
+  // Pro: count 3 -> 4 exceeds the pro limit of 3 -> rejected.
+  const pdb = bobDb();
+  const pb = writeBatch(pdb);
+  pb.set(doc(pdb, "users", "bob", "portfolios", "p4"), { name: "Four", coinCount: 0 });
+  pb.update(doc(pdb, "users", "bob"), { portfolioCount: increment(1) });
+  await assertFails(pb.commit());
+  // Premium: count 3 -> 4 is within the premium limit of 15 -> allowed.
+  const cdb = carolDb();
+  const cb = writeBatch(cdb);
+  cb.set(doc(cdb, "users", "carol", "portfolios", "p4"), { name: "Four", coinCount: 0 });
+  cb.update(doc(cdb, "users", "carol"), { portfolioCount: increment(1) });
+  await assertSucceeds(cb.commit());
+});
+
 test("creating a portfolio WITHOUT bumping the counter is rejected", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });

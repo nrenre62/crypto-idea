@@ -954,8 +954,8 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   the bottom (fixed-height → numbers align, buttons align). CSS-only, one line. Probe: `.cc-ask` share `bottom`,
   `.pos-stats` share `top` across the row. *(The same message's Account "Starter/Pro/Premium" + "1/1" darker-in-light
   ask is already **Round 11 R11-1** — not duplicated.)*
-- [ ] **Round 17 — FIX Pro/Premium can't add a portfolio (tier never reaches the DB) — FUNCTIONAL, 📋 PLAN ONLY
-  (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 17"; bug [ERRORS.md](ERRORS.md) §A1
+- [x] **Round 17 — FIX Pro/Premium can't add a portfolio (tier never reaches the DB) — FUNCTIONAL, ✅ BUILT
+  2026-07-01** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 17"; bug [ERRORS.md](ERRORS.md) §A1
   part 2). Root cause: demo upgrade sets `user.tier` + `saveProfile`→**localStorage** (`CryptoIdea.jsx:183`), never
   Firestore; the rule reads the DB `users/{uid}.tier` (still `free`, cap 1) → `permission-denied` → plan-limit
   message, even though Pro 3 / Premium 15 caps already exist. Decision locked (AskUserQuestion): **dev-only

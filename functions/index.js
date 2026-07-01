@@ -430,6 +430,32 @@ exports.setUserTier = functions.https.onCall(async (data, context) => {
   return { success: true, uid, tier };
 });
 
+// ── DEV / EMULATOR ONLY — self-serve tier for local testing ──────────────────
+// In local/demo there is NO PayPal webhook, so an in-app "upgrade" never reaches the
+// DB (users can't write their own `tier` — firestore.rules blocks it, by design). The
+// portfolio-cap rule then reads the DB tier (still `free`, cap 1) and denies the 2nd
+// portfolio. This lets a signed-in user set their OWN tier so Pro/Premium caps become
+// real WHILE DEVELOPING, and the in-app upgrade works end-to-end on the emulator.
+//
+// SECURITY: HARD-GATED to the emulator — in production `FUNCTIONS_EMULATOR` is unset, so
+// this refuses with permission-denied. Tier therefore stays server-only (PayPal webhook /
+// admin `setUserTier`) in prod and no user can ever self-upgrade. The gate IS the boundary;
+// clients also gate the call behind `import.meta.env.DEV`. Do NOT remove the emulator check.
+exports.devSetMyTier = functions.https.onCall(async (data, context) => {
+  if (process.env.FUNCTIONS_EMULATOR !== "true") {
+    throw new functions.https.HttpsError("permission-denied", "Not available.");
+  }
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
+  }
+  const tier = data && data.tier;
+  if (!["free", "pro", "premium"].includes(tier)) {
+    throw new functions.https.HttpsError("invalid-argument", "A valid tier is required.");
+  }
+  await db.collection("users").doc(context.auth.uid).update({ tier });
+  return { success: true, tier };
+});
+
 // ─── Admin: set a user's per-user custom limits (premium overrides, S8) ───
 // Writes users/{uid}.premiumLimits {portfolios?,coins?,transactions?}. Each value is
 // clamped to the SAME hard ceiling as mergePlans / firestore.rules (#20: coins ≤ 1,000)

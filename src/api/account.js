@@ -30,3 +30,14 @@ export async function signOutEverywhere() {
   const res = await httpsCallable(functions, "signOutEverywhere")();
   return res.data;
 }
+
+// DEV / EMULATOR ONLY — set the CALLER's own tier so an in-app "upgrade" persists to
+// the DB locally (there's no PayPal webhook in the emulator, so the demo upgrade would
+// otherwise never reach Firestore and the portfolio cap would stay at free=1). The
+// Cloud Function HARD-REFUSES outside the emulator, and callers gate on
+// `import.meta.env.DEV`, so this can never self-upgrade in production. Not a security
+// boundary on its own — the function's emulator gate is. See functions/index.js.
+export async function devSetMyTier(tier) {
+  const res = await httpsCallable(functions, "devSetMyTier")({ tier });
+  return res.data;
+}

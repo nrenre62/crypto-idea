@@ -1250,9 +1250,18 @@ green + build clean.
 **Build order (when "go"):** R17-1 (dev tier-persist) → R17-2 (doc the prod path) → R17-3 (optional UX). Update
 [`ERRORS.md`](ERRORS.md) §A1 (part 2 now has a chosen fix). Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-07-01)** — **functional** (unblocks a core action for upgraded accounts). Security
-kept: prod tier stays server-only; the fix is a dev/emulator shim. Decision locked (dev-only persist path). Build on
-founder "go".
+**Status:** ✅ **BUILT 2026-07-01** — **functional**, unblocks portfolio-add on upgraded accounts. Shipped:
+`functions/index.js` `devSetMyTier` callable (emulator-gated: refuses unless `FUNCTIONS_EMULATOR==="true"`;
+auth-required; tier ∈ {free,pro,premium}; Admin-SDK writes ONLY the caller's own `users/{uid}.tier`) ·
+`src/api/account.js` `devSetMyTier` client wrapper · `src/CryptoIdea.jsx` `persistTierDev(tier)` (gated on
+`import.meta.env.DEV` → dead-code-eliminated in prod) wired into the upgrade completion (`Login.jsx` pay handler)
+AND the expiry-downgrade (`checkSubscriptionStatus`). **Security kept:** prod refuses (double gate: server
+emulator-check + client DEV-check); `firestore.rules` still block client `tier` writes (rules test green); no
+IDOR (self-uid only). **Verified:** 319 unit green · `test:rules` **21/21** (new "pro caps at 3, premium beyond"
++ the existing "can't self-promote tier") · build clean (dev path tree-shaken, name-guard clean) · **e2e against
+the live emulator**: `free@` → `devSetMyTier('pro')` persisted `tier=pro` to Firestore → a 2nd portfolio (blocked
+at free cap 1) created successfully; an invalid tier was rejected. Prod path (PayPal webhook / admin `setUserTier`)
+unchanged.
 
 ---
 

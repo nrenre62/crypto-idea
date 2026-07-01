@@ -68,10 +68,13 @@
   Admin panel / seed; at go-live the PayPal webhook persists `tier` server-side. No code change for part 2.
   **Update 2026-07-01:** the founder re-hit part 2 on an upgraded account (Pro/Premium can't add a 2nd portfolio
   with only 1 present — the demo upgrade writes `tier` to **localStorage** via `saveProfile`, never to Firestore, so
-  the rule still enforces `free`=1). Part 2 now has a **planned dev-only tier-persist path** (write the caller's
-  Firestore `tier` behind a dev/emulator gate so the in-app upgrade works end-to-end locally; prod stays PayPal /
-  admin, `tier` never client-writable) — full spec [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 17" +
-  [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP. **PLAN ONLY** — build on founder "go".
+  the rule still enforces `free`=1). Part 2 now has a **dev-only tier-persist path — ✅ BUILT 2026-07-01 (Round 17)**: a
+  `devSetMyTier` callable writes the caller's OWN Firestore `tier` via the Admin SDK, **hard-gated to the emulator**
+  (`FUNCTIONS_EMULATOR==="true"`, else `permission-denied`) and only called from dev builds (`import.meta.env.DEV`,
+  wired into the in-app upgrade completion + expiry-downgrade). In-app upgrade now works end-to-end locally; **prod
+  stays PayPal / admin and `tier` is never client-writable** (rules unchanged). Verified e2e on the emulator (`free@`
+  → `pro` → a 2nd portfolio allowed). Full spec [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 17" +
+  [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
 ### A2 · Generic error toasts hide the real cause (≈10 places) ✅ (high)
 

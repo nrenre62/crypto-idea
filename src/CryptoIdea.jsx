@@ -19,7 +19,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, updateUserSettings, CONSENT_VERSION } from "./api/firebase-auth.js";
-import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere } from "./api/account.js";
+import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
   createPortfolio as dbCreatePortfolio,
@@ -184,6 +184,17 @@ export default function CryptoIdea(){
     if(!u||!u.uid)return;
     const {uid,pass,loggedOut,...rest}=u;
     await db.set("ci-profile-"+uid,rest);
+  };
+  // DEV ONLY (Round 17): in local/emulator there is no PayPal webhook, so a demo
+  // upgrade sets tier only in memory + localStorage — never in Firestore (users can't
+  // write their own `tier`; rules block it). The portfolio-cap rule reads the DB tier,
+  // so Pro/Premium can't actually add portfolios. This calls the emulator-gated
+  // `devSetMyTier` so the in-app upgrade persists to the DB and the caps become real.
+  // No-op in production builds (import.meta.env.DEV is false → dead-code-eliminated);
+  // the callable also refuses outside the emulator. In prod, tier is set by PayPal/admin.
+  const persistTierDev=async(tier)=>{
+    if(!import.meta.env.DEV)return;
+    try{await devSetMyTier(tier);}catch(_e){/* dev-only convenience; ignore failures */}
   };
 
   // Send a password-reset email. Always reports success (anti-enumeration),
@@ -576,6 +587,7 @@ export default function CryptoIdea(){
     trimToTier(target);
     const updated={...u,tier:target,subscription:null};
     await saveProfile(updated);
+    await persistTierDev(target);   // dev: keep the DB tier in sync so caps drop too
     return updated;
   };
 
@@ -622,7 +634,7 @@ export default function CryptoIdea(){
     pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,
     profName,setProfName,profMsg,saveDisplayName,emNew,setEmNew,emPass,setEmPass,emMsg,requestEmailChange,toggleSetting,
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
-    upgradeBilling,setUpgradeBilling,setUser,saveProfile,calcEndDate,
+    upgradeBilling,setUpgradeBilling,setUser,saveProfile,persistTierDev,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site,
     authAgreeTerms,setAuthAgreeTerms,authAgreePrivacy,setAuthAgreePrivacy,authAgreeMarketing,setAuthAgreeMarketing};
   // Responsive shell: tab screens render inside a centered column (.app-shell) that

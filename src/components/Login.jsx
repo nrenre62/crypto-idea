@@ -11,7 +11,7 @@ export function Login() {
   const {
     showPlan, showWelcome, upgradeStep, setUpgradeStep, upgradeFlow, setUpgradeFlow,
     setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user, setUser,
-    saveProfile, calcEndDate, setScreen, authMode, setAuthMode, authErr, setAuthErr,
+    saveProfile, persistTierDev, calcEndDate, setScreen, authMode, setAuthMode, authErr, setAuthErr,
     authName, setAuthName, authEmail, setAuthEmail, authPass, setAuthPass, handleAuth, site,
     authAgreeTerms, setAuthAgreeTerms, authAgreePrivacy, setAuthAgreePrivacy,
     authAgreeMarketing, setAuthAgreeMarketing,
@@ -73,6 +73,9 @@ export function Login() {
               const updated={...user,tier:newTier,subscription:{billing:upgradeBilling,startDate:new Date().toISOString(),endDate,cancelled:false}};
               setUser(updated);
               await saveProfile(updated);
+              // DEV (Round 17): persist the tier to the DB so the portfolio cap becomes
+              // real locally (no PayPal webhook in the emulator). No-op in prod builds.
+              await persistTierDev(newTier);
               setShowWelcome(newTier);
               setUpgradeStep("welcome");
             },2000);
