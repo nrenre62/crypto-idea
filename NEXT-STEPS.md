@@ -1072,6 +1072,20 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (megaAlloc ≥ 40% caps the score below the High cut). **R23-4** `riskNote` → rank/size wording + names the anchor
   when the floor applies. Pure functions, heavily unit-tested; backend field verified in the emulator. No new
   endpoint/upstream/dep, no rules change (rank is read-only server data). Build R23-1+R23-2 → R23-3+R23-4 on "go".
+- [ ] **Round 24 — Journal: auto-save the thesis on close (X) + keep the Save button + flag incomplete theses —
+  📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder "Add your thesis" popup; full spec
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 24"). Today the X **discards** everything typed and a thesis needs BOTH
+  questions to save. Decisions (AskUserQuestion): partial on close → **save + flag incomplete** (never lose work) ·
+  buttons → **keep "Save thesis" + X (both save), remove Cancel** · scope → **whole journal** (Add + Edit + findings).
+  **No rules change** — `validJournal` already allows partial (empty strings pass); `addThesis` already saves partial
+  (no-op only if fully empty); `editThesis` requires both (partial edit = safe no-op). **R24-1** AddThesis: `persist()`
+  with no `thesisError` gate; wire both the Modal X and "Save thesis" to `closeWithSave` (fire-and-close, optimistic);
+  drop Cancel + `.j-err`. **R24-2** derived `isThesisIncomplete(j)` → a yellow "Incomplete" pill (reuse `j-review`)
+  in the list + detail, auto-clears when both filled; **stored `status` unchanged** (derived, not "review" — avoids a
+  rules/enum change + status conflation; deviation from the literal preview, noted). **R24-3** detail X = `closeDetail`
+  that persists the in-progress thesis edit (editThesis no-ops on partial) + funnel (saveFunnel if changed) before
+  closing; keep the edit-form Cancel + "Save findings" as explicit affordances. Component-level; no new dep/attack
+  surface. Build R24-1+R24-2 → R24-3 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
