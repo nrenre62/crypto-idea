@@ -928,3 +928,95 @@ item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP; bug catalogued in [`ER
 
 **Status:** 📋 **PLAN ONLY (2026-07-01)** — behavioural/error fix. No design tokens or dark rules touched (pure
 state-scope + a timer). Defaults assumed above; build on founder "go".
+
+---
+
+## Round 13 — header uniformity · sub-title cleanup · disclaimer visibility · Research Risk simplification · Learn header frame (2026-07-01, PLAN ONLY)
+
+> Founder screenshots + notes: (1) the legal disclaimer at the foot of each tab is too faint in **light** mode;
+> (2) the Research "Portfolio Risk" card's source chips (*Your holdings · Live prices · Market trends*) + the
+> *● Updated just now* freshness line are clutter — remove for a cleaner UX; (3) the descriptive **sub-title**
+> under each tab's main heading is "too much information" — remove it on every tab (even Search); (4) the Search
+> **trending** add button should read **"+ Add"** like the search-results list; (5) the five tab **headings**
+> (Portfolio / Research / Journal / Learn / Search) are different sizes — make them one size + font; (6) the
+> **Learn** header's tags/avatar don't line up like the other tabs, and its XP-progress card should get the
+> **Portfolio value-card gradient border**; (7) Journal's empty state reads *"No theses yet"* — founder wants
+> *"No thesis yet"*.
+> **Decisions locked via AskUserQuestion (2026-07-01):** (Q1) disclaimer → **readable muted** (`--ink-soft`),
+> light mode, every screen; (Q2) remove the **three** descriptive sub-lines (Research/Journal/Search), **keep**
+> Learn's "LEVEL · rank" eyebrow; (Q3) unify all headings to **28px**; (Q4) fix the **Learn header only** (avatar
+> + tags alignment) — **not** the Account screen. Design-only + one copy fix. **Plan only — build on founder "go".**
+
+**Grounded current state:** headings are `.ci-app .apphead .title` 28px (Portfolio, `app.css:146`) ·
+`.research-root .apphead .title` **29px** (`research-tab.css:27`) · Journal + Search inline `fontSize:24`
+(`Journal.jsx:298`, `Search.jsx:52`) · Learn `.learn-title` **22px** (`app.css:238`) — all already
+`var(--display)` weight 500, only the size differs. Sub-lines: Research `.sub` "AI insights across your N
+holdings" (`ResearchTab.jsx:56`), Journal "Write before you buy." (`Journal.jsx:299`), Search "Find any coin…"
+(`Search.jsx:53`); Portfolio has none; Learn has the `.learn-level` eyebrow ABOVE the title (`Learn.jsx:107`, kept).
+Disclaimer `.disclaimer` = `var(--ink-faint)` in light (`app.css:168`, `research-tab.css:228`); dark already
+`--ink-soft` (Round 6, `app.css:113` / `research-tab.css:281`). Risk-card clutter = the `.sources` block
+(`OverviewView.jsx:57-66`: three `.src-chip`s + the `.fresh` "Updated just now"). Search trending button label
+`"Add"` (`Search.jsx:99`) vs results `"+ Add"` (`Search.jsx:74`). The account **avatar** is a shell-level float
+`.ci-app .app-avatar` (`position:absolute; top:14px; right:18px`, `app.css:156`) — on other tabs it floats over a
+plain `.apphead`; on Learn it floats over the bordered `.learn-hero` **card** (`app.css:236`), hence the
+misalignment. Learn's XP card `.learn-hero` uses a plain `border:1px solid var(--line)`; Portfolio's `.value-card`
+(`app.css:288`) uses the single-element gradient frame (`border:1px transparent` + `linear-gradient(--paper-2)
+padding-box, linear-gradient(135deg, rgba(10,107,77,.38), rgba(63,125,240,.32)) border-box` + `--sh` + `--radius`).
+
+- **R13-1 — disclaimer readable in light mode (every screen).** `.disclaimer` `var(--ink-faint)` → `var(--ink-soft)`
+  in **both** `app.css:168` and `research-tab.css:228`. Because `--ink-soft` is a flipping token, this reads as the
+  right muted tone in both modes, so the now-redundant dark-block overrides (`app.css:113`, `research-tab.css:281`)
+  can be **removed** (base == override). Covers Portfolio, Learn ×2, Journal ×2, Research disclaimers. Visible but
+  still secondary/legal (Q1). *(NB "white" would be invisible on paper — interpreted as "more visible".)*
+
+- **R13-2 — remove the descriptive sub-titles (Research / Journal / Search).** Delete the `.sub` line in
+  `ResearchTab.jsx:56-58`, the inline "Write before you buy." block in `Journal.jsx:299-301`, and the inline
+  "Find any coin…" block in `Search.jsx:53`. Portfolio has none; **Learn keeps** its `.learn-level` eyebrow (Q2).
+  The now-unused `.research-root .apphead .sub` rule (`research-tab.css:35`) may be left (harmless) or pruned.
+
+- **R13-3 — Research "Portfolio Risk": drop the source chips + freshness line.** Remove the whole `.sources` block
+  (`OverviewView.jsx:57-66`) — the three `.src-chip`s and the `.fresh` "● Updated just now". Then **prune the now-dead
+  locals** it fed (`freshness`/`failed`/`rel`/`tail`, ~`OverviewView.jsx:36-41`) and drop the `asOf`/`status` props
+  from the `OverviewView` signature + the `ResearchTab.jsx:72` call **iff** nothing else consumes them (verify first —
+  no dead code left). The Allocation bar + Risk meter remain; the unused `.sources/.src-chip/.fresh` CSS may be left
+  or pruned.
+
+- **R13-4 — Search trending button "Add" → "+ Add".** `Search.jsx:99` `{ad ? "Added" : "Add"}` → `{ad ? "Added" :
+  "+ Add"}`, matching the results row (`:74`). Trivial.
+
+- **R13-5 — one heading size (28px) across all five tabs.** Research `.research-root .apphead .title` 29px → **28px**
+  (`research-tab.css:27`); Journal + Search — **remove** the inline `fontSize:24` so they inherit `.ci-app .apphead
+  .title` = 28px; Learn handled by R13-6 (its title moves onto the shared `.apphead .title`). Font/weight/letter-
+  spacing already shared; only the size changes. Portfolio already 28px.
+
+- **R13-6 — Learn header: standard apphead + gradient-framed XP card (Learn only).** Restructure `Learn.jsx:106-115`
+  to the **same pattern as Portfolio** (`apphead → card`): a plain `.ci-app .apphead` row with the title
+  **"Your Investing Edge"** (inherits 28px) + `<span className="beta">BETA</span>` + `<HeaderTags/>` — so the
+  shell `.app-avatar` floats over a plain header and the tags space exactly like the other tabs. Below it, the
+  **XP-progress card** (`.learn-hero`) keeps the **LEVEL · rank eyebrow** + XP bar + XP label + chips, and gets the
+  **value-card gradient frame** (copy `app.css:288`'s `border:1px transparent` + double `padding-box/border-box`
+  gradient + `box-shadow:var(--sh)` + `border-radius:var(--radius)`), replacing its plain `border`. The title moves
+  out of the hero, so `.learn-title` (`app.css:238`) is no longer used for the heading (drop it or repoint). Frame is
+  theme-invariant (padding-box uses the flipping `--paper-2`; gradient is fixed rgba) → **zero new dark rules**.
+  Text "Your Investing Edge" is preserved (walkthrough/Learn tests stay green).
+
+- **R13-7 — Journal copy fix "No theses yet" → "No thesis yet".** `Journal.jsx:366`. *(NB "theses" is the correct
+  plural of thesis; changed to the singular per founder preference for readability.)*
+
+**TDD / verify:** update `tests/unit/CryptoIdea.walkthrough.test.jsx:89` (the "Write before you buy." assertion — that
+sub-title is removed); "Your Investing Edge" assertions (walkthrough:99 + `Learn.test.jsx`) **stay** (R13-6 keeps the
+text). After R13-4 trending also reads "+ Add" — any Search test rendering the **trending** state must use
+`getAllByText("+ Add")` (multiple pills). Add: sub-titles absent (Research/Journal/Search), risk source-chips +
+"Updated just now" absent, Journal shows **"No thesis yet"**, trending pill reads "+ Add". CSS via computed-style
+probe (light + dark): `.disclaimer` = `--ink-soft` in light on a sample screen; all five headings computed 28px;
+`.learn-hero` has a `background-image` (the padding/border-box gradient) + shadow. `npm run test:unit` green +
+`npm run build` clean + browser-verify mobile (~390) + desktop (~1040), light + dark.
+
+**Build order (when "go"):** R13-1 (disclaimer) → R13-2 (sub-titles) → R13-3 (Risk chips + dead-code prune) →
+R13-4 (+ Add) → R13-5 (heading size) → R13-6 (Learn header restructure + frame) → R13-7 (spelling). Commit per item
+(or group the pure-CSS ones). Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-07-01)** — design + one copy fix; no logic/handlers changed. R13-1 changes light
+mode (both `.ci-app` + `.research-root`); R13-6 frame is theme-invariant (zero new dark rules); all others
+mode-neutral. Decisions locked (readable-muted · remove-3-keep-eyebrow · 28px · Learn-header-only). Build on
+founder "go".

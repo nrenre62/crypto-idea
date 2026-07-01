@@ -901,6 +901,20 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   to the idle trash ("first step"); modal (entries>0) does NOT auto-dismiss. Assumed defaults (veto on "go"): 3s ·
   inline-pill-only · local-state fix. TDD: rework `Detail.test.jsx` (currently injects `confirmDel` via provider →
   drive via the trash button) + add leak/auto-disarm/modal-still-works cases. Build R12-1 → R12-2 on "go".
+- [ ] **Round 13 — header uniformity · sub-title cleanup · disclaimer visibility · Research Risk simplification ·
+  Learn header frame — 📋 PLAN ONLY (2026-07-01)** (founder screenshots + notes; full spec
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 13"). Decisions locked (AskUserQuestion): disclaimer → **readable muted**
+  (`--ink-soft`) light mode; remove **3** sub-lines (Research/Journal/Search), keep Learn eyebrow; unify headings to
+  **28px**; **Learn header only** (not Account). **R13-1** `.disclaimer` `--ink-faint`→`--ink-soft` (both `app.css`
+  + `research-tab.css`; drop now-redundant dark rules). **R13-2** delete Research `.sub`, Journal "Write before you
+  buy.", Search "Find any coin…". **R13-3** remove the Research Risk `.sources` block (chips + "Updated just now") +
+  prune dead `freshness`/`failed`/`asOf`/`status`. **R13-4** trending pill "Add"→"+ Add" (`Search.jsx:99`). **R13-5**
+  Research 29→28px; Journal/Search drop inline `fontSize:24`; Learn via R13-6. **R13-6** restructure Learn to the
+  `apphead → card` pattern (title "Your Investing Edge" 28px + BETA + HeaderTags → avatar floats over a plain header
+  like other tabs) + give the XP card (`.learn-hero`) the value-card gradient frame (theme-invariant, zero new dark
+  rules). **R13-7** Journal "No theses yet"→"No thesis yet". TDD: fix walkthrough:89 ("Write before you buy." removed),
+  keep "Your Investing Edge"; Search trending tests → `getAllByText("+ Add")`; add sub-title-absent / risk-chips-absent
+  / "No thesis yet" / 28px-probe cases. Build R13-1→…→R13-7 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
