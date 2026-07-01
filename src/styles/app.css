@@ -150,7 +150,7 @@ html[data-theme="dark"] .ci-app .seg-btn { color:var(--ink-soft); }
 html[data-theme="dark"] .ci-app :is(.card,.j-entry,.nt-row,.module,.asset-card,.trend-card,.tx-list,.today-lesson) { border-color:var(--edge); }
 html[data-theme="dark"] .research-root :is(.card,.coin-card,.trend-card) { border-color:var(--edge); }
 html[data-theme="dark"] .ci-app .cm-card { border:1px solid var(--edge); }
-html[data-theme="dark"] .ci-app :is(.learn-chip,.port-pill,.port-pill-add,.port-pill-edit,.pill-ghost,.btn-ghost,.seg-btn,.add-pill:disabled) { border-color:var(--edge); }
+html[data-theme="dark"] .ci-app :is(.learn-chip,.port-pill,.port-pill-add,.port-pill-edit,.pill-ghost,.btn-ghost,.seg-btn,.add-pill:disabled,.tx-pg,.tx-pg-nav) { border-color:var(--edge); }
 html[data-theme="dark"] .research-root :is(.src-chip,.tf-pills,.seg) { border-color:var(--edge); }
 html[data-theme="dark"] .ci-app .trend-item { border-bottom-color:var(--edge); }
 
@@ -439,6 +439,14 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .tx-list { margin:0 18px; background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius-sm); box-shadow:var(--sh-sm); overflow:hidden; }
 .ci-app .tx-list .tx-row { padding:12px 14px; }
 .ci-app .tx-list .tx-row:last-child { border-bottom:0; }
+/* R19-3: the armed "Delete?" state of the row trash (2-step delete). */
+.ci-app .tx-del-confirm { flex:none; background:var(--sr-s); color:var(--sr); border:1px solid var(--sr); border-radius:999px; padding:5px 11px; font-family:var(--body); font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; animation:fadeIn .15s; }
+/* R19-4: windowed numbered pager (50 tx/page), styled with the design tokens. */
+.ci-app .tx-pager { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:6px; margin:14px 18px 0; }
+.ci-app .tx-pg, .ci-app .tx-pg-nav { min-width:30px; padding:6px 10px; border-radius:var(--radius-xs); border:1px solid var(--line-strong); background:var(--paper-2); color:var(--ink-soft); font-family:var(--body); font-size:12.5px; font-weight:600; cursor:pointer; }
+.ci-app .tx-pg.active { background:var(--accent-soft); color:var(--accent-ink); border-color:color-mix(in srgb, var(--accent) 35%, transparent); }
+.ci-app .tx-pg-nav:disabled { opacity:.4; cursor:default; }
+.ci-app .tx-pg-ellipsis { color:var(--ink-faint); padding:0 2px; font-size:12.5px; }
 .ci-app .tx-left { flex:1; min-width:0; }
 .ci-app .tx-left .tx-line { display:flex; align-items:center; gap:6px; }
 .ci-app .tx-right { text-align:right; flex:none; }

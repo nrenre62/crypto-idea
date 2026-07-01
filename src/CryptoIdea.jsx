@@ -574,7 +574,7 @@ export default function CryptoIdea(){
       const txData={type:eTxType,amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate};
       const res=await dbAddTransaction(user.uid,activePortId,sel.id,txData);
       if(!res.success){showErr(apiErrorMessage(res,"Couldn't add transaction. Check your connection.","You've reached this coin's transaction limit — upgrade for more."));return}
-      const en={id:res.id,...txData};
+      const en={id:res.id,...txData,createdAt:Date.now()};
       setPortfolio(p=>p.map(c=>c.id===sel.id?{...c,entries:[...c.entries,en]}:c));
       setSel(p=>({...p,entries:[...p.entries,en]}));
     }

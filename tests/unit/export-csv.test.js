@@ -13,7 +13,7 @@ const sample = {
         {
           id: "bitcoin", symbol: "btc", name: "Bitcoin",
           transactions: [
-            // intentionally out of date order to prove the export sorts chronologically
+            // intentionally out of date order to prove the export sorts newest-first (R19-5)
             { type: "sell", amount: 0.2, priceAtBuy: 50000, date: "2024-06-01" },
             { type: "buy", amount: 0.5, priceAtBuy: 40000, date: "2024-01-01" },
           ],
@@ -54,13 +54,13 @@ describe("buildPortfolioCsv", () => {
     expect(total).toContain("10000");
   });
 
-  it("transactions are listed in chronological order (oldest first)", () => {
+  it("transactions are listed newest-first (R19-5 — matches the app view)", () => {
     const csv = buildPortfolioCsv(sample);
     const ls = lines(csv);
     const buyIdx = ls.findIndex((l) => l.includes("2024-01-01"));
     const sellIdx = ls.findIndex((l) => l.includes("2024-06-01"));
-    expect(buyIdx).toBeGreaterThan(-1);
-    expect(sellIdx).toBeGreaterThan(buyIdx); // earlier date comes first
+    expect(sellIdx).toBeGreaterThan(-1);
+    expect(buyIdx).toBeGreaterThan(sellIdx); // newer date (2024-06) comes first
   });
 
   it("transactions row has a value column (amount * price)", () => {

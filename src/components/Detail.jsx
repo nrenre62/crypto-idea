@@ -5,6 +5,7 @@ import { coinPnl } from "../utils/pnl.js";
 import { c } from "../utils/theme.js";
 import { Ic, CI } from "./ui.jsx";
 import { Modal } from "./Modal.jsx";
+import { sortTx, pageWindow } from "../utils/tx.js";
 // (Round 15: shared centered-card popup)
 
 // Coin detail: live price, holdings + P/L summary, and the transaction list (each
@@ -30,10 +31,27 @@ export function Detail() {
     const t = setTimeout(()=>setConfirmDel(false), 3000);
     return ()=>clearTimeout(t);
   }, [armedNoTx]);
+  // R19-3/R19-4: transaction list — a row-local two-tap delete (arm → "Delete?" → confirm,
+  // auto-disarms ~3s) + 50-per-page pagination. Both states are LOCAL (R12 lesson) and reset
+  // when a different coin opens (guards the R19-9 desktop stack where Detail stays mounted).
+  const [confirmTxId, setConfirmTxId] = useState(null);
+  const [txPage, setTxPage] = useState(1);
+  useEffect(() => {
+    if(!confirmTxId) return;
+    const t = setTimeout(()=>setConfirmTxId(null), 3000);
+    return ()=>clearTimeout(t);
+  }, [confirmTxId]);
+  useEffect(() => { setTxPage(1); setConfirmTxId(null); }, [sel?.id]);
   if(!sel)return null;
   const coin=selCoin;
   const p=prices[coin.id];const pr=p?.usd;const ch=p?.usd_24h_change;const mc=p?.usd_market_cap;
   const { holding:h, value:v, buysCost, sellsGain, pnl:totalPnl, pnlPct:totalPnlPct } = coinPnl(coin.entries, pr);
+  // R19-5 newest-first order (date desc, createdAt tie-break) + R19-4 slice to the page.
+  const sorted = sortTx(coin.entries);
+  const PAGE_SIZE = 50;
+  const pages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pg = Math.min(txPage, pages);
+  const rows = sorted.slice((pg - 1) * PAGE_SIZE, pg * PAGE_SIZE);
   return(
     <div className="ci-app screen-bg">
       <div className="detail-head">
@@ -82,7 +100,8 @@ export function Detail() {
       </div>
       {coin.entries.length===0
         ?(<div className="tx-empty">No transactions yet.</div>)
-        :<div className="tx-list">{[...coin.entries].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(e=>{const isSell=e.type==="sell";return(
+        :(<>
+        <div className="tx-list">{rows.map(e=>{const isSell=e.type==="sell";const armed=confirmTxId===e.id;return(
           <div key={e.id} className="tx-row" onClick={()=>{setEditEntry(e);setEAmt(e.amount.toString());setEPrice(e.priceAtBuy.toString());setEDate(e.date);setETxType(e.type||"buy");setScreen("addEntry")}}>
             <div className="tx-left">
               <div className="tx-line">
@@ -95,9 +114,23 @@ export function Detail() {
               <div className="tx-rprice">{fmtP(e.priceAtBuy)}</div>
               <div className="tx-rcost">{isSell?"Recv":"Cost"} ${(e.amount*e.priceAtBuy).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
             </div>
-            <button className="tx-del" onClick={(ev)=>{ev.stopPropagation();remEntry(coin.id,e.id)}}>{Ic.trash}</button>
+            {/* R19-3: 2-step delete — tap the trash to arm, tap "Delete?" to confirm (auto-disarms ~3s). */}
+            {armed
+              ?<button className="tx-del-confirm" onClick={(ev)=>{ev.stopPropagation();remEntry(coin.id,e.id);setConfirmTxId(null)}}>Delete?</button>
+              :<button className="tx-del" aria-label="Delete transaction" onClick={(ev)=>{ev.stopPropagation();setConfirmTxId(e.id)}}>{Ic.trash}</button>}
           </div>
-        )})}</div>}
+        )})}</div>
+        {/* R19-4: windowed numbered pager (50/page), only when there's more than one page. */}
+        {pages>1&&(
+          <div className="tx-pager">
+            <button className="tx-pg-nav" disabled={pg<=1} onClick={()=>setTxPage(Math.max(1,pg-1))}>Prev</button>
+            {pageWindow(pg,pages).map((n,i)=>n==="…"
+              ?<span key={"e"+i} className="tx-pg-ellipsis">…</span>
+              :<button key={n} className={"tx-pg"+(n===pg?" active":"")} aria-label={"Page "+n} onClick={()=>setTxPage(n)}>{n}</button>)}
+            <button className="tx-pg-nav" disabled={pg>=pages} onClick={()=>setTxPage(Math.min(pages,pg+1))}>Next</button>
+          </div>
+        )}
+        </>)}
 
       {/* R15-3: the destructive delete-with-transactions warning now uses the shared
           centered Modal (was a bottom-sheet). It's a confirm dialog → scrim tap closes it. */}

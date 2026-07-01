@@ -139,4 +139,49 @@ describe("Detail screen (extracted, via AppContext)", () => {
       vi.useRealTimers();
     }
   });
+
+  // ── R19-3: a single transaction deletes in TWO taps (arm → Delete? → confirm) ──
+  it("R19-3: a transaction needs two taps to delete (arm, then confirm)", () => {
+    const remEntry = vi.fn();
+    provide({ sel: COIN, portfolio: [COIN], remEntry });
+    const del = screen.getAllByRole("button", { name: "Delete transaction" });
+    fireEvent.click(del[0]);                        // arm the top (newest) row
+    expect(remEntry).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Delete?"));   // confirm
+    expect(remEntry).toHaveBeenCalledWith("bitcoin", "t2"); // t2 (Feb) sorts newest-on-top
+  });
+
+  it("R19-3: the armed 'Delete?' auto-disarms after ~3s", () => {
+    vi.useFakeTimers();
+    try {
+      provide({ sel: COIN, portfolio: [COIN] });
+      fireEvent.click(screen.getAllByRole("button", { name: "Delete transaction" })[0]);
+      expect(screen.getByText("Delete?")).toBeInTheDocument();
+      act(() => { vi.advanceTimersByTime(3100); });
+      expect(screen.queryByText("Delete?")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── R19-4: 50/page pagination with a windowed numbered pager ──
+  it("R19-4: paginates the transaction list at 50/page", () => {
+    const many = Array.from({ length: 120 }, (_, i) => ({
+      id: "tx" + i, type: "buy", amount: 1, priceAtBuy: 100,
+      date: "2024-01-01T00:" + String(i % 60).padStart(2, "0"), createdAt: i,
+    }));
+    const coin = { ...COIN, entries: many };
+    const { container } = provide({ sel: coin, portfolio: [coin] });
+    expect(container.querySelectorAll(".tx-list .tx-row").length).toBe(50); // page 1
+    expect(screen.getByText("Transactions (120)")).toBeInTheDocument();      // header counts all
+    expect(screen.getByRole("button", { name: "Page 3" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Page 4" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Page 3" }));
+    expect(container.querySelectorAll(".tx-list .tx-row").length).toBe(20);  // 120 - 100
+  });
+
+  it("R19-4: no pager for a single page (≤50 tx)", () => {
+    const { container } = provide({ sel: COIN, portfolio: [COIN] });
+    expect(container.querySelector(".tx-pager")).toBeNull();
+  });
 });

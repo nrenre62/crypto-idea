@@ -3,9 +3,10 @@
 //   HOLDINGS      — one row per coin: amount held, what you paid (avg cost, invested,
 //                   sold), and a grand TOTAL row. Sorted by portfolio, then biggest
 //                   position first.
-//   TRANSACTIONS  — one row per transaction, listed in chronological order.
+//   TRANSACTIONS  — one row per transaction, listed newest-first (matches the app view).
 // Pure + unit-tested. (Current market value isn't included — the export holds your own
 // data only, no live prices.)
+import { txCreatedMillis } from "./tx.js";
 
 // CSV-escape one field: wrap in quotes if it contains a comma, quote, or newline.
 function esc(v) {
@@ -73,7 +74,7 @@ export function buildPortfolioCsv(data) {
   out.push(row(["TOTAL", "", "", "", "", num(totInvested, 2), num(totSold, 2), ""]));
   out.push("");
 
-  // ── TRANSACTIONS: every transaction, oldest first ──
+  // ── TRANSACTIONS: every transaction, NEWEST first (R19-5 — matches the coin list) ──
   out.push(row(["TRANSACTIONS"]));
   out.push(row(["Portfolio", "Coin", "Symbol", "Type", "Amount", "Price (USD)", "Value (USD)", "Date"]));
   const txRows = [];
@@ -85,7 +86,8 @@ export function buildPortfolioCsv(data) {
     }
   }
   txRows.sort((a, b) =>
-    String(a.t.date || "").localeCompare(String(b.t.date || "")) ||
+    String(b.t.date || "").localeCompare(String(a.t.date || "")) ||   // date desc
+    (txCreatedMillis(b.t) - txCreatedMillis(a.t)) ||                   // same-minute tie-break
     a.portfolio.localeCompare(b.portfolio));
   for (const { portfolio, coin, t } of txRows) {
     const amt = Number(t.amount) || 0;
