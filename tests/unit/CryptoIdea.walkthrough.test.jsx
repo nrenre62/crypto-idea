@@ -91,7 +91,7 @@ describe("User walkthrough — all functions", () => {
     expect(screen.getByText("Add your first coin →")).toBeInTheDocument();
   });
 
-  it("5. Learn tab: modules render, lesson overlay opens, quiz reveals answer", async () => {
+  it("5. Learn tab: modules render, lesson overlay opens, select + Submit completes the quiz", async () => {
     loginAs();
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
@@ -101,10 +101,12 @@ describe("User walkthrough — all functions", () => {
     // Open the lesson overlay via Today's lesson
     fireEvent.click(screen.getByText("Start lesson"));
     expect(await screen.findByText("The key insight")).toBeInTheDocument();
-    // Answer the quiz — clicking the correct option reveals it (class "correct")
+    // R11-Q: select the correct option (neutral highlight), then Submit to complete.
     const correct = screen.getByText("More people are buying it right now");
     fireEvent.click(correct);
-    expect(correct.closest(".quiz-opt").className).toContain("correct");
+    expect(correct.closest(".quiz-opt").className).toContain("selected");
+    fireEvent.click(screen.getByText("Submit"));
+    expect(await screen.findByText(/Correct — lesson complete/)).toBeInTheDocument();
   });
 
   it("6. Search tab: search a coin, Buy-Journal overlay appears, add it, lands on Portfolio", async () => {

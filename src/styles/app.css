@@ -124,6 +124,24 @@ html[data-theme="dark"] .ci-app .acct-btn:disabled { color:var(--ink-soft); }
    Use the flipping red tint. The #FF3B30 text (inline, test-locked) reads on it. */
 html[data-theme="dark"] .ci-app .auth-err { background:var(--sr-s); }
 
+/* ── Dark-mode visibility fixes (Round 11) — dark-block-only; light untouched ── */
+/* R11-2: transaction row — the $ amount is the primary value (full white); the
+   "Cost …" line stays a touch softer (hierarchy kept). */
+html[data-theme="dark"] .ci-app .tx-right .tx-rprice { color:var(--ink); }
+html[data-theme="dark"] .ci-app .tx-right .tx-rcost { color:var(--ink-soft); }
+/* R11-3: lift the genuinely-dim (--ink-faint) account/form secondary text to the
+   readable muted-light (--ink-soft) — clearly legible in dark, still softer than the
+   white primary text. (.acct-current is already --ink-soft; the active .seg-btn keeps
+   its accent/red via the more-specific .on-buy/.on-sell rules.) */
+html[data-theme="dark"] .ci-app .usage-note,
+html[data-theme="dark"] .ci-app .acct-label,
+html[data-theme="dark"] .ci-app .priv-text,
+html[data-theme="dark"] .ci-app .priv-confirm,
+html[data-theme="dark"] .ci-app .priv-msg,
+html[data-theme="dark"] .ci-app .toggle-hint,
+html[data-theme="dark"] .ci-app .port-row .pr-sub,
+html[data-theme="dark"] .ci-app .seg-btn { color:var(--ink-soft); }
+
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }
 
@@ -569,7 +587,9 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .settings-row .sr-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; background:var(--paper-3); color:var(--ink-soft); flex:none; }
 .ci-app .settings-row .sr-icon svg { width:18px; height:18px; }
 .ci-app .settings-row .sr-label { flex:1; font-size:14px; font-weight:600; color:var(--ink); }
-.ci-app .settings-row .sr-value { font-size:13px; font-weight:600; color:var(--ink-faint); }
+/* R11-1: the tier + "1/1" values read too dim in BOTH modes — lift to --ink so they're
+   near-black in light / near-white in dark (founder wanted this in both modes). */
+.ci-app .settings-row .sr-value { font-size:13px; font-weight:600; color:var(--ink); }
 .ci-app .settings-row .sr-chev { display:flex; color:var(--ink-faint); }
 .ci-app .settings-row .sr-chev svg { width:18px; height:18px; }
 .ci-app .settings-row .sr-ctrl { flex:none; display:flex; align-items:center; }
@@ -660,6 +680,13 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .quiz-opt.correct { border-color:var(--sg); background:var(--sg-s); color:var(--sg); font-weight:600; }
 .ci-app .quiz-opt .radio { width:16px; height:16px; border-radius:50%; border:2px solid var(--line-strong); flex:none; }
 .ci-app .quiz-opt.correct .radio { background:var(--sg); border-color:var(--sg); }
+/* R11-Q: select-only highlight (neutral accent) before Submit — no correct-reveal. */
+.ci-app .quiz-opt.selected { border-color:var(--accent); background:var(--accent-soft); color:var(--accent-ink); font-weight:600; }
+.ci-app .quiz-opt.selected .radio { background:var(--accent); border-color:var(--accent); }
+/* R11-Q: Submit feedback banners (token-based → dark-safe, no new dark rule). */
+.ci-app .quiz-result { margin-top:12px; font-size:12.5px; font-weight:600; line-height:1.5; padding:10px 12px; border-radius:var(--radius-xs); }
+.ci-app .quiz-result.ok { background:var(--sg-s); color:var(--sg); }
+.ci-app .quiz-result.bad { background:var(--sr-s); color:var(--sr); }
 
 @media (prefers-reduced-motion:reduce) {
   .ci-app *, .ci-app *::before, .ci-app *::after { animation-duration:.001ms !important; transition-duration:.001ms !important; }

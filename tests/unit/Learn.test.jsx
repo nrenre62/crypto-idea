@@ -37,27 +37,40 @@ describe("Learn tab (wired to useLearn)", () => {
     expect(screen.queryByText(/earn your first badge/i)).toBeNull();
   });
 
-  it("quiz-gated: a correct answer completes the lesson and persists it", async () => {
+  it("R11-Q quiz: selecting an option does NOT reveal/complete; Submit on the correct pick completes", async () => {
     getLearnProgress.mockResolvedValue(fresh);
     renderLearn();
     await screen.findByText("Your Investing Edge");
     fireEvent.click(screen.getByText("Start lesson"));                 // opens the first lesson
     expect(await screen.findByText("The key insight")).toBeInTheDocument();
     const correct = screen.getByText("More people are buying it right now");
-    fireEvent.click(correct);
-    expect(correct.closest(".quiz-opt").className).toContain("correct");
+    fireEvent.click(correct);                                          // select only
+    // Selection is neutral (not revealed as correct) and nothing is completed yet.
+    expect(correct.closest(".quiz-opt").className).toContain("selected");
+    expect(correct.closest(".quiz-opt").className).not.toContain("correct");
+    expect(saveLearnProgress).not.toHaveBeenCalled();
+    // Submit → green result + completion persisted.
+    fireEvent.click(screen.getByText("Submit"));
+    expect(screen.getByText(/Correct — lesson complete/)).toBeInTheDocument();
     await waitFor(() => expect(saveLearnProgress).toHaveBeenCalled());
     expect(saveLearnProgress.mock.calls[0][1].completedLessons).toContain("markets-1");
   });
 
-  it("a wrong answer reveals the correct option but does NOT complete the lesson", async () => {
+  it("R11-Q quiz: Submit on a wrong pick shows a hint, does NOT complete, and allows a retry", async () => {
     getLearnProgress.mockResolvedValue(fresh);
     renderLearn();
     await screen.findByText("Your Investing Edge");
     fireEvent.click(screen.getByText("Start lesson"));
     await screen.findByText("The key insight");
     fireEvent.click(screen.getByText("The token is now undervalued")); // a wrong option
+    fireEvent.click(screen.getByText("Submit"));
+    expect(screen.getByText(/Not quite/)).toBeInTheDocument();
     expect(saveLearnProgress).not.toHaveBeenCalled();
+    // Retry: pick the correct option (clears the hint) and submit → completes.
+    fireEvent.click(screen.getByText("More people are buying it right now"));
+    expect(screen.queryByText(/Not quite/)).toBeNull();
+    fireEvent.click(screen.getByText("Submit"));
+    await waitFor(() => expect(saveLearnProgress).toHaveBeenCalled());
   });
 
   it("shows the hero streak + lessons chips (DP-4)", async () => {

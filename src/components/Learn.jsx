@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLearn } from "../hooks/useLearn.js";
 import { MODULE_ICONS, LockIcon } from "./learn-icons.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
+import { Ic } from "./ui.jsx";
 
 /**
  * Learn tab — real gamified learning, wired to persisted progress.
@@ -46,25 +47,23 @@ function Module({ m, isComplete, onOpen }) {
 
 function LessonOverlay({ lesson, moduleTitle, done, onComplete, onClose }) {
   const correct = lesson.quiz.correctIdx;
-  const [answered, setAnswered] = useState(done);   // already complete → reveal the answer
-  const [picked, setPicked] = useState(done ? correct : null);
-  const passed = done || picked === correct;
+  // R11-Q: select → Submit → feedback. A re-opened completed lesson starts fresh
+  // (picked=null) so Submit always works; a correct submit re-greens it. No auto-reveal.
+  const [picked, setPicked] = useState(null);
+  const [result, setResult] = useState(null); // null | "ok" | "bad"
 
-  // Quiz-gated: any tap reveals the correct answer (educational), but only tapping
-  // the correct option marks the lesson complete.
-  const choose = (i) => {
-    setPicked(i);
-    setAnswered(true);
-    if (i === correct) onComplete(lesson.id);
+  const pick = (i) => { setPicked(i); if (result) setResult(null); };  // re-picking clears the result
+  const submit = () => {
+    if (picked == null) return;
+    if (picked === correct) { setResult("ok"); onComplete(lesson.id); }  // quiz-gated: only a correct submit completes
+    else setResult("bad");
   };
 
   return (
     <div className="ci-app overlay">
       <div className="overlay-head">
-        <div className="back-btn" onClick={onClose}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
-        </div>
         <div className="overlay-head-title">{moduleTitle}</div>
+        <div className="ov-close" onClick={onClose} role="button" aria-label="Close">{Ic.close}</div>
       </div>
       <div className="overlay-body">
         <div className="lesson-title">{lesson.title}</div>
@@ -76,15 +75,16 @@ function LessonOverlay({ lesson, moduleTitle, done, onComplete, onClose }) {
         <div className="quiz-card">
           <div className="quiz-q">{lesson.quiz.q}</div>
           {lesson.quiz.options.map((opt, i) => (
-            <div key={i} className={"quiz-opt" + (answered && i === correct ? " correct" : "")} onClick={() => choose(i)}>
+            <div key={i} className={"quiz-opt" + (picked === i ? " selected" : "")} onClick={() => pick(i)}>
               <div className="radio" /> {opt}
             </div>
           ))}
-          {answered && (passed
-            ? <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "var(--sg)" }}>✓ Correct — lesson complete</div>
-            : <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--ink-faint)" }}>Not quite — the correct answer is highlighted. Tap it to complete the lesson.</div>)}
+          {result === "ok" && <div className="quiz-result ok">✓ Correct — lesson complete</div>}
+          {result === "bad" && <div className="quiz-result bad">Not quite — re-read <strong>The key insight</strong> above, then pick again and submit.</div>}
         </div>
-        <button className="btn-primary" style={{ marginTop: 20 }} onClick={onClose}>{passed ? "Done →" : "Close"}</button>
+        {result === "ok"
+          ? <button className="btn-primary" style={{ marginTop: 20 }} onClick={onClose}>Done →</button>
+          : <button className="btn-primary" style={{ marginTop: 20 }} disabled={picked == null} onClick={submit}>Submit</button>}
         <div className="disclaimer">For educational purposes only — not financial advice.</div>
       </div>
     </div>
