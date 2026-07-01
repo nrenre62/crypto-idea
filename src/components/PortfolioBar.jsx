@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
-import { Ic } from "./ui.jsx";
+import { Modal } from "./Modal.jsx";
 
 // Horizontal portfolio switcher, shown only when there's more than one portfolio
 // (or the user is Pro). Reads the portfolio list + active id from context.
@@ -31,19 +31,16 @@ export function PortfolioBar() {
       </div>
 
       {showAdd && (
-        <div className="cm-scrim" onClick={closeAdd}>
-          <div className="cm-card" onClick={(e) => e.stopPropagation()}>
-            <button className="cm-close" onClick={closeAdd} aria-label="Close">{Ic.close}</button>
-            <div className="cm-title">New portfolio</div>
-            <input
-              className="field-input" value={newPortName} autoFocus
-              onChange={(e) => setNewPortName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") save(); }}
-              placeholder="Portfolio name"
-            />
-            <button className="btn-primary" style={{ marginTop: 14 }} onClick={save}>Save</button>
-          </div>
-        </div>
+        // R15-4: the shared Modal (a text-entry form → no scrim-tap-close, so a typed name isn't lost).
+        <Modal title="New portfolio" onClose={closeAdd} size="sm" dismissOnScrim={false}>
+          <input
+            className="field-input" value={newPortName} autoFocus
+            onChange={(e) => setNewPortName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); }}
+            placeholder="Portfolio name"
+          />
+          <button className="btn-primary" style={{ marginTop: 14 }} onClick={save}>Save</button>
+        </Modal>
       )}
     </>
   );

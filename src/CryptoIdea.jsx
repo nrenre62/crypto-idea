@@ -59,6 +59,7 @@ import { Portfolio } from "./components/Portfolio.jsx";
 import { Account } from "./components/Account.jsx";
 import { RestoreAccount } from "./components/RestoreAccount.jsx";
 import { Login } from "./components/Login.jsx";
+import { Modal } from "./components/Modal.jsx";   // Round 15: shared centered-card popup
 import Research from "./features/research/Research.jsx";
 import { Journal } from "./components/Journal.jsx";
 import { Learn } from "./components/Learn.jsx";
@@ -664,10 +665,9 @@ export default function CryptoIdea(){
       const impact=getTrimImpact(downgradeTo);
       const endDate=user?.subscription?.endDate||calcEndDate(user?.subscription?.billing||"monthly");
       const targetLabel=downgradeTo==="free"?"Starter":"Pro";
-      return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}}>
-        <div className="dg-sheet" style={{background:"#fff",borderTopLeftRadius:24,borderTopRightRadius:24,padding:"24px 22px 32px",width:"100%",maxWidth:430}}>
-          <div style={{width:36,height:4,background:"#E8E8ED",borderRadius:2,margin:"0 auto 18px"}}/>
-          <div style={{fontSize:20,fontWeight:700,marginBottom:8}}>Downgrade to {targetLabel}?</div>
+      // R15-3: downgrade confirm now uses the shared centered Modal (was a bottom-sheet).
+      return(
+        <Modal size="sm" title={`Downgrade to ${targetLabel}?`} onClose={()=>setDowngradeTo(null)}>
           <div style={{fontSize:13,color:c.dim,lineHeight:1.6,marginBottom:18}}>Your subscription is paid until the end of the period. You'll keep your current access until then. After that date, your account will be downgraded.</div>
 
           <div className="dg-ends" style={{padding:"12px 14px",borderRadius:12,background:"#FFF0F0",border:"1px solid #FFE0E0",marginBottom:18}}>
@@ -695,8 +695,7 @@ export default function CryptoIdea(){
             <button className="dg-keep" onClick={()=>setDowngradeTo(null)} style={{flex:1,padding:"14px",borderRadius:14,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:14,fontWeight:600,cursor:"pointer"}}>Keep My Plan</button>
             <button onClick={confirmDowngrade} style={{flex:1,padding:"14px",borderRadius:14,border:"none",background:c.red,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>Confirm Downgrade</button>
           </div>
-        </div>
-      </div>);
+        </Modal>);
     })()}
     {/* A soft-deleted (trashed) user sees only the restore screen — never the app. */}
     {user?.deleted&&screen!=="login"&&screen!=="loading"?<RestoreAccount/>:<>

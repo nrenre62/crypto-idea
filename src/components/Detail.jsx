@@ -4,6 +4,8 @@ import { fmtP, fmtPct, fmtMc, fmtDT } from "../utils/format.js";
 import { coinPnl } from "../utils/pnl.js";
 import { c } from "../utils/theme.js";
 import { Ic, CI } from "./ui.jsx";
+import { Modal } from "./Modal.jsx";
+// (Round 15: shared centered-card popup)
 
 // Coin detail: live price, holdings + P/L summary, and the transaction list (each
 // row opens the edit form). Selected coin, prices, and the coin/tx handlers come
@@ -97,27 +99,20 @@ export function Detail() {
           </div>
         )})}</div>}
 
-      {/* R4-3: deleting a coin that has transactions is destructive (it cascades the
-          coin + every buy/sell + the saved thesis, hard delete). Warn first. Reuses
-          the dark-safe .dg-* classes (R3-7) so no new modal CSS is needed. */}
+      {/* R15-3: the destructive delete-with-transactions warning now uses the shared
+          centered Modal (was a bottom-sheet). It's a confirm dialog → scrim tap closes it. */}
       {confirmDel&&coin.entries.length>0&&(
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:9999}}>
-          <div className="dg-sheet" style={{background:"#fff",borderTopLeftRadius:24,borderTopRightRadius:24,padding:"24px 22px 32px",width:"100%",maxWidth:430}}>
-            <div style={{width:36,height:4,background:"#E8E8ED",borderRadius:2,margin:"0 auto 18px"}}/>
-            {/* R6-3: use the flipping --ink token so the title is readable in dark
-                (c.txt is a hardcoded near-black → invisible on the dark .dg-sheet). */}
-            <div style={{fontSize:20,fontWeight:700,marginBottom:12,color:"var(--ink)"}}>Delete {coin.name}?</div>
-            <div className="dg-warn" style={{padding:"14px",borderRadius:12,background:"#FFF8E1",border:"1px solid #FFE082",marginBottom:20}}>
-              <div className="dg-warn-text" style={{fontSize:13,color:"#92400E",lineHeight:1.7}}>
-                This coin has {coin.entries.length} buy/sell transaction{coin.entries.length>1?"s":""} and your saved thesis. If you delete it from your portfolio you'll lose that data — this can't be undone.
-              </div>
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <button className="dg-keep" onClick={()=>setConfirmDel(false)} style={{flex:1,padding:"14px",borderRadius:14,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancel</button>
-              <button onClick={()=>{remCoin(coin.id);setConfirmDel(false)}} style={{flex:1,padding:"14px",borderRadius:14,border:"none",background:c.red,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>Delete anyway</button>
+        <Modal size="sm" title={`Delete ${coin.name}?`} onClose={()=>setConfirmDel(false)}>
+          <div className="dg-warn" style={{padding:"14px",borderRadius:12,background:"#FFF8E1",border:"1px solid #FFE082"}}>
+            <div className="dg-warn-text" style={{fontSize:13,color:"#92400E",lineHeight:1.7}}>
+              This coin has {coin.entries.length} buy/sell transaction{coin.entries.length>1?"s":""} and your saved thesis. If you delete it from your portfolio you'll lose that data — this can't be undone.
             </div>
           </div>
-        </div>
+          <div style={{display:"flex",gap:10,marginTop:20}}>
+            <button className="dg-keep" onClick={()=>setConfirmDel(false)} style={{flex:1,padding:"14px",borderRadius:14,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancel</button>
+            <button onClick={()=>{remCoin(coin.id);setConfirmDel(false)}} style={{flex:1,padding:"14px",borderRadius:14,border:"none",background:c.red,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>Delete anyway</button>
+          </div>
+        </Modal>
       )}
     </div>
   );

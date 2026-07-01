@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useLearn } from "../hooks/useLearn.js";
 import { MODULE_ICONS, LockIcon } from "./learn-icons.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
-import { Ic } from "./ui.jsx";
+import { Modal } from "./Modal.jsx";
 
 /**
  * Learn tab — real gamified learning, wired to persisted progress.
@@ -60,12 +60,8 @@ function LessonOverlay({ lesson, moduleTitle, done, onComplete, onClose }) {
   };
 
   return (
-    <div className="ci-app overlay">
-      <div className="overlay-head">
-        <div className="overlay-head-title">{moduleTitle}</div>
-        <div className="ov-close" onClick={onClose} role="button" aria-label="Close">{Ic.close}</div>
-      </div>
-      <div className="overlay-body">
+    // R15-2: shared centered-card Modal (moduleTitle in the header, X-close built in).
+    <Modal title={moduleTitle} onClose={onClose} size="md">
         <div className="lesson-title">{lesson.title}</div>
         <div className="lesson-body">{lesson.body.map((p, i) => (<p key={i}>{p}</p>))}</div>
         <div className="lesson-insight">
@@ -86,8 +82,7 @@ function LessonOverlay({ lesson, moduleTitle, done, onComplete, onClose }) {
           ? <button className="btn-primary" style={{ marginTop: 20 }} onClick={onClose}>Done →</button>
           : <button className="btn-primary" style={{ marginTop: 20 }} disabled={picked == null} onClick={submit}>Submit</button>}
         <div className="disclaimer">For educational purposes only — not financial advice.</div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

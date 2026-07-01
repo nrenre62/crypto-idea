@@ -3,8 +3,9 @@ import { useApp } from "../hooks/app-context.js";
 import { fmtP } from "../utils/format.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { thesisError } from "../utils/journal.js";
-import { CI, Ic } from "./ui.jsx";
+import { CI } from "./ui.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
+import { Modal } from "./Modal.jsx";   // Round 15: shared centered-card popup (provides the X-close)
 
 /**
  * Journal tab — the "write before you buy" thesis log.
@@ -45,12 +46,7 @@ function ThesisBreakdown({ coin, onClose }) {
     .map(({ key, label }) => ({ label, value: ((j.funnel && j.funnel[key]) || "").trim() }))
     .filter((x) => x.value);
   return (
-    <div className="ci-app overlay">
-      <div className="overlay-head">
-        <div className="overlay-head-title">Thesis breakdown</div>
-        <button className="ov-close" onClick={onClose} aria-label="Close">{Ic.close}</button>
-      </div>
-      <div className="overlay-body">
+    <Modal title="Thesis breakdown" onClose={onClose} size="md">
         <div className="bj-coin-head">
           <CI thumb={coin.thumb} symbol={coin.symbol} size={40} />
           <div>
@@ -77,8 +73,7 @@ function ThesisBreakdown({ coin, onClose }) {
             )) : <div className="j-read">—</div>}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -120,13 +115,8 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
   if (reading) return <ThesisBreakdown coin={coin} onClose={() => setReading(false)} />;
 
   return (
-    <div className="ci-app overlay">
-      {/* R8-2: X (top-right) replaces the back-arrow on the Journal thesis popups. */}
-      <div className="overlay-head">
-        <div className="overlay-head-title">{coin.name}</div>
-        <button className="ov-close" onClick={onClose} aria-label="Close">{Ic.close}</button>
-      </div>
-      <div className="overlay-body">
+    // R15-2: shared centered-card Modal (editable text inside → no scrim-tap-close).
+    <Modal title={coin.name} onClose={onClose} size="md" dismissOnScrim={false}>
         <div className="bj-coin-head">
           <CI thumb={coin.thumb} symbol={coin.symbol} size={40} />
           <div>
@@ -201,8 +191,7 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
             <button className="j-delete-btn" onClick={() => setConfirmDel(true)}>Delete thesis</button>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -226,13 +215,8 @@ function AddThesis({ coin, onSave, onClose }) {
     if (ok) onClose();
   };
   return (
-    <div className="ci-app overlay">
-      {/* R8-2: X close (Journal thesis overlays use X, not the back-arrow). */}
-      <div className="overlay-head">
-        <div className="overlay-head-title">Add your thesis</div>
-        <button className="ov-close" onClick={onClose} aria-label="Close">{Ic.close}</button>
-      </div>
-      <div className="overlay-body">
+    // R15-2: shared centered-card Modal (text-entry form → no scrim-tap-close).
+    <Modal title="Add your thesis" onClose={onClose} size="md" dismissOnScrim={false}>
         <div className="bj-callout">
           <div className="bjc-label">Write it down while the conviction is fresh</div>
           <div className="bjc-text">Your thesis lives with this coin and powers your Research &amp; Ask. When the market drops, you'll know exactly why you bought — and whether that reason still holds.</div>
@@ -268,8 +252,7 @@ function AddThesis({ coin, onSave, onClose }) {
         {err && <div className="j-err" role="alert">{err}</div>}
         <button className="btn-primary ov-btn-gap" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save thesis"}</button>
         <button className="btn-ghost" onClick={onClose}>Cancel</button>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

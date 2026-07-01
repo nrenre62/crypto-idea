@@ -100,7 +100,7 @@ html[data-theme="dark"] .ci-app .lesson-insight { background:linear-gradient(135
    .ci-app (so design tokens don't reach it) with a hardcoded white bg + light boxes
    → unreadable in dark. Dark-only, literal values, !important to beat the inline
    styles. The title + muted (#999) + red (#FF3B30) text already read on the dark sheet. */
-html[data-theme="dark"] .dg-sheet { background:#1c1b17 !important; }
+/* (R15: .dg-sheet bottom-sheet retired — the delete/downgrade confirms use <Modal> now.) */
 html[data-theme="dark"] .dg-ends { background:rgba(255,107,107,.12) !important; border-color:rgba(255,107,107,.32) !important; }
 html[data-theme="dark"] .dg-warn { background:rgba(244,197,74,.12) !important; border-color:rgba(244,197,74,.32) !important; }
 html[data-theme="dark"] .dg-warn-text { color:#e6c879 !important; }
@@ -228,11 +228,9 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 /* R8-2: pre-wrap alone doesn't break no-space strings → add overflow-wrap so a long
    thesis can't overflow the popup. */
 .ci-app .j-read { font-size:14px; line-height:1.6; color:var(--ink-soft); margin-top:6px; white-space:pre-wrap; overflow-wrap:anywhere; }
-/* R8-2/R8-3: Journal thesis popups — X close (replaces back-arrow, reuses the .back-btn
-   circle look), Read+Edit action pair, white-card read blocks, breakdown findings. All
-   token-based → dark-safe, zero new dark rules. Scoped to the Journal overlays only;
-   the shared .overlay-head/.back-btn are untouched (Search keeps its back-arrow). */
-.ci-app .ov-close { position:absolute; top:14px; right:14px; z-index:2; width:34px; height:34px; border-radius:50%; background:var(--paper-3); border:1px solid var(--line); display:grid; place-items:center; cursor:pointer; color:var(--ink-soft); }
+/* R8-2/R8-3: Journal thesis popups — Read+Edit action pair, white-card read blocks,
+   breakdown findings (below). All token-based → dark-safe. (The old .ov-close X was
+   retired in R15 — the shared <Modal> provides .cm-close.) */
 .ci-app .j-q-actions { display:flex; gap:7px; flex:none; }
 .ci-app .j-read-btn { font-family:var(--body); font-size:12px; font-weight:700; color:var(--ink-soft); background:var(--paper-3); border:1px solid var(--line-strong); border-radius:999px; padding:5px 12px; cursor:pointer; flex:none; }
 .ci-app .card > .journal-q:last-child { margin-bottom:0; }
@@ -632,22 +630,34 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .csig-r { background:var(--sr-s); color:var(--sr); } .ci-app .csig-r .sd { background:var(--sr); }
 .ci-app .csig-d { background:var(--sd-s); color:var(--sd); } .ci-app .csig-d .sd { background:var(--sd); }
 
-/* ── Centered modal dialog (R9-3: in-tab "new portfolio") ──
-   A dimmed full-screen scrim centering a white card; X-close top-right. Token-based →
-   dark-safe (no new dark rule). Distinct from the slide-up .overlay (full-screen). */
+/* ── The single popup — centered white rounded card (Round 15; extends the R9-3 dialog) ──
+   A dimmed scrim centering a white card with a header (title + X) and a scrollable body.
+   Full-screen sheet on phones via the @media below. Token-based → dark-safe (no new dark
+   rule). The old full-screen slide-up .overlay was retired; all popups use <Modal>. */
 .ci-app .cm-scrim { position:fixed; inset:0; z-index:9500; background:rgba(0,0,0,.5); display:grid; place-items:center; padding:24px; animation:ci-fade .2s var(--ease); }
-.ci-app .cm-card { position:relative; width:100%; max-width:360px; background:var(--paper-2); border-radius:var(--radius); box-shadow:var(--sh-lg); padding:22px; }
-.ci-app .cm-close { position:absolute; top:12px; right:12px; width:32px; height:32px; border-radius:50%; background:var(--paper-3); border:1px solid var(--line); display:grid; place-items:center; cursor:pointer; color:var(--ink-soft); }
-.ci-app .cm-title { font-family:var(--display); font-size:20px; font-weight:500; margin-bottom:14px; padding-right:34px; }
+.ci-app .cm-card { position:relative; display:flex; flex-direction:column; width:100%; max-width:440px; max-height:90vh; background:var(--paper-2); border-radius:var(--radius); box-shadow:var(--sh-lg); overflow:hidden; animation:ci-pop .2s var(--ease); }
+.ci-app .cm-card.cm-sm { max-width:360px; }
+.ci-app .cm-card.cm-md { max-width:440px; }
+.ci-app .cm-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:20px 20px 0; flex:none; }
+.ci-app .cm-title { font-family:var(--display); font-size:20px; font-weight:500; }
+.ci-app .cm-close { flex:none; width:32px; height:32px; border-radius:50%; background:var(--paper-3); border:1px solid var(--line); display:grid; place-items:center; cursor:pointer; color:var(--ink-soft); }
+.ci-app .cm-body { padding:16px 20px 22px; overflow-y:auto; }
 @keyframes ci-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes ci-pop { from { opacity:0; transform:translateY(8px) scale(.98); } to { opacity:1; transform:none; } }
+/* R15-2: inner cards inside a modal (Journal Breakdown / Detail read view) sit on the
+   white modal surface — give them a subtly distinct tone + border so they don't vanish
+   white-on-white. Token-based → dark-safe. */
+.ci-app .cm-body .card { background:var(--paper-3); border-color:var(--line); }
+/* Full-screen sheet on phones (decision b): edge-to-edge, no radius, body scrolls. */
+@media (max-width:560px) {
+  .ci-app .cm-scrim { padding:0; }
+  .ci-app .cm-card, .ci-app .cm-card.cm-sm, .ci-app .cm-card.cm-md { max-width:none; width:100%; height:100%; max-height:none; border-radius:0; animation:ci-fade .2s var(--ease); }
+}
 
 /* ── Overlays (buy-journal, lesson) ───────────────────── */
-.ci-app.overlay { position:fixed; inset:0; z-index:9000; background:var(--paper); overflow-y:auto; width:100%; max-width:430px; left:50%; transform:translateX(-50%); animation:ci-slide-up .3s var(--ease); }
-@keyframes ci-slide-up { from { transform:translate(-50%,100%); } to { transform:translate(-50%,0); } }
-.ci-app .overlay-head { display:flex; align-items:center; gap:10px; padding:18px; border-bottom:1px solid var(--line); }
-.ci-app .back-btn { width:34px; height:34px; border-radius:50%; background:var(--paper-3); border:1px solid var(--line); display:grid; place-items:center; cursor:pointer; color:var(--ink-soft); flex:none; }
-.ci-app .overlay-head-title { font-family:var(--display); font-size:18px; font-weight:500; }
-.ci-app .overlay-body { padding:20px 18px 40px; }
+/* (R15: the full-screen slide-up .overlay + .overlay-head/.back-btn/.overlay-body were
+   retired — every popup now uses the shared <Modal> / .cm-* card. The inner-content
+   classes below — .journal-q, .bj-*, .lesson-*, .quiz-* — are still used inside modals.) */
 .ci-app .bj-coin-head { display:flex; align-items:center; gap:12px; margin-bottom:20px; padding-bottom:18px; border-bottom:1px solid var(--line); }
 .ci-app .bj-coin-name { font-weight:700; font-size:17px; }
 .ci-app .bj-coin-price { font-size:13px; color:var(--ink-faint); margin-top:2px; }

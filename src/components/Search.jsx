@@ -6,6 +6,7 @@ import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { TOP_COINS } from "../utils/coins.js";
 import { CI } from "./ui.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
+import { Modal } from "./Modal.jsx";
 
 // Add-coin search screen. Live search results, the active portfolio, and the
 // addCoin handler come from context. Restyled to the .ci-app design system.
@@ -105,14 +106,8 @@ export function Search() {
       )}
 
       {journalFor && (
-        <div className="ci-app overlay">
-          <div className="overlay-head">
-            <div className="back-btn" onClick={closeOverlay}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
-            </div>
-            <div className="overlay-head-title">Before you add {journalFor.name}…</div>
-          </div>
-          <div className="overlay-body">
+        // R15-2: shared centered-card Modal (text-entry form → no scrim-tap-close).
+        <Modal title={`Before you add ${journalFor.name}…`} onClose={closeOverlay} size="md" dismissOnScrim={false}>
             <div className="bj-callout">
               <div className="bjc-label">Great investors write before they act</div>
               <div className="bjc-text">Your thesis lives with this coin. When the market drops, you'll know exactly why you bought — and whether that reason still holds.</div>
@@ -149,8 +144,7 @@ export function Search() {
             {err && <div className="j-err" role="alert">{err}</div>}
             <button className="btn-primary ov-btn-gap" onClick={() => confirmAdd(true)}>Save to Journal &amp; add coin</button>
             <button className="btn-ghost" onClick={() => confirmAdd(false)}>Skip for now</button>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
