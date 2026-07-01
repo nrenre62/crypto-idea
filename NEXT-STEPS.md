@@ -1086,6 +1086,22 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   that persists the in-progress thesis edit (editThesis no-ops on partial) + funnel (saveFunnel if changed) before
   closing; keep the edit-form Cancel + "Save findings" as explicit affordances. Component-level; no new dep/attack
   surface. Build R24-1+R24-2 → R24-3 on "go".
+- [ ] **Round 25 — coin icon clickable + hover/press shadow everywhere (opens Coin info) + Transactions button
+  restyle — 📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md)
+  "Round 25"). Today only the Portfolio icon is clickable (`.ac-img` + accent-ring hover → CoinInfo); elsewhere `<CI>`
+  is plain. Decisions (AskUserQuestion): Transactions button = **accent-filled** (thesis `.j-edit-btn` look) · scope
+  = **browse/list icons** (Portfolio · Search · trending · thesis cards · holdings header; decorative in-popup
+  headers stay plain). Surfaces 2 gaps: **return-to-origin** (CoinInfo close is hardcoded `setScreen("portfolio")`)
+  + **empty data** for non-held Search/trending coins (prices only polled for held). **R25-1** shared `<CoinIcon coin
+  size>` wrapper + `.coin-ic` class (accent ring `:hover` **+ press `:active`**, keyboard-accessible), folds in
+  `.ac-img`. **R25-2** swap plain `<CI>`→`<CoinIcon>` at Search:67/94, Journal:311/331, Detail:72 (stopPropagation
+  keeps row actions). **R25-3** CoinInfo → an **`infoCoin`-driven overlay** (`{infoCoin && <Modal
+  size=lg/md><CoinInfo/></Modal>}` over the current screen; close = `setInfoCoin(null)`, tab untouched) — remove
+  coinInfo from the screen machine (+ NARROW_SCREENS / `at` / R19-9 over-Portfolio special case); body-only always.
+  **R25-4** on-demand `fetchPrices([id])` for a non-held coin so Market Data isn't "—" (cached proxy, flat cost).
+  **R25-5** Transactions → accent pill, shown **only for held coins** (portCoin). Overlay refactor NET removes
+  concepts + a latent close-to-Portfolio bug; no new endpoint/dep, no rules change (read-only). Update R19-9 tests.
+  Build R25-1+R25-2 → R25-3+R25-4 → R25-5 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
