@@ -1124,6 +1124,20 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   return-to-origin, X suppressed during `processing`) · **R27-4** no-refund policy line in the downgrade Modal +
   Account cancel caption. Update Login/upgrade tests for the desktop-Modal branch. Build R27-1+R27-2 → R27-3 → R27-4
   on "go".
+- [ ] **Round 28 — Billing: current-plan awareness + re-buy guard + honest benefit copy + light-mode readability —
+  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 28";
+  grounded via a 3-agent read-only map). **Real bug found:** the plan-picker (Login.jsx:91-113) never reads
+  `user?.tier`, so a Pro user can click "Choose Pro" again and be **charged twice** (no guard/badge/disabled state);
+  `user.tier` is available but unchecked. **Copy issues:** Premium claims "Priority support · Custom limits" —
+  **neither is built** (no support system; premiumLimits is admin-only); all tiers get the same features (tiers
+  differ only by capacity). Decisions (AskUserQuestion): **(1) current tier LOCKED** (CURRENT badge + disabled
+  "Your current plan"; only upgrades clickable; lower tiers "Included", downgrades stay in Account); **(2) honest
+  "all features included + more capacity"** copy, single `PLAN_BENEFITS` source feeding cards + success screen
+  (no drift); **(3) Premium = "Priority email support"** (drop "Custom limits"). **R28-1** current-plan guard +
+  `startUpgrade` same-tier no-op + free-user "Continue with Starter" link · **R28-2** shared honest benefit copy
+  (cards ↔ success) · **R28-3** darken light-mode `.plan-feats`/`.plan-price-sm`/`.cycle-sub`/`.proc-sub`
+  `--ink-faint`→`--ink-soft` in the BASE rule (**supersedes R27-1**; drop that dark-only override when building).
+  Update Login/upgrade/welcome tests. Build R28-1 → R28-2 → R28-3 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
