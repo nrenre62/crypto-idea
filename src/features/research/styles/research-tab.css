@@ -172,7 +172,10 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .s-mix{background:#fdf3e0;color:#876314}.research-root .s-mix .d{background:#d09715}
 .research-root .s-cau{background:#fbede9;color:#963922}.research-root .s-cau .d{background:var(--warn)}
 .research-root .cc-insight{font-size:14px;color:var(--ink-soft);line-height:1.55;margin-top:11px}
-.research-root .cc-detail{max-height:0;overflow:hidden;transition:max-height .42s var(--ease)}
+/* R16-1: pin the stats + "Ask AI" block to the bottom of the (equal-height) card so the
+   number rows and buttons line up across a row, regardless of how much conviction/insight
+   content sits above them. */
+.research-root .cc-detail{max-height:0;overflow:hidden;transition:max-height .42s var(--ease);margin-top:auto}
 .research-root .coin-card.open .cc-detail{max-height:420px}
 .research-root .cc-detail-inner{padding-top:15px;margin-top:15px;border-top:1px solid var(--line)}
 /* Desktop only: show each coin's position detail (cost / now / P&L / 30d + Ask) by
