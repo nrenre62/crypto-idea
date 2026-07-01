@@ -1058,6 +1058,20 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   2 dark rules. Same Detail component → lands in both the mobile full-screen view and the desktop R19-9 popup;
   "Recv"/"Cost" is the only occurrence (Detail.jsx:118). Display-only — no data/rules/handler change (total still
   `amount×priceAtBuy`). Build R22-1 + R22-2 (one commit) on "go".
+- [ ] **Round 23 — Portfolio Risk uses real coin RANK: graduated (log-scale) risk + mega-cap ($100B+) safety floor —
+  📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder Research→Portfolio Risk; full spec
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 23"). Refines the R14 market-cap-tier model. Decisions (AskUserQuestion):
+  **real live CoinGecko rank** per coin · **mega-cap safety floor** (≥40% in $100B+ caps → meter can't read High) ·
+  **graduated by size** (smooth log-scale, no tier cliffs). **Key find:** rank is **already fetched + cached** in
+  the universe doc (functions/index.js:846, `market_cap_rank`, hot 5-min / daily) but `/api/prices` omits it → **no
+  new endpoint**, just surface it. **R23-1** add `usd_market_cap_rank: m.rank` to `/api/prices` (index.js:952/954;
+  on-demand refresh already merges-preserves rank). **R23-2** plumb through — `buildResearchPrices` reads
+  `usd_market_cap_rank`, `computePortfolio` carries `rank` onto holdings (+ demo rank in FALLBACK_PRICES/TOP_COINS);
+  `useLivePrices` passes the field through untouched. **R23-3** rewrite `deriveRisk`: continuous `coinRisk` on
+  `log10(rank)` (rank 1 → ~0.02 … no rank → 0.95; cap-log fallback), allocation-weighted mean, + **mega floor**
+  (megaAlloc ≥ 40% caps the score below the High cut). **R23-4** `riskNote` → rank/size wording + names the anchor
+  when the floor applies. Pure functions, heavily unit-tested; backend field verified in the emulator. No new
+  endpoint/upstream/dep, no rules change (rank is read-only server data). Build R23-1+R23-2 → R23-3+R23-4 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
