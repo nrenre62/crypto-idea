@@ -1094,3 +1094,76 @@ R14-5 (pill colours). Independent of Round 13 (R13-3 removes the Risk card's *so
 **Status:** 📋 **PLAN ONLY (2026-07-01)** — **functional** (risk-model logic). Pure-function core (fully testable),
 market cap already in the price payload. No new dependency, no rules change (risk is client-derived display).
 Decisions locked (weighted · replaces-concentration · unknown→High · 3-band). Build on founder "go".
+
+---
+
+## Round 15 — one popup design: white rounded card for EVERY popup (2026-07-01, PLAN ONLY)
+
+> Founder (Journal thesis Breakdown screenshot): every popup — the Journal "Add thesis" form, the thesis-card
+> Read/Breakdown popup, and **all** other popups — should share ONE look: **white background, rounded corners**,
+> the same card aesthetic as the app's cards/pills (not a full-bleed paper takeover). "Apply this design to all
+> popups." The **already-approved** in-tab "new portfolio" dialog (Round 9 `.cm-card`: centered white card on a
+> dimmed scrim, X-close) **is** that look — this round makes it the single popup standard.
+> **Assumed defaults (no interview this turn — founder can veto any on "go"):** (a) "white" = the theme-aware card
+> surface `var(--paper-2)` (literal `#fff` would break dark mode — dark shows the dark card tone, same as every
+> other card); (b) **centered** card on a dimmed scrim (not a full-screen sheet), `max-height:~90vh` + **internal
+> scroll** for long content, on mobile AND desktop, with scrim padding so the rounded corners always show; (c) the
+> two bottom-sheets (delete-coin, upgrade/downgrade) become centered all-corners-rounded cards too; (d) **X-close
+> top-right** everywhere (reuse `Ic.close`/`.cm-close`), replacing the remaining back-arrows; (e) scope = every
+> popup listed below; the top **error toast** and the full-screen **loading/maintenance** states are NOT popups →
+> excluded. **Plan only — build on founder "go".**
+
+**Grounded current state — THREE popup patterns today (this round collapses them to one):**
+1. **`.ci-app.overlay`** (`app.css:622`) — full-screen **paper** slide-up (`ci-slide-up`), `.overlay-head`
+   (back-btn/`.ov-close` + `.overlay-head-title`) + `.overlay-body`. Used by **5** popups: Journal **AddThesis**
+   (`Journal.jsx:48`), Journal **Detail** (`:123`), Journal **ThesisBreakdown** (`:229`), **Learn LessonOverlay**
+   (`Learn.jsx:62`), **Search Buy-Journal** (`Search.jsx:109`). *(Journal already uses X via `.ov-close`, Round 8;
+   Learn + Search still use the `.back-btn` arrow.)*
+2. **`.cm-scrim`/`.cm-card`** (`app.css:615-618`) — centered **white** rounded card on a dark scrim, `.cm-close` X,
+   `.cm-title`, `box-shadow:var(--sh-lg)`, `background:var(--paper-2)`, `border-radius:var(--radius)`. Used by
+   **PortfolioBar new-portfolio** (`PortfolioBar.jsx:34`, Round 9) — **this is the target**.
+3. **`.dg-sheet`** — white **bottom-sheet** (rounded top only, inline `position:fixed`, `rgba(0,0,0,.5)` scrim). Used
+   by **Detail delete-coin** (`Detail.jsx:89-106`) and **CryptoIdea upgrade/downgrade** (`CryptoIdea.jsx:654+`).
+   *(Re-auth is inline in Account — no separate modal. Inventory confirmed complete.)*
+
+- **R15-1 — one shared modal system (foundation).** Promote the `.cm-*` family to the app's single popup, and build a
+  small **`<Modal>`** component (KISS: props `title`, `onClose`, `size`, `children`) wrapping `.cm-scrim` >
+  `.cm-card` > (`.cm-head` title + `.cm-close` X) > `.cm-body`. Extend the CSS: size variants **`sm`** (~360px,
+  confirms) and **`md`** (~440px, forms/lessons); `.cm-body { max-height: calc(90vh - head); overflow-y:auto; }` so
+  long content scrolls INSIDE the rounded card; a sticky `.cm-head`. Entrance = the `.cm` `ci-fade`/scale (drop
+  `ci-slide-up`). Token-based → **zero new dark rules** (`--paper-2` flips).
+
+- **R15-2 — migrate the 5 `.overlay` popups → `<Modal>`.** Journal AddThesis / Detail / ThesisBreakdown, Learn
+  LessonOverlay, Search Buy-Journal: swap `.ci-app.overlay`+`.overlay-head`+`.overlay-body` for the shared
+  `<Modal size="md">`; keep the inner content classes (`.journal-q`, `.bj-*`, `.lesson-*`, `.quiz-*`). **Reconcile
+  white-on-white:** ThesisBreakdown + JournalDetail currently render white inner `.card`s (Round 8) — on a now-white
+  popup those lose contrast, so give inner sections a subtle separation (`--paper-3` fill or a `--line` divider) or
+  flatten them (the popup IS the card). Replace the Learn/Search **back-arrow** with the X (`.cm-close`).
+
+- **R15-3 — migrate the 2 `.dg-sheet` bottom-sheets → centered cards.** Detail delete-coin modal (`Detail.jsx:89-106`)
+  and the upgrade/downgrade modal (`CryptoIdea.jsx:654+`): replace the inline bottom-sheet with `<Modal size="sm">`;
+  delete the inline `position:fixed`/`border-radius` styles + the `.dg-sheet` rule. Keep the warning copy (`.dg-warn`)
+  + the two action buttons; all-corners rounded, centered. *(Coordinates with Round 12, which scopes the delete-confirm
+  STATE — R15 only restyles the modal shell; build either order.)*
+
+- **R15-4 — PortfolioBar adopts `<Modal>`.** It already uses `.cm-card` (the reference) — refactor it onto the shared
+  component so there's a single source of truth (no behaviour change).
+
+- **Cleanup:** once nothing references them, retire `.ci-app.overlay` / `.overlay-head` / `.overlay-body` /
+  `.back-btn` / `ci-slide-up` / `.dg-sheet` (keep the reused inner-content classes). No dead CSS left.
+
+**TDD / verify:** existing tests assert popup **content + behaviour** ("Delete anyway", "Remove", "write before you
+buy", quiz opens, review decision) not the wrapper class → they should stay green after the swap; keep the text +
+the close semantics + `role="dialog"`/`aria-modal` on the shared card. Add a `Modal` unit test (renders title,
+`Ic.close` calls `onClose`, body scrolls) and update any assertion that queried the old `.overlay`/`.back-btn`
+structure. Computed-style probe (light + dark): every popup's card = `--paper-2` bg, `border-radius:var(--radius)`,
+`box-shadow:var(--sh-lg)`, centered on the scrim; long popups scroll internally (card height ≤ ~90vh). `npm run
+test:unit` green + `npm run build` clean + browser-verify each of the 7 popups + PortfolioBar, mobile (~390) +
+desktop (~1040), light + dark.
+
+**Build order (when "go"):** R15-1 (Modal component + CSS) → R15-2 (5 overlays, incl. inner-card contrast) → R15-3
+(2 sheets) → R15-4 (PortfolioBar) → cleanup. Commit per group. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-07-01)** — design consistency + a shared `<Modal>` (light structural). No logic
+change; token-based (zero new dark rules). Defaults assumed above (theme-aware white · centered + internal scroll ·
+sheets→cards · X-close · scope). Build on founder "go".

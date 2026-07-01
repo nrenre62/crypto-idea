@@ -929,6 +929,20 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   new `research-risk.test.js` (tier boundaries, weighted aggregate, unknown→High, note copy) + update
   `research-adapters.test.js` for the `marketCap` field; AllocationBar concentration tag unchanged. Independent of
   Round 13 (both touch the Research Overview card). Build R14-1→…→R14-5 on "go".
+- [ ] **Round 15 — one popup design: white rounded card for EVERY popup — 📋 PLAN ONLY (2026-07-01)** (founder
+  Journal-Breakdown screenshot; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 15"). Unify all popups to the
+  Round 9 `.cm-card` look (centered white rounded card on a dimmed scrim, X-close). **3 patterns today → 1:**
+  `.ci-app.overlay` (5 popups: Journal AddThesis/Detail/Breakdown, Learn lesson, Search Buy-Journal) + `.dg-sheet`
+  bottom-sheets (Detail delete, upgrade/downgrade) + `.cm-card` (PortfolioBar, the target). Assumed defaults (veto on
+  "go"): "white"=`--paper-2` (theme-aware); centered card + `max-height:90vh` + internal scroll (mobile+desktop);
+  sheets→centered cards; X-close everywhere; excludes the error toast + loading/maintenance. **R15-1** shared
+  `<Modal>` component + `.cm-*` size variants (sm confirm / md form) + scrollable `.cm-body` + sticky `.cm-head`
+  (drop `ci-slide-up`). **R15-2** migrate the 5 overlays (reconcile white-on-white inner cards in Breakdown/Detail;
+  back-arrow→X in Learn/Search). **R15-3** migrate the 2 bottom-sheets (delete inline styles + `.dg-sheet`).
+  **R15-4** PortfolioBar adopts `<Modal>`. Cleanup retired `.overlay`/`.dg-sheet`/`.back-btn`/`ci-slide-up`. TDD:
+  content/behaviour tests stay green (keep text + close semantics + `role="dialog"`); add a Modal test; probe card =
+  `--paper-2`/`--radius`/`--sh-lg` centered, light+dark. Coordinates with Round 12 (state) — either order. Build
+  R15-1→…→R15-4 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
