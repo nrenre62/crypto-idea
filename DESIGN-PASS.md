@@ -871,3 +871,60 @@ browser-verify mobile + desktop, light + dark.
 **Status:** 📋 **PLAN ONLY (2026-06-30)** — decisions locked (lift-dim-keep-hierarchy · quiz Submit with
 retry-until-correct). R11-Q is functional. R11-2/R11-3 dark-block-only; R11-1 both modes; zero new dark rules in
 R11-Q (token banners). Build on founder "go".
+
+---
+
+## Round 12 — delete-coin confirm no longer leaks across navigation · auto-disarm the "Remove" pill (2026-07-01, PLAN ONLY)
+
+> Founder screenshot + first-hand repro: add a coin that has **no** transactions → open it → tap delete → the
+> "Remove" confirm arms → **leave it** (don't confirm/cancel), tap **+ Buy** and add a transaction → returning
+> to the coin, the full **"Delete {coin}? This coin has 1 buy/sell transaction and your saved thesis…"** warning
+> modal appears *on its own*. The founder's ask, verbatim: *"I only need to see it if I press on delete"* and
+> *"if I press once on delete when there's no [transactions] in the coin holdings, then after ~3 seconds it goes
+> [back] to the first step of delete."*
+> **This is an error fix (behavioural), not a look change — tracked as a bug in [`ERRORS.md`](ERRORS.md) §A3 and
+> specced here** because it's a founder follow-on round. Plan only — build on founder "go".
+
+**Grounded current state:** `confirmDel` is **app-level** state (`CryptoIdea.jsx:129`, exposed via context at
+`:616`), consumed only by `Detail.jsx` — the trash arm (`:28`), the inline "Remove" pill for a no-transaction
+coin (`:29`), and the transaction-warning modal guard `confirmDel && coin.entries.length>0` (`:88`). It resets
+only on the **back button** (`:23`) and on delete/cancel. The **"+ Buy"/"- Sell"** buttons call `startAddTx`
+(`CryptoIdea.jsx:497`) which navigates to Add-transaction **without** clearing it; ditto the tx-row edit tap
+(`:69`) and any bottom-nav tab switch. So the armed flag survives the trip, and on return — now that a
+transaction exists — the modal auto-renders. One shared app-level flag = every navigation path leaks.
+
+- **R12-1 — scope the delete-confirm flag to the Detail screen (primary fix, structural).** Move
+  `confirmDel`/`setConfirmDel` out of `CryptoIdea.jsx`'s context into a local `useState` **inside** `Detail.jsx`.
+  Detail unmounts whenever you navigate away (Add-transaction, back to Portfolio, a tab switch), so the armed
+  state clears automatically and the prompt can only appear when you actively press the trash on *this* visit.
+  This closes **all** leak paths at once (KISS) — no per-handler `setConfirmDel(false)` sprinkled through
+  `startAddTx` + every future nav path (that whack-a-mole is the rejected alternative). Remove it from the `ctx`
+  object (`:616`) and the `:129` `useState`; the back-button handler (`Detail.jsx:23`) keeps its own local reset
+  (harmless / explicit). `confirmDel` is used nowhere outside Detail (grep-confirmed), so this is a safe lift-down.
+
+- **R12-2 — auto-disarm the inline "Remove" pill after ~3s (UX, the founder's second ask).** When the flag is
+  armed on a coin with **no** transactions (the lightweight "Remove" pill, `Detail.jsx:29`), start a **3s** timer;
+  on expiry call the local `setConfirmDel(false)` to revert to the idle trash icon = *"the first step of delete."*
+  `useEffect` keyed on `[confirmDel, coin.entries.length]`, `clearTimeout` in the cleanup (so it clears on unmount,
+  on a manual Remove/re-tap, or when a transaction appears). **Scope: the inline pill only** — the
+  transaction-warning **modal** (entries>0) is a deliberate blocking dialog with an explicit **Cancel**; a
+  destructive-data warning should not silently vanish, and with R12-1 it no longer appears unbidden anyway.
+
+**Assumed defaults (founder can veto on "go"):** (a) timeout = **3s** (founder said "maybe 3 seconds"); (b)
+auto-disarm applies to the **inline "Remove" pill only**, not the transaction warning modal; (c) fixed via
+**Detail-local state** (structural), not per-handler resets. All grounded in the repro + the founder's wording.
+
+**TDD / verify:** `tests/unit/Detail.test.jsx` currently **injects** `confirmDel` through the context provider
+(lines 12/66/75/85/93/101) — rework those to drive it via the **trash button** (click trash → assert the "Remove"
+pill for a no-tx coin / the warning modal for a coin with tx), since it's no longer an injectable prop. Add: (1)
+a leak test — arm delete on a no-tx coin, simulate navigating away + back (unmount → remount Detail), assert the
+prompt is gone; (2) an auto-disarm test — fake timers, arm on a no-tx coin, advance ~3s, assert it reverts to the
+trash icon; (3) the modal still shows for a coin with transactions and Cancel/Delete-anyway still work. Also
+update `CryptoIdea.smoke`/walkthrough if any assertion reads `confirmDel` from ctx. `npm run test:unit` green +
+`npm run build` clean + browser-verify the exact repro (mobile + desktop, light + dark).
+
+**Build order (when "go"):** R12-1 (scope to local state + fix the tests) → R12-2 (3s auto-disarm). Commit per
+item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP; bug catalogued in [`ERRORS.md`](ERRORS.md) §A3.
+
+**Status:** 📋 **PLAN ONLY (2026-07-01)** — behavioural/error fix. No design tokens or dark rules touched (pure
+state-scope + a timer). Defaults assumed above; build on founder "go".

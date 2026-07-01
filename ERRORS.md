@@ -91,6 +91,41 @@
   *"Please sign in again."* on `unauthenticated`, else the connection string. Every data-layer catch returns
   `code: error.code`. (Centralised in one pure, unit-tested helper rather than a per-handler `switch`.)
 
+### A3 · Delete-coin confirm state leaks across navigation (sticky "armed" delete) 🟡 (medium)
+
+- **Symptom:** Add a coin that has **no** transactions → open its Detail → tap the trash (delete) → the
+  "Remove" confirm arms → **without** confirming or cancelling, tap **+ Buy** and add a transaction → back on
+  the coin's Detail the **"Delete {coin}? This coin has 1 buy/sell transaction…"** warning modal pops up on its
+  own. The user only expects a delete prompt when they *actively* press delete.
+- **Where:** `confirmDel` is **app-level** state (`src/CryptoIdea.jsx:129`, exposed via context at `:616`),
+  consumed only by `src/components/Detail.jsx` (trash arm `:28`, "Remove" pill `:29`, warning-modal guard `:88`).
+  It is reset only on the **back button** (`Detail.jsx:23`) and on a delete/cancel action — **not** on the
+  "+ Buy"/"- Sell" path (`startAddTx`, `CryptoIdea.jsx:497`), the tx-row edit tap (`Detail.jsx:69`), or a
+  bottom-nav tab switch.
+- **Root cause:** the delete "armed" flag is scoped to the whole app instead of to the Detail screen, so it
+  survives navigation. Arm it (`true`) → navigate to Add-transaction (flag stays `true`) → add a buy (now
+  `entries.length>0`) → return to Detail: the render guard `confirmDel && coin.entries.length>0`
+  (`Detail.jsx:88`) is satisfied by the **stale** flag, so the warning modal renders unbidden. The same leak
+  fires via the tx-row edit tap and any tab switch — all share the one app-level flag.
+- **Fix (two parts):**
+  1. **Scope the flag to Detail (primary).** Move `confirmDel`/`setConfirmDel` out of `CryptoIdea.jsx`'s
+     context into a local `useState` inside `Detail.jsx`. Detail unmounts on every navigation away, so the
+     armed state clears automatically — closing every leak path at once (KISS; no per-handler resets to
+     maintain). Drop it from the `ctx` object + the `:129` `useState`.
+  2. **Auto-disarm the lightweight "Remove" pill (UX).** When armed on a coin with **no** transactions (the
+     inline "Remove" pill, `Detail.jsx:29`), start a ~**3s** timer; on expiry revert to the idle trash icon
+     ("the first step of delete"). `useEffect` keyed on the armed flag, `clearTimeout` on cleanup. Scope to the
+     inline pill only — the transaction-warning **modal** (a deliberate blocking dialog with an explicit Cancel)
+     should NOT auto-dismiss.
+- **Verify:** arm delete (no tx) → +Buy → add → back on Detail shows **no** delete prompt; arm delete (no tx) →
+  wait ~3s → reverts to the trash icon; a coin **with** transactions still shows the warning modal when the
+  trash is pressed, and Cancel / Delete-anyway still work. Update `tests/unit/Detail.test.jsx` (it currently
+  injects `confirmDel` via the provider — drive it through the trash button instead).
+- **Severity:** medium (misleading destructive-action prompt; no data loss on its own).
+- **Status:** 🟡 **Diagnosed 2026-07-01 — fix ready, not applied.** Full UX spec + build order in
+  [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 12" + [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP. **PLAN ONLY** — build on
+  founder "go".
+
 ---
 
 ## B. Robustness / hardening (recommended, not blocking)

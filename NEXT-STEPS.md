@@ -888,6 +888,19 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (disabled until picked) → correct=green banner+`onComplete`, wrong=red banner+constructive hint+retry (gated);
   **X-close** (reuse Round 8 `Ic.close`/`.ov-close`); new `.quiz-result.ok/.bad` token banners. TDD Learn.test.jsx.
   Build R11-1 → R11-2 → R11-3 → R11-Q on "go".
+- [ ] **Round 12 — delete-coin confirm leaks across navigation · auto-disarm the "Remove" pill — 📋 PLAN ONLY
+  (2026-07-01)** (founder screenshot + repro; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 12"; bug in
+  [ERRORS.md](ERRORS.md) §A3). **Behavioural/error fix.** Repro: arm delete on a **no-transaction** coin (shows
+  the "Remove" pill) → leave it → tap **+ Buy** and add a transaction → return to the coin → the "Delete {coin}?
+  This coin has 1 buy/sell transaction…" **warning modal pops unbidden**. Root cause: `confirmDel` is **app-level**
+  state (`CryptoIdea.jsx:129`, via ctx `:616`) so the armed flag survives navigation — `startAddTx` (`:497`), the
+  tx-row edit tap (`Detail.jsx:69`), and tab switches never reset it; on return with `entries.length>0` the modal
+  guard (`Detail.jsx:88`) fires on the stale flag. **R12-1** move `confirmDel` into **Detail-local `useState`** so
+  it clears on unmount (closes every leak path; drop from ctx + `:129`). **R12-2** auto-disarm the inline "Remove"
+  pill after **~3s** (`useEffect` timer keyed on the flag + `entries.length`, `clearTimeout` on cleanup) → reverts
+  to the idle trash ("first step"); modal (entries>0) does NOT auto-dismiss. Assumed defaults (veto on "go"): 3s ·
+  inline-pill-only · local-state fix. TDD: rework `Detail.test.jsx` (currently injects `confirmDel` via provider →
+  drive via the trash button) + add leak/auto-disarm/modal-still-works cases. Build R12-1 → R12-2 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
