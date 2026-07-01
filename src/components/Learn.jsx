@@ -103,9 +103,16 @@ export function Learn() {
 
   return (
     <div className="ci-app screen-bg">
+      {/* R13-6: standard apphead (title + tags) like the other tabs, so the shell
+          account avatar floats over a plain header and the tags space identically. The
+          XP-progress card (.learn-hero) sits below it with the Portfolio value-card frame. */}
+      <div className="apphead">
+        <div>
+          <div className="title">Your Investing Edge <span className="beta">BETA</span><HeaderTags /></div>
+        </div>
+      </div>
       <div className="learn-hero">
         <div className="learn-level">Level {level.level} · {level.title}</div>
-        <div className="learn-title">Your Investing Edge <span className="beta">BETA</span><HeaderTags /></div>
         <div className="xp-bar"><div className="xp-fill" style={{ width: level.pct + "%" }} /></div>
         <div className="xp-label">{level.nextAt != null ? `${level.xp} / ${level.nextAt} XP to Level ${level.level + 1}` : `${level.xp} XP · Max level`}</div>
         <div className="learn-chips">

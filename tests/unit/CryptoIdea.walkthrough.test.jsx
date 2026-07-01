@@ -86,8 +86,8 @@ describe("User walkthrough — all functions", () => {
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
     tab("Journal");
-    expect(await screen.findByText("Write before you buy.")).toBeInTheDocument();
-    expect(screen.getByText("Your journal is empty")).toBeInTheDocument();
+    // R13-2: the "Write before you buy." sub-title was removed; assert the empty state.
+    expect(await screen.findByText("Your journal is empty")).toBeInTheDocument();
     expect(screen.getByText("Add your first coin →")).toBeInTheDocument();
   });
 

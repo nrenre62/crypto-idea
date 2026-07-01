@@ -35,7 +35,7 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount })
   const empty = source === 'empty';
 
   const ids = useMemo(() => holdings.map((h) => h.id), [holdings]);
-  const { prices, status, asOf } = usePrices(ids, source, livePrices);
+  const { prices } = usePrices(ids, source, livePrices);   // status/asOf dropped with the R13-3 freshness line
 
   const portfolio = usePortfolio(holdings, prices);
   const pulse = usePulse(portfolio, tf, !empty);
@@ -53,9 +53,6 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount })
             {api === 'live' && <span className="badge badge-live">● LIVE</span>}
             {plan && <span className="badge badge-plan" onClick={onAccount} style={{ cursor: 'pointer' }}>{plan}</span>}
           </div>
-          <div className="sub">
-            {empty ? 'No coins in this portfolio yet' : `AI insights across your ${holdings.length} holding${holdings.length === 1 ? '' : 's'}`}
-          </div>
         </div>
       </div>
 
@@ -69,7 +66,7 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount })
 
       <div className="pad">
         {tab === 'overview' && (
-          <OverviewView portfolio={portfolio} empty={empty} pulse={pulse} tf={tf} onTf={setTf} status={status} asOf={asOf} onShare={onShare} />
+          <OverviewView portfolio={portfolio} empty={empty} pulse={pulse} tf={tf} onTf={setTf} onShare={onShare} />
         )}
         {tab === 'coins' && <CoinsView holdings={portfolio.holdings} empty={empty} onAsk={askAboutCoin} />}
         {tab === 'ask' && <AskView messages={ask.messages} busy={ask.busy} onSend={ask.send} />}

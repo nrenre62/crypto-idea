@@ -4,7 +4,6 @@ import AllocationBar from './AllocationBar';
 import RiskMeter from './RiskMeter';
 import StressTest from './StressTest';
 import { abbreviate, fmtPct } from '../utils/format';
-import { useRelativeTime } from '../hooks/useRelativeTime';
 
 function Brief({ portfolio, empty }) {
   if (empty) {
@@ -30,16 +29,10 @@ function Brief({ portfolio, empty }) {
   );
 }
 
-export default function OverviewView({ portfolio, empty, pulse, tf, onTf, status, asOf, onShare }) {
-  const rel = useRelativeTime(asOf);
-  const failed = status === 'refresh-failed' || status === 'rate-limited';
-  const tail = status === 'rate-limited' ? 'rate-limited, retrying soon' : 'couldn’t refresh';
-  const freshness = empty
-    ? 'Nothing to update yet'
-    : failed
-    ? (portfolio.live ? `Updated ${rel} · ${tail}` : `Sample data · ${tail}`)
-    : (portfolio.live ? `Updated ${rel}` : 'Sample data');
-
+// R13-3: the source chips + "Updated just now" freshness line were removed (founder:
+// clutter). `status`/`asOf` (and the freshness helpers) went with them — kept out of the
+// signature so no dead code remains. Freshness is an internal cost lever, not user-facing.
+export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShare }) {
   return (
     <div className="view active">
       <Brief portfolio={portfolio} empty={empty} />
@@ -54,16 +47,6 @@ export default function OverviewView({ portfolio, empty, pulse, tf, onTf, status
           <div className="pulse-inner">
             <AllocationBar holdings={portfolio.holdings} />
             <RiskMeter risk={portfolio.risk} holdings={portfolio.holdings} />
-            <div className="sources">
-              <div className="src-chips">
-                <span className="src-chip">Your holdings</span>
-                <span className="src-chip">Live prices</span>
-                <span className="src-chip">Market trends</span>
-              </div>
-              <span className="fresh" style={failed ? { color: 'var(--warn)' } : null}>
-                <span className="d" style={failed ? { background: 'var(--warn)' } : null} />{freshness}
-              </span>
-            </div>
           </div>
         </div>
       )}

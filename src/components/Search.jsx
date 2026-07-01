@@ -49,8 +49,7 @@ export function Search() {
     <div className="ci-app screen-bg">
       <div className="apphead">
         <div>
-          <div className="title" style={{ fontSize: 24 }}>Search <span className="beta">BETA</span><HeaderTags /></div>
-          <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 2 }}>Find any coin and add it to your portfolio.</div>
+          <div className="title">Search <span className="beta">BETA</span><HeaderTags /></div>
         </div>
       </div>
 
@@ -96,7 +95,7 @@ export function Search() {
                       <div className="trend-name">{coin.name}</div>
                       <div className="trend-sub">{coin.symbol}{coin.rank ? " · #" + coin.rank : ""}</div>
                     </div>
-                    <button className="add-pill" onClick={() => !ad && setJournalFor(coin)} disabled={!!ad}>{ad ? "Added" : "Add"}</button>
+                    <button className="add-pill" onClick={() => !ad && setJournalFor(coin)} disabled={!!ad}>{ad ? "Added" : "+ Add"}</button>
                   </div>
                 );
               })}

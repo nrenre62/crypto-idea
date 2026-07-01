@@ -24,7 +24,8 @@
 .research-root .pad{padding:0 18px}
 
 .research-root .apphead{padding:6px 18px 14px;display:flex;align-items:flex-start;justify-content:space-between}
-.research-root .apphead .title{font-family:var(--display);font-weight:500;font-size:29px;letter-spacing:-.025em;display:flex;align-items:center;gap:10px}
+/* R13-5: unify all tab headings to 28px (was 29). */
+.research-root .apphead .title{font-family:var(--display);font-weight:500;font-size:28px;letter-spacing:-.025em;display:flex;align-items:center;gap:10px}
 .research-root .beta{font-family:var(--body);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--ai-2);background:rgba(63,125,240,.09);padding:3px 7px;border-radius:6px;position:relative;top:-2px}
 /* R4-4: LIVE + plan header pills, scoped to mirror the .ci-app tabs (this feature is
    outside .ci-app, so app.css's .badge rules don't reach it). */
@@ -225,7 +226,8 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .prompt{font-size:12px;color:rgba(255,255,255,.85);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.11);border-radius:999px;padding:7px 12px;cursor:pointer;transition:.2s var(--ease)}
 .research-root .prompt:hover{background:rgba(255,255,255,.15)}
 
-.research-root .disclaimer{font-size:11px;color:var(--ink-faint);line-height:1.55;padding:18px 6px 92px;text-align:center}
+/* R13-1: readable-muted in light too (--ink-soft flips per theme; dark override removed). */
+.research-root .disclaimer{font-size:11px;color:var(--ink-soft);line-height:1.55;padding:18px 6px 92px;text-align:center}
 
 .research-root .empty-state{text-align:center;padding:42px 20px;color:var(--ink-soft)}
 .research-root .empty-ic{width:56px;height:56px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:24px;margin:0 auto 14px}
@@ -276,6 +278,4 @@ html[data-theme="dark"] .research-root .ask{color:var(--ink);border:1px solid va
    brighten the up arrow to --accent-ink and tint the watch chip to the dark-safe red. */
 html[data-theme="dark"] .research-root .ic-up{color:var(--accent-ink)}
 html[data-theme="dark"] .research-root .ic-watch{background:var(--sr-s);color:var(--sr)}
-/* R6-1: the Research AI/Stress-test footer note used --ink-faint (too dim on dark);
-   lift to --ink-soft to match the .ci-app tab footers. Dark-block-only. */
-html[data-theme="dark"] .research-root .disclaimer{color:var(--ink-soft)}
+/* (R6-1 disclaimer dark override removed in R13-1 — base is now --ink-soft in both modes.) */

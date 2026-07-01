@@ -131,7 +131,7 @@ describe("Search — TRENDING empty state (DP-6)", () => {
 
   it("Add on a trending row opens the Buy-Journal overlay (this tab adds coins)", () => {
     provide({ sq: "", searchResults: [], trending: [trending[0]] });
-    fireEvent.click(screen.getByText("Add"));
+    fireEvent.click(screen.getByText("+ Add"));   // R13-4: trending pill is now "+ Add" too
     expect(screen.getByText(/Before you add Solana/)).toBeInTheDocument();
   });
 

@@ -295,10 +295,7 @@ export function Journal() {
     <div className="ci-app screen-bg">
       <div className="apphead">
         <div>
-          <div className="title" style={{ fontSize: 24 }}>Journal <span className="beta">BETA</span><HeaderTags /></div>
-          <div style={{ fontSize: 13, color: "var(--ink-faint)", marginTop: 2 }}>
-            Write before you buy.
-          </div>
+          <div className="title">Journal <span className="beta">BETA</span><HeaderTags /></div>
         </div>
       </div>
 
@@ -363,7 +360,7 @@ export function Journal() {
               </>
             ) : (
               <div className="empty-p" style={{ textAlign: "center", padding: "20px 24px" }}>
-                No theses yet — tap “Add thesis” above to start your journal.
+                No thesis yet — tap “Add thesis” above to start your journal.
               </div>
             )}
             <div className="disclaimer">{JOURNAL_NOTE}</div>
