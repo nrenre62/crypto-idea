@@ -113,9 +113,11 @@ export function Detail() {
               </div>
               <div className="tx-meta">{Ic.clock} {fmtDT(e.date)}</div>
             </div>
+            {/* R22: the TOTAL $ paid/received is the bold top number (plain — the SELL/BUY
+                tag already conveys direction); the per-coin price moves below as "$… / SYM". */}
             <div className="tx-right">
-              <div className="tx-rprice">{fmtP(e.priceAtBuy)}</div>
-              <div className="tx-rcost">{isSell?"Recv":"Cost"} ${(e.amount*e.priceAtBuy).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+              <div className="tx-rtotal">${(e.amount*e.priceAtBuy).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+              <div className="tx-rprice">{fmtP(e.priceAtBuy)} / {coin.symbol}</div>
             </div>
             {/* R19-3: 2-step delete — tap the trash to arm, tap "Delete?" to confirm (auto-disarms ~3s). */}
             {armed

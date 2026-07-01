@@ -126,10 +126,9 @@ html[data-theme="dark"] .ci-app .acct-btn:disabled { color:var(--ink-soft); }
 html[data-theme="dark"] .ci-app .auth-err { background:var(--sr-s); }
 
 /* ── Dark-mode visibility fixes (Round 11) — dark-block-only; light untouched ── */
-/* R11-2: transaction row — the $ amount is the primary value (full white); the
-   "Cost …" line stays a touch softer (hierarchy kept). */
-html[data-theme="dark"] .ci-app .tx-right .tx-rprice { color:var(--ink); }
-html[data-theme="dark"] .ci-app .tx-right .tx-rcost { color:var(--ink-soft); }
+/* R11-2/R22: transaction row — the bold total (.tx-rtotal) uses the theme-aware --ink
+   (no override needed); the muted "$price / SYM" line lifts to readable soft-light. */
+html[data-theme="dark"] .ci-app .tx-right .tx-rprice { color:var(--ink-soft); }
 /* R11-3: lift the genuinely-dim (--ink-faint) account/form secondary text to the
    readable muted-light (--ink-soft) — clearly legible in dark, still softer than the
    white primary text. (.acct-current is already --ink-soft; the active .seg-btn keeps
@@ -457,9 +456,11 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .tx-pg-ellipsis { color:var(--ink-faint); padding:0 2px; font-size:12.5px; }
 .ci-app .tx-left { flex:1; min-width:0; }
 .ci-app .tx-left .tx-line { display:flex; align-items:center; gap:6px; }
+/* R22: the row's headline number is the TOTAL (bold, strong ink); the per-coin
+   price is the muted sub-line beneath it ("$84,000.00 / BTC"). */
 .ci-app .tx-right { text-align:right; flex:none; }
-.ci-app .tx-right .tx-rprice { font-size:12.5px; font-weight:600; color:var(--ink-soft); }
-.ci-app .tx-right .tx-rcost { font-size:11px; color:var(--ink-faint); margin-top:2px; }
+.ci-app .tx-right .tx-rtotal { font-size:14px; font-weight:700; color:var(--ink); }
+.ci-app .tx-right .tx-rprice { font-size:11.5px; color:var(--ink-faint); margin-top:2px; }
 
 /* ── Forms (AddEntry; reused by Login / Account) ──────── */
 .ci-app .form-body { padding:14px 18px 28px; display:flex; flex-direction:column; gap:15px; }

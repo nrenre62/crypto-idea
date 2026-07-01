@@ -193,4 +193,46 @@ describe("Detail screen (extracted, via AppContext)", () => {
     // header now holds only the delete trash (no back arrow) → a single .icon-btn
     expect(container.querySelectorAll(".detail-head .icon-btn").length).toBe(1);
   });
+
+  // ── R22: tx rows — the TOTAL is the bold top number, the coin price sits below
+  //         as "$price / SYMBOL", and the "Recv"/"Cost" labels are gone. ──
+  it("R22: total on top (plain, both buy & sell), '$price / SYMBOL' below, no Recv/Cost", () => {
+    const coin = {
+      id: "bitcoin", symbol: "BTC", name: "Bitcoin",
+      entries: [
+        { id: "b1", type: "buy", amount: 2, priceAtBuy: 100, date: "2024-01-01T00:00" },
+        { id: "s1", type: "sell", amount: 3, priceAtBuy: 84000, date: "2024-02-01T00:00" },
+      ],
+    };
+    const { container } = provide({ sel: coin, portfolio: [coin] });
+    const totals = [...container.querySelectorAll(".tx-rtotal")].map((n) => n.textContent);
+    const prices = [...container.querySelectorAll(".tx-rprice")].map((n) => n.textContent);
+    // (a) the bold top number is the TOTAL paid/received — amount × price, 2 dp, plain
+    expect(totals).toContain("$200.00");      // 2 × $100 buy
+    expect(totals).toContain("$252,000.00");  // 3 × $84,000 sell — same style, no sign
+    // (b) the muted line below is the per-coin price + " / SYMBOL"
+    expect(prices).toContain("$100.00 / BTC");
+    expect(prices).toContain("$84,000.00 / BTC");
+    // each row stacks total on top, price below
+    const right = container.querySelector(".tx-right");
+    expect(right.firstElementChild.className).toContain("tx-rtotal");
+    // (c) the Recv/Cost labels are gone
+    expect(screen.queryByText(/Recv/)).toBeNull();
+    expect(screen.queryByText(/Cost \$/)).toBeNull();
+    expect(container.querySelector(".tx-rcost")).toBeNull();
+  });
+
+  it("R22: a sub-$1 coin's price line keeps fmtP's adaptive precision", () => {
+    const doge = {
+      id: "dogecoin", symbol: "DOGE", name: "Dogecoin",
+      entries: [{ id: "d1", type: "buy", amount: 1000, priceAtBuy: 0.0012, date: "2024-01-01T00:00" }],
+    };
+    const { container } = provide({
+      sel: doge, portfolio: [doge],
+      prices: { dogecoin: { usd: 0.001, usd_24h_change: 0 } },
+    });
+    // fmtP(0.0012) → $0.001200 (≥0.0001 → 6 dp) + " / DOGE"
+    expect(container.querySelector(".tx-rprice").textContent).toBe("$0.001200 / DOGE");
+    expect(container.querySelector(".tx-rtotal").textContent).toBe("$1.20"); // 1000 × 0.0012
+  });
 });
