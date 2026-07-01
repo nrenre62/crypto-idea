@@ -877,7 +877,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `apiErrorMessage` mislabels it "transaction limit — upgrade" (B-PORT class). Fix: R10-2a strip `-` on input +
   `min=0`/`inputMode=decimal`; R10-2b validate `amt>0`/`prc>0` in `addEntry` **before** the tx-limit check with a
   clear "… must be a positive number" message. TDD `AddEntry.test.jsx`. Build R10-2 → R10-1 on "go".
-- [ ] **Round 11 — dark-mode account/transaction text visibility · Learn quiz Submit rework — 📋 PLAN ONLY
+- [x] **Round 11 — dark-mode account/transaction text visibility · Learn quiz Submit rework — 📋 PLAN ONLY
   (2026-06-30)** (founder screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 11"). Decisions locked
   (AskUserQuestion): (1) lift dim text, keep hierarchy; (2) quiz = pick → Submit → correct=green+complete,
   wrong=red+hint+retry (gated). **R11-1** `.sr-value` (tier + `1/1`) `--ink-faint`→`--ink` (white dark / black
@@ -888,7 +888,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (disabled until picked) → correct=green banner+`onComplete`, wrong=red banner+constructive hint+retry (gated);
   **X-close** (reuse Round 8 `Ic.close`/`.ov-close`); new `.quiz-result.ok/.bad` token banners. TDD Learn.test.jsx.
   Build R11-1 → R11-2 → R11-3 → R11-Q on "go".
-- [ ] **Round 12 — delete-coin confirm leaks across navigation · auto-disarm the "Remove" pill — 📋 PLAN ONLY
+- [x] **Round 12 — delete-coin confirm leaks across navigation · auto-disarm the "Remove" pill — 📋 PLAN ONLY
   (2026-07-01)** (founder screenshot + repro; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 12"; bug in
   [ERRORS.md](ERRORS.md) §A3). **Behavioural/error fix.** Repro: arm delete on a **no-transaction** coin (shows
   the "Remove" pill) → leave it → tap **+ Buy** and add a transaction → return to the coin → the "Delete {coin}?
@@ -901,7 +901,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   to the idle trash ("first step"); modal (entries>0) does NOT auto-dismiss. Assumed defaults (veto on "go"): 3s ·
   inline-pill-only · local-state fix. TDD: rework `Detail.test.jsx` (currently injects `confirmDel` via provider →
   drive via the trash button) + add leak/auto-disarm/modal-still-works cases. Build R12-1 → R12-2 on "go".
-- [ ] **Round 13 — header uniformity · sub-title cleanup · disclaimer visibility · Research Risk simplification ·
+- [x] **Round 13 — header uniformity · sub-title cleanup · disclaimer visibility · Research Risk simplification ·
   Learn header frame — 📋 PLAN ONLY (2026-07-01)** (founder screenshots + notes; full spec
   [DESIGN-PASS.md](DESIGN-PASS.md) "Round 13"). Decisions locked (AskUserQuestion): disclaimer → **readable muted**
   (`--ink-soft`) light mode; remove **3** sub-lines (Research/Journal/Search), keep Learn eyebrow; unify headings to
@@ -915,7 +915,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   rules). **R13-7** Journal "No theses yet"→"No thesis yet". TDD: fix walkthrough:89 ("Write before you buy." removed),
   keep "Your Investing Edge"; Search trending tests → `getAllByText("+ Add")`; add sub-title-absent / risk-chips-absent
   / "No thesis yet" / 28px-probe cases. Build R13-1→…→R13-7 on "go".
-- [ ] **Round 14 — Portfolio Risk = market-cap tiers (allocation-weighted) — FUNCTIONAL, 📋 PLAN ONLY
+- [x] **Round 14 — Portfolio Risk = market-cap tiers (allocation-weighted) — FUNCTIONAL, 📋 PLAN ONLY
   (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 14"). The Research Risk meter switches
   from concentration to **market cap**: High `<$100M` · Medium `$100M–$1B` · Low `$1B–$100B` · Super-low `≥$100B`
   (BTC/ETH). Decisions locked (AskUserQuestion): **allocation-weighted** aggregate · market-cap **replaces**
@@ -929,7 +929,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   new `research-risk.test.js` (tier boundaries, weighted aggregate, unknown→High, note copy) + update
   `research-adapters.test.js` for the `marketCap` field; AllocationBar concentration tag unchanged. Independent of
   Round 13 (both touch the Research Overview card). Build R14-1→…→R14-5 on "go".
-- [ ] **Round 15 — one popup design: white rounded card for EVERY popup — 📋 PLAN ONLY (2026-07-01)** (founder
+- [x] **Round 15 — one popup design: white rounded card for EVERY popup — 📋 PLAN ONLY (2026-07-01)** (founder
   Journal-Breakdown screenshot; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 15"). Unify all popups to the
   Round 9 `.cm-card` look (centered white rounded card on a dimmed scrim, X-close). **3 patterns today → 1:**
   `.ci-app.overlay` (5 popups: Journal AddThesis/Detail/Breakdown, Learn lesson, Search Buy-Journal) + `.dg-sheet`
@@ -945,7 +945,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   R15-1→…→R15-4 on "go". **Decisions LOCKED (AskUserQuestion 2026-07-01):** full-screen sheet on phones / centered
   card on desktop (one `@media`) · scrim tap closes read/confirm popups but NOT text-entry forms (`dismissOnScrim`
   prop) · confirms → centered cards · X-close everywhere · white=`--paper-2`.
-- [ ] **Round 16 — Research "Coins" cards: align numbers + buttons to the bottom — 📋 PLAN ONLY (2026-07-01)**
+- [x] **Round 16 — Research "Coins" cards: align numbers + buttons to the bottom — 📋 PLAN ONLY (2026-07-01)**
   (founder screenshot; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 16"). Cards are already equal-height
   (`.coins-grid align-items:stretch` + `.coin-card` flex-col, `research-tab.css:154-156`) and desktop shows the
   detail always-expanded (`:181`), but `.cc-detail` (stats + "Ask AI" button) isn't bottom-pinned → the number row +
@@ -965,7 +965,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (optional) "+ Add" reads the enforced DB cap so it doesn't invite a denied action. TDD: rules/integration — a
   DB-`pro` user creates 2nd+3rd, blocked at 4th; dev path inert without the flag; the client-`tier`-write rejection
   test stays green. Build R17-1→R17-3 on "go".
-- [ ] **Round 18 — dark-mode border visibility: soft-white edges on cards · pills · popups + Search separator — 📋
+- [x] **Round 18 — dark-mode border visibility: soft-white edges on cards · pills · popups + Search separator — 📋
   PLAN ONLY (2026-07-01)** (founder dark-mode screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 18").
   Dark-block-only (light untouched). Decisions locked (AskUserQuestion): **soft ~16% off-white** border
   `rgba(236,233,225,.16)` · **outer card/popup borders + Search line only** (internal row-dividers stay subtle) ·

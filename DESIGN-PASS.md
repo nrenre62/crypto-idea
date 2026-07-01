@@ -868,7 +868,7 @@ browser-verify mobile + desktop, light + dark.
 **Build order (when "go"):** R11-1 → R11-2 → R11-3 (design CSS) → R11-Q (quiz rework — biggest; new state +
 `Ic.close` reuse + result banners + tests). Commit per item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-06-30)** — decisions locked (lift-dim-keep-hierarchy · quiz Submit with
+**Status:** ✅ **BUILT 2026-07-01** — decisions locked (lift-dim-keep-hierarchy · quiz Submit with
 retry-until-correct). R11-Q is functional. R11-2/R11-3 dark-block-only; R11-1 both modes; zero new dark rules in
 R11-Q (token banners). Build on founder "go".
 
@@ -926,7 +926,7 @@ update `CryptoIdea.smoke`/walkthrough if any assertion reads `confirmDel` from c
 **Build order (when "go"):** R12-1 (scope to local state + fix the tests) → R12-2 (3s auto-disarm). Commit per
 item. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP; bug catalogued in [`ERRORS.md`](ERRORS.md) §A3.
 
-**Status:** 📋 **PLAN ONLY (2026-07-01)** — behavioural/error fix. No design tokens or dark rules touched (pure
+**Status:** ✅ **BUILT 2026-07-01** — behavioural/error fix. No design tokens or dark rules touched (pure
 state-scope + a timer). Defaults assumed above; build on founder "go".
 
 ---
@@ -1016,7 +1016,7 @@ probe (light + dark): `.disclaimer` = `--ink-soft` in light on a sample screen; 
 R13-4 (+ Add) → R13-5 (heading size) → R13-6 (Learn header restructure + frame) → R13-7 (spelling). Commit per item
 (or group the pure-CSS ones). Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-07-01)** — design + one copy fix; no logic/handlers changed. R13-1 changes light
+**Status:** ✅ **BUILT 2026-07-01** — design + one copy fix; no logic/handlers changed. R13-1 changes light
 mode (both `.ci-app` + `.research-root`); R13-6 frame is theme-invariant (zero new dark rules); all others
 mode-neutral. Decisions locked (readable-muted · remove-3-keep-eyebrow · 28px · Learn-header-only). Build on
 founder "go".
@@ -1091,7 +1091,7 @@ R14-5 (pill colours). Independent of Round 13 (R13-3 removes the Risk card's *so
 *meter+note*) — either order, but note both touch the Research Overview card. Slotted into
 [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-07-01)** — **functional** (risk-model logic). Pure-function core (fully testable),
+**Status:** ✅ **BUILT 2026-07-01** — **functional** (risk-model logic). Pure-function core (fully testable),
 market cap already in the price payload. No new dependency, no rules change (risk is client-derived display).
 Decisions locked (weighted · replaces-concentration · unknown→High · 3-band). Build on founder "go".
 
@@ -1169,7 +1169,7 @@ desktop (~1040), light + dark.
 **Build order (when "go"):** R15-1 (Modal component + CSS) → R15-2 (5 overlays, incl. inner-card contrast) → R15-3
 (2 sheets) → R15-4 (PortfolioBar) → cleanup. Commit per group. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-07-01)** — design consistency + a shared `<Modal>` (light structural). No logic
+**Status:** ✅ **BUILT 2026-07-01** — design consistency + a shared `<Modal>` (light structural). No logic
 change; token-based (zero new dark rules). **Decisions locked (2026-07-01):** theme-aware white ·
 full-screen-sheet-on-phone / centered-card-on-desktop · scrim-close-except-text-forms · sheets→centered-cards ·
 X-close everywhere. Build on founder "go".
@@ -1206,7 +1206,7 @@ exact 3-up screenshot case, light + dark, mobile + desktop.
 Account-settings "Starter/Pro/Premium" + "1/1" darker-in-light ask from the same message is already covered by
 **Round 11 R11-1** — `.sr-value` `--ink-faint`→`--ink` — so it is NOT duplicated here.)*
 
-**Status:** 📋 **PLAN ONLY (2026-07-01)** — CSS-only (one rule), no dark rule, no markup/logic change. Build on "go".
+**Status:** ✅ **BUILT 2026-07-01** — CSS-only (one rule), no dark rule, no markup/logic change. Build on "go".
 
 ---
 
@@ -1318,6 +1318,6 @@ dark + light, mobile + desktop, across Portfolio/Research/Journal/Learn/Search +
 **Build order (when "go"):** R18-1 (edge token + cards) → R18-2 (popups) → R18-3 (neutral pills) → R18-4 (search
 line). All in the dark block. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
-**Status:** 📋 **PLAN ONLY (2026-07-01)** — dark-block-only design (one `--edge` knob + targeted `border-color`
+**Status:** ✅ **BUILT 2026-07-01** — dark-block-only design (one `--edge` knob + targeted `border-color`
 overrides); light untouched; composes with Round 15 popups. Decisions locked (soft 16% · outer+search only ·
 neutral pills only). Build on founder "go".
