@@ -1465,3 +1465,33 @@ neutral pills only). Build on founder "go".
 **Security / KISS:** Learn **presentation only** — no data / rules / schema / index change (`xp` + `completedLessons` already persisted; `complete` is idempotent + quiz-gated). No new dependency. The player stays **CSS-only responsive** (one flex row, identical on mobile & desktop — no JS breakpoint). All overlay state (`idx` / `picked` / `result`) is **component-local** (R12 lesson). Net removes dead CSS (the R19-8 markers).
 
 **Status:** 📋 PLAN ONLY — build on founder "go".
+
+## Round 21 — error toast visible above every popup (raise above the scrim) + longer auto-dismiss (2026-07-02, PLAN ONLY)
+
+> Founder (Sell BTC popup screenshot) — on **desktop**, a validation error ("No BTC owned at this date. Buy first
+> before selling.") renders **outside/behind the popup** and isn't visible. Want the error message **on top of the
+> popups, clearly visible**. Check the error messages on **every** popup — they must all sit on top of the popup.
+> **Decisions locked (AskUserQuestion, 2026-07-02):** (1) **one raised top banner** — keep the single top-center toast
+> but render it **above every popup's scrim**, fully bright (not dimmed); one uniform fix covers every popup (no
+> per-popup docking); (2) **auto-dismiss ~6s** (double the current 3s) so there's time to read a longer message.
+> **Plan only — build on founder "go".**
+
+**Root cause (grounded):**
+- The global error toast is a single fixed element at [CryptoIdea.jsx:674-676](src/CryptoIdea.jsx): `role="alert"`, `position:fixed; top:10; left:50%; transform:translateX(-50%); maxWidth:398; zIndex:9500`, solid `#FFF0F0` bg / `c.red` text / `#FFD0D0` border / drop shadow. Fed by `showErr(m)` ([CryptoIdea.jsx:183](src/CryptoIdea.jsx)) which sets `err` then clears it after **3000 ms**.
+- The shared `<Modal>` scrim `.ci-app.cm-scrim` ([app.css:671](src/styles/app.css)) is **also `z-index:9500`** with `background:rgba(0,0,0,.5)`. Same stacking level → the **later-painted** element wins, and the scrim/modals render **after** the toast in the tree (render map ~CryptoIdea.jsx:700+, toast at 676) → the scrim's 50%-black paints over the toast → on desktop the error is **dimmed/hidden behind the popup**. (The R19-9 desktop popups made this obvious; the same z-tie exists everywhere.)
+- **Every popup error funnels through this one toast** via `showErr` — `addEntry` Buy/Sell validation (no/insufficient holdings, positive amount/price, tx-limit, connection — [CryptoIdea.jsx:543-590](src/CryptoIdea.jsx)), `addPortfolio` / `deletePortfolio` / `renamePortfolio` / `addCoin` / `removeCoin` / `remEntry` — so a **single** z-index fix makes the error visible over **all** of them.
+- **The exception (already correct):** the two **Journal thesis** popups render their own **inline `.j-err` banner inside the card** ([Journal.jsx:140,252](src/components/Journal.jsx), via `thesisError`) — already visible on the popup, dark-safe. **No change** (they don't use the global toast).
+
+**Plan:**
+- **R21-1 — raise the toast above every popup + tidy it into a class.** Bump the toast's `zIndex` from **9500 → 10000** (above the scrim's 9500 and above the stacked AddEntry-over-Detail modals, also 9500) so it always floats **on top of** any popup, fully bright (the scrim no longer paints over it). Move the inline style object into a small `.ci-toast` class in app.css (keep the exact look: fixed `top:10`, centered, `max-width:398`, `#FFF0F0` / `c.red` / `#FFD0D0`, `12px` radius, the shadow), set `z-index:10000`, and keep `role="alert"` for a11y. The solid light-pink banner already reads clearly in **both** themes (high contrast on dark) — keep it; optionally strengthen the shadow a touch for "clear" separation from the popup. No behavior change beyond stacking. *(Conscious non-change: the banner stays at screen-top rather than docking to the card — decision 1; and it stays global so non-popup toasts — "Signed out of all devices", "Account deleted", plan-limit messages — keep working unchanged.)*
+- **R21-2 — longer auto-dismiss (~6s).** In `showErr` ([CryptoIdea.jsx:183](src/CryptoIdea.jsx)) change the timeout `3000` → **6000** ms (decision 2) so a longer validation message ("Only 0.5 BTC owned at this date") is readable before it clears. *(Leave the "clear on popup close" behavior alone — a top banner isn't visually bound to the popup, and 6s clears it on its own; adding close-coupling would be extra state for no gain — KISS.)*
+
+**TDD / verify (write tests first; never finish red):**
+- **Unit (Vitest):** z-index/stacking isn't observable in jsdom, so unit-assert the **contract**: triggering a `showErr` path renders a `role="alert"` node carrying the toast class + the message text; and (fake timers) the alert is still present at **3s** and **gone after 6s** (guards the R21-2 change). If the toast moves to a class, assert the class is applied. The existing walkthrough tests that assert error copy still pass (same element, same text).
+- **Build + browser (the real proof — a z-index bug jsdom can't see):** `npm run build` clean; on the **running stack**, open the **Sell BTC** popup on **desktop (~1040)** and trigger "No BTC owned at this date…" → confirm the banner sits **fully bright above the popup** (probe `getComputedStyle(toast).zIndex === "10000"` and that it isn't dimmed by the scrim); repeat for a portfolio add / rename / delete-confirm popup and an add-coin popup; verify **mobile (~390)** still shows it on top; **light + dark**. Confirm the Journal thesis inline errors are unaffected.
+
+**Build order (when "go"):** R21-1 (z-index + class) → R21-2 (timeout) — both tiny, one commit. DoD met. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Security / KISS:** presentation only — one z-index value + one timeout constant + moving inline styles to a class. No data/rules/schema/handler change, no new dependency, no new attack surface. The single global toast (already the source of truth for every `showErr`) is reused — the fix is uniform across every popup by construction, with **zero per-popup edits**. Journal's inline errors are already correct and left untouched.
+
+**Status:** 📋 PLAN ONLY — build on founder "go".

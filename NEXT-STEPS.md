@@ -1034,6 +1034,18 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   compact, one row, **no media divergence** (CSS-only responsive). **R20-4** re-opened/Previous'd lessons start
   fresh (re-pick + Submit); `complete` stays idempotent (no double XP). **Presentation only** — no data/rules/schema
   change; all overlay state component-local; net removes the R19-8 marker CSS. Build R20-1 → (R20-2+R20-3+R20-4) on "go".
+- [ ] **Round 21 — error toast visible above every popup (raise above the scrim) + ~6s auto-dismiss — 📋 PLAN ONLY
+  (2026-07-02)** (founder Sell-BTC screenshot: on desktop the validation error renders behind/outside the popup,
+  invisible; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 21"). Root cause: the global `showErr` toast
+  (CryptoIdea.jsx:676) is `z-index:9500` — the **same** as the `.cm-scrim` (app.css:671) — and the scrim paints
+  later → its 50%-black dims/hides the toast under every popup. Every popup error funnels through this one toast
+  (AddEntry Buy/Sell, add/rename/delete portfolio, add/remove coin, tx delete), so one fix covers all; the Journal
+  thesis popups already use an inline `.j-err` inside the card (left as-is). Decisions (AskUserQuestion): **one
+  raised top banner** (render above every scrim, fully bright — no per-popup docking) · **~6s auto-dismiss** (double
+  the 3s). **R21-1** bump the toast to `z-index:10000` (> scrim 9500 + the stacked AddEntry modal) + move its inline
+  styles into a `.ci-toast` class (same look, both themes, `role="alert"`). **R21-2** `showErr` timeout 3000→6000
+  (CryptoIdea.jsx:183). Presentation only — one z-index + one timeout; no data/rules/handler change; verify
+  in-browser (a z-index bug jsdom can't see). Build R21-1 → R21-2 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
