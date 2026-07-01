@@ -58,6 +58,9 @@ html[data-theme="dark"] .research-root {
      background under white text), so brightening is safe. The faint *-s rgba tints
      are separate and intentionally left unchanged. */
   --sg:#2ecc71; --sr:#ff6b6b; --sa:#f4c54a; --ai-2:#5b9bff;
+  /* R18: soft off-white edge for cards/popups/neutral-pills + the Search separator in dark
+     (one tunable knob). Their --line/--line-2 borders are near-invisible on dark paper. */
+  --edge:rgba(236,233,225,.16);
 }
 
 /* ── Dark-mode visibility fixes (Round 3) — dark-block-only; light mode untouched ── */
@@ -139,6 +142,17 @@ html[data-theme="dark"] .ci-app .priv-msg,
 html[data-theme="dark"] .ci-app .toggle-hint,
 html[data-theme="dark"] .ci-app .port-row .pr-sub,
 html[data-theme="dark"] .ci-app .seg-btn { color:var(--ink-soft); }
+
+/* ── Dark-mode border visibility (Round 18) — dark-block-only; light untouched ── */
+/* Soft off-white edges (--edge) so cards/popups/neutral pills + the Search separator read
+   on the dark paper. Internal row-dividers (.kv-row/.tx-row/journal-Q) intentionally stay
+   subtle (--line-2). .learn-hero/.value-card keep their gradient frames (not listed). */
+html[data-theme="dark"] .ci-app :is(.card,.j-entry,.nt-row,.module,.asset-card,.trend-card,.tx-list,.today-lesson) { border-color:var(--edge); }
+html[data-theme="dark"] .research-root :is(.card,.coin-card,.trend-card) { border-color:var(--edge); }
+html[data-theme="dark"] .ci-app .cm-card { border:1px solid var(--edge); }
+html[data-theme="dark"] .ci-app :is(.learn-chip,.port-pill,.port-pill-add,.pill-ghost,.btn-ghost,.seg-btn,.add-pill:disabled) { border-color:var(--edge); }
+html[data-theme="dark"] .research-root :is(.src-chip,.tf-pills,.seg) { border-color:var(--edge); }
+html[data-theme="dark"] .ci-app .trend-item { border-bottom-color:var(--edge); }
 
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }
