@@ -79,7 +79,7 @@ describe("buildResearchPrices — merges live prices with derived history", () =
 
   it("falls back to safe zeros when neither live nor history is present", () => {
     const out = buildResearchPrices(["dogecoin"], {}, {});
-    expect(out.dogecoin).toEqual({ price: 0, c24: 0, c7d: 0, c30d: 0, spark: null, marketCap: null });
+    expect(out.dogecoin).toEqual({ price: 0, c24: 0, c7d: 0, c30d: 0, spark: null, marketCap: null, rank: null }); // rank added R23
   });
 
   it("uses the last history point as price when live is missing", () => {

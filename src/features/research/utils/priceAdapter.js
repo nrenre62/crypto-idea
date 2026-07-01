@@ -52,9 +52,12 @@ export function buildResearchPrices(ids, livePrices, historiesById) {
     const d = deriveFromHistory(hist);
     const price = (live && Number(live.usd)) || d.last || 0;
     const c24 = live && live.usd_24h_change != null ? Number(live.usd_24h_change) : 0;
-    // R14: carry market cap through for the market-cap risk tiers (null if unknown).
+    // R14: carry market cap through for the risk model (null if unknown).
     const marketCap = live && live.usd_market_cap != null ? Number(live.usd_market_cap) : null;
-    out[id] = { price, c24, c7d: d.c7d, c30d: d.c30d, spark: d.spark, marketCap };
+    // R23: carry the real CoinGecko rank (surfaced by /api/prices from the cached
+    // universe) for the rank-based risk model; null until the daily refresh knows it.
+    const rank = live && live.usd_market_cap_rank != null ? Number(live.usd_market_cap_rank) : null;
+    out[id] = { price, c24, c7d: d.c7d, c30d: d.c30d, spark: d.spark, marketCap, rank };
   }
   return out;
 }

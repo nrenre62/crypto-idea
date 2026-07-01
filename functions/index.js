@@ -948,10 +948,12 @@ exports.api = functions.https.onRequest(async (req, res) => {
         // Serve from cache only if the coin's price is fresh (hot coins, refreshed
         // every 5 min). A long-tail coin (refreshed only daily) goes "stale" after
         // HOT_TTL → refetched on demand below. Missing coins are stale too.
+        // R23-1: surface the already-cached CoinGecko rank (universe `rank`, from
+        // /coins/markets) so the client risk model can use it — no new upstream call.
         if (m && (now - (m.at || 0)) < HOT_TTL) {
-          out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc, usd_24h_vol: m.v, circulating: m.cs };
+          out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc, usd_24h_vol: m.v, circulating: m.cs, usd_market_cap_rank: m.rank ?? null };
         } else {
-          if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc, usd_24h_vol: m.v, circulating: m.cs }; // last-known, refreshed just below
+          if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc, usd_24h_vol: m.v, circulating: m.cs, usd_market_cap_rank: m.rank ?? null }; // last-known, refreshed just below
           stale.push(id);
         }
       }
@@ -968,7 +970,9 @@ exports.api = functions.https.onRequest(async (req, res) => {
             const upd = {};
             for (const id of stale) {
               if (d[id]) {
-                out[id] = d[id];
+                // R23-1: simple/price carries no rank — keep the cached universe rank on
+                // the response so a stale-but-known coin doesn't lose it mid-refresh.
+                out[id] = { ...d[id], usd_market_cap_rank: (universe[id] || {}).rank ?? null };
                 // preserve metadata if we already had it; only update price fields
                 upd[id] = { ...(universe[id] || {}), p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: now };
               }
