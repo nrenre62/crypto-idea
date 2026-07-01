@@ -978,6 +978,22 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `.tf-pills`/`.seg`…); colored pills left alone. **R18-4** `.trend-item` border-bottom → `--edge`. Internal dividers
   (`.kv-row`/`.tx-row`/journal-Q) stay `--line-2`. Probe: dark card border ≈16% white, `.cm-card` has a border,
   `.trend-item` brighter, `.chg-pill`/`.kv-row` unchanged, light byte-for-byte unchanged. Build R18-1→R18-4 on "go".
+- [ ] **Round 19 — portfolio delete-confirm · portfolio rename · 2-step transaction delete · transaction
+  pagination — 📋 PLAN ONLY (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19").
+  Four Portfolio-flow safety/scale gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
+  (empty → two-tap trash w/ ~3s auto-disarm; has-coins → blocking warning `<Modal>`) · rename from **Settings +
+  the switcher bar** (edit ✎ on the active pill) · transaction delete = **inline two-tap on the row** (arm →
+  confirm, ~3s auto-disarm; no per-row modal) · pager = **windowed numbers** (Prev · 1 … 4 5 6 … 100 · Next).
+  **R19-1** portfolio delete confirm — `<PortRow>` w/ component-local armed/warn state (R12 lesson; the delete is
+  currently unguarded at `Account.jsx:234` → cascades all coins+tx); keep the last-portfolio guard. **R19-2**
+  rename — new **wired** `updatePortfolioName(uid,pid,name)` data fn + `renamePortfolio`/`startRename` handler +
+  one shared `<Modal title="Rename portfolio">` reached from the Settings row AND the switcher pill; **no rules
+  change** (portfolio `update` already bounds `name` 1–50 + leaves `coinCount` — add a rules *test*). **R19-3**
+  tx two-tap — row-local `confirmTxId` in Detail.jsx (currently one-click `remEntry` at `Detail.jsx:98`); keep the
+  sell-dependency guard + `stopPropagation`. **R19-4** pagination — local `txPage`, `PAGE_SIZE=50`, `slice` + a
+  windowed `.tx-pager` (tokenized: `--paper-2`/`--line`/`--accent-soft` active/`--edge` in dark); pure client
+  slicing (caps: free 50 / pro 2,000 / premium 5,000). All confirm/page state **component-local**; no new dep, no
+  new attack surface. Build order R19-2 → R19-1 → R19-3 → R19-4 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
