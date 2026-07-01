@@ -1109,6 +1109,21 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   "1 coin and all its transactions and thesis" vs "N coins and all their transactions and theses"; **leave** the
   Journal "Your theses (N)" header (a correct plural). Copy-only, no logic change. Update the R19-1 Account
   warning test. Build R26-1 on "go".
+- [ ] **Round 27 — Billing: dark-mode readability + selected-card fix + desktop popups (X) + refund policy —
+  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 27").
+  The `showPlan` billing flow (Login.jsx pick-plan/billing-cycle/welcome/processing) mounts as a hand-rolled
+  full-screen overlay (CryptoIdea.jsx:677-683), has **zero** dark overrides for `.plan-*`/`.cycle-*` (faint
+  `--ink-faint` sub-text), and the **selected** Premium cycle card uses a hardcoded light `#f3ecfb` (app.css:552)
+  → light-on-light **invisible in dark**. Cancel/refund is already the standard "keep access to period end, no
+  refund" model (dueDowngrade + downgrade-Modal copy), with no refund code. Decisions (AskUserQuestion):
+  **(1) no prorated refund — keep access till period end** (SaaS standard) + one clear policy line;
+  **(2) BOTH plan-picker + billing-cycle become desktop `<Modal>` popups with X** (mobile stays full-screen);
+  **(3) dark mode keeps hierarchy but brightens** (sub-text `--ink-faint`→`--ink-soft`). **R27-1** dark billing
+  sub-text (dark-block-only) · **R27-2** fix selected `.cycle-card.on.prem`/`.on` in dark (dark-tinted purple bg +
+  `--accent-ink` ring) · **R27-3** wrap the flow in shared `<Modal>` when `isDesktop` (body-only Login, `closePlanFlow`
+  return-to-origin, X suppressed during `processing`) · **R27-4** no-refund policy line in the downgrade Modal +
+  Account cancel caption. Update Login/upgrade tests for the desktop-Modal branch. Build R27-1+R27-2 → R27-3 → R27-4
+  on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
