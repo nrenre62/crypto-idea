@@ -978,9 +978,10 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `.tf-pills`/`.seg`…); colored pills left alone. **R18-4** `.trend-item` border-bottom → `--edge`. Internal dividers
   (`.kv-row`/`.tx-row`/journal-Q) stay `--line-2`. Probe: dark card border ≈16% white, `.cm-card` has a border,
   `.trend-item` brighter, `.chg-pill`/`.kv-row` unchanged, light byte-for-byte unchanged. Build R18-1→R18-4 on "go".
-- [ ] **Round 19 — portfolio delete-confirm · portfolio rename · 2-step transaction delete · transaction
+- [x] **Round 19 — portfolio delete-confirm · portfolio rename · 2-step transaction delete · transaction
   pagination · transaction ordering · mobile small-dialog centering · Learn header · Learn XP bar · desktop coin
-  popups — 📋 PLAN ONLY (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19"). Nine
+  popups — ✅ BUILT 2026-07-01** (commits c2b7b29/53649f6/d8e6095/9ff3865 + modal-scrim fix b1d1a5e; 359 unit + 22
+  rules green; browser-verified desktop+mobile)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19"). Nine
   Portfolio/Learn safety+polish gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
   (empty → two-tap trash w/ ~3s auto-disarm; has-coins → blocking warning `<Modal>`) · rename from **Settings +
   the switcher bar** (edit ✎ on the active pill) · transaction delete = **inline two-tap on the row** (arm →
