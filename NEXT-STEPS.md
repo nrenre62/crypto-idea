@@ -1017,6 +1017,23 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `dismissOnScrim=false`); **mobile unchanged** (full-screen). Presentation/routing only — no data/rules/handler
   change; a deliberate desktop affordance divergence (responsive-app skill). Build LAST:
   …→ R19-8 → R19-9 on "go".
+- [ ] **Round 20 — Learn lesson player: remove the L1–L5 markers · module-scoped Next/Previous nav · compact
+  2-button row · Review-from-start — 📋 PLAN ONLY (2026-07-01)** (founder Learn screenshot; full spec
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 20"). Reworks the lesson flow. Decisions locked (AskUserQuestion):
+  progress bar — remove **only** the L1–L5 tick-marks/labels, **keep** the gradient fill + level title + the
+  "300 / 700 XP to Level N" line · "Next →" advances **within the module**, the module's **last** lesson → "Done →"
+  (closes) then pick the next module from the grid (**module-scoped**, not seamless-across-50) · the oversized
+  primary becomes a **compact 2-button row in the same place** — **"Previous" + "Submit"** (Submit → "Next →" after
+  a correct answer, → "Done →" on the last lesson), **identical on mobile & desktop**; "Previous" steps back a
+  lesson (disabled on the first); a card's **"Review →"** opens the module from **lesson 1** · review = **start
+  fresh** (re-pick + Submit, no pre-reveal). **R20-1** trim Learn.jsx:116-124 (drop the `.xp-tick` + `.xp-marks`
+  render) + dead CSS app.css:276-280; fill stays `overallPct`. **R20-2** `LessonOverlay` holds a **module + index**
+  (`{module,startIdx}`); a useEffect on idx resets picked/result; right button = Submit → "Next →" (`idx<last`) /
+  "Done →" (last); `openModule` startIdx = first-incomplete, or **0** for a done module (Review-from-start). **R20-3**
+  `.lesson-nav` flex row: "Previous" (`.btn-ghost`, `disabled={idx===0}`, `setIdx(idx-1)`) + the right button —
+  compact, one row, **no media divergence** (CSS-only responsive). **R20-4** re-opened/Previous'd lessons start
+  fresh (re-pick + Submit); `complete` stays idempotent (no double XP). **Presentation only** — no data/rules/schema
+  change; all overlay state component-local; net removes the R19-8 marker CSS. Build R20-1 → (R20-2+R20-3+R20-4) on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
