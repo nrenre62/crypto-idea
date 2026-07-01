@@ -71,14 +71,87 @@ describe("Journal tab (extracted, via AppContext)", () => {
     );
   });
 
-  it("blocks saving with only one question + shows a friendly error (§J3)", () => {
+  // R24-1: the Add popup never discards typed work — a PARTIAL thesis saves too
+  // (flagged Incomplete in the list, R24-2); the old both-required block is gone.
+  it("R24-1: a partial thesis saves via 'Save thesis' (no both-required block, no error)", () => {
     const addThesis = vi.fn().mockResolvedValue(true);
     provide({ portfolio: [noThesis], addThesis });
     fireEvent.click(screen.getByText("Add thesis"));
     fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: "only the why" } });
     fireEvent.click(screen.getByText("Save thesis"));
-    expect(addThesis).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert").textContent).toMatch(/What would change your mind/i);
+    expect(addThesis).toHaveBeenCalledWith(
+      "cardano",
+      expect.objectContaining({ thesis: "only the why", changeMyMind: "" })
+    );
+    expect(screen.queryByRole("alert")).toBeNull();   // no .j-err — partial is fine now
+  });
+
+  it("R24-1: the X saves whatever's written (fire-and-close); an empty popup saves nothing", () => {
+    const addThesis = vi.fn().mockResolvedValue(true);
+    const { unmount } = provide({ portfolio: [noThesis], addThesis });
+    // X with content → saved
+    fireEvent.click(screen.getByText("Add thesis"));
+    fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: "keep this note" } });
+    fireEvent.click(screen.getByLabelText("Close"));
+    expect(addThesis).toHaveBeenCalledWith("cardano", expect.objectContaining({ thesis: "keep this note" }));
+    expect(screen.queryByText("Add your thesis")).toBeNull();   // closed
+    unmount();
+    // X with NOTHING typed → no write at all
+    const addThesis2 = vi.fn().mockResolvedValue(true);
+    provide({ portfolio: [noThesis], addThesis: addThesis2 });
+    fireEvent.click(screen.getByText("Add thesis"));
+    fireEvent.click(screen.getByLabelText("Close"));
+    expect(addThesis2).not.toHaveBeenCalled();
+  });
+
+  it("R24-1: the Add popup keeps 'Save thesis' but has NO Cancel button (decision 2)", () => {
+    provide({ portfolio: [noThesis] });
+    fireEvent.click(screen.getByText("Add thesis"));
+    expect(screen.getByText("Save thesis")).toBeInTheDocument();
+    expect(screen.queryByText("Cancel")).toBeNull();
+  });
+
+  // R24-2: derived "Incomplete" flag — a partial thesis shows the yellow pill instead
+  // of the status pill; it clears once both questions are filled.
+  it("R24-2: a partial journal shows the yellow 'Incomplete' pill; a full one shows its status", () => {
+    const partial = { ...withThesis, id: "sol", name: "Solana", symbol: "SOL",
+      journal: { ...withThesis.journal, changeMyMind: "" } };
+    provide({ portfolio: [withThesis, partial] });
+    expect(screen.getByText(/🟡 Incomplete/)).toBeInTheDocument();   // partial → flagged
+    expect(screen.getByText(/🟢 Intact/)).toBeInTheDocument();       // complete → status
+  });
+
+  // R24-3: the detail X is a safety net — pending edits + changed findings persist.
+  it("R24-3: the detail X persists a pending thesis edit and changed findings", () => {
+    const editThesis = vi.fn().mockResolvedValue(true);
+    const saveFunnel = vi.fn().mockResolvedValue(true);
+    provide({ portfolio: [withThesis], editThesis, saveFunnel });
+    fireEvent.click(screen.getByText("Bitcoin"));   // open detail
+    // change a funnel finding (no explicit "Save findings")
+    const boxes = screen.getAllByRole("textbox");
+    fireEvent.change(boxes[0], { target: { value: "unlocks look manageable" } });
+    // enter edit mode and change the thesis (no explicit "Save changes")
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.change(screen.getAllByRole("textbox")[0], { target: { value: "Edited before closing" } });
+    fireEvent.click(screen.getByLabelText("Close"));
+    expect(editThesis).toHaveBeenCalledWith(
+      "bitcoin",
+      expect.objectContaining({ thesis: "Edited before closing" })
+    );
+    expect(saveFunnel).toHaveBeenCalledWith(
+      "bitcoin",
+      expect.objectContaining({ dilution: "unlocks look manageable" })
+    );
+  });
+
+  it("R24-3: an untouched detail X saves nothing (no redundant writes)", () => {
+    const editThesis = vi.fn().mockResolvedValue(true);
+    const saveFunnel = vi.fn().mockResolvedValue(true);
+    provide({ portfolio: [withThesis], editThesis, saveFunnel });
+    fireEvent.click(screen.getByText("Bitcoin"));
+    fireEvent.click(screen.getByLabelText("Close"));
+    expect(editThesis).not.toHaveBeenCalled();
+    expect(saveFunnel).not.toHaveBeenCalled();
   });
 
   it("edits an existing thesis and persists via editThesis (§J1)", () => {

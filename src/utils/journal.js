@@ -28,3 +28,11 @@ export function thesisError(thesis, changeMind) {
   if (!m) return "You still need “What would change your mind.” Both questions are required to save.";
   return "";
 }
+
+// R24-2: derived "Incomplete" flag — a saved thesis missing either required answer
+// (partial saves are allowed since R24; the auto-save-on-close never discards work).
+// Derived at render time, never stored — it auto-clears once both are filled and the
+// user's review decision (journal.status) stays un-conflated.
+export function isThesisIncomplete(j) {
+  return !((j?.thesis || "").trim()) || !((j?.changeMyMind || "").trim());
+}

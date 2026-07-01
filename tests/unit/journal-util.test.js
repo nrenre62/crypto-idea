@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanFunnel, thesisError } from "../../src/utils/journal.js";
+import { cleanFunnel, thesisError, isThesisIncomplete } from "../../src/utils/journal.js";
 
 // thesisError (§J3): both "Why you bought it" + "What would change your mind" are
 // required to save a thesis; the manual-research funnel stays optional.
@@ -49,5 +49,19 @@ describe("cleanFunnel", () => {
 
   it("tolerates missing fields", () => {
     expect(cleanFunnel({ volume: "thin book" })).toEqual({ volume: "thin book" });
+  });
+});
+
+// R24-2: the derived "Incomplete" flag — a thesis missing either required answer.
+// Derived only (no schema/status change): it auto-clears once both are filled.
+describe("isThesisIncomplete (R24)", () => {
+  it("flags a journal missing either required answer", () => {
+    expect(isThesisIncomplete({ thesis: "why", changeMyMind: "" })).toBe(true);
+    expect(isThesisIncomplete({ thesis: "", changeMyMind: "signal" })).toBe(true);
+    expect(isThesisIncomplete({ thesis: "  ", changeMyMind: "signal" })).toBe(true); // whitespace-only
+    expect(isThesisIncomplete({ funnel: { dilution: "x" } })).toBe(true);            // findings only
+  });
+  it("clears once both answers are filled", () => {
+    expect(isThesisIncomplete({ thesis: "why", changeMyMind: "signal" })).toBe(false);
   });
 });

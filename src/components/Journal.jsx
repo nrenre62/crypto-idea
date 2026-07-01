@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP } from "../utils/format.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
-import { thesisError } from "../utils/journal.js";
+import { thesisError, isThesisIncomplete } from "../utils/journal.js";
 import { CI } from "./ui.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
 import { Modal } from "./Modal.jsx";   // Round 15: shared centered-card popup (provides the X-close)
@@ -112,11 +112,29 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
 
   // R8-3 — open the read-only Breakdown popup.
   const [reading, setReading] = useState(false);
+
+  // R24-3: the X is a safety net — pending work persists before closing. A changed
+  // in-progress thesis edit goes through editThesis (both-required there → a partial
+  // is a safe no-op that can't blank a good thesis); changed findings go through
+  // saveFunnel. Untouched state writes nothing. Fire-and-close (optimistic handlers
+  // toast on failure; the toast floats above popups since R21).
+  const funnelChanged = FUNNEL_FIELDS.some(
+    ({ key }) => (funnel[key] || "") !== ((j.funnel && j.funnel[key]) || "")
+  );
+  const closeDetail = () => {
+    if (editing && (thesis !== (j.thesis || "") || changeMind !== (j.changeMyMind || ""))) {
+      onSaveThesis({ thesis, changeMyMind: changeMind, funnel });
+    }
+    if (funnelChanged) onSaveFunnel(funnel);
+    onClose();
+  };
+
   if (reading) return <ThesisBreakdown coin={coin} onClose={() => setReading(false)} />;
 
   return (
     // R15-2: shared centered-card Modal (editable text inside → no scrim-tap-close).
-    <Modal title={coin.name} onClose={onClose} size="md" dismissOnScrim={false}>
+    // R24-3: the X routes through closeDetail so in-progress work is never lost.
+    <Modal title={coin.name} onClose={closeDetail} size="md" dismissOnScrim={false}>
         <div className="bj-coin-head">
           <CI thumb={coin.thumb} symbol={coin.symbol} size={40} />
           <div>
@@ -125,6 +143,8 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
               Thesis written {fmtDate(j.createdAt)}{j.priceAtAdd ? " · " + fmtP(j.priceAtAdd) : ""}
             </div>
           </div>
+          {/* R24-2: the derived Incomplete nudge, also visible in the detail header */}
+          {isThesisIncomplete(j) && <span className="j-status j-review">🟡 Incomplete</span>}
         </div>
 
         {editing ? (
@@ -202,21 +222,21 @@ function AddThesis({ coin, onSave, onClose }) {
   const [thesis, setThesis] = useState("");
   const [changeMind, setChangeMind] = useState("");
   const [funnel, setFunnel] = useState({});
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
   const setF = (k, v) => setFunnel((p) => ({ ...p, [k]: v }));
-  const save = async () => {
-    const msg = thesisError(thesis, changeMind);   // §J3: both questions required
-    if (msg) { setErr(msg); return; }
-    setErr("");
-    setBusy(true);
-    const ok = await onSave({ thesis, changeMyMind: changeMind, funnel });
-    setBusy(false);
-    if (ok) onClose();
+  // R24-1: BOTH the X and "Save thesis" persist whatever's written — never discard
+  // typed work. Partial content is allowed (flagged Incomplete in the list, R24-2);
+  // the old both-required gate is dropped for this popup. Fire-and-close: addThesis
+  // is optimistic and toasts on failure (the toast floats above popups since R21).
+  const hasContent =
+    thesis.trim() || changeMind.trim() || Object.values(funnel).some((v) => (v || "").trim());
+  const closeWithSave = () => {
+    if (hasContent) onSave({ thesis, changeMyMind: changeMind, funnel });
+    onClose();
   };
   return (
     // R15-2: shared centered-card Modal (text-entry form → no scrim-tap-close).
-    <Modal title="Add your thesis" onClose={onClose} size="md" dismissOnScrim={false}>
+    // R24-1: the X saves too (closeWithSave) — closing never loses what you typed.
+    <Modal title="Add your thesis" onClose={closeWithSave} size="md" dismissOnScrim={false}>
         <div className="bj-callout">
           <div className="bjc-label">Write it down while the conviction is fresh</div>
           <div className="bjc-text">Your thesis lives with this coin and powers your Research &amp; Ask. When the market drops, you'll know exactly why you bought — and whether that reason still holds.</div>
@@ -249,9 +269,7 @@ function AddThesis({ coin, onSave, onClose }) {
             <textarea value={funnel[field.key] || ""} onChange={(e) => setF(field.key, e.target.value)} placeholder={field.placeholder} />
           </div>
         ))}
-        {err && <div className="j-err" role="alert">{err}</div>}
-        <button className="btn-primary ov-btn-gap" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save thesis"}</button>
-        <button className="btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn-primary ov-btn-gap" onClick={closeWithSave}>Save thesis</button>
     </Modal>
   );
 }
@@ -324,7 +342,12 @@ export function Journal() {
                 {needs.length > 0 && <div className="sec-label"><h2>Your theses ({entries.length})</h2></div>}
                 <div className="grid-auto j-grid">
                 {entries.map((c) => {
-                  const st = STATUS[c.journal.status] || STATUS.intact;
+                  // R24-2: a partial thesis shows the derived yellow "Incomplete" pill
+                  // (reuses the Review styling) instead of the stored status — a visible
+                  // nudge to finish; it auto-clears once both answers are filled.
+                  const st = isThesisIncomplete(c.journal)
+                    ? { cls: "j-review", label: "Incomplete", dot: "🟡" }
+                    : STATUS[c.journal.status] || STATUS.intact;
                   return (
                     <div key={c.id} className="j-entry" onClick={() => setOpenCoin(c.id)}>
                       <div className="j-top">
