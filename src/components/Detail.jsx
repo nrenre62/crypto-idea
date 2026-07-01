@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct, fmtMc, fmtDT } from "../utils/format.js";
 import { coinPnl } from "../utils/pnl.js";
@@ -9,12 +10,26 @@ import { Ic, CI } from "./ui.jsx";
 // from context. Restyled to the .ci-app design system; all data/handlers are unchanged.
 export function Detail() {
   const {
-    sel, portfolio, prices, setScreen, setSel, confirmDel, setConfirmDel,
+    sel, portfolio, prices, setScreen, setSel,
     remCoin, remEntry, setEditEntry, setETxType, setEPrice, setEAmt, setEDate,
     startAddTx,
   } = useApp();
+  // R12-1: the delete "armed" flag is LOCAL to this screen (was app-level context, which
+  // leaked across navigation — arming delete then adding a tx re-fired the warning modal
+  // on return). Local state clears on unmount, so the prompt only shows when you press
+  // delete on THIS visit. R12-2: auto-disarm the lightweight "Remove" pill (a no-transaction
+  // coin) after ~3s of inaction → back to the idle trash icon. The transaction-warning modal
+  // (entries>0) is a deliberate blocking dialog and does NOT auto-dismiss.
+  const [confirmDel, setConfirmDel] = useState(false);
+  const selCoin = sel ? (portfolio.find(x=>x.id===sel.id)||sel) : null;
+  const armedNoTx = confirmDel && !!selCoin && selCoin.entries.length===0;
+  useEffect(() => {
+    if(!armedNoTx) return;
+    const t = setTimeout(()=>setConfirmDel(false), 3000);
+    return ()=>clearTimeout(t);
+  }, [armedNoTx]);
   if(!sel)return null;
-  const coin=portfolio.find(x=>x.id===sel.id)||sel;
+  const coin=selCoin;
   const p=prices[coin.id];const pr=p?.usd;const ch=p?.usd_24h_change;const mc=p?.usd_market_cap;
   const { holding:h, value:v, buysCost, sellsGain, pnl:totalPnl, pnlPct:totalPnlPct } = coinPnl(coin.entries, pr);
   return(

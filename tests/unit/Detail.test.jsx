@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { AppContext } from "../../src/hooks/app-context.js";
 import { Detail } from "../../src/components/Detail.jsx";
@@ -9,7 +9,7 @@ function provide(value) {
   return render(
     <AppContext.Provider value={{
       prices: { bitcoin: { usd: 30000, usd_24h_change: 5, usd_market_cap: 6e11 } },
-      setScreen: vi.fn(), setSel: vi.fn(), confirmDel: false, setConfirmDel: vi.fn(),
+      setScreen: vi.fn(), setSel: vi.fn(),
       remCoin: vi.fn(), remEntry: vi.fn(), setEditEntry: vi.fn(), setETxType: vi.fn(),
       setEPrice: vi.fn(), setEAmt: vi.fn(), setEDate: vi.fn(),
       startAddTx: vi.fn(),
@@ -60,19 +60,24 @@ describe("Detail screen (extracted, via AppContext)", () => {
     expect(startAddTx).toHaveBeenCalledWith(COIN, "sell");
   });
 
+  // R12-1: confirmDel is now Detail-LOCAL state (was app-level context) — drive it via
+  // the trash button, not an injected prop. Trash is the last .icon-btn in the header.
+  const arm = (c) => fireEvent.click(c.querySelector(".detail-head .icon-btn:last-child"));
+
   // R4-3: deleting a coin that has transactions warns first (transactions + thesis lost).
-  it("trashing a coin WITH transactions requests a confirm (no immediate delete)", () => {
-    const setConfirmDel = vi.fn(), remCoin = vi.fn();
-    const { container } = provide({ sel: COIN, portfolio: [COIN], confirmDel: false, setConfirmDel, remCoin });
-    // header shows the trash icon (not a quick Remove pill) for a coin with entries
+  it("trashing a coin WITH transactions shows the warning modal (no immediate delete)", () => {
+    const remCoin = vi.fn();
+    const { container } = provide({ sel: COIN, portfolio: [COIN], remCoin });
     expect(screen.queryByText("Remove")).toBeNull();
-    fireEvent.click(container.querySelector(".detail-head .icon-btn:last-child"));
-    expect(setConfirmDel).toHaveBeenCalledWith(true);
+    expect(screen.queryByText("Delete Bitcoin?")).toBeNull();
+    arm(container);
+    expect(screen.getByText("Delete Bitcoin?")).toBeInTheDocument();
     expect(remCoin).not.toHaveBeenCalled();
   });
 
   it("the warning modal names the lost transactions + thesis and can't-undo", () => {
-    provide({ sel: COIN, portfolio: [COIN], confirmDel: true });
+    const { container } = provide({ sel: COIN, portfolio: [COIN] });
+    arm(container);
     expect(screen.getByText("Delete Bitcoin?")).toBeInTheDocument();
     const warn = document.querySelector(".dg-warn-text").textContent;
     expect(warn).toMatch(/2 buy\/sell transactions/i);
@@ -81,29 +86,57 @@ describe("Detail screen (extracted, via AppContext)", () => {
   });
 
   it("'Cancel' dismisses the warning without deleting", () => {
-    const setConfirmDel = vi.fn(), remCoin = vi.fn();
-    provide({ sel: COIN, portfolio: [COIN], confirmDel: true, setConfirmDel, remCoin });
+    const remCoin = vi.fn();
+    const { container } = provide({ sel: COIN, portfolio: [COIN], remCoin });
+    arm(container);
     fireEvent.click(screen.getByText("Cancel"));
-    expect(setConfirmDel).toHaveBeenCalledWith(false);
+    expect(screen.queryByText("Delete Bitcoin?")).toBeNull();
     expect(remCoin).not.toHaveBeenCalled();
   });
 
   it("'Delete anyway' hard-deletes via remCoin", () => {
     const remCoin = vi.fn();
-    provide({ sel: COIN, portfolio: [COIN], confirmDel: true, remCoin });
+    const { container } = provide({ sel: COIN, portfolio: [COIN], remCoin });
+    arm(container);
     fireEvent.click(screen.getByText("Delete anyway"));
     expect(remCoin).toHaveBeenCalledWith("bitcoin");
   });
 
-  it("a coin with NO transactions keeps the quick two-tap delete (no modal)", () => {
+  it("a coin with NO transactions uses the quick two-tap delete (Remove pill, no modal)", () => {
     const remCoin = vi.fn();
     const empty = { ...COIN, entries: [] };
-    provide({ sel: empty, portfolio: [empty], confirmDel: true, remCoin });
-    // no warning modal for a transaction-less coin
+    const { container } = provide({ sel: empty, portfolio: [empty], remCoin });
+    arm(container); // arm → the inline Remove pill (no warning modal)
     expect(screen.queryByText("Delete anyway")).toBeNull();
     expect(document.querySelector(".dg-warn-text")).toBeNull();
-    // the quick inline "Remove" pill deletes directly
     fireEvent.click(screen.getByText("Remove"));
     expect(remCoin).toHaveBeenCalledWith("bitcoin");
+  });
+
+  // R12-1: the armed flag must NOT survive leaving the screen (Detail unmount = navigation).
+  it("R12-1: the armed delete state does not persist across leaving/returning", () => {
+    const empty = { ...COIN, entries: [] };
+    const { container, unmount } = provide({ sel: empty, portfolio: [empty] });
+    arm(container);
+    expect(screen.getByText("Remove")).toBeInTheDocument(); // armed
+    unmount();                                              // navigate away
+    const { container: c2 } = provide({ sel: empty, portfolio: [empty] }); // come back
+    expect(screen.queryByText("Remove")).toBeNull();        // fresh: idle trash, not armed
+    expect(c2.querySelector(".detail-head .icon-btn:last-child")).toBeTruthy();
+  });
+
+  // R12-2: the lightweight "Remove" pill (no-tx coin) auto-disarms after ~3s.
+  it("R12-2: the 'Remove' pill auto-reverts to the trash after ~3s", () => {
+    vi.useFakeTimers();
+    try {
+      const empty = { ...COIN, entries: [] };
+      const { container } = provide({ sel: empty, portfolio: [empty] });
+      arm(container);
+      expect(screen.getByText("Remove")).toBeInTheDocument();
+      act(() => { vi.advanceTimersByTime(3000); });
+      expect(screen.queryByText("Remove")).toBeNull(); // reverted to the idle trash icon
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -126,7 +126,8 @@ export default function CryptoIdea(){
   const[eAmt,setEAmt]=useState("");
   const[ePrice,setEPrice]=useState("");
   const[eDate,setEDate]=useState(new Date().toISOString().slice(0,16));
-  const[confirmDel,setConfirmDel]=useState(false);
+  // R12-1: the delete-confirm flag now lives LOCALLY in Detail.jsx (it's a per-screen
+  // concern; keeping it app-level leaked the armed state across navigation).
   const[editEntry,setEditEntry]=useState(null);
   const[infoCoin,setInfoCoin]=useState(null);
   const[eTxType,setETxType]=useState("buy");
@@ -625,7 +626,7 @@ export default function CryptoIdea(){
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
     startAddTx,
     infoCoin,setInfoCoin,prices,
-    confirmDel,setConfirmDel,remCoin,remEntry,
+    remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
     portfolios,setActivePortId,activePortId,
     maxTxPerCoin,aiMonthlyCents,startDowngrade,fmtDate,deletePortfolio,newPortName,setNewPortName,addPortfolio,
