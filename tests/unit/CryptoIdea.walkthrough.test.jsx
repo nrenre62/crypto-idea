@@ -8,7 +8,7 @@
  *
  * Each `it` is one documented user flow.
  */
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("firebase/functions", () => ({ httpsCallable: () => vi.fn() }));
@@ -167,5 +167,34 @@ describe("User walkthrough — all functions", () => {
     // Account is a drill-in list: home shows the plan-usage summary + nav rows.
     expect(await screen.findByText("Plan usage")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Privacy & data/ })).toBeInTheDocument();
+  });
+
+  // R21 — the global error toast: carries the raised .ci-toast class (z-index 10000,
+  // above every popup's 9500 scrim — the stacking itself is browser-verified) and
+  // stays readable for ~6s (double the old 3s) before auto-dismissing.
+  it("R21: error toast is role=alert with .ci-toast and auto-dismisses after ~6s (not 3s)", async () => {
+    loginAs();
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("STARTER"));
+    await screen.findByText("Plan usage");
+    fireEvent.click(screen.getByRole("button", { name: /Portfolios/ }));
+    // Trigger a validation error: "+ Add" as a free user already at the 1-portfolio
+    // cap (the classic plan-limit toast; a sync showErr path — no network involved).
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByText("+ Add"));
+      const toast = screen.getByRole("alert");
+      expect(toast.textContent).toMatch(/Starter: 1 portfolio/);
+      expect(toast.className).toContain("ci-toast");
+      // R21-2: still visible at 3s (the old dismiss point)…
+      act(() => { vi.advanceTimersByTime(3000); });
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      // …and gone shortly after 6s.
+      act(() => { vi.advanceTimersByTime(3100); });
+      expect(screen.queryByRole("alert")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

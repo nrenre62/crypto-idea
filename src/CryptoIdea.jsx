@@ -180,7 +180,8 @@ export default function CryptoIdea(){
   // DP-6: trending coins for the Search tab's empty state (cached /api/trending).
   const trending=useTrending();
 
-  const showErr=(m)=>{setErr(m);setTimeout(()=>setErr(""),3000)};
+  // R21-2: 6s auto-dismiss (was 3s) so a longer validation message is readable.
+  const showErr=(m)=>{setErr(m);setTimeout(()=>setErr(""),6000)};
 
   // Persist only non-sensitive profile data (tier, subscription, settings),
   // keyed by Firebase uid. Passwords are handled by Firebase Auth, never stored here.
@@ -672,8 +673,10 @@ export default function CryptoIdea(){
   const acctInitial=(user?.name||user?.email||"C").trim().charAt(0).toUpperCase();
   return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {/* Floating toast: fixed so a limit/error message is always visible, even when the action
-        (e.g. "Add portfolio" on the scrolled Account screen) is far below the top of the page. */}
-    {err&&<div role="alert" style={{position:"fixed",top:10,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:398,padding:"12px 16px",background:"#FFF0F0",color:c.red,borderRadius:12,fontSize:13,fontWeight:600,border:"1px solid #FFD0D0",boxShadow:"0 6px 24px rgba(0,0,0,0.15)",zIndex:9500,textAlign:"center"}}>{err}</div>}
+        (e.g. "Add portfolio" on the scrolled Account screen) is far below the top of the page.
+        R21-1: styled by .ci-toast (app.css) at z-index 10000 — above every popup's 9500
+        scrim, so validation errors float fully bright on top of any open Modal. */}
+    {err&&<div role="alert" className="ci-toast">{err}</div>}
     {showPlan&&screen!=="login"&&(()=>{
       // Reuse the Login() flow rendering for upgrade overlay
       // But Login() handles the showPlan branch — render it as a full overlay
