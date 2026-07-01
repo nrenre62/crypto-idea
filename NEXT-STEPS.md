@@ -1046,6 +1046,18 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   styles into a `.ci-toast` class (same look, both themes, `role="alert"`). **R21-2** `showErr` timeout 3000→6000
   (CryptoIdea.jsx:183). Presentation only — one z-index + one timeout; no data/rules/handler change; verify
   in-browser (a z-index bug jsdom can't see). Build R21-1 → R21-2 on "go".
+- [ ] **Round 22 — coin-holding tx rows: total as the bold number, coin price below ("/ SYMBOL"), drop "Recv/Cost" —
+  📋 PLAN ONLY (2026-07-02)** (founder coin-holding tx list; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 22").
+  Today the right column (Detail.jsx:116-119) shows the **coin price** bold on top (`.tx-rprice`) and **"Recv"/"Cost"
+  + total** muted below (`.tx-rcost`) — "Recv" is unclear + redundant with the SELL/BUY tag. Decisions
+  (AskUserQuestion): per-coin line = **"$84,000.00 / BTC"** (price + " / {symbol}") · total = **plain bold** (no
+  sign/color). **R22-1** swap the two lines + drop the `{isSell?"Recv":"Cost"}` word: top (bold) = total
+  `${(amount×priceAtBuy).toLocaleString(2dp)}`, below (muted) = `fmtP(priceAtBuy)+" / "+coin.symbol` (keeps adaptive
+  precision for cheap coins). **R22-2** app.css — rename `.tx-rprice`→`.tx-rtotal` (bold ~14px `--ink`) + reuse
+  `.tx-rprice` for the muted price line (11.5px `--ink-faint`; dark brightens to `--ink-soft`); update the 2 base +
+  2 dark rules. Same Detail component → lands in both the mobile full-screen view and the desktop R19-9 popup;
+  "Recv"/"Cost" is the only occurrence (Detail.jsx:118). Display-only — no data/rules/handler change (total still
+  `amount×priceAtBuy`). Build R22-1 + R22-2 (one commit) on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.

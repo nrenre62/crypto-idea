@@ -1495,3 +1495,40 @@ neutral pills only). Build on founder "go".
 **Security / KISS:** presentation only — one z-index value + one timeout constant + moving inline styles to a class. No data/rules/schema/handler change, no new dependency, no new attack surface. The single global toast (already the source of truth for every `showErr`) is reused — the fix is uniform across every popup by construction, with **zero per-popup edits**. Journal's inline errors are already correct and left untouched.
 
 **Status:** 📋 PLAN ONLY — build on founder "go".
+
+## Round 22 — coin-holding transaction rows: total as the bold number, coin price below (labeled "/ SYMBOL"), drop "Recv/Cost" (2026-07-02, PLAN ONLY)
+
+> Founder (coin-holding transaction list) — in a coin's transactions:
+> (1) the secondary line reads **"Recv $…"** on a sell / **"Cost $…"** on a buy — **"Recv" is unclear**, and the word
+> is redundant with the SELL/BUY tag already on every row → **drop the label** (no extra word needed).
+> (2) the **big/bold number is the coin price** ($84,000) but it should be the **total $ paid/received** ($252,000) —
+> that's the number the user cares about. **Swap:** the total becomes the bold top number; the **coin price moves to
+> the smaller line below it.**
+> **Decisions locked (AskUserQuestion, 2026-07-02):** (1) the per-coin price line = **"$84,000.00 / BTC"** (price +
+> " / {coin symbol}"); (2) the bold total = **plain** — same style for buys & sells, **no sign/color** (the SELL/BUY
+> tag conveys direction). **Plan only — build on founder "go".**
+
+**Grounded current state:**
+- The row's right column ([Detail.jsx:116-119](src/components/Detail.jsx)) is two stacked lines: `.tx-rprice` = `fmtP(e.priceAtBuy)` (the **coin price**, the prominent top line — `font-size:12.5px; font-weight:600; color:var(--ink-soft)`, [app.css:460](src/styles/app.css)) and `.tx-rcost` = `{isSell?"Recv":"Cost"} $${e.amount*e.priceAtBuy…}` (the **total**, muted below — `11px; --ink-faint`, [app.css:461](src/styles/app.css); dark overrides at app.css:131-132). The left column ([Detail.jsx:109-115](src/components/Detail.jsx)) already shows the **SELL/BUY tag** + `{amount} {symbol}` + the date — so direction is already conveyed.
+- **"Recv"/"Cost" appears only here** — one occurrence, Detail.jsx:118 (verified repo-wide). The Detail summary "Bought … · $buysCost" (Detail.jsx:85) and the AddEntry "Buy/Sell value $…" total are separate, already-clear labels → untouched.
+- This same Detail component renders both the **mobile full-screen** view and the **desktop R19-9 popup**, so the change lands in both automatically. No existing test asserts the "Recv"/"Cost" text or the price-on-top order (repo-wide grep) → add fresh assertions.
+
+**Plan:**
+- **R22-1 — swap the two lines + drop the label (Detail.jsx).** In the `.tx-right` block:
+  - **Top (bold) = total** — `${(e.amount*e.priceAtBuy).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`, **plain** (no "Recv"/"Cost", no sign/color — decision 2). This is the "$ the user pays/receives."
+  - **Below (muted) = coin price** — `fmtP(e.priceAtBuy) + " / " + coin.symbol` → e.g. **"$84,000.00 / BTC"** (decision 1). Keep `fmtP` so a sub-$1 coin still shows adaptive precision ($0.001234); the symbol is the coin's own ticker (`coin.symbol`, already uppercased in the amount line).
+  - Remove the `{isSell?"Recv":"Cost"}` expression entirely. `isSell` stays (still used by the badge).
+- **R22-2 — CSS: make the total the bold number, price muted below, rename for honest semantics (app.css).** The top slot must now read as the dominant number and the bottom as a muted sub-line. Rename the two classes so the names match their new content and adjust emphasis:
+  - `.tx-rtotal` (new top-slot name) — the total: **bold** (`font-weight:700`), a touch larger (`~14px`), strong color (`var(--ink)`), so it's clearly the row's headline number.
+  - `.tx-rprice` (reuse for the bottom slot) — the per-coin price: muted (`font-size:11.5px; color:var(--ink-faint); margin-top:2px`).
+  - Update the two base rules (app.css:460-461) and the two dark-mode overrides (app.css:131-132) to the new names, keeping the dark "brighten the muted line" behavior (dark `.tx-rprice` → `var(--ink-soft)`; `.tx-rtotal` uses the theme-aware `--ink` so it likely needs no dark override — confirm at build). Net: no new tokens, dark-safe. *(Renaming keeps the markup honest — leaving the total in a class literally named `tx-rprice` after the swap would lie; per KISS "obvious data flow.")*
+
+**TDD / verify (write tests first; never finish red):**
+- **Unit (Vitest) — [Detail.test.jsx](tests/unit/Detail.test.jsx):** render a coin with a **buy** and a **sell** row → assert (a) the **total** appears as the prominent number (`amount×price` with 2 dp — e.g. a `2 BTC @ $100` buy shows `$200.00`), (b) the **price line** shows `"$100.00 / BTC"` (`fmtP` + " / " + symbol), (c) the strings **"Recv" and "Cost" are gone**, (d) a **sub-$1** coin's price line uses adaptive `fmtP` (e.g. `$0.0012 / DOGE`). No change to the delete/edit/pager tests.
+- **Build + browser:** `npm run build` clean; open a coin with buys + sells → the **bold total** sits on top, the **"$price / SYMBOL"** muted line below, **no "Recv/Cost"**; check both the **mobile full-screen** Detail and the **desktop popup** (same component); **light + dark** (the muted price line stays legible).
+
+**Build order (when "go"):** R22-1 (Detail.jsx content swap) + R22-2 (app.css rename/emphasis) — one small commit. DoD met. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Security / KISS:** display-only — reorders two existing values and drops one label word; **no** data/rules/schema/handler change (the total is still `amount×priceAtBuy`, computed inline as today), no new dependency, no new attack surface. One occurrence changed; the class rename keeps the markup self-describing.
+
+**Status:** 📋 PLAN ONLY — build on founder "go".
