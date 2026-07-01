@@ -3,6 +3,7 @@ import { useLearn } from "../hooks/useLearn.js";
 import { MODULE_ICONS, LockIcon } from "./learn-icons.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
 import { Modal } from "./Modal.jsx";
+import { overallPct, LEVEL_MARKERS } from "../utils/learn.js";
 
 /**
  * Learn tab — real gamified learning, wired to persisted progress.
@@ -103,12 +104,24 @@ export function Learn() {
           XP-progress card (.learn-hero) sits below it with the Portfolio value-card frame. */}
       <div className="apphead">
         <div>
-          <div className="title">Your Investing Edge <span className="beta">BETA</span><HeaderTags /></div>
+          <div className="title">Learn <span className="beta">BETA</span><HeaderTags /></div>
         </div>
       </div>
       <div className="learn-hero">
         <div className="learn-level">Level {level.level} · {level.title}</div>
-        <div className="xp-bar"><div className="xp-fill" style={{ width: level.pct + "%" }} /></div>
+        {/* R19-8: ONE cumulative bar across all levels (fill = xp/MAX_XP, 100% = all 50
+            lessons), with level tick-marks + labels; the per-level "to next level" text stays. */}
+        <div className="xp-bar">
+          <div className="xp-fill" style={{ width: overallPct(level.xp) + "%" }} />
+          {LEVEL_MARKERS.filter(m => m.at > 0 && m.at < 100).map(m => (
+            <span key={m.level} className="xp-tick" style={{ left: m.at + "%" }} />
+          ))}
+        </div>
+        <div className="xp-marks">
+          {LEVEL_MARKERS.map(m => (
+            <span key={m.level} className={"xp-mark" + (level.level >= m.level ? " reached" : "")} style={{ left: m.at + "%" }}>L{m.level}</span>
+          ))}
+        </div>
         <div className="xp-label">{level.nextAt != null ? `${level.xp} / ${level.nextAt} XP to Level ${level.level + 1}` : `${level.xp} XP · Max level`}</div>
         <div className="learn-chips">
           {progress.streak > 0 && <span className="learn-chip">🔥 {progress.streak}-day streak</span>}

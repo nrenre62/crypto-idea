@@ -23,16 +23,30 @@ describe("Learn tab (wired to useLearn)", () => {
   it("renders the level + module titles for a fresh learner", async () => {
     getLearnProgress.mockResolvedValue(fresh);
     renderLearn();
-    expect(await screen.findByText("Your Investing Edge")).toBeInTheDocument();
+    expect(await screen.findByText(/Level \d ·/)).toBeInTheDocument();
     expect(screen.getByText(/Level 1 ·/)).toBeInTheDocument();
     expect(screen.getAllByText("How Markets Really Work").length).toBeGreaterThan(0); // module card + today's-lesson meta
     expect(screen.getByText("Reading the Fundamentals")).toBeInTheDocument();
   });
 
+  it("R19-7/R19-8: header reads 'Learn' + a cumulative XP bar with level markers", async () => {
+    getLearnProgress.mockResolvedValue({ ...fresh, xp: 300 }); // Level 2, exactly at its start
+    const { container } = renderLearn();
+    await screen.findByText(/Level \d ·/);
+    // R19-7: the header title is just "Learn" (BETA/tags follow in spans)
+    expect(container.querySelector(".apphead .title").textContent).toMatch(/^Learn/);
+    // R19-8: the fill reflects OVERALL progress (300 / 2500 = 12%), NOT per-level (0% at 300)
+    expect(container.querySelector(".xp-fill").style.width).toBe("12%");
+    // five level labels render; the per-level "to next level" text is kept
+    expect(container.querySelectorAll(".xp-mark").length).toBe(5);
+    expect(container.querySelector(".xp-marks").textContent).toContain("L5");
+    expect(screen.getByText(/XP to Level 3/)).toBeInTheDocument();
+  });
+
   it("does not render the badges row (R2-2 removed)", async () => {
     getLearnProgress.mockResolvedValue(fresh);
     const { container } = renderLearn();
-    await screen.findByText("Your Investing Edge");
+    await screen.findByText(/Level \d ·/);
     expect(container.querySelector(".badges-row")).toBeNull();
     expect(screen.queryByText(/earn your first badge/i)).toBeNull();
   });
@@ -40,7 +54,7 @@ describe("Learn tab (wired to useLearn)", () => {
   it("R11-Q quiz: selecting an option does NOT reveal/complete; Submit on the correct pick completes", async () => {
     getLearnProgress.mockResolvedValue(fresh);
     renderLearn();
-    await screen.findByText("Your Investing Edge");
+    await screen.findByText(/Level \d ·/);
     fireEvent.click(screen.getByText("Start lesson"));                 // opens the first lesson
     expect(await screen.findByText("The key insight")).toBeInTheDocument();
     const correct = screen.getByText("More people are buying it right now");
@@ -59,7 +73,7 @@ describe("Learn tab (wired to useLearn)", () => {
   it("R11-Q quiz: Submit on a wrong pick shows a hint, does NOT complete, and allows a retry", async () => {
     getLearnProgress.mockResolvedValue(fresh);
     renderLearn();
-    await screen.findByText("Your Investing Edge");
+    await screen.findByText(/Level \d ·/);
     fireEvent.click(screen.getByText("Start lesson"));
     await screen.findByText("The key insight");
     fireEvent.click(screen.getByText("The token is now undervalued")); // a wrong option
@@ -76,7 +90,7 @@ describe("Learn tab (wired to useLearn)", () => {
   it("shows the hero streak + lessons chips (DP-4)", async () => {
     getLearnProgress.mockResolvedValue({ success: true, xp: 50, streak: 2, lastActivity: "2026-06-23", completedLessons: ["markets-1"] });
     renderLearn();
-    await screen.findByText("Your Investing Edge");
+    await screen.findByText(/Level \d ·/);
     expect(screen.getByText(/🔥 2-day streak/)).toBeInTheDocument();
     expect(screen.getByText(/1 of \d+ lessons/)).toBeInTheDocument();
   });
@@ -84,7 +98,7 @@ describe("Learn tab (wired to useLearn)", () => {
   it("renders an SVG icon for every module incl. a lock for locked ones (DP-4)", async () => {
     getLearnProgress.mockResolvedValue(fresh);
     const { container } = renderLearn();
-    await screen.findByText("Your Investing Edge");
+    await screen.findByText(/Level \d ·/);
     // one icon per module (active/done show the module SVG, locked shows the lock SVG)
     expect(container.querySelectorAll(".m-icon svg").length).toBeGreaterThanOrEqual(9);
     expect(container.querySelector(".m-icon.locked-icon svg")).toBeTruthy();
@@ -93,7 +107,7 @@ describe("Learn tab (wired to useLearn)", () => {
   it("module footer is a single row with count + CTA (DP-4)", async () => {
     getLearnProgress.mockResolvedValue(fresh);
     const { container } = renderLearn();
-    await screen.findByText("Your Investing Edge");
+    await screen.findByText(/Level \d ·/);
     const foot = container.querySelector(".m-foot");          // markets is the only unlocked module for a fresh learner
     expect(foot).toBeTruthy();
     expect(foot.querySelector(".m-foot-count").textContent).toMatch(/0\/\d+ lessons/);
@@ -109,7 +123,7 @@ describe("Learn tab (wired to useLearn)", () => {
         <Learn />
       </AppContext.Provider>
     );
-    await screen.findByText("Your Investing Edge");
+    await screen.findByText(/Level \d ·/);
     expect(screen.getByText(/● LIVE/)).toBeInTheDocument();
     fireEvent.click(screen.getByText("PRO"));
     expect(setScreen).toHaveBeenCalledWith("account");

@@ -7,7 +7,7 @@ import { Ic } from "./ui.jsx";
 //   size: "sm" (~360px, confirms) | "md" (~440px, forms/lessons)
 export function Modal({ title, onClose, size = "md", dismissOnScrim = true, children }) {
   return (
-    <div className="ci-app cm-scrim" onClick={dismissOnScrim ? onClose : undefined}>
+    <div className={"ci-app cm-scrim cm-scrim-" + size} onClick={dismissOnScrim ? onClose : undefined}>
       <div
         className={"cm-card cm-" + size}
         role="dialog"

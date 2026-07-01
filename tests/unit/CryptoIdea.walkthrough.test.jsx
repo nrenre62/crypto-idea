@@ -96,7 +96,7 @@ describe("User walkthrough — all functions", () => {
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
     tab("Learn");
-    expect(await screen.findByText("Your Investing Edge")).toBeInTheDocument();
+    expect(await screen.findByText(/XP to Level/)).toBeInTheDocument();
     expect(screen.getByText("Reading the Fundamentals")).toBeInTheDocument();
     // Open the lesson overlay via Today's lesson
     fireEvent.click(screen.getByText("Start lesson"));

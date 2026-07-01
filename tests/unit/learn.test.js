@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   levelFromXp, streakOn, completeLesson, moduleStates, nextLesson, earnedBadges,
-  XP_PER_LESSON, LEVELS,
+  XP_PER_LESSON, LEVELS, overallPct, LEVEL_MARKERS, MAX_XP, TOTAL_LESSONS,
 } from "../../src/utils/learn.js";
 
 // A tiny content fixture so these tests don't depend on the real lesson copy.
@@ -27,6 +27,26 @@ describe("levelFromXp", () => {
   it("treats junk / negative XP as 0", () => {
     expect(levelFromXp(undefined).level).toBe(1);
     expect(levelFromXp(-50).level).toBe(1);
+  });
+});
+
+describe("overallPct + LEVEL_MARKERS (R19-8 — cumulative bar)", () => {
+  it("the library is 50 lessons → MAX_XP 2,500", () => {
+    expect(TOTAL_LESSONS).toBe(50);
+    expect(MAX_XP).toBe(XP_PER_LESSON * 50);
+  });
+  it("overallPct = xp / MAX_XP (grows past each level, unlike levelFromXp.pct)", () => {
+    expect(overallPct(0)).toBe(0);
+    expect(overallPct(300)).toBe(12);   // Level 2 start → 12% overall, but levelFromXp(300).pct is 0
+    expect(levelFromXp(300).pct).toBe(0);
+    expect(overallPct(1250)).toBe(50);
+    expect(overallPct(2500)).toBe(100);
+    expect(overallPct(9999)).toBe(100); // clamped
+    expect(overallPct(-5)).toBe(0);
+  });
+  it("level markers sit at their XP thresholds along the bar (L5 ≈ 80%)", () => {
+    expect(LEVEL_MARKERS.map(m => m.at)).toEqual([0, 12, 28, 48, 80]);
+    expect(LEVEL_MARKERS.map(m => m.level)).toEqual([1, 2, 3, 4, 5]);
   });
 });
 

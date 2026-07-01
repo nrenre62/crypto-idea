@@ -31,6 +31,24 @@ export function levelFromXp(xp) {
   return { level: cur.level, title: cur.title, xp: x, nextAt, into, pct };
 }
 
+// R19-8: total lessons in the library + the XP once everything is done. Derived from
+// MODULES so they track the content (currently 50 lessons → 2,500 XP).
+export const TOTAL_LESSONS = MODULES.reduce((n, m) => n + m.lessons.length, 0);
+export const MAX_XP = XP_PER_LESSON * TOTAL_LESSONS;
+
+// R19-8: overall progress across ALL levels — xp / MAX_XP as a 0–100 percent (100% = every
+// lesson done). Unlike levelFromXp().pct (per-level, resets each level-up), this only grows.
+export function overallPct(xp) {
+  const x = Math.max(0, Number(xp) || 0);
+  return MAX_XP > 0 ? Math.min(100, Math.round((x / MAX_XP) * 100)) : 0;
+}
+
+// R19-8: level milestones positioned along the cumulative bar (percent of MAX_XP) for the
+// tick-marks + labels. L1≈0 · L2≈12 · L3≈28 · L4≈48 · L5≈80.
+export const LEVEL_MARKERS = LEVELS.map((l) => ({
+  level: l.level, title: l.title, at: MAX_XP > 0 ? Math.round((l.minXp / MAX_XP) * 100) : 0,
+}));
+
 // Whole days from YYYY-MM-DD `a` to `b` (b - a), or null if either is missing/bad.
 function dayDiff(a, b) {
   if (!a || !b) return null;
