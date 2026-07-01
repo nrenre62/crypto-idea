@@ -1,9 +1,11 @@
 // utils/portfolio.js — portfolio math. Pure functions, fully testable.
 
 export const FALLBACK_PRICES = {
-  bitcoin: { price: 67000, c24: 3.1, c7d: 5.0, c30d: 12.4 },
-  ethereum: { price: 2745, c24: 1.8, c7d: 3.2, c30d: 9.4 },
-  solana: { price: 157, c24: -0.6, c7d: -1.0, c30d: -3.1 },
+  // marketCap added (R14) so the offline demo seam classifies into real risk tiers
+  // (btc/eth ≥ $100B → super-low; sol $1B–$100B → low), not all-unknown → high.
+  bitcoin: { price: 67000, c24: 3.1, c7d: 5.0, c30d: 12.4, marketCap: 1.3e12 },
+  ethereum: { price: 2745, c24: 1.8, c7d: 3.2, c30d: 9.4, marketCap: 3.3e11 },
+  solana: { price: 157, c24: -0.6, c7d: -1.0, c30d: -3.1, marketCap: 7e10 },
 };
 
 export const BETA_BY_RANK = [1.0, 1.1, 1.4, 1.6, 1.8]; // by allocation rank, big→small
@@ -12,7 +14,7 @@ export const BETA_BY_RANK = [1.0, 1.1, 1.4, 1.6, 1.8]; // by allocation rank, bi
 export function computePortfolio(holdings, prices) {
   const out = holdings.map((h) => {
     const p = (prices && prices[h.id]) || FALLBACK_PRICES[h.id] || { price: 0, c24: 0, c7d: 0, c30d: 0 };
-    return { ...h, price: p.price, value: h.amount * p.price, c24: p.c24, c7d: p.c7d, c30d: p.c30d, spark: p.spark };
+    return { ...h, price: p.price, value: h.amount * p.price, c24: p.c24, c7d: p.c7d, c30d: p.c30d, spark: p.spark, marketCap: p.marketCap != null ? p.marketCap : null };
   });
   const total = out.reduce((s, h) => s + h.value, 0);
   out.forEach((h) => (h.alloc = total ? (h.value / total) * 100 : 0));
@@ -30,16 +32,50 @@ export function computePortfolio(holdings, prices) {
   };
 }
 
-// Risk level from concentration.
+// ── Portfolio risk = each coin's MARKET-CAP tier, allocation-weighted (R14) ──
+// Replaces the old concentration model (concentration now lives ONLY on the Allocation
+// bar). Tiers by market cap: <$100M High · $100M–$1B Medium · $1B–$100B Low · ≥$100B
+// Super-low. Unknown/missing cap → High (conservative). Scores + band cuts are tunable.
+export function marketCapTier(mc) {
+  if (mc == null || !isFinite(mc) || mc <= 0) return 'high';
+  if (mc >= 1e11) return 'superlow';   // ≥ $100B (BTC, ETH)
+  if (mc >= 1e9)  return 'low';        // $1B – $100B
+  if (mc >= 1e8)  return 'medium';     // $100M – $1B
+  return 'high';                       // < $100M (micro-cap)
+}
+export const TIER_SCORE = { superlow: 0.05, low: 0.30, medium: 0.65, high: 0.95 };
+
 export function deriveRisk(holdings) {
-  const top = holdings[0] ? holdings[0].alloc : 0;
-  const top2 = holdings.slice(0, 2).reduce((s, h) => s + h.alloc, 0);
-  const n = holdings.length;
-  let level;
-  if (top > 60 || n <= 1) level = 'High';
-  else if (top > 40 || top2 > 80) level = 'Elevated';
-  else level = 'Moderate';
-  return { level, top, top2, markerLeft: Math.max(8, Math.min(95, top)) };
+  const total = holdings.reduce((s, h) => s + (h.alloc || 0), 0);
+  const breakdown = { superlow: 0, low: 0, medium: 0, high: 0 };
+  let score;
+  if (total > 0) {
+    score = 0;
+    for (const h of holdings) {
+      const tier = marketCapTier(h.marketCap);
+      breakdown[tier] += (h.alloc || 0);          // allocation % per tier (for the note)
+      score += ((h.alloc || 0) / total) * TIER_SCORE[tier];   // allocation-weighted mean
+    }
+  } else {
+    score = TIER_SCORE.high;                       // no allocation data → treat as high
+    breakdown.high = 100;
+  }
+  // 3-band meter (Q4): the 4 tiers feed the numeric score; Super-low & Low land in green.
+  const level = score < 0.34 ? 'Low' : score < 0.67 ? 'Moderate' : 'High';
+  return { level, score, breakdown };
+}
+
+// Plain-language, market-cap risk note for the meter (pure → unit-tested).
+export function riskNote(breakdown) {
+  const large = Math.round((breakdown.superlow || 0) + (breakdown.low || 0));  // ≥ $1B
+  const mid = Math.round(breakdown.medium || 0);                               // $100M–$1B
+  const micro = Math.round(breakdown.high || 0);                               // < $100M
+  const advice = micro >= 40
+    ? 'Micro-caps (under $100M) are the highest-risk tier — sizing them down would lower this.'
+    : large >= 60
+    ? 'Mostly large-cap, which keeps single-coin risk lower.'
+    : 'A mix of market-cap tiers.';
+  return `Large-caps ($1B+) are ${large}% of your book, mid-caps ${mid}%, micro-caps ${micro}%. ${advice}`;
 }
 
 // Stress test: model a broad market move (%), scaling each holding by its beta.

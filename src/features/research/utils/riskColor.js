@@ -25,6 +25,6 @@ export function riskSpectrum(t) {
   return hex(STOPS[STOPS.length - 1][1]);
 }
 
-// Level pill colour + tint, aligned to the spectrum endpoints.
-export const levelColor = (level) => (level === 'High' ? '#cf3a2c' : level === 'Elevated' ? '#d99715' : '#1f9d55');
-export const levelTint = (level) => (level === 'High' ? '#fbede9' : level === 'Elevated' ? '#fdf3e0' : '#e7f3ec');
+// Level pill colour + tint, aligned to the spectrum endpoints (R14: Low/Moderate/High).
+export const levelColor = (level) => (level === 'High' ? '#cf3a2c' : level === 'Moderate' ? '#d99715' : '#1f9d55');
+export const levelTint = (level) => (level === 'High' ? '#fbede9' : level === 'Moderate' ? '#fdf3e0' : '#e7f3ec');

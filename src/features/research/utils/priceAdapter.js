@@ -52,7 +52,9 @@ export function buildResearchPrices(ids, livePrices, historiesById) {
     const d = deriveFromHistory(hist);
     const price = (live && Number(live.usd)) || d.last || 0;
     const c24 = live && live.usd_24h_change != null ? Number(live.usd_24h_change) : 0;
-    out[id] = { price, c24, c7d: d.c7d, c30d: d.c30d, spark: d.spark };
+    // R14: carry market cap through for the market-cap risk tiers (null if unknown).
+    const marketCap = live && live.usd_market_cap != null ? Number(live.usd_market_cap) : null;
+    out[id] = { price, c24, c7d: d.c7d, c30d: d.c30d, spark: d.spark, marketCap };
   }
   return out;
 }

@@ -3,16 +3,14 @@
 // RT-22: segments run a traffic-light spectrum (green→amber→orange→red) so the
 // colour itself shows low vs high; filled solid, the rest ghosted to hint the scale.
 import { riskSpectrum, levelColor, levelTint } from '../utils/riskColor';
+import { riskNote } from '../utils/portfolio';
 
 const SEGMENTS = 20;
 
 export default function RiskMeter({ risk, holdings }) {
-  const fill = Math.max(1, Math.min(SEGMENTS, Math.round((risk.top / 100) * SEGMENTS)));
-  const note = holdings[0]
-    ? `Your top holding (${holdings[0].name}) is ${Math.round(risk.top)}% of the book; your top two are ~${Math.round(
-        risk.top2
-      )}%. ${risk.top > 50 ? 'Spreading risk would lower this.' : 'A reasonably balanced split.'}`
-    : '';
+  // R14: fill + note come from the allocation-weighted market-cap risk (was concentration).
+  const fill = Math.max(1, Math.min(SEGMENTS, Math.round(risk.score * SEGMENTS)));
+  const note = holdings[0] ? riskNote(risk.breakdown) : '';
 
   return (
     <div className="risk">
