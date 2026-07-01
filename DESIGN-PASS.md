@@ -1636,3 +1636,26 @@ neutral pills only). Build on founder "go".
 **Security / KISS:** presentation + routing + one **cached** fetch. `openCoinInfo` centralizes the open logic (single source of truth). The overlay refactor **removes** concepts (the coinInfo screen, its `NARROW_SCREENS`/`at` mapping, the R19-9 over-Portfolio special case) → net simpler, and deletes a latent close-to-Portfolio bug. The on-demand fetch reuses the existing cached `/api/prices` (flat cost, **no new endpoint/upstream/dep**). No rules/schema change (CoinInfo is read-only). Icons are keyboard-accessible (`role`/`tabIndex`/Enter).
 
 **Status:** 📋 PLAN ONLY (FUNCTIONAL) — build on founder "go".
+
+## Round 26 — copy fix: delete-portfolio warning "theses" → count-aware "its transactions and thesis" (2026-07-02, PLAN ONLY)
+
+> Founder — in the **delete-portfolio warning** (when the portfolio has a coin), "theses" should read "thesis".
+> Check the spelling and fix it.
+> **Decisions locked (AskUserQuestion, 2026-07-02):** make the wording **count-aware in the delete message only** —
+> "1 coin and all **its** transactions and **thesis**" vs "N coins and all **their** transactions and **theses**";
+> **leave** the Journal "Your theses (N)" header as-is. **Plan only — build on founder "go".**
+
+**Grounded current state:**
+- The warning ([Account.jsx:84](src/components/Account.jsx)) reads: "This portfolio has {p.coins.length} coin{p.coins.length > 1 ? 's' : ''} and all **their** transactions and **theses**. Deleting it removes all of them — this can't be undone." It pluralizes coin/coins but **not** the pronoun or "thesis" → for **1 coin** it wrongly reads "their … theses" (each coin has at most one thesis).
+- "theses" is itself a **correct** plural; the Journal header "Your theses ({entries.length})" ([Journal.jsx:324](src/components/Journal.jsx)) isn't misspelled → **left unchanged** (decision). No other spelling errors in the delete-warning copy (targeted sweep: "transactions", "Deleting", "can't be undone" all correct).
+
+**Plan:**
+- **R26-1 — count-aware delete-portfolio warning (Account.jsx).** In the has-coins warning modal, derive `const many = p.coins.length > 1;` and make the pronoun + noun agree with it (matching the existing coin/coins plural): "This portfolio has {p.coins.length} coin{many?'s':''} and all {many?'their':'its'} transactions and {many?'theses':'thesis'}. Deleting it removes all of them — this can't be undone." → 1 coin: "…all **its** transactions and **thesis**." / N coins: "…all **their** transactions and **theses**." Leave the Journal "Your theses" header untouched (decision).
+
+**TDD / verify:** Update the R19-1 has-coins warning test ([Account.test.jsx](tests/unit/Account.test.jsx)): a **1-coin** portfolio's warning contains "its transactions and thesis" and **not** "theses"; a **2-coin** portfolio contains "their transactions and theses". Browser: open the delete-confirm on a 1-coin portfolio → "…its transactions and thesis"; on a 2-coin portfolio → "…their transactions and theses"; light + dark.
+
+**Build order (when "go"):** R26-1 — one tiny commit. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Security / KISS:** copy-only — one interpolation string, count-aware to match the existing coin/coins plural. No data/rules/logic change.
+
+**Status:** 📋 PLAN ONLY — build on founder "go".

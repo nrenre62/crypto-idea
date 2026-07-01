@@ -1102,6 +1102,13 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   **R25-5** Transactions → accent pill, shown **only for held coins** (portCoin). Overlay refactor NET removes
   concepts + a latent close-to-Portfolio bug; no new endpoint/dep, no rules change (read-only). Update R19-9 tests.
   Build R25-1+R25-2 → R25-3+R25-4 → R25-5 on "go".
+- [ ] **Round 26 — copy fix: delete-portfolio warning "theses" → count-aware "its transactions and thesis" —
+  📋 PLAN ONLY (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 26"). The has-coins
+  delete warning (Account.jsx:84) pluralizes coin/coins but leaves "their … theses" for 1 coin (each coin has one
+  thesis). Decision (AskUserQuestion): **count-aware, delete message only** — `const many = p.coins.length>1` →
+  "1 coin and all its transactions and thesis" vs "N coins and all their transactions and theses"; **leave** the
+  Journal "Your theses (N)" header (a correct plural). Copy-only, no logic change. Update the R19-1 Account
+  warning test. Build R26-1 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
