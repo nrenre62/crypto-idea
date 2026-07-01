@@ -1020,3 +1020,77 @@ R13-4 (+ Add) → R13-5 (heading size) → R13-6 (Learn header restructure + fra
 mode (both `.ci-app` + `.research-root`); R13-6 frame is theme-invariant (zero new dark rules); all others
 mode-neutral. Decisions locked (readable-muted · remove-3-keep-eyebrow · 28px · Learn-header-only). Build on
 founder "go".
+
+---
+
+## Round 14 — Portfolio Risk = market-cap tiers (allocation-weighted) — FUNCTIONAL (2026-07-01, PLAN ONLY)
+
+> Founder: the Research "Portfolio Risk" meter should be driven by each coin's **market cap**, not by
+> concentration. Tiers: **High** = micro-cap `$0–$100M` · **Medium** = mid-cap `$100M–$1B` · **Low** = large-cap
+> `$1B–$100B` · **Super-low** = mega-cap `≥ $100B` (BTC, ETH). *("Settings" here = how the meter is calculated —
+> it stays a read-only, non-adjustable result, not a user control.)*
+> **This is a FUNCTIONAL change to the risk model** (logic, not a look tweak) — kept in the founder-rounds log for
+> continuity. **Decisions locked via AskUserQuestion (2026-07-01):** (Q1) **allocation-weighted** aggregate (weight
+> each coin's tier by its % of the book); (Q2) market-cap **replaces** the concentration model on the Risk meter —
+> concentration stays as its **own** "High concentration" tag on the Allocation bar (unchanged); (Q3) a coin with
+> **unknown** market cap → **High**; (Q4) **keep the 3-band meter** (Low / Moderate / High) — the 4 per-coin tiers
+> feed a numeric score, Super-low & Low both land in the green band. **Plan only — build on founder "go".**
+
+**Grounded current state:** risk today is **pure concentration** — `deriveRisk(holdings)`
+(`src/features/research/utils/portfolio.js:34-43`) returns `{level:'High'|'Elevated'|'Moderate', top, top2,
+markerLeft}` from the top-holding %; `RiskMeter.jsx` fills the 20-seg bar from `risk.top` and writes a "top two are
+~X%" note; `usePortfolio.js:9` calls it. Market cap is **not** carried into holdings: `buildResearchPrices`
+(`utils/priceAdapter.js:47-58`) emits `{price,c24,c7d,c30d,spark}` and `computePortfolio` (`portfolio.js:12-31`)
+never reads `usd_market_cap` — even though the upstream `/api/prices` payload **has** `usd_market_cap` (per
+CLAUDE.md; used already in `Detail.jsx`). The concentration "High concentration" pill lives on the **AllocationBar**
+(separate component) → untouched by this round (Q2). No existing test references the risk model (grep clean) → this
+is mostly **TDD-add**, not a rewrite of test expectations.
+
+- **R14-1 — thread market cap into holdings.** `buildResearchPrices` (`priceAdapter.js:55`): add
+  `marketCap: live && live.usd_market_cap != null ? Number(live.usd_market_cap) : null`. `computePortfolio`
+  (`portfolio.js:15`): carry `marketCap: p.marketCap ?? null` onto each holding. Give `FALLBACK_PRICES`
+  (`portfolio.js:3-7`) demo caps so the offline seam isn't all-unknown→High: bitcoin `1.3e12` (super-low),
+  ethereum `3.3e11` (super-low), solana `7e10` (low).
+
+- **R14-2 — pure `marketCapTier(marketCap)` + numeric score.** New pure fn → `'superlow'|'low'|'medium'|'high'`:
+  `≥1e11 → superlow` · `≥1e9 → low` · `≥1e8 → medium` · else / `null`/`NaN` → **high** (Q3). Companion risk score
+  (0 = safest → 1 = riskiest, **tunable**): superlow `0.05` · low `0.30` · medium `0.65` · high `0.95`.
+
+- **R14-3 — rewrite `deriveRisk` to allocation-weighted market-cap risk (Q1/Q2/Q4).** New signature reads each
+  holding's `marketCap` + `alloc` (already computed in `computePortfolio`). `score = Σ(alloc_i% × tierScore_i) /
+  Σ(alloc_i%)` (allocation-weighted mean; `alloc` sums ~100). Return `{ level, score, breakdown }` where
+  `breakdown` = allocation-% per tier `{superlow, low, medium, high}` and the **3-band** `level` (tunable cuts):
+  `score < 0.34 → 'Low'` · `< 0.67 → 'Moderate'` · else `'High'`. **Drops** the concentration fields
+  (`top`/`top2`/`markerLeft`) from the risk object — concentration stays on the AllocationBar only.
+
+- **R14-4 — RiskMeter reads the new model.** `RiskMeter.jsx`: fill = `clamp(round(risk.score × 20), 1, 20)` (was
+  `risk.top/100`). New note from `breakdown` via a small pure `riskNote(breakdown, level)` (unit-testable), in
+  market-cap language, e.g. *"Large-caps ($1B+) are {L}% of your book, mid-caps {M}%, micro-caps {H}%. {advice}"* —
+  advice: micro > 40% → *"Micro-caps (under $100M) are the highest-risk tier; sizing them down would lower this."*
+  · else low score → *"Mostly large-cap, which keeps single-coin risk lower."* · else neutral. Scale labels stay
+  **Low / Moderate / High** (Q4); the "isn't adjustable" foot line stays.
+
+- **R14-5 — fix the level-pill colours for the new labels.** `riskColor.js` `levelColor`/`levelTint` currently key
+  off `'High'`/`'Elevated'` (else → green) — `'Moderate'` would fall through to green. Update to: `Low` → green ·
+  `Moderate` → amber · `High` → red (+ matching tints). *(Optional: `portfolioContext` (AI string) may append the
+  tier breakdown; concentration line can stay — low priority, AI is Wave-B/offline.)*
+
+**Model summary (locked):** tiers `<100M High · 100M–1B Medium · 1B–100B Low · ≥100B Super-low` · unknown → High ·
+scores `.95/.65/.30/.05` · portfolio = allocation-weighted mean · 3-band pill (`<.34 Low / <.67 Moderate / else
+High`). Scores + band cuts are **tunable knobs**, called out so a later founder tweak is a one-line change.
+
+**TDD / verify (add first):** new `tests/unit/research-risk.test.js` — `marketCapTier` boundary cases
+(99.9M→high, 100M→medium, 1B→low, 100B→superlow, `null`/`NaN`→high); allocation-weighted aggregate (90% BTC + 10%
+micro → 'Low'; 90% micro → 'High'; 50/50 large/mid → 'Moderate'); `riskNote` copy per breakdown. Update
+`research-adapters.test.js` for the new `marketCap` field on holdings. Confirm the AllocationBar "High
+concentration" tag is **unchanged**. `npm run test:unit` green + `npm run build` clean + browser-verify the meter
+(a large-cap-heavy vs a micro-cap-heavy portfolio show green vs red), mobile + desktop, light + dark.
+
+**Build order (when "go"):** R14-1 (data) → R14-2 (tier/score) → R14-3 (deriveRisk) → R14-4 (RiskMeter + note) →
+R14-5 (pill colours). Independent of Round 13 (R13-3 removes the Risk card's *source chips*; R14 changes the
+*meter+note*) — either order, but note both touch the Research Overview card. Slotted into
+[`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-07-01)** — **functional** (risk-model logic). Pure-function core (fully testable),
+market cap already in the price payload. No new dependency, no rules change (risk is client-derived display).
+Decisions locked (weighted · replaces-concentration · unknown→High · 3-band). Build on founder "go".

@@ -915,6 +915,20 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   rules). **R13-7** Journal "No theses yet"→"No thesis yet". TDD: fix walkthrough:89 ("Write before you buy." removed),
   keep "Your Investing Edge"; Search trending tests → `getAllByText("+ Add")`; add sub-title-absent / risk-chips-absent
   / "No thesis yet" / 28px-probe cases. Build R13-1→…→R13-7 on "go".
+- [ ] **Round 14 — Portfolio Risk = market-cap tiers (allocation-weighted) — FUNCTIONAL, 📋 PLAN ONLY
+  (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 14"). The Research Risk meter switches
+  from concentration to **market cap**: High `<$100M` · Medium `$100M–$1B` · Low `$1B–$100B` · Super-low `≥$100B`
+  (BTC/ETH). Decisions locked (AskUserQuestion): **allocation-weighted** aggregate · market-cap **replaces**
+  concentration on the meter (concentration stays as the Allocation "High concentration" tag) · unknown mcap →
+  **High** · **keep 3-band** meter (Low/Moderate/High). **R14-1** thread `usd_market_cap` through
+  `buildResearchPrices` (`priceAdapter.js:55`) + `computePortfolio` (`portfolio.js:15`) + demo caps in
+  `FALLBACK_PRICES`. **R14-2** pure `marketCapTier()` + score (`.95/.65/.30/.05`). **R14-3** rewrite `deriveRisk`
+  → `score = Σ(alloc%×tierScore)/Σalloc%`, return `{level, score, breakdown}`, drop `top`/`top2`. **R14-4**
+  `RiskMeter` fill = `round(score×20)` + market-cap `riskNote(breakdown,level)`; scale stays Low/Moderate/High.
+  **R14-5** `riskColor.js` level pill Low→green/Moderate→amber/High→red. Scores + band cuts are tunable knobs. TDD:
+  new `research-risk.test.js` (tier boundaries, weighted aggregate, unknown→High, note copy) + update
+  `research-adapters.test.js` for the `marketCap` field; AllocationBar concentration tag unchanged. Independent of
+  Round 13 (both touch the Research Overview card). Build R14-1→…→R14-5 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
