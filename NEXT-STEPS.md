@@ -979,8 +979,8 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (`.kv-row`/`.tx-row`/journal-Q) stay `--line-2`. Probe: dark card border ≈16% white, `.cm-card` has a border,
   `.trend-item` brighter, `.chg-pill`/`.kv-row` unchanged, light byte-for-byte unchanged. Build R18-1→R18-4 on "go".
 - [ ] **Round 19 — portfolio delete-confirm · portfolio rename · 2-step transaction delete · transaction
-  pagination — 📋 PLAN ONLY (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19").
-  Four Portfolio-flow safety/scale gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
+  pagination · transaction ordering — 📋 PLAN ONLY (2026-07-01)** (founder; full spec
+  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19"). Five Portfolio-flow safety/scale gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
   (empty → two-tap trash w/ ~3s auto-disarm; has-coins → blocking warning `<Modal>`) · rename from **Settings +
   the switcher bar** (edit ✎ on the active pill) · transaction delete = **inline two-tap on the row** (arm →
   confirm, ~3s auto-disarm; no per-row modal) · pager = **windowed numbers** (Prev · 1 … 4 5 6 … 100 · Next).
@@ -992,8 +992,13 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   tx two-tap — row-local `confirmTxId` in Detail.jsx (currently one-click `remEntry` at `Detail.jsx:98`); keep the
   sell-dependency guard + `stopPropagation`. **R19-4** pagination — local `txPage`, `PAGE_SIZE=50`, `slice` + a
   windowed `.tx-pager` (tokenized: `--paper-2`/`--line`/`--accent-soft` active/`--edge` in dark); pure client
-  slicing (caps: free 50 / pro 2,000 / premium 5,000). All confirm/page state **component-local**; no new dep, no
-  new attack surface. Build order R19-2 → R19-1 → R19-3 → R19-4 on "go".
+  slicing (caps: free 50 / pro 2,000 / premium 5,000). **R19-5** tx ordering — newest on top: sort by `date` desc
+  then `createdAt` desc (a *backdated* tx sorts to its real date). The `createdAt` field is **already written**
+  (`serverTimestamp()`, firebase-database.js:284) & **already read** (line 145) → **no rules/schema/index change**;
+  fix = a pure `sortTx` helper + a tolerant `createdAt` normalizer (Timestamp/`{seconds}`/number/ISO/0), Detail
+  uses it, optimistic add stamps `en.createdAt=Date.now()`, and the **CSV export flips to newest-first**
+  (export-csv.js:76 — decision: match the app). All confirm/page state **component-local**; no new dep, no new
+  attack surface. Build order R19-2 → R19-1 → R19-5 → R19-3 → R19-4 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
