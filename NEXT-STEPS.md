@@ -942,7 +942,29 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   **R15-4** PortfolioBar adopts `<Modal>`. Cleanup retired `.overlay`/`.dg-sheet`/`.back-btn`/`ci-slide-up`. TDD:
   content/behaviour tests stay green (keep text + close semantics + `role="dialog"`); add a Modal test; probe card =
   `--paper-2`/`--radius`/`--sh-lg` centered, light+dark. Coordinates with Round 12 (state) — either order. Build
-  R15-1→…→R15-4 on "go".
+  R15-1→…→R15-4 on "go". **Decisions LOCKED (AskUserQuestion 2026-07-01):** full-screen sheet on phones / centered
+  card on desktop (one `@media`) · scrim tap closes read/confirm popups but NOT text-entry forms (`dismissOnScrim`
+  prop) · confirms → centered cards · X-close everywhere · white=`--paper-2`.
+- [ ] **Round 16 — Research "Coins" cards: align numbers + buttons to the bottom — 📋 PLAN ONLY (2026-07-01)**
+  (founder screenshot; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 16"). Cards are already equal-height
+  (`.coins-grid align-items:stretch` + `.coin-card` flex-col, `research-tab.css:154-156`) and desktop shows the
+  detail always-expanded (`:181`), but `.cc-detail` (stats + "Ask AI" button) isn't bottom-pinned → the number row +
+  button float at different heights across a row (Synapse's extra "no coverage" chips push it down). **R16-1** add
+  `margin-top:auto` to `.research-root .cc-detail` → slack collapses above it, pinning `.pos-stats` + `.cc-ask` to
+  the bottom (fixed-height → numbers align, buttons align). CSS-only, one line. Probe: `.cc-ask` share `bottom`,
+  `.pos-stats` share `top` across the row. *(The same message's Account "Starter/Pro/Premium" + "1/1" darker-in-light
+  ask is already **Round 11 R11-1** — not duplicated.)*
+- [ ] **Round 17 — FIX Pro/Premium can't add a portfolio (tier never reaches the DB) — FUNCTIONAL, 📋 PLAN ONLY
+  (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 17"; bug [ERRORS.md](ERRORS.md) §A1
+  part 2). Root cause: demo upgrade sets `user.tier` + `saveProfile`→**localStorage** (`CryptoIdea.jsx:183`), never
+  Firestore; the rule reads the DB `users/{uid}.tier` (still `free`, cap 1) → `permission-denied` → plan-limit
+  message, even though Pro 3 / Premium 15 caps already exist. Decision locked (AskUserQuestion): **dev-only
+  tier-persist path**. **R17-1** emulator/dev-gated write of the caller's Firestore `tier` (wire into the demo
+  upgrade-success `checkSubscriptionStatus`, `:572`) so the in-app upgrade works end-to-end locally; **never**
+  client-writable `tier` in prod (keep the rules block). **R17-2** prod stays PayPal/admin (doc it). **R17-3**
+  (optional) "+ Add" reads the enforced DB cap so it doesn't invite a denied action. TDD: rules/integration — a
+  DB-`pro` user creates 2nd+3rd, blocked at 4th; dev path inert without the flag; the client-`tier`-write rejection
+  test stays green. Build R17-1→R17-3 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.

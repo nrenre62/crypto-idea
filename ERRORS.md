@@ -66,6 +66,12 @@
   plan-limit message (unit: `tests/unit/errors.test.js`; 277 unit green; build clean). **Part 2** (keep the
   client tier in sync with the DB tier) stays an **operational** note — in local/demo set the tier via the
   Admin panel / seed; at go-live the PayPal webhook persists `tier` server-side. No code change for part 2.
+  **Update 2026-07-01:** the founder re-hit part 2 on an upgraded account (Pro/Premium can't add a 2nd portfolio
+  with only 1 present — the demo upgrade writes `tier` to **localStorage** via `saveProfile`, never to Firestore, so
+  the rule still enforces `free`=1). Part 2 now has a **planned dev-only tier-persist path** (write the caller's
+  Firestore `tier` behind a dev/emulator gate so the in-app upgrade works end-to-end locally; prod stays PayPal /
+  admin, `tier` never client-writable) — full spec [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 17" +
+  [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP. **PLAN ONLY** — build on founder "go".
 
 ### A2 · Generic error toasts hide the real cause (≈10 places) ✅ (high)
 

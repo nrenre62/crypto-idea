@@ -1104,14 +1104,16 @@ Decisions locked (weighted · replaces-concentration · unknown→High · 3-band
 > the same card aesthetic as the app's cards/pills (not a full-bleed paper takeover). "Apply this design to all
 > popups." The **already-approved** in-tab "new portfolio" dialog (Round 9 `.cm-card`: centered white card on a
 > dimmed scrim, X-close) **is** that look — this round makes it the single popup standard.
-> **Assumed defaults (no interview this turn — founder can veto any on "go"):** (a) "white" = the theme-aware card
-> surface `var(--paper-2)` (literal `#fff` would break dark mode — dark shows the dark card tone, same as every
-> other card); (b) **centered** card on a dimmed scrim (not a full-screen sheet), `max-height:~90vh` + **internal
-> scroll** for long content, on mobile AND desktop, with scrim padding so the rounded corners always show; (c) the
-> two bottom-sheets (delete-coin, upgrade/downgrade) become centered all-corners-rounded cards too; (d) **X-close
-> top-right** everywhere (reuse `Ic.close`/`.cm-close`), replacing the remaining back-arrows; (e) scope = every
-> popup listed below; the top **error toast** and the full-screen **loading/maintenance** states are NOT popups →
-> excluded. **Plan only — build on founder "go".**
+> **Decisions locked via AskUserQuestion (2026-07-01):** (a) "white" = the theme-aware card surface
+> `var(--paper-2)` (literal `#fff` would break dark mode — dark shows the dark card tone); (b) **responsive shell —
+> full-screen sheet on phones, centered card on desktop:** long popups go edge-to-edge on narrow viewports (room to
+> type) and become the centered rounded card at the tablet breakpoint and up (ONE deliberate `@media` — the app is
+> otherwise media-query-light, justified here); (c) **scrim tap closes read/confirm popups but NOT forms with typed
+> input** (prevents accidental data-loss) → a `dismissOnScrim` prop, off for the text-entry forms; (d) the two
+> bottom-sheets (delete-coin, upgrade/downgrade) become **centered cards** (all corners rounded); (e) **X-close
+> top-right** everywhere (reuse `Ic.close`/`.cm-close`), replacing the remaining back-arrows; (f) scope = every
+> popup below; the top **error toast** + full-screen **loading/maintenance** are NOT popups → excluded. **Plan only
+> — build on founder "go".**
 
 **Grounded current state — THREE popup patterns today (this round collapses them to one):**
 1. **`.ci-app.overlay`** (`app.css:622`) — full-screen **paper** slide-up (`ci-slide-up`), `.overlay-head`
@@ -1127,11 +1129,14 @@ Decisions locked (weighted · replaces-concentration · unknown→High · 3-band
    *(Re-auth is inline in Account — no separate modal. Inventory confirmed complete.)*
 
 - **R15-1 — one shared modal system (foundation).** Promote the `.cm-*` family to the app's single popup, and build a
-  small **`<Modal>`** component (KISS: props `title`, `onClose`, `size`, `children`) wrapping `.cm-scrim` >
-  `.cm-card` > (`.cm-head` title + `.cm-close` X) > `.cm-body`. Extend the CSS: size variants **`sm`** (~360px,
-  confirms) and **`md`** (~440px, forms/lessons); `.cm-body { max-height: calc(90vh - head); overflow-y:auto; }` so
-  long content scrolls INSIDE the rounded card; a sticky `.cm-head`. Entrance = the `.cm` `ci-fade`/scale (drop
-  `ci-slide-up`). Token-based → **zero new dark rules** (`--paper-2` flips).
+  small **`<Modal>`** component (props `title`, `onClose`, `size`, `dismissOnScrim`, `children`) wrapping `.cm-scrim`
+  > `.cm-card` > (`.cm-head` title + `.cm-close` X) > `.cm-body`. Size variants **`sm`** (~360px, confirms) and
+  **`md`** (~440px, forms/lessons); `.cm-body { overflow-y:auto }` with the card capped `max-height:~90vh` so long
+  content scrolls inside; sticky `.cm-head`. **Responsive (decision b):** ONE `@media (max-width:560px)` makes
+  `.cm-card` a **full-screen sheet** on phones (`inset:0`, `border-radius:0`, no scrim margin, body scrolls) and the
+  centered rounded card above that width. **Scrim (decision c):** a click on `.cm-scrim` calls `onClose` only when
+  `dismissOnScrim` (default `true`; the text-entry forms — Buy-Journal, AddThesis, edit-thesis, new-portfolio — pass
+  `false`). Entrance = `.cm` `ci-fade`/scale (drop `ci-slide-up`). Token-based → **zero new dark rules**.
 
 - **R15-2 — migrate the 5 `.overlay` popups → `<Modal>`.** Journal AddThesis / Detail / ThesisBreakdown, Learn
   LessonOverlay, Search Buy-Journal: swap `.ci-app.overlay`+`.overlay-head`+`.overlay-body` for the shared
@@ -1165,5 +1170,86 @@ desktop (~1040), light + dark.
 (2 sheets) → R15-4 (PortfolioBar) → cleanup. Commit per group. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
 
 **Status:** 📋 **PLAN ONLY (2026-07-01)** — design consistency + a shared `<Modal>` (light structural). No logic
-change; token-based (zero new dark rules). Defaults assumed above (theme-aware white · centered + internal scroll ·
-sheets→cards · X-close · scope). Build on founder "go".
+change; token-based (zero new dark rules). **Decisions locked (2026-07-01):** theme-aware white ·
+full-screen-sheet-on-phone / centered-card-on-desktop · scrim-close-except-text-forms · sheets→centered-cards ·
+X-close everywhere. Build on founder "go".
+
+---
+
+## Round 16 — Research "Coins" cards: align the numbers + buttons to the bottom (2026-07-01, PLAN ONLY)
+
+> Founder screenshot (Research → Coins, 3-up): the AVG COST / NOW / P/L / 30D **number row** and the **"Ask AI
+> about …" button** sit at different heights across cards in a row, because the content above them varies (e.g.
+> Synapse has extra conviction chips — "Founders · no coverage", "Team · anonymous team", "Community · no
+> coverage"). "Align them all — especially the bottom of the cards, with the buttons and the numbers."
+> **Plan only — build on founder "go".**
+
+**Grounded current state:** the cards are **already equal-height** — `.coins-grid { align-items:stretch }` +
+`.coin-card { height:100%; display:flex; flex-direction:column }` (`research-tab.css:154-156`, the R9-2 CSS), and on
+desktop the detail is **always expanded** (`@media` at `:181` sets `.cc-detail{max-height:420px}`). But the stats +
+button live in `.cc-detail` (`:174`) which is the LAST flex child with **no bottom pin**, so the equal-height slack
+falls *below* it → in a shorter-content card the number row + button float mid-card; in a taller one (Synapse) they
+sit lower. Same height, misaligned bottoms.
+
+- **R16-1 — pin the stats+button block to the bottom.** Add `margin-top:auto` to `.research-root .cc-detail` so the
+  flexible slack collapses ABOVE it, pushing `.pos-stats` (the 4 numbers) + `.cc-ask` (the button) to the bottom of
+  every card. Since `.pos-stats` and `.cc-ask` are fixed-height, the number rows align across the row AND the buttons
+  align across the row. One line; equal-height is already in place. (Harmless on mobile: 1-up, `.cc-detail` is the
+  collapsing accordion — no cross-card row to align.)
+
+**TDD / verify:** CSS-only → computed-style probe (desktop ~1040, a row of ≥2 coins with different conviction-chip
+counts): the `.cc-ask` buttons share the same `getBoundingClientRect().bottom` (±1px) and the `.pos-stats` rows share
+the same `top`. No JS/test-content change (CoinCard markup untouched). `npm run build` clean + browser-verify the
+exact 3-up screenshot case, light + dark, mobile + desktop.
+
+**Build order (when "go"):** R16-1 (one CSS line). Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP. *(NB the
+Account-settings "Starter/Pro/Premium" + "1/1" darker-in-light ask from the same message is already covered by
+**Round 11 R11-1** — `.sr-value` `--ink-faint`→`--ink` — so it is NOT duplicated here.)*
+
+**Status:** 📋 **PLAN ONLY (2026-07-01)** — CSS-only (one rule), no dark rule, no markup/logic change. Build on "go".
+
+---
+
+## Round 17 — FIX: Pro/Premium can't add a portfolio (tier never reaches the DB) — FUNCTIONAL (2026-07-01, PLAN ONLY)
+
+> Founder: on a Starter account there's no "add portfolio" option (correct — cap 1); on an **upgraded** (Pro/Premium)
+> account you CAN try to add one but get *"You've reached your plan's portfolio limit — upgrade for more."* with only
+> **1** portfolio. "Create for Pro and Premium the real maximum — maybe it's already in the plans." It **is** in the
+> plans (Pro 3 / Premium 15); the bug is the **tier never reaching the database**.
+> **This is the ERRORS.md §A1 tier-mismatch (part 2).** **Decision locked via AskUserQuestion (2026-07-01): add a
+> dev-only path that persists the tier to the DB locally** (so the in-app upgrade works end-to-end for testing); real
+> upgrades still go through PayPal at go-live. **Functional. Plan only — build on founder "go".**
+
+**Grounded root cause (confirmed in code):** the app derives capacity from the **client** tier —
+`isPro = user.tier==="pro"||"premium"` (`CryptoIdea.jsx:124`) → `maxPortfolios` (`:393`). A demo "upgrade" sets
+`user.tier` and calls `saveProfile` (`:183`) which writes to **localStorage** (`db.set "ci-profile-…"`), NOT
+Firestore. So the client thinks it's Pro (cap 3) and lets the add proceed, but `firestore.rules` reads the
+**Firestore** `users/{uid}.tier` — still `free` (cap 1; clients are forbidden from writing their own `tier`, by
+design) — so `createPortfolio` is denied → `permission-denied` → `apiErrorMessage` shows the plan-limit message.
+Genuinely-DB-Pro users are fine (A1 repro: `pro@test.com` adds up to 3). The caps are correct; the **tier isn't
+persisted**.
+
+- **R17-1 — dev-only tier-persist path (chosen fix).** Add an **emulator/dev-gated** way to write the caller's
+  Firestore `users/{uid}.tier` (e.g. a callable guarded by the emulator/`import.meta.env.DEV` flag, or wire it into
+  the existing demo upgrade-success handler `checkSubscriptionStatus`, `CryptoIdea.jsx:572`) so completing an in-app
+  upgrade sets the **DB** tier too. Must stay dev-only — **never** a client-writable `tier` in prod (keep the
+  `firestore.rules` block intact). After it runs, the rule sees `tier:pro` → the 2nd/3rd portfolio is allowed; the
+  UI cap already matches. Re-load reads the persisted tier from the DB (not just localStorage).
+- **R17-2 — keep prod correct.** At go-live the PayPal webhook / admin `setUserTier` sets the tier server-side
+  (existing path) — the dev path is a local-testing shim only, documented as such. *(Alternative the founder did
+  NOT pick: no code, set the tier via the Admin panel / seeded `pro@test.com`.)*
+- **R17-3 — honesty polish (optional, small).** If the client tier is ahead of the DB, the "+ Add" affordance can
+  read the enforced (DB) cap so the user isn't invited into a denied action (A1's optional UX note).
+
+**TDD / verify:** integration/rules test — a user whose DB tier is set to `pro` (via the dev path) can create a 2nd
++ 3rd portfolio and is blocked at the 4th (`test:rules`/`test:integration`, emulator); the dev path is inert
+without the dev/emulator flag. Manually: upgrade in-app → add a 2nd portfolio → succeeds (no error). Confirm the
+prod `firestore.rules` still **reject** a client `tier` write (existing rules test stays green). `npm run test:*`
+green + build clean.
+
+**Build order (when "go"):** R17-1 (dev tier-persist) → R17-2 (doc the prod path) → R17-3 (optional UX). Update
+[`ERRORS.md`](ERRORS.md) §A1 (part 2 now has a chosen fix). Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-07-01)** — **functional** (unblocks a core action for upgraded accounts). Security
+kept: prod tier stays server-only; the fix is a dev/emulator shim. Decision locked (dev-only persist path). Build on
+founder "go".
