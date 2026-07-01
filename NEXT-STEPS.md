@@ -979,8 +979,8 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (`.kv-row`/`.tx-row`/journal-Q) stay `--line-2`. Probe: dark card border ≈16% white, `.cm-card` has a border,
   `.trend-item` brighter, `.chg-pill`/`.kv-row` unchanged, light byte-for-byte unchanged. Build R18-1→R18-4 on "go".
 - [ ] **Round 19 — portfolio delete-confirm · portfolio rename · 2-step transaction delete · transaction
-  pagination · transaction ordering — 📋 PLAN ONLY (2026-07-01)** (founder; full spec
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19"). Five Portfolio-flow safety/scale gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
+  pagination · transaction ordering · mobile small-dialog centering · Learn header — 📋 PLAN ONLY (2026-07-01)**
+  (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19"). Seven Portfolio/Learn safety+polish gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
   (empty → two-tap trash w/ ~3s auto-disarm; has-coins → blocking warning `<Modal>`) · rename from **Settings +
   the switcher bar** (edit ✎ on the active pill) · transaction delete = **inline two-tap on the row** (arm →
   confirm, ~3s auto-disarm; no per-row modal) · pager = **windowed numbers** (Prev · 1 … 4 5 6 … 100 · Next).
@@ -998,7 +998,12 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   fix = a pure `sortTx` helper + a tolerant `createdAt` normalizer (Timestamp/`{seconds}`/number/ISO/0), Detail
   uses it, optimistic add stamps `en.createdAt=Date.now()`, and the **CSV export flips to newest-first**
   (export-csv.js:76 — decision: match the app). All confirm/page state **component-local**; no new dep, no new
-  attack surface. Build order R19-2 → R19-1 → R19-5 → R19-3 → R19-4 on "go".
+  attack surface. **R19-6** small dialogs centered on mobile — `@media(max-width:560px)` (app.css:666) currently
+  full-screens `.cm-sm` too (the white-screen add-portfolio popup); split so `size="sm"` stays a centered card
+  (gutters + radius) and only `size="md"` keeps the full-screen sheet (`<Modal>` adds a `cm-scrim-{size}` class).
+  **R19-7** rename the Learn header string "Your Investing Edge" → **"Learn"** (Learn.jsx:106; BETA/tags stay; matches
+  every other tab + the nav label; fixes too-long-on-mobile) + update the 2 tests asserting the old copy. Both
+  design-only. Build order R19-2 → R19-1 → R19-5 → R19-3 → R19-4 → R19-6 → R19-7 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
