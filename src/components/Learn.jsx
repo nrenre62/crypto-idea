@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLearn } from "../hooks/useLearn.js";
 import { MODULE_ICONS, LockIcon } from "./learn-icons.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
 import { Modal } from "./Modal.jsx";
-import { overallPct, LEVEL_MARKERS } from "../utils/learn.js";
+import { overallPct } from "../utils/learn.js";
 
 /**
  * Learn tab — real gamified learning, wired to persisted progress.
@@ -46,12 +46,18 @@ function Module({ m, isComplete, onOpen }) {
   );
 }
 
-function LessonOverlay({ lesson, moduleTitle, done, onComplete, onClose }) {
+function LessonOverlay({ module: mod, startIdx, onComplete, onClose }) {
+  // R20-2: module-scoped player — holds the module + current index so "Next →"
+  // advances within the module; "Done →" on the last lesson closes.
+  const [idx, setIdx] = useState(startIdx);
+  const lesson = mod.lessons[idx];
   const correct = lesson.quiz.correctIdx;
-  // R11-Q: select → Submit → feedback. A re-opened completed lesson starts fresh
-  // (picked=null) so Submit always works; a correct submit re-greens it. No auto-reveal.
+  const isLast = idx === mod.lessons.length - 1;
+  // R11-Q: select → Submit → feedback. R20-4: EVERY lesson (opened, Next'd or
+  // Previous'd) starts fresh — re-pick + Submit, no pre-reveal of the answer.
   const [picked, setPicked] = useState(null);
   const [result, setResult] = useState(null); // null | "ok" | "bad"
+  useEffect(() => { setPicked(null); setResult(null); }, [idx]);
 
   const pick = (i) => { setPicked(i); if (result) setResult(null); };  // re-picking clears the result
   const submit = () => {
@@ -61,8 +67,9 @@ function LessonOverlay({ lesson, moduleTitle, done, onComplete, onClose }) {
   };
 
   return (
-    // R15-2: shared centered-card Modal (moduleTitle in the header, X-close built in).
-    <Modal title={moduleTitle} onClose={onClose} size="md">
+    // R15-2: shared centered-card Modal (module title in the header, X-close built in).
+    // X-close persists automatically — each pass is already saved by complete().
+    <Modal title={mod.title} onClose={onClose} size="md">
         <div className="lesson-title">{lesson.title}</div>
         <div className="lesson-body">{lesson.body.map((p, i) => (<p key={i}>{p}</p>))}</div>
         <div className="lesson-insight">
@@ -79,9 +86,16 @@ function LessonOverlay({ lesson, moduleTitle, done, onComplete, onClose }) {
           {result === "ok" && <div className="quiz-result ok">✓ Correct — lesson complete</div>}
           {result === "bad" && <div className="quiz-result bad">Not quite — re-read <strong>The key insight</strong> above, then pick again and submit.</div>}
         </div>
-        {result === "ok"
-          ? <button className="btn-primary" style={{ marginTop: 20 }} onClick={onClose}>Done →</button>
-          : <button className="btn-primary" style={{ marginTop: 20 }} disabled={picked == null} onClick={submit}>Submit</button>}
+        {/* R20-3: compact 2-button row in place of the single oversized button —
+            Previous | Submit → "Next →" → "Done →"; identical on mobile & desktop. */}
+        <div className="lesson-nav">
+          <button className="btn-ghost" disabled={idx === 0} onClick={() => setIdx(idx - 1)}>Previous</button>
+          {result === "ok"
+            ? (isLast
+                ? <button className="btn-primary" onClick={onClose}>Done →</button>
+                : <button className="btn-primary" onClick={() => setIdx(idx + 1)}>Next →</button>)
+            : <button className="btn-primary" disabled={picked == null} onClick={submit}>Submit</button>}
+        </div>
         <div className="disclaimer">For educational purposes only — not financial advice.</div>
     </Modal>
   );
@@ -89,10 +103,18 @@ function LessonOverlay({ lesson, moduleTitle, done, onComplete, onClose }) {
 
 export function Learn() {
   const { level, modules, next, isComplete, complete, progress } = useLearn();
-  const [active, setActive] = useState(null); // { lesson, moduleTitle }
+  const [active, setActive] = useState(null); // { module, startIdx }
 
-  const openLesson = (lesson, moduleTitle) => setActive({ lesson, moduleTitle });
-  const openModule = (m) => openLesson(m.lessons.find((l) => !isComplete(l.id)) || m.lessons[0], m.title);
+  // R20-2: open a module at its resume point — Review→ (all done) starts at lesson 1
+  // (findIndex -1 → 0, decision 3), Continue at the first incomplete, Start at 0.
+  const openModule = (m) => {
+    const fi = m.lessons.findIndex((l) => !isComplete(l.id));
+    setActive({ module: m, startIdx: fi === -1 ? 0 : fi });
+  };
+  const openLessonInModule = (m, lesson) => {
+    const i = m.lessons.findIndex((l) => l.id === lesson.id);
+    setActive({ module: m, startIdx: i === -1 ? 0 : i });
+  };
 
   const lessonsDone = progress.completedLessons.length;
   const lessonsTotal = modules.reduce((s, m) => s + m.total, 0);
@@ -109,18 +131,11 @@ export function Learn() {
       </div>
       <div className="learn-hero">
         <div className="learn-level">Level {level.level} · {level.title}</div>
-        {/* R19-8: ONE cumulative bar across all levels (fill = xp/MAX_XP, 100% = all 50
-            lessons), with level tick-marks + labels; the per-level "to next level" text stays. */}
+        {/* R19-8/R20-1: ONE cumulative bar across all levels (fill = xp/MAX_XP, 100% = all
+            50 lessons). R20-1 removed the L1–L5 tick-marks + labels — just the color bar
+            as the visual of total completion; the per-level "to next level" text stays. */}
         <div className="xp-bar">
           <div className="xp-fill" style={{ width: overallPct(level.xp) + "%" }} />
-          {LEVEL_MARKERS.filter(m => m.at > 0 && m.at < 100).map(m => (
-            <span key={m.level} className="xp-tick" style={{ left: m.at + "%" }} />
-          ))}
-        </div>
-        <div className="xp-marks">
-          {LEVEL_MARKERS.map(m => (
-            <span key={m.level} className={"xp-mark" + (level.level >= m.level ? " reached" : "")} style={{ left: m.at + "%" }}>L{m.level}</span>
-          ))}
         </div>
         <div className="xp-label">{level.nextAt != null ? `${level.xp} / ${level.nextAt} XP to Level ${level.level + 1}` : `${level.xp} XP · Max level`}</div>
         <div className="learn-chips">
@@ -130,7 +145,7 @@ export function Learn() {
       </div>
 
       {next ? (
-        <div className="today-lesson" onClick={() => openLesson(next.lesson, next.module.title)} style={{ cursor: "pointer" }}>
+        <div className="today-lesson" onClick={() => openLessonInModule(next.module, next.lesson)} style={{ cursor: "pointer" }}>
           <div className="tl-label">Today's lesson</div>
           <div className="tl-title">{next.lesson.title}</div>
           <div className="tl-meta">
@@ -160,9 +175,8 @@ export function Learn() {
 
       {active && (
         <LessonOverlay
-          lesson={active.lesson}
-          moduleTitle={active.moduleTitle}
-          done={isComplete(active.lesson.id)}
+          module={active.module}
+          startIdx={active.startIdx}
           onComplete={complete}
           onClose={() => setActive(null)}
         />

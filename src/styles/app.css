@@ -269,16 +269,17 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
    standard .apphead, so .learn-title is gone. */
 .ci-app .learn-hero { margin:0 18px; border:1px solid transparent; background:linear-gradient(var(--paper-2),var(--paper-2)) padding-box, linear-gradient(135deg,rgba(10,107,77,.38),rgba(63,125,240,.32)) border-box; border-radius:var(--radius); padding:16px 18px; box-shadow:var(--sh); }
 .ci-app .learn-level { font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; }
-/* R19-8: ONE cumulative XP bar across all levels — a green→blue fill (matches the hero
-   frame, theme-invariant), level tick-marks inside it, and a labels row (L1…L5) beneath. */
-.ci-app .xp-bar { position:relative; height:7px; background:var(--line); border-radius:999px; overflow:hidden; }
+/* R19-8/R20-1: ONE cumulative XP bar across all levels — a green→blue fill (matches the
+   hero frame, theme-invariant). R20-1 removed the tick-marks + L1–L5 labels row. */
+.ci-app .xp-bar { height:7px; background:var(--line); border-radius:999px; overflow:hidden; }
 .ci-app .xp-fill { height:100%; background:linear-gradient(90deg,#0a6b4d,#3f7df0); border-radius:999px; }
-.ci-app .xp-tick { position:absolute; top:0; bottom:0; width:1.5px; background:var(--paper-2); opacity:.75; }
-.ci-app .xp-marks { position:relative; height:13px; margin-top:5px; }
-.ci-app .xp-mark { position:absolute; transform:translateX(-50%); font-size:9.5px; font-weight:700; letter-spacing:.02em; color:var(--ink-faint); white-space:nowrap; }
-.ci-app .xp-mark:first-child { transform:none; }
-.ci-app .xp-mark.reached { color:var(--accent-ink); }
 .ci-app .xp-label { font-size:11px; color:var(--ink-faint); margin-top:5px; font-weight:600; }
+/* R20-3: compact lesson nav — Previous | Submit/Next/Done in one flex row (identical on
+   mobile & desktop, no media divergence); replaces the single full-width primary button. */
+.ci-app .lesson-nav { display:flex; gap:10px; margin-top:20px; }
+.ci-app .lesson-nav .btn-ghost { flex:0 0 auto; width:auto; margin:0; padding:13px 18px; }
+.ci-app .lesson-nav .btn-primary { flex:1; margin:0; }
+.ci-app .lesson-nav .btn-ghost:disabled { opacity:.45; cursor:default; }
 .ci-app .learn-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
 .ci-app .learn-chip { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:var(--ink-soft); background:var(--paper-3); border:1px solid var(--line-2); border-radius:999px; padding:5px 11px; }
 .ci-app .today-lesson { margin:16px 18px 0; background:linear-gradient(135deg, var(--accent-soft), var(--paper-2)); border:1px solid var(--line); border-radius:var(--radius-sm); padding:16px; }

@@ -29,17 +29,20 @@ describe("Learn tab (wired to useLearn)", () => {
     expect(screen.getByText("Reading the Fundamentals")).toBeInTheDocument();
   });
 
-  it("R19-7/R19-8: header reads 'Learn' + a cumulative XP bar with level markers", async () => {
+  it("R19-7/R20-1: header reads 'Learn'; cumulative XP bar with NO level marks; title + XP text stay", async () => {
     getLearnProgress.mockResolvedValue({ ...fresh, xp: 300 }); // Level 2, exactly at its start
     const { container } = renderLearn();
     await screen.findByText(/Level \d ·/);
     // R19-7: the header title is just "Learn" (BETA/tags follow in spans)
     expect(container.querySelector(".apphead .title").textContent).toMatch(/^Learn/);
-    // R19-8: the fill reflects OVERALL progress (300 / 2500 = 12%), NOT per-level (0% at 300)
+    // R19-8 (kept): the fill reflects OVERALL progress (300 / 2500 = 12%), NOT per-level (0% at 300)
     expect(container.querySelector(".xp-fill").style.width).toBe("12%");
-    // five level labels render; the per-level "to next level" text is kept
-    expect(container.querySelectorAll(".xp-mark").length).toBe(5);
-    expect(container.querySelector(".xp-marks").textContent).toContain("L5");
+    // R20-1: the L1–L5 tick-marks + labels are GONE — only the color bar remains
+    expect(container.querySelector(".xp-tick")).toBeNull();
+    expect(container.querySelector(".xp-marks")).toBeNull();
+    expect(container.querySelectorAll(".xp-mark").length).toBe(0);
+    // ...but the level title and the per-level "to next level" text are kept
+    expect(screen.getByText(/Level 2 ·/)).toBeInTheDocument();
     expect(screen.getByText(/XP to Level 3/)).toBeInTheDocument();
   });
 
@@ -112,6 +115,74 @@ describe("Learn tab (wired to useLearn)", () => {
     expect(foot).toBeTruthy();
     expect(foot.querySelector(".m-foot-count").textContent).toMatch(/0\/\d+ lessons/);
     expect(foot.querySelector(".m-btn").textContent).toBe("Start →");
+  });
+
+  // R20 — module-scoped lesson player: Previous | Submit → Next → / Done →, review-from-start.
+  describe("R20 — module-scoped lesson player", () => {
+    it("R20-2/3: Submit → 'Next →' advances within the module; Previous steps back and re-arms (start-fresh)", async () => {
+      getLearnProgress.mockResolvedValue(fresh);
+      const { container } = renderLearn();
+      await screen.findByText(/Level \d ·/);
+      fireEvent.click(screen.getByText("Start lesson")); // opens markets-1 (idx 0)
+      expect(container.querySelector(".lesson-title").textContent).toBe("Price is a vote, not a verdict");
+      // R20-3: one compact nav row holding BOTH buttons; Previous disabled on the first lesson
+      const nav = container.querySelector(".lesson-nav");
+      expect(nav).toBeTruthy();
+      expect(nav.querySelectorAll("button").length).toBe(2);
+      expect(screen.getByText("Previous").disabled).toBe(true);
+      expect(screen.getByText("Submit").disabled).toBe(true); // nothing picked yet
+      // correct pick + Submit → the right button becomes "Next →" and completion persists
+      fireEvent.click(screen.getByText("More people are buying it right now"));
+      fireEvent.click(screen.getByText("Submit"));
+      expect(screen.getByText(/Correct — lesson complete/)).toBeInTheDocument();
+      await waitFor(() => expect(saveLearnProgress).toHaveBeenCalled());
+      expect(saveLearnProgress.mock.calls[0][1].completedLessons).toContain("markets-1");
+      // Next → advances to lesson 2 and re-arms to a fresh Submit
+      fireEvent.click(screen.getByText("Next →"));
+      expect(container.querySelector(".lesson-title").textContent).toBe("Why bull markets feel like skill");
+      expect(screen.getByText("Submit").disabled).toBe(true); // start-fresh: nothing picked
+      expect(screen.queryByText(/Correct — lesson complete/)).toBeNull();
+      expect(screen.getByText("Previous").disabled).toBe(false);
+      // Previous → back to lesson 1, also fresh (no pre-revealed answer)
+      fireEvent.click(screen.getByText("Previous"));
+      expect(container.querySelector(".lesson-title").textContent).toBe("Price is a vote, not a verdict");
+      expect(screen.getByText("Submit")).toBeInTheDocument();
+      expect(screen.queryByText("Next →")).toBeNull();
+    });
+
+    it("R20-2: the module's LAST lesson shows 'Done →' which closes the player", async () => {
+      // markets-1..5 done → Continue opens markets-6 (the first incomplete = the last lesson)
+      getLearnProgress.mockResolvedValue({
+        success: true, xp: 250, streak: 0, lastActivity: "",
+        completedLessons: ["markets-1", "markets-2", "markets-3", "markets-4", "markets-5"],
+      });
+      const { container } = renderLearn();
+      await screen.findByText(/Level \d ·/);
+      fireEvent.click(screen.getByText("Continue →"));
+      expect(container.querySelector(".lesson-title").textContent).toBe("Why most 'news' is already in the price");
+      fireEvent.click(screen.getByText("The event was already priced in, so positioned holders sold into it"));
+      fireEvent.click(screen.getByText("Submit"));
+      expect(screen.getByText("Done →")).toBeInTheDocument();
+      expect(screen.queryByText("Next →")).toBeNull(); // last lesson: Done, not Next
+      fireEvent.click(screen.getByText("Done →"));
+      expect(container.querySelector(".lesson-title")).toBeNull(); // overlay closed
+    });
+
+    it("R20-4: 'Review →' opens a done module from lesson 1, fresh (Submit, no pre-reveal)", async () => {
+      getLearnProgress.mockResolvedValue({
+        success: true, xp: 300, streak: 0, lastActivity: "",
+        completedLessons: ["markets-1", "markets-2", "markets-3", "markets-4", "markets-5", "markets-6"],
+      });
+      const { container } = renderLearn();
+      await screen.findByText(/Level \d ·/);
+      fireEvent.click(screen.getByText("Review →"));
+      // review starts at the BEGINNING of the module…
+      expect(container.querySelector(".lesson-title").textContent).toBe("Price is a vote, not a verdict");
+      // …and starts fresh: Submit armed-but-disabled, no revealed answer, no Next yet
+      expect(screen.getByText("Submit").disabled).toBe(true);
+      expect(screen.queryByText("Next →")).toBeNull();
+      expect(screen.queryByText(/Correct — lesson complete/)).toBeNull();
+    });
   });
 
   // R4-4 — the LIVE + plan header pills are wired into the Learn hero.
