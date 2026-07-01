@@ -979,8 +979,9 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (`.kv-row`/`.tx-row`/journal-Q) stay `--line-2`. Probe: dark card border ≈16% white, `.cm-card` has a border,
   `.trend-item` brighter, `.chg-pill`/`.kv-row` unchanged, light byte-for-byte unchanged. Build R18-1→R18-4 on "go".
 - [ ] **Round 19 — portfolio delete-confirm · portfolio rename · 2-step transaction delete · transaction
-  pagination · transaction ordering · mobile small-dialog centering · Learn header · Learn XP bar — 📋 PLAN ONLY
-  (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19"). Eight Portfolio/Learn safety+polish gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
+  pagination · transaction ordering · mobile small-dialog centering · Learn header · Learn XP bar · desktop coin
+  popups — 📋 PLAN ONLY (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19"). Nine
+  Portfolio/Learn safety+polish gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
   (empty → two-tap trash w/ ~3s auto-disarm; has-coins → blocking warning `<Modal>`) · rename from **Settings +
   the switcher bar** (edit ✎ on the active pill) · transaction delete = **inline two-tap on the row** (arm →
   confirm, ~3s auto-disarm; no per-row modal) · pager = **windowed numbers** (Prev · 1 … 4 5 6 … 100 · Next).
@@ -1007,7 +1008,14 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   module); make ONE cumulative bar: pure `overallPct(xp)=min(100,round(xp/MAX_XP*100))` (`MAX_XP=50×totalLessons=2,500`)
   + `LEVEL_MARKERS` (L2 12%/L3 28%/L4 48%/L5 80%), `.xp-fill` width=overallPct + tick-markers along `.xp-bar`, green→blue
   frame gradient; keep the per-level "X/Y XP to Level N" label; 100% = all 50 lessons. No data/rules change. Build order
-  R19-2 → R19-1 → R19-5 → R19-3 → R19-4 → R19-6 → R19-7 → R19-8 on "go".
+  R19-2 → R19-1 → R19-5 → R19-3 → R19-4 → R19-6 → R19-7 → R19-8 on "go". **R19-9** desktop-only popups —
+  CoinInfo/Detail/AddEntry are full-screen `screen`-machine entries (CryptoIdea.jsx:719-721; launch: Portfolio
+  image→CoinInfo, card-bg→Detail, Detail Buy/Sell→AddEntry). On desktop wrap them in `<Modal size="lg" ~560>` over
+  the Portfolio base (new `useIsDesktop()` matchMedia hook @561px; screens render body-only + hide their back-arrow
+  when `isDesktop`; **X-close + title**; **AddEntry stacks over Detail**; X targets = current back targets; AddEntry
+  `dismissOnScrim=false`); **mobile unchanged** (full-screen). Presentation/routing only — no data/rules/handler
+  change; a deliberate desktop affordance divergence (responsive-app skill). Build LAST:
+  …→ R19-8 → R19-9 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
