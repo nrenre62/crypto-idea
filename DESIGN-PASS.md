@@ -1253,3 +1253,62 @@ green + build clean.
 **Status:** 📋 **PLAN ONLY (2026-07-01)** — **functional** (unblocks a core action for upgraded accounts). Security
 kept: prod tier stays server-only; the fix is a dev/emulator shim. Decision locked (dev-only persist path). Build on
 founder "go".
+
+---
+
+## Round 18 — dark-mode border visibility: soft-white edges on cards · pills · popups + the Search separator (2026-07-01, PLAN ONLY)
+
+> Founder screenshots (dark mode): cards, popups, and the neutral pills blend into the dark paper (their borders are
+> nearly invisible), and in the Search results the line between coin rows is too faint to separate them. "Create a
+> white border to the cards and pills for visibility, and popups. In the Search box when I search a coin, make the
+> line white in dark mode only, so I see the separation between the coins."
+> **Decisions locked via AskUserQuestion (2026-07-01):** (1) **soft ~16% off-white** border — `rgba(236,233,225,.16)`
+> (the palette off-white `#ece9e1` at 16%, not harsh `#fff`); (2) **outer borders of cards/popups + the Search-results
+> separator only** — internal row-dividers (holdings/tx/journal-Q rows) stay subtle so cards don't look like tables;
+> (3) **neutral/gray pills only** — the already-tinted colored status pills are left alone. **Dark-block-only — light
+> mode byte-for-byte unchanged. Plan only — build on founder "go".**
+
+**Grounded current state:** dark `--line-2 = rgba(236,233,225,.08)` (8% → ~invisible) and dark `--line = #2c2a24`
+(barely above `--paper-2 #1c1b17`). Card surfaces all border with `--line-2` (`.card` `app.css:161`, `.j-entry`
+`:195`, `.nt-row` `:227`, `.module` `:251`, `.asset-card` `:309`, `.coin-card`/`.trend-card`
+`research-tab.css:156/351` + app `.trend-card :351`, `.tx-list` `:404`) or `--line` (`.learn-hero` `:236`,
+`.today-lesson` `:244`); the `.value-card` (`:288`) already has the green→blue gradient frame (visible → leave it).
+Popups: `.cm-card` (`:616`) has **only a shadow, no border**. Search separator: `.trend-item { border-bottom:1px
+solid var(--line-2) }` (`:340`). Neutral pills use `--line`/`--line-strong` (`.learn-chip` `:243`, `.port-pill`
+`:279`, `.port-pill-add` `:281`, `.pill-ghost` `:358`, `.btn-ghost` `:167`, `.src-chip`/`.tf-pills`/`.seg`
+`research-tab.css:121/85/39`). Colored pills (`.badge-*`, `.beta`, `.chg-pill`, `.sentiment`, `.csig`) have tinted
+backgrounds → already legible. **Key constraint:** cards, internal dividers, AND the search line all share
+`--line-2`, so a token bump would brighten dividers too (violates decision 2) → the fix is **targeted dark-block
+overrides**, not a token change.
+
+- **R18-1 — one dark "edge" token + card borders.** In the dark block (`app.css:50-61`) add `--edge:
+  rgba(236,233,225,.16)` (one tunable knob). Grouped dark-block rule setting `border-color:var(--edge)` on the card
+  surfaces in **both** scopes: `html[data-theme="dark"] .ci-app :is(.card,.j-entry,.nt-row,.module,.asset-card,
+  .trend-card,.tx-list,.learn-hero,.today-lesson)` and `html[data-theme="dark"] .research-root
+  :is(.card,.coin-card,.trend-card)`. Keeps `1px solid`, only recolours. `.value-card` keeps its gradient frame
+  (skip it).
+- **R18-2 — popups get a border in dark.** `html[data-theme="dark"] .ci-app .cm-card { border:1px solid var(--edge) }`
+  (it currently has none). **Composes with Round 15:** the shared `<Modal>` card must carry this dark border — if
+  R15 ships first, add `--edge` to its `.cm-card`; if R18 ships first, R15 inherits it. Full-screen sheet on phones
+  (R15) needs no side border, only the desktop centered card does — harmless either way.
+- **R18-3 — neutral pills get a soft border in dark.** `border-color:var(--edge)` on `.learn-chip`, `.port-pill`,
+  `.port-pill-add`, `.pill-ghost`, `.btn-ghost`, and (research) `.src-chip`, `.tf-pills`, `.seg`, plus `.add-pill:
+  disabled`. Leave the colored status pills (`.badge-live/plan/pro`, `.beta`, `.chg-pill`, `.sentiment`, `.csig`)
+  untouched (decision 3).
+- **R18-4 — Search results separator.** `html[data-theme="dark"] .ci-app .trend-item { border-bottom-color:var(--edge) }`
+  so typed-result rows are clearly separated. (Only `.trend-item`; the general `--line-2` dividers stay subtle.)
+- **Explicitly unchanged (decision 2):** internal row-dividers — `.kv-row`, `.tx-row`, the journal Q&A dividers —
+  keep `--line-2` (subtle). Light mode: **no rule touched.**
+
+**TDD / verify:** CSS-only → computed-style probe in **dark**: a sample card (`.card`/`.coin-card`) `border-color` ≈
+`rgba(236,233,225,.16)`; `.cm-card` now HAS a border; `.trend-item` border-bottom brighter; a neutral pill
+(`.port-pill`) has the edge; a colored pill (`.chg-pill`) is UNCHANGED; a `.kv-row` divider is UNCHANGED. In
+**light**: a card border still computes `--line-2` (byte-for-byte unchanged). `npm run build` clean + browser-verify
+dark + light, mobile + desktop, across Portfolio/Research/Journal/Learn/Search + a popup.
+
+**Build order (when "go"):** R18-1 (edge token + cards) → R18-2 (popups) → R18-3 (neutral pills) → R18-4 (search
+line). All in the dark block. Slotted into [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+
+**Status:** 📋 **PLAN ONLY (2026-07-01)** — dark-block-only design (one `--edge` knob + targeted `border-color`
+overrides); light untouched; composes with Round 15 popups. Decisions locked (soft 16% · outer+search only ·
+neutral pills only). Build on founder "go".

@@ -965,6 +965,19 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (optional) "+ Add" reads the enforced DB cap so it doesn't invite a denied action. TDD: rules/integration — a
   DB-`pro` user creates 2nd+3rd, blocked at 4th; dev path inert without the flag; the client-`tier`-write rejection
   test stays green. Build R17-1→R17-3 on "go".
+- [ ] **Round 18 — dark-mode border visibility: soft-white edges on cards · pills · popups + Search separator — 📋
+  PLAN ONLY (2026-07-01)** (founder dark-mode screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 18").
+  Dark-block-only (light untouched). Decisions locked (AskUserQuestion): **soft ~16% off-white** border
+  `rgba(236,233,225,.16)` · **outer card/popup borders + Search line only** (internal row-dividers stay subtle) ·
+  **neutral pills only** (colored status pills untouched). Constraint: cards + dividers + the search line all share
+  `--line-2`, so a token bump would over-brighten dividers → use **targeted dark overrides**. **R18-1** add dark
+  `--edge:rgba(236,233,225,.16)` + `border-color:var(--edge)` on card surfaces (`.card`/`.j-entry`/`.nt-row`/
+  `.module`/`.asset-card`/`.trend-card`/`.tx-list`/`.learn-hero`/`.today-lesson` + research `.card`/`.coin-card`/
+  `.trend-card`; `.value-card` keeps its gradient frame). **R18-2** border on popups (`.cm-card` + the Round-15
+  `<Modal>` — composes). **R18-3** neutral pills (`.learn-chip`/`.port-pill`/`.pill-ghost`/`.btn-ghost`/`.src-chip`/
+  `.tf-pills`/`.seg`…); colored pills left alone. **R18-4** `.trend-item` border-bottom → `--edge`. Internal dividers
+  (`.kv-row`/`.tx-row`/journal-Q) stay `--line-2`. Probe: dark card border ≈16% white, `.cm-card` has a border,
+  `.trend-item` brighter, `.chg-pill`/`.kv-row` unchanged, light byte-for-byte unchanged. Build R18-1→R18-4 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.
