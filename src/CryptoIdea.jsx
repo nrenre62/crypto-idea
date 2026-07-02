@@ -390,7 +390,9 @@ export default function CryptoIdea(){
       setAcctBusy(false);setScreen("portfolio");
     }catch(e){setAcctMsg((e&&e.message)||"Couldn't restore — the window may have passed.");setAcctBusy(false);}
   };
-  const startUpgrade=(toTier)=>{setUpgradeFlow(toTier);setUpgradeStep("billing");setShowPlan(true)};
+  // R28-1 (defense in depth): never open billing for the tier the user already has —
+  // Account hides those buttons, but a same-tier call must be a no-op (no double charge).
+  const startUpgrade=(toTier)=>{if(toTier===(user?.tier||"free"))return;setUpgradeFlow(toTier);setUpgradeStep("billing");setShowPlan(true)};
   const startDowngrade=(toTier)=>{setDowngradeTo(toTier)};
   const confirmDowngrade=async()=>{
     // In production: PayPal cancels subscription, downgrade happens at endDate

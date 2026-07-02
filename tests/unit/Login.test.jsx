@@ -75,6 +75,87 @@ describe("Login screen (extracted, via AppContext)", () => {
     expect(screen.getByText("Choose Premium")).toBeInTheDocument();
   });
 
+  // ── R28-1: current-plan awareness — the picker reads user.tier, locks the current
+  //    tier (CURRENT badge + disabled "Your current plan"), keeps only true upgrades
+  //    clickable, and shows lower tiers as non-purchasable "Included". ──
+  describe("R28-1 — current-plan guard (no double-charge)", () => {
+    it("free user: Starter is CURRENT + locked, Pro/Premium clickable, link reads 'Continue with Starter'", () => {
+      const setUpgradeStep = vi.fn(), setShowWelcome = vi.fn();
+      provide({ showPlan: true, upgradeStep: "pickPlan", user: { name: "T", tier: "free" }, setUpgradeStep, setShowWelcome });
+      expect(screen.getByText("CURRENT")).toBeInTheDocument();
+      expect(screen.getByText("Your current plan")).toBeInTheDocument();
+      expect(screen.queryByText("Get Started")).toBeNull();
+      expect(screen.getByText("Choose Pro")).toBeInTheDocument();
+      expect(screen.getByText("Choose Premium")).toBeInTheDocument();
+      expect(screen.getByText(/Continue with Starter/)).toBeInTheDocument();
+      // clicking the LOCKED current card does nothing (no welcome re-entry)
+      fireEvent.click(screen.getByText("Your current plan").closest(".plan-card"));
+      expect(setUpgradeStep).not.toHaveBeenCalled();
+      expect(setShowWelcome).not.toHaveBeenCalled();
+    });
+
+    it("pro user: Pro is CURRENT + locked (can't be charged twice), Premium clickable, Starter 'Included'", () => {
+      const setUpgradeStep = vi.fn(), setUpgradeFlow = vi.fn();
+      provide({ showPlan: true, upgradeStep: "pickPlan", user: { name: "T", tier: "pro" }, setUpgradeStep, setUpgradeFlow });
+      expect(screen.getByText("CURRENT")).toBeInTheDocument();
+      expect(screen.queryByText("RECOMMENDED")).toBeNull();   // CURRENT replaces it
+      expect(screen.getByText("Your current plan")).toBeInTheDocument();
+      expect(screen.queryByText("Choose Pro")).toBeNull();
+      expect(screen.getByText("Included")).toBeInTheDocument();   // Starter, below Pro
+      expect(screen.getByText("Choose Premium")).toBeInTheDocument();
+      // clicking the locked Pro card must NOT enter billing (the double-charge bug)
+      fireEvent.click(screen.getByText("Your current plan").closest(".plan-card"));
+      expect(setUpgradeFlow).not.toHaveBeenCalled();
+      expect(setUpgradeStep).not.toHaveBeenCalled();
+      // Premium still upgrades
+      fireEvent.click(screen.getByText("Choose Premium").closest(".plan-card"));
+      expect(setUpgradeFlow).toHaveBeenCalledWith("premium");
+    });
+
+    it("premium user: Premium is CURRENT + locked; Pro AND Starter read 'Included'", () => {
+      const setUpgradeFlow = vi.fn();
+      provide({ showPlan: true, upgradeStep: "pickPlan", user: { name: "T", tier: "premium" }, setUpgradeFlow });
+      expect(screen.getByText("Your current plan")).toBeInTheDocument();
+      expect(screen.getAllByText("Included").length).toBe(2);
+      expect(screen.queryByText("Choose Pro")).toBeNull();
+      expect(screen.queryByText("Choose Premium")).toBeNull();
+      fireEvent.click(screen.getAllByText("Included")[0].closest(".plan-card"));
+      expect(setUpgradeFlow).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── R28-2: honest single-source copy — the cards and the welcome/success screen
+  //    consume the SAME PLAN_BENEFITS, so they cannot drift. ──
+  describe("R28-2 — PLAN_BENEFITS single source", () => {
+    it("Premium promises 'priority email support' and NEVER the untrue 'Custom limits'", async () => {
+      const { PLAN_BENEFITS } = await import("../../src/components/Login.jsx");
+      expect(PLAN_BENEFITS.premium.feature).toMatch(/priority email support/);
+      const all = JSON.stringify(PLAN_BENEFITS);
+      expect(all).not.toMatch(/Custom limits/);
+      expect(all).not.toMatch(/Priority support ·/);
+    });
+
+    it("the picker cards show each tier's limits + the honest feature line", () => {
+      provide({ showPlan: true, upgradeStep: "pickPlan", user: { name: "T", tier: "free" } });
+      expect(screen.getByText(/1 portfolio · 10 coins · 50 transactions per coin/)).toBeInTheDocument();
+      expect(screen.getByText(/15 portfolios · 1,000 coins per portfolio · 5,000 transactions per coin/)).toBeInTheDocument();
+      // all-features line on Starter/Pro; Premium adds the support promise
+      expect(screen.getAllByText(/All features included — live prices, P\/L, Journal, Research, Learn/).length).toBe(2);
+      expect(screen.getByText(/All features included \+ priority email support/)).toBeInTheDocument();
+    });
+
+    it("the welcome/success screen lists EXACTLY the bought tier's benefits (card-consistent)", async () => {
+      const { PLAN_BENEFITS } = await import("../../src/components/Login.jsx");
+      provide({ showPlan: true, upgradeStep: "welcome", showWelcome: "premium", user: { name: "T", tier: "premium" } });
+      expect(screen.getByText(/Welcome to/)).toBeInTheDocument();
+      for (const line of PLAN_BENEFITS.premium.limits) {
+        expect(screen.getByText(line)).toBeInTheDocument();
+      }
+      expect(screen.getByText(PLAN_BENEFITS.premium.feature)).toBeInTheDocument();
+      expect(screen.queryByText(/Custom limits/)).toBeNull();
+    });
+  });
+
   // The auth fields live in a <form> so pressing Enter (implicit submit) logs in —
   // not only clicking the button.
   it("submitting the auth form calls handleAuth (Enter-to-login)", () => {

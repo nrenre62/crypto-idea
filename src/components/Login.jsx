@@ -2,6 +2,28 @@ import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { Ic } from "./ui.jsx";
 
+// R28-2: ONE source of truth for what each tier promises — consumed by BOTH the
+// plan-picker cards and the welcome/success screen, so they cannot drift. Honest
+// framing: same product, more room — every tier gets all features (live prices,
+// P/L, Journal, Research, Learn); tiers differ by capacity, and Premium adds the
+// real priority-email-support promise (the untrue "Custom limits" was dropped).
+export const PLAN_BENEFITS = {
+  free: {
+    limits: ["1 portfolio", "10 coins", "50 transactions per coin"],
+    feature: "All features included — live prices, P/L, Journal, Research, Learn",
+  },
+  pro: {
+    limits: ["3 portfolios", "50 coins per portfolio", "2,000 transactions per coin"],
+    feature: "All features included — live prices, P/L, Journal, Research, Learn",
+  },
+  premium: {
+    limits: ["15 portfolios", "1,000 coins per portfolio", "5,000 transactions per coin"],
+    feature: "All features included + priority email support",
+  },
+};
+// R28-1: tier order for the picker's current/upgrade/included card states.
+const TIER_RANK = { free: 0, pro: 1, premium: 2 };
+
 // Login/Register screen + the post-registration plan picker and the upgrade/billing
 // flow (shown via showPlan — reused as a full-screen overlay from the shell too).
 // All auth + upgrade state and handlers come from context.
@@ -29,12 +51,9 @@ export function Login({ popup }) {
 
     // ── Welcome screens (after payment or registration) ──
     if(upgradeStep==="welcome"){
-      const benefits={
-        free:["1 portfolio","10 coins","50 transactions per coin","Live prices · Full P/L tracking"],
-        pro:["3 portfolios","50 coins per portfolio","2,000 transactions per coin","Live prices · Full P/L tracking"],
-        premium:["15 portfolios","1,000 coins per portfolio","5,000 transactions per coin","Priority support · Custom limits"],
-      };
-      const list=benefits[showWelcome||"free"];
+      // R28-2: the success screen lists EXACTLY what the card promised (same source).
+      const b=PLAN_BENEFITS[showWelcome||"free"];
+      const list=[...b.limits,b.feature];
       const isPrem=showWelcome==="premium";
       return wrap(<>
         <div className={"welcome-check"+(isPrem?" prem":"")}>✓</div>
@@ -94,29 +113,46 @@ export function Login({ popup }) {
       </>);
     }
 
-    // ── Pick plan (after registration) ──
+    // ── Pick plan (after registration / upgrade) ──
+    // R28-1: the picker is CURRENT-PLAN AWARE — the user's tier is locked ("Your
+    // current plan" + CURRENT badge, click no-ops → fixes the re-buy double-charge
+    // bug), only genuine upgrades are clickable, and lower tiers read "Included"
+    // (a Premium user already has more than Starter/Pro; downgrades stay in Account).
+    const currentTier=(user&&user.tier)||"free";
+    const cardState=(t)=>t===currentTier?"current":TIER_RANK[t]>TIER_RANK[currentTier]?"upgrade":"included";
+    const ctaText=(t,label)=>cardState(t)==="current"?"Your current plan":cardState(t)==="included"?"Included":label;
+    const cardGo=(t,go)=>cardState(t)==="upgrade"?go:undefined;   // locked cards ignore clicks
+    const lockCls=(t)=>cardState(t)==="upgrade"?"":" locked";
     return wrap(<>
       {!popup&&<div className="auth-h">Welcome, <span>{user?.name}</span></div>}
       <div className="auth-sub">Select a plan</div>
       <div className="plan-col">
-        <div onClick={async()=>{setShowWelcome("free");setUpgradeStep("welcome")}} className="plan-card">
+        <div onClick={cardGo("free",()=>{setShowWelcome("free");setUpgradeStep("welcome")})} className={"plan-card"+lockCls("free")} aria-disabled={cardState("free")!=="upgrade"}>
+          {cardState("free")==="current"&&<div className="plan-badge">CURRENT</div>}
           <div className="plan-top"><span className="plan-name">Starter</span><span className="plan-price">$0</span></div>
-          <div className="plan-feats">1 portfolio · 10 coins · 50 transactions per coin</div>
-          <div className="plan-cta neutral">Get Started</div>
+          <div className="plan-feats">{PLAN_BENEFITS.free.limits.join(" · ")}</div>
+          <div className="plan-feats">{PLAN_BENEFITS.free.feature}</div>
+          <div className={"plan-cta neutral"+lockCls("free")}>{ctaText("free","Get Started")}</div>
         </div>
-        <div onClick={()=>{setUpgradeFlow("pro");setUpgradeStep("billing")}} className="plan-card rec">
-          <div className="plan-badge">RECOMMENDED</div>
+        <div onClick={cardGo("pro",()=>{setUpgradeFlow("pro");setUpgradeStep("billing")})} className={"plan-card rec"+lockCls("pro")} aria-disabled={cardState("pro")!=="upgrade"}>
+          {/* CURRENT replaces RECOMMENDED on the user's own card */}
+          {cardState("pro")==="current"?<div className="plan-badge">CURRENT</div>:cardState("pro")==="upgrade"?<div className="plan-badge">RECOMMENDED</div>:null}
           <div className="plan-top"><span className="plan-name">Pro</span><span className="plan-price-sm">from ${((site?.plans?.pro?.priceYear ?? 99.99)/12).toFixed(2)}/mo</span></div>
-          <div className="plan-feats">3 portfolios · 50 coins · 2,000 transactions per coin</div>
-          <div className="plan-cta accent">Choose Pro</div>
+          <div className="plan-feats">{PLAN_BENEFITS.pro.limits.join(" · ")}</div>
+          <div className="plan-feats">{PLAN_BENEFITS.pro.feature}</div>
+          <div className={"plan-cta "+(cardState("pro")==="upgrade"?"accent":"neutral locked")}>{ctaText("pro","Choose Pro")}</div>
         </div>
-        <div onClick={()=>{setUpgradeFlow("premium");setUpgradeStep("billing")}} className="plan-card prem">
+        <div onClick={cardGo("premium",()=>{setUpgradeFlow("premium");setUpgradeStep("billing")})} className={"plan-card prem"+lockCls("premium")} aria-disabled={cardState("premium")!=="upgrade"}>
+          {cardState("premium")==="current"&&<div className="plan-badge" style={{background:"#7d4bbf"}}>CURRENT</div>}
           <div className="plan-top"><span className="plan-name prem">Premium</span><span className="plan-price-sm">from ${((site?.plans?.premium?.priceYear ?? 499.99)/12).toFixed(2)}/mo</span></div>
-          <div className="plan-feats">15 portfolios · 1,000 coins · 5,000 transactions per coin</div>
-          <div className="plan-cta prem">Choose Premium</div>
+          <div className="plan-feats">{PLAN_BENEFITS.premium.limits.join(" · ")}</div>
+          <div className="plan-feats">{PLAN_BENEFITS.premium.feature}</div>
+          <div className={"plan-cta "+(cardState("premium")==="upgrade"?"prem":"neutral locked")}>{ctaText("premium","Choose Premium")}</div>
         </div>
       </div>
-      <div className="auth-link" style={{marginTop:14}}><span onClick={()=>{setShowPlan(false);setUpgradeStep("billing");setScreen("portfolio")}}>Skip for now · explore Starter →</span></div>
+      {/* R28-1: for a free user Starter IS the current plan — the forward action is
+          continuing with it; paid users get a plain close. Same action either way. */}
+      <div className="auth-link" style={{marginTop:14}}><span onClick={()=>{setShowPlan(false);setUpgradeStep("billing");setScreen("portfolio")}}>{currentTier==="free"?"Continue with Starter →":"Close"}</span></div>
     </>);
   }
   return(<div className="ci-app screen-bg auth-wrap">
