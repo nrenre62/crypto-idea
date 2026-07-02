@@ -221,8 +221,20 @@ describe("Account screen (drill-in, via AppContext)", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Delete portfolio" })[0]);
     expect(deletePortfolio).not.toHaveBeenCalled();
     expect(screen.getByText(/This portfolio has 2 coins/)).toBeInTheDocument();
+    // R26: plural agreement for N coins — "their … theses"
+    expect(screen.getByText(/their transactions and theses/)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Delete anyway"));
     expect(deletePortfolio).toHaveBeenCalledWith("a");
+  });
+
+  // R26: the warning is count-aware — 1 coin reads "its transactions and thesis"
+  // (each coin has at most ONE thesis), never "their … theses".
+  it("R26: a ONE-coin portfolio's warning reads 'its transactions and thesis'", () => {
+    provide({ portfolios: [{ id: "a", name: "Alpha", coins: [{ id: "btc" }] }, { id: "b", name: "Beta", coins: [] }], maxPortfolios: 3 });
+    open(/Portfolios/);
+    fireEvent.click(screen.getAllByRole("button", { name: "Delete portfolio" })[0]);
+    expect(screen.getByText(/This portfolio has 1 coin and all its transactions and thesis\./)).toBeInTheDocument();
+    expect(screen.queryByText(/theses/)).toBeNull();
   });
 
   it("Portfolios: the empty-portfolio Remove pill auto-disarms after ~3s", () => {

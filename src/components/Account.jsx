@@ -81,7 +81,10 @@ function PortRow({ p }) {
         <Modal size="sm" title={`Delete ${p.name}?`} onClose={() => setWarn(false)}>
           <div className="dg-warn" style={{ padding: "14px", borderRadius: 12, background: "#FFF8E1", border: "1px solid #FFE082" }}>
             <div className="dg-warn-text" style={{ fontSize: 13, color: "#92400E", lineHeight: 1.7 }}>
-              This portfolio has {p.coins.length} coin{p.coins.length > 1 ? "s" : ""} and all their transactions and theses. Deleting it removes all of them — this can't be undone.
+              {/* R26: count-aware — 1 coin: "its … thesis" / N coins: "their … theses" */}
+              {(() => { const many = p.coins.length > 1; return (
+                <>This portfolio has {p.coins.length} coin{many ? "s" : ""} and all {many ? "their" : "its"} transactions and {many ? "theses" : "thesis"}. Deleting it removes all of them — this can't be undone.</>
+              ); })()}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
