@@ -8,7 +8,7 @@
  *
  * Each `it` is one documented user flow.
  */
-import { render, screen, fireEvent, within, act } from "@testing-library/react";
+import { render, screen, fireEvent, within, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("firebase/functions", () => ({ httpsCallable: () => vi.fn() }));
@@ -195,6 +195,32 @@ describe("User walkthrough — all functions", () => {
     expect(screen.queryByText("Market Data")).toBeNull();
     expect(screen.getByText("Trending")).toBeInTheDocument();
     expect(screen.queryByText(/My Assets/i)).toBeNull();   // did NOT jump to Portfolio
+  });
+
+  // R25 (review follow-up) — on DESKTOP, CoinInfo opened from the Detail header icon
+  // STACKS above the Detail popup (both Modals mounted; CoinInfo rendered last).
+  it("R25: desktop — CoinInfo stacks above the Detail popup; closing it keeps Detail open", async () => {
+    window.matchMedia = mmDesktop;
+    try {
+      loginAs();
+      getPortfolios.mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] });
+      getCoins.mockResolvedValue({
+        success: true,
+        coins: [{ id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "", entries: [{ id: "e1", type: "buy", amount: 1, priceAtBuy: 100, date: "2025-01-01" }] }],
+      });
+      render(<CryptoIdea />);
+      await screen.findByText(/My Assets/i);
+      fireEvent.click(document.querySelector(".asset-card"));   // → Detail Modal (desktop)
+      await waitFor(() => expect(document.querySelectorAll(".cm-card").length).toBe(1));
+      fireEvent.click(document.querySelector(".ph-icon .coin-ic"));   // Detail header icon → CoinInfo
+      await waitFor(() => expect(document.querySelectorAll(".cm-card").length).toBe(2)); // stacked
+      const cards = document.querySelectorAll(".cm-card");
+      expect(within(cards[1]).getByText("Market Data")).toBeInTheDocument(); // CoinInfo is the LAST (top) modal
+      // closing CoinInfo keeps the Detail popup open underneath
+      fireEvent.click(within(cards[1]).getByLabelText("Close"));
+      await waitFor(() => expect(document.querySelectorAll(".cm-card").length).toBe(1));
+      expect(screen.getByText(/Transactions \(/)).toBeInTheDocument();  // still on Detail
+    } finally { delete window.matchMedia; }
   });
 
   // R27-3 — on DESKTOP the plan/billing flow renders inside the shared Modal (X-close,
