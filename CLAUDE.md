@@ -100,7 +100,23 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   50/page pager + **newest-first tx order** (`src/utils/tx.js`) + mobile modal centering (sm centered / md
   full-screen) + Learn header **"Learn"** + **cumulative XP bar** (`overallPct`/`LEVEL_MARKERS`) + **desktop-only
   CoinInfo/Detail/Buy-Sell popups** (`useIsDesktop`; Buy/Sell stacks over Detail). Modal scrim uses a COMPOUND
-  `.ci-app.cm-scrim` selector (root-level dialogs have no `.ci-app` ancestor). Full spec: [`DESIGN-PASS.md`](DESIGN-PASS.md).
+  `.ci-app.cm-scrim` selector (root-level dialogs have no `.ci-app` ancestor).
+  **Rounds 20–28 BUILT (2026-07-02):** **R20** module-scoped Learn player (Previous | Submit→Next→/Done→ row,
+  L-marks removed, review-from-start) · **R21** `.ci-toast` at z-index 10000 (above every popup scrim) + 6s dismiss ·
+  **R22** tx rows: bold TOTAL on top, "$price / SYMBOL" muted below (Recv/Cost dropped) · **R23 (FUNCTIONAL)**
+  `/api/prices` now carries `usd_market_cap_rank` from the universe cache (no new endpoint/upstream) and Portfolio
+  Risk = graduated log-scale RANK risk (`coinRisk`, cap fallback, no-rank→0.95) + ≥40% $100B mega-cap floor +
+  rank-language note · **R24 (FUNCTIONAL)** Journal auto-saves on X (Add popup: partial OK + derived 🟡 "Incomplete"
+  pill via `isThesisIncomplete`; detail X persists changed edits/findings; edit form + Buy-Journal keep validation) ·
+  **R25 (FUNCTIONAL)** shared `<CoinIcon>` (accent ring + press, keyboard) on every browse/list icon; **CoinInfo is
+  now an `infoCoin` OVERLAY** (shared Modal on all devices, body-only, return-to-origin — the `coinInfo` screen was
+  deleted) with a one-shot cached `/api/prices` fetch for non-held coins + accent Transactions pill (held-only) ·
+  **R26** count-aware delete-portfolio copy · **R27** dark selected-cycle-card fix + the plan/billing flow renders in
+  the shared desktop `<Modal>` (`<Login popup/>`, Modal `hideClose` during processing; X leaves `screen` untouched)
+  + no-refund policy copy (R27-1 skipped — superseded by R28-3) · **R28** current-plan-aware picker (CURRENT badge,
+  "Your current plan" locked, lower tiers "Included", `startUpgrade` same-tier no-op — fixes the re-buy double-charge
+  bug) + exported `PLAN_BENEFITS` single source (honest "all features + more capacity"; Premium = "priority email
+  support") + billing sub-text `--ink-soft` base rule. Full spec: [`DESIGN-PASS.md`](DESIGN-PASS.md).
 - **Architecture diagrams** live in [`docs/diagrams/`](docs/diagrams/) (index + backlog in its `README.md`); draw/update them with the **`drawing-diagram`** skill — add or refresh a diagram whenever a component is built or changes.
 - **Error catalog:** [`ERRORS.md`](ERRORS.md) records diagnosed bugs/warnings + their fixes + by-design caveats (what the error is and how to fix it). Add an entry whenever you diagnose a non-trivial error; dark-mode CSS readability issues live in `DESIGN-PASS.md` "Round 3" instead. Diagnoses are verified against the running emulator. **Notable:** the "Couldn't create portfolio. Check your connection." toast (ERRORS.md §A1) is a **mislabeled plan-limit** (`permission-denied` = at the portfolio cap free 1/pro 3/premium 15), surfacing when the client tier > the DB tier (a local/demo upgrade the server never persists, since users can't write their own `tier`).
 

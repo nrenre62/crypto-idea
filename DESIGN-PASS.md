@@ -1464,7 +1464,7 @@ neutral pills only). Build on founder "go".
 
 **Security / KISS:** Learn **presentation only** — no data / rules / schema / index change (`xp` + `completedLessons` already persisted; `complete` is idempotent + quiz-gated). No new dependency. The player stays **CSS-only responsive** (one flex row, identical on mobile & desktop — no JS breakpoint). All overlay state (`idx` / `picked` / `result`) is **component-local** (R12 lesson). Net removes dead CSS (the R19-8 markers).
 
-**Status:** 📋 PLAN ONLY — build on founder "go".
+**Status:** ✅ BUILT 2026-07-02 (commit d1a3e8f) — module-scoped player + compact nav; browser-verified (Next→/Done→/Previous fresh, no L-marks).
 
 ## Round 21 — error toast visible above every popup (raise above the scrim) + longer auto-dismiss (2026-07-02, PLAN ONLY)
 
@@ -1494,7 +1494,7 @@ neutral pills only). Build on founder "go".
 
 **Security / KISS:** presentation only — one z-index value + one timeout constant + moving inline styles to a class. No data/rules/schema/handler change, no new dependency, no new attack surface. The single global toast (already the source of truth for every `showErr`) is reused — the fix is uniform across every popup by construction, with **zero per-popup edits**. Journal's inline errors are already correct and left untouched.
 
-**Status:** 📋 PLAN ONLY — build on founder "go".
+**Status:** ✅ BUILT 2026-07-02 (commit 1000051) — .ci-toast z-index 10000 + 6s dismiss; computed-style verified above the 9500 scrim.
 
 ## Round 22 — coin-holding transaction rows: total as the bold number, coin price below (labeled "/ SYMBOL"), drop "Recv/Cost" (2026-07-02, PLAN ONLY)
 
@@ -1531,7 +1531,7 @@ neutral pills only). Build on founder "go".
 
 **Security / KISS:** display-only — reorders two existing values and drops one label word; **no** data/rules/schema/handler change (the total is still `amount×priceAtBuy`, computed inline as today), no new dependency, no new attack surface. One occurrence changed; the class rename keeps the markup self-describing.
 
-**Status:** 📋 PLAN ONLY — build on founder "go".
+**Status:** ✅ BUILT 2026-07-02 (commit 9804c37) — bold total / "$price / SYM" muted line; browser-verified ($252,000.00 over $84,000.00 / BTC).
 
 ## Round 23 — Portfolio Risk uses real coin RANK: graduated (log-scale) risk + mega-cap ($100B+) safety floor (2026-07-02, PLAN ONLY, FUNCTIONAL)
 
@@ -1566,7 +1566,7 @@ neutral pills only). Build on founder "go".
 
 **Security / KISS:** **no new endpoint, no new upstream call, no new dependency** — surfaces a field already cached in the universe doc (flat-cost, cache-policy compliant) and keeps every calc **pure + unit-tested**. No rules/schema change (rank isn't user-writable — it's read-only market data from the server cache; the client never persists it). The risk model stays derived-only; thresholds/curve constants are tunable, documented inline. The mega floor is an explainable guarantee, not a hidden fudge.
 
-**Status:** 📋 PLAN ONLY (FUNCTIONAL) — build on founder "go".
+**Status:** ✅ BUILT 2026-07-02 (commits e921c52 + 6dfaa36) — usd_market_cap_rank live through /api/prices (emulator: btc 1/eth 2); graduated rank risk + $100B mega floor + anchor note browser-verified.
 
 ## Round 24 — Journal: auto-save the thesis on close (X), keep the Save button, flag incomplete theses (2026-07-02, PLAN ONLY, FUNCTIONAL)
 
@@ -1599,7 +1599,7 @@ neutral pills only). Build on founder "go".
 
 **Security / KISS:** **no rules/schema/enum change** (partial theses already pass `validJournal`; "incomplete" is derived, not stored). Reuses `addThesis` (already partial-friendly), `editThesis` (both-required → safe no-op on partial), and `saveFunnel`. The both-required hard block is dropped **only** for the new-thesis Add popup; the edit form keeps it. All logic component-level; no new dependency, no new attack surface. Fire-and-close relies on the existing optimistic update + error toast.
 
-**Status:** 📋 PLAN ONLY (FUNCTIONAL) — build on founder "go".
+**Status:** ✅ BUILT 2026-07-02 (commit e967aea) — X saves partials (browser-verified: typed one field, X → saved + 🟡 Incomplete pill); detail X persists changed edits/findings.
 
 ## Round 25 — Coin icon clickable + hover/press shadow everywhere (opens Coin info) + Transactions button restyle (2026-07-02, PLAN ONLY, FUNCTIONAL)
 
@@ -1635,7 +1635,7 @@ neutral pills only). Build on founder "go".
 
 **Security / KISS:** presentation + routing + one **cached** fetch. `openCoinInfo` centralizes the open logic (single source of truth). The overlay refactor **removes** concepts (the coinInfo screen, its `NARROW_SCREENS`/`at` mapping, the R19-9 over-Portfolio special case) → net simpler, and deletes a latent close-to-Portfolio bug. The on-demand fetch reuses the existing cached `/api/prices` (flat cost, **no new endpoint/upstream/dep**). No rules/schema change (CoinInfo is read-only). Icons are keyboard-accessible (`role`/`tabIndex`/Enter).
 
-**Status:** 📋 PLAN ONLY (FUNCTIONAL) — build on founder "go".
+**Status:** ✅ BUILT 2026-07-02 (commit f0431a6) — shared <CoinIcon> everywhere + CoinInfo overlay (return-to-origin browser-verified) + on-demand cached fetch + accent Transactions pill (held-only).
 
 ## Round 26 — copy fix: delete-portfolio warning "theses" → count-aware "its transactions and thesis" (2026-07-02, PLAN ONLY)
 
@@ -1658,7 +1658,7 @@ neutral pills only). Build on founder "go".
 
 **Security / KISS:** copy-only — one interpolation string, count-aware to match the existing coin/coins plural. No data/rules/logic change.
 
-**Status:** 📋 PLAN ONLY — build on founder "go".
+**Status:** ✅ BUILT 2026-07-02 (commit 6961631) — count-aware "its…thesis" / "their…theses".
 
 ## Round 27 — Billing: dark-mode readability + selected-card fix + desktop popups (X) + refund policy (2026-07-02, PLAN ONLY, part FUNCTIONAL/copy)
 
@@ -1698,7 +1698,7 @@ neutral pills only). Build on founder "go".
 
 **Security / KISS:** R27-1/R27-2 are **dark-block-only CSS** (light mode untouched, no new tokens — reuses `--ink-soft`/`--accent-ink` + one inline dark-purple). R27-3 **removes** the bespoke hand-rolled overlay in favor of the shared `<Modal>` (one popup system for the whole app — net simpler, fewer concepts), presentation-only, no data/routing-state change beyond a `closePlanFlow` helper. R27-4 is **copy-only** — no refund/PayPal/money code, no rules/schema change; the honest policy line reduces support/chargeback risk. No new dependency anywhere.
 
-**Status:** 📋 PLAN ONLY (dark-mode CSS + desktop-popup wrap + policy copy) — build on founder "go".
+**Status:** ✅ BUILT 2026-07-02 (commit fa5e97a) — R27-2 dark selected-card fix (verified rgba(125,75,191,.2)) + R27-3 desktop <Modal> flow (Login popup prop, hideClose during processing; X leaves `screen` untouched = true return-to-origin) + R27-4 no-refund copy. R27-1 skipped as planned (superseded by R28-3).
 
 ## Round 28 — Billing: current-plan awareness + re-buy guard + honest benefit copy + light-mode readability (2026-07-02, PLAN ONLY, part FUNCTIONAL/copy)
 
@@ -1743,4 +1743,4 @@ neutral pills only). Build on founder "go".
 
 **Security / KISS:** R28-1 is a **real safety fix** — prevents duplicate charges by reading the already-available `user.tier` (no new state) + a `startUpgrade` guard. R28-2 **removes duplication** — one `PLAN_BENEFITS` source feeds cards + success screen (the drift the founder worried about becomes structurally impossible) and **deletes two false claims** (reduces refund/complaint risk). R28-3 is **per-class CSS** (token untouched, billing-only, supersedes the R27-1 dark-only override → net fewer rules). No rules/schema change, no new dependency. Honest capacity-based framing matches what the code actually enforces + ships.
 
-**Status:** 📋 PLAN ONLY (current-plan guard + honest copy + light-mode CSS; **supersedes R27-1**) — build on founder "go".
+**Status:** ✅ BUILT 2026-07-02 (commit f30532d) — current-plan lock (CURRENT badge/"Your current plan"/"Included", locked-click no-op browser-verified) + exported PLAN_BENEFITS single source (Premium = "priority email support", "Custom limits" deleted) + R28-3 base-rule --ink-soft sub-text (replaces R27-1).

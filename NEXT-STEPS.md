@@ -1017,7 +1017,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `dismissOnScrim=false`); **mobile unchanged** (full-screen). Presentation/routing only — no data/rules/handler
   change; a deliberate desktop affordance divergence (responsive-app skill). Build LAST:
   …→ R19-8 → R19-9 on "go".
-- [ ] **Round 20 — Learn lesson player: remove the L1–L5 markers · module-scoped Next/Previous nav · compact
+- [x] **Round 20 — Learn lesson player: remove the L1–L5 markers · module-scoped Next/Previous nav · compact
   2-button row · Review-from-start — 📋 PLAN ONLY (2026-07-01)** (founder Learn screenshot; full spec
   [DESIGN-PASS.md](DESIGN-PASS.md) "Round 20"). Reworks the lesson flow. Decisions locked (AskUserQuestion):
   progress bar — remove **only** the L1–L5 tick-marks/labels, **keep** the gradient fill + level title + the
@@ -1034,7 +1034,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   compact, one row, **no media divergence** (CSS-only responsive). **R20-4** re-opened/Previous'd lessons start
   fresh (re-pick + Submit); `complete` stays idempotent (no double XP). **Presentation only** — no data/rules/schema
   change; all overlay state component-local; net removes the R19-8 marker CSS. Build R20-1 → (R20-2+R20-3+R20-4) on "go".
-- [ ] **Round 21 — error toast visible above every popup (raise above the scrim) + ~6s auto-dismiss — 📋 PLAN ONLY
+- [x] **Round 21 — error toast visible above every popup (raise above the scrim) + ~6s auto-dismiss — 📋 PLAN ONLY
   (2026-07-02)** (founder Sell-BTC screenshot: on desktop the validation error renders behind/outside the popup,
   invisible; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 21"). Root cause: the global `showErr` toast
   (CryptoIdea.jsx:676) is `z-index:9500` — the **same** as the `.cm-scrim` (app.css:671) — and the scrim paints
@@ -1046,7 +1046,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   styles into a `.ci-toast` class (same look, both themes, `role="alert"`). **R21-2** `showErr` timeout 3000→6000
   (CryptoIdea.jsx:183). Presentation only — one z-index + one timeout; no data/rules/handler change; verify
   in-browser (a z-index bug jsdom can't see). Build R21-1 → R21-2 on "go".
-- [ ] **Round 22 — coin-holding tx rows: total as the bold number, coin price below ("/ SYMBOL"), drop "Recv/Cost" —
+- [x] **Round 22 — coin-holding tx rows: total as the bold number, coin price below ("/ SYMBOL"), drop "Recv/Cost" —
   📋 PLAN ONLY (2026-07-02)** (founder coin-holding tx list; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 22").
   Today the right column (Detail.jsx:116-119) shows the **coin price** bold on top (`.tx-rprice`) and **"Recv"/"Cost"
   + total** muted below (`.tx-rcost`) — "Recv" is unclear + redundant with the SELL/BUY tag. Decisions
@@ -1058,7 +1058,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   2 dark rules. Same Detail component → lands in both the mobile full-screen view and the desktop R19-9 popup;
   "Recv"/"Cost" is the only occurrence (Detail.jsx:118). Display-only — no data/rules/handler change (total still
   `amount×priceAtBuy`). Build R22-1 + R22-2 (one commit) on "go".
-- [ ] **Round 23 — Portfolio Risk uses real coin RANK: graduated (log-scale) risk + mega-cap ($100B+) safety floor —
+- [x] **Round 23 — Portfolio Risk uses real coin RANK: graduated (log-scale) risk + mega-cap ($100B+) safety floor —
   📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder Research→Portfolio Risk; full spec
   [DESIGN-PASS.md](DESIGN-PASS.md) "Round 23"). Refines the R14 market-cap-tier model. Decisions (AskUserQuestion):
   **real live CoinGecko rank** per coin · **mega-cap safety floor** (≥40% in $100B+ caps → meter can't read High) ·
@@ -1072,7 +1072,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (megaAlloc ≥ 40% caps the score below the High cut). **R23-4** `riskNote` → rank/size wording + names the anchor
   when the floor applies. Pure functions, heavily unit-tested; backend field verified in the emulator. No new
   endpoint/upstream/dep, no rules change (rank is read-only server data). Build R23-1+R23-2 → R23-3+R23-4 on "go".
-- [ ] **Round 24 — Journal: auto-save the thesis on close (X) + keep the Save button + flag incomplete theses —
+- [x] **Round 24 — Journal: auto-save the thesis on close (X) + keep the Save button + flag incomplete theses —
   📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder "Add your thesis" popup; full spec
   [DESIGN-PASS.md](DESIGN-PASS.md) "Round 24"). Today the X **discards** everything typed and a thesis needs BOTH
   questions to save. Decisions (AskUserQuestion): partial on close → **save + flag incomplete** (never lose work) ·
@@ -1086,7 +1086,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   that persists the in-progress thesis edit (editThesis no-ops on partial) + funnel (saveFunnel if changed) before
   closing; keep the edit-form Cancel + "Save findings" as explicit affordances. Component-level; no new dep/attack
   surface. Build R24-1+R24-2 → R24-3 on "go".
-- [ ] **Round 25 — coin icon clickable + hover/press shadow everywhere (opens Coin info) + Transactions button
+- [x] **Round 25 — coin icon clickable + hover/press shadow everywhere (opens Coin info) + Transactions button
   restyle — 📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md)
   "Round 25"). Today only the Portfolio icon is clickable (`.ac-img` + accent-ring hover → CoinInfo); elsewhere `<CI>`
   is plain. Decisions (AskUserQuestion): Transactions button = **accent-filled** (thesis `.j-edit-btn` look) · scope
@@ -1102,14 +1102,14 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   **R25-5** Transactions → accent pill, shown **only for held coins** (portCoin). Overlay refactor NET removes
   concepts + a latent close-to-Portfolio bug; no new endpoint/dep, no rules change (read-only). Update R19-9 tests.
   Build R25-1+R25-2 → R25-3+R25-4 → R25-5 on "go".
-- [ ] **Round 26 — copy fix: delete-portfolio warning "theses" → count-aware "its transactions and thesis" —
+- [x] **Round 26 — copy fix: delete-portfolio warning "theses" → count-aware "its transactions and thesis" —
   📋 PLAN ONLY (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 26"). The has-coins
   delete warning (Account.jsx:84) pluralizes coin/coins but leaves "their … theses" for 1 coin (each coin has one
   thesis). Decision (AskUserQuestion): **count-aware, delete message only** — `const many = p.coins.length>1` →
   "1 coin and all its transactions and thesis" vs "N coins and all their transactions and theses"; **leave** the
   Journal "Your theses (N)" header (a correct plural). Copy-only, no logic change. Update the R19-1 Account
   warning test. Build R26-1 on "go".
-- [ ] **Round 27 — Billing: dark-mode readability + selected-card fix + desktop popups (X) + refund policy —
+- [x] **Round 27 — Billing: dark-mode readability + selected-card fix + desktop popups (X) + refund policy —
   📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 27").
   The `showPlan` billing flow (Login.jsx pick-plan/billing-cycle/welcome/processing) mounts as a hand-rolled
   full-screen overlay (CryptoIdea.jsx:677-683), has **zero** dark overrides for `.plan-*`/`.cycle-*` (faint
@@ -1124,7 +1124,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   return-to-origin, X suppressed during `processing`) · **R27-4** no-refund policy line in the downgrade Modal +
   Account cancel caption. Update Login/upgrade tests for the desktop-Modal branch. Build R27-1+R27-2 → R27-3 → R27-4
   on "go".
-- [ ] **Round 28 — Billing: current-plan awareness + re-buy guard + honest benefit copy + light-mode readability —
+- [x] **Round 28 — Billing: current-plan awareness + re-buy guard + honest benefit copy + light-mode readability —
   📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 28";
   grounded via a 3-agent read-only map). **Real bug found:** the plan-picker (Login.jsx:91-113) never reads
   `user?.tier`, so a Pro user can click "Choose Pro" again and be **charged twice** (no guard/badge/disabled state);
