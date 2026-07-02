@@ -681,8 +681,19 @@ export default function CryptoIdea(){
         scrim, so validation errors float fully bright on top of any open Modal. */}
     {err&&<div role="alert" className="ci-toast">{err}</div>}
     {showPlan&&screen!=="login"&&(()=>{
-      // Reuse the Login() flow rendering for upgrade overlay
-      // But Login() handles the showPlan branch — render it as a full overlay
+      // R27-3: on DESKTOP the plan/billing flow renders inside the shared <Modal>
+      // (title + X; no scrim-dismiss so a mis-click doesn't abandon a mid-flow
+      // upgrade; the X is suppressed during the fake-PayPal "processing" step).
+      // Closing only clears the overlay state — `screen` was never changed by the
+      // flow, so the X lands you exactly where you were (Account or a tab).
+      // Mobile keeps the original full-screen overlay.
+      if(isDesktop){
+        const planTitle=(upgradeStep==="billing"&&upgradeFlow)
+          ?("Upgrade to "+(upgradeFlow==="premium"?"Premium":"Pro"))
+          :(upgradeStep==="welcome"||upgradeStep==="processing")?"":"Choose a plan";
+        const closePlanFlow=()=>{setShowPlan(false);setUpgradeFlow(null);setUpgradeStep("billing");setShowWelcome(null)};
+        return(<Modal size="md" title={planTitle} dismissOnScrim={false} hideClose={upgradeStep==="processing"} onClose={closePlanFlow}><Login popup/></Modal>);
+      }
       return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:c.bg,zIndex:9000,overflowY:"auto",display:"flex",justifyContent:"center"}}>
         <div style={{width:"100%",maxWidth:430}}><Login/></div>
       </div>);
@@ -698,7 +709,9 @@ export default function CryptoIdea(){
       // R15-3: downgrade confirm now uses the shared centered Modal (was a bottom-sheet).
       return(
         <Modal size="sm" title={`Downgrade to ${targetLabel}?`} onClose={()=>setDowngradeTo(null)}>
-          <div style={{fontSize:13,color:c.dim,lineHeight:1.6,marginBottom:18}}>Your subscription is paid until the end of the period. You'll keep your current access until then. After that date, your account will be downgraded.</div>
+          {/* R27-4: the transparent no-refund policy line (cancel-at-period-end is the
+              built model — dueDowngrade only flips after endDate; no proration). */}
+          <div style={{fontSize:13,color:c.dim,lineHeight:1.6,marginBottom:18}}>Your subscription is paid until the end of the period. You'll keep your current access until then. After that date, your account will be downgraded. We don't refund the unused time — you keep everything you paid for until then.</div>
 
           <div className="dg-ends" style={{padding:"12px 14px",borderRadius:12,background:"#FFF0F0",border:"1px solid #FFE0E0",marginBottom:18}}>
             <div style={{fontSize:11,fontWeight:700,color:c.red,marginBottom:4}}>SUBSCRIPTION ENDS</div>

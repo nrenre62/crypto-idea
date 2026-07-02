@@ -508,6 +508,9 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
    sit on the SAME screen-root element, so this must NOT be a descendant selector
    (`.ci-app .auth-wrap`), or the flex-centering silently never applies. */
 .ci-app.auth-wrap { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; text-align:center; }
+/* R27-3: the plan/billing flow BODY inside the desktop <Modal> — same centered column
+   as auth-wrap, minus the full-height stretch (the Modal frames it). Token-based → dark-safe. */
+.ci-app .plan-pop { display:flex; flex-direction:column; align-items:center; text-align:center; padding:8px 0 4px; }
 .ci-app .auth-logo { font-family:var(--display); font-size:32px; font-weight:500; letter-spacing:-.02em; margin-bottom:4px; }
 .ci-app .auth-logo span { font-weight:700; }
 .ci-app .auth-tagline { font-size:13px; color:var(--ink-soft); margin-bottom:34px; }
@@ -555,6 +558,12 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .cycle-card { padding:16px 18px; border-radius:var(--radius-sm); border:1px solid var(--line-strong); background:var(--paper-2); cursor:pointer; display:flex; justify-content:space-between; align-items:center; position:relative; }
 .ci-app .cycle-card.on { border:1.5px solid var(--accent); background:var(--accent-soft); }
 .ci-app .cycle-card.on.prem { border-color:#c9a9e8; background:#f3ecfb; }
+/* R27-2 (dark-block-only): the SELECTED cycle card was invisible in dark — the Premium
+   selected surface is a hardcoded light lavender (#f3ecfb) that turns light-on-light.
+   Dark gets a dark-tinted purple surface, and the Pro selected ring lifts to the
+   bright accent-ink (R3-3: accent-as-visible-mark uses --accent-ink in dark). */
+html[data-theme="dark"] .ci-app .cycle-card.on { border-color:var(--accent-ink); }
+html[data-theme="dark"] .ci-app .cycle-card.on.prem { background:rgba(125,75,191,.20); border-color:#c9a9e8; }
 .ci-app .cycle-name { font-size:15px; font-weight:700; }
 .ci-app .cycle-sub { font-size:12px; color:var(--ink-faint); margin-top:2px; }
 .ci-app .cycle-price { font-size:22px; font-weight:800; }

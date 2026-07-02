@@ -5,9 +5,10 @@ import { Ic } from "./ui.jsx";
 // top-right; the scrim closes on tap only when `dismissOnScrim` (off for text-entry
 // forms so typed input isn't lost). Long content scrolls inside `.cm-body`.
 //   size: "sm" (~360px, confirms) | "md" (~440px, forms/lessons)
-export function Modal({ title, onClose, size = "md", dismissOnScrim = true, children }) {
+//   hideClose (R27-3): suppress the X for uncloseable moments (a payment in flight).
+export function Modal({ title, onClose, size = "md", dismissOnScrim = true, hideClose = false, children }) {
   return (
-    <div className={"ci-app cm-scrim cm-scrim-" + size} onClick={dismissOnScrim ? onClose : undefined}>
+    <div className={"ci-app cm-scrim cm-scrim-" + size} onClick={dismissOnScrim && !hideClose ? onClose : undefined}>
       <div
         className={"cm-card cm-" + size}
         role="dialog"
@@ -16,7 +17,7 @@ export function Modal({ title, onClose, size = "md", dismissOnScrim = true, chil
       >
         <div className="cm-head">
           {title ? <div className="cm-title">{title}</div> : <span />}
-          <div className="cm-close" onClick={onClose} role="button" aria-label="Close">{Ic.close}</div>
+          {!hideClose && <div className="cm-close" onClick={onClose} role="button" aria-label="Close">{Ic.close}</div>}
         </div>
         <div className="cm-body">{children}</div>
       </div>

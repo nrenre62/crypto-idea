@@ -227,6 +227,20 @@ describe("Account screen (drill-in, via AppContext)", () => {
     expect(deletePortfolio).toHaveBeenCalledWith("a");
   });
 
+  // R27-4: billing shows the transparent cancel policy for paying tiers — cancel keeps
+  // access until the paid period ends, no partial refunds (the built dueDowngrade model).
+  it("R27-4: the billing view shows the no-partial-refunds caption for a Pro user", () => {
+    provide({ isPro: true, user: { ...base.user, tier: "pro" } });
+    open(/Plan & billing/);
+    expect(screen.getByText(/Cancel anytime · access continues until your paid period ends · no partial refunds\./)).toBeInTheDocument();
+  });
+
+  it("R27-4: a free (Starter) user sees no cancel caption (nothing to cancel)", () => {
+    provide({});
+    open(/Plan & billing/);
+    expect(screen.queryByText(/no partial refunds/)).toBeNull();
+  });
+
   // R26: the warning is count-aware — 1 coin reads "its transactions and thesis"
   // (each coin has at most ONE thesis), never "their … theses".
   it("R26: a ONE-coin portfolio's warning reads 'its transactions and thesis'", () => {

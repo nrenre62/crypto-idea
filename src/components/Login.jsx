@@ -5,9 +5,12 @@ import { Ic } from "./ui.jsx";
 // Login/Register screen + the post-registration plan picker and the upgrade/billing
 // flow (shown via showPlan — reused as a full-screen overlay from the shell too).
 // All auth + upgrade state and handlers come from context.
+// R27-3: `popup` renders the showPlan sub-steps BODY-ONLY for the desktop <Modal>
+// wrapper (the Modal head carries the title + X, so the full-height auth-wrap and the
+// in-content .auth-h are dropped). Mobile keeps the full-screen markup unchanged.
 // Restyled to the .ci-app design system; all data/handlers are unchanged. (The auth-
 // error color is kept inline as #FF3B30 — Login.test asserts that exact value.)
-export function Login() {
+export function Login({ popup }) {
   const {
     showPlan, showWelcome, upgradeStep, setUpgradeStep, upgradeFlow, setUpgradeFlow,
     setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user, setUser,
@@ -19,6 +22,10 @@ export function Login() {
   const [showPass,setShowPass]=useState(false);
   if(showPlan){
     const tierLabel={free:"Starter",pro:"Pro",premium:"Premium"}[showWelcome||"free"];
+    // R27-3: popup = centered body inside the Modal; full-screen wrapper otherwise.
+    const wrap=(kids)=>popup
+      ?<div className="plan-pop">{kids}</div>
+      :<div className="ci-app screen-bg auth-wrap">{kids}</div>;
 
     // ── Welcome screens (after payment or registration) ──
     if(upgradeStep==="welcome"){
@@ -29,19 +36,19 @@ export function Login() {
       };
       const list=benefits[showWelcome||"free"];
       const isPrem=showWelcome==="premium";
-      return(<div className="ci-app screen-bg auth-wrap">
+      return wrap(<>
         <div className={"welcome-check"+(isPrem?" prem":"")}>✓</div>
         <div className="welcome-h">Welcome to <span style={{fontWeight:700,color:isPrem?"#7d4bbf":"var(--accent)"}}>{tierLabel}.</span></div>
         <div className="welcome-list">{list.map((b,i)=>(<div key={i}>{b}</div>))}</div>
         <button onClick={()=>{const wasInAccount=user&&user.tier!=="free"&&showWelcome!=="free";setShowPlan(false);setUpgradeStep("billing");setUpgradeFlow(null);setShowWelcome(null);setScreen(wasInAccount?"account":"portfolio")}} className="btn-primary" style={{maxWidth:320}}>Open {showWelcome==="free"?"My Portfolio":"My Account"}</button>
-      </div>);
+      </>);
     }
 
     // ── Processing payment ──
-    if(upgradeStep==="processing")return(<div className="ci-app screen-bg auth-wrap">
+    if(upgradeStep==="processing")return wrap(<>
       <div className="proc-h">Processing...</div>
       <div className="proc-sub">Completing your payment with PayPal</div>
-    </div>);
+    </>);
 
     // ── Billing confirmation (works for both Pro and Premium) ──
     if(upgradeStep==="billing"&&upgradeFlow){
@@ -52,8 +59,8 @@ export function Login() {
       const yearlyM=(yearlyP/12).toFixed(2);
       const savePct=monthlyP>0?Math.round((1-yearlyP/(monthlyP*12))*100):0;
       const accentClr=isPrem?"#7d4bbf":"var(--accent)";
-      return(<div className="ci-app screen-bg auth-wrap">
-        <div className="auth-h">Upgrade to <span style={{color:accentClr}}>{isPrem?"Premium":"Pro"}</span></div>
+      return wrap(<>
+        {!popup&&<div className="auth-h">Upgrade to <span style={{color:accentClr}}>{isPrem?"Premium":"Pro"}</span></div>}
         <div className="auth-sub">Select your billing cycle</div>
         <div className="plan-col">
           <div onClick={()=>setUpgradeBilling("monthly")} className={"cycle-card"+(upgradeBilling==="monthly"?" on":"")+(isPrem?" prem":"")}>
@@ -84,12 +91,12 @@ export function Login() {
           </button>
           <button onClick={()=>{setUpgradeFlow(null);setUpgradeStep("pickPlan")}} className="back-link">← Back to plans</button>
         </div>
-      </div>);
+      </>);
     }
 
     // ── Pick plan (after registration) ──
-    return(<div className="ci-app screen-bg auth-wrap">
-      <div className="auth-h">Welcome, <span>{user?.name}</span></div>
+    return wrap(<>
+      {!popup&&<div className="auth-h">Welcome, <span>{user?.name}</span></div>}
       <div className="auth-sub">Select a plan</div>
       <div className="plan-col">
         <div onClick={async()=>{setShowWelcome("free");setUpgradeStep("welcome")}} className="plan-card">
@@ -110,7 +117,7 @@ export function Login() {
         </div>
       </div>
       <div className="auth-link" style={{marginTop:14}}><span onClick={()=>{setShowPlan(false);setUpgradeStep("billing");setScreen("portfolio")}}>Skip for now · explore Starter →</span></div>
-    </div>);
+    </>);
   }
   return(<div className="ci-app screen-bg auth-wrap">
     <div className="auth-logo">Crypto <span>Idea</span></div>

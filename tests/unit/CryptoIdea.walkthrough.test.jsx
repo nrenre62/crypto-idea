@@ -43,8 +43,16 @@ vi.mock("../../src/api/coingecko.js", () => ({
 vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn().mockResolvedValue(null) }));
 
 import { onAuthChange } from "../../src/api/firebase-auth.js";
-import { getPortfolios, getCoins } from "../../src/api/firebase-database.js";
+import { getPortfolios, getCoins, getUserProfile } from "../../src/api/firebase-database.js";
 import CryptoIdea from "../../src/CryptoIdea.jsx";
+
+// R27-3: simulate a desktop viewport — matches ONLY the min-width query (prefers-color-
+// scheme etc. stay false so the theme is untouched). Delete window.matchMedia to restore.
+const mmDesktop = (q) => ({
+  matches: q.includes("min-width"), media: q,
+  addEventListener: () => {}, removeEventListener: () => {},
+  addListener: () => {}, removeListener: () => {},
+});
 
 const loginAs = (email = "free@test.com", name = "Free") =>
   onAuthChange.mockImplementation((cb) => { cb({ uid: "u1", email, displayName: name }); return () => {}; });
@@ -53,7 +61,9 @@ const loginAs = (email = "free@test.com", name = "Free") =>
 const tab = (label) => fireEvent.click(screen.getByText(label));
 
 describe("User walkthrough — all functions", () => {
-  beforeEach(() => vi.clearAllMocks());
+  // localStorage.clear(): the uid-keyed profile cache (ci-profile-u1) persists across
+  // tests — a completed fake upgrade in one test would leak tier:"pro" into the next.
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
 
   it("1. Logged-out: login screen renders", async () => {
     onAuthChange.mockImplementation((cb) => { cb(null); return () => {}; });
@@ -185,6 +195,78 @@ describe("User walkthrough — all functions", () => {
     expect(screen.queryByText("Market Data")).toBeNull();
     expect(screen.getByText("Trending")).toBeInTheDocument();
     expect(screen.queryByText(/My Assets/i)).toBeNull();   // did NOT jump to Portfolio
+  });
+
+  // R27-3 — on DESKTOP the plan/billing flow renders inside the shared Modal (X-close,
+  // no scrim-dismiss); the X abandons the flow and leaves you on the screen you were on.
+  it("R27-3: desktop — upgrade flow is a centered Modal with an X; X returns to origin (Account)", async () => {
+    window.matchMedia = mmDesktop;
+    try {
+      loginAs();
+      render(<CryptoIdea />);
+      await screen.findByText(/My Assets/i);
+      fireEvent.click(screen.getByText("STARTER"));            // → Account (origin)
+      await screen.findByText("Plan usage");
+      fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+      fireEvent.click(screen.getByText("Upgrade to Pro"));     // startUpgrade("pro")
+      // the billing-cycle step renders inside the shared Modal card
+      const card = document.querySelector(".cm-card");
+      expect(card).toBeTruthy();
+      expect(within(card).getByText("Upgrade to Pro")).toBeInTheDocument();       // Modal title
+      expect(within(card).getByText(/Select your billing cycle/)).toBeInTheDocument();
+      expect(within(card).getByText("Monthly")).toBeInTheDocument();
+      // X → flow abandoned, still on the Account billing view (origin), not Portfolio
+      fireEvent.click(within(card).getByLabelText("Close"));
+      expect(document.querySelector(".cm-card")).toBeNull();
+      expect(screen.getByText(/Plan & billing/)).toBeInTheDocument();
+    } finally { delete window.matchMedia; }
+  });
+
+  it("R27-3: desktop — the X is suppressed while a payment is processing", async () => {
+    window.matchMedia = mmDesktop;
+    try {
+      loginAs();
+      render(<CryptoIdea />);
+      await screen.findByText(/My Assets/i);
+      fireEvent.click(screen.getByText("STARTER"));
+      await screen.findByText("Plan usage");
+      fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+      fireEvent.click(screen.getByText("Upgrade to Pro"));
+      fireEvent.click(screen.getByText(/Pay with/));            // → 2s fake-PayPal step
+      expect(screen.getByText("Processing...")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Close")).toBeNull();      // no X mid-payment
+      // …the flow completes into the welcome screen (X allowed again there)
+      expect(await screen.findByText(/Welcome to/, {}, { timeout: 3500 })).toBeInTheDocument();
+    } finally { delete window.matchMedia; }
+  });
+
+  it("R27-3: mobile — the plan flow stays the full-screen overlay (no Modal card)", async () => {
+    loginAs();
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("STARTER"));
+    await screen.findByText("Plan usage");
+    fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+    fireEvent.click(screen.getByText("Upgrade to Pro"));
+    expect(document.querySelector(".cm-card")).toBeNull();      // no popup on mobile
+    expect(document.querySelector(".auth-wrap")).toBeTruthy();  // full-screen flow kept
+    expect(screen.getByText(/Select your billing cycle/)).toBeInTheDocument();
+  });
+
+  // R27-4 — the transparent no-refund line in the downgrade/cancel confirm.
+  it("R27-4: the cancel/downgrade confirm states the no-refund policy", async () => {
+    loginAs("pro@test.com", "Pro");
+    // Once: don't leak the pro tier into later tests (clearAllMocks keeps implementations)
+    getUserProfile.mockResolvedValueOnce({ success: true, tier: "pro",
+      subscription: { billing: "monthly", startDate: "2026-06-01", endDate: "2026-08-01", cancelled: false } });
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("PRO"));
+    await screen.findByText("Plan usage");
+    fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+    fireEvent.click(screen.getByText(/Cancel Pro/));
+    expect(await screen.findByText(/Downgrade to Starter\?/)).toBeInTheDocument();
+    expect(screen.getByText(/We don't refund the unused time/)).toBeInTheDocument();
   });
 
   // R21 — the global error toast: carries the raised .ci-toast class (z-index 10000,
