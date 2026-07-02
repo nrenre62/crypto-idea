@@ -635,7 +635,10 @@ export default function CryptoIdea(){
   // ── Coin Info Screen → components/CoinInfo.jsx (reads context) ──
 
   const isDesktop=useIsDesktop();
-  const at=(screen==="addEntry"||screen==="detail"||screen==="coinInfo"||screen==="account")?"portfolio":screen;
+  // R25-3: coinInfo is no longer a screen — it's an infoCoin-driven overlay over the
+  // current tab (open from any coin icon; closing returns to where you were).
+  const openCoinInfo=(coin)=>setInfoCoin(coin);
+  const at=(screen==="addEntry"||screen==="detail"||screen==="account")?"portfolio":screen;
 
   if(site.maintenance) return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
     <div style={{fontSize:40,marginBottom:14}}>🛠️</div>
@@ -649,7 +652,7 @@ export default function CryptoIdea(){
     sq,setSq,searchResults,trending,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,editThesis,deleteThesis,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
     startAddTx,isDesktop,
-    infoCoin,setInfoCoin,prices,
+    infoCoin,setInfoCoin,openCoinInfo,prices,
     remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
     portfolios,setActivePortId,activePortId,
@@ -666,7 +669,7 @@ export default function CryptoIdea(){
   // widens on desktop. Card-collection screens opt into the wider 1040px track as
   // their grids land (§R). Same markup mobile↔desktop — no @media needed.
   const WIDE_SCREENS=new Set(["portfolio","research","journal","learn","search"]); // all 5 tab screens share the 1040 track so they're the same width on desktop
-  const NARROW_SCREENS=new Set(["detail","addEntry","coinInfo"]); // forms/detail read better narrower
+  const NARROW_SCREENS=new Set(["detail","addEntry"]); // forms/detail read better narrower (coinInfo → overlay, R25-3)
   // R19-9: on desktop the drill-ins are popups OVER Portfolio → the shell keeps Portfolio's wide track behind them.
   const baseScreen=(isDesktop&&NARROW_SCREENS.has(screen))?"portfolio":screen;
   const TAB_SCREENS=new Set(["portfolio","research","journal","learn","search"]); // bottom-nav tabs get the persistent account avatar
@@ -755,17 +758,19 @@ export default function CryptoIdea(){
     {screen==="search"&&<Search/>}
     {screen==="detail"&&!isDesktop&&<Detail/>}
     {screen==="addEntry"&&!isDesktop&&<AddEntry/>}
-    {screen==="coinInfo"&&!isDesktop&&<CoinInfo/>}
     {/* R19-9: on desktop the drill-ins render as centered popups over the Portfolio base;
         Buy/Sell (addEntry) stacks on top of the Detail popup. Mobile keeps them full-screen. */}
-    {isDesktop&&screen==="coinInfo"&&infoCoin&&(
-      <Modal size="lg" title={infoCoin.name} onClose={()=>{setScreen("portfolio");setInfoCoin(null)}}><CoinInfo/></Modal>
-    )}
     {isDesktop&&(screen==="detail"||screen==="addEntry")&&sel&&(
       <Modal size="lg" title={sel.name} onClose={()=>{setScreen("portfolio");setSel(null)}}><Detail/></Modal>
     )}
     {isDesktop&&screen==="addEntry"&&sel&&(
       <Modal size="lg" title={(editEntry?"Edit ":eTxType==="sell"?"Sell ":"Buy ")+(sel.symbol||"")} dismissOnScrim={false} onClose={()=>setScreen("detail")}><AddEntry/></Modal>
+    )}
+    {/* R25-3: Coin info floats over the CURRENT screen on every device (body-only in the
+        shared Modal); closing returns to origin. Rendered last so it stacks above the
+        Detail/Buy-Sell popups when opened from the Detail header icon. */}
+    {infoCoin&&(
+      <Modal size={isDesktop?"lg":"md"} title={infoCoin.name} onClose={()=>setInfoCoin(null)}><CoinInfo/></Modal>
     )}
     {screen==="research"&&<Research/>}
     {screen==="journal"&&<Journal/>}

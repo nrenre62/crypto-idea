@@ -4,6 +4,7 @@ import { fmtP } from "../utils/format.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { thesisError, isThesisIncomplete } from "../utils/journal.js";
 import { CI } from "./ui.jsx";
+import { CoinIcon } from "./CoinIcon.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
 import { Modal } from "./Modal.jsx";   // Round 15: shared centered-card popup (provides the X-close)
 
@@ -326,7 +327,8 @@ export function Journal() {
                 <div className="sec-label"><h2>Needs a thesis ({needs.length})</h2></div>
                 {needs.map((c) => (
                   <div key={c.id} className="nt-row">
-                    <CI thumb={c.thumb} symbol={c.symbol} size={36} />
+                    {/* R25: icon opens Coin info (overlay) */}
+                    <CoinIcon coin={c} size={36} />
                     <div className="nt-id">
                       <div className="nt-name">{c.name}</div>
                       <div className="nt-sym">{c.symbol}</div>
@@ -351,7 +353,8 @@ export function Journal() {
                   return (
                     <div key={c.id} className="j-entry" onClick={() => setOpenCoin(c.id)}>
                       <div className="j-top">
-                        <CI thumb={c.thumb} symbol={c.symbol} size={36} />
+                        {/* R25: icon opens Coin info; stopPropagation keeps the card→detail tap */}
+                        <CoinIcon coin={c} size={36} />
                         <div>
                           <div className="j-coin">{c.name}</div>
                           <div className="j-date">Added {fmtDate(c.journal.createdAt)}</div>

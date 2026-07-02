@@ -5,6 +5,7 @@ import { cleanFunnel, thesisError } from "../utils/journal.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
 import { TOP_COINS } from "../utils/coins.js";
 import { CI } from "./ui.jsx";
+import { CoinIcon } from "./CoinIcon.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
 import { Modal } from "./Modal.jsx";
 
@@ -64,7 +65,8 @@ export function Search() {
           const ad = portfolio.find((x) => x.id === coin.id);
           return (
             <div key={coin.id} className="trend-item" style={{ opacity: ad ? 0.5 : 1 }}>
-              <CI thumb={coin.thumb} symbol={coin.symbol} size={36} />
+              {/* R25: icon opens Coin info (overlay); the + Add pill stays the row action */}
+              <CoinIcon coin={coin} size={36} />
               <div className="trend-info">
                 <div className="trend-name">{coin.name}</div>
                 <div className="trend-sub">{coin.symbol}{coin.rank ? " · #" + coin.rank : ""}</div>
@@ -91,7 +93,8 @@ export function Search() {
                 const ad = portfolio.find((x) => x.id === coin.id);
                 return (
                   <div key={coin.id} className="trend-card" style={{ opacity: ad ? 0.5 : 1 }}>
-                    <CI thumb={coin.thumb} symbol={coin.symbol} size={36} />
+                    {/* R25: icon opens Coin info (overlay) */}
+                    <CoinIcon coin={coin} size={36} />
                     <div className="trend-info">
                       <div className="trend-name">{coin.name}</div>
                       <div className="trend-sub">{coin.symbol}{coin.rank ? " · #" + coin.rank : ""}</div>

@@ -3,7 +3,8 @@ import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct, fmtMc, fmtDT } from "../utils/format.js";
 import { coinPnl } from "../utils/pnl.js";
 import { c } from "../utils/theme.js";
-import { Ic, CI } from "./ui.jsx";
+import { Ic } from "./ui.jsx";
+import { CoinIcon } from "./CoinIcon.jsx";
 import { Modal } from "./Modal.jsx";
 import { sortTx, pageWindow } from "../utils/tx.js";
 // (Round 15: shared centered-card popup)
@@ -67,9 +68,9 @@ export function Detail() {
           :<button className="pill-danger" style={{animation:"fadeIn 0.15s"}} onClick={()=>{remCoin(coin.id);setConfirmDel(false)}}>Remove</button>}
       </div>
 
-      {/* Price header */}
+      {/* Price header — R25: the icon opens Coin info (an overlay above this screen) */}
       <div className="price-hero">
-        <div className="ph-icon"><CI thumb={coin.thumb} symbol={coin.symbol} size={48}/></div>
+        <div className="ph-icon"><CoinIcon coin={coin} size={48}/></div>
         <div className="ph-sub">{coin.symbol}</div>
         <div className="ph-price">{fmtP(pr)}</div>
         <div><span className={"chg-pill"+(ch>=0?"":" dn")}>{fmtPct(ch)} (24h)</span></div>

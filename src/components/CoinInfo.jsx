@@ -1,36 +1,52 @@
+import { useState, useEffect } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct, fmtMc } from "../utils/format.js";
 import { TOP_COINS, PRICE_HISTORY, getHistoricalPrice } from "../utils/coins.js";
+import { fetchPrices } from "../api/coingecko.js";
 import { coinPnl } from "../utils/pnl.js";
-import { Ic, CI } from "./ui.jsx";
+import { CI } from "./ui.jsx";
 
 // Read-only coin overview: price + 24h, MARKET DATA, YOUR POSITION, and price-history
-// milestones. The viewed coin (infoCoin), live prices, and the active portfolio come
-// from context. 24h volume + circulating supply come from the /api/prices feed when
-// available and fall back to "—" (never NaN). Restyled to the .ci-app design system.
+// milestones. R25-3: always rendered BODY-ONLY inside the shared <Modal> overlay (the
+// Modal supplies the title + X on every device) — over whatever screen you were on.
+// R25-4: a not-yet-held coin isn't polled by useLivePrices, so its cached price is
+// fetched once from the flat-cost /api/prices (carries cap/vol/circulating/rank after
+// R23). 24h volume + circulating fall back to "—" (never NaN).
 export function CoinInfo() {
-  const { infoCoin, setInfoCoin, prices, portfolio, setSel, setScreen, isDesktop } = useApp();
-  if(!infoCoin)return null;
+  const { infoCoin, setInfoCoin, prices, portfolio, setSel, setScreen } = useApp();
   const coin=infoCoin;
+  const live=coin?prices[coin.id]:null;
+  const [fetched,setFetched]=useState(null);
+  useEffect(()=>{
+    let on=true;
+    setFetched(null);
+    // one-shot fetch for a coin absent from the live map (held coins are already polled)
+    if(coin&&!prices[coin.id]){
+      fetchPrices([coin.id]).then(d=>{if(on&&d&&d[coin.id])setFetched(d[coin.id])});
+    }
+    return()=>{on=false};
+  },[coin?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if(!coin)return null;
   const cd=TOP_COINS.find(x=>x.id===coin.id);
-  const p=prices[coin.id];
+  const p=live||fetched;
   const pr=p?.usd||cd?.mockPrice||0;
   const ch=p?.usd_24h_change||cd?.mockChange||0;
   const mc=p?.usd_market_cap||cd?.mockMcap||0;
   const vol=p?.usd_24h_vol||0;            // 24h trading volume — "—" until the proxy supplies it
   const circ=p?.circulating||0;           // circulating supply — "—" until the proxy supplies it
-  const rank=cd?.rank;
+  const rank=p?.usd_market_cap_rank!=null?p.usd_market_cap_rank:cd?.rank;   // R23: live rank first
   const portCoin=portfolio.find(x=>x.id===coin.id);
 
   return(
-    <div className={isDesktop ? "detail-popup" : "ci-app screen-bg"}>
-      {/* R19-9: desktop = popup (Modal supplies title + X); keep the Transactions action. */}
-      <div className="detail-head">
-        {!isDesktop && <button className="icon-btn" onClick={()=>{setScreen("portfolio");setInfoCoin(null)}}>{Ic.back}</button>}
-        {!isDesktop && <span className="dh-title">{coin.name}</span>}
-        {isDesktop && <span style={{flex:1}} />}
-        <button className="pill-ghost" onClick={()=>{setSel(portCoin||coin);setScreen("detail");setInfoCoin(null)}}>Transactions</button>
-      </div>
+    <div className="detail-popup">
+      {/* R25-5: Transactions = the accent pill (thesis-Edit look), HELD coins only —
+          a non-held Search coin has no transactions to show. */}
+      {portCoin&&(
+        <div className="detail-head">
+          <span style={{flex:1}} />
+          <button className="j-edit-btn" onClick={()=>{setSel(portCoin);setScreen("detail");setInfoCoin(null)}}>Transactions</button>
+        </div>
+      )}
 
       {/* Price header */}
       <div className="price-hero">

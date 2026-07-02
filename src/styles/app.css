@@ -353,8 +353,11 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .ac-top { display:flex; align-items:center; gap:11px; margin-bottom:12px; }
 /* R4-2: the coin image is its own tap target → CoinInfo (the card background opens
    Add-transaction). A hover ring marks the small circle as separately interactive. */
-.ci-app .ac-img { display:inline-flex; border-radius:50%; cursor:pointer; transition:box-shadow .15s var(--ease); }
-.ci-app .ac-img:hover { box-shadow:0 0 0 3px var(--accent-soft); }
+/* R25-1: shared interactive coin icon (folds the old Portfolio-only .ac-img) —
+   accent ring on hover, stronger ring + slight shrink on press (tap on mobile). */
+.ci-app .coin-ic { display:inline-flex; border-radius:50%; cursor:pointer; transition:box-shadow .15s var(--ease), transform .1s var(--ease); }
+.ci-app .coin-ic:hover { box-shadow:0 0 0 3px var(--accent-soft); }
+.ci-app .coin-ic:active { box-shadow:0 0 0 3px var(--accent); transform:scale(.96); }
 .ci-app .ac-id { min-width:0; }
 .ci-app .ac-name { font-weight:700; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ci-app .ac-amt { font-size:12px; color:var(--ink-faint); margin-top:1px; }

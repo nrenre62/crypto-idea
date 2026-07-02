@@ -1,7 +1,7 @@
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct } from "../utils/format.js";
 import { portfolio24hPct } from "../utils/pnl.js";
-import { CI } from "./ui.jsx";
+import { CoinIcon } from "./CoinIcon.jsx";
 import { PortfolioBar } from "./PortfolioBar.jsx";
 
 // Main logged-in screen: the value summary card, portfolio switcher, and the asset
@@ -11,7 +11,7 @@ import { PortfolioBar } from "./PortfolioBar.jsx";
 export function Portfolio() {
   const {
     api, tv, totalBuys, tpnl, tpp, portfolio, maxCoinsPerPort, usagePct,
-    prices, isPro, isPremium, setScreen, startUpgrade, setInfoCoin, setSel,
+    prices, isPro, isPremium, setScreen, startUpgrade, setSel,
   } = useApp();
   const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
   const cents = (tv % 1).toFixed(2).slice(2);
@@ -94,9 +94,8 @@ export function Portfolio() {
             return (
               <div key={coin.id} className="asset-card" onClick={() => { setSel(coin); setScreen("detail"); }}>
                 <div className="ac-top">
-                  <span className="ac-img" onClick={(e) => { e.stopPropagation(); setInfoCoin(coin); setScreen("coinInfo"); }} title={`View ${coin.name} info`}>
-                    <CI thumb={coin.thumb} symbol={coin.symbol} />
-                  </span>
+                  {/* R25: the shared CoinIcon (accent ring + press) opens the Coin-info overlay */}
+                  <CoinIcon coin={coin} />
                   <div className="ac-id">
                     <div className="ac-name">{coin.name}</div>
                     <div className="ac-amt">{h > 0 ? h.toLocaleString("en-US", { maximumFractionDigits: 6 }) : "0"} {coin.symbol}</div>

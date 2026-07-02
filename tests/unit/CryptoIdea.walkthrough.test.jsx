@@ -169,6 +169,24 @@ describe("User walkthrough — all functions", () => {
     expect(screen.getByRole("button", { name: /Privacy & data/ })).toBeInTheDocument();
   });
 
+  // R25 — Coin info is an OVERLAY over the current tab (not a Portfolio drill-in):
+  // opening from Search keeps you on Search; the X returns to where you were.
+  it("R25: a coin icon opens the Coin-info overlay over the CURRENT tab; X returns there", async () => {
+    loginAs();
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    tab("Search");
+    await screen.findByText("Trending");
+    // click the first trending coin's icon (the shared CoinIcon)
+    fireEvent.click(document.querySelectorAll(".trend-card .coin-ic")[0]);
+    expect(await screen.findByText("Market Data")).toBeInTheDocument();
+    // close → back on Search (no jump to Portfolio)
+    fireEvent.click(screen.getByLabelText("Close"));
+    expect(screen.queryByText("Market Data")).toBeNull();
+    expect(screen.getByText("Trending")).toBeInTheDocument();
+    expect(screen.queryByText(/My Assets/i)).toBeNull();   // did NOT jump to Portfolio
+  });
+
   // R21 — the global error toast: carries the raised .ci-toast class (z-index 10000,
   // above every popup's 9500 scrim — the stacking itself is browser-verified) and
   // stays readable for ~6s (double the old 3s) before auto-dismissing.

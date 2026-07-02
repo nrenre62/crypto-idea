@@ -39,32 +39,32 @@ describe("Portfolio screen (extracted, via AppContext)", () => {
     expect(card.textContent).not.toContain("held");
   });
 
-  // R4-2: split click zones — the coin IMAGE opens CoinInfo; the card BACKGROUND opens
-  // Add-transaction (default Buy), so users can record a position in one tap.
-  it("tapping the coin image opens CoinInfo (not the whole card)", () => {
+  // R4-2/R25: split click zones — the coin IMAGE opens the Coin-info overlay (via the
+  // shared CoinIcon → openCoinInfo); the card BACKGROUND opens Detail.
+  it("tapping the coin image opens CoinInfo via openCoinInfo (not the whole card)", () => {
     const coin = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "",
       entries: [{ id: "t1", type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01" }] };
-    const setScreen = vi.fn(), setInfoCoin = vi.fn(), startAddTx = vi.fn();
+    const setScreen = vi.fn(), openCoinInfo = vi.fn(), startAddTx = vi.fn();
     const { container } = provide(Portfolio, {
-      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, setInfoCoin, startAddTx,
+      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, openCoinInfo, startAddTx,
     });
-    fireEvent.click(container.querySelector(".asset-card .ac-img"));
-    expect(setInfoCoin).toHaveBeenCalledWith(coin);
-    expect(setScreen).toHaveBeenCalledWith("coinInfo");
-    expect(startAddTx).not.toHaveBeenCalled(); // image tap must not also open Add-transaction
+    fireEvent.click(container.querySelector(".asset-card .coin-ic"));
+    expect(openCoinInfo).toHaveBeenCalledWith(coin);
+    expect(setScreen).not.toHaveBeenCalled();   // R25-3: an overlay now, not a screen jump
+    expect(startAddTx).not.toHaveBeenCalled();  // image tap must not also open Add-transaction
   });
 
   it("tapping the card background opens the Detail screen (position + transactions)", () => {
     const coin = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "",
       entries: [{ id: "t1", type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01" }] };
-    const setScreen = vi.fn(), setSel = vi.fn(), setInfoCoin = vi.fn();
+    const setScreen = vi.fn(), setSel = vi.fn(), openCoinInfo = vi.fn();
     const { container } = provide(Portfolio, {
-      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, setSel, setInfoCoin,
+      portfolio: [coin], prices: { bitcoin: { usd: 100, usd_24h_change: 1 } }, tv: 100, setScreen, setSel, openCoinInfo,
     });
     fireEvent.click(container.querySelector(".asset-card"));
     expect(setSel).toHaveBeenCalledWith(coin);
     expect(setScreen).toHaveBeenCalledWith("detail");
-    expect(setInfoCoin).not.toHaveBeenCalled(); // background must not open CoinInfo
+    expect(openCoinInfo).not.toHaveBeenCalled(); // background must not open CoinInfo
   });
 
   it("renders the value summary card (eyebrow + gain line + INVESTED/24H/ASSETS) and no live line", () => {
