@@ -66,6 +66,13 @@ describe("deriveRisk (R23) — allocation-weighted + mega-cap safety floor", () 
     expect(r.level).toBe("High");
     expect(r.megaAlloc).toBe(30);
   });
+  it("pins the exact 40% anchor boundary via the user-visible note (review follow-up)", () => {
+    // With a mega anchor the weighted MEAN never reaches High at current constants —
+    // the floor is a guarantee, and the user-visible 40% switch is the NOTE wording.
+    const b = { top: 40, mid: 0, small: 60 };
+    expect(riskNote(b, 39.9, "Moderate")).not.toMatch(/anchor/);   // just under → size-mix
+    expect(riskNote(b, 40, "Moderate")).toMatch(/\$100B\+ anchor \(40%\)/); // exactly 40 → anchor line
+  });
   it("graduated: a rank-600/$400M coin scores the book riskier than a rank-400/$900M one", () => {
     const riskier = deriveRisk([{ alloc: 100, rank: 600, marketCap: 4e8 }]);
     const safer = deriveRisk([{ alloc: 100, rank: 400, marketCap: 9e8 }]);
