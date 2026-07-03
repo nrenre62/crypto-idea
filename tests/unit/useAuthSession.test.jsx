@@ -7,6 +7,9 @@ vi.mock("../../src/api/firebase-auth.js", () => ({
   onAuthChange: vi.fn((cb) => { authCb = cb; return () => {}; }),
 }));
 vi.mock("../../src/api/firebase-database.js", () => ({
+  watchPortfolios: vi.fn(() => () => {}),
+  watchCoins: vi.fn(() => () => {}),
+  watchLearnProgress: vi.fn((uid, cb) => { cb({ success: false }); return () => {}; }),
   getPortfolios: vi.fn().mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] }),
   getCoins: vi.fn().mockResolvedValue({ success: true, coins: [] }),
   // Default: no server profile doc -> session should fall back to the "free" default.

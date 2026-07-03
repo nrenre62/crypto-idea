@@ -19,7 +19,7 @@
 import {
   collection, doc, setDoc, getDoc, getDocFromServer, getDocs,
   deleteDoc, updateDoc, deleteField, query, orderBy,
-  serverTimestamp, writeBatch, increment
+  serverTimestamp, writeBatch, increment, onSnapshot
 } from "firebase/firestore";
 import { db } from "./firebase.config.js";
 
@@ -340,3 +340,48 @@ export async function deleteTransaction(uid, portfolioId, coinId, txId) {
 // Tier limits live in src/hooks/useUpgrade.js (single source of truth). They are
 // ENFORCED server-side by firestore.rules (reading config/app.plans); the client
 // only reads them for display, so they don't belong in this data-access layer.
+
+// ═══ C-A3 (C12): live owner-doc listeners — multi-device sync ═══
+// A second device's edits appear WITHOUT a reload. Bounded, no fan-out: the
+// portfolios LIST + the ACTIVE portfolio's coins only, plus the single Learn
+// progress doc. All watchers degrade silently on error (last-good state stays,
+// matching the one-shot readers) and return their unsubscribe function.
+
+// Portfolio metas (name/order) for the signed-in user.
+export function watchPortfolios(uid, onChange) {
+  const q = query(collection(db, "users", uid, "portfolios"), orderBy("order"));
+  return onSnapshot(q,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    () => { /* keep last-good */ });
+}
+
+// The ACTIVE portfolio's coins, entries included. Every transaction write bumps
+// the parent coin's txCount (writeBatch in addTransaction), so tx changes surface
+// here too — and only the CHANGED coins re-read their transactions (docChanges),
+// keeping reads minimal on the hot path.
+export function watchCoins(uid, portfolioId, onChange) {
+  const cache = new Map();   // coinId -> coin with entries (last known)
+  const ref = collection(db, "users", uid, "portfolios", portfolioId, "coins");
+  return onSnapshot(ref, async (snap) => {
+    try {
+      for (const ch of snap.docChanges()) {
+        const id = ch.doc.id;
+        if (ch.type === "removed") { cache.delete(id); continue; }
+        const coin = { id, ...ch.doc.data() };
+        const txSnap = await getDocs(query(
+          collection(db, "users", uid, "portfolios", portfolioId, "coins", id, "transactions"),
+          orderBy("date", "desc")));
+        coin.entries = txSnap.docs.map((t) => ({ id: t.id, ...t.data() }));
+        cache.set(id, coin);
+      }
+      onChange(snap.docs.map((d) => cache.get(d.id)).filter(Boolean));
+    } catch (e) { /* keep last-good */ }
+  }, () => { /* keep last-good */ });
+}
+
+// The user's Learn progress doc (same result shape as getLearnProgress).
+export function watchLearnProgress(uid, onChange) {
+  return onSnapshot(doc(db, "users", uid, "learn", "progress"),
+    (snap) => onChange(snap.exists() ? { success: true, ...snap.data() } : { success: false }),
+    () => onChange({ success: false }));
+}

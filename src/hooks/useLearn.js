@@ -5,7 +5,7 @@
 // zeroed default — the tab still renders), so it never blocks the UI.
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "./app-context.js";
-import { getLearnProgress, saveLearnProgress } from "../api/firebase-database.js";
+import { saveLearnProgress, watchLearnProgress } from "../api/firebase-database.js";
 import {
   MODULES, levelFromXp, moduleStates, nextLesson, earnedBadges,
   completeLesson as completeLessonPure,
@@ -29,21 +29,22 @@ export function useLearn() {
     let alive = true;
     if (!uid) { setProgress(DEFAULT); setLoading(false); return; }
     setLoading(true);
-    getLearnProgress(uid)
-      .then((r) => {
-        if (!alive) return;
-        if (r && r.success) {
-          setProgress({
-            xp: r.xp || 0,
-            streak: r.streak || 0,
-            lastActivity: r.lastActivity || "",
-            completedLessons: Array.isArray(r.completedLessons) ? r.completedLessons : [],
-          });
-        }
-        setLoading(false);
-      })
-      .catch(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
+    // C-A3 (C12): a live listener instead of a one-shot read — a lesson finished on
+    // a second device updates this one's XP/streak without a reload. Same graceful
+    // degrade: a missing doc / error keeps the zeroed default and never blocks the UI.
+    const unsub = watchLearnProgress(uid, (r) => {
+      if (!alive) return;
+      if (r && r.success) {
+        setProgress({
+          xp: r.xp || 0,
+          streak: r.streak || 0,
+          lastActivity: r.lastActivity || "",
+          completedLessons: Array.isArray(r.completedLessons) ? r.completedLessons : [],
+        });
+      }
+      setLoading(false);
+    });
+    return () => { alive = false; if (typeof unsub === "function") unsub(); };
   }, [uid]);
 
   // Quiz-gated completion: callers invoke this only when the quiz is passed.

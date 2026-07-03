@@ -4,6 +4,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const getLearnProgress = vi.fn();
 const saveLearnProgress = vi.fn().mockResolvedValue({ success: true });
 vi.mock("../../src/api/firebase-database.js", () => ({
+  watchPortfolios: vi.fn(() => () => {}),
+  watchCoins: vi.fn(() => () => {}),
+  // C-A3: the hook subscribes now — delegate to the per-test getLearnProgress seed
+  // so every existing mockResolvedValue(...) keeps working unchanged.
+  watchLearnProgress: vi.fn((uid, cb) => { getLearnProgress(uid).then((r) => cb(r || { success: false })).catch(() => cb({ success: false })); return () => {}; }),
   getLearnProgress: (...a) => getLearnProgress(...a),
   saveLearnProgress: (...a) => saveLearnProgress(...a),
 }));

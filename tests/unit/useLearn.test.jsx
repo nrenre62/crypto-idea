@@ -2,10 +2,14 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock the A4 persistence layer so the hook is tested in isolation.
-const getLearnProgress = vi.fn();
+// C-A3: the hook now SUBSCRIBES via watchLearnProgress — the mock delivers one
+// snapshot synchronously (like Firestore's initial snapshot) and returns an unsub.
+const watchLearnProgress = vi.fn();
 const saveLearnProgress = vi.fn().mockResolvedValue({ success: true });
+const progressIs = (payload) =>
+  watchLearnProgress.mockImplementation((uid, cb) => { cb(payload); return () => {}; });
 vi.mock("../../src/api/firebase-database.js", () => ({
-  getLearnProgress: (...a) => getLearnProgress(...a),
+  watchLearnProgress: (...a) => watchLearnProgress(...a),
   saveLearnProgress: (...a) => saveLearnProgress(...a),
 }));
 
@@ -18,10 +22,10 @@ const wrap = (uid) => ({ children }) => (
 );
 
 describe("useLearn", () => {
-  beforeEach(() => { getLearnProgress.mockReset(); saveLearnProgress.mockClear(); });
+  beforeEach(() => { watchLearnProgress.mockReset(); saveLearnProgress.mockClear(); });
 
   it("loads persisted progress and derives level / next lesson", async () => {
-    getLearnProgress.mockResolvedValue({ success: true, xp: 50, streak: 2, lastActivity: "2026-06-23", completedLessons: ["markets-1"] });
+    progressIs({ success: true, xp: 50, streak: 2, lastActivity: "2026-06-23", completedLessons: ["markets-1"] });
     const { result } = renderHook(() => useLearn(), { wrapper: wrap("u1") });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.progress.xp).toBe(50);
@@ -31,7 +35,7 @@ describe("useLearn", () => {
   });
 
   it("completes a lesson, updates derived state, and persists", async () => {
-    getLearnProgress.mockResolvedValue({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] });
+    progressIs({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] });
     const { result } = renderHook(() => useLearn(), { wrapper: wrap("u1") });
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => { await result.current.complete("markets-1"); });   // async since C-R2e
@@ -42,7 +46,7 @@ describe("useLearn", () => {
   });
 
   it("re-completing a lesson does not double-count or re-save", async () => {
-    getLearnProgress.mockResolvedValue({ success: true, xp: 50, streak: 1, lastActivity: "2026-06-23", completedLessons: ["markets-1"] });
+    progressIs({ success: true, xp: 50, streak: 1, lastActivity: "2026-06-23", completedLessons: ["markets-1"] });
     const { result } = renderHook(() => useLearn(), { wrapper: wrap("u1") });
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => { await result.current.complete("markets-1"); });   // async since C-R2e
@@ -51,7 +55,7 @@ describe("useLearn", () => {
   });
 
   it("C-R2e: a failed persist reverts the optimistic XP and surfaces a toast", async () => {
-    getLearnProgress.mockResolvedValue({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] });
+    progressIs({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] });
     saveLearnProgress.mockRejectedValueOnce(new Error("network down"));
     const showErr = vi.fn();
     const wrapErr = ({ children }) => (
@@ -70,6 +74,6 @@ describe("useLearn", () => {
     const { result } = renderHook(() => useLearn(), { wrapper: wrap(null) });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.progress.xp).toBe(0);
-    expect(getLearnProgress).not.toHaveBeenCalled();
+    expect(watchLearnProgress).not.toHaveBeenCalled();
   });
 });

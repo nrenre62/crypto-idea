@@ -15,7 +15,7 @@ import { registerUser, updateUserSettings } from "../src/api/firebase-auth.js";
 import {
   getPortfolios, createPortfolio, getCoins,
   addCoin, addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
-  getLearnProgress, saveLearnProgress,
+  getLearnProgress, saveLearnProgress, watchPortfolios, watchCoins, updatePortfolioName,
 } from "../src/api/firebase-database.js";
 
 // Point the SDK at the local emulators (DEV auto-connect only happens under Vite).
@@ -165,4 +165,47 @@ test("learn progress: defaults when empty, then saves + reads back via the data 
   assert.equal(got.streak, 4);
   assert.deepEqual(got.completedLessons, ["m1-l1", "m1-l2", "m2-l1"]);
   assert.ok(got.updatedAt, "updatedAt should be stamped by saveLearnProgress");
+});
+
+// ═══ C-A3 (C12): live listeners — the multi-device sync DoD ═══
+// Subscribe FIRST, then write through the plain data-layer functions (standing in
+// for a second device — the listener only sees the change via Firestore, never via
+// local state), and assert the callback observed it.
+const waitUntil = async (pred, ms = 5000) => {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    if (pred()) return true;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return false;
+};
+
+test("C-A3: watchPortfolios sees a rename made after subscribing", async () => {
+  // (A free account caps at 1 portfolio, so the observed write is a RENAME of the
+  // default — same listener path a second device's create/rename/delete takes.)
+  const seen = [];
+  const unsub = watchPortfolios(uid, (metas) => seen.push(metas));
+  try {
+    const renamed = await updatePortfolioName(uid, "default", "Renamed by device B");
+    assert.ok(renamed.success, "rename should succeed: " + JSON.stringify(renamed));
+    const ok = await waitUntil(() => seen.some((m) => m.some((p) => p.name === "Renamed by device B")));
+    assert.ok(ok, "the listener should observe the rename (no reload)");
+  } finally { unsub(); }
+});
+
+test("C-A3: watchCoins surfaces a transaction added after subscribing (txCount bump)", async () => {
+  // Use an EXISTING coin (earlier tests may have filled the free coin cap): the
+  // tx write's txCount bump on the coin doc must re-surface it WITH the new entry.
+  const before = await getCoins(uid, "default");
+  assert.ok(before.success && before.coins.length > 0, "need an existing coin to observe");
+  const target = before.coins[0];
+  const baseCount = (target.entries || []).length;
+  const seen = [];
+  const unsub = watchCoins(uid, "default", (coins) => seen.push(coins));
+  try {
+    const tx = await addTransaction(uid, "default", target.id, { type: "buy", amount: 1, priceAtBuy: 2000, date: "2026-07-01T00:00" });
+    assert.ok(tx.success, "addTransaction: " + JSON.stringify(tx));
+    const ok = await waitUntil(() => seen.some((cs) => cs.some((x) => x.id === target.id && (x.entries || []).length === baseCount + 1)));
+    assert.ok(ok, "the txCount bump should re-surface the coin WITH the new transaction");
+  } finally { unsub(); }
 });

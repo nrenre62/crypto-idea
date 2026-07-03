@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { onAuthChange } from "../api/firebase-auth.js";
-import { getPortfolios, getCoins, getUserProfile } from "../api/firebase-database.js";
+import { getPortfolios, getCoins, getUserProfile, watchPortfolios } from "../api/firebase-database.js";
 import { db } from "../utils/storage.js";
 
 // Owns the auth session lifecycle: watches Firebase auth, loads the signed-in
@@ -42,7 +42,9 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
     };
     // Firebase is the source of truth for who is logged in. The password lives in
     // Firebase Auth and is never stored on the device.
+    let unsubPorts = null;   // C-A3: the live portfolio-metas listener for this session
     const unsub = onAuthChange(async (fbUser) => {
+      if (unsubPorts) { unsubPorts(); unsubPorts = null; }
       if (fbUser) {
         // Local cache holds non-authoritative prefs (settings) + a last-known tier, keyed by uid.
         const profile = await db.get("ci-profile-" + fbUser.uid) || {};
@@ -79,6 +81,17 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
           emailVerified: fbUser.emailVerified === true,
         };
         await loadPortfolios(fbUser.uid);
+        // C-A3 (C12): keep the portfolio LIST live — a rename/add/delete made on a
+        // second device merges in without a reload. Coins are preserved from the
+        // current state (the active portfolio's coins have their own live watcher
+        // in CryptoIdea; a portfolio new to this device starts empty until opened).
+        unsubPorts = watchPortfolios(fbUser.uid, (metas) => {
+          if (!metas.length) return;   // never blank the UI on a transient empty snapshot
+          cb.current.setPortfolios((prev) => metas.map((m) => {
+            const ex = prev.find((p) => p.id === m.id);
+            return { id: m.id, name: m.name, coins: ex ? ex.coins : [] };
+          }));
+        });
         // Apply any subscription expiry / payment-failure downgrade before showing.
         const checked = await cb.current.checkSubscriptionStatus(baseUser);
         setUser(checked);
@@ -89,7 +102,7 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
       }
       setDataLoaded(true);
     });
-    return () => { if (typeof unsub === "function") unsub(); };
+    return () => { if (typeof unsub === "function") unsub(); if (unsubPorts) unsubPorts(); };
   }, []);
 
   // ═══ Auto-save user profile when it changes (never stores a password) ═══

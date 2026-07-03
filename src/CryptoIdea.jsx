@@ -32,6 +32,7 @@ import {
   addTransaction as dbAddTransaction,
   updateTransaction as dbUpdateTransaction,
   deleteTransaction as dbDeleteTransaction,
+  watchCoins as dbWatchCoins,
 } from "./api/firebase-database.js";
 import { fetchSiteConfig } from "./api/config.js";
 import { useCoinSearch } from "./hooks/useCoinSearch.js";
@@ -635,6 +636,18 @@ export default function CryptoIdea(){
   // ── Subscription Helpers ──
   // calcEndDate / getTrimImpact / trimToTier now live in useUpgrade (above).
   const fmtDate=(d)=>new Date(d).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
+
+  // C-A3 (C12): keep the ACTIVE portfolio's coins live — a buy/sell/journal edit
+  // made on a second device appears here without a reload. Bounded to the one
+  // active portfolio (no fan-out); the watcher re-reads transactions only for
+  // coins whose doc changed (every tx write bumps the coin's txCount).
+  useEffect(()=>{
+    if(!user?.uid||!activePortId||activePortId==="default")return;
+    const unsub=dbWatchCoins(user.uid,activePortId,(coins)=>{
+      setPortfolios(prev=>prev.map(p=>p.id===activePortId?{...p,coins}:p));
+    });
+    return unsub;
+  },[user?.uid,activePortId]);
 
   // Check on app load whether the subscription expired or payment failed. The
   // decision (which tier, or none) is pure logic in useUpgrade.dueDowngrade; this
