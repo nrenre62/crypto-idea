@@ -36,6 +36,8 @@ const admin = require("firebase-admin");
 // and the pure PayPal-billing decision logic — both dependency-injected + unit-tested.
 const { checkCooldown } = require("./guards.js");
 const billing = require("./billing.js");
+// C-R2b (C14): trim the universe's lowest-rank tail instead of hitting the 1 MiB doc cap.
+const { trimUniverse } = require("./universe-utils.js");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -949,8 +951,31 @@ async function refreshUniverse({ pages = UNIVERSE_PAGES, prune = false } = {}) {
     }
   }
   const replace = prune && complete;               // only a complete daily refresh prunes
-  await db.doc(UNIVERSE_DOC).set({ updatedAt: Date.now(), coins }, replace ? undefined : { merge: true });
-  return coins;
+  // C-R2b (C14): a >1 MiB write would THROW and break both front-ends. Above the
+  // ~850 KiB soft limit, drop the lowest-rank tail and log it — never throw.
+  const guard = trimUniverse(coins);
+  if (guard.trimmed) console.warn(`refreshUniverse: universe ~${Math.round(guard.size / 1024)}KiB — trimmed ${guard.trimmed} lowest-rank coins to stay under the doc cap (C14)`);
+  await db.doc(UNIVERSE_DOC).set({ updatedAt: Date.now(), coins: guard.coins }, replace ? undefined : { merge: true });
+  return guard.coins;
+}
+
+// C-R2f: coalesce concurrent long-tail /simple/price fetches — a burst of requests
+// for the same cold coins triggers ONE upstream call, not one per request. Keyed by
+// the sorted id set (identical portfolios produce identical batches — the actual
+// stampede shape); the entry clears when the fetch settles.
+const _inflightPrice = new Map();
+async function coalescedSimplePrice(ids) {
+  const key = [...ids].sort().join(",");
+  const hit = _inflightPrice.get(key);
+  if (hit) return hit;
+  const p = (async () => {
+    try {
+      const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(ids.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: await cgHeaders() });
+      return r.ok ? await r.json() : null;
+    } finally { _inflightPrice.delete(key); }
+  })();
+  _inflightPrice.set(key, p);
+  return p;
 }
 
 // Read the shared universe; lazily refresh the FULL list on demand if missing/stale
@@ -1002,8 +1027,30 @@ exports.refreshPrices = functions.pubsub.schedule("every 5 minutes").onRun(async
 
 // Daily FULL refresh — guarantees the complete ~3,000-coin list and prunes coins
 // that dropped off the market-cap list. Cheap and reliable even on the free tier.
+// C-R2f: also prunes historyCache docs past HISTORY_TTL (they only re-fill on demand,
+// so expired ones are dead weight).
 exports.refreshUniverseDaily = functions.pubsub.schedule("every 24 hours").onRun(async () => {
   try { await refreshUniverse({ pages: UNIVERSE_PAGES, prune: true }); } catch (e) { console.error("refreshUniverseDaily:", e); }
+  try {
+    const cutoff = Date.now() - HISTORY_TTL;
+    const stale = await db.collection("historyCache").where("updatedAt", "<", cutoff).get();
+    for (const d of stale.docs) await d.ref.delete();
+    if (stale.size) console.log("refreshUniverseDaily: pruned", stale.size, "expired historyCache docs");
+  } catch (e) { console.error("historyCache prune:", e); }
+  return null;
+});
+
+// ─── C-R2c (C15): audit-log retention ───
+// Audit entries are kept on legitimate interest but AGE OUT after a fixed window,
+// regardless of account deletion (no per-account scrub). Disclosure: privacy.html.
+const AUDIT_RETENTION_MS = 365 * 24 * 3600 * 1000;   // 12 months
+exports.purgeOldAudit = functions.pubsub.schedule("every 24 hours").onRun(async () => {
+  try {
+    const cutoff = Date.now() - AUDIT_RETENTION_MS;
+    const old = await db.collection("audit").where("at", "<", cutoff).limit(500).get();
+    for (const d of old.docs) await d.ref.delete();
+    if (old.size) console.log("purgeOldAudit: removed", old.size, "expired audit entries");
+  } catch (e) { console.error("purgeOldAudit:", e); }
   return null;
 });
 
@@ -1080,11 +1127,14 @@ exports.api = functions.https.onRequest(async (req, res) => {
       // from cache. Cost stays flat (driven by distinct coins held across ALL users,
       // not request count). Price-only entries for off-list coins carry no name, so
       // search / coinlist skip them; the daily full refresh prunes them.
+      // C-R2f: (a) concurrent requests for the SAME stale coins coalesce behind one
+      // in-flight upstream fetch (no thundering herd on a cold burst); (b) the
+      // fold-back runs in a transaction with a per-coin `at` freshness check, so a
+      // scheduled refresh that landed mid-flight is never overwritten by older data.
       if (stale.length) {
         try {
-          const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(stale.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: await cgHeaders() });
-          if (r.ok) {
-            const d = await r.json();
+          const d = await coalescedSimplePrice(stale);
+          if (d) {
             const upd = {};
             for (const id of stale) {
               if (d[id]) {
@@ -1096,7 +1146,19 @@ exports.api = functions.https.onRequest(async (req, res) => {
               }
             }
             if (Object.keys(upd).length) {
-              try { await db.doc(UNIVERSE_DOC).set({ coins: upd }, { merge: true }); } catch (e) { /* ignore */ }
+              try {
+                await db.runTransaction(async (t) => {
+                  const snap = await t.get(db.doc(UNIVERSE_DOC));
+                  const cur = (snap.exists && snap.data().coins) || {};
+                  const fresh = {};
+                  for (const id in upd) {
+                    // Skip any coin a concurrent refresh already stamped NEWER than
+                    // our fetch time — never overwrite fresher data with older.
+                    if (((cur[id] || {}).at || 0) < now) fresh[id] = upd[id];
+                  }
+                  if (Object.keys(fresh).length) t.set(db.doc(UNIVERSE_DOC), { coins: fresh }, { merge: true });
+                });
+              } catch (e) { /* ignore */ }
             }
           }
         } catch (e) { /* ignore */ }

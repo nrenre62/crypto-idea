@@ -35,6 +35,16 @@
       <p>Our privacy policy is being finalized. Set the <b>Termly Privacy doc ID</b> in
       the admin dashboard (Settings → Analytics &amp; Legal) to publish it here.</p>
     </div>
+
+    <!-- C-R2c (C15): standing retention disclosure — kept OUTSIDE the Termly embed
+         so it applies regardless of the embedded policy's state. -->
+    <p class="muted" style="margin-top:18px;font-size:13px;line-height:1.6">
+      <b>Security &amp; audit records:</b> administrative and account-security events
+      (for example account deletion, data export, or subscription changes) are kept in a
+      security audit log for up to <b>12&nbsp;months</b> on the basis of our legitimate
+      interest in protecting the service, then deleted automatically. These records are
+      retained for the full period even if the related account is deleted earlier.
+    </p>
     <script>
       fetch('/api/config').then(function(r){return r.ok?r.json():null;}).then(function(c){
         var id = c && c.legal && c.legal.termlyPrivacyId;
