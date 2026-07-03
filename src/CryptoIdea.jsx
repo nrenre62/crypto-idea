@@ -295,10 +295,19 @@ export default function CryptoIdea(){
   };
   // Auto-save a single preference toggle (notifications / withdrawable consents) to the
   // validated settings map. Optimistic: update the UI immediately, then persist.
+  // C-R2e: a failed settings write no longer silently keeps the optimistic value —
+  // the toggle reverts and the user sees a toast (matches addCoin/addEntry honesty).
   const toggleSetting=async(key,value)=>{
     if(!user?.uid)return;
+    const prev=user.settings?user.settings[key]:undefined;
     setUser(u=>u?{...u,settings:{...(u.settings||{}),[key]:value}}:u);
-    await updateUserSettings(user.uid,{[key]:value});
+    try{
+      const r=await updateUserSettings(user.uid,{[key]:value});
+      if(r&&r.success===false)throw new Error(r.error||"save failed");
+    }catch(_e){
+      setUser(u=>u?{...u,settings:{...(u.settings||{}),[key]:prev}}:u);
+      showErr("Couldn't save that setting — check your connection.");
+    }
   };
   // Email-verify nudge (USER-CREATION.md §5): dismissible banner + resend.
   const [verifyDismissed,setVerifyDismissed]=useState(false);
@@ -686,7 +695,7 @@ export default function CryptoIdea(){
   </div>);
 
   // Shared state + handlers for extracted screens (grows as screens migrate).
-  const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,handleReset,
+  const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,handleReset,showErr,
     user,contactMsg,setContactMsg,contactSent,setContactSent,
     sq,setSq,searchResults,trending,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,editThesis,deleteThesis,
     sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,

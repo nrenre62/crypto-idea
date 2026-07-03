@@ -218,10 +218,11 @@ export function Account() {
               <div className="usage-note">Up to {maxTxPerCoin.toLocaleString()} per coin {custom.transactions!=null?"· custom":""}</div>
             </div>
 
-            {/* AI research allowance — server-authoritative (from /api/config plans); informational until B2 */}
+            {/* C-A4 (C6/C7): no user-facing AI budget/usage numbers — everything reads
+                "live"; usage + cost are admin-only (the admin dashboard's AI section). */}
             <div className="usage-row">
-              <div className="usage-top"><span className="usage-k">AI research / month</span><span className="usage-v">{aiMonthlyCents>0?`≈ ${aiMonthlyCents.toLocaleString()} analyses`:"Offline"}</span></div>
-              <div className="usage-note">{aiMonthlyCents>0?`$${(aiMonthlyCents/100).toFixed(0)}/mo live-AI budget · resets monthly`:"Live AI research is a Pro feature — upgrade to enable"}</div>
+              <div className="usage-top"><span className="usage-k">AI research</span><span className="usage-v">Live</span></div>
+              <div className="usage-note">Research summaries &amp; analysis — included in every plan</div>
             </div>
 
             <div className="usage-row" style={{borderBottom:"none"}}>

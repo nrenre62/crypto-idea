@@ -62,8 +62,10 @@ const PROFILES = [
   },
 ];
 
-// The fetch date stamped on the mock evidence (#11 "as of DATE").
-const MOCK_AS_OF = "2026-06-22";
+// The fetch date stamped on the mock evidence (#11 "as of DATE"). C-A1: derived
+// (yesterday) instead of a fixed literal, so the demo seam never shows a stale,
+// misleading date pre-live. The real per-coin cache replaces this at Wave B (B5).
+const MOCK_AS_OF = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10);
 
 // Majors read as strong regardless of hash — a sensible demo default.
 const STRONG = new Set(["bitcoin", "ethereum", "solana"]);

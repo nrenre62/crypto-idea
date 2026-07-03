@@ -34,10 +34,10 @@ describe("useLearn", () => {
     getLearnProgress.mockResolvedValue({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] });
     const { result } = renderHook(() => useLearn(), { wrapper: wrap("u1") });
     await waitFor(() => expect(result.current.loading).toBe(false));
-    act(() => result.current.complete("markets-1"));
+    await act(async () => { await result.current.complete("markets-1"); });   // async since C-R2e
     expect(result.current.isComplete("markets-1")).toBe(true);
     expect(result.current.progress.xp).toBe(50);
-    await waitFor(() => expect(saveLearnProgress).toHaveBeenCalled());
+    expect(saveLearnProgress).toHaveBeenCalled();
     expect(saveLearnProgress.mock.calls[0][1].completedLessons).toContain("markets-1");
   });
 
@@ -45,9 +45,25 @@ describe("useLearn", () => {
     getLearnProgress.mockResolvedValue({ success: true, xp: 50, streak: 1, lastActivity: "2026-06-23", completedLessons: ["markets-1"] });
     const { result } = renderHook(() => useLearn(), { wrapper: wrap("u1") });
     await waitFor(() => expect(result.current.loading).toBe(false));
-    act(() => result.current.complete("markets-1"));
+    await act(async () => { await result.current.complete("markets-1"); });   // async since C-R2e
     expect(result.current.progress.xp).toBe(50);
     expect(saveLearnProgress).not.toHaveBeenCalled();
+  });
+
+  it("C-R2e: a failed persist reverts the optimistic XP and surfaces a toast", async () => {
+    getLearnProgress.mockResolvedValue({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] });
+    saveLearnProgress.mockRejectedValueOnce(new Error("network down"));
+    const showErr = vi.fn();
+    const wrapErr = ({ children }) => (
+      <AppContext.Provider value={{ user: { uid: "u1" }, showErr }}>{children}</AppContext.Provider>
+    );
+    const { result } = renderHook(() => useLearn(), { wrapper: wrapErr });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.complete("markets-1"); });
+    // reverted — no phantom XP the server never recorded
+    expect(result.current.progress.xp).toBe(0);
+    expect(result.current.isComplete("markets-1")).toBe(false);
+    expect(showErr).toHaveBeenCalledWith(expect.stringMatching(/Learn progress/));
   });
 
   it("signed out: stays at the zeroed default and never touches the data layer", async () => {

@@ -3,7 +3,7 @@
 // derived gamification state from utils/learn.js, and persists quiz-gated lesson
 // completions. Degrades gracefully when signed out or a read fails (keeps the
 // zeroed default — the tab still renders), so it never blocks the UI.
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "./app-context.js";
 import { getLearnProgress, saveLearnProgress } from "../api/firebase-database.js";
 import {
@@ -20,6 +20,10 @@ export function useLearn() {
   const uid = app && app.user && app.user.uid;
   const [progress, setProgress] = useState(DEFAULT);
   const [loading, setLoading] = useState(!!uid);
+  // Mirror the latest progress for `complete` (C-R2e): the persist must live
+  // OUTSIDE a setState updater (StrictMode double-invokes updaters → double writes).
+  const progressRef = useRef(progress);
+  useEffect(() => { progressRef.current = progress; }, [progress]);
 
   useEffect(() => {
     let alive = true;
@@ -43,16 +47,22 @@ export function useLearn() {
   }, [uid]);
 
   // Quiz-gated completion: callers invoke this only when the quiz is passed.
-  // Optimistic local update + fire-and-forget persist; the `includes` guard makes
-  // re-completes a no-op (no double XP, no redundant write).
-  const complete = useCallback((lessonId) => {
-    setProgress((prev) => {
-      if ((prev.completedLessons || []).includes(lessonId)) return prev;
-      const next = completeLessonPure(prev, lessonId, today());
-      if (uid) saveLearnProgress(uid, next);
-      return next;
-    });
-  }, [uid]);
+  // Optimistic local update, then an AWAITED persist (C-R2e): a write flake no
+  // longer silently drops earned XP — the update reverts + the user sees a toast.
+  const complete = useCallback(async (lessonId) => {
+    const prev = progressRef.current;
+    if ((prev.completedLessons || []).includes(lessonId)) return;   // no double XP
+    const next = completeLessonPure(prev, lessonId, today());
+    setProgress(next);
+    if (!uid) return;   // signed-out stays local-only (graceful degrade, as before)
+    try {
+      const r = await saveLearnProgress(uid, next);
+      if (r && r.success === false) throw new Error("save failed");
+    } catch (_e) {
+      setProgress(prev);   // revert the optimistic XP/completion
+      if (app && app.showErr) app.showErr("Couldn't save your Learn progress — check your connection and redo the quiz.");
+    }
+  }, [uid, app]);
 
   return {
     progress,

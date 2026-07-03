@@ -412,6 +412,23 @@ describe("User walkthrough — all functions", () => {
     expect(await screen.findByText("STARTER")).toBeInTheDocument();
   });
 
+  it("C-R2e: a failed settings write reverts the toggle and shows a toast", async () => {
+    loginAs();
+    const { updateUserSettings } = await import("../../src/api/firebase-auth.js");
+    updateUserSettings.mockResolvedValueOnce({ success: false, error: "offline" });
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("STARTER"));
+    await screen.findByText("Plan usage");
+    const sw = screen.getByRole("switch");                 // the email-digest pill (home)
+    expect(sw.checked).toBe(false);
+    fireEvent.click(sw);
+    // optimistic flip, then the failed write reverts it + surfaces the toast
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.getByRole("alert").textContent).toMatch(/Couldn't save that setting/);
+    await waitFor(() => expect(screen.getByRole("switch").checked).toBe(false));
+  });
+
   // R21 — the global error toast: carries the raised .ci-toast class (z-index 10000,
   // above every popup's 9500 scrim — the stacking itself is browser-verified) and
   // stays readable for ~6s (double the old 3s) before auto-dismissing.

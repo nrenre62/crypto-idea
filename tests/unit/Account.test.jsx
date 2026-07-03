@@ -70,18 +70,23 @@ describe("Account screen (drill-in, via AppContext)", () => {
     expect(screen.getByText("Upgrade to Pro")).toBeInTheDocument();
   });
 
-  it("Plan & billing: AI allowance shows Offline for a free user (U9)", () => {
+  // C-A4 (C6/C7, supersedes the U9 meter): users never see AI budget/usage numbers —
+  // the row reads "Live" for every tier; usage + cost are admin-only.
+  it("Plan & billing: AI reads Live with NO budget numbers — free tier (C-A4)", () => {
     provide({ aiMonthlyCents: 0 });
     open(/Plan & billing/);
-    expect(screen.getByText("AI research / month")).toBeInTheDocument();
-    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(screen.getByText("AI research")).toBeInTheDocument();
+    expect(screen.getByText("Live")).toBeInTheDocument();
+    expect(screen.queryByText("Offline")).not.toBeInTheDocument();
+    expect(screen.queryByText(/analyses/)).not.toBeInTheDocument();
   });
 
-  it("Plan & billing: server-authoritative AI budget for a paid tier (U9)", () => {
+  it("Plan & billing: AI reads Live with NO budget numbers — paid tier (C-A4)", () => {
     provide({ isPro: true, aiMonthlyCents: 400, user: { ...base.user, tier: "pro" } });
     open(/Plan & billing/);
-    expect(screen.getByText("≈ 400 analyses")).toBeInTheDocument();
-    expect(screen.getByText(/\$4\/mo live-AI budget/)).toBeInTheDocument();
+    expect(screen.getByText("Live")).toBeInTheDocument();
+    expect(screen.queryByText(/analyses/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/live-AI budget/)).not.toBeInTheDocument();
   });
 
   it("Plan & billing: renewal date for an active Pro subscription", () => {
