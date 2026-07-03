@@ -51,7 +51,12 @@ const TIERS = {
 };
 
 // Friendly labels for audit-log action codes.
-const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "Set custom limits", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", restoreUser: "Restored account", grantAdmin: "Granted admin", revokeAdmin: "Revoked admin", saveConfig: "Saved settings" };
+const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "Set custom limits", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", restoreUser: "Restored account", grantAdmin: "Granted admin", revokeAdmin: "Revoked admin", saveConfig: "Saved settings",
+  // BL-2 admin actions + BL-1d self-service/billing events (all audited server-side)
+  adminTrashUser: "Moved to trash", adminSignOutUser: "Signed user out everywhere",
+  selfDeleteAccount: "User deleted own account", selfRestoreAccount: "User restored own account",
+  signOutEverywhere: "User signed out everywhere", exportMyData: "User exported data",
+  createSubscription: "Started subscription checkout", cancelSubscription: "Cancelled subscription" };
 
 // Presentation only — all state, data-loading and admin actions live in the hook.
 export default function AdminDashboard() {
@@ -66,6 +71,9 @@ export default function AdminDashboard() {
     s,
     loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, changePremiumLimits, toggleSuspend, doDelete,
     restoreFromTrash, purgeFromTrash,
+    confirmAdmin, setConfirmAdmin, adminConfirmText, setAdminConfirmText,
+    confirmTrash, setConfirmTrash, confirmEmpty, setConfirmEmpty,
+    setAdmin, trashUser, signOutUser, emptyTrash,
   } = useAdminDashboard();
 
   const c = { bg:"#F5F5F5", w:"#fff", tx:"#1A1A1A", dm:"#999", bd:"#E8E8ED", gr:"#34C759", or:"#FF9500", bl:"#007AFF", rd:"#FF3B30", pr:"#AF52DE" };
@@ -292,6 +300,54 @@ export default function AdminDashboard() {
               )}
             </div>
             <div style={{ fontSize:9, color:c.dm, marginTop:8 }}>Delete permanently removes the account + all their data (GDPR/CCPA erasure). Cannot be undone.</div>
+
+            {/* BL-2b/BL-2c: recoverable trash + force sign-out (moderation, non-destructive-ish) */}
+            <div style={{ display:"flex", gap:6, marginTop:10 }}>
+              {confirmTrash ? (
+                <button disabled={busy} onClick={trashUser}
+                  style={{ flex:1, padding:"10px", borderRadius:10, border:"none", background:c.or, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                  Confirm move to trash?
+                </button>
+              ) : (
+                <button disabled={busy} onClick={() => setConfirmTrash(true)}
+                  style={{ flex:1, padding:"10px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, color:c.tx, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                  Move to trash
+                </button>
+              )}
+              <button disabled={busy} onClick={signOutUser}
+                style={{ flex:1, padding:"10px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, color:c.tx, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                Sign out all devices
+              </button>
+            </div>
+            <div style={{ fontSize:9, color:c.dm, marginTop:6 }}>Trash keeps the account recoverable for 30 days (admins can't be trashed — demote first). Sign-out forces every device to re-authenticate.</div>
+
+            {/* BL-2a (D7): grant/revoke admin — type the user's email to confirm.
+                At go-live this action additionally sits behind admin 2FA (U15). */}
+            <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${c.bd}` }}>
+              {!confirmAdmin ? (
+                <button disabled={busy} onClick={() => { setConfirmAdmin(true); setAdminConfirmText(""); }}
+                  style={{ width:"100%", padding:"10px", borderRadius:10, border:`1px solid ${c.tx}`, background:c.tx+"08", color:c.tx, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                  {found.isAdmin ? "Remove admin role" : "Make admin"}
+                </button>
+              ) : (
+                <div>
+                  <div style={{ fontSize:11, color:c.dm, marginBottom:6 }}>Type <b>{found.email}</b> to confirm {found.isAdmin ? "removing the admin role from" : "granting admin to"} this account:</div>
+                  <input value={adminConfirmText} onChange={e => setAdminConfirmText(e.target.value)} placeholder={found.email}
+                    style={{ width:"100%", padding:"9px 10px", borderRadius:9, border:`1px solid ${c.bd}`, fontSize:12, marginBottom:6, boxSizing:"border-box" }} />
+                  <div style={{ display:"flex", gap:6 }}>
+                    <button disabled={busy} onClick={() => { setConfirmAdmin(false); setAdminConfirmText(""); }}
+                      style={{ flex:1, padding:"9px", borderRadius:9, border:`1px solid ${c.bd}`, background:c.w, fontSize:12, cursor:"pointer" }}>Cancel</button>
+                    <button disabled={busy || adminConfirmText.trim().toLowerCase() !== (found.email || "").toLowerCase()}
+                      onClick={() => setAdmin(!found.isAdmin)}
+                      style={{ flex:1, padding:"9px", borderRadius:9, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:700,
+                        cursor:"pointer", opacity: adminConfirmText.trim().toLowerCase() === (found.email || "").toLowerCase() ? 1 : 0.4 }}>
+                      {found.isAdmin ? "Confirm revoke" : "Confirm grant"}
+                    </button>
+                  </div>
+                  <div style={{ fontSize:9, color:c.dm, marginTop:6 }}>The server keeps at least 2 admins at all times. Admin 2FA will additionally gate this at go-live.</div>
+                </div>
+              )}
+            </div>
             {actionMsg && <div style={{ textAlign:"center", marginTop:10, fontSize:12, color:c.gr, fontWeight:600 }}>{actionMsg}</div>}
           </div>
         )}
@@ -344,7 +400,23 @@ export default function AdminDashboard() {
           Accounts users have deleted. They're kept for <b>30 days</b> so they can be restored, then purged automatically. Restore brings the account fully back; Delete now erases it permanently.
         </div>
         {actionMsg && <div style={{ fontSize:12, color: actionMsg.includes("✓") ? c.gr : c.rd, marginBottom:10, fontWeight:600 }}>{actionMsg}</div>}
-        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:10 }}>
+        <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:10 }}>
+          {/* BL-2b/N-2: bulk-purge everything in the trash now (two-tap confirm). */}
+          {(() => {
+            const trashedNow = userList ? partitionUsers(userList).trashed : [];
+            if (trashedNow.length === 0) return null;
+            return confirmEmpty ? (
+              <button onClick={() => emptyTrash(trashedNow.map(u => u.uid))} disabled={busy}
+                style={{ padding:"7px 14px", borderRadius:10, border:"none", background:c.rd, color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", opacity:busy?0.6:1 }}>
+                Permanently delete {trashedNow.length}?
+              </button>
+            ) : (
+              <button onClick={() => setConfirmEmpty(true)} disabled={busy}
+                style={{ padding:"7px 14px", borderRadius:10, border:`1px solid ${c.rd}`, background:c.rd+"10", color:c.rd, fontSize:13, fontWeight:600, cursor:"pointer" }}>
+                Empty trash
+              </button>
+            );
+          })()}
           <button onClick={loadUserList} disabled={listLoading} style={{ padding:"7px 14px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, fontSize:13, fontWeight:600, cursor:"pointer", opacity:listLoading?0.6:1 }}>{listLoading ? "…" : "Refresh"}</button>
         </div>
         {(() => {
@@ -379,6 +451,25 @@ export default function AdminDashboard() {
       {tab === "settings" && (<>
         <div style={{ background:"#E7F1EC", border:"1px solid #b9d8c9", borderRadius:12, padding:"12px 14px", marginBottom:14, fontSize:12, color:"#084d39", lineHeight:1.5 }}>
           Saved securely via the admin-only <b>saveConfig</b> function to a locked Firestore <code>config/app</code> doc — clients can never read it; the price proxy + PayPal functions read it server-side. Requires the functions deployed (Blaze plan).
+        </div>
+
+        {/* BL-2d (D10): the reserved AI section — the Anthropic key lands in config/app
+            for the Wave-B researchAsk proxy; the cache controls activate with B5. */}
+        <div style={{ background:c.w, borderRadius:14, padding:16, border:`1px solid ${c.bd}`, marginBottom:12 }}>
+          <div style={{ fontSize:13, fontWeight:700, marginBottom:4 }}>AI (reserved — live AI ships at go-live)</div>
+          <div style={{ fontSize:11, color:c.dm, marginBottom:10, lineHeight:1.5 }}>
+            The Anthropic API key powers the server-side <code>researchAsk</code> proxy (Claude only, validator-first — never called from the browser). Saving it now is safe: it stays in the locked config doc until the proxy ships.
+          </div>
+          <div style={{ fontSize:10, fontWeight:700, color:c.dm, letterSpacing:1, marginBottom:4 }}>ANTHROPIC API KEY{setFlags.anthropicKey ? " · saved ✓" : ""}</div>
+          <input type="password" value={keys.anthropicKey} onChange={e => setKeys({ ...keys, anthropicKey: e.target.value })}
+            placeholder={setFlags.anthropicKey ? "•••••••• (saved — type to replace)" : "sk-ant-…"}
+            style={{ width:"100%", padding:"10px 12px", borderRadius:10, border:`1px solid ${c.bd}`, fontSize:13, boxSizing:"border-box", marginBottom:10 }} />
+          <div style={{ display:"flex", gap:6 }}>
+            <button disabled title="Available once the conviction engine ships (Wave B · B5)"
+              style={{ flex:1, padding:"9px", borderRadius:9, border:`1px solid ${c.bd}`, background:c.bg, color:c.dm, fontSize:11, fontWeight:600, cursor:"not-allowed" }}>Invalidate conviction cache</button>
+            <button disabled title="Available once the conviction engine ships (Wave B · B5)"
+              style={{ flex:1, padding:"9px", borderRadius:9, border:`1px solid ${c.bd}`, background:c.bg, color:c.dm, fontSize:11, fontWeight:600, cursor:"not-allowed" }}>Force-refresh a coin</button>
+          </div>
         </div>
 
         {/* App controls (public flags — take effect within ~1 min via /api/config) */}

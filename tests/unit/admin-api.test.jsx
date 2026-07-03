@@ -7,6 +7,7 @@ import { httpsCallable } from "firebase/functions";
 import {
   getStats, listUsers, listAudit, lookupUser,
   setUserTier, setPremiumLimits, suspendUser, deleteUser, getAdminConfig, saveConfig,
+  setAdminClaim, adminTrashUser, adminSignOutUser,
 } from "../../src/api/admin.js";
 
 // Each wrapper should target its named callable on the shared functions instance
@@ -52,6 +53,20 @@ describe("api/admin", () => {
     await suspendUser("u1", true);
     expect(call).toHaveBeenCalledWith({ uid: "u1", disabled: true });
     await deleteUser("u1");
+    expect(call).toHaveBeenCalledWith({ uid: "u1" });
+  });
+
+  it("BL-2: setAdminClaim / adminTrashUser / adminSignOutUser target their callables with the right args", async () => {
+    const call = vi.fn().mockResolvedValue({ data: { success: true } });
+    httpsCallable.mockReturnValue(call);
+    await setAdminClaim("a@b.com", true);
+    expect(httpsCallable).toHaveBeenCalledWith({ _tag: "fns" }, "setAdminClaim");
+    expect(call).toHaveBeenCalledWith({ email: "a@b.com", admin: true });
+    await adminTrashUser("u1");
+    expect(httpsCallable).toHaveBeenCalledWith({ _tag: "fns" }, "adminTrashUser");
+    expect(call).toHaveBeenCalledWith({ uid: "u1" });
+    await adminSignOutUser("u1");
+    expect(httpsCallable).toHaveBeenCalledWith({ _tag: "fns" }, "adminSignOutUser");
     expect(call).toHaveBeenCalledWith({ uid: "u1" });
   });
 

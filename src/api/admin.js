@@ -59,6 +59,23 @@ export async function restoreUser(uid) {
   await httpsCallable(functions, "restoreUser")({ uid });
 }
 
+// BL-2a (D7): grant/revoke the {admin:true} claim by email. Server-side it keeps
+// MIN_ADMINS enforced; the UI gates it behind a type-to-confirm (MFA at go-live).
+export async function setAdminClaim(email, admin) {
+  const res = await httpsCallable(functions, "setAdminClaim")({ email, admin });
+  return res.data;
+}
+
+// BL-2b (D8): admin soft-delete — move a user to the 30-day trash (refuses admins).
+export async function adminTrashUser(uid) {
+  await httpsCallable(functions, "adminTrashUser")({ uid });
+}
+
+// BL-2c (D9): revoke a target user's refresh tokens (sign out of all devices).
+export async function adminSignOutUser(uid) {
+  await httpsCallable(functions, "adminSignOutUser")({ uid });
+}
+
 // Saved admin config (secrets returned as set-flags only, never values). Returns the config object.
 export async function getAdminConfig() {
   const res = await httpsCallable(functions, "getAdminConfig")();

@@ -21,10 +21,15 @@ vi.mock("../../src/api/admin.js", () => ({
   suspendUser: vi.fn(() => Promise.resolve()),
   deleteUser: vi.fn(() => Promise.resolve()),
   saveConfig: vi.fn(() => Promise.resolve()),
+  restoreUser: vi.fn(() => Promise.resolve()),
+  setPremiumLimits: vi.fn(() => Promise.resolve({ premiumLimits: {} })),
+  setAdminClaim: vi.fn(() => Promise.resolve({ success: true })),
+  adminTrashUser: vi.fn(() => Promise.resolve()),
+  adminSignOutUser: vi.fn(() => Promise.resolve()),
 }));
 
 import AdminDashboard from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAudit } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAudit, deleteUser, setAdminClaim, adminTrashUser, adminSignOutUser } from "../../src/api/admin.js";
 
 describe("admin-dashboard", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -50,6 +55,66 @@ describe("admin-dashboard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Audit" }));
     await waitFor(() => expect(listAudit).toHaveBeenCalled());
+  });
+
+  // ── BL-2: admin capabilities ──
+  const openAlice = async () => {
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    fireEvent.click(await screen.findByText("Alice"));
+    await screen.findByText("CHANGE TIER");
+  };
+
+  it("BL-2a: grant admin is type-to-confirm — disabled until the email matches, then calls setAdminClaim", async () => {
+    await openAlice();
+    fireEvent.click(screen.getByRole("button", { name: "Make admin" }));
+    const confirmBtn = screen.getByRole("button", { name: "Confirm grant" });
+    expect(confirmBtn).toBeDisabled();                       // nothing typed yet
+    fireEvent.change(screen.getByPlaceholderText("alice@test.com"), { target: { value: "wrong@x.com" } });
+    expect(confirmBtn).toBeDisabled();                       // wrong email
+    fireEvent.change(screen.getByPlaceholderText("alice@test.com"), { target: { value: "alice@test.com" } });
+    expect(confirmBtn).not.toBeDisabled();
+    fireEvent.click(confirmBtn);
+    await waitFor(() => expect(setAdminClaim).toHaveBeenCalledWith("alice@test.com", true));
+  });
+
+  it("BL-2b: move-to-trash is two-tap (arm, then confirm)", async () => {
+    await openAlice();
+    fireEvent.click(screen.getByRole("button", { name: "Move to trash" }));
+    expect(adminTrashUser).not.toHaveBeenCalled();           // first tap only arms
+    fireEvent.click(screen.getByRole("button", { name: "Confirm move to trash?" }));
+    await waitFor(() => expect(adminTrashUser).toHaveBeenCalledWith("u1"));
+  });
+
+  it("BL-2c: sign-out-all-devices fires immediately (non-destructive)", async () => {
+    await openAlice();
+    fireEvent.click(screen.getByRole("button", { name: "Sign out all devices" }));
+    await waitFor(() => expect(adminSignOutUser).toHaveBeenCalledWith("u1"));
+  });
+
+  it("BL-2b/N-2: Empty trash bulk-purges every trashed account after a confirm", async () => {
+    listUsers.mockResolvedValueOnce([
+      { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1 },
+      { uid: "t1", email: "gone1@test.com", name: "Gone1", tier: "free", deleted: true, deletedAt: Date.now() },
+      { uid: "t2", email: "gone2@test.com", name: "Gone2", tier: "free", deleted: true, deletedAt: Date.now() },
+    ]);
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Trash" }));
+    await screen.findByText("Gone1");
+    fireEvent.click(screen.getByRole("button", { name: "Empty trash" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Permanently delete 2\?/ }));
+    await waitFor(() => expect(deleteUser).toHaveBeenCalledTimes(2));
+    expect(deleteUser).toHaveBeenCalledWith("t1");
+    expect(deleteUser).toHaveBeenCalledWith("t2");
+  });
+
+  it("BL-2d: Settings shows the reserved AI card with the Anthropic key field", async () => {
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByText(/AI \(reserved/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/sk-ant/)).toBeInTheDocument();
+    // the future cache controls are visibly reserved, not clickable
+    expect(screen.getByRole("button", { name: /Invalidate conviction cache/ })).toBeDisabled();
   });
 
   it("BL-1e: a getStats failure shows an explicit error, never a $0 dashboard", async () => {

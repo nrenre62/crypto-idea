@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn } from "../api/admin.js";
+import { getStats, listUsers, listAudit, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setAdminClaim, adminTrashUser, adminSignOutUser } from "../api/admin.js";
 
 // Combined real usage shown on the Overview before getStats resolves (no fake data).
 const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0, grossRevenue: 0, paymentFees: 0, netRevenue: 0, proPrice: 9.99, premiumPrice: 49.99 };
@@ -15,11 +15,11 @@ export function useAdminDashboard() {
   const [tab, setTab] = useState("overview");
 
   // Settings forms (saved via the admin-only saveConfig Cloud Function).
-  const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "" });
+  const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "", anthropicKey: "" });
   const [mail, setMail] = useState({ provider: "none", apiKey: "", apiUrl: "", fromEmail: "", listId: "" });
   const [savedMsg, setSavedMsg] = useState("");
   // Which secrets are already saved (so the form shows "saved" without exposing them).
-  const [setFlags, setSetFlags] = useState({ coingecko: false, paypalSecret: false, apiKey: false });
+  const [setFlags, setSetFlags] = useState({ coingecko: false, paypalSecret: false, apiKey: false, anthropicKey: false });
   const [cfgAt, setCfgAt] = useState(null);
   // Public app controls (maintenance mode, signups on/off).
   const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true });
@@ -40,9 +40,9 @@ export function useAdminDashboard() {
   const loadConfig = async () => {
     try {
       const d = await getAdminConfig();
-      setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "" });
+      setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "", anthropicKey: "" });
       setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "" });
-      setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet) });
+      setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet), anthropicKey: !!(d.ai && d.ai.anthropicKeySet) });
       setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false) });
       setAnalytics({ ga4: d.analytics?.ga4 || "", plausible: d.analytics?.plausible || "" });
       setLegal({ termlyUuid: d.legal?.termlyUuid || "", termlyPrivacyId: d.legal?.termlyPrivacyId || "", termlyTermsId: d.legal?.termlyTermsId || "", cookieBanner: !!(d.legal && d.legal.cookieBanner) });
@@ -76,6 +76,12 @@ export function useAdminDashboard() {
   const [lookupMsg, setLookupMsg] = useState("");
   const [actionMsg, setActionMsg] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // BL-2 confirm states: grant/revoke admin is type-to-confirm (the target's email);
+  // move-to-trash and empty-trash are two-tap confirms like delete.
+  const [confirmAdmin, setConfirmAdmin] = useState(false);
+  const [adminConfirmText, setAdminConfirmText] = useState("");
+  const [confirmTrash, setConfirmTrash] = useState(false);
+  const [confirmEmpty, setConfirmEmpty] = useState(false);
   const [busy, setBusy] = useState(false);
   // Users tab — full list, searched + paginated client-side; rows open the detail panel.
   const [userList, setUserList] = useState(null);
@@ -115,18 +121,62 @@ export function useAdminDashboard() {
   };
   useEffect(() => { if (tab === "audit" && audit === null && !auditLoading) loadAudit(); }, [tab]);
 
+  const resetConfirms = () => { setConfirmDelete(false); setConfirmAdmin(false); setAdminConfirmText(""); setConfirmTrash(false); };
   const lookup = async () => {
     if (!lookupEmail.trim()) return;
-    setBusy(true); setLookupMsg(""); setActionMsg(""); setConfirmDelete(false); setFound(null);
+    setBusy(true); setLookupMsg(""); setActionMsg(""); resetConfirms(); setFound(null);
     try { setFound(await lookupUser(lookupEmail.trim())); }
     catch (e) { setLookupMsg((e && e.message) || "Lookup failed"); }
     setBusy(false);
   };
   // Open a row from the list → full detail (incl. coin count) via lookupUser.
   const openUser = async (email) => {
-    setBusy(true); setActionMsg(""); setConfirmDelete(false); setFound(null); setLookupMsg("");
+    setBusy(true); setActionMsg(""); resetConfirms(); setFound(null); setLookupMsg("");
     try { setFound(await lookupUser(email)); }
     catch (e) { setLookupMsg((e && e.message) || "Lookup failed"); }
+    setBusy(false);
+  };
+  // BL-2a (D7): grant/revoke the admin claim — the component gates this behind a
+  // type-the-email confirm; the server keeps MIN_ADMINS enforced. (MFA at go-live.)
+  const setAdmin = async (makeAdmin) => {
+    setBusy(true); setActionMsg("");
+    try {
+      await setAdminClaim(found.email, makeAdmin);
+      setFound({ ...found, isAdmin: makeAdmin });
+      setUserList(l => l && l.map(x => x.uid === found.uid ? { ...x, isAdmin: makeAdmin } : x));
+      setActionMsg(makeAdmin ? "Admin granted ✓" : "Admin revoked ✓");
+    } catch (e) { setActionMsg((e && e.message) || "Failed"); }
+    setConfirmAdmin(false); setAdminConfirmText("");
+    setBusy(false);
+  };
+  // BL-2b (D8): move the open user to the 30-day trash (server refuses admins).
+  const trashUser = async () => {
+    setBusy(true); setActionMsg("");
+    try {
+      await adminTrashUser(found.uid);
+      setUserList(l => l && l.map(x => x.uid === found.uid ? { ...x, deleted: true, deletedAt: Date.now() } : x));
+      setActionMsg("Moved to trash ✓"); setFound(null);
+    } catch (e) { setActionMsg((e && e.message) || "Failed"); }
+    setConfirmTrash(false);
+    setBusy(false);
+  };
+  // BL-2c (D9): sign the target out of every device (refresh tokens revoked).
+  const signOutUser = async () => {
+    setBusy(true); setActionMsg("");
+    try { await adminSignOutUser(found.uid); setActionMsg("Signed out of all devices ✓"); }
+    catch (e) { setActionMsg((e && e.message) || "Failed"); }
+    setBusy(false);
+  };
+  // BL-2b/N-2: empty the trash — permanently purge every trashed account now.
+  const emptyTrash = async (uids) => {
+    setBusy(true); setActionMsg("");
+    let ok = 0, failed = 0;
+    for (const uid of uids) {
+      try { await deleteUser(uid); ok++; setUserList(l => l && l.filter(x => x.uid !== uid)); }
+      catch (e) { failed++; }
+    }
+    setActionMsg(failed ? `Emptied ${ok} — ${failed} failed` : `Trash emptied (${ok}) ✓`);
+    setConfirmEmpty(false);
     setBusy(false);
   };
   const changeTier = async (tier) => {
@@ -185,6 +235,9 @@ export function useAdminDashboard() {
     controls, setControls, analytics, setAnalytics, legal, setLegal, plans, setPlans,
     lookupEmail, setLookupEmail, found, setFound, lookupMsg, setLookupMsg, actionMsg, setActionMsg,
     confirmDelete, setConfirmDelete, busy, setBusy,
+    confirmAdmin, setConfirmAdmin, adminConfirmText, setAdminConfirmText,
+    confirmTrash, setConfirmTrash, confirmEmpty, setConfirmEmpty,
+    setAdmin, trashUser, signOutUser, emptyTrash,
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,
     s,

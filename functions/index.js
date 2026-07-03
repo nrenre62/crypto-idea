@@ -590,6 +590,41 @@ exports.restoreUser = functions.https.onCall(async (data, context) => {
   return { success: true, uid };
 });
 
+// ─── BL-2b (D8): admin soft-delete — move a user to the 30-day trash ───
+// Parity with the self-service deleteMyAccount: recoverable, purged by
+// purgeExpiredTrash after TRASH_DAYS. Admin accounts are refused (a trashed
+// admin would be hard-purged in 30 days and could drop the app below
+// MIN_ADMINS) — demote them first via setAdminClaim.
+exports.adminTrashUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const uid = data && data.uid;
+  if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  let rec = null;
+  try { rec = await admin.auth().getUser(uid); } catch (e) { /* no auth record is fine */ }
+  if (rec && rec.customClaims && rec.customClaims.admin === true) {
+    throw new functions.https.HttpsError("failed-precondition", "Can't trash an admin account — remove their admin role first.");
+  }
+  await db.collection("users").doc(uid).set({ deleted: true, deletedAt: Date.now() }, { merge: true });
+  await writeAudit(context, "adminTrashUser", { targetUid: uid, targetEmail: (rec && rec.email) || "" });
+  return { success: true, uid };
+});
+
+// ─── BL-2c (D9): admin "sign out of all devices" for a target user ───
+// Revokes the target's refresh tokens (each device must re-authenticate) —
+// the moderation counterpart of the self-service signOutEverywhere (U6).
+exports.adminSignOutUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth || !isAdminToken(context.auth.token)) {
+    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+  }
+  const uid = data && data.uid;
+  if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  await admin.auth().revokeRefreshTokens(uid);
+  await writeAudit(context, "adminSignOutUser", { targetUid: uid });
+  return { success: true, uid };
+});
+
 // ─── Self-service: a user deletes THEIR OWN account (GDPR/CCPA erasure) ───
 // Any signed-in user; acts only on their own uid (no IDOR).
 exports.deleteMyAccount = functions.https.onCall(async (data, context) => {
@@ -749,6 +784,8 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     plans: mergePlans(cfg.plans),
     analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
     legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
+    // BL-2d (D10): the reserved AI section — the key itself never leaves the server.
+    ai: { anthropicKeySet: !!(cfg.ai && cfg.ai.anthropicKey) },
     updatedAt: cfg.updatedAt || null,
   };
 });
@@ -790,6 +827,9 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
     },
     flags,
     plans: mergePlans((data && data.plans) || existing.plans),
+    // BL-2d (D10): Anthropic key for the Wave-B AI proxy — same keep() idiom as the
+    // other secrets (a blank field keeps the saved value; the key is never echoed back).
+    ai: { anthropicKey: keep(k.anthropicKey, (existing.ai || {}).anthropicKey) },
     analytics: { ga4: String(an.ga4 || ""), plausible: String(an.plausible || "") },
     legal: {
       termlyUuid: String(lg.termlyUuid || ""),
