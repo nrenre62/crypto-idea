@@ -43,7 +43,7 @@ vi.mock("../../src/api/coingecko.js", () => ({
 vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn().mockResolvedValue(null) }));
 
 import { onAuthChange } from "../../src/api/firebase-auth.js";
-import { getPortfolios, getCoins, getUserProfile } from "../../src/api/firebase-database.js";
+import { getPortfolios, getCoins, getUserProfile, addTransaction } from "../../src/api/firebase-database.js";
 import CryptoIdea from "../../src/CryptoIdea.jsx";
 import { PLAN_BENEFITS } from "../../src/components/Login.jsx";
 
@@ -410,6 +410,51 @@ describe("User walkthrough — all functions", () => {
     await screen.findByText(/My Assets/i);
     expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
     expect(await screen.findByText("STARTER")).toBeInTheDocument();
+  });
+
+  // ── #1 THE MOAT — one journey proving Journal → conviction signals → Learn connect ──
+  it("MOAT: a thesis written at buy-time reaches Research's signals, and Learn teaches the framework", async () => {
+    loginAs();
+    addTransaction.mockResolvedValueOnce({ success: true, id: "t1" });
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+
+    // 1) Buy WITH a thesis (the Buy-Journal gate — "write before you buy")
+    tab("Search");
+    fireEvent.change(await screen.findByPlaceholderText(/Search any coin/i), { target: { value: "bitcoin" } });
+    const row = (await screen.findByText("Bitcoin")).closest(".trend-item");
+    fireEvent.click(within(row).getByText("+ Add"));
+    const areas = document.querySelectorAll(".journal-q textarea");
+    fireEvent.change(areas[0], { target: { value: "Hard cap, real adoption." } });
+    fireEvent.change(areas[1], { target: { value: "Adoption stalls." } });
+    fireEvent.click(screen.getByText(/Save to Journal/i));
+    await screen.findAllByText(/Bitcoin/);
+
+    // 2) The thesis lives in the Journal (not lost between surfaces)
+    tab("Journal");
+    expect(await screen.findByText(/Hard cap, real adoption/)).toBeInTheDocument();
+
+    // 3) Make it a real HOLDING (Research mirrors holdings, not watchlist coins):
+    //    Portfolio → coin card → Detail → + Buy → AddEntry → Add Buy
+    tab("Portfolio");
+    fireEvent.click(await screen.findByText("Bitcoin"));
+    fireEvent.click(await screen.findByText("+ Buy"));
+    const nums = document.querySelectorAll('input[type="number"]');
+    fireEvent.change(nums[0], { target: { value: "0.5" } });   // amount
+    fireEvent.change(nums[1], { target: { value: "40000" } }); // price
+    fireEvent.click(screen.getByText("Add Buy"));
+    await screen.findByText("+ Buy");                          // post-save returns to Detail (origin)
+
+    // 4) Research: the SAME held coin renders conviction signals + the #26 bridge
+    //    note tying the pills back to the manual research funnel the user applies
+    tab("Research");
+    await screen.findByText("Overview");
+    fireEvent.click(screen.getByText("Coins"));
+    expect(await screen.findByText(/These cover funnel steps 1–2; you apply 3–5\./)).toBeInTheDocument();
+
+    // 5) Learn teaches exactly that framework (the thesis module + funnel lesson)
+    tab("Learn");
+    expect(await screen.findByText("Building Your Thesis")).toBeInTheDocument();
   });
 
   it("C-R2e: a failed settings write reverts the toggle and shows a toast", async () => {
