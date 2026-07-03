@@ -211,7 +211,13 @@
   mark `{cancelled, endDate, downgradeTo}` and leave `tier` untouched until period end; add the server-side
   period-end flip (scheduled or webhook-driven), honoring Round 29's re-checkout semantics ("Keep my plan" =
   PayPal reactivation). **Verify:** sandbox-PayPal e2e at go-live — buy Premium → tier "premium"; cancel →
-  tier unchanged until period end. **Status:** 🔎 recorded, scheduled under §BL-1 (blocked on Blaze/PayPal).
+  tier unchanged until period end. **Status:** ✅ **CODE FIXED 2026-07-03 (commit `e497f82`, §BL-1)** —
+  `functions/billing.js` (pure, 22 unit tests) + index.js wiring: (a) `plan_id`→tier on ACTIVATED and no
+  blind tier on SALE.COMPLETED (recovery-only via `tierBeforeFailure`); (b) `cancelSubscription` +
+  CANCELLED/SUSPENDED webhooks mark `{cancelled/paymentFailed, downgradeTo, endDate}` with **no immediate
+  tier drop**; (c) new daily `enforceSubscriptionPeriods` sweep flips at period end (a "pro" target keeps
+  its marker for the Round 29 re-checkout; 7-day grace on payment failure). The **sandbox-PayPal e2e**
+  remains the go-live verification (webhooks can't fire locally).
 
 ---
 

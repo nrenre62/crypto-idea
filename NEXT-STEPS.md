@@ -226,26 +226,28 @@ founder interview locked scope. **Founder chose the full secure path:** live AI 
 signups, admin 2FA. This section is the **build order** for those decisions; it composes with §0 Wave B and
 §U Wave B (shared App Check / Identity Platform). Each item = a small increment to the AGILE.md Definition of Done.
 
-### BL-1 · Security foundation (local-buildable; build once, reuse everywhere)
-- [ ] **Shared per-uid rate limiter (Firestore) + `context.app` App Check gate** as pure, unit-tested helpers
-  (D4/D5). This is the **same per-uid budget mechanism** the AI proxy needs (50/300 daily) and the addCoin
-  guard reuses — build it here, not three times.
-- [ ] **PayPal webhook idempotency** — store each processed `event.id`, skip duplicates (D6). Same commit:
-  fix `serverTimestamp()`→`Date.now()` (it's `undefined` in the emulator and types the field as a Timestamp
-  while everything else is ms), and **persist the billing cycle** so annual revenue in `getStats` is correct.
-- [ ] **`createSubscription` already-paid guard + per-uid cooldown** (D5) — block spam/duplicate subs.
-- [ ] **Audit expansion** — `writeAudit` on `deleteMyAccount`/`restoreMyAccount`/`signOutEverywhere`/
-  `exportMyData`/`createSubscription`/`cancelSubscription` (D11).
-- [ ] **Quick admin fixes** (no decision needed): `lookupUser` returns `tierBeforeFailure` + `premiumLimits`
-  (+ `emailVerified`) so the "last paid tier" note + limits-editor pre-fill actually populate; fix the
-  premium custom-limit-`0` falsy bug (`||` → `!=null`, mirror the rules); give `getStats` a distinct error
-  state (don't render a failure as a real all-zero/$0 dashboard).
-- [ ] **R29 billing follow-ups (found 2026-07-03, ERRORS.md B8):** `paypalWebhook` ACTIVATED +
-  PAYMENT.SALE.COMPLETED hardcode `tier:"pro"` even when the **PREMIUM** plan id was bought
-  (`functions/index.js:256-275`) — map `plan_id`→tier; `cancelSubscription` (`:197-215`) sets `tier:"free"`
-  **immediately** — must mark cancelled + honor access-until-`endDate` and support the chosen downgrade
-  target (incl. the Round 29 Premium→Pro re-checkout + "Keep my plan" = PayPal reactivation); add the
-  server-side at-period-end flip (today the client flips on load).
+### BL-1 · Security foundation (✅ BUILT 2026-07-03 — commits `5f0ad13` guards + `e497f82` billing)
+- [x] **Shared per-uid rate limiter (Firestore) + `context.app` App Check gate** — ✅ `functions/guards.js`
+  (`consumeDailyBudget` w/ UTC `dayKey` per **C16** · `checkCooldown` · `appCheckOk` prod-flag gated),
+  pure + dependency-injected, 8 unit tests (in-memory Firestore fake); `rateLimits` pinned server-only by a
+  rules test. Wave B's B2/B3 + C-B2 **reuse these** — don't rebuild.
+- [x] **PayPal webhook idempotency** — ✅ transactional `webhookEvents/{event.id}` create-if-absent (dupes
+  ack'd + skipped); `serverTimestamp()`→`Date.now()`; `billingCycle` persisted at `createSubscription`
+  and `getStats` now prices annual payers at `priceYear/12` w/ amortized fees (`billing.computeRevenue`).
+- [x] **`createSubscription` already-paid guard + per-uid 60s cooldown** — ✅ (guard skips a *cancelled*
+  sub so the R29 re-checkout can re-buy); live-verified: rapid 2nd call → `resource-exhausted`.
+- [x] **Audit expansion** — ✅ `selfDeleteAccount`/`selfRestoreAccount`/`signOutEverywhere`/`exportMyData`/
+  `createSubscription`/`cancelSubscription` all `writeAudit` (D11).
+- [x] **Quick admin fixes** — ✅ `lookupUser` returns `tierBeforeFailure`+`premiumLimits`+`emailVerified`
+  (+`billingCycle`); premium custom-limit-`0` respected (`!=null`, mirrors the rules' `.get(key, default)`);
+  admin Overview shows an explicit "Couldn't load stats" error instead of a $0 dashboard.
+- [x] **R29 billing follow-ups (ERRORS.md B8)** — ✅ `functions/billing.js` (pure, 22 tests):
+  `plan_id`→tier on ACTIVATED (Premium lands as premium); SALE.COMPLETED never sets tier blindly (only
+  restores `tierBeforeFailure` on recovery); CANCELLED/SUSPENDED mark the sub (endDate =
+  `next_billing_time`) with **no immediate tier drop**; `cancelSubscription` marks
+  `{cancelled, downgradeTo, endDate}` honoring access-until-period-end; NEW daily
+  **`enforceSubscriptionPeriods`** sweep does the server-side flip (a "pro" target keeps its marker for the
+  R29 re-checkout; payment failures drop after the 7-day grace). *Live PayPal e2e stays a go-live check.*
 
 ### BL-2 · Admin panel capabilities
 - [ ] **Grant/revoke admin UI** — wrapper for the existing `setAdminClaim`, gated behind a confirm step + the
