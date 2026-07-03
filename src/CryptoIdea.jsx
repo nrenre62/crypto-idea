@@ -60,7 +60,7 @@ import { Detail } from "./components/Detail.jsx";
 import { Portfolio } from "./components/Portfolio.jsx";
 import { Account } from "./components/Account.jsx";
 import { RestoreAccount } from "./components/RestoreAccount.jsx";
-import { Login } from "./components/Login.jsx";
+import { Login, PLAN_BENEFITS } from "./components/Login.jsx";
 import { Modal } from "./components/Modal.jsx";   // Round 15: shared centered-card popup
 import Research from "./features/research/Research.jsx";
 import { Journal } from "./components/Journal.jsx";
@@ -101,6 +101,7 @@ export default function CryptoIdea(){
   const[upgradeStep,setUpgradeStep]=useState("billing");  // billing | processing | welcome
   const[upgradeBilling,setUpgradeBilling]=useState("yearly");
   const[downgradeTo,setDowngradeTo]=useState(null);  // null | "free" | "pro"
+  const[showDowngradeChooser,setShowDowngradeChooser]=useState(false);  // R29-1: Premium picks Pro or Starter
   const[showWelcome,setShowWelcome]=useState(null);  // null | "free" | "pro" | "premium"
   const[showPaymentFailedSim,setShowPaymentFailedSim]=useState(false);
   const {portfolios,setPortfolios,activePortId,setActivePortId,portfolio,setPortfolio}=usePortfolios();
@@ -402,8 +403,28 @@ export default function CryptoIdea(){
     await saveProfile(updated);
     setDowngradeTo(null);
   };
-  const upgradePro=()=>startUpgrade("pro");
-  const downgradeFree=()=>startDowngrade("free");
+  // R29-1: Premium chooses its downgrade target (Pro or Starter) in a popup; also
+  // reopened from the pending notice to change the choice (R29-2).
+  const openDowngradeChooser=()=>setShowDowngradeChooser(true);
+  // R29-2: un-cancel a pending downgrade — the subscription simply resumes.
+  // (Production: PayPal reactivation before the period end — NEXT-STEPS §BL-1 / ERRORS B8.)
+  const keepPlan=async()=>{
+    const{cancelled:_c,downgradeTo:_d,...rest}=user?.subscription||{};
+    const updated={...user,subscription:{...rest,cancelled:false}};
+    setUser(updated);
+    await saveProfile(updated);
+  };
+  // R29-3: a lapsed Premium→Pro downgrade is never granted silently — the tier already
+  // flipped to Starter (checkSubscriptionStatus), and the KEPT subscription marker makes
+  // this popup re-show on every load until the user decides. Derived, not stored: only
+  // the flip can produce a free user with a cancelled downgradeTo:"pro" marker.
+  const recheckoutDue=!!(user&&(user.tier||"free")==="free"&&user.subscription&&user.subscription.cancelled&&user.subscription.downgradeTo==="pro");
+  const declineProRecheckout=async()=>{
+    trimToTier("free");   // the trim was deferred until this decision
+    const updated={...user,subscription:null};
+    setUser(updated);
+    await saveProfile(updated);
+  };
   const premLimits=user?.premiumLimits||{};
   // Admin-configured tier limits (from /api/config); fall back to built-in defaults.
   const _tierKey=isPremium?"premium":isPro?"pro":"free";
@@ -610,6 +631,19 @@ export default function CryptoIdea(){
     if(!u||!u.subscription)return u;
     const target=dueDowngrade(u.subscription,new Date());
     if(!target)return u;
+    if(target==="pro"){
+      // R29-3: a PAID target is never granted silently (Pro without a payment = the
+      // free-Pro-forever bug). The paid period is over, so the account drops to
+      // Starter NOW — but the subscription marker is KEPT so the re-checkout popup
+      // (approve the Pro payment / continue on Starter) decides the final landing.
+      // The data trim is DEFERRED until that decision — trimming to Starter here
+      // would destroy data a completed Pro re-checkout keeps.
+      if((u.tier||"free")==="free")return u;   // already flipped — still awaiting the decision
+      const updated={...u,tier:"free"};
+      await saveProfile(updated);
+      await persistTierDev("free");
+      return updated;
+    }
     trimToTier(target);
     const updated={...u,tier:target,subscription:null};
     await saveProfile(updated);
@@ -658,7 +692,7 @@ export default function CryptoIdea(){
     remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
     portfolios,setActivePortId,activePortId,
-    maxTxPerCoin,aiMonthlyCents,startDowngrade,fmtDate,deletePortfolio,startRename,newPortName,setNewPortName,addPortfolio,
+    maxTxPerCoin,aiMonthlyCents,startDowngrade,openDowngradeChooser,keepPlan,trimToTier,fmtDate,deletePortfolio,startRename,newPortName,setNewPortName,addPortfolio,
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     delPass,setDelPass,delType,setDelType,cancelDelete,
     pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,
@@ -704,6 +738,41 @@ export default function CryptoIdea(){
     {screen==="login"&&<Login/>}
     {screen==="forgotPass"&&<ForgotPass/>}
     {screen==="contact"&&<Contact/>}
+    {/* R29-1: the Premium downgrade chooser — pick the target, then the existing
+        confirm popup takes over. Reuses the billing cycle-card chrome (dark-safe). */}
+    {showDowngradeChooser&&(()=>{
+      const proP=(site.plans&&site.plans.pro&&site.plans.pro.price!=null)?site.plans.pro.price:9.99;
+      const chEnd=user?.subscription?.endDate||calcEndDate(user?.subscription?.billing||"monthly");
+      const pick=(t)=>{setShowDowngradeChooser(false);startDowngrade(t)};
+      return(
+        <Modal size="sm" title="Downgrade to which plan?" onClose={()=>setShowDowngradeChooser(false)}>
+          <div className="plan-col">
+            <div className="cycle-card" role="button" tabIndex={0} onClick={()=>pick("pro")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")pick("pro")}}>
+              <div><div className="cycle-name">Pro</div>
+                <div className="cycle-sub">{PLAN_BENEFITS.pro.limits.join(" · ")}</div>
+                <div className="cycle-sub">Billing continues monthly — you'll approve the Pro payment when Premium ends.</div></div>
+              <div className="cycle-price">${proP}<span className="cycle-per">/mo</span></div>
+            </div>
+            <div className="cycle-card" role="button" tabIndex={0} onClick={()=>pick("free")} onKeyDown={e=>{if(e.key==="Enter"||e.key===" ")pick("free")}}>
+              <div><div className="cycle-name">Starter</div>
+                <div className="cycle-sub">{PLAN_BENEFITS.free.limits.join(" · ")}</div>
+                <div className="cycle-sub">Payments stop.</div></div>
+              <div className="cycle-price">Free</div>
+            </div>
+          </div>
+          <div className="sub-sub" style={{textAlign:"center",marginTop:12}}>Your Premium access continues until {fmtDate(chEnd)} either way.</div>
+        </Modal>);
+    })()}
+    {/* R29-3: the forced-choice re-checkout after a lapsed Premium→Pro downgrade. No X —
+        the two buttons ARE the decision (it re-shows on every load until decided). Hidden
+        while the plan flow is open so approving doesn't stack popups. */}
+    {recheckoutDue&&!showPlan&&(
+      <Modal size="sm" title="Your Premium period has ended" hideClose onClose={()=>{}}>
+        <div style={{fontSize:13,color:c.dim,lineHeight:1.6,marginBottom:16}}>You chose to switch to <strong>Pro</strong>. Approve the Pro monthly payment to continue on Pro — or continue on Starter (free). Your data is kept until you decide.</div>
+        <button className="btn-primary" onClick={()=>startUpgrade("pro")}>Approve Pro payment</button>
+        <button className="back-link" style={{marginTop:10,width:"100%"}} onClick={declineProRecheckout}>Continue with Starter</button>
+      </Modal>
+    )}
     {downgradeTo&&(()=>{
       const impact=getTrimImpact(downgradeTo);
       const endDate=user?.subscription?.endDate||calcEndDate(user?.subscription?.billing||"monthly");

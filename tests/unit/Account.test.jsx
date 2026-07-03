@@ -112,6 +112,50 @@ describe("Account screen (drill-in, via AppContext)", () => {
     expect(screen.getByText(/access ends on/i)).toBeInTheDocument();
   });
 
+  // ── R29: Premium downgrade chooser + pending-state flexibility ──
+  it("R29-1: Premium sees ONE Downgrade button that opens the chooser (no hard-wired Pro)", () => {
+    const openDowngradeChooser = vi.fn();
+    const startDowngrade = vi.fn();
+    provide({ isPro: true, isPremium: true, openDowngradeChooser, startDowngrade,
+      user: { ...base.user, tier: "premium" } });
+    open(/Plan & billing/);
+    expect(screen.queryByText("Downgrade to Pro")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Downgrade"));
+    expect(openDowngradeChooser).toHaveBeenCalled();
+    expect(startDowngrade).not.toHaveBeenCalled(); // the target is chosen in the popup, not here
+  });
+
+  it("R29-1: Pro keeps the single Cancel-to-Starter path (no chooser)", () => {
+    const startDowngrade = vi.fn();
+    const openDowngradeChooser = vi.fn();
+    provide({ isPro: true, startDowngrade, openDowngradeChooser, user: { ...base.user, tier: "pro" } });
+    open(/Plan & billing/);
+    fireEvent.click(screen.getByText(/Cancel Pro · Switch to Starter/));
+    expect(startDowngrade).toHaveBeenCalledWith("free");
+    expect(openDowngradeChooser).not.toHaveBeenCalled();
+  });
+
+  it("R29-2: a pending Premium downgrade offers Keep-my-plan AND Change-downgrade-choice", () => {
+    const keepPlan = vi.fn();
+    const openDowngradeChooser = vi.fn();
+    provide({ isPro: true, isPremium: true, keepPlan, openDowngradeChooser,
+      user: { ...base.user, tier: "premium", subscription: { cancelled: true, endDate: "2027-01-01", downgradeTo: "pro" } } });
+    open(/Plan & billing/);
+    fireEvent.click(screen.getByText("Keep my plan"));
+    expect(keepPlan).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Change downgrade choice"));
+    expect(openDowngradeChooser).toHaveBeenCalled();
+  });
+
+  it("R29-2: a pending Pro cancellation offers Keep-my-plan only (Starter is the only target)", () => {
+    const keepPlan = vi.fn();
+    provide({ isPro: true, keepPlan,
+      user: { ...base.user, tier: "pro", subscription: { cancelled: true, endDate: "2027-01-01", downgradeTo: "free" } } });
+    open(/Plan & billing/);
+    expect(screen.getByText("Keep my plan")).toBeInTheDocument();
+    expect(screen.queryByText("Change downgrade choice")).not.toBeInTheDocument();
+  });
+
   // ── PROFILE detail ──
   it("Profile: editable name + change-email (U7)", () => {
     provide({});

@@ -45,6 +45,7 @@ vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn().mockResolve
 import { onAuthChange } from "../../src/api/firebase-auth.js";
 import { getPortfolios, getCoins, getUserProfile } from "../../src/api/firebase-database.js";
 import CryptoIdea from "../../src/CryptoIdea.jsx";
+import { PLAN_BENEFITS } from "../../src/components/Login.jsx";
 
 // R27-3: simulate a desktop viewport — matches ONLY the min-width query (prefers-color-
 // scheme etc. stay false so the theme is untouched). Delete window.matchMedia to restore.
@@ -293,6 +294,94 @@ describe("User walkthrough — all functions", () => {
     fireEvent.click(screen.getByText(/Cancel Pro/));
     expect(await screen.findByText(/Downgrade to Starter\?/)).toBeInTheDocument();
     expect(screen.getByText(/We don't refund the unused time/)).toBeInTheDocument();
+  });
+
+  // ── R29 — Premium downgrade chooser, pending flexibility, and the Pro re-checkout ──
+  const premiumSub = (over = {}) => ({ billing: "monthly", startDate: "2026-05-01",
+    endDate: "2099-01-01", cancelled: false, ...over });
+  const loginPremium = (sub) => {
+    loginAs("prem@test.com", "Prem");
+    getUserProfile.mockResolvedValueOnce({ success: true, tier: "premium", subscription: sub });
+  };
+
+  it("R29-1: premium — Downgrade opens the Pro/Starter chooser; picking Starter reaches the confirm", async () => {
+    loginPremium(premiumSub());
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("PREMIUM"));
+    await screen.findByText("Plan usage");
+    fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+    fireEvent.click(screen.getByText("Downgrade"));
+    // The chooser: both targets fed by PLAN_BENEFITS + the either-way access note.
+    expect(await screen.findByText("Downgrade to which plan?")).toBeInTheDocument();
+    expect(screen.getByText(PLAN_BENEFITS.pro.limits.join(" · "))).toBeInTheDocument();
+    expect(screen.getByText(PLAN_BENEFITS.free.limits.join(" · "))).toBeInTheDocument();
+    expect(screen.getByText(/either way/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Starter"));
+    // → the EXISTING confirm popup, now targeting Starter
+    expect(await screen.findByText(/Downgrade to Starter\?/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Confirm Downgrade"));
+    // → pink pending notice shows the chosen target
+    expect(await screen.findByText(/access ends on/i)).toBeInTheDocument();
+    expect(screen.getByText(/become Starter/)).toBeInTheDocument();
+  });
+
+  it("R29-2: Keep-my-plan un-cancels a pending downgrade (notice gone, Downgrade back)", async () => {
+    loginPremium(premiumSub({ cancelled: true, downgradeTo: "pro" }));
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("PREMIUM"));
+    await screen.findByText("Plan usage");
+    fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+    expect(screen.getByText(/access ends on/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Keep my plan"));
+    await waitFor(() => expect(screen.queryByText(/access ends on/i)).toBeNull());
+    expect(screen.getByText("Downgrade")).toBeInTheDocument();
+  });
+
+  it("R29-3: a lapsed Premium→Pro shows the re-checkout popup, lands on Starter, and DEFERS the trim", async () => {
+    loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
+    getPortfolios.mockResolvedValue({ success: true,
+      portfolios: [{ id: "p1", name: "Main" }, { id: "p2", name: "Alt" }] });
+    render(<CryptoIdea />);
+    // The forced-choice popup (no X — the only ways out are the two buttons)
+    expect(await screen.findByText(/Your Premium period has ended/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Close")).toBeNull();
+    // Tier already flipped to Starter…
+    expect(await screen.findByText("STARTER")).toBeInTheDocument();
+    // …but the data is NOT trimmed yet (2 portfolios still present; Starter cap is 1)
+    expect(screen.getByText("Alt")).toBeInTheDocument();
+    // Decline → subscription cleared + trimmed to Starter limits
+    fireEvent.click(screen.getByText("Continue with Starter"));
+    await waitFor(() => expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull());
+    // Trimmed to the Starter cap (1 portfolio) — the switcher hides for a free
+    // single-portfolio user, so BOTH pills are gone; the app itself is intact.
+    await waitFor(() => expect(screen.queryByText("Alt")).toBeNull());
+    expect(screen.getByText(/My Assets/i)).toBeInTheDocument();
+  });
+
+  it("R29-3: approving the re-checkout routes into the real Pro billing flow and lands on Pro", async () => {
+    loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
+    render(<CryptoIdea />);
+    expect(await screen.findByText(/Your Premium period has ended/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Approve Pro payment"));
+    // → the normal Pro checkout (billing cycle step); the popup steps aside meanwhile
+    expect(await screen.findByText(/Select your billing cycle/)).toBeInTheDocument();
+    expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
+    fireEvent.click(screen.getByText(/Pay with/));
+    expect(await screen.findByText(/Welcome to/, {}, { timeout: 3500 })).toBeInTheDocument();
+    // The marker was replaced by an ACTIVE Pro subscription — the popup never returns.
+    expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
+  });
+
+  it("R29-3: a lapsed downgrade to Starter still lands directly (no popup) and trims", async () => {
+    loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "free" }));
+    getPortfolios.mockResolvedValue({ success: true,
+      portfolios: [{ id: "p1", name: "Main" }, { id: "p2", name: "Alt" }] });
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
+    expect(await screen.findByText("STARTER")).toBeInTheDocument();
   });
 
   // R21 — the global error toast: carries the raised .ci-toast class (z-index 10000,

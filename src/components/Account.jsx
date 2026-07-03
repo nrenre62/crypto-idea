@@ -104,7 +104,7 @@ function PortRow({ p }) {
 export function Account() {
   const {
     setScreen, user, isPremium, isPro, portfolios, maxPortfolios, maxCoinsPerPort,
-    maxTxPerCoin, aiMonthlyCents, portfolio, startUpgrade, startDowngrade, fmtDate, setActivePortId,
+    maxTxPerCoin, aiMonthlyCents, portfolio, startUpgrade, startDowngrade, openDowngradeChooser, keepPlan, fmtDate, setActivePortId,
     activePortId, deletePortfolio, newPortName, setNewPortName, addPortfolio,
     downloadMyData, downloadCsv, acctBusy, deleteMyAccount, delConfirm, setDelConfirm, acctMsg, logout,
     delPass, setDelPass, delType, setDelType, cancelDelete,
@@ -248,18 +248,23 @@ export function Account() {
               );
             })()}
 
-            {/* Cancelled subscription — show end date */}
-            {user?.subscription?.cancelled&&user?.subscription?.endDate&&(
+            {/* Cancelled subscription — show end date + the R29-2 pending actions:
+                un-cancel any time before the end date; Premium can also change which
+                plan it lands on (reopens the R29-1 chooser). */}
+            {user?.subscription?.cancelled&&user?.subscription?.endDate&&(<>
               <div className="sub-note bad">
                 Your {user.tier==="premium"?"Premium":"Pro"} access ends on<br/>{fmtDate(user.subscription.endDate)}<br/>
                 <span className="sub-sub">Then your account will become {user.subscription.downgradeTo==="free"?"Starter":"Pro"}</span>
               </div>
-            )}
+              <button onClick={keepPlan} className="acct-btn ghost">Keep my plan</button>
+              {isPremium&&<button onClick={openDowngradeChooser} className="acct-btn ghost">Change downgrade choice</button>}
+            </>)}
 
             {!isPro&&<button onClick={()=>startUpgrade("pro")} className="acct-btn accent">Upgrade to Pro</button>}
             {isPro&&!isPremium&&<button onClick={()=>startUpgrade("premium")} className="acct-btn prem">Upgrade to Premium</button>}
             {isPro&&!isPremium&&!user?.subscription?.cancelled&&<button onClick={()=>startDowngrade("free")} className="acct-btn ghost">Cancel Pro · Switch to Starter</button>}
-            {isPremium&&!user?.subscription?.cancelled&&<button onClick={()=>startDowngrade("pro")} className="acct-btn ghost">Downgrade to Pro</button>}
+            {/* R29-1: Premium picks its target (Pro or Starter) in the chooser popup */}
+            {isPremium&&!user?.subscription?.cancelled&&<button onClick={openDowngradeChooser} className="acct-btn ghost">Downgrade</button>}
             {/* R27-4: the transparent cancel policy, shown to paying tiers */}
             {isPro&&<div className="sub-sub" style={{textAlign:"center",marginTop:6}}>Cancel anytime · access continues until your paid period ends · no partial refunds.</div>}
             {/* Self-service billing (S9): deep-link to PayPal's hosted recurring-payments page */}
