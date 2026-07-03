@@ -101,7 +101,15 @@ export default function AdminDashboard() {
       </div>
 
       {/* ═══ OVERVIEW (real, combined, no personal data) ═══ */}
-      {tab === "overview" && (<>
+      {/* BL-1e: a getStats failure renders as an explicit error — never as a
+          plausible all-zero / $0 dashboard (the zeros are EMPTY_STATS, not data). */}
+      {tab === "overview" && statsErr && !stats && (
+        <div style={{ background:"#FDECEA", border:"1px solid #F5C6C0", borderRadius:14, padding:16, marginBottom:10 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:c.rd, marginBottom:4 }}>Couldn't load stats</div>
+          <div style={{ fontSize:12, color:c.dm }}>{statsErr} — the dashboard numbers are unavailable (not zero). Reload the page to retry.</div>
+        </div>
+      )}
+      {tab === "overview" && !(statsErr && !stats) && (<>
         {/* Stats */}
         <div style={{ display:"flex", gap:6, marginBottom:10 }}>
           {[[s.totalUsers,"Total",c.tx],[s.freeUsers,"Starter",c.or],[s.proUsers,"Pro",c.gr],[s.premiumUsers,"Premium",c.pr]].map(([val,label,color]) => (

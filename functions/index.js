@@ -32,6 +32,10 @@
 // environment variable (fallback, from functions/.env or the deploy env).
 const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
+// BL-1a/BL-1b: shared security guards (per-uid limiter / cooldown / App Check gate)
+// and the pure PayPal-billing decision logic — both dependency-injected + unit-tested.
+const { checkCooldown } = require("./guards.js");
+const billing = require("./billing.js");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -169,8 +173,27 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
   }
   const userId = context.auth.uid;                 // the caller — NOT from the body
   const email = context.auth.token.email || undefined;
-  const plan = data && data.plan === "premium" ? PAYPAL_PREMIUM_PLAN_ID : PAYPAL_PLAN_ID;
+  const requestedTier = data && data.plan === "premium" ? "premium" : "pro";
+  const plan = requestedTier === "premium" ? PAYPAL_PREMIUM_PLAN_ID : PAYPAL_PLAN_ID;
+
+  // BL-1c (D5): already-paid guard — never open a second checkout for a tier the
+  // caller already holds (unless that subscription is winding down, i.e. cancelled).
+  const curSnap = await db.doc(`users/${userId}`).get();
+  const cur = curSnap.exists ? curSnap.data() : {};
+  if ((cur.tier || "free") === requestedTier && !(cur.subscription && cur.subscription.cancelled)) {
+    throw new functions.https.HttpsError("failed-precondition", "You already have this plan.");
+  }
+  // BL-1c (D5): per-uid cooldown against double-click / scripted duplicate subs.
+  const cd = await checkCooldown(db, { uid: userId, key: "createSub", cooldownMs: 60_000 });
+  if (!cd.allowed) {
+    throw new functions.https.HttpsError("resource-exhausted", "Please wait a minute before trying again.");
+  }
   if (!plan) throw new functions.https.HttpsError("failed-precondition", "Plan not configured.");
+
+  // BL-1b (D6): persist the billing cycle so getStats prices annual payers correctly.
+  const billingCycle = data && data.billing === "yearly" ? "yearly" : "monthly";
+  await db.doc(`users/${userId}`).set({ billingCycle }, { merge: true });
+  await writeAudit(context, "createSubscription", { targetUid: userId, details: `plan=${requestedTier} billing=${billingCycle}` });
 
   const token = await getPayPalToken();
   const response = await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions`, {
@@ -200,7 +223,8 @@ exports.cancelSubscription = functions.https.onCall(async (data, context) => {
   }
   const userId = context.auth.uid;                 // caller's own uid — fixes the IDOR
   const userDoc = await db.doc(`users/${userId}`).get();
-  const subscriptionId = userDoc.exists ? userDoc.data().paypalSubscriptionId : null;
+  const cur = userDoc.exists ? userDoc.data() : {};
+  const subscriptionId = cur.paypalSubscriptionId;
   if (!subscriptionId) {
     throw new functions.https.HttpsError("failed-precondition", "No active subscription.");
   }
@@ -210,8 +234,14 @@ exports.cancelSubscription = functions.https.onCall(async (data, context) => {
     headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ reason: "User requested cancellation" }),
   });
-  await db.doc(`users/${userId}`).update({ tier: "free" });
-  return { success: true };
+  // BL-1f (B8): access continues until the paid period ends — mark the cancellation
+  // (with the chosen R29 target; only premium may pick "pro") and leave `tier` alone.
+  // The flip happens in enforceSubscriptionPeriods once endDate passes, and a "pro"
+  // target routes through the app's re-checkout (a paid tier needs a payment).
+  const patch = billing.cancelRequestPatch(cur, data && data.downgradeTo, Date.now());
+  await db.doc(`users/${userId}`).set(patch, { merge: true });
+  await writeAudit(context, "cancelSubscription", { targetUid: userId, details: "downgradeTo=" + patch.subscription.downgradeTo });
+  return { success: true, downgradeTo: patch.subscription.downgradeTo, endDate: patch.subscription.endDate };
 });
 
 // ─── Verify a PayPal webhook signature ───
@@ -252,47 +282,63 @@ exports.paypalWebhook = functions.https.onRequest(async (req, res) => {
     const event = req.body;
     const resource = event.resource || {};
 
+    // BL-1b (D6): idempotency — PayPal redelivers events; process each id ONCE.
+    // A transactional create-if-absent marks it; a duplicate is acknowledged and skipped.
+    const evKey = billing.webhookEventKey(event);
+    if (evKey) {
+      const duplicate = await db.runTransaction(async (t) => {
+        const ref = db.doc(`webhookEvents/${evKey}`);
+        const snap = await t.get(ref);
+        if (snap.exists) return true;
+        t.set(ref, { at: Date.now(), type: event.event_type || "" });   // Date.now(): serverTimestamp is undefined in the emulator + everything else here is ms
+        return false;
+      });
+      if (duplicate) { res.json({ received: true, duplicate: true }); return; }
+    }
+
+    const planIds = { proPlanId: PAYPAL_PLAN_ID, premiumPlanId: PAYPAL_PREMIUM_PLAN_ID };
     switch (event.event_type) {
       case "BILLING.SUBSCRIPTION.ACTIVATED": {
+        // BL-1f (B8): tier comes from the PayPal plan_id — a Premium purchase lands
+        // as premium (was hardcoded "pro"). Unknown plan → record the sub, keep tier.
         const userId = resource.custom_id;
         if (userId) {
-          await db.doc(`users/${userId}`).update({
-            tier: "pro",
-            paypalSubscriptionId: resource.id,
-            upgradedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
+          const { patch, unknownPlan } = billing.activationPatch(resource, planIds, Date.now());
+          if (unknownPlan) console.warn("paypalWebhook: unknown plan_id on ACTIVATED — tier left unchanged:", resource.plan_id);
+          await db.doc(`users/${userId}`).set(patch, { merge: true });
         }
         break;
       }
       case "PAYMENT.SALE.COMPLETED": {
+        // A sale carries no plan_id, so it never sets a tier blindly (B8) — it stamps
+        // lastPayment and only RESTORES tierBeforeFailure on a recovered account.
         const subId = resource.billing_agreement_id;
         if (subId) {
           const users = await db.collection("users").where("paypalSubscriptionId", "==", subId).get();
           await Promise.all(users.docs.map((doc) =>
-            doc.ref.update({ tier: "pro", lastPayment: admin.firestore.FieldValue.serverTimestamp() })
+            doc.ref.set(billing.salePatch(doc.data(), Date.now()), { merge: true })
           ));
         }
         break;
       }
       case "BILLING.SUBSCRIPTION.CANCELLED":
       case "BILLING.SUBSCRIPTION.SUSPENDED": {
-        // Downgrade to free, but first record the tier they're leaving as
-        // `tierBeforeFailure` (the last paid tier) so support + analytics keep "was
-        // Pro/Premium" after the auto-downgrade (S9). SUSPENDED is PayPal's
-        // payment-failure state; CANCELLED is user-initiated — both lose the paid tier.
-        const downgrade = async (ref) => {
+        // BL-1f (B8): NO immediate tier drop — access continues until the period ends
+        // (the shipped promise). This marks the subscription (cancelled, or paymentFailed
+        // with the U12 7-day grace) + records tierBeforeFailure (S9); the daily
+        // enforceSubscriptionPeriods sweep performs the actual flip.
+        const kind = event.event_type === "BILLING.SUBSCRIPTION.SUSPENDED" ? "suspended" : "cancelled";
+        const apply = async (ref) => {
           const snap = await ref.get();
-          const prior = snap.exists ? snap.data().tier : null;
-          const patch = { tier: "free" };
-          if (prior && prior !== "free") patch.tierBeforeFailure = prior;
-          await ref.update(patch);
+          const patch = billing.cancellationPatch(snap.exists ? snap.data() : {}, resource, kind, Date.now());
+          await ref.set(patch, { merge: true });
         };
         const userId = resource.custom_id;
         if (userId) {
-          await downgrade(db.doc(`users/${userId}`));
+          await apply(db.doc(`users/${userId}`));
         } else if (resource.id) {
           const users = await db.collection("users").where("paypalSubscriptionId", "==", resource.id).get();
-          await Promise.all(users.docs.map((doc) => downgrade(doc.ref)));
+          await Promise.all(users.docs.map((doc) => apply(doc.ref)));
         }
         break;
       }
@@ -321,6 +367,7 @@ exports.getStats = functions.https.onCall(async (data, context) => {
   }
   const usersSnap = await db.collection("users").get();
   let proUsers = 0, premiumUsers = 0, freeUsers = 0, totalPortfolios = 0, activeUsers = 0;
+  const payerList = [];   // BL-1b (D6): [{tier, cycle}] so annual payers are priced by cycle
   usersSnap.forEach((doc) => {
     const d = doc.data();
     if (d.deleted === true) return; // soft-deleted accounts live in Trash, not the stats
@@ -328,6 +375,9 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     if (d.tier === "pro") proUsers++;
     else if (d.tier === "premium") premiumUsers++;
     else freeUsers++;
+    if (d.tier === "pro" || d.tier === "premium") {
+      payerList.push({ tier: d.tier, cycle: d.billingCycle === "yearly" ? "yearly" : "monthly" });
+    }
     totalPortfolios += d.portfolioCount || 0;
   });
   // Total coins tracked across everyone — a cheap collection-group COUNT
@@ -340,10 +390,9 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     totalCoins = 0;
   }
   const plans = mergePlans((await getConfig()).plans);
-  const grossRevenue = proUsers * plans.pro.price + premiumUsers * plans.premium.price;
-  const payers = proUsers + premiumUsers;
-  const paymentFees = grossRevenue * PAYMENT_FEE_RATE + payers * PAYMENT_FEE_FIXED;
-  const netRevenue = Math.max(0, grossRevenue - paymentFees);
+  // BL-1b (D6): revenue is priced per REAL billing cycle (an annual payer = priceYear/12
+  // with its single yearly fee amortized) — pure math in billing.computeRevenue.
+  const { grossRevenue, paymentFees, netRevenue } = billing.computeRevenue(payerList, plans, PAYMENT_FEE_RATE, PAYMENT_FEE_FIXED);
   return {
     totalUsers: activeUsers,
     proUsers,
@@ -412,6 +461,12 @@ exports.lookupUser = functions.https.onCall(async (data, context) => {
     isAdmin: !!(rec.customClaims && rec.customClaims.admin),
     portfolioCount: d.portfolioCount || 0,
     coinCount,
+    // BL-1e: the fields the admin panel's "last paid tier" note + limits-editor
+    // pre-fill actually read (they rendered empty before).
+    tierBeforeFailure: d.tierBeforeFailure || "",
+    premiumLimits: d.premiumLimits || {},
+    emailVerified: !!rec.emailVerified,
+    billingCycle: d.billingCycle || "",
   };
 });
 
@@ -552,6 +607,7 @@ exports.deleteMyAccount = functions.https.onCall(async (data, context) => {
   // NOT disable the Auth account, so the user can sign in to restore it.
   const deletedAt = Date.now();
   await db.collection("users").doc(uid).set({ deleted: true, deletedAt }, { merge: true });
+  await writeAudit(context, "selfDeleteAccount", { targetUid: uid });   // BL-1d (D11)
   return { success: true, deletedAt, retrievableUntil: deletedAt + TRASH_MS, graceDays: TRASH_DAYS };
 });
 
@@ -569,6 +625,7 @@ exports.restoreMyAccount = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("failed-precondition", "The 30-day window to restore this account has passed.");
   }
   await ref.set({ deleted: false, deletedAt: null }, { merge: true });
+  await writeAudit(context, "selfRestoreAccount", { targetUid: uid });   // BL-1d (D11)
   return { success: true, restored: true };
 });
 
@@ -582,6 +639,7 @@ exports.signOutEverywhere = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
   await admin.auth().revokeRefreshTokens(context.auth.uid);
+  await writeAudit(context, "signOutEverywhere", { targetUid: context.auth.uid });   // BL-1d (D11)
   return { success: true };
 });
 
@@ -603,6 +661,7 @@ exports.exportMyData = functions.https.onCall(async (data, context) => {
     }
     portfolios.push({ id: p.id, ...p.data(), coins });
   }
+  await writeAudit(context, "exportMyData", { targetUid: uid });   // BL-1d (D11)
   return {
     exportedAt: new Date().toISOString(),
     account: { uid, email: context.auth.token.email || "" },
@@ -922,6 +981,25 @@ exports.purgeExpiredTrash = functions.pubsub.schedule("every 24 hours").onRun(as
       }
     }
   } catch (e) { console.error("purgeExpiredTrash:", e); }
+  return null;
+});
+
+// ─── BL-1f (B8): the server-side at-period-end subscription flip ───
+// Cancelled subscriptions past their endDate drop to Starter (a "pro" target keeps
+// its marker so the app's R29 re-checkout popup decides the landing — an approved
+// Pro payment arrives as a fresh ACTIVATED webhook); payment failures drop after
+// the 7-day grace (U12). Pure decision per user in billing.subscriptionSweepPatch.
+exports.enforceSubscriptionPeriods = functions.pubsub.schedule("every 24 hours").onRun(async () => {
+  try {
+    const snap = await db.collection("users").get();
+    for (const d of snap.docs) {
+      const patch = billing.subscriptionSweepPatch(d.data(), Date.now());
+      if (patch) {
+        await d.ref.set(patch, { merge: true });
+        console.log("enforceSubscriptionPeriods:", d.id, JSON.stringify(patch));
+      }
+    }
+  } catch (e) { console.error("enforceSubscriptionPeriods:", e); }
   return null;
 });
 

@@ -52,6 +52,15 @@ describe("admin-dashboard", () => {
     await waitFor(() => expect(listAudit).toHaveBeenCalled());
   });
 
+  it("BL-1e: a getStats failure shows an explicit error, never a $0 dashboard", async () => {
+    getStats.mockRejectedValueOnce(new Error("network down"));
+    render(<AdminDashboard />);
+    await screen.findByText("Couldn't load stats");
+    expect(screen.getByText("Error")).toBeInTheDocument();           // header status dot label
+    expect(screen.getByText(/network down/)).toBeInTheDocument();
+    expect(screen.queryByText("Est. Monthly Revenue")).toBeNull();   // the zeroed cards are gone
+  });
+
   it("opens a user's detail panel on row click with moderation actions", async () => {
     render(<AdminDashboard />);
     fireEvent.click(screen.getByRole("button", { name: "Users" }));

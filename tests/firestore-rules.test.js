@@ -53,6 +53,20 @@ const bobDb = () => testEnv.authenticatedContext("bob").firestore();
 const carolDb = () => testEnv.authenticatedContext("carol").firestore();
 const adminDb = () => testEnv.authenticatedContext("zadmin", { admin: true }).firestore();
 
+// BL-1a/BL-1b: the guard + webhook-idempotency collections are SERVER-ONLY
+// (Admin SDK bypasses rules; there is no match block, so clients hit the
+// platform default-deny — this test pins that no future rule opens them).
+test("rateLimits and webhookEvents are unreadable and unwritable by clients", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "rateLimits", "alice__createSub__cooldown"), { lastAt: 1 });
+    await setDoc(doc(db, "webhookEvents", "WH-1"), { at: 1 });
+  });
+  await assertFails(getDoc(doc(aliceDb(), "rateLimits", "alice__createSub__cooldown")));
+  await assertFails(setDoc(doc(aliceDb(), "rateLimits", "alice__createSub__cooldown"), { lastAt: 0 }));
+  await assertFails(getDoc(doc(aliceDb(), "webhookEvents", "WH-1")));
+  await assertFails(setDoc(doc(aliceDb(), "webhookEvents", "WH-2"), { at: 2 }));
+});
+
 test("a user can read their own profile, a stranger cannot", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });

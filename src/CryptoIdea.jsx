@@ -429,9 +429,12 @@ export default function CryptoIdea(){
   // Admin-configured tier limits (from /api/config); fall back to built-in defaults.
   const _tierKey=isPremium?"premium":isPro?"pro":"free";
   const _planLim=(key,def)=>{const p=site.plans&&site.plans[_tierKey];return (p&&p[key]!=null)?p[key]:def;};
-  const maxPortfolios=isPremium?(premLimits.portfolios||_planLim("portfolios",15)):_planLim("portfolios",isPro?3:1);
-  const maxCoinsPerPort=isPremium?(premLimits.coins||_planLim("coins",1000)):_planLim("coins",isPro?50:10);
-  const maxTxPerCoin=isPremium?(premLimits.transactions||_planLim("transactions",5000)):_planLim("transactions",isPro?2000:50);
+  // BL-1e: `!=null` (not `||`) so an admin-set custom limit of 0 is respected —
+  // firestore.rules reads premiumLimits with .get(key, planVal), which treats 0 as
+  // a real value; the display must mirror that, not silently show the default.
+  const maxPortfolios=isPremium?(premLimits.portfolios!=null?premLimits.portfolios:_planLim("portfolios",15)):_planLim("portfolios",isPro?3:1);
+  const maxCoinsPerPort=isPremium?(premLimits.coins!=null?premLimits.coins:_planLim("coins",1000)):_planLim("coins",isPro?50:10);
+  const maxTxPerCoin=isPremium?(premLimits.transactions!=null?premLimits.transactions:_planLim("transactions",5000)):_planLim("transactions",isPro?2000:50);
   // AI research allowance (server-authoritative): the tier's monthly $-budget for live
   // AI, in cents, from /api/config plans (free 0 / pro 400 / premium 2500). Informational
   // until the B2 enforcement counter ships; each analysis costs ~1¢ (so cents≈analyses).

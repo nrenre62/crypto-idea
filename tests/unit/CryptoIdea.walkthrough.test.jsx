@@ -374,6 +374,22 @@ describe("User walkthrough — all functions", () => {
     expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
   });
 
+  it("BL-1e: an admin-set premium custom limit of 0 is respected (not treated as unset)", async () => {
+    loginAs("prem@test.com", "Prem");
+    getUserProfile.mockResolvedValueOnce({ success: true, tier: "premium",
+      premiumLimits: { portfolios: 0, coins: 7 } });
+    getPortfolios.mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] });
+    getCoins.mockResolvedValue({ success: true, coins: [] });
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("PREMIUM"));
+    await screen.findByText("Plan usage");
+    // portfolios: the || bug showed the 15 default for a custom 0 — now "1 / 0"
+    expect(screen.getByText("1 / 0")).toBeInTheDocument();
+    // coins: a non-default custom cap flows through as before
+    expect(screen.getByText("0 / 7")).toBeInTheDocument();
+  });
+
   it("R29-3: a lapsed downgrade to Starter still lands directly (no popup) and trims", async () => {
     loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "free" }));
     getPortfolios.mockResolvedValue({ success: true,
