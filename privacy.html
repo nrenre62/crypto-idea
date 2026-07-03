@@ -45,15 +45,7 @@
       interest in protecting the service, then deleted automatically. These records are
       retained for the full period even if the related account is deleted earlier.
     </p>
-    <script>
-      fetch('/api/config').then(function(r){return r.ok?r.json():null;}).then(function(c){
-        var id = c && c.legal && c.legal.termlyPrivacyId;
-        if(!id) return;
-        var host = document.getElementById('termly-policy'); host.textContent='';
-        var d = document.createElement('div'); d.setAttribute('name','termly-embed'); d.setAttribute('data-id',id); d.setAttribute('data-type','iframe'); host.appendChild(d);
-        var s = document.createElement('script'); s.src='https://app.termly.io/embed-policy.min.js'; s.id='termly-jssdk'; document.body.appendChild(s);
-      }).catch(function(){});
-    </script>
+    <script src="/termly-embed.js" data-doc="termlyPrivacyId" data-host="termly-policy"></script>
 
     <footer>
       <a href="/">Home</a> · <a href="/terms.html">Terms of Service</a>

@@ -534,7 +534,7 @@ export default function AdminDashboard() {
             ["API key","apiKey","provider API key"],
             ["API URL (ActiveCampaign only)","apiUrl","https://youracct.api-us1.com"],
             ["List / Campaign ID","listId","list or campaign id"],
-            ["From email","fromEmail","hello@yourdomain.com"],
+            ["From email (reserved — not sent from yet; live with BL-5 transactional email)","fromEmail","hello@yourdomain.com"],
           ].map(([label,key,ph]) => (
             <div key={key} style={{ marginBottom:10 }}>
               <label style={{ fontSize:11, color:c.dm, display:"block", marginBottom:4 }}>{label}</label>
