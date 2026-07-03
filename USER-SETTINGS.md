@@ -190,11 +190,12 @@ export async function confirmPassword(currentPassword) {
 ### Usage & AI allowance meters
 - **Usage bars** already exist (portfolios/coins/tx). Keep; ensure they read the
   **configured** caps (`site.plans`), not hardcoded numbers, so admin overrides show.
-- **AI allowance meter** — surface `aiMonthlyCents` (free 0 / pro 400 / premium 2500)
-  **server-authoritatively**: add it to `getUserProfile` return so the client can't spoof
-  it. Show "≈ N analyses/day" + remaining budget. Enforcement counter wires when the
-  NEXT-STEPS **B2 `researchAsk`** callable ships; until then the meter is informational
-  and the AI is offline-fallback (PRICING.md §4.4).
+- **AI allowance meter** — ~~surface `aiMonthlyCents` server-authoritatively~~
+  **SUPERSEDED by CACHE-POLICY C7 / NEXT-STEPS C-A4 (built 2026-07-03):** users never see
+  an AI budget/usage number — the Plan & billing row reads **"AI research · Live"** with
+  no figures (caching/cost is an internal lever, invisible to users — C6). Usage and
+  $-cost move to the **admin** dashboard (C-B7, with the B2 enforcement counter). The
+  server-side budget itself is the per-uid daily counter in `functions/guards.js`.
 
 ### Premium custom limits — implement end-to-end (S8)
 The `premiumLimits` override read at `CryptoIdea.jsx:277` is currently **dead** (never
