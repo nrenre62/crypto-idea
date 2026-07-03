@@ -203,14 +203,14 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
   LLM cost); any live elaboration is optional, gated to Premium, and routed through the validator.
 
 ### Gaps to track (not yet owned by an increment)
-- **#1 (the moat):** no end-to-end test that *Journal thesis → conviction signals → Learn framework*
-  connect for a user. Add a walkthrough seam test once A4–A8 land.
+- ~~**#1 (the moat)**~~ ✅ DONE 2026-07-03 (`c02e4db`): the MOAT walkthrough test — buy-time thesis → Journal →
+  a real holding → Research conviction pills + the #26 bridge note → Learn's "Building Your Thesis" module.
 - **#2 responsive:** add *"verify mobile + desktop layout"* to the DoD of every UI increment (A8 pills,
   A5 Learn, B6 Pulse) — manual narrow-viewport check, no automated visual test exists.
 - **#26 bridge copy** ("these signals cover steps 1–2; you apply 3–5") — make it a tested deliverable
   wherever signals/funnel fields render (easy to omit on one surface).
-- **Diagrams:** A1 updates `authorization-and-tier-limits.svg`; the AI proxy / conviction engine /
-  Learn surfaces are **undiagrammed** — each needs a new `docs/diagrams/` SVG (use `drawing-diagram`).
+- ~~**Diagrams**~~ ✅ DONE 2026-07-03 (`ecedf4a`): `conviction-engine.svg` (Wave-B lane labeled TARGET),
+  `learn-surface.svg`, `subscription-lifecycle.svg` (supersedes the old paypal-flow tier semantics).
 
 ### Still genuinely open (does NOT block Wave A)
 - ~~CoinGecko plan tier under on-demand engine load~~ **DECIDED 2026-06-27: CoinGecko Lite (~100k/mo), keep `HOT_PAGES=5`** (see [`BACKEND-ADMIN-DECISIONS.md`](BACKEND-ADMIN-DECISIONS.md) D16).
@@ -249,13 +249,14 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
   **`enforceSubscriptionPeriods`** sweep does the server-side flip (a "pro" target keeps its marker for the
   R29 re-checkout; payment failures drop after the 7-day grace). *Live PayPal e2e stays a go-live check.*
 
-### BL-2 · Admin panel capabilities
-- [ ] **Grant/revoke admin UI** — wrapper for the existing `setAdminClaim`, gated behind a confirm step + the
-  new admin MFA (D7). Closes the "lose a co-admin → need a terminal + service-account key" trap.
-- [ ] **Admin soft-delete + Empty-trash bulk action** (D8) — admin parity with the self-service 30-day trash.
-- [ ] **Admin "sign out of all devices"** for a target user (admin-target `revokeRefreshTokens`) (D9).
-- [ ] **Reserve the AI Settings section** — Anthropic key field (`keep()` idiom) + manual conviction-cache
-  controls (invalidate / force-refresh a coin) (D10).
+### BL-2 · Admin panel capabilities (✅ BUILT 2026-07-03 — commit `561d22d`)
+- [x] **Grant/revoke admin UI** — ✅ type-the-email-to-confirm wrapper over `setAdminClaim` in the user detail
+  panel (MIN_ADMINS enforced server-side). *The admin-MFA gate (D7) layers on at go-live with U15.*
+- [x] **Admin soft-delete + Empty-trash bulk action** (D8) — ✅ `adminTrashUser` callable (refuses admins —
+  demote first) + "Move to trash" two-tap; "Empty trash" bulk purge w/ confirm (also closes §4b N-2).
+- [x] **Admin "sign out of all devices"** for a target user — ✅ `adminSignOutUser` (audited) + button (D9).
+- [x] **Reserve the AI Settings section** — ✅ "AI (reserved)" card: Anthropic key set-flag via `keep()`
+  (never echoed) + visibly disabled conviction-cache controls that activate with B5 (D10).
 
 ### BL-3 · AI proxy (Claude-only) — extends §0 Wave B; validator-first
 - [ ] **B1** Anthropic (Claude) key in `config/app` + AI Settings (set-flag). **No Gemini** (D17 voids trap #3).
@@ -284,13 +285,14 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
 - [ ] **GetResponse transactional path** (welcome / verification / receipts) — makes `email.fromEmail` real
   (D14/D15/D18). Confirm the GetResponse plan supports transactional/SMTP.
 - [ ] **Termly (3 IDs) + cookie banner + Plausible** into Settings; verify privacy/terms pages (D18).
-- [ ] **Drop `unsafe-inline`** — move inline landing/site-meta scripts to external/hashed files (D12).
+- [x] **Drop `unsafe-inline`** — ✅ BUILT 2026-07-03 (`c483d60`): script-src no longer allows inline; landing/SW/Termly
+  scripts externalized to `public/` (dist ships ZERO inline scripts; style-src keeps 'unsafe-inline' for style attrs).
 
 ### BL-6 · Display honesty + docs cleanup (quick; can run early)
-- [ ] AI allowance line "coming soon" until metered + fix the raw-`aiMonthlyCents` print (D13).
-- [ ] Keep `email.fromEmail` labeled "reserved / not yet used" until BL-5 (D14).
-- [ ] Fix stale `functions:config:set` docs (done in §4 above); confirm `.env` + service-account JSON are
-  git-ignored before any remote is added.
+- [x] AI allowance line — ✅ superseded by **C-A4** (meter removed entirely; users read "Live").
+- [x] `email.fromEmail` labeled **"reserved — not sent from yet"** in admin Settings (D14). ✅
+- [x] Stale `functions:config:set` docs fixed (§4); `.env*` + `*service-account*.json`/`*serviceAccount*.json`
+  confirmed git-ignored. ✅
 
 ### BL — minor/optional hardening (low, undecided)
 - Lock `/api/subscribe` CORS to own-origin (read proxy can stay open).
@@ -309,17 +311,17 @@ cleanups. North star (C6): **caching is an internal cost lever, invisible to use
 it **refines** (does not duplicate) §0 Wave B + §BL — the convictionCache/TTL/allowlist items below
 extend B5/B6/BL-2, they don't replace them.
 
-### C-A · Now — local-buildable + emulator-verifiable (no keys)
-- [ ] **C-A1 · kill the stale mock date** — `mock-conviction.js` is stamped a fixed `2026-06-22` (reads
+### C-A · Now — ✅ ALL BUILT 2026-07-03 (`55f5ad0` + `14f1516`)
+- [x] **C-A1 · kill the stale mock date** — ✅ derived (yesterday) — — `mock-conviction.js` is stamped a fixed `2026-06-22` (reads
   stale today). Drive the mock "as-of" off a relative/today value (or drop the visible date) so the
   demo seam never shows a misleading date pre-live. (C6 hygiene.) *Tiny.*
-- [ ] **C-A2 · history-cache eviction** — `src/hooks/useCoinHistory.js` `_cache` Map has no eviction
+- [x] **C-A2 · history-cache eviction** — ✅ LRU 50 + unit tests — — `src/hooks/useCoinHistory.js` `_cache` Map has no eviction
   (unbounded session growth). Add a small LRU cap (~50 coins). Unit-test the eviction. *Tiny.*
-- [ ] **C-A3 · multi-device listeners (C12)** — replace fetch-once-on-auth with `onSnapshot` on
+- [x] **C-A3 · multi-device listeners (C12)** — ✅ watchPortfolios + active-portfolio watchCoins (changed-coins-only tx re-reads) + watchLearnProgress; integration + live browser-verified (a bypass write moved the UI with no reload) — — replace fetch-once-on-auth with `onSnapshot` on
   owner-only data (portfolios / coins / journal / Learn) so a second device's edits appear live. Bounded
   to owner docs (no fan-out). DoD: emulator integration test (write on ctx A → ctx B sees it); confirm
   no extra reads on the hot path beyond the active portfolio.
-- [ ] **C-A4 · hide the user-facing AI meter (C7)** — remove the U9 AI-allowance meter from the user
+- [x] **C-A4 · hide the user-facing AI meter (C7)** — ✅ row reads "AI research · Live", no numbers — — remove the U9 AI-allowance meter from the user
   Account UI (usage/cost becomes admin-only, see C-B7). Users see "AI: live". **Supersedes BL-6/D13**
   ("coming soon until metered" → never user-facing). Update U9's note + USER-SETTINGS. *Small.*
 
@@ -358,19 +360,19 @@ round-2 + §4 🔵). Decisions locked; build order:
   real `localStorage` (same async interface + error-swallowing degrade — no call sites changed); `logout()`
   clears `ci-active-port` + `ci-profile-<uid>`. Tests: new `storage.test.js` (round-trip/del/missing/corrupt/
   quota-degrade) + smoke asserts logout clears the keys. Verified end-to-end in-browser. 319 unit green.
-- [ ] **C-R2b · `cache/universe` size guard (C14)** — one doc is ~67% of the 1 MiB hard limit at ~3,000
+- [x] **C-R2b · `cache/universe` size guard (C14)** — ✅ `universe-utils.trimUniverse` (worst-rank-first, never throws, unit-tested) — — one doc is ~67% of the 1 MiB hard limit at ~3,000
   coins; a >1 MiB write throws and breaks BOTH front-ends. Wrap the write (`functions/index.js:827`): log/
   alert above ~850 KiB, **trim the lowest-rank tail instead of throwing**; hold `UNIVERSE_PAGES` ≤ 12. No
   sharding yet (KISS). Test: a synthetic oversized universe trims + logs, never throws.
-- [ ] **C-R2c · audit retention (C15)** — keep audit logs (legitimate-interest); add a scheduled
+- [x] **C-R2c · audit retention (C15)** — ✅ daily `purgeOldAudit` (12 months) + privacy.html disclosure — — keep audit logs (legitimate-interest); add a scheduled
   **audit-TTL purge** (fixed N months) so entries age out regardless of account deletion, + a retention
   line in `privacy.html`. No per-account scrub. *Purge job local; disclosure copy now.*
-- [ ] **C-R2d · budget reset = UTC midnight (C16)** — bake a UTC `dayKey` (`YYYY-MM-DD`) into the C-B2
+- [x] **C-R2d · budget reset = UTC midnight (C16)** — ✅ already baked into `guards.js` `utcDayKey` (BL-1a); C-B2 reuses it — — bake a UTC `dayKey` (`YYYY-MM-DD`) into the C-B2
   per-uid counter schema. **Lock before building the counter.** *(Wave B, with C-B2.)*
-- [ ] **C-R2e · fix fire-and-forget writes** — `toggleSetting` (`CryptoIdea.jsx:280`) + `saveLearnProgress`
+- [x] **C-R2e · fix fire-and-forget writes** — ✅ toggleSetting + saveLearnProgress await + revert + toast — — `toggleSetting` (`CryptoIdea.jsx:280`) + `saveLearnProgress`
   (`useLearn.js:52`) don't await/catch → a flake silently drops a settings toggle / earned XP. Await +
   revert + toast on failure (match `addCoin`/`addEntry`). *Local. Obvious fix, no fork.*
-- [ ] **C-R2f · universe write-contention + stampede + history prune** — guard the on-demand fold-back
+- [x] **C-R2f · universe write-contention + stampede + history prune** — ✅ transactional freshness-guarded fold-back + `coalescedSimplePrice` + daily historyCache prune — — guard the on-demand fold-back
   (`:951`) with a per-coin `at` freshness check; coalesce duplicate in-flight long-tail fetches (`:937`)
   via a module-level `{coinId→Promise}` map; prune `historyCache` docs older than `HISTORY_TTL` on the
   daily job. *Local; obvious fixes, batch when convenient.*
@@ -620,8 +622,8 @@ want explicit MVC separation:**
   the calc auto-runs — so the real symptom was a never-completing calc, not a stuck button.)
   **Verified in-browser:** real-data path unchanged; an immediate failure and a true 12s hang both
   degrade to the estimate + note instead of hanging.
-- [ ] **N-2 (LOW): admin trash niceties.** Optional "Empty trash" bulk-purge action, and/or a live
-  (onSnapshot) admin list so a user self-restore reflects without clicking Refresh.
+- [x] **N-2 (LOW): admin trash niceties.** ✅ "Empty trash" bulk purge built with BL-2 (the "and/or" satisfied;
+  a live admin list stays optional).
 - [ ] **N-3 (MED): live AI for the Research tab.** The Research tab ships with AI in graceful
   offline-fallback mode (`src/features/research/api/ai-client.js` throws → built-in data-driven
   summaries). To make "Pulse"/"Ask" use real Claude: add a secure callable Cloud Function
