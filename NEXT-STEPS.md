@@ -1144,8 +1144,8 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (cards ↔ success) · **R28-3** darken light-mode `.plan-feats`/`.plan-price-sm`/`.cycle-sub`/`.proc-sub`
   `--ink-faint`→`--ink-soft` in the BASE rule (**supersedes R27-1**; drop that dark-only override when building).
   Update Login/upgrade/welcome tests. Build R28-1 → R28-2 → R28-3 on "go".
-- [ ] **Round 29 — Billing: Premium downgrade chooser (Pro OR Starter) + pending flexibility + Premium→Pro
-  re-checkout — 📋 PLAN ONLY, FUNCTIONAL (2026-07-03)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md)
+- [x] **Round 29 — Billing: Premium downgrade chooser (Pro OR Starter) + pending flexibility + Premium→Pro
+  re-checkout — ✅ BUILT 2026-07-03 (commit 8c4a01e), FUNCTIONAL** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md)
   "Round 29"; grounded via a 5-agent read-only billing map). Today Premium can ONLY downgrade to Pro
   (Account.jsx:262 hard-wired) and the at-endDate flip (CryptoIdea.jsx:610-615) grants the target tier with
   `subscription:null` — **a Premium→Pro downgrade lands as Pro with NO monthly payment attached (free Pro

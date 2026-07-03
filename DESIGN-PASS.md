@@ -1829,7 +1829,8 @@ neutral pills only). Build on founder "go".
   dark, mobile + desktop (chooser + re-checkout use the shared `<Modal>`, dark-safe).
 
 **Build order (when "go"):** R29-1 chooser → R29-2 pending flexibility → R29-3 re-checkout flip →
-R29-4 cleanup. TDD per step; commit per phase.
+R29-4 cleanup. TDD per step. *(As built: one interlocking commit — the three phases share the
+CryptoIdea state machine.)*
 
 **Security / KISS:** no rules/schema change — `subscription` stays the same owner-persisted profile shape
 (one field, `downgradeTo`, now user-chosen; real billing authority remains the §BL go-live path — the
@@ -1839,4 +1840,8 @@ already lives in `subscription`). R29-3 closes a **real revenue bug** (free Pro 
 founder's rule: **a paid tier is never held without its automatic monthly payment; Starter is how the
 payment stops.**
 
-**Status:** 📋 PLAN ONLY — build on founder "go".
+**Status:** ✅ BUILT 2026-07-03 (commit 8c4a01e) — chooser reuses the `cycle-card` chrome (zero new CSS);
+`keepPlan` + `recheckoutDue` (derived, not stored — only the flip can produce free+cancelled+downgradeTo:"pro");
+`trimToTier(newTier)` now runs on every purchase completion (no-op on normal upgrades, applies the deferred
+trim after a re-checkout); dead `upgradePro`/`downgradeFree` removed. 414/414 unit (+9), build clean,
+browser-verified light+dark, 375+desktop, both re-checkout branches live.
