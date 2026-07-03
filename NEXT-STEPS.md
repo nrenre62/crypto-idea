@@ -240,6 +240,12 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
   (+ `emailVerified`) so the "last paid tier" note + limits-editor pre-fill actually populate; fix the
   premium custom-limit-`0` falsy bug (`||` → `!=null`, mirror the rules); give `getStats` a distinct error
   state (don't render a failure as a real all-zero/$0 dashboard).
+- [ ] **R29 billing follow-ups (found 2026-07-03, ERRORS.md B8):** `paypalWebhook` ACTIVATED +
+  PAYMENT.SALE.COMPLETED hardcode `tier:"pro"` even when the **PREMIUM** plan id was bought
+  (`functions/index.js:256-275`) — map `plan_id`→tier; `cancelSubscription` (`:197-215`) sets `tier:"free"`
+  **immediately** — must mark cancelled + honor access-until-`endDate` and support the chosen downgrade
+  target (incl. the Round 29 Premium→Pro re-checkout + "Keep my plan" = PayPal reactivation); add the
+  server-side at-period-end flip (today the client flips on load).
 
 ### BL-2 · Admin panel capabilities
 - [ ] **Grant/revoke admin UI** — wrapper for the existing `setAdminClaim`, gated behind a confirm step + the
@@ -1138,6 +1144,20 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (cards ↔ success) · **R28-3** darken light-mode `.plan-feats`/`.plan-price-sm`/`.cycle-sub`/`.proc-sub`
   `--ink-faint`→`--ink-soft` in the BASE rule (**supersedes R27-1**; drop that dark-only override when building).
   Update Login/upgrade/welcome tests. Build R28-1 → R28-2 → R28-3 on "go".
+- [ ] **Round 29 — Billing: Premium downgrade chooser (Pro OR Starter) + pending flexibility + Premium→Pro
+  re-checkout — 📋 PLAN ONLY, FUNCTIONAL (2026-07-03)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md)
+  "Round 29"; grounded via a 5-agent read-only billing map). Today Premium can ONLY downgrade to Pro
+  (Account.jsx:262 hard-wired) and the at-endDate flip (CryptoIdea.jsx:610-615) grants the target tier with
+  `subscription:null` — **a Premium→Pro downgrade lands as Pro with NO monthly payment attached (free Pro
+  forever — real revenue bug)**. Decisions (AskUserQuestion): **(1)** Premium gets ONE "Downgrade" button →
+  a Pro/Starter **chooser popup** (PLAN_BENEFITS + configured prices) → the existing confirm; **(2)
+  Premium→Pro = re-checkout at period end** — approve a NEW Pro payment or land on Starter; trim is
+  **deferred until that decision** (never Starter-trim data a Pro re-checkout would keep); **(3) full
+  pending flexibility** — "Keep my plan" (un-cancel) + Premium can switch the pending target; **(4)** the
+  R28 picker stays locked (downgrades only in Plan & billing). **R29-1** chooser · **R29-2** pending
+  actions · **R29-3** re-checkout flip (dueDowngrade stays pure) · **R29-4** drop dead `downgradeFree`.
+  Adjacent go-live gaps logged (ERRORS.md B8 + §BL-1): webhook hardcodes `tier:"pro"` for the PREMIUM plan
+  id; `cancelSubscription` sets free immediately. Build R29-1 → R29-2 → R29-3 → R29-4 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
 browser-verify mobile (~390) + desktop (~1040), light + dark · commit · update docs.

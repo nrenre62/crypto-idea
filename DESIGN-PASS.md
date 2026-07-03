@@ -1744,3 +1744,99 @@ neutral pills only). Build on founder "go".
 **Security / KISS:** R28-1 is a **real safety fix** — prevents duplicate charges by reading the already-available `user.tier` (no new state) + a `startUpgrade` guard. R28-2 **removes duplication** — one `PLAN_BENEFITS` source feeds cards + success screen (the drift the founder worried about becomes structurally impossible) and **deletes two false claims** (reduces refund/complaint risk). R28-3 is **per-class CSS** (token untouched, billing-only, supersedes the R27-1 dark-only override → net fewer rules). No rules/schema change, no new dependency. Honest capacity-based framing matches what the code actually enforces + ships.
 
 **Status:** ✅ BUILT 2026-07-02 (commit f30532d) — current-plan lock (CURRENT badge/"Your current plan"/"Included", locked-click no-op browser-verified) + exported PLAN_BENEFITS single source (Premium = "priority email support", "Custom limits" deleted) + R28-3 base-rule --ink-soft sub-text (replaces R27-1).
+
+---
+
+## Round 29 — Billing: Premium downgrade chooser (Pro OR Starter) + pending-state flexibility + Premium→Pro re-checkout (2026-07-03, PLAN ONLY, FUNCTIONAL)
+
+> Founder — after I upgrade to **Pro** I can go back to **Starter**; after I upgrade to **Premium** I can
+> only downgrade to **Pro**. Make Premium able to downgrade to **both** — Starter **or** Pro. Rule: you
+> can't go to a paid plan without its **automatic monthly payment**; going back to the free plan means
+> the payment stops.
+> **Decisions locked (AskUserQuestion, 2026-07-03, grounded via a 5-agent read-only billing map):**
+> (1) **Chooser popup** — Premium gets ONE "Downgrade" button that opens a Pro/Starter chooser, then the
+> existing confirm popup. (2) **Premium→Pro = re-checkout at period end** — when Premium lapses the user
+> must approve a NEW Pro payment (normal checkout); declined/skipped → Starter. (3) **Full pending
+> flexibility** — while a downgrade is pending: "Keep my plan" (un-cancel) AND Premium can switch the
+> chosen target. (4) **Picker stays locked** per R28 — downgrades live ONLY in Account → Plan & billing.
+> **Plan only — build on founder "go".**
+
+**Grounded current state (5-agent map + direct read, 2026-07-03):**
+- **Premium is hard-wired to Pro.** [Account.jsx:262](src/components/Account.jsx) renders exactly one
+  button for Premium — "Downgrade to Pro" → `startDowngrade("pro")`; Pro gets "Cancel Pro · Switch to
+  Starter" → `startDowngrade("free")` (`:261`). The pink notice (`:252-256`) already reads the target
+  dynamically from `subscription.downgradeTo` ("Then your account will become Starter/Pro").
+- **State machine:** `downgradeTo` state `null|"free"|"pro"` ([CryptoIdea.jsx:103](src/CryptoIdea.jsx));
+  `startDowngrade` (`:396`) opens the confirm modal (`:707-742`, trim impact + the R27-4 no-refund copy);
+  `confirmDowngrade` (`:397-404`) persists `subscription{cancelled:true, downgradeTo}`. Once cancelled the
+  downgrade buttons hide (`!subscription.cancelled` guards) — **no un-cancel, no target change** today.
+- **The free-Pro-forever gap (the founder's rule, CONFIRMED REAL):** at `endDate` the on-load flip
+  ([CryptoIdea.jsx:610-615](src/CryptoIdea.jsx), via pure `dueDowngrade`
+  [useUpgrade.js:53-66](src/hooks/useUpgrade.js)) sets `tier=target` and **`subscription:null`** +
+  `trimToTier(target)` — so a Premium→Pro downgrade lands as **Pro with NO payment attached** (free Pro
+  forever). Exactly what the founder's "can't hold Pro without the automatic monthly payment" forbids.
+- **Adjacent go-live gaps (recorded → NEXT-STEPS §BL-1; NOT built this round):** (a) `paypalWebhook`
+  ACTIVATED + PAYMENT.SALE.COMPLETED hardcode `tier:"pro"` even when the **PREMIUM** plan id was bought
+  ([functions/index.js:256-275](functions/index.js)) — a real Premium purchase would be labeled Pro at
+  go-live; (b) `cancelSubscription` callable (`functions/index.js:197-215`) sets `tier:"free"`
+  **immediately** — contradicts "access continues until the period ends" and can't express a →Pro target;
+  (c) there is no server-side at-period-end flip (client-load only — fine for the local model, §BL owns
+  the production path). Logged as [ERRORS.md](ERRORS.md) **B8**.
+
+**Plan:**
+- **R29-1 — Premium downgrade chooser (decision 1 + 4).** Replace Premium's button with ONE **"Downgrade"**
+  (`acct-btn ghost`) → shared `<Modal size="sm">` chooser **"Downgrade to which plan?"**: two option cards
+  fed by the R28 `PLAN_BENEFITS` single source + the **configured** prices (`site.plans`, same source as
+  the picker) — **Pro** ("$X/mo · billing continues monthly — you'll approve the Pro payment when Premium
+  ends") and **Starter** ("Free · payments stop"). Both cards note: *"Your Premium access continues until
+  {endDate} either way."* Picking one closes the chooser and opens the **existing** confirm popup with that
+  target (`startDowngrade(t)` signature unchanged). **Pro keeps its single button** (only one place to go —
+  no chooser). The R28 picker stays locked ("Included" cards stay non-clickable).
+- **R29-2 — pending-state flexibility (decision 3).** While `subscription.cancelled && endDate` (pink
+  notice showing) render under the notice: **"Keep my plan"** — new `keepPlan()` clears
+  `cancelled`/`downgradeTo` (subscription resumes; production = PayPal reactivation before period end —
+  go-live note in §BL-1/B8); and, Premium only, **"Change downgrade choice"** → reopens the R29-1 chooser;
+  confirming updates `subscription.downgradeTo` in place (the pink notice already tracks it live).
+- **R29-3 — Premium→Pro re-checkout at period end (decision 2 — fixes free-Pro-forever).** Change the
+  at-load flip: `dueDowngrade→"free"` stays exactly as today (tier free + trim + `subscription:null`).
+  `dueDowngrade→"pro"` **no longer grants Pro silently**: set `tier:"free"` (the paid period is genuinely
+  over), **keep** the `subscription {cancelled, downgradeTo:"pro", endDate}` marker, and open a
+  **re-checkout popup**: *"Your Premium period has ended. Approve the Pro monthly payment to continue on
+  Pro — or continue on Starter (free)."* → **[Approve Pro payment]** routes into the existing Pro billing
+  flow (locally the emulated checkout; at go-live the real PayPal approval); success → `tier:"pro"` + an
+  **active Pro subscription** + `trimToTier("pro")`. **[Continue with Starter]** → `subscription:null` +
+  `trimToTier("free")`. **Trim ordering is the critical detail:** the trim is **DEFERRED until the user
+  decides** — never trim to Starter limits first and destroy data a Pro re-checkout would have kept. The
+  kept marker makes the popup re-show on every load until decided (no silent limbo). `dueDowngrade` itself
+  stays pure — the caller branches on the returned target.
+- **R29-4 — cleanup.** Remove the dead `downgradeFree` handler ([CryptoIdea.jsx:406](src/CryptoIdea.jsx),
+  unreachable — both buttons call `startDowngrade` directly). Payment-failure grace path (7 days → free)
+  is untouched.
+
+**TDD / verify (write tests first; never finish red):**
+- **Unit (Vitest):** Premium renders ONE "Downgrade" button; the chooser shows 2 cards sourced from
+  `PLAN_BENEFITS` (assert same source, no copy drift); each card routes to the confirm popup with the right
+  `targetLabel`; a Pro user is unchanged (single button, no chooser). Confirm → pink notice shows the
+  chosen target. Pending: `keepPlan()` clears the flags (notice gone, Downgrade button back); Premium
+  "Change downgrade choice" updates `downgradeTo` (Pro↔Starter). Flip: `downgradeTo:"free"` at endDate →
+  free + trimmed + sub null (lock today's behavior); `downgradeTo:"pro"` at endDate → tier free +
+  re-checkout popup + **NOT trimmed yet** + marker kept; approve → pro + trim(pro) + active sub; decline →
+  free + trim(free) + sub null; popup re-shows on a fresh load while undecided. Payment-failed 7-day grace
+  → free unchanged.
+- **Build + browser (emulator):** full loop as a (dev-tier) Premium — Downgrade → choose Starter → notice
+  "become Starter" → Keep my plan → notice gone, button back; choose Pro → simulate `endDate` past →
+  re-checkout popup → both branches (approve = Pro + payment attached; decline = Starter + trim). Light +
+  dark, mobile + desktop (chooser + re-checkout use the shared `<Modal>`, dark-safe).
+
+**Build order (when "go"):** R29-1 chooser → R29-2 pending flexibility → R29-3 re-checkout flip →
+R29-4 cleanup. TDD per step; commit per phase.
+
+**Security / KISS:** no rules/schema change — `subscription` stays the same owner-persisted profile shape
+(one field, `downgradeTo`, now user-chosen; real billing authority remains the §BL go-live path — the
+client model is the emulated stand-in, same as today). Reuses the shared `<Modal>`, `PLAN_BENEFITS`, the
+existing confirm popup + trim machinery; the only new state is a chooser-open flag (the pending marker
+already lives in `subscription`). R29-3 closes a **real revenue bug** (free Pro forever) and encodes the
+founder's rule: **a paid tier is never held without its automatic monthly payment; Starter is how the
+payment stops.**
+
+**Status:** 📋 PLAN ONLY — build on founder "go".

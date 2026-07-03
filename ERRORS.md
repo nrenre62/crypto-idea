@@ -195,6 +195,24 @@
   **Verify:** fire many concurrent cold-cache requests → exactly one upstream fetch. **Status:** 🔎 backlog
   hardening (low; accepted tradeoff today, same as the existing universe routes — see line 785-787 notes).
 
+### B8 · PayPal go-live path: Premium purchases labeled "pro" + immediate-free cancel 🔎 (high at go-live, inert locally)
+- **Where:** `functions/index.js` — `paypalWebhook` (`:256-275`) + `cancelSubscription` (`:197-215`).
+  **Cause (found in the Round 29 billing map, 2026-07-03):** (a) the webhook's
+  `BILLING.SUBSCRIPTION.ACTIVATED` and `PAYMENT.SALE.COMPLETED` handlers hardcode `tier: "pro"` — they never
+  check *which* plan id (`PAYPAL_PLAN_ID` vs `PAYPAL_PREMIUM_PLAN_ID`) the subscription belongs to, so a real
+  **Premium** purchase would set `tier:"pro"` at go-live (customer pays Premium, gets Pro); (b)
+  `cancelSubscription` sets `tier:"free"` **immediately** after cancelling the PayPal sub — contradicting the
+  shipped promise "access continues until your paid period ends" (R27-4 copy + the client model, which flips
+  at `endDate` via `dueDowngrade`) and unable to express a chosen downgrade target (Round 29's Premium→Pro);
+  (c) there is no server-side at-period-end flip at all — only the client's on-load `dueDowngrade`.
+  **Why inert locally:** the emulator never receives real PayPal webhooks and the app's local flow doesn't
+  call `cancelSubscription`; the client-side subscription model is the stand-in until go-live. **Fix (go-live,
+  owned by NEXT-STEPS §BL-1):** map `plan_id`→tier in both webhook handlers; rework `cancelSubscription` to
+  mark `{cancelled, endDate, downgradeTo}` and leave `tier` untouched until period end; add the server-side
+  period-end flip (scheduled or webhook-driven), honoring Round 29's re-checkout semantics ("Keep my plan" =
+  PayPal reactivation). **Verify:** sandbox-PayPal e2e at go-live — buy Premium → tier "premium"; cancel →
+  tier unchanged until period end. **Status:** 🔎 recorded, scheduled under §BL-1 (blocked on Blaze/PayPal).
+
 ---
 
 ## C. By design — NOT bugs (documented so they aren't "fixed" by mistake)
