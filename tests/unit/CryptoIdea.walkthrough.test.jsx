@@ -374,6 +374,18 @@ describe("User walkthrough — all functions", () => {
     expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
   });
 
+  it("BL-1/U12: a payment failure past the 7-day grace lands on Starter (no re-checkout popup)", async () => {
+    loginPremium({ billing: "monthly", startDate: "2026-01-01", endDate: "2099-01-01",
+      cancelled: false, paymentFailed: true, paymentFailedDate: "2026-01-10" });   // long past the grace
+    getPortfolios.mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] });
+    getCoins.mockResolvedValue({ success: true, coins: [] });
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    // forced to free by the grace expiry — NOT the R29 re-checkout path
+    expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
+    expect(await screen.findByText("STARTER")).toBeInTheDocument();
+  });
+
   it("BL-1e: an admin-set premium custom limit of 0 is respected (not treated as unset)", async () => {
     loginAs("prem@test.com", "Prem");
     getUserProfile.mockResolvedValueOnce({ success: true, tier: "premium",

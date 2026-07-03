@@ -67,6 +67,29 @@ test("rateLimits and webhookEvents are unreadable and unwritable by clients", as
   await assertFails(setDoc(doc(aliceDb(), "webhookEvents", "WH-2"), { at: 2 }));
 });
 
+// BL-1 review fix: the billing fields the SERVER now trusts are owner-immutable.
+// An owner clearing `subscription.cancelled` would dodge the period-end sweep
+// (paid tier forever, no payments); an owner writing a victim's paypalSubscriptionId
+// + a fake tierBeforeFailure would get PAYMENT.SALE.COMPLETED to grant that tier.
+test("server-trusted billing fields are owner-immutable (update AND create)", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "premium", portfolioCount: 0,
+      subscription: { cancelled: true, downgradeTo: "free", endDate: "2026-08-01" } });
+  });
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { subscription: { cancelled: false } }));
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { tierBeforeFailure: "premium" }));
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { paypalSubscriptionId: "I-VICTIM" }));
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { billingCycle: "yearly" }));
+  // ...and can't be pre-seeded at signup either
+  await assertFails(setDoc(doc(bobDb(), "users", "bob"),
+    { name: "Bob", tier: "free", portfolioCount: 0, tierBeforeFailure: "premium", paypalSubscriptionId: "I-VICTIM" }));
+  await assertFails(setDoc(doc(carolDb(), "users", "carol"),
+    { name: "Carol", tier: "free", portfolioCount: 0, subscription: { cancelled: false } }));
+  // a clean signup still works, and the admin/server path is untouched
+  await assertSucceeds(setDoc(doc(bobDb(), "users", "bob"), { name: "Bob", tier: "free", portfolioCount: 0 }));
+  await assertSucceeds(updateDoc(doc(adminDb(), "users", "alice"), { billingCycle: "yearly" }));
+});
+
 test("a user can read their own profile, a stranger cannot", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });

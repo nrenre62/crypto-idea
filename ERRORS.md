@@ -217,7 +217,13 @@
   CANCELLED/SUSPENDED webhooks mark `{cancelled/paymentFailed, downgradeTo, endDate}` with **no immediate
   tier drop**; (c) new daily `enforceSubscriptionPeriods` sweep flips at period end (a "pro" target keeps
   its marker for the Round 29 re-checkout; 7-day grace on payment failure). The **sandbox-PayPal e2e**
-  remains the go-live verification (webhooks can't fire locally).
+  remains the go-live verification (webhooks can't fire locally). **Review addendum (34-agent adversarial
+  pass, same day):** because the sweep now TRUSTS `users/{uid}.subscription`, that field (+`billingCycle`/
+  `tierBeforeFailure`/`paypalSubscriptionId`) is **owner-immutable in firestore.rules** (update AND create;
+  rules-tested) — otherwise an owner could clear their own cancellation marker and keep a paid tier without
+  paying, or hijack SALE.COMPLETED recovery with a victim's sub id. Residual go-live item: the client's
+  pending-downgrade decisions need `reactivateSubscription`/`resolveRecheckout` callables to clear the
+  server marker (NEXT-STEPS §BL-4) — locally the localStorage model is authoritative, so nothing is stuck.
 
 ---
 

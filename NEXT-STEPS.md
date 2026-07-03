@@ -272,6 +272,13 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
   App Check enforcement in console (D2/D4).
 - [ ] **U13** server password policy (Identity Platform require-mode).
 - [ ] **U15** admin MFA (TOTP enrollment + challenge in the admin app) (D3) — **gates BL-2's grant UI**.
+- [ ] **Subscription-decision callables (from the BL-1 adversarial review, 2026-07-03):** the server-side
+  `subscription` marker is now **owner-immutable** (rules) and the sweep trusts it — so at go-live the
+  client's pending-downgrade decisions need server counterparts: **`reactivateSubscription`** ("Keep my
+  plan" → PayPal reactivate + clear the marker) and **`resolveRecheckout`** (decline → clear the marker
+  server-side; approve is just the normal Pro checkout). Locally the client model (localStorage) covers
+  both, so nothing is blocked — but WITHOUT these, a server-written marker outlives the client's decision
+  and the R29 re-checkout popup would re-appear on every load after a real PayPal cancellation lapses.
 
 ### BL-5 · Transactional email + legal/analytics + CSP
 - [ ] **GetResponse transactional path** (welcome / verification / receipts) — makes `email.fromEmail` real

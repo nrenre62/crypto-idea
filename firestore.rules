@@ -104,21 +104,31 @@ service cloud.firestore {
       allow create: if isOwner(userId)
                     && request.resource.data.tier == 'free'
                     && request.resource.data.get('portfolioCount', 0) == 0
+                    // BL-1 review fix: server-only billing/moderation fields can't be
+                    // pre-seeded at signup — paypalSubscriptionId + tierBeforeFailure would
+                    // let a user hijack the SALE.COMPLETED recovery path, and `subscription`
+                    // now drives the period-end sweep (enforceSubscriptionPeriods).
+                    && !request.resource.data.keys().hasAny(['subscription', 'billingCycle', 'tierBeforeFailure', 'paypalSubscriptionId', 'premiumLimits', 'deleted', 'deletedAt'])
                     && validUserData(request.resource.data)
                     && (!('consent'  in request.resource.data) || validConsent(request.resource.data.consent))
                     && (!('settings' in request.resource.data) || validSettings(request.resource.data.settings));
 
       // Admins can change anything (e.g. grant a paid tier after payment).
       // Owners may update their profile but NOT the server-authoritative fields
-      // 'tier'/'joined', the soft-delete fields 'deleted'/'deletedAt', or the admin-set
-      // 'premiumLimits' override (all set server-side only, so a user can't self-trash,
-      // self-promote, or raise their own custom limits outside the Admin-SDK callables).
+      // 'tier'/'joined', the soft-delete fields 'deleted'/'deletedAt', the admin-set
+      // 'premiumLimits' override, or the BILLING fields the server now trusts (BL-1):
+      // 'subscription' (the cancellation marker the enforceSubscriptionPeriods sweep
+      // flips on — an owner clearing it would keep a paid tier without paying),
+      // 'paypalSubscriptionId'/'tierBeforeFailure' (setting a victim's sub id + a fake
+      // last-paid tier would get PAYMENT.SALE.COMPLETED to grant that tier), and
+      // 'billingCycle' (revenue accounting). All written by Admin-SDK callables only.
       // They may only nudge portfolioCount by ±1 (kept in sync with portfolio create/
       // delete), and any name/settings/consent they DO write must keep the closed shape.
       allow update: if isAdmin() || (
                       isOwner(userId)
                       && !request.resource.data.diff(resource.data)
-                            .affectedKeys().hasAny(['tier', 'joined', 'deleted', 'deletedAt', 'premiumLimits'])
+                            .affectedKeys().hasAny(['tier', 'joined', 'deleted', 'deletedAt', 'premiumLimits',
+                                                    'subscription', 'billingCycle', 'tierBeforeFailure', 'paypalSubscriptionId'])
                       && counterDeltaOk('portfolioCount')
                       && (!('name'     in request.resource.data) || validUserData(request.resource.data))
                       && (!('settings' in request.resource.data) || validSettings(request.resource.data.settings))
