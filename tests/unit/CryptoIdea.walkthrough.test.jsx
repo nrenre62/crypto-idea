@@ -460,6 +460,16 @@ describe("User walkthrough — all functions", () => {
     expect(await screen.findByText("Building Your Thesis")).toBeInTheDocument();
   });
 
+  it("C-A3 review fix: a broken live-sync stream surfaces a toast (no silent stale data)", async () => {
+    loginAs();
+    const { watchCoins } = await import("../../src/api/firebase-database.js");
+    watchCoins.mockImplementationOnce((uid, pid, cb, onErr) => { if (onErr) onErr(new Error("stream down")); return () => {}; });
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.getByRole("alert").textContent).toMatch(/Live sync was interrupted/);
+  });
+
   it("C-R2e: a failed settings write reverts the toggle and shows a toast", async () => {
     loginAs();
     const { updateUserSettings } = await import("../../src/api/firebase-auth.js");

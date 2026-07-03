@@ -359,24 +359,35 @@ export function watchPortfolios(uid, onChange) {
 // the parent coin's txCount (writeBatch in addTransaction), so tx changes surface
 // here too — and only the CHANGED coins re-read their transactions (docChanges),
 // keeping reads minimal on the hot path.
-export function watchCoins(uid, portfolioId, onChange) {
+// Review fix: onSnapshot does NOT await async callbacks, so rapid snapshots can
+// finish out of order — a GENERATION counter makes a superseded (older) snapshot
+// stop mutating the cache and never call onChange, so fresh data is never
+// overwritten by a late-finishing stale read.
+// `onError` (optional): a PERMANENT stream failure (disconnect/permission) would
+// otherwise silently freeze the UI on last-good data — the caller can surface it.
+export function watchCoins(uid, portfolioId, onChange, onError) {
   const cache = new Map();   // coinId -> coin with entries (last known)
+  let gen = 0;               // newest snapshot generation
   const ref = collection(db, "users", uid, "portfolios", portfolioId, "coins");
   return onSnapshot(ref, async (snap) => {
+    const myGen = ++gen;
     try {
       for (const ch of snap.docChanges()) {
+        if (myGen !== gen) return;                     // superseded mid-await — stop
         const id = ch.doc.id;
         if (ch.type === "removed") { cache.delete(id); continue; }
         const coin = { id, ...ch.doc.data() };
         const txSnap = await getDocs(query(
           collection(db, "users", uid, "portfolios", portfolioId, "coins", id, "transactions"),
           orderBy("date", "desc")));
+        if (myGen !== gen) return;                     // don't write stale data
         coin.entries = txSnap.docs.map((t) => ({ id: t.id, ...t.data() }));
         cache.set(id, coin);
       }
+      if (myGen !== gen) return;
       onChange(snap.docs.map((d) => cache.get(d.id)).filter(Boolean));
     } catch (e) { /* keep last-good */ }
-  }, () => { /* keep last-good */ });
+  }, (e) => { if (onError) onError(e); });
 }
 
 // The user's Learn progress doc (same result shape as getLearnProgress).

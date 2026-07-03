@@ -964,14 +964,19 @@ async function refreshUniverse({ pages = UNIVERSE_PAGES, prune = false } = {}) {
 // the sorted id set (identical portfolios produce identical batches — the actual
 // stampede shape); the entry clears when the fetch settles.
 const _inflightPrice = new Map();
+// Review fix: returns { data, fetchedAt } where fetchedAt is captured when the
+// UPSTREAM FETCH starts — coalesced followers must stamp the shared data with the
+// fetch's own time, never their (later) arrival time, or a follower's fold-back
+// could claim fake-newer freshness and overwrite a genuinely newer refresh.
 async function coalescedSimplePrice(ids) {
   const key = [...ids].sort().join(",");
   const hit = _inflightPrice.get(key);
   if (hit) return hit;
+  const fetchedAt = Date.now();
   const p = (async () => {
     try {
       const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(ids.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: await cgHeaders() });
-      return r.ok ? await r.json() : null;
+      return { data: r.ok ? await r.json() : null, fetchedAt };
     } finally { _inflightPrice.delete(key); }
   })();
   _inflightPrice.set(key, p);
@@ -1133,7 +1138,7 @@ exports.api = functions.https.onRequest(async (req, res) => {
       // scheduled refresh that landed mid-flight is never overwritten by older data.
       if (stale.length) {
         try {
-          const d = await coalescedSimplePrice(stale);
+          const { data: d, fetchedAt } = await coalescedSimplePrice(stale);
           if (d) {
             const upd = {};
             for (const id of stale) {
@@ -1141,8 +1146,10 @@ exports.api = functions.https.onRequest(async (req, res) => {
                 // R23-1: simple/price carries no rank — keep the cached universe rank on
                 // the response so a stale-but-known coin doesn't lose it mid-refresh.
                 out[id] = { ...d[id], usd_market_cap_rank: (universe[id] || {}).rank ?? null };
-                // preserve metadata if we already had it; only update price fields
-                upd[id] = { ...(universe[id] || {}), p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: now };
+                // preserve metadata if we already had it; only update price fields.
+                // `at: fetchedAt` — the SHARED fetch's start time, not this request's
+                // arrival, so a coalesced follower can't claim fake-newer freshness.
+                upd[id] = { ...(universe[id] || {}), p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: fetchedAt };
               }
             }
             if (Object.keys(upd).length) {
@@ -1152,9 +1159,9 @@ exports.api = functions.https.onRequest(async (req, res) => {
                   const cur = (snap.exists && snap.data().coins) || {};
                   const fresh = {};
                   for (const id in upd) {
-                    // Skip any coin a concurrent refresh already stamped NEWER than
-                    // our fetch time — never overwrite fresher data with older.
-                    if (((cur[id] || {}).at || 0) < now) fresh[id] = upd[id];
+                    // Skip any coin already stamped NEWER than the fetch itself —
+                    // never overwrite fresher data with older.
+                    if (((cur[id] || {}).at || 0) < fetchedAt) fresh[id] = upd[id];
                   }
                   if (Object.keys(fresh).length) t.set(db.doc(UNIVERSE_DOC), { coins: fresh }, { merge: true });
                 });

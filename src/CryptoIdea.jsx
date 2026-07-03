@@ -641,11 +641,16 @@ export default function CryptoIdea(){
   // made on a second device appears here without a reload. Bounded to the one
   // active portfolio (no fan-out); the watcher re-reads transactions only for
   // coins whose doc changed (every tx write bumps the coin's txCount).
+  // Review fix: NO "default" exclusion — registration literally creates the
+  // portfolio doc id "default", so Starter accounts (the 1-portfolio tier) live
+  // there; excluding it disabled live sync for exactly the free tier. A phantom
+  // local default (no server portfolios at all) just watches an empty collection.
+  // A permanent stream failure surfaces as a toast instead of silently freezing.
   useEffect(()=>{
-    if(!user?.uid||!activePortId||activePortId==="default")return;
+    if(!user?.uid||!activePortId)return;
     const unsub=dbWatchCoins(user.uid,activePortId,(coins)=>{
       setPortfolios(prev=>prev.map(p=>p.id===activePortId?{...p,coins}:p));
-    });
+    },()=>showErr("Live sync was interrupted — reload to make sure you're seeing the latest data."));
     return unsub;
   },[user?.uid,activePortId]);
 
