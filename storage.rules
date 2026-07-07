@@ -1,0 +1,21 @@
+// Crypto Idea — Cloud Storage security rules (ISO-5)
+// ===================================================
+// Storage is UNUSED today, but we commit a deny-by-default ruleset so the tenancy
+// boundary already exists before the first upload feature ships — a new bucket
+// otherwise defaults to open-to-any-signed-in-user for its first 30 days.
+//
+// The model mirrors Firestore: every object lives under users/{uid}/… and only
+// that uid's owner can read or write it. Everything else is denied.
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Per-user object namespace — owner-only (same logical tenancy as Firestore).
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Deny-by-default for anything outside a user's own namespace.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

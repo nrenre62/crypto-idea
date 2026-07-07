@@ -12,7 +12,7 @@ import {
   assertFails,
   assertSucceeds,
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc, getDoc, updateDoc, writeBatch, increment } from "firebase/firestore";
+import { doc, setDoc, getDoc, getDocs, collection, updateDoc, deleteDoc, writeBatch, increment } from "firebase/firestore";
 
 const PROJECT_ID = "demo-crypto-idea";
 // Follow whatever port the emulator actually bound. `firebase emulators:exec` sets
@@ -504,4 +504,68 @@ test("learn progress: owner reads/writes a valid doc; strangers + malformed are 
   await assertFails(setDoc(ref(aliceDb()), { ...good, xp: "lots" }));
   await assertFails(setDoc(ref(aliceDb()), { ...good, completedLessons: "nope" }));
   await assertFails(setDoc(ref(aliceDb()), { ...good, hacker: true }));
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ISO-2 · Isolation regression suite — the living PROOF of ISOLATION.md §1.
+// If any of these ever passes, per-user or admin isolation has regressed.
+// ═══════════════════════════════════════════════════════════════════════════
+
+test("ISO-2: user A cannot get / list / write / delete ANY of user B's subtree", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "bob"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "bob", "portfolios", "p1"), { name: "Bob P", coinCount: 1 });
+    await setDoc(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 1 });
+    await setDoc(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc", "transactions", "t1"),
+      { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
+    await setDoc(doc(db, "users", "bob", "learn", "progress"),
+      { xp: 10, streak: 1, lastActivity: "2026-01-01", completedLessons: [], updatedAt: "2026-01-01T00:00:00.000Z" });
+  });
+  const a = aliceDb();
+  // GET — no doc in B's subtree is readable by A (user doc, portfolio, coin, tx, learn).
+  await assertFails(getDoc(doc(a, "users", "bob")));
+  await assertFails(getDoc(doc(a, "users", "bob", "portfolios", "p1")));
+  await assertFails(getDoc(doc(a, "users", "bob", "portfolios", "p1", "coins", "btc")));
+  await assertFails(getDoc(doc(a, "users", "bob", "portfolios", "p1", "coins", "btc", "transactions", "t1")));
+  await assertFails(getDoc(doc(a, "users", "bob", "learn", "progress")));
+  // LIST — no account enumeration (/users) and no traversal into B's collections.
+  await assertFails(getDocs(collection(a, "users")));
+  await assertFails(getDocs(collection(a, "users", "bob", "portfolios")));
+  await assertFails(getDocs(collection(a, "users", "bob", "portfolios", "p1", "coins")));
+  // WRITE / DELETE — A cannot mutate or remove anything in B's subtree.
+  await assertFails(setDoc(doc(a, "users", "bob"), { tier: "free", portfolioCount: 1 }, { merge: true }));
+  await assertFails(updateDoc(doc(a, "users", "bob", "portfolios", "p1"), { name: "Hacked" }));
+  await assertFails(setDoc(doc(a, "users", "bob", "portfolios", "p1", "coins", "eth"), { symbol: "ETH", name: "Ethereum", txCount: 0 }));
+  await assertFails(deleteDoc(doc(a, "users", "bob", "portfolios", "p1", "coins", "btc")));
+});
+
+test("ISO-2: no user doc can grant itself admin/isAdmin/role (closed-shape blocks it)", async () => {
+  // On CREATE — an owner-created doc carrying a privilege field is rejected by hasOnly,
+  // even though isOwner(uid) passes. This is the structural fix behind the secure-by-design
+  // "a new field is privileged-by-default" lesson (G1).
+  await assertFails(setDoc(doc(aliceDb(), "users", "alice"), { name: "Alice", tier: "free", portfolioCount: 0, admin: true }));
+  await assertFails(setDoc(doc(bobDb(), "users", "bob"), { name: "Bob", tier: "free", portfolioCount: 0, isAdmin: true }));
+  await assertFails(setDoc(doc(carolDb(), "users", "carol"), { name: "Carol", tier: "free", portfolioCount: 0, role: "admin" }));
+  // On UPDATE — same, adding an unknown/privileged key to your own doc is rejected.
+  await seed(async (db) => { await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 }); });
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { admin: true }));
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { isAdmin: true }));
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { role: "admin" }));
+});
+
+test("ISO-2: clients (and an admin's browser) can't read config / audit / cache", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "config", "app"), { plans: {} });
+    await setDoc(doc(db, "audit", "a1"), { action: "x" });
+    await setDoc(doc(db, "cache", "universe"), { coins: [] });
+  });
+  const a = aliceDb();
+  await assertFails(getDoc(doc(a, "config", "app")));
+  await assertFails(getDoc(doc(a, "audit", "a1")));
+  await assertFails(getDoc(doc(a, "cache", "universe")));              // shared PUBLIC data, but proxy-written only
+  await assertFails(setDoc(doc(a, "cache", "universe"), { coins: [1] }));
+  // Admin power is an Admin-SDK thing — even an admin's BROWSER token can't read these.
+  await assertFails(getDoc(doc(adminDb(), "config", "app")));
+  await assertFails(getDoc(doc(adminDb(), "audit", "a1")));
+  await assertFails(getDoc(doc(adminDb(), "cache", "universe")));
 });

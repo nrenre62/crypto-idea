@@ -34,8 +34,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
     // Admin via verified custom claim — set server-side with the Admin SDK.
+    // ISO-1 (G3): read the claim null-safely — a token WITHOUT the `admin` claim has
+    // no such key, and `token.admin == true` raises a rules-eval error on it (fails
+    // to deny, but brittle). `.get('admin', false)` treats "no claim" as false cleanly.
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn() && request.auth.token.get('admin', false) == true;
     }
 
     // ─── Server-only config (API keys, email settings) ───
@@ -48,6 +51,24 @@ service cloud.firestore {
     // ─── Server-only audit log (admin actions) ───
     // Written by Cloud Functions via the Admin SDK; no client can read or write it.
     match /audit/{document=**} {
+      allow read, write: if false;
+    }
+
+    // ─── Other server-only / shared collections (ISO-1 G2) ───
+    // These are already safe via Firestore's implicit default-deny (no client rule
+    // matches them), but declare EXPLICIT denies so a future broad catch-all can't
+    // silently open them:
+    //  · rateLimits/{uid}__*  — per-uid budget/cooldown counters (functions/guards.js)
+    //  · webhookEvents/{id}   — PayPal webhook idempotency ledger
+    //  · cache/**             — shared PUBLIC market data (universe/trending), written
+    //                           only by the proxy; no per-user data lives here.
+    match /rateLimits/{document=**} {
+      allow read, write: if false;
+    }
+    match /webhookEvents/{document=**} {
+      allow read, write: if false;
+    }
+    match /cache/{document=**} {
       allow read, write: if false;
     }
 
@@ -104,10 +125,14 @@ service cloud.firestore {
       allow create: if isOwner(userId)
                     && request.resource.data.tier == 'free'
                     && request.resource.data.get('portfolioCount', 0) == 0
-                    // BL-1 review fix: server-only billing/moderation fields can't be
-                    // pre-seeded at signup — paypalSubscriptionId + tierBeforeFailure would
-                    // let a user hijack the SALE.COMPLETED recovery path, and `subscription`
-                    // now drives the period-end sweep (enforceSubscriptionPeriods).
+                    // ISO-1 (G1): CLOSED-SHAPE allowlist — the created doc may ONLY carry
+                    // these keys. This pre-empts the "server starts trusting a field" trap:
+                    // a new field (admin/isAdmin/role/anything unknown) is rejected by
+                    // default, so it can never be self-granted. Subsumes the BL-1 billing
+                    // blocklist below (kept for documentation of the specifically-dangerous
+                    // fields — paypalSubscriptionId/tierBeforeFailure/subscription drive the
+                    // recovery + period-end sweep and must never be client-seeded).
+                    && request.resource.data.keys().hasOnly(['email', 'name', 'tier', 'joined', 'lastLogin', 'portfolioCount', 'settings', 'consent'])
                     && !request.resource.data.keys().hasAny(['subscription', 'billingCycle', 'tierBeforeFailure', 'paypalSubscriptionId', 'premiumLimits', 'deleted', 'deletedAt'])
                     && validUserData(request.resource.data)
                     && (!('consent'  in request.resource.data) || validConsent(request.resource.data.consent))
@@ -126,9 +151,14 @@ service cloud.firestore {
       // delete), and any name/settings/consent they DO write must keep the closed shape.
       allow update: if isAdmin() || (
                       isOwner(userId)
-                      && !request.resource.data.diff(resource.data)
-                            .affectedKeys().hasAny(['tier', 'joined', 'deleted', 'deletedAt', 'premiumLimits',
-                                                    'subscription', 'billingCycle', 'tierBeforeFailure', 'paypalSubscriptionId'])
+                      // ISO-1 (G1): CLOSED-SHAPE allowlist on the CHANGED keys — an owner
+                      // may only ever touch these five fields. Anything else (the privileged
+                      // billing/tier/soft-delete/premiumLimits fields AND any unknown key
+                      // like admin/isAdmin/role) is rejected by default. Supersedes the old
+                      // `!affectedKeys().hasAny([privileged])` blocklist, which left new
+                      // fields owner-writable — the exact trap this closes.
+                      && request.resource.data.diff(resource.data)
+                            .affectedKeys().hasOnly(['name', 'settings', 'consent', 'portfolioCount', 'lastLogin'])
                       && counterDeltaOk('portfolioCount')
                       && (!('name'     in request.resource.data) || validUserData(request.resource.data))
                       && (!('settings' in request.resource.data) || validSettings(request.resource.data.settings))
