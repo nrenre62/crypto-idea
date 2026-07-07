@@ -1,7 +1,9 @@
 # ISOLATION.md — user-data & admin separation: the guarantee, the audit, the hardening plan (§ISO)
 
 **Date:** 2026-07-07 · **Status of the guarantee: VERIFIED SOUND (live).** Hardening items below are
-📋 PLAN ONLY (build on "go"). · Founder decisions **ISO-D1…D4** locked (§3).
+✅ **BUILT 2026-07-07** (ISO-1 rules + ISO-2 regression suite + ISO-3 erasure hygiene [folded into DI-2]
++ ISO-5 storage.rules); **ISO-4 is the go-live infra** (least-privilege SA + PITR/backup docs; the
+suspend/revoke half shipped in R31-6/DI-6). · Founder decisions **ISO-D1…D4** locked (§3).
 **How audited:** the `secure-by-design` skill checklist + a 22-agent adversarial workflow (6 map
 dimensions → live cross-tenant/admin-access probes on the running emulator → completeness critic).
 **36 candidate findings → 10 confirmed (all defense-in-depth; NONE a live cross-tenant breach) + 5

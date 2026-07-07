@@ -1,6 +1,6 @@
 # DATA-INTEGRITY.md — honest errors, self-healing state, keep-data downgrade (§DI / "Round 30")
 
-**Date:** 2026-07-07 · **Status: 📋 PLAN ONLY — build on "go"** (founder decision D7)
+**Date:** 2026-07-07 · **Status: ✅ BUILT 2026-07-07** (DI-1…DI-6 all shipped; local-first, emulator-verified)
 **Trigger:** founder bug report — *"error when I try to add a new coin on my Starter account; I only have 2 coins"* with the toast **"You've reached this portfolio's coin limit — upgrade for more."**
 **How audited:** live-emulator reproduction matrix + a 27-agent adversarial workflow (6 mapping
 dimensions → every finding verified by 2 independent lenses: code-trace refuter + UI-reachability

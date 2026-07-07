@@ -163,8 +163,10 @@
   save succeeds; force a missing active portfolio → the app resyncs instead of toasting a limit; a REAL
   at-cap add still shows the honest limit + upgrade message.
 - **Severity:** high (a false paywall message on the money path; the founder hit it with real usage).
-- **Status:** 🟡 **Diagnosed 2026-07-07 — PLAN ONLY**, decisions locked (D1–D7 in DATA-INTEGRITY.md); build
-  on founder "go". Supersedes the A2 fix's `permission-denied` → limit-message heuristic.
+- **Status:** ✅ **FIXED 2026-07-07 (DI-1)** — the data layer now CLASSIFIES a denial (reason:
+  limit/missing-target/invalid-or-denied) and the limit/upgrade toast fires ONLY on a server-confirmed
+  limit; thesis/funnel inputs are capped at 2000 (maxLength + counter) so an over-long thesis can't reach
+  the server. Supersedes the A2 fix's `permission-denied` → limit-message heuristic (D1–D7 in DATA-INTEGRITY.md).
 
 ### A5 · Admin tab kills every non-admin session (empty "Welcome," · plan popup→full-screen · "can't stay logged in after un-suspend") 🟡 (high)
 
@@ -201,9 +203,11 @@
   a suspended login says so honestly.
 - **Severity:** high (breaks every founder test session with the admin panel open; in production the same
   applies to the founder's own browser).
-- **Status:** 🟡 **Diagnosed 2026-07-07 (confirmed live, 10-agent workflow + adversarial verify) — PLAN
-  ONLY**, spec in [`DESIGN-PASS.md`](DESIGN-PASS.md) Round 31. **Local-testing gotcha until built: don't
-  test user-app logins with the admin tab open.**
+- **Status:** ✅ **FIXED 2026-07-07 (R31-1)** — the admin app now runs on its OWN named Firebase instance
+  (`initializeApp(config, "admin")` + `getAuth`), so its auth session is isolated and can never sign out
+  the user app; non-admins get a passive denied screen (no auto-kill). Symptom-hardened in the user app
+  (clear the plan overlay on session death + `showPlan && user` render guard). The "don't test logins with
+  /admin open" gotcha no longer applies.
 
 ---
 

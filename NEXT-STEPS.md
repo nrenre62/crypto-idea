@@ -12,7 +12,7 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
-## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (📋 PLAN ONLY — build on "go")
+## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (✅ BUILT 2026-07-07)
 
 Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:
 [`ERRORS.md`](ERRORS.md) §A4 · full inventory:
@@ -22,71 +22,71 @@ account (a >2000-char Buy-Journal thesis denied by `validJournal`, mislabeled as
 A 27-agent adversarial audit confirmed **36 gaps + 5 critic adds** (2 refuted) in the class.
 Everything below is local-first (emulator-verifiable now; no Blaze needed).
 
-- [ ] **DI-1 Honest errors (verify-then-toast + input caps)** — data-layer failure classification
+- [x] **DI-1 Honest errors (verify-then-toast + input caps)** — data-layer failure classification
       (`reason: limit | missing-target | invalid-or-denied`); the limit/upgrade toast ONLY on a
       server-confirmed real limit; strip `limitMsg` from the tx-EDIT site; honest defaults on the
       7 generic sites; client caps mirroring rules bounds (thesis/changeMyMind/funnel ≤2000 +
       live counter on ALL writers incl. both R24 X-save paths; portfolio name ≤50 on create;
       tx amount/price upper bounds; defense clamps for coin name/symbol/thumb);
       `console.error` raw errors everywhere.
-- [ ] **DI-2 Active-portfolio self-heal** — reconciliation effect (`activePortId` ∉ portfolios →
+- [x] **DI-2 Active-portfolio self-heal** — reconciliation effect (`activePortId` ∉ portfolios →
       first real id); zero-portfolio auto-recreate ("My Portfolio", registration parity);
       `getPortfolios` retry + visible error state (never the silent phantom "default");
       write guards on a dangling id; forced-sign-out resets state + actually clears
       `ci-active-port` (fix the persistence-effect resurrection).
-- [ ] **DI-3 Counter integrity** — `runTransaction` guards: add returns `already-exists` (no
+- [x] **DI-3 Counter integrity** — `runTransaction` guards: add returns `already-exists` (no
       journal/addedAt clobber, no counter inflation), deletes return `not-found` without
       decrementing; new `reconcileMyCounters` callable (Admin SDK, own tree) invoked when
       classification detects drift; rules tests pin the behaviors (rules themselves unchanged).
-- [ ] **DI-4 Keep-data downgrade + grey-lock** — retire `trimToTier` everywhere (nothing deleted,
+- [x] **DI-4 Keep-data downgrade + grey-lock** — retire `trimToTier` everywhere (nothing deleted,
       locally or server-side); pure lock-derivation util (portfolios beyond cap by order; newest
       coins beyond the coin cap); dimmed + "Over plan limit" tag + tap-explainer Modal
       (Upgrade / OK; deletes always allowed); re-worded downgrade dialogs (`overLimitImpact`);
       **`resolveRecheckout` + `reactivateSubscription` callables** so the R29 decisions persist
       (moved UP from §BL-4, emulator-testable now).
-- [ ] **DI-5 Watcher robustness** — watchCoins failed-pass full re-sync (no permanent snapshot
+- [x] **DI-5 Watcher robustness** — watchCoins failed-pass full re-sync (no permanent snapshot
       drop); watchPortfolios onError → toast; de-dup optimistic appends by id; re-fetch coins on
       switch when the meta came in empty.
-- [ ] **DI-6 Session & config hardening** — live `users/{uid}` watcher (tier/premiumLimits/trash
+- [x] **DI-6 Session & config hardening** — live `users/{uid}` watcher (tier/premiumLimits/trash
       reach open sessions — completes C-A3); offline detection banner + write blocking;
       `suspendUser` revokes tokens; admin Plans blank-field = default (0 rejected);
       App Check failure handling noted in §4 go-live checklist.
 
-## R31. Onboarding choice · downgrade select-flow · admin trash-delete · suspension freeze  (📋 PLAN ONLY — build on "go")
+## R31. Onboarding choice · downgrade select-flow · admin trash-delete · suspension freeze  (✅ BUILT 2026-07-07 — live PayPal calls verify at go-live)
 
 Canonical spec + decisions R31-D1…D4: [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 31" · bug diagnosis:
 [`ERRORS.md`](ERRORS.md) §A5 (admin tab kills non-admin sessions — explains the empty "Welcome,", the
 popup→full-screen flip, and the post-un-suspend logout loop; **local-testing gotcha: keep the admin tab
 closed while testing user logins until R31-1 lands**). Pairs with §DI; build R31-1 first.
 
-- [ ] **R31-1 Isolate admin auth** — own Firebase app instance/persistence for `admin-main.jsx`; "not an
+- [x] **R31-1 Isolate admin auth** — own Firebase app instance/persistence for `admin-main.jsx`; "not an
       admin" denied screen instead of auto-signout; user app clears the plan-flow overlay on session death
       + `showPlan && user` render guard. **Also fixes R31-7** (logout ~1 min after upgrade = the same §A5
       admin-tab kill; DoD adds: upgrade to Pro AND Premium, wait 2+ min with /admin CLOSED, session
       persists — escalate to a dedicated diagnosis only if it survives with the admin tab closed).
-- [ ] **R31-2 Forced new-user plan choice (R31-D1)** — no pre-chosen plan / no CURRENT badge until an
+- [x] **R31-2 Forced new-user plan choice (R31-D1)** — no pre-chosen plan / no CURRENT badge until an
       explicit choice; three actionable cards (Choose Starter/Pro/Premium), no X or skip link for the
       fresh registration; `settings.planChosen` persisted (validSettings + rules test); Starter card+CTA
       border **gray in light (`--line-strong`), white in dark (`--ink` #ece9e1)** across every plan-picker
       surface (R31-D5); drop the duplicated "Select a plan" subtitle from the upgrade popup (keep it on the
       welcome picker).
-- [ ] **R31-3 Downgrade select-then-confirm + approve-now (R31-D2)** — chooser cards become a selection
+- [x] **R31-3 Downgrade select-then-confirm + approve-now (R31-D2)** — chooser cards become a selection
       (highlight + Continue); "what you'll lose" warning for BOTH targets before any billing step;
       Premium→Pro: cycle picker (defaults monthly) → approve PayPal NOW with a future start at Premium's
       end (retires the R29-3 `recheckoutDue` popup); pending notice shows "payment approved ✓";
       keep-my-plan/change-choice also cancel the scheduled subscription.
-- [ ] **R31-4 No-refund line on every billing surface** — add to the buy/cycle step, the chooser footer,
+- [x] **R31-4 No-refund line on every billing surface** — add to the buy/cycle step, the chooser footer,
       and the new warning step (confirm modal + Account already have it).
-- [ ] **R31-5 Admin delete-via-trash** — remove Move-to-trash; Delete → type-DELETE popup (reuse the BL-2a
+- [x] **R31-5 Admin delete-via-trash** — remove Move-to-trash; Delete → type-DELETE popup (reuse the BL-2a
       typed-confirm pattern) → `adminTrashUser`; hard delete ONLY from the Trash tab, also behind typed
       DELETE.
-- [ ] **R31-6 Suspension freeze + honest message + trash billing (R31-D3/D4)** — `auth/user-disabled` →
+- [x] **R31-6 Suspension freeze + honest message + trash billing (R31-D3/D4)** — `auth/user-disabled` →
       honest "account suspended" login message; suspend = revoke tokens + `suspendedAt` + PayPal
       subscription suspend (go-live) + sweep skips suspended; un-suspend reactivates + extends `endDate`
       by the suspension duration (pure billing.js helper + tests); trash (admin AND self-delete) cancels
       the PayPal subscription immediately — also fixes hard-delete never cancelling a payer's billing.
 
-## ISO. User-data & admin isolation — audit + harden + prove  (📋 PLAN ONLY — build on "go")
+## ISO. User-data & admin isolation — audit + harden + prove  (✅ ISO-1/2/3/5 BUILT 2026-07-07 · ISO-4 = go-live infra)
 
 Canonical: [`ISOLATION.md`](ISOLATION.md) (guarantee + threat model + decisions ISO-D1…D4) ·
 findings: [`docs/planning/isolation-audit-findings.json`](docs/planning/isolation-audit-findings.json).
@@ -95,33 +95,33 @@ callables; admin data walled off; no admin code in the user bundle). Below = def
 hardening (no current breach) + the regression tests that PROVE it. Decision ISO-D1: keep logical
 per-uid isolation (physical per-user DB is an anti-pattern here), harden + prove.
 
-- [ ] **ISO-1 Harden the rules** — closed-shape `users/{uid}` (`hasOnly` allowlist on create+update so
+- [x] **ISO-1 Harden the rules** — closed-shape `users/{uid}` (`hasOnly` allowlist on create+update so
       `admin`/`isAdmin`/`role`/unknown keys are rejected — pre-empts the "server starts trusting a
       field" trap; add `joined` to the create blocklist); explicit `if false` for `rateLimits/**`,
       `webhookEvents/**`, `cache/**`; null-safe `isAdmin()` (`token.get('admin',false)`); rules tests
       per change.
-- [ ] **ISO-2 Prove isolation (regression suite)** — extend `tests/firestore-rules.test.js`: user A
+- [x] **ISO-2 Prove isolation (regression suite)** — extend `tests/firestore-rules.test.js`: user A
       can't get/list/write B's subtree; no client reads config/audit/cache/rateLimits/webhookEvents;
       no user doc self-grants admin; every admin callable rejects a non-admin; `exportMyData` returns
       only the caller's data. The living proof of the §1 guarantee.
-- [ ] **ISO-3 Shared-device erasure hygiene** — self-delete + sign-out-everywhere clear
+- [x] **ISO-3 Shared-device erasure hygiene** — self-delete + sign-out-everywhere clear
       `ci-profile-<uid>`/`ci-active-port` before signout (**fold into DI-2**).
 - [ ] **ISO-4 Infra least-privilege + revocation + backup policy (go-live)** — least-privilege
       functions SA; token revocation on suspend/admin-revoke + `checkRevoked` on sensitive callables
       (**extends R31-6**); document PITR/backup retention + privacy-policy disclosure (ISO-D3).
-- [ ] **ISO-5 Deny-by-default `storage.rules`** — commit `users/{uid}/…` scoped storage rules (Storage
+- [x] **ISO-5 Deny-by-default `storage.rules`** — commit `users/{uid}/…` scoped storage rules (Storage
       unused today) so the tenancy boundary exists before any upload feature.
 
-## R32. Research → Coins: custom drag-and-drop order  (📋 PLAN ONLY — build on "go")
+## R32. Research → Coins: custom drag-and-drop order  (✅ BUILT 2026-07-07)
 
 Canonical spec + decisions R32-D1…D4: [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 32". The Coins
 view's Sort link is a dead anchor today; cards render value-desc.
 
-- [ ] **R32-1 Sort mode + pointer drag** — Sort toggles sorting mode; drag handle (≡) per card,
+- [x] **R32-1 Sort mode + pointer drag** — Sort toggles sorting mode; drag handle (≡) per card,
       pointer-based drag (mouse + touch, no deps), ArrowUp/Down keyboard moves; Done + Reset-to-auto.
-- [ ] **R32-2 Order model** — pure `applyCoinOrder(holdings, coinOrder)` (listed ids first, rest
+- [x] **R32-2 Order model** — pure `applyCoinOrder(holdings, coinOrder)` (listed ids first, rest
       value-desc → default + new-coins-at-end for free); applied ONLY in the Coins view.
-- [ ] **R32-3 Persist + sync** — `coinOrder` array on the portfolio doc, saved per drop
+- [x] **R32-3 Persist + sync** — `coinOrder` array on the portfolio doc, saved per drop
       (`updateCoinOrder`, revert+toast on failure); `validPortfolioData` optional list ≤1000 + rules
       tests; carry `coinOrder` through the useAuthSession load AND the C-A3 metas merge (it rebuilds
       `{id,name,coins}` today and would drop the field).

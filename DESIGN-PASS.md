@@ -1953,8 +1953,8 @@ subscription immediately · R31-D5 Starter border white-in-dark/gray-in-light ·
 logout-after-upgrade is treated as the §A5 admin-tab bug (R31-1), verified with the admin tab
 closed.
 
-**Status:** 📋 PLAN ONLY — build on founder "go" (pairs with the §DI waves; R31-1 first — it
-unblocks reliable local testing AND fixes the logout-after-upgrade report).
+**Status:** ✅ BUILT 2026-07-07 (R31-1…R31-6 all shipped; R31-1 landed first as planned). Live PayPal
+suspend/activate/cancel calls verify at go-live like the rest of §BL; everything else is emulator-verified.
 
 ## Round 32 — Research → Coins: custom drag-and-drop coin order via the Sort button (2026-07-07, PLAN ONLY, FUNCTIONAL)
 
@@ -1999,4 +1999,5 @@ drag on desktop + touch (375px) + a second seeded device picking the order up li
 **Decisions:** R32-D1 per-portfolio synced · R32-D2 pointer drag everywhere · R32-D3
 value-first default / new coins append · R32-D4 Reset-to-auto in sort mode.
 
-**Status:** 📋 PLAN ONLY — build on founder "go" (batches with §DI + Round 31).
+**Status:** ✅ BUILT 2026-07-07 (R32-1 pointer-drag Sort mode + R32-2 pure applyCoinOrder + R32-3
+coinOrder persisted/synced; unit + rules + integration green).
