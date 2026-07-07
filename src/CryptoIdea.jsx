@@ -105,6 +105,9 @@ export default function CryptoIdea(){
   const[showDowngradeChooser,setShowDowngradeChooser]=useState(false);  // R29-1: Premium picks Pro or Starter
   const[showWelcome,setShowWelcome]=useState(null);  // null | "free" | "pro" | "premium"
   const[showPaymentFailedSim,setShowPaymentFailedSim]=useState(false);
+  // DI-2: a persistent portfolio-load failure surfaces a Retry screen instead of
+  // silently stranding the session on the phantom local "default" portfolio.
+  const[portfoliosError,setPortfoliosError]=useState(false);
   const {portfolios,setPortfolios,activePortId,setActivePortId,portfolio,setPortfolio}=usePortfolios();
   // Subscription/tier-limit logic (end-date, downgrade impact + trim). UI flow state
   // for the upgrade overlay stays here (shared with the auth/Login flow) — see useUpgrade.
@@ -120,8 +123,8 @@ export default function CryptoIdea(){
   // Auth session: owns user/dataLoaded + the auth-watch & profile-save effects.
   // Collaborators are passed as thin wrappers so functions defined lower in this
   // component (saveProfile, checkSubscriptionStatus) are referenced lazily.
-  const {user,setUser,dataLoaded}=useAuthSession({
-    setScreen,setPortfolios,setActivePortId,
+  const {user,setUser,dataLoaded,reloadPortfolios}=useAuthSession({
+    setScreen,setPortfolios,setActivePortId,setPortfoliosError,
     checkSubscriptionStatus:(u)=>checkSubscriptionStatus(u),
     saveProfile:(u)=>saveProfile(u),
     onSignedOut:resetPlanOverlay,
@@ -160,10 +163,23 @@ export default function CryptoIdea(){
   // old bulk local-storage save effect has been removed.
 
   // ═══ Remember which portfolio is active (local UI preference) ═══
+  // DI-2 (G12): only persist while SIGNED IN. Otherwise the sign-out reset to "default"
+  // would immediately re-write ci-active-port after logout() deleted it — resurrecting a
+  // shared-device leak. No user → don't touch the key (logout/sign-out owns clearing it).
   useEffect(()=>{
-    if(!dataLoaded)return;
+    if(!dataLoaded||!user?.uid)return;
     db.set("ci-active-port",activePortId);
-  },[activePortId,dataLoaded]);
+  },[activePortId,dataLoaded,user?.uid]);
+
+  // ═══ DI-2: self-heal a dangling active-portfolio id ═══
+  // Whenever the portfolios list changes (load, a remote delete via the C-A3 watcher, a
+  // downgrade), if the active id is no longer in it, re-point to the first real portfolio.
+  // This is the single source of truth that keeps every write targeting a LIVE doc — a
+  // ghost id is what produced the false "coin limit" toast (G8/G11/G22/G32).
+  useEffect(()=>{
+    if(!dataLoaded||!user?.uid)return;
+    if(portfolios.length&&!portfolios.some(p=>p.id===activePortId))setActivePortId(portfolios[0].id);
+  },[portfolios,activePortId,dataLoaded,user?.uid]);
 
   // ═══ Apply the chosen theme (light / dark / system) to the document root ═══
   // settings.theme is the source of truth; "system" follows the OS preference live.
@@ -374,6 +390,9 @@ export default function CryptoIdea(){
     try{
       const res=await apiDeleteMyAccount();           // soft delete (kept in trash ~30 days)
       const days=(res&&res.graceDays)||30;
+      // ISO-3 (G4): clear this device's cached name/email/tier + active-portfolio id BEFORE
+      // signing out, so an erased user's data doesn't linger on a shared device.
+      const _uid=user?.uid; db.del("ci-active-port"); if(_uid) db.del("ci-profile-"+_uid);
       await logoutUser();
       setUser(null);setDelConfirm(false);setDelPass("");setDelType("");setAcctBusy(false);setScreen("login");
       // Toast persists across the screen change so the user sees the recovery window.
@@ -401,6 +420,8 @@ export default function CryptoIdea(){
     setPwMsg("");setAcctBusy(true);
     try{
       await apiSignOutEverywhere();
+      // ISO-3 (G4): clear this device's local cache before the sign-out (shared-device hygiene).
+      const _uid=user?.uid; db.del("ci-active-port"); if(_uid) db.del("ci-profile-"+_uid);
       await logoutUser();
       setUser(null);setAcctBusy(false);setScreen("login");
       showErr("Signed out of all devices. Please sign in again.");
@@ -509,6 +530,9 @@ export default function CryptoIdea(){
     const lim=maxCoinsPerPort;
     if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Starter: "+maxCoinsPerPort+" coins — upgrade to Pro for 50");return}
     if(!user?.uid){showErr("Please sign in again");return}
+    // DI-2 write guard: never write to a ghost portfolio id (the reconcile effect keeps
+    // activePortId valid, but this closes the brief window before it fires).
+    if(!portfolios.some(p=>p.id===activePortId)){failToast({reason:"missing-target"});return}
     const res=await dbAddCoin(user.uid,activePortId,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb},journal,maxCoinsPerPort);
     if(!res.success){failToast(res,"Couldn't add coin. Check your connection.","You've reached this portfolio's coin limit — upgrade for more.");return}
     setPortfolio(p=>[...p,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb,entries:[],...(journal?{journal}:{})}]);setScreen("portfolio");setSq("")};
@@ -730,6 +754,15 @@ export default function CryptoIdea(){
     <div style={{fontSize:40,marginBottom:14}}>🛠️</div>
     <div style={{fontSize:24,fontWeight:700,marginBottom:8}}>We'll be right back</div>
     <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5}}>Crypto Idea is briefly down for maintenance. Your data is safe — please check back in a little while.</div>
+  </div>);
+
+  // DI-2 (G13/G30): a persistent portfolio-load failure shows an honest Retry, never the
+  // silent phantom "default" portfolio that every write would then fail against.
+  if(portfoliosError&&user&&screen!=="login"&&screen!=="loading") return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
+    <div style={{fontSize:40,marginBottom:14}}>📡</div>
+    <div style={{fontSize:22,fontWeight:700,marginBottom:8}}>Couldn't load your portfolios</div>
+    <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5,marginBottom:20}}>Your data is safe on the server — this looks like a connection hiccup. Let's try again.</div>
+    <button className="btn-primary" style={{maxWidth:220}} onClick={()=>{setPortfoliosError(false);reloadPortfolios();}}>Retry</button>
   </div>);
 
   // Shared state + handlers for extracted screens (grows as screens migrate).

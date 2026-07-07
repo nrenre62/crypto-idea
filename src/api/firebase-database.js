@@ -86,8 +86,12 @@ export async function getUserProfile(uid, _retriesLeft = 2) {
 // PORTFOLIOS
 // ════════════════════════════════════════
 
-// Get all portfolios for a user
-export async function getPortfolios(uid) {
+// Get all portfolios for a user. DI-2: retry a transient failure (mirrors
+// getUserProfile) — right after sign-in the Firestore client's auth state can briefly
+// lag and the first read throws permission-denied. A silent failure here used to strand
+// the session on the phantom local "default" portfolio (G13/G30); the caller now shows a
+// retry state instead, but the retry catches most transient cases first.
+export async function getPortfolios(uid, _retriesLeft = 2) {
   try {
     const ref = collection(db, "users", uid, "portfolios");
     const q = query(ref, orderBy("order"));
@@ -95,6 +99,10 @@ export async function getPortfolios(uid) {
     const portfolios = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     return { success: true, portfolios };
   } catch (error) {
+    if (_retriesLeft > 0) {
+      await new Promise(r => setTimeout(r, 400));
+      return getPortfolios(uid, _retriesLeft - 1);
+    }
     return { success: false, error: error.message, code: error.code };
   }
 }
