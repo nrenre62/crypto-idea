@@ -15,7 +15,7 @@ import { registerUser, updateUserSettings } from "../src/api/firebase-auth.js";
 import {
   getPortfolios, createPortfolio, getCoins,
   addCoin, addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
-  getLearnProgress, saveLearnProgress, watchPortfolios, watchCoins, updatePortfolioName,
+  getLearnProgress, saveLearnProgress, watchPortfolios, watchCoins, updatePortfolioName, updateCoinOrder,
 } from "../src/api/firebase-database.js";
 
 // Point the SDK at the local emulators (DEV auto-connect only happens under Vite).
@@ -191,6 +191,20 @@ test("coin journal funnel (#27): write findings, read them back, then clear them
   assert.ok(cleared.success);
   const cl = await getCoins(uid, "default");
   assert.equal(cl.coins.find((c) => c.id === "coin1").journal.funnel, undefined);
+});
+
+test("R32: updateCoinOrder writes then clears the custom coin order on the portfolio doc", async () => {
+  const write = await updateCoinOrder(uid, "default", ["coin2", "coin0", "coin1"]);
+  assert.ok(write.success, "coin order write: " + JSON.stringify(write));
+  let ports = await getPortfolios(uid);
+  let def = ports.portfolios.find((p) => p.id === "default");
+  assert.deepEqual(def.coinOrder, ["coin2", "coin0", "coin1"], "order round-trips");
+  // An empty array CLEARS the field (Reset to auto).
+  const clear = await updateCoinOrder(uid, "default", []);
+  assert.ok(clear.success);
+  ports = await getPortfolios(uid);
+  def = ports.portfolios.find((p) => p.id === "default");
+  assert.equal(def.coinOrder, undefined, "Reset removes the coinOrder field");
 });
 
 test("learn progress: defaults when empty, then saves + reads back via the data layer (#23)", async () => {

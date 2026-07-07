@@ -41,7 +41,8 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
     let ports = [];
     for (const p of res.portfolios) {
       const cr = await getCoins(uid, p.id);
-      ports.push({ id: p.id, name: p.name, coins: cr.success ? cr.coins : [] });
+      // R32: carry the custom coinOrder (Research → Coins view) through the load.
+      ports.push({ id: p.id, name: p.name, coins: cr.success ? cr.coins : [], ...(p.coinOrder ? { coinOrder: p.coinOrder } : {}) });
     }
     if (ports.length === 0) {
       // G9/G30: zero portfolios (registration step-2 failed, or a delete race left none) →
@@ -114,7 +115,9 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
           if (!metas.length) return;   // never blank the UI on a transient empty snapshot
           cb.current.setPortfolios((prev) => metas.map((m) => {
             const ex = prev.find((p) => p.id === m.id);
-            return { id: m.id, name: m.name, coins: ex ? ex.coins : [] };
+            // R32: the metas merge rebuilds {id,name,coins} — carry coinOrder through too, or
+            // every live snapshot would silently drop the saved order.
+            return { id: m.id, name: m.name, coins: ex ? ex.coins : [], ...(m.coinOrder ? { coinOrder: m.coinOrder } : {}) };
           }));
         }, () => { if (cb.current.onLiveSyncError) cb.current.onLiveSyncError(); });   // DI-5 (G33)
         // Apply any subscription expiry / payment-failure downgrade before showing.

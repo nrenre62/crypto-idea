@@ -27,7 +27,7 @@ const TABS = [
 // Props:
 //   coins      — the active portfolio's coin objects (with their `entries`).
 //   livePrices — the app's live price map: { [id]: { usd, usd_24h_change, ... } }.
-export default function ResearchTab({ coins, livePrices, api, plan, onAccount }) {
+export default function ResearchTab({ coins, livePrices, api, plan, onAccount, coinOrder, onReorder }) {
   const [tab, setTab] = useState('overview');
   const [tf, setTf] = useState('30d');
 
@@ -68,7 +68,7 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount })
         {tab === 'overview' && (
           <OverviewView portfolio={portfolio} empty={empty} pulse={pulse} tf={tf} onTf={setTf} onShare={onShare} />
         )}
-        {tab === 'coins' && <CoinsView holdings={portfolio.holdings} empty={empty} onAsk={askAboutCoin} />}
+        {tab === 'coins' && <CoinsView holdings={portfolio.holdings} coinOrder={coinOrder} onReorder={onReorder} empty={empty} onAsk={askAboutCoin} />}
         {tab === 'ask' && <AskView messages={ask.messages} busy={ask.busy} onSend={ask.send} />}
 
         <p className="disclaimer">

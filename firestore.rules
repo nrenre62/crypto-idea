@@ -285,7 +285,11 @@ service cloud.firestore {
       let data = request.resource.data;
       return data.name is string
              && data.name.size() > 0
-             && data.name.size() <= 50;
+             && data.name.size() <= 50
+             // R32: an optional custom coin order for the Research → Coins view. Display-only,
+             // owner-writable; rules can't inspect list ELEMENTS, so bound the SIZE (≤1000,
+             // mirroring the coins hardMax) so it can't be abused as free storage.
+             && (!('coinOrder' in data) || (data.coinOrder is list && data.coinOrder.size() <= 1000));
     }
 
     function validCoinData() {

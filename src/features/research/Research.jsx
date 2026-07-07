@@ -7,10 +7,11 @@ import { useApp } from '../../hooks/app-context';
 import ResearchTab from './components/ResearchTab';
 
 export default function Research() {
-  const { portfolio, prices, api, isPro, isPremium, setScreen } = useApp();
+  const { portfolio, prices, api, isPro, isPremium, setScreen, coinOrder, updateCoinOrder } = useApp();
   const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
   // R4-4: thread the live/plan header pills + the Account route into the (otherwise
   // self-contained) feature so its header matches the other tabs.
+  // R32: also thread the active portfolio's custom coin order + its persister.
   return (
     <ResearchTab
       coins={portfolio}
@@ -18,6 +19,8 @@ export default function Research() {
       api={api}
       plan={plan}
       onAccount={() => setScreen("account")}
+      coinOrder={coinOrder}
+      onReorder={updateCoinOrder}
     />
   );
 }

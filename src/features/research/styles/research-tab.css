@@ -147,6 +147,16 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .sec-label{display:flex;align-items:center;justify-content:space-between;margin:0 2px 13px}
 .research-root .sec-label h2{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
 .research-root .sec-label a{font-size:13px;font-weight:600;color:var(--accent)}
+/* R32: Research → Coins custom drag order (Sort mode). */
+.research-root .coins-sort-actions{display:inline-flex;gap:8px}
+.research-root .coins-sort-btn{background:none;border:1px solid var(--line-2);border-radius:8px;padding:4px 10px;font-family:var(--body);font-size:12px;font-weight:600;color:var(--accent);cursor:pointer}
+.research-root .coins-sort-btn.primary{background:var(--accent);color:#fff;border-color:transparent}
+.research-root .coins-sort-list{display:flex;flex-direction:column;gap:8px}
+.research-root .coins-sort-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--paper-2);border:1px solid var(--line-2);border-radius:var(--radius);box-shadow:var(--sh-sm)}
+.research-root .coins-drag-handle{cursor:grab;background:none;border:none;font-size:18px;line-height:1;color:var(--ink-faint);padding:4px 6px;border-radius:6px}
+.research-root .coins-drag-handle:active{cursor:grabbing}
+.research-root .coins-sort-name{flex:1;font-weight:600;font-size:14px;color:var(--ink)}
+.research-root .coins-sort-sym{font-size:12px;font-weight:600;color:var(--ink-faint)}
 /* Responsive: coin cards reflow to 2-up on desktop, 1-up on mobile (gap matches the 12px stack). */
 /* R9-2: equal-height cards in a multi-up row. align-items:start let each card size to
    its own content (card 3 with more chips/catalyst/narrative was taller); stretch +

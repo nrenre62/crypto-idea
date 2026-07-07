@@ -1,5 +1,22 @@
 // utils/portfolio.js — portfolio math. Pure functions, fully testable.
 
+// R32: apply a user's custom coin order — used ONLY in the Research → Coins view (Overview
+// movers + allocation stay value-desc). ids listed in `coinOrder` render first, in that
+// order (ids no longer held are skipped); everything else follows in the holdings' existing
+// order (value-desc from computePortfolio). This yields BOTH the never-sorted default
+// (coinOrder empty/absent → today's behaviour) and "coins added later land at the end".
+export function applyCoinOrder(holdings, coinOrder) {
+  if (!Array.isArray(coinOrder) || coinOrder.length === 0) return holdings;
+  const byId = new Map(holdings.map((h) => [h.id, h]));
+  const seen = new Set();
+  const listed = [];
+  for (const id of coinOrder) {
+    if (byId.has(id) && !seen.has(id)) { listed.push(byId.get(id)); seen.add(id); }
+  }
+  const rest = holdings.filter((h) => !seen.has(h.id));
+  return [...listed, ...rest];
+}
+
 export const FALLBACK_PRICES = {
   // marketCap added (R14) + rank added (R23) so the offline demo seam classifies into
   // real risk (btc rank 1 → safest), not all-unknown → high.

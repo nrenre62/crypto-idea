@@ -294,6 +294,9 @@ test("owner can rename a portfolio; a >50-char name is rejected; a stranger is d
   await assertSucceeds(updateDoc(ref, { name: "Renamed" }));           // owner, in-bounds
   await assertFails(updateDoc(ref, { name: "x".repeat(51) }));         // > 50 chars -> rejected
   await assertFails(updateDoc(doc(bobDb(), "users", "alice", "portfolios", "p1"), { name: "Hacked" })); // stranger
+  // R32: a custom coin order is an optional, size-bounded list on the portfolio doc.
+  await assertSucceeds(updateDoc(ref, { coinOrder: ["btc", "eth", "sol"] }));    // accepted
+  await assertFails(updateDoc(ref, { coinOrder: Array.from({ length: 1001 }, (_, i) => "c" + i) })); // >1000 rejected
 });
 
 test("creating a portfolio WITHOUT bumping the counter is rejected", async () => {

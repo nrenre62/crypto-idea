@@ -176,6 +176,22 @@ export async function updatePortfolioName(uid, portfolioId, name) {
   }
 }
 
+// R32: persist a custom coin order for the Research → Coins view
+// (users/{uid}/portfolios/{pid}.coinOrder). An empty array CLEARS the field (Reset → back
+// to value-desc). Display-only + owner-writable; validPortfolioData bounds the list ≤1000
+// and counterDeltaOk('coinCount') passes on the unchanged counter — no rules change beyond
+// the size bound.
+export async function updateCoinOrder(uid, portfolioId, ids) {
+  try {
+    const list = Array.isArray(ids) ? ids.slice(0, 1000) : [];
+    await updateDoc(doc(db, "users", uid, "portfolios", portfolioId),
+      { coinOrder: list.length ? list : deleteField() });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message, code: error.code };
+  }
+}
+
 
 // ════════════════════════════════════════
 // COINS (within a portfolio)

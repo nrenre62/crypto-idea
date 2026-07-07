@@ -25,6 +25,7 @@ import {
   createPortfolio as dbCreatePortfolio,
   deletePortfolio as dbDeletePortfolio,
   updatePortfolioName as dbUpdatePortfolioName,
+  updateCoinOrder as dbUpdateCoinOrder,
   addCoin as dbAddCoin,
   updateCoinJournal as dbUpdateCoinJournal,
   clearCoinJournal as dbClearCoinJournal,
@@ -582,6 +583,17 @@ export default function CryptoIdea(){
     setPortfolios(prev=>prev.map(p=>p.id===renameFor?{...p,name}:p));
     closeRename();};
 
+  // R32: the active portfolio's custom coin order (Research → Coins view) + a persister.
+  // Optimistic; on write failure revert the local order + honest toast (the DI-1 pattern).
+  const coinOrder=portfolios.find(p=>p.id===activePortId)?.coinOrder||[];
+  const updateCoinOrder=async(ids)=>{
+    if(!user?.uid)return;
+    const prev=portfolios.find(p=>p.id===activePortId)?.coinOrder||[];
+    setPortfolios(ps=>ps.map(p=>p.id===activePortId?{...p,coinOrder:ids}:p));
+    const res=await dbUpdateCoinOrder(user.uid,activePortId,ids);
+    if(!res.success){setPortfolios(ps=>ps.map(p=>p.id===activePortId?{...p,coinOrder:prev}:p));failToast(res,"Couldn't save the coin order. Check your connection.");}
+  };
+
   const addCoin=async(c,journal=null)=>{
     if(blockedOffline())return;
     if(portfolio.find(x=>x.id===c.id)){showErr("Already added");return}
@@ -884,7 +896,7 @@ export default function CryptoIdea(){
     infoCoin,setInfoCoin,openCoinInfo,prices,
     remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
-    portfolios,setActivePortId,activePortId,
+    portfolios,setActivePortId,activePortId,coinOrder,updateCoinOrder,
     maxTxPerCoin,aiMonthlyCents,startDowngrade,openDowngradeChooser,keepPlan,fmtDate,deletePortfolio,startRename,newPortName,setNewPortName,addPortfolio,
     lockedCoins,lockedPortIds,openLockInfo,
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
