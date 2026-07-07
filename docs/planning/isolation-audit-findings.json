@@ -1,0 +1,199 @@
+{
+ "confirmed": [
+  {
+   "title": "Isolation is COMPLETE — every user-data path requires isOwner/isAdmin on read AND write; no world-readable path, no enumeration, no cross-tenant traversal, no collectionGroup bypass (live-verified)",
+   "dim": "firestore-rules",
+   "severity": "info",
+   "where": "firestore.rules L96-213 (users/portfolios/coins/transactions/learn), L44-52 (config/audit if-false)",
+   "scenario": "A signed-in throwaway user A could NOT: get user B's doc, list /users (enumerate accounts), list-query scoped to B's uid, read/list B's portfolios subtree, or read cache/config/audit/rateLimits/webhookEvents. Own-scoped reads and own doc writes succeeded. All 23 live emulator probes matched the intended allow/deny. Reads use only isOwner/isAdmin (no resource/request.resource confusion on the read side); the sole collectionGroup query in the codebase is server-side (functions/index.js:389, Admin SDK, bypasses rules) — there is NO collectionGroup rule, so client group queries are denied.",
+   "fixIdea": "No action required for isolation; the boundary is correct and enforced live.",
+   "repro": "Live probe (2 throwaway accounts, emulator projectId demo-crypto-idea): cross-tenant get DENIED, LIST /users DENIED (permission-denied), own-scoped LIST ALLOWED, cross-tenant portfolio get+list DENIED. firestore.rules read rules at L98,146,168,189,209 are all `isOwner(userId) || isAdmin()`. No `matc"
+  },
+  {
+   "title": "rateLimits, webhookEvents and cache/** have NO explicit rule — secured only by Firestore's implicit default-deny, unlike config/audit which are explicit `if false`",
+   "dim": "firestore-rules",
+   "severity": "low",
+   "where": "firestore.rules — absent: match /rateLimits/**, match /webhookEvents/**, match /cache/** (only /config and /audit at L44,L50 are explicit)",
+   "scenario": "These server-only collections (rateLimits/{uid}__*, webhookEvents/{id}) and the shared market caches (cache/universe, cache/trending) are currently unreachable by clients — the live probe confirmed every read/list DENIED. But they rely on the implicit default-deny of an unmatched path rather than an explicit `allow read, write: if false;`. This is not exploitable today (Firestore never fails open on an unmatched path), but it is inconsistent with the file's own 'explicit rule per path' discipline and would silently become world-open the day anyone adds a broad `match /{document=**}` catch-all.",
+   "fixIdea": "Add explicit deny blocks for defense-in-depth and clarity: `match /rateLimits/{document=**} { allow read, write: if false; }`, same for `/webhookEvents/**` and (currently) `/cache/**`. cache contains only shared public market data (metadata/price/volume/supply/trending) — no per-user data — so keeping it proxy-only + explicit-deny is the correct posture.",
+   "repro": "Live probe: read+list of cache/universe, cache/trending, config/app, audit, rateLimits, webhookEvents all returned permission-denied. Grep confirms no client code reads these paths directly (served via the /api Cloud Functions proxy)."
+  },
+  {
+   "title": "users create/update shape is NOT closed (no hasOnly) — an owner can write arbitrary extra top-level fields to their OWN user doc",
+   "dim": "firestore-rules",
+   "severity": "low",
+   "where": "firestore.rules L104-114 (create) and L127-136 (update); validUserData L221-223 only checks `name`",
+   "scenario": "The create rule blocklists privileged keys (subscription/billingCycle/tierBeforeFailure/paypalSubscriptionId/premiumLimits/deleted/deletedAt) and requires tier=='free', and the update rule blocks those plus tier/joined — but neither uses a `hasOnly` allowlist. Live probe wrote a 2000-char `junkField` on create AND a `junk2` field on update to the caller's own /users doc, both ALLOWED. Also `joined` is not in the create blocklist, so a fake join date can be set at signup. Impact is confined to the user's OWN document (no cross-tenant leak) and bounded by the 1 MB doc size, so it is a data-hygiene / potential free-storage weakness, not an isolation hole — but it contradicts the rule comment's 'closed, typed shape' claim (only name/settings/consent are shape-checked; unknown top-level keys pass).",
+   "fixIdea": "Add a closed allowlist to both create and update, e.g. require request.resource.data.keys().hasOnly(['name','tier','joined','portfolioCount','consent','settings','premiumLimits','subscription','billingCycle','tierBeforeFailure','paypalSubscriptionId','deleted','deletedAt']) so unknown keys are rejected; keep the existing per-tenant field blocklist for the privileged subset.",
+   "repro": "Live probe: 'A create own /users doc' with junkField -> ALLOWED; 'A self-write arbitrary junk field (own doc)' -> ALLOWED. validUserData only asserts `d.name is string && 2<=size<=50`; no hasOnly on request.resource.data.keys()."
+  },
+  {
+   "title": "isAdmin() uses `request.auth.token.admin == true`, which raises a rules evaluation error for tokens lacking the claim — fails safe (deny) but is a fragile idiom",
+   "dim": "firestore-rules",
+   "severity": "info",
+   "where": "firestore.rules L37-39 isAdmin(); used in every read/update/delete rule (L98,127,138,146,157,160,168,179,181,189,196,198,209,211)",
+   "scenario": "For a signed-in user WITHOUT the admin custom claim, evaluating `request.auth.token.admin` on a token missing that key produces the emulator error 'Property admin is undefined on object.' In every place isAdmin() is used it is combined with isOwner via `||` (reads/delete) or with a blocked-field owner branch, so the net result is a correct DENY for non-owners and a correct ALLOW for owners (the error branch never flips a result open — the live probe confirmed all cross-tenant reads and privileged writes DENIED). Real admins carry the claim so isAdmin() returns true normally. No isolation impact, but the error-raising access is brittle.",
+   "fixIdea": "Use the null-safe idiom `request.auth.token.get('admin', false) == true` in isAdmin() to avoid the evaluation error while preserving identical allow/deny behavior.",
+   "repro": "Emulator logged 'Property admin is undefined on object. for update @ L127' during the privileged-write probes, yet those writes were correctly DENIED and legitimate owner writes were ALLOWED — errors never failed open."
+  },
+  {
+   "title": "users/{uid} profile doc is not closed-shape: a user can persist admin:true / isAdmin:true / role into their OWN profile",
+   "dim": "admin-separation",
+   "severity": "low",
+   "where": "firestore.rules — users update rule L127-136 (and create L104-114); validUserData L221-223 only checks `name`",
+   "scenario": "Any signed-in user calls updateDoc(users/<theirUid>, {admin:true, isAdmin:true, role:'superuser', junk:'...'}) and it is stored. The owner-update rule guards privileged writes with a blocklist — affectedKeys().hasAny(['tier','joined','deleted','deletedAt','premiumLimits','subscription','billingCycle','tierBeforeFailure','paypalSubscriptionId']) — which does NOT include admin/isAdmin/role or any unknown key, so those pass. Today the injected fields grant nothing (every authorization decision reads the signed custom claim, never a Firestore field), but admin/user separation now rests entirely on the invariant that no code ever trusts a users-doc admin/isAdmin/role field. The moment any future path does — a client-side admin gate, an admin-panel display that trusts the profile row instead of customClaims, a rule that reads the profile — this becomes a self-serve privilege escalation with zero server involvement.",
+   "fixIdea": "Close the shape: add `request.resource.data.diff(resource.data).affectedKeys().hasOnly([<allowed owner-writable keys: name, settings, consent, portfolioCount, ...>])` to the users update rule, and an equivalent `request.resource.data.keys().hasOnly([...])` to the create rule, so unknown keys (admin/isAdmin/role/junk) are rejected. This also removes the incidental storage-abuse vector (arbitrary large fields in one's own doc, only name is size-capped) and makes 'a new field is privileged-by-default' the safe default (see finding 2). Add a rules test.",
+   "repro": "Live emulator (throwaway non-admin user): updateDoc injecting {admin:true,isAdmin:true,role:'superuser',junk:200chars} => ALLOWED and read back intact. Same user: getStats/listUsers/setAdminClaim => functions/permission-denied; getDoc(config/app)/getDoc(audit/*) => permission-denied; getIdTokenResul"
+  },
+  {
+   "title": "Admin/billing-controlled per-user fields are co-located inside the user-owned users/{uid} doc, protected only by an enumerated blocklist",
+   "dim": "admin-separation",
+   "severity": "info",
+   "where": "firestore.rules users update rule L127-136; fields tier/joined/deleted/deletedAt/premiumLimits/subscription/billingCycle/tierBeforeFailure/paypalSubscriptionId written by Admin-SDK callables in functions/index.js",
+   "scenario": "The founder goal is per-user + admin data separation. Server/admin-authoritative state (tier, premiumLimits, subscription markers, paypalSubscriptionId, deleted/deletedAt) is stored in the SAME document the owner can write. Separation holds only because the owner-update rule blocklist enumerates every privileged key. This is deny-by-exception: if a future increment adds a new privileged field to the user doc (e.g. an AI-budget override, a moderation flag) and forgets to add it to the blocklist, the owner becomes able to write it. All currently-known privileged fields ARE blocked (verified live: self tier->premium denied), so this is a structural/robustness note, not a present exploit.",
+   "fixIdea": "Adopt the positive closed-shape allowlist from finding 1 so any not-yet-listed field is rejected by default rather than owner-writable by default. Optionally split volatile billing/subscription state into a server-only subcollection (e.g. users/{uid}/private/billing with allow read,write:if false / admin-only reads) so it is not co-located in the owner-writable doc at all.",
+   "repro": "Self tier->premium DENIED live; the create rule likewise blocks a subset via hasAny(['subscription','billingCycle','tierBeforeFailure','paypalSubscriptionId','premiumLimits','deleted','deletedAt']). Both create and update rely on hasAny blocklists rather than a positive shape. Same root cause as fin"
+  },
+  {
+   "title": "Admin separation CORE verified sound — identity is claim-only, all 14 admin callables guard-first, config/audit are walled off, admin bundle separation is obscurity (correctly acknowledged)",
+   "dim": "admin-separation",
+   "severity": "info",
+   "where": "functions/index.js (getStats 366, setAdminClaim 418, lookupUser 441, setUserTier 476, setPremiumLimits 522, suspendUser 543, deleteUser 559, restoreUser 584, adminTrashUser 600, adminSignOutUser 619, listUsers 714, listAudit 748, getAdminConfig 774, saveConfig 799); firestore.rules config L44-46 + audit L50-52; admin.html + src/admin-main.jsx L31-39",
+   "scenario": "Positive confirmation for the orchestrator (no action needed): (1) admin power = the Firebase custom claim {admin:true} only — isAdminToken(token)=token.admin===true and rules isAdmin()=request.auth.token.admin==true; the claim is set server-side via Admin SDK and is unforgeable client-side. (2) Every admin callable checks `if (!context.auth || !isAdminToken(context.auth.token)) throw permission-denied` as its FIRST statement, before any read/write; body-supplied uid can never be used by a non-admin. (3) config/** (all secrets: PayPal, Anthropic, CoinGecko, email keys) and audit/** are separate top-level collections with allow read,write:if false — never co-located with user docs, confirmed denied to a user live; secrets are returned to admins as set-flags only (getAdminConfig). (4) The admin app is a separate entry (admin.html -> admin-main.jsx, NOT in the user bundle) that re-verifies the claim via getIdTokenResult(true) and signs out non-admins; it holds no secrets and only calls guarded callables. The /admin URL and separate bundle are obscurity, not a boundary — correctly stated in the code comments; the server-side claim check on every callable is the real boundary.",
+   "fixIdea": "No change required. Optional defense-in-depth already documented as go-live items: require 2FA/MFA for admin accounts (Identity Platform), and add an Auth beforeCreate blocking function so signups-off is server-enforced rather than a client gate.",
+   "repro": "Code-read of all 14 callables shows the guard is line 1 of each. Live: non-admin getStats/listUsers/setAdminClaim -> functions/permission-denied; config/app + audit/* direct reads -> permission-denied; token has no admin claim. No src/* code reads an admin/isAdmin field from a Firestore user doc for"
+  },
+  {
+   "title": "Cloud Function callable authorization + IDOR: CLEAN — every callable is correctly guarded (self-uid or admin), no IDOR found (verified live)",
+   "dim": "backend-callables",
+   "severity": "info",
+   "where": "functions/index.js — all 21 onCall callables + 1 onRequest proxy + 5 pubsub schedules",
+   "scenario": "A non-admin attacker (wf-iso-be-att@test.dev) signed into the running emulator and attempted every documented attack: (a) call every admin-only callable, (b) call every self-service callable passing a FOREIGN victim uid in the request data. Result: all 14 admin callables returned permission-denied; all self-service callables acted only on context.auth.uid and ignored the data uid. No cross-tenant read/write/delete/escalation was possible.",
+   "fixIdea": "No fix required for this dimension. Isolation is sound as built.",
+   "repro": "FULL ENUMERATION (name | auth model | uid source):\n\nSELF-SERVICE (act on context.auth.uid, NEVER a data uid — no IDOR):\n- createSubscription | self-uid | userId=context.auth.uid; custom_id=that uid; only data.plan/data.billing/data.downgradeTo read. Tier grant happens ONLY via the signature-verified"
+  },
+  {
+   "title": "CONFIRMED CLEAN: no admin code in the user bundle — verified in built dist/",
+   "dim": "frontend-exposure",
+   "severity": "info",
+   "where": "dist/assets/CryptoIdea-*.js & app-*.js (user) vs dist/assets/admin-*.js; src/CryptoIdea.jsx:69-71; vite.config.js:42-49 (separate entries)",
+   "scenario": "The user app is a separate Vite entry (app.html -> app/CryptoIdea/vendor/firebase chunks) that imports zero admin code; admin logic lives in its own entry (admin.html -> admin-*.js, useAdminDashboard.js -> api/admin.js). Grep of the built artifacts shows the admin callable names (listUsers, setAdminClaim, adminTrashUser, getAdminConfig, saveConfig, setUserTier, listAudit, setPremiumLimits) appear ONLY in admin-CZ_wBuUs.js and are absent from CryptoIdea-*.js and app-*.js. Tree-shaking/code-splitting is clean — a regular user never downloads admin logic, and a different URL is not relied on as the boundary (each admin callable also re-checks the {admin:true} claim server-side).",
+   "fixIdea": "No change needed; strength.",
+   "repro": "grep of dist/assets: admin callable identifiers matched only in admin chunk; user chunk contains only self-service callables (exportMyData/deleteMyAccount/signOutEverywhere). app.html references app/vendor/modulepreload only; admin.html references admin/firebase/trash/vendor."
+  },
+  {
+   "title": "Self-delete and Sign-out-everywhere bypass the shared-device localStorage cleanup — the erased user's cached profile survives on the device",
+   "dim": "erasure-residue",
+   "severity": "low",
+   "where": "src/CryptoIdea.jsx — deleteMyAccount (line 363) and signOutEverywhere (line 390) call logoutUser() (bare Firebase signOut) instead of the logout() handler (253-260) that runs db.del('ci-profile-'+uid)/db.del('ci-active-port')",
+   "scenario": "On a shared/family computer, user A self-deletes their account (or clicks 'Sign out everywhere'). The handler calls logoutUser() — the raw firebase-auth signOut wrapper (firebase-auth.js 243-250) — which does NOT clear localStorage. The plain logout() path DOES clear it (added as C-R2a specifically 'so the next account signing in on a shared device doesn't inherit it'), but the delete / sign-out-everywhere paths skip it. So ci-profile-<A-uid> (name, tier, subscription, settings — saved by saveProfile, CryptoIdea.jsx 190-193) and ci-active-port remain on the device. The next person on that browser can read A's cached profile via localStorage/devtools — the exact leak C-R2a was written to prevent, and A just 'erased' their account.",
+   "fixIdea": "In deleteMyAccount and signOutEverywhere, do the same db.del('ci-active-port') + db.del('ci-profile-'+uid) before/after logoutUser() (or call the shared logout() handler), so all sign-out exits clear cached local profile consistently.",
+   "repro": "1. On a shared browser, log in as user A (e.g. a@test.com, name \"Alice\", Premium). onAuthChange→saveProfile writes localStorage[\"ci-profile-<A-uid>\"] = {email:\"a@test.com\", name:\"Alice\", tier:\"premium\", subscription:{...}, settings:{...}}.\n2. Account → EITHER Privacy&Data → Delete account (type DELE"
+  }
+ ],
+ "refuted": [
+  {
+   "title": "createSubscription trusts client-supplied billingCycle and persists it to the user doc before any payment is confirmed",
+   "why": "CONFIRMED as code behavior but NOT an isolation gap. All three factual claims verified: (1) functions/index.js:196-197 takes billingCycle from unvalidated client input (data.billing) and writes it to the user doc via merge before any PayPal"
+  },
+  {
+   "title": "Cached profile PII (email/name/tier) persists in localStorage on every sign-out path except the explicit Log-out button",
+   "why": "Code claims all CONFIRMED, but this is defense-in-depth on already-safe isolation, not a genuine isolation/access breach.\n\nVERIFIED (src read): utils/storage.js `db` is a real localStorage wrapper. CryptoIdea.jsx:190-194 `saveProfile` destr"
+  },
+  {
+   "title": "ci-active-port is a global localStorage key (not uid-scoped), lingering across accounts on a shared device",
+   "why": "CONFIRMED BENIGN — the finding's own \"info / not a data leak\" conclusion is correct; no real actor can access or leak another user's data through this key, and the founder's isolation goal is not violated.\n\nCode path (verified): `ci-active-"
+  },
+  {
+   "title": "CONFIRMED CLEAN: data layer loads only the signed-in uid's own subtree — no cross-tenant fetch, no merged-user state",
+   "why": "This is a CONFIRMED-CLEAN isolation strength, and adversarial verification upholds it — no real actor can access or leak another tenant's data. CODE: In src/hooks/useAuthSession.js every read/listener is keyed by fbUser.uid taken from the F"
+  },
+  {
+   "title": "CONFIRMED CLEAN: no real secret bundled; Firebase web config is public by design; no PII in URLs, console logs, or analytics",
+   "why": "Adversarially verified every claim in this CONFIRMED-CLEAN finding against the live source (and the built dist/ bundle); all hold, so there is no real leak or isolation gap. (1) firebase.config.js:25-42 ships only the public Firebase web co"
+  },
+  {
+   "title": "Tenancy model is single Firestore DB + logical per-uid isolation — this IS the correct design, not a gap",
+   "why": "The finding is an accurate architectural observation, not a vulnerability. It correctly describes the current design (single Firestore DB, one default database in .firebaserc for project demo-crypto-idea, per-uid logical isolation enforced "
+  },
+  {
+   "title": "Admin authority and admin-owned data are correctly separated from user accounts (confirmation)",
+   "why": "CONFIRMED as correct/info, not a vulnerability. Adversarially verified in code AND with a live emulator probe; the finding's every claim holds.\n\nAdmin authority is a Firebase Auth custom claim ({admin:true}), never a field on a user doc: fi"
+  },
+  {
+   "title": "Per-user rate/budget counters persist OUTSIDE the users subtree and survive account erasure",
+   "why": "Code claims verified: rateLimits is a top-level uid-keyed collection (guards.js:23,44); deleteUser (index.js:577) and purgeExpiredTrash (index.js:1070) both recursiveDelete only the users/{uid} subtree, which by definition never touches top"
+  },
+  {
+   "title": "Audit log stores email + uid PII in a top-level collection, retained 12 months, not scrubbed on account deletion",
+   "why": "The finding's factual claims are all CONFIRMED by code, but they do NOT amount to an isolation gap a real actor can exploit — the finding itself concedes this (\"no tenant can read another's audit trail; the only exposure is admin-readable r"
+  },
+  {
+   "title": "Planned Wave B per-user Pulse/Ask AI cache should be nested under users/{uid}, not a new top-level per-uid collection",
+   "why": "Design-only, no actor-accessible leak. VERIFIED: (1) `grep pulseCache` returns zero code hits — the per-user Pulse cache does not exist; it is a future Wave B P1 item (CACHE-POLICY.md C2 lines 80-85; NEXT-STEPS.md line 215) with an undecide"
+  },
+  {
+   "title": "Client localStorage keeps a plaintext PII copy (name/tier) per uid on the device",
+   "why": "Code facts are accurate but this is a defense-in-depth nicety on already-safe isolation, NOT a genuine per-tenant or admin isolation violation. Verified: src/utils/storage.js:10-23 is a real localStorage wrapper; CryptoIdea.jsx:192-193 save"
+  },
+  {
+   "title": "Account erasure never cancels the PayPal subscription — a deleted user keeps being billed and their billing state is orphaned",
+   "why": "CODE CLAIMS CONFIRMED (confirmed-code, accurate). I read all three delete/purge paths and the cancel path in C:/Users/nrenr/OneDrive/מסמכים/crypto idea app/crypto-idea-project/crypto-idea/functions/index.js: deleteUser (558-581) does db.rec"
+  },
+  {
+   "title": "Per-user rateLimits/{uid}__* docs are never deleted on erasure and have no retention purge at all — the uid persists indefinitely after 'full' deletion",
+   "why": "CODE CLAIM CONFIRMED, but it is NOT an isolation gap. guards.js writes top-level docs at rateLimits/{uid}__{key}__{day} (consumeDailyBudget) and rateLimits/{uid}__{key}__cooldown (checkCooldown). This residue is produced by CURRENTLY-SHIPPE"
+  },
+  {
+   "title": "Audit log retains the erased user's email + uid for up to 12 months with no per-account scrub (right-to-erasure can't remove it on demand)",
+   "why": "The finding's code claims are ACCURATE but it is NOT an isolation vulnerability and does not violate the founder's per-tenant/admin-separation goal. Verified: writeAudit (functions/index.js 91-103) stores actorUid/actorEmail/targetUid/targe"
+  }
+ ],
+ "criticAdds": [
+  {
+   "title": "Backup / PITR / scheduled-export is a single un-partitioned tenancy surface that right-to-erasure never reaches",
+   "where": "firebase.json (no firestore backup/export config), functions/index.js:577 recursiveDelete + :1070 purgeExpiredTrash + deleteMyAccount — all operate on the live DB only; single (default) database holds users/**, config/**, audit/** together",
+   "scenario": "Every tenant's holdings PLUS the walled-off config/app secrets doc and the PII-bearing audit collection live in ONE Firestore database, so any Managed Backup, Point-in-Time-Recovery window, or scheduled BigQuery/GCS export is whole-database granularity — there is no per-tenant export boundary, and whoever can read the export bucket / restore a backup reads all users + admin config at once. Worse for erasure: soft-delete, purgeExpiredTrash, and deleteUser's recursiveDelete only touch the live DB — a user who exercised right-to-erasure still exists in full in every backup/PITR snapshot and every export taken before purge, with no scrub path. The whole audit considered only within-DB residue (audit/rateLimits) and never this out-of-DB copy surface.",
+   "severity": "medium",
+   "confidence": "confirmed-code",
+   "evidence": "No backup/export/PITR config in repo; grep for exportDocuments/pointInTime/gs:// = none; all three erasure paths target db.collection('users') only.",
+   "fixIdea": "Document the backup/export/PITR retention as part of the tenancy model; set a bounded PITR/backup retention; add erased-user handling to the export pipeline (or note it as an accepted, disclosed retention window in the privacy policy) so a purge is eventually reflected in derived copies."
+  },
+  {
+   "title": "Cloud Functions runtime service account has project-wide god-mode — per-tenant AND admin-vs-user isolation rests entirely on app-code guards with zero infra least-privilege",
+   "where": "functions/index.js:42 admin.initializeApp() (default creds, no runWith/serviceAccount anywhere — grep runWith/serviceAccount = none)",
+   "scenario": "The functions runtime uses the default GCF/App Engine service account with the Admin SDK, which BYPASSES all Firestore rules. That single identity can read/write every tenant's subtree and the deny-by-default config/** (Anthropic + PayPal secrets) and audit/** collections. So the entire per-tenant boundary and the admin-data-separated-from-users property are enforced only by the guard-first isAdminToken/self-uid checks in application code — no defense-in-depth. One missing guard, one injection into the /api proxy, or one over-broad new callable escalates directly to full cross-tenant + admin-secret compromise, and the audit's 'all callables guard-first' confirmation is the ONLY thing standing between a bug and total breach.",
+   "severity": "medium",
+   "confidence": "confirmed-code",
+   "evidence": "No runWith({serviceAccount}) or minimal-role IAM binding; admin.initializeApp() with default credentials; Admin SDK inherently bypasses rules.",
+   "fixIdea": "Run functions under a dedicated least-privilege service account (only the Firestore/Auth/Secret Manager scopes actually used); move secrets to Secret Manager with per-function grants; treat the guard checks as the app layer, not the only layer."
+  },
+  {
+   "title": "Admin-claim revocation and user suspension are not token-revoked and no callable uses checkRevoked — stale privileged authority for up to ~1h",
+   "where": "functions/index.js:434 setAdminClaim (no revokeRefreshTokens on demote) · :555 suspendUser updateUser({disabled}) (no revoke) · revokeRefreshTokens exists only at :625/:678 · isAdminToken :61 reads token.admin with no checkRevoked",
+   "scenario": "Demoting a rogue/compromised admin (setCustomUserClaims {admin:false}) does NOT revoke their tokens, and callables verify the presented ID token without checkRevoked — so the demoted admin's cached token still carries {admin:true} and passes every isAdminToken gate (getStats/listUsers/setUserTier/deleteUser/setAdminClaim/saveConfig...) for up to ~1h after the remediation. Same root cause hits containment: suspendUser only sets Auth disabled, so a suspended abuser keeps a valid ID token and can still read/write their own Firestore subtree until the token expires; and signOutEverywhere's revokeRefreshTokens doesn't tear down a second device's already-open onSnapshot streams or its unexpired access token, so live per-user data keeps flowing on the other device for the token's remaining lifetime. Revocation is treated as immediate everywhere in the UX but is actually eventual.",
+   "severity": "medium",
+   "confidence": "confirmed-code",
+   "evidence": "grep revokeRefreshTokens = only lines 625, 678; setAdminClaim (434) and suspendUser (555) omit it; no checkRevoked/verifyIdToken(...,true) anywhere.",
+   "fixIdea": "Call admin.auth().revokeRefreshTokens(uid) inside setAdminClaim (both grant and revoke) and suspendUser; for the ~1h access-token window on the most sensitive admin callables, verify with checkRevoked (or a short custom-claim epoch) so demote/suspend take effect immediately."
+  },
+  {
+   "title": "App Check is defined but never enforced end-to-end — no attestation that requests to the rules boundary or callables come from the real app",
+   "where": "functions/guards.js:58 appCheckOk (never called in index.js — grep appCheckOk in index.js = 0 call sites) · src/api/firebase.config.js:56 initializeAppCheck only when !isDev && VITE_RECAPTCHA_SITE_KEY set + console-side enforcement toggle",
+   "scenario": "The appCheckOk gate is implemented but wired into zero callables, and the client only initializes App Check under a prod reCAPTCHA key with enforcement flipped manually in console — so today, in dev and by default in prod, there is no App Check. The Firestore rules boundary and every callable accept any request bearing a valid ID token from any origin/script, with no proof it originated from the legitimate app. This is not a cross-tenant read by itself (rules still scope by uid), but it removes the tenancy control that would blunt token-replay of a stolen/leaked ID token, scripted credential-stuffing, and automated enumeration of the /api proxy — i.e. it weakens per-tenant separation against off-app abuse, which the audit never assessed.",
+   "severity": "low",
+   "confidence": "confirmed-code",
+   "evidence": "guards.js exports appCheckOk with an {enforce} flag; no caller in index.js; client App Check is prod-key-gated and console-enforced (deploy-time TODO in CLAUDE.md).",
+   "fixIdea": "Enable App Check enforcement on Firestore + callables at go-live and actually invoke appCheckOk({enforce:true}) on the sensitive callables; until then, treat the ID token alone as the only barrier and size rate limits accordingly."
+  },
+  {
+   "title": "No storage.rules committed — the storage-tenancy dimension is undefined for any future file upload",
+   "where": "repo root: no storage.rules file; firebase.json has no \"storage\" block; firebase.config.js:39 still declares storageBucket demo-crypto-idea.appspot.com",
+   "scenario": "The app doesn't use Cloud Storage today, so there is no live exposure — but the storage-tenancy dimension has literally no artifact in the repo. The moment anyone adds an avatar/CSV/attachment upload (a natural next feature) there is no per-tenant Storage rule to copy the Firestore isOwner pattern from, and a default-open or path-guessable bucket layout would be an immediate cross-tenant file leak. The audit marked storage-tenancy as covered on the basis of 'single Firestore DB, no Storage,' but the absence of a committed, deny-by-default storage.rules is the concrete latent gap.",
+   "severity": "info",
+   "confidence": "confirmed-code",
+   "evidence": "ls storage.rules = missing; firebase.json emulators omit storage; bucket name still shipped in client config.",
+   "fixIdea": "Commit a deny-by-default storage.rules now (even with Storage unused) that scopes any object to users/{uid}/... with request.auth.uid == uid, so the tenancy boundary exists before the first upload feature lands."
+  }
+ ]
+}

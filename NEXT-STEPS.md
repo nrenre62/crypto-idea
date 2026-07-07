@@ -83,6 +83,32 @@ closed while testing user logins until R31-1 lands**). Pairs with §DI; build R3
       by the suspension duration (pure billing.js helper + tests); trash (admin AND self-delete) cancels
       the PayPal subscription immediately — also fixes hard-delete never cancelling a payer's billing.
 
+## ISO. User-data & admin isolation — audit + harden + prove  (📋 PLAN ONLY — build on "go")
+
+Canonical: [`ISOLATION.md`](ISOLATION.md) (guarantee + threat model + decisions ISO-D1…D4) ·
+findings: [`docs/planning/isolation-audit-findings.json`](docs/planning/isolation-audit-findings.json).
+**Audit result: core isolation VERIFIED SOUND live** (23 cross-tenant probes all denied; guard-first
+callables; admin data walled off; no admin code in the user bundle). Below = defense-in-depth
+hardening (no current breach) + the regression tests that PROVE it. Decision ISO-D1: keep logical
+per-uid isolation (physical per-user DB is an anti-pattern here), harden + prove.
+
+- [ ] **ISO-1 Harden the rules** — closed-shape `users/{uid}` (`hasOnly` allowlist on create+update so
+      `admin`/`isAdmin`/`role`/unknown keys are rejected — pre-empts the "server starts trusting a
+      field" trap; add `joined` to the create blocklist); explicit `if false` for `rateLimits/**`,
+      `webhookEvents/**`, `cache/**`; null-safe `isAdmin()` (`token.get('admin',false)`); rules tests
+      per change.
+- [ ] **ISO-2 Prove isolation (regression suite)** — extend `tests/firestore-rules.test.js`: user A
+      can't get/list/write B's subtree; no client reads config/audit/cache/rateLimits/webhookEvents;
+      no user doc self-grants admin; every admin callable rejects a non-admin; `exportMyData` returns
+      only the caller's data. The living proof of the §1 guarantee.
+- [ ] **ISO-3 Shared-device erasure hygiene** — self-delete + sign-out-everywhere clear
+      `ci-profile-<uid>`/`ci-active-port` before signout (**fold into DI-2**).
+- [ ] **ISO-4 Infra least-privilege + revocation + backup policy (go-live)** — least-privilege
+      functions SA; token revocation on suspend/admin-revoke + `checkRevoked` on sensitive callables
+      (**extends R31-6**); document PITR/backup retention + privacy-policy disclosure (ISO-D3).
+- [ ] **ISO-5 Deny-by-default `storage.rules`** — commit `users/{uid}/…` scoped storage rules (Storage
+      unused today) so the tenancy boundary exists before any upload feature.
+
 ## R32. Research → Coins: custom drag-and-drop order  (📋 PLAN ONLY — build on "go")
 
 Canonical spec + decisions R32-D1…D4: [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 32". The Coins
