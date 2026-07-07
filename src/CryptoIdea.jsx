@@ -128,6 +128,9 @@ export default function CryptoIdea(){
     checkSubscriptionStatus:(u)=>checkSubscriptionStatus(u),
     saveProfile:(u)=>saveProfile(u),
     onSignedOut:resetPlanOverlay,
+    // DI-5 (G33): a permanent portfolio-list stream failure surfaces a toast (watchCoins
+    // already had one). showErr is defined below; wrapped so it's read lazily.
+    onLiveSyncError:()=>showErr("Live sync was interrupted — reload to make sure you're seeing the latest data."),
   });
   // Live prices for the held coins (seeded with mock prices, then polled).
   const {prices,api}=useLivePrices(portfolio);
@@ -521,7 +524,8 @@ export default function CryptoIdea(){
       if(res.reason==="limit"){reconcileCounters("You've reached your plan's portfolio limit — upgrade for more.");return false}
       failToast(res,"Couldn't create portfolio. Check your connection.","You've reached your plan's portfolio limit — upgrade for more.");return false}
     const np={id:res.id,name:newPortName.trim(),coins:[]};
-    setPortfolios(prev=>[...prev,np]);setActivePortId(res.id);setNewPortName("");return true};
+    // DI-5 (G35): de-dup by id so the live metas watcher can't transiently double the pill.
+    setPortfolios(prev=>prev.some(p=>p.id===res.id)?prev:[...prev,np]);setActivePortId(res.id);setNewPortName("");return true};
 
   const deletePortfolio=async(pid)=>{
     if(portfolios.length<=1){showErr("Need at least 1 portfolio");return}
@@ -562,7 +566,9 @@ export default function CryptoIdea(){
     if(!res.success){
       if(res.reason==="limit"){reconcileCounters("You've reached this portfolio's coin limit — upgrade for more.");return}
       failToast(res,"Couldn't add coin. Check your connection.","You've reached this portfolio's coin limit — upgrade for more.");return}
-    setPortfolio(p=>[...p,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb,entries:[],...(journal?{journal}:{})}]);setScreen("portfolio");setSq("")};
+    // DI-5 (G35): de-dup the optimistic append by id so the live watcher's wholesale
+    // replace can't transiently double the row (double key / double-counted total).
+    setPortfolio(p=>p.some(x=>x.id===c.id)?p:[...p,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb,entries:[],...(journal?{journal}:{})}]);setScreen("portfolio");setSq("")};
   // Record the "is your thesis still intact?" review decision (intact|review|challenged)
   // by merging the new status into the coin's existing journal.
   const reviewThesis=async(coinId,status)=>{

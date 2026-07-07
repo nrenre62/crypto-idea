@@ -422,11 +422,13 @@ export async function deleteTransaction(uid, portfolioId, coinId, txId) {
 // matching the one-shot readers) and return their unsubscribe function.
 
 // Portfolio metas (name/order) for the signed-in user.
-export function watchPortfolios(uid, onChange) {
+// DI-5 (G33): a PERMANENT stream failure is no longer fully silent — the optional
+// `onError` lets the caller surface a toast (parity with watchCoins).
+export function watchPortfolios(uid, onChange, onError) {
   const q = query(collection(db, "users", uid, "portfolios"), orderBy("order"));
   return onSnapshot(q,
     (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-    () => { /* keep last-good */ });
+    (e) => { if (onError) onError(e); });
 }
 
 // The ACTIVE portfolio's coins, entries included. Every transaction write bumps
@@ -460,7 +462,20 @@ export function watchCoins(uid, portfolioId, onChange, onError) {
       }
       if (myGen !== gen) return;
       onChange(snap.docs.map((d) => cache.get(d.id)).filter(Boolean));
-    } catch (e) { /* keep last-good */ }
+    } catch (e) {
+      // DI-5 (G34): a failed processing pass would otherwise DROP this snapshot's changes
+      // permanently — docChanges deltas are relative to DELIVERY, not processing, so a new
+      // coin that failed to load its transactions would never re-appear. Rebuild the whole
+      // cache from a full re-read so nothing stays invisible.
+      try {
+        const full = await getCoins(uid, portfolioId);
+        if (myGen === gen && full.success) {
+          cache.clear();
+          full.coins.forEach((c) => cache.set(c.id, c));
+          onChange(full.coins);
+        }
+      } catch (_e2) { /* keep last-good */ }
+    }
   }, (e) => { if (onError) onError(e); });
 }
 

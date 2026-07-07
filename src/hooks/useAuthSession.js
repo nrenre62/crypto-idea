@@ -16,7 +16,7 @@ import { db } from "../utils/storage.js";
 //                                                show a Retry screen instead of the phantom
 //                                                "default" portfolio (DI-2)
 // Returns { user, setUser, dataLoaded, reloadPortfolios }.
-export function useAuthSession({ setScreen, setPortfolios, setActivePortId, checkSubscriptionStatus, saveProfile, onSignedOut, setPortfoliosError }) {
+export function useAuthSession({ setScreen, setPortfolios, setActivePortId, checkSubscriptionStatus, saveProfile, onSignedOut, setPortfoliosError, onLiveSyncError }) {
   const [user, setUser] = useState(null);
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -24,7 +24,7 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
   // always calls current versions without re-subscribing — and without tripping on
   // functions declared later in the component (no temporal-dead-zone reads here).
   const cb = useRef(null);
-  cb.current = { setScreen, setPortfolios, setActivePortId, checkSubscriptionStatus, saveProfile, onSignedOut, setPortfoliosError };
+  cb.current = { setScreen, setPortfolios, setActivePortId, checkSubscriptionStatus, saveProfile, onSignedOut, setPortfoliosError, onLiveSyncError };
   const uidRef = useRef(null);   // DI-2: the current uid, for the Retry reload
 
   // Load portfolios (and their coins + transactions) from Firestore so data syncs
@@ -116,7 +116,7 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
             const ex = prev.find((p) => p.id === m.id);
             return { id: m.id, name: m.name, coins: ex ? ex.coins : [] };
           }));
-        });
+        }, () => { if (cb.current.onLiveSyncError) cb.current.onLiveSyncError(); });   // DI-5 (G33)
         // Apply any subscription expiry / payment-failure downgrade before showing.
         const checked = await cb.current.checkSubscriptionStatus(baseUser);
         setUser(checked);
