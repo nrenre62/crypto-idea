@@ -485,3 +485,14 @@ export function watchLearnProgress(uid, onChange) {
     (snap) => onChange(snap.exists() ? { success: true, ...snap.data() } : { success: false }),
     () => onChange({ success: false }));
 }
+
+// DI-6 (G37): keep the server-authoritative user doc live so a tier flip (admin/sweep),
+// a premiumLimits/settings change, a trash, or a subscription update reaches an OPEN
+// session WITHOUT a reload — a stale session was the direct cause of the false "limit"
+// toast (its caps were out of date). Bounded to the single owner doc (no fan-out);
+// degrades silently on error (the last-known user stays).
+export function watchUserDoc(uid, onChange) {
+  return onSnapshot(doc(db, "users", uid),
+    (snap) => { if (snap.exists()) onChange(snap.data()); },
+    () => { /* keep last-good */ });
+}

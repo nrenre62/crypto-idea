@@ -117,9 +117,16 @@ const DEFAULT_PLANS = {
   premium: { price: 49.99, priceYear: 499.99, aiMonthlyCents: 2500, portfolios: 15, coins: 1000, transactions: 5000 },
 };
 // Validate + fill any missing plan fields from the defaults (never trust raw input).
+// DI-6 (G41): a PRICE may be 0 (the free tier), but a LIMIT may never be — a blank field
+// OR an explicit 0/negative falls back to the default so an admin can't accidentally lock
+// an entire tier out with a 0 cap. `lim` enforces min-1 → default; `num` keeps 0 for prices.
 function mergePlans(saved) {
   const s = saved || {};
   const num = (x, def) => (typeof x === "number" && isFinite(x) && x >= 0 ? x : def);
+  const lim = (x, def, hard) => {
+    const n = (typeof x === "number" && isFinite(x)) ? Math.round(x) : NaN;
+    return n >= 1 ? Math.min(n, hard) : def;   // blank / 0 / negative → the tier default
+  };
   const out = {};
   for (const t of ["free", "pro", "premium"]) {
     const d = DEFAULT_PLANS[t], v = s[t] || {};
@@ -127,9 +134,9 @@ function mergePlans(saved) {
       price: Math.min(num(v.price, d.price), 1e6),                              // monthly price; cap: no absurd prices
       priceYear: Math.min(num(v.priceYear, d.priceYear), 1e6),                  // annual price (default = 2 months free)
       aiMonthlyCents: Math.min(Math.round(num(v.aiMonthlyCents, d.aiMonthlyCents)), 1e9), // live-AI monthly $-cost ceiling, in cents (#21)
-      portfolios: Math.min(Math.round(num(v.portfolios, d.portfolios)), 100000),
-      coins: Math.min(Math.round(num(v.coins, d.coins)), 1000),     // hard ceiling #20: mirrors firestore.rules maxCoins clamp
-      transactions: Math.min(Math.round(num(v.transactions, d.transactions)), 1000000),
+      portfolios: lim(v.portfolios, d.portfolios, 100000),
+      coins: lim(v.coins, d.coins, 1000),     // hard ceiling #20: mirrors firestore.rules maxCoins clamp
+      transactions: lim(v.transactions, d.transactions, 1000000),
     };
   }
   return out;
@@ -551,6 +558,10 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("failed-precondition", "You cannot suspend your own admin account.");
   }
   await admin.auth().updateUser(uid, { disabled });
+  // DI-6 (G40): revoke the target's refresh tokens on suspend so any LIVE session dies
+  // immediately (disabling alone leaves an existing ~1h token valid). R31-6 extends this
+  // with suspendedAt + the billing freeze.
+  if (disabled) await admin.auth().revokeRefreshTokens(uid);
   await writeAudit(context, disabled ? "suspendUser" : "unsuspendUser", { targetUid: uid });
   return { success: true, uid, disabled };
 });

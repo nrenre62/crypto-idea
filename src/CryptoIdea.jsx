@@ -15,7 +15,7 @@
  *   v1.0.1 (2026-04-04) - Fixed search for sandbox, datetime with seconds
  *   v1.0.0 (2026-04-04) - Initial release: portfolio, search, DCA, price tracking
  */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, updateUserSettings, CONSENT_VERSION } from "./api/firebase-auth.js";
@@ -33,6 +33,7 @@ import {
   updateTransaction as dbUpdateTransaction,
   deleteTransaction as dbDeleteTransaction,
   watchCoins as dbWatchCoins,
+  watchUserDoc as dbWatchUserDoc,
 } from "./api/firebase-database.js";
 import { fetchSiteConfig } from "./api/config.js";
 import { useCoinSearch } from "./hooks/useCoinSearch.js";
@@ -515,6 +516,7 @@ export default function CryptoIdea(){
   // Returns true on success so callers (the R9-3 in-tab dialog) can close on success;
   // Account's add field ignores the return — backward-compatible.
   const addPortfolio=async()=>{
+    if(blockedOffline())return false;
     if(portfolios.length>=maxPortfolios){showErr(isPro?("Max "+maxPortfolios+" portfolios"):"Starter: 1 portfolio — upgrade to Pro for 3");return false}
     if(!newPortName.trim()){showErr("Enter a portfolio name");return false}
     if(newPortName.trim().length>50){showErr("Name must be 50 characters or fewer");return false}
@@ -555,6 +557,7 @@ export default function CryptoIdea(){
     closeRename();};
 
   const addCoin=async(c,journal=null)=>{
+    if(blockedOffline())return;
     if(portfolio.find(x=>x.id===c.id)){showErr("Already added");return}
     const lim=maxCoinsPerPort;
     if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Starter: "+maxCoinsPerPort+" coins — upgrade to Pro for 50");return}
@@ -645,6 +648,7 @@ export default function CryptoIdea(){
     setScreen("addEntry");
   };
   const addEntry=async()=>{if(!eAmt||!ePrice)return;
+    if(blockedOffline())return;
     // R10-2b: only positive numbers (rules enforce amount>0 / priceAtBuy>=0). Catch it
     // here with a clear message BEFORE any write, so a negative/zero never reaches the
     // server and gets mislabelled as the "transaction limit" error (the B-PORT class).
@@ -732,6 +736,44 @@ export default function CryptoIdea(){
     },()=>showErr("Live sync was interrupted — reload to make sure you're seeing the latest data."));
     return unsub;
   },[user?.uid,activePortId]);
+
+  // ═══ DI-6 (G37): keep the server-authoritative user doc live ═══
+  // A tier flip (admin/sweep), a premiumLimits/settings change, or a trash reaches this
+  // OPEN session without a reload — a stale session (out-of-date caps) was the direct
+  // cause of the false "limit" toast. Merges only the authoritative fields; a tier change
+  // toasts, and setting deleted:true flips the app to the RestoreAccount screen (rendered
+  // whenever user.deleted). Bounded to the single owner doc.
+  const lastTierRef=useRef(user?.tier);
+  useEffect(()=>{
+    if(!user?.uid)return;
+    const unsub=dbWatchUserDoc(user.uid,(server)=>{
+      if(server.tier&&lastTierRef.current&&server.tier!==lastTierRef.current){
+        showErr("Your plan is now "+({free:"Starter",pro:"Pro",premium:"Premium"}[server.tier]||server.tier)+".");
+      }
+      if(server.tier)lastTierRef.current=server.tier;
+      setUser(u=>u?{...u,
+        tier:server.tier||u.tier,
+        subscription:"subscription" in server?server.subscription:u.subscription,
+        deleted:server.deleted===true,
+        deletedAt:server.deletedAt||null,
+        settings:server.settings||u.settings,
+        premiumLimits:server.premiumLimits||u.premiumLimits}:u);
+    });
+    return unsub;
+  },[user?.uid]);
+
+  // ═══ DI-6 (G39): offline detection ═══
+  // A banner + a write guard so a save can't hang forever offline and offline re-taps
+  // can't queue duplicate commits that replay into counter drift.
+  const[offline,setOffline]=useState(typeof navigator!=="undefined"&&navigator.onLine===false);
+  useEffect(()=>{
+    if(typeof window==="undefined")return;
+    const on=()=>setOffline(false),off=()=>setOffline(true);
+    window.addEventListener("online",on);window.addEventListener("offline",off);
+    return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
+  },[]);
+  // Guard the ADD writers (the ones that queue duplicates) — returns true when blocked.
+  const blockedOffline=()=>{if(offline){showErr("You're offline — changes can't be saved right now.");return true}return false};
 
   // Check on app load whether the subscription expired or payment failed. The
   // decision (which tier, or none) is pure logic in useUpgrade.dueDowngrade; this
@@ -836,6 +878,8 @@ export default function CryptoIdea(){
         R21-1: styled by .ci-toast (app.css) at z-index 10000 — above every popup's 9500
         scrim, so validation errors float fully bright on top of any open Modal. */}
     {err&&<div role="alert" className="ci-toast">{err}</div>}
+    {/* DI-6 (G39): offline banner — writes are blocked while it shows. */}
+    {offline&&<div role="status" style={{position:"fixed",top:0,left:0,right:0,zIndex:10001,background:"#92400E",color:"#fff",textAlign:"center",fontSize:12,fontWeight:600,padding:"6px 12px"}}>You're offline — changes can't be saved right now.</div>}
     {showPlan&&screen!=="login"&&(()=>{
       // R27-3: on DESKTOP the plan/billing flow renders inside the shared <Modal>
       // (title + X; no scrim-dismiss so a mis-click doesn't abandon a mid-flow
