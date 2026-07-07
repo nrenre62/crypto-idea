@@ -1,8 +1,8 @@
 import { useCallback } from "react";
 
 // Per-tier resource ceilings — the built-in plan defaults (the `_planLim` fallbacks
-// in CryptoIdea.jsx). The downgrade trim and live enforcement BOTH read admin-
-// configured plans (`site.plans`) first with these as the fallback (see limitsForTier).
+// in CryptoIdea.jsx). The over-limit derivation reads admin-configured plans
+// (`site.plans`) first with these as the fallback (see limitsForTier).
 export const TIER_LIMITS = {
   free:    { ports: 1,  coins: 10,   tx: 50 },
   pro:     { ports: 3,  coins: 50,   tx: 2000 },
@@ -11,14 +11,13 @@ export const TIER_LIMITS = {
 
 // Hard ceilings a configured limit can never exceed — mirror firestore.rules
 // configuredLimit() hardMax (portfolios 100000, coins 1000, tx 1000000), so the
-// client trim and the server rules agree on the literal ceiling.
+// client and the server rules agree on the literal ceiling.
 const HARD_MAX = { ports: 100000, coins: 1000, tx: 1000000 };
 
 // Pure: the EFFECTIVE ceilings for a tier. Admin-configured plans (`plans[tier]`,
 // shape {portfolios, coins, transactions}) win over the built-in defaults, each
-// clamped to the product hard-max. The downgrade trim uses these so it keeps exactly
-// what the rules would allow — never silently deleting data an admin chose to permit
-// by raising a cap (the U10 bug: trimming to hardcoded defaults below the live limit).
+// clamped to the product hard-max. Used both to compute the over-limit lock set and
+// for the display caps.
 export function limitsForTier(toTier, plans) {
   const def = TIER_LIMITS[toTier];
   if (!def) return null;
@@ -31,25 +30,28 @@ export function limitsForTier(toTier, plans) {
   };
 }
 
-// The shape a fully-trimmed (now-empty) account falls back to.
-const FALLBACK_PORTFOLIO = { id: "default", name: "My Portfolio", coins: [] };
+// ═══ DI-4: keep-data downgrade — over-limit items are LOCKED, never deleted ═══
+// The destructive `trimToTier` (and its server-delete twin) is RETIRED (decision D3):
+// downgrading never removes a portfolio, coin, or transaction. Instead the items beyond
+// the new cap render locked (dimmed + "Over plan limit"), and the user unlocks them by
+// upgrading again or by deleting OTHER items to get back under. These pure helpers derive
+// the locked set from the CURRENT effective caps (which already fold in premiumLimits).
 
-// Pure: trim a portfolios array down to a tier's limits, keeping the most-recent
-// transactions. Falls back to a single empty portfolio if nothing survives.
-function trimPortfolios(portfolios, lim) {
-  const trimmed = portfolios.slice(0, lim.ports).map(p => ({
-    ...p,
-    coins: p.coins.slice(0, lim.coins).map(coin => ({
-      ...coin,
-      entries: (coin.entries || []).slice(-lim.tx),
-    })),
-  }));
-  return trimmed.length > 0 ? trimmed : [{ ...FALLBACK_PORTFOLIO }];
+// Portfolio ids beyond the portfolio cap (by array order = registration order). A Set.
+export function lockedPortfolioIds(portfolios, portCap) {
+  if (typeof portCap !== "number") return new Set();
+  return new Set((portfolios || []).slice(portCap).map((p) => p.id));
+}
+
+// Coin ids over the coin cap WITHIN one portfolio (the overflow beyond the cap, by array
+// order — oldest keep priority, matching "your existing data is safe"). A Set.
+export function lockedCoinIds(coins, coinCap) {
+  if (typeof coinCap !== "number") return new Set();
+  return new Set((coins || []).slice(coinCap).map((c) => c.id));
 }
 
 // Pure: decide whether a subscription is due for an automatic downgrade and to
 // which tier. Returns the target tier string, or null if no change is due.
-// Extracted from CryptoIdea.jsx's checkSubscriptionStatus (audit rule 1).
 export function dueDowngrade(subscription, now) {
   const sub = subscription;
   if (!sub) return null;
@@ -65,20 +67,11 @@ export function dueDowngrade(subscription, now) {
   return null;
 }
 
-// Subscription / tier-limit business logic for the upgrade & downgrade flows,
-// pulled out of CryptoIdea.jsx (audit rule 1) and bound to the portfolios state so
-// the trim uses the functional-update form — safe inside the async subscription
-// check that can run while other state is in flight.
-//
-// The thin UI orchestrators (startUpgrade / startDowngrade / confirmDowngrade) stay
-// in CryptoIdea.jsx by design: they drive overlay state shared with the auth/Login
-// flow (showPlan, upgradeStep, upgradeFlow…), so hook-ifying them would only relocate
-// ~7 setters without reducing coupling (anti-KISS) — same call as usePortfolios' CRUD.
-//
+// Subscription / tier-limit business logic for the upgrade & downgrade flows.
 //   calcEndDate(billing)  -> ISO string : end of a new subscription's billing cycle
-//   getTrimImpact(toTier)               : how much data a downgrade would delete
-//   trimToTier(toTier)                  : apply the downgrade by trimming stored data
-export function useUpgrade({ portfolios, setPortfolios, plans = null }) {
+//   overLimitImpact(toTier)             : how many portfolios/coins/tx would be LOCKED
+//                                         (not deleted) at a target tier — for the dialog
+export function useUpgrade({ portfolios, plans = null }) {
   const calcEndDate = useCallback((billing) => {
     const d = new Date();
     if (billing === "yearly") d.setFullYear(d.getFullYear() + 1);
@@ -86,30 +79,27 @@ export function useUpgrade({ portfolios, setPortfolios, plans = null }) {
     return d.toISOString();
   }, []);
 
-  const getTrimImpact = useCallback((toTier) => {
+  // Counts of items that would sit OVER a target tier's caps (and therefore lock).
+  // Same arithmetic the old getTrimImpact used, but the semantics are "locked, kept",
+  // never "deleted" — the downgrade dialogs are worded accordingly (D3/D4).
+  const overLimitImpact = useCallback((toTier) => {
     const lim = limitsForTier(toTier, plans);
     if (!lim) return null;
-    const portsToDelete = Math.max(0, portfolios.length - lim.ports);
-    let coinsToDelete = 0, txToDelete = 0;
-    // Portfolios kept: count coins/tx over the per-portfolio caps.
-    portfolios.slice(0, lim.ports).forEach(p => {
-      coinsToDelete += Math.max(0, p.coins.length - lim.coins);
-      p.coins.slice(0, lim.coins).forEach(coin => {
-        txToDelete += Math.max(0, (coin.entries?.length || 0) - lim.tx);
+    const portsOver = Math.max(0, portfolios.length - lim.ports);
+    let coinsOver = 0, txOver = 0;
+    // Portfolios KEPT: count coins/tx over the per-portfolio caps.
+    portfolios.slice(0, lim.ports).forEach((p) => {
+      coinsOver += Math.max(0, p.coins.length - lim.coins);
+      p.coins.slice(0, lim.coins).forEach((coin) => {
+        txOver += Math.max(0, (coin.entries?.length || 0) - lim.tx);
       });
     });
-    // Portfolios dropped entirely: all their coins/tx go.
-    portfolios.slice(lim.ports).forEach(p => {
-      p.coins.forEach(coin => { coinsToDelete++; txToDelete += (coin.entries?.length || 0); });
+    // Portfolios beyond the cap: ALL their coins/tx are locked with them.
+    portfolios.slice(lim.ports).forEach((p) => {
+      p.coins.forEach((coin) => { coinsOver++; txOver += (coin.entries?.length || 0); });
     });
-    return { portsToDelete, coinsToDelete, txToDelete };
+    return { portsOver, coinsOver, txOver };
   }, [portfolios, plans]);
 
-  const trimToTier = useCallback((toTier) => {
-    const lim = limitsForTier(toTier, plans);
-    if (!lim) return;
-    setPortfolios(prev => trimPortfolios(prev, lim));
-  }, [setPortfolios, plans]);
-
-  return { calcEndDate, getTrimImpact, trimToTier };
+  return { calcEndDate, overLimitImpact };
 }

@@ -1,6 +1,6 @@
-import { renderHook, act } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
-import { useUpgrade, TIER_LIMITS, dueDowngrade, limitsForTier } from "../../src/hooks/useUpgrade.js";
+import { renderHook } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { useUpgrade, TIER_LIMITS, dueDowngrade, limitsForTier, lockedPortfolioIds, lockedCoinIds } from "../../src/hooks/useUpgrade.js";
 
 // Pure subscription-expiry decision (extracted from CryptoIdea.checkSubscriptionStatus).
 describe("dueDowngrade", () => {
@@ -24,12 +24,12 @@ describe("dueDowngrade", () => {
   });
 });
 
-// Build `n` buy transactions with sortable ids/dates so "keep most recent" is testable.
+// Build `n` buy transactions.
 const mkEntries = (n) =>
   Array.from({ length: n }, (_, i) => ({ id: "e" + i, type: "buy", amount: 1, date: "2020-01-01" }));
 
 // A free-tier overflow: 2 portfolios (free allows 1); p1 has 12 coins (allows 10),
-// and its first coin has 55 tx (allows 50). p2 holds 1 coin / 3 tx and is dropped whole.
+// and its first coin has 55 tx (allows 50). p2 holds 1 coin / 3 tx and is over whole.
 const overflowPorts = () => [
   {
     id: "p1", name: "P1", coins: [
@@ -41,12 +41,11 @@ const overflowPorts = () => [
 ];
 
 function setup(portfolios = [], plans = null) {
-  const setPortfolios = vi.fn();
-  const view = renderHook(() => useUpgrade({ portfolios, setPortfolios, plans }));
-  return { setPortfolios, view };
+  const view = renderHook(() => useUpgrade({ portfolios, plans }));
+  return { view };
 }
 
-// U10: the downgrade trim must use the SAME (configured) limits the rules enforce,
+// U10: the over-limit derivation uses the SAME (configured) limits the rules enforce,
 // clamped to the product hard-max — not the hardcoded TIER_LIMITS defaults.
 describe("limitsForTier (configured caps win, clamped to hard-max)", () => {
   it("falls back to the built-in defaults when no plans are configured", () => {
@@ -66,6 +65,24 @@ describe("limitsForTier (configured caps win, clamped to hard-max)", () => {
   });
 });
 
+// DI-4: the grey-lock derivation — WHICH items are over the cap (locked, never deleted).
+describe("lockedPortfolioIds / lockedCoinIds", () => {
+  it("locks portfolios beyond the cap by order (oldest kept)", () => {
+    const ports = [{ id: "p1", coins: [] }, { id: "p2", coins: [] }, { id: "p3", coins: [] }];
+    expect([...lockedPortfolioIds(ports, 1)]).toEqual(["p2", "p3"]);   // free: keep 1
+    expect([...lockedPortfolioIds(ports, 3)]).toEqual([]);             // pro: all fit
+  });
+  it("locks the coins over the coin cap in a portfolio (the overflow)", () => {
+    const coins = Array.from({ length: 12 }, (_, i) => ({ id: "c" + i }));
+    expect([...lockedCoinIds(coins, 10)]).toEqual(["c10", "c11"]);     // keep first 10, lock the rest
+    expect([...lockedCoinIds(coins, 50)]).toEqual([]);                 // all fit
+  });
+  it("is null-safe (no cap / empty inputs → empty set)", () => {
+    expect([...lockedPortfolioIds(null, undefined)]).toEqual([]);
+    expect([...lockedCoinIds(undefined, undefined)]).toEqual([]);
+  });
+});
+
 describe("useUpgrade", () => {
   describe("calcEndDate", () => {
     it("yearly is ~12 months out, monthly is ~1 month out, both in the future", () => {
@@ -81,78 +98,43 @@ describe("useUpgrade", () => {
     });
   });
 
-  describe("getTrimImpact", () => {
+  describe("overLimitImpact (locked, not deleted)", () => {
     it("returns null for an unknown tier", () => {
       const { view } = setup(overflowPorts());
-      expect(view.result.current.getTrimImpact("bogus")).toBeNull();
+      expect(view.result.current.overLimitImpact("bogus")).toBeNull();
     });
 
     it("counts over-limit portfolios, coins, and transactions for a downgrade", () => {
       const { view } = setup(overflowPorts());
       // free: 1 port, 10 coins, 50 tx.
       //   ports: 2 - 1 = 1
-      //   coins: (12 - 10 in p1) + (1 whole coin in dropped p2) = 3
-      //   tx:    (55 - 50 in c1) + (3 in dropped p2's coin)     = 8
-      expect(view.result.current.getTrimImpact("free")).toEqual({
-        portsToDelete: 1, coinsToDelete: 3, txToDelete: 8,
+      //   coins: (12 - 10 in p1) + (1 whole coin in over p2) = 3
+      //   tx:    (55 - 50 in c1) + (3 in over p2's coin)      = 8
+      expect(view.result.current.overLimitImpact("free")).toEqual({
+        portsOver: 1, coinsOver: 3, txOver: 8,
       });
     });
 
-    it("reports nothing to delete when already within limits", () => {
+    it("reports nothing over-limit when already within limits", () => {
       const { view } = setup([{ id: "p1", name: "P1", coins: [{ id: "c1", entries: mkEntries(2) }] }]);
-      expect(view.result.current.getTrimImpact("free")).toEqual({
-        portsToDelete: 0, coinsToDelete: 0, txToDelete: 0,
+      expect(view.result.current.overLimitImpact("free")).toEqual({
+        portsOver: 0, coinsOver: 0, txOver: 0,
       });
     });
 
-    it("deletes LESS when an admin has raised the configured caps (U10 fix)", () => {
+    it("locks LESS when an admin has raised the configured caps (U10 fix)", () => {
       // Admin raised free to 2 ports / 20 coins, tx left at 50. The same overflow that
-      // would lose 1 port + 3 coins + 8 tx against hardcoded defaults now only sheds
-      // the 5 over-cap transactions — no silent deletion of admin-permitted data.
+      // would over-shoot 1 port + 3 coins + 8 tx against hardcoded defaults now only has
+      // the 5 over-cap transactions over the limit.
       const { view } = setup(overflowPorts(), { free: { portfolios: 2, coins: 20, transactions: 50 } });
-      expect(view.result.current.getTrimImpact("free")).toEqual({
-        portsToDelete: 0, coinsToDelete: 0, txToDelete: 5,
+      expect(view.result.current.overLimitImpact("free")).toEqual({
+        portsOver: 0, coinsOver: 0, txOver: 5,
       });
     });
   });
 
-  describe("trimToTier", () => {
-    it("does nothing for an unknown tier", () => {
-      const { setPortfolios, view } = setup(overflowPorts());
-      act(() => view.result.current.trimToTier("bogus"));
-      expect(setPortfolios).not.toHaveBeenCalled();
-    });
-
-    it("trims via the functional updater: caps ports/coins and keeps the most recent tx", () => {
-      const start = overflowPorts();
-      const { setPortfolios, view } = setup(start);
-      act(() => view.result.current.trimToTier("free"));
-      // It passes a prev => next updater rather than a raw value.
-      const updater = setPortfolios.mock.calls[0][0];
-      expect(updater).toBeTypeOf("function");
-      const next = updater(start);
-      expect(next).toHaveLength(TIER_LIMITS.free.ports);          // 1 portfolio kept
-      expect(next[0].coins).toHaveLength(TIER_LIMITS.free.coins); // 10 coins kept
-      expect(next[0].coins[0].entries).toHaveLength(TIER_LIMITS.free.tx); // 50 tx kept
-      // "keep most recent" — the dropped 5 are the oldest (e0..e4); e5 is now first.
-      expect(next[0].coins[0].entries[0].id).toBe("e5");
-    });
-
-    it("falls back to a single default portfolio when nothing survives the trim", () => {
-      const { setPortfolios, view } = setup([]);
-      act(() => view.result.current.trimToTier("free"));
-      const next = setPortfolios.mock.calls[0][0]([]);
-      expect(next).toEqual([{ id: "default", name: "My Portfolio", coins: [] }]);
-    });
-
-    it("keeps coins up to the CONFIGURED cap, not the hardcoded default (U10 fix)", () => {
-      const start = overflowPorts(); // p1 has 12 coins
-      const { setPortfolios, view } = setup(start, { free: { portfolios: 1, coins: 20, transactions: 50 } });
-      act(() => view.result.current.trimToTier("free"));
-      const next = setPortfolios.mock.calls[0][0](start);
-      expect(next).toHaveLength(1);
-      expect(next[0].coins).toHaveLength(12);   // all 12 kept (cap 20), NOT trimmed to 10
-      expect(next[0].coins[0].entries).toHaveLength(50); // tx still capped at 50
-    });
+  it("no longer exposes the destructive trimToTier (retired by DI-4/D3)", () => {
+    const { view } = setup(overflowPorts());
+    expect(view.result.current.trimToTier).toBeUndefined();
   });
 });

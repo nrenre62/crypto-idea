@@ -19,7 +19,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, updateUserSettings, CONSENT_VERSION } from "./api/firebase-auth.js";
-import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier, reconcileMyCounters as apiReconcileMyCounters } from "./api/account.js";
+import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier, reconcileMyCounters as apiReconcileMyCounters, resolveRecheckout as apiResolveRecheckout, reactivateSubscription as apiReactivateSubscription } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
   createPortfolio as dbCreatePortfolio,
@@ -40,7 +40,7 @@ import { useTrending } from "./hooks/useTrending.js";
 import { useLivePrices } from "./hooks/useLivePrices.js";
 import { useAuthSession } from "./hooks/useAuthSession.js";
 import { usePortfolios, DEFAULT_PORTFOLIOS } from "./hooks/usePortfolios.js";
-import { useUpgrade, dueDowngrade } from "./hooks/useUpgrade.js";
+import { useUpgrade, dueDowngrade, lockedPortfolioIds, lockedCoinIds } from "./hooks/useUpgrade.js";
 import { useIsDesktop } from "./hooks/useIsDesktop.js";
 import { db } from "./utils/storage.js";
 import { c } from "./utils/theme.js";
@@ -113,7 +113,7 @@ export default function CryptoIdea(){
   // for the upgrade overlay stays here (shared with the auth/Login flow) — see useUpgrade.
   // Pass the admin-configured plans so the downgrade trim keeps exactly what the rules
   // allow (configured caps), not the hardcoded defaults — avoids silent data loss (U10).
-  const {calcEndDate,getTrimImpact,trimToTier}=useUpgrade({portfolios,setPortfolios,plans:site.plans});
+  const {calcEndDate,overLimitImpact}=useUpgrade({portfolios,plans:site.plans});
   const[showPortManager,setShowPortManager]=useState(false);
   const[newPortName,setNewPortName]=useState("");
   // R31-1: one place to tear down any open plan/upgrade/downgrade overlay. Called
@@ -466,6 +466,9 @@ export default function CryptoIdea(){
     const updated={...user,subscription:{...rest,cancelled:false}};
     setUser(updated);
     await saveProfile(updated);
+    // DI-4/G23: persist the un-cancel server-side too (the owner can't write the marker;
+    // best-effort locally where there may be no server subscription yet).
+    try{await apiReactivateSubscription();}catch(_e){}
   };
   // R29-3: a lapsed Premium→Pro downgrade is never granted silently — the tier already
   // flipped to Starter (checkSubscriptionStatus), and the KEPT subscription marker makes
@@ -473,10 +476,12 @@ export default function CryptoIdea(){
   // the flip can produce a free user with a cancelled downgradeTo:"pro" marker.
   const recheckoutDue=!!(user&&(user.tier||"free")==="free"&&user.subscription&&user.subscription.cancelled&&user.subscription.downgradeTo==="pro");
   const declineProRecheckout=async()=>{
-    trimToTier("free");   // the trim was deferred until this decision
+    // DI-4 (D3): no trim — over-limit data is KEPT and grey-locked, never deleted.
     const updated={...user,subscription:null};
     setUser(updated);
     await saveProfile(updated);
+    // DI-4/G23: clear the server-side marker so the re-checkout prompt doesn't recur.
+    try{await apiResolveRecheckout();}catch(_e){}
   };
   const premLimits=user?.premiumLimits||{};
   // Admin-configured tier limits (from /api/config); fall back to built-in defaults.
@@ -492,6 +497,16 @@ export default function CryptoIdea(){
   // AI, in cents, from /api/config plans (free 0 / pro 400 / premium 2500). Informational
   // until the B2 enforcement counter ships; each analysis costs ~1¢ (so cents≈analyses).
   const aiMonthlyCents=_planLim("aiMonthlyCents",isPremium?2500:isPro?400:0);
+
+  // ═══ DI-4 grey-lock: over-limit items are KEPT but locked (never deleted) ═══
+  // After a downgrade nothing is trimmed; items beyond the new caps render dimmed with an
+  // "Over plan limit" tag and a tap-explainer. Derived from the CURRENT effective caps
+  // (which already fold in premiumLimits). Deleting a locked item is always allowed.
+  const lockedPortIds=useMemo(()=>lockedPortfolioIds(portfolios,maxPortfolios),[portfolios,maxPortfolios]);
+  const activePortLocked=lockedPortIds.has(activePortId);
+  const lockedCoins=useMemo(()=>activePortLocked?new Set(portfolio.map(x=>x.id)):lockedCoinIds(portfolio,maxCoinsPerPort),[portfolio,maxCoinsPerPort,activePortLocked]);
+  const[lockInfo,setLockInfo]=useState(null);   // the coin whose lock is being explained (or null)
+  const openLockInfo=(coin)=>setLockInfo(coin);
 
 
   // Returns true on success so callers (the R9-3 in-tab dialog) can close on success;
@@ -732,7 +747,8 @@ export default function CryptoIdea(){
       await persistTierDev("free");
       return updated;
     }
-    trimToTier(target);
+    // DI-4 (D3): no trim on downgrade — over-limit data is KEPT and grey-locked (the
+    // user unlocks it by upgrading again or removing other items). The caps just drop.
     const updated={...u,tier:target,subscription:null};
     await saveProfile(updated);
     await persistTierDev(target);   // dev: keep the DB tier in sync so caps drop too
@@ -789,7 +805,8 @@ export default function CryptoIdea(){
     remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
     portfolios,setActivePortId,activePortId,
-    maxTxPerCoin,aiMonthlyCents,startDowngrade,openDowngradeChooser,keepPlan,trimToTier,fmtDate,deletePortfolio,startRename,newPortName,setNewPortName,addPortfolio,
+    maxTxPerCoin,aiMonthlyCents,startDowngrade,openDowngradeChooser,keepPlan,fmtDate,deletePortfolio,startRename,newPortName,setNewPortName,addPortfolio,
+    lockedCoins,lockedPortIds,openLockInfo,
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     delPass,setDelPass,delType,setDelType,cancelDelete,
     pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,
@@ -871,7 +888,7 @@ export default function CryptoIdea(){
       </Modal>
     )}
     {downgradeTo&&(()=>{
-      const impact=getTrimImpact(downgradeTo);
+      const impact=overLimitImpact(downgradeTo);
       const endDate=user?.subscription?.endDate||calcEndDate(user?.subscription?.billing||"monthly");
       const targetLabel=downgradeTo==="free"?"Starter":"Pro";
       // R15-3: downgrade confirm now uses the shared centered Modal (was a bottom-sheet).
@@ -887,16 +904,17 @@ export default function CryptoIdea(){
             <div style={{fontSize:11,color:c.dim,marginTop:4}}>You'll have full access until this date</div>
           </div>
 
-          {impact&&(impact.portsToDelete>0||impact.coinsToDelete>0||impact.txToDelete>0)&&(
+          {/* DI-4 (D3/D4): nothing is deleted — over-limit items are KEPT and locked. */}
+          {impact&&(impact.portsOver>0||impact.coinsOver>0||impact.txOver>0)&&(
             <div className="dg-warn" style={{padding:"14px",borderRadius:12,background:"#FFF8E1",border:"1px solid #FFE082",marginBottom:18}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#F59E0B",marginBottom:8}}>⚠ DATA THAT WILL BE DELETED</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#F59E0B",marginBottom:8}}>⚠ WHAT WILL BE LOCKED (NOT DELETED)</div>
               <div className="dg-warn-text" style={{fontSize:12,color:"#92400E",lineHeight:1.7}}>
-                After {fmtDate(endDate)}, your account limit will drop to {targetLabel}. The following will be removed:
-                {impact.portsToDelete>0&&<div>• {impact.portsToDelete} portfolio{impact.portsToDelete>1?"s":""}</div>}
-                {impact.coinsToDelete>0&&<div>• {impact.coinsToDelete} coin{impact.coinsToDelete>1?"s":""}</div>}
-                {impact.txToDelete>0&&<div>• {impact.txToDelete.toLocaleString()} transaction{impact.txToDelete>1?"s":""}</div>}
+                After {fmtDate(endDate)}, your account limit drops to {targetLabel}. Your data is <strong>kept</strong> — these items just lock until you upgrade again or remove others to get back under the limit:
+                {impact.portsOver>0&&<div>• {impact.portsOver} portfolio{impact.portsOver>1?"s":""}</div>}
+                {impact.coinsOver>0&&<div>• {impact.coinsOver} coin{impact.coinsOver>1?"s":""}</div>}
+                {impact.txOver>0&&<div>• {impact.txOver.toLocaleString()} transaction{impact.txOver>1?"s":""}</div>}
               </div>
-              <div style={{fontSize:11,color:c.dim,marginTop:8,fontStyle:"italic"}}>The oldest items will be removed. Your most recent data will be kept.</div>
+              <div style={{fontSize:11,color:c.dim,marginTop:8,fontStyle:"italic"}}>Nothing is erased. The most recent items lock first; your oldest data stays active.</div>
             </div>
           )}
 
@@ -908,6 +926,19 @@ export default function CryptoIdea(){
           </div>
         </Modal>);
     })()}
+    {/* DI-4: the grey-lock explainer — tapping an over-limit (locked) coin explains it's
+        KEPT, not deleted, and offers Upgrade or Open-coin (to remove it). Deletes are
+        always allowed so the user can get back under the cap. */}
+    {lockInfo&&(
+      <Modal size="sm" title="Over your plan limit" onClose={()=>setLockInfo(null)}>
+        <div style={{fontSize:13,color:c.dim,lineHeight:1.7,marginBottom:16}}>
+          <strong>{lockInfo.name}</strong> is beyond your {isPremium?"Premium":isPro?"Pro":"Starter"} plan's limit of {maxCoinsPerPort} coins per portfolio. Your data is safe — it's kept, just locked. Upgrade to use it again, or remove other coins to get back under the limit.
+        </div>
+        {!isPremium&&<button className="btn-primary" onClick={()=>{setLockInfo(null);startUpgrade(isPro?"premium":"pro")}}>Upgrade to unlock</button>}
+        <button className="back-link" style={{marginTop:10,width:"100%"}} onClick={()=>{const co=lockInfo;setLockInfo(null);setSel(co);setScreen("detail")}}>Open this coin</button>
+        <button className="back-link" style={{marginTop:10,width:"100%"}} onClick={()=>setLockInfo(null)}>OK</button>
+      </Modal>
+    )}
     {/* R19-2: shared "Rename portfolio" dialog (text form → no scrim-dismiss so a typed name isn't lost). */}
     {renameFor&&(
       <Modal size="sm" title="Rename portfolio" onClose={closeRename} dismissOnScrim={false}>

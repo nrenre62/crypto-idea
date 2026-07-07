@@ -744,6 +744,35 @@ exports.reconcileMyCounters = functions.https.onCall(async (data, context) => {
   return { success: true, fixed: updates.length };
 });
 
+// ─── Self-service (DI-4/G23): resolve a pending Premium→Pro re-checkout decision ───
+// After a lapsed Premium→Pro downgrade the server keeps the `subscription` marker (which
+// is owner-immutable, so the client can't clear it itself). When the user picks "Continue
+// with Starter" (or after they approve the Pro checkout), clear the marker server-side so
+// the re-checkout prompt doesn't recur on every load and device. Acts on the caller's uid.
+exports.resolveRecheckout = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  await db.collection("users").doc(context.auth.uid).set({ subscription: null }, { merge: true });
+  await writeAudit(context, "resolveRecheckout", { targetUid: context.auth.uid });
+  return { success: true };
+});
+
+// ─── Self-service (DI-4/R29): "Keep my plan" — un-cancel a pending downgrade ───
+// Clears the cancellation marker so the paid tier simply continues (owners can't write
+// `subscription` themselves — this is the server counterpart). At go-live this also
+// reactivates the PayPal subscription before the period end.
+exports.reactivateSubscription = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  const ref = db.collection("users").doc(context.auth.uid);
+  const snap = await ref.get();
+  const sub = (snap.exists && snap.data().subscription) || null;
+  if (sub) {
+    const { cancelled, downgradeTo, ...rest } = sub;
+    await ref.set({ subscription: { ...rest, cancelled: false } }, { merge: true });
+  }
+  await writeAudit(context, "reactivateSubscription", { targetUid: context.auth.uid });
+  return { success: true };
+});
+
 // ─── Admin: full users list for the Users tab (operational data only) ───
 // Merges the Auth record (email / name / disabled / admin) with the Firestore
 // profile (tier, portfolioCount, joined). NEVER returns holdings. Capped; the

@@ -36,7 +36,7 @@ export function Login({ popup }) {
   const {
     showPlan, showWelcome, upgradeStep, setUpgradeStep, upgradeFlow, setUpgradeFlow,
     setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user, setUser,
-    saveProfile, persistTierDev, calcEndDate, trimToTier, setScreen, authMode, setAuthMode, authErr, setAuthErr,
+    saveProfile, persistTierDev, calcEndDate, setScreen, authMode, setAuthMode, authErr, setAuthErr,
     authName, setAuthName, authEmail, setAuthEmail, authPass, setAuthPass, handleAuth, site,
     authAgreeTerms, setAuthAgreeTerms, authAgreePrivacy, setAuthAgreePrivacy,
     authAgreeMarketing, setAuthAgreeMarketing,
@@ -106,10 +106,8 @@ export function Login({ popup }) {
               // DEV (Round 17): persist the tier to the DB so the portfolio cap becomes
               // real locally (no PayPal webhook in the emulator). No-op in prod builds.
               await persistTierDev(newTier);
-              // R29-3: fit the data to the bought tier's caps. A no-op on a normal
-              // upgrade (existing data already fits); after a lapsed Premium→Pro
-              // re-checkout it applies the trim that was deferred until this payment.
-              trimToTier(newTier);
+              // DI-4 (D3): no trim — an UPGRADE only raises caps (existing data already
+              // fits and simply unlocks), and downgrades keep + grey-lock data, never delete it.
               setShowWelcome(newTier);
               setUpgradeStep("welcome");
             },2000);

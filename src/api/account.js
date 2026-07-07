@@ -39,6 +39,21 @@ export async function reconcileMyCounters() {
   return res.data;
 }
 
+// DI-4/G23: clear the server-side pending-downgrade `subscription` marker after the user
+// resolves a lapsed Premium→Pro re-checkout ("Continue with Starter" / approved Pro), so
+// the prompt doesn't recur on every load. Owner-immutable field — this is the server path.
+export async function resolveRecheckout() {
+  const res = await httpsCallable(functions, "resolveRecheckout")();
+  return res.data;
+}
+
+// DI-4/R29: "Keep my plan" — un-cancel a pending downgrade on the server (the owner can't
+// write `subscription`). At go-live also reactivates the PayPal subscription.
+export async function reactivateSubscription() {
+  const res = await httpsCallable(functions, "reactivateSubscription")();
+  return res.data;
+}
+
 // DEV / EMULATOR ONLY — set the CALLER's own tier so an in-app "upgrade" persists to
 // the DB locally (there's no PayPal webhook in the emulator, so the demo upgrade would
 // otherwise never reach Firestore and the portfolio cap would stay at free=1). The

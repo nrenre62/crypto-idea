@@ -342,7 +342,7 @@ describe("User walkthrough — all functions", () => {
     expect(screen.getByText("Downgrade")).toBeInTheDocument();
   });
 
-  it("R29-3: a lapsed Premium→Pro shows the re-checkout popup, lands on Starter, and DEFERS the trim", async () => {
+  it("R29-3/DI-4: a lapsed Premium→Pro lands on Starter and KEEPS the over-limit data (no trim)", async () => {
     loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
     getPortfolios.mockResolvedValue({ success: true,
       portfolios: [{ id: "p1", name: "Main" }, { id: "p2", name: "Alt" }] });
@@ -352,14 +352,14 @@ describe("User walkthrough — all functions", () => {
     expect(screen.queryByLabelText("Close")).toBeNull();
     // Tier already flipped to Starter…
     expect(await screen.findByText("STARTER")).toBeInTheDocument();
-    // …but the data is NOT trimmed yet (2 portfolios still present; Starter cap is 1)
+    // …and the data is KEPT (2 portfolios present; Starter cap is 1)
     expect(screen.getByText("Alt")).toBeInTheDocument();
-    // Decline → subscription cleared + trimmed to Starter limits
+    // Decline → subscription cleared, but DI-4 (D3) never trims: over-limit data is KEPT
+    // and grey-locked, never deleted.
     fireEvent.click(screen.getByText("Continue with Starter"));
     await waitFor(() => expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull());
-    // Trimmed to the Starter cap (1 portfolio) — the switcher hides for a free
-    // single-portfolio user, so BOTH pills are gone; the app itself is intact.
-    await waitFor(() => expect(screen.queryByText("Alt")).toBeNull());
+    // The over-limit "Alt" portfolio is STILL there (kept, not deleted).
+    expect(screen.getByText("Alt")).toBeInTheDocument();
     expect(screen.getByText(/My Assets/i)).toBeInTheDocument();
   });
 

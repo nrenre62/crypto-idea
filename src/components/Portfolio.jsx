@@ -12,6 +12,7 @@ export function Portfolio() {
   const {
     api, tv, totalBuys, tpnl, tpp, portfolio, maxCoinsPerPort, usagePct,
     prices, isPro, isPremium, setScreen, startUpgrade, setSel,
+    lockedCoins, openLockInfo,
   } = useApp();
   const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
   const cents = (tv % 1).toFixed(2).slice(2);
@@ -91,8 +92,13 @@ export function Portfolio() {
             const ch = p?.usd_24h_change;
             const h = Math.max(0, coin.entries.reduce((s, e) => (e.type === "sell" ? s - e.amount : s + e.amount), 0));
             const v = h * (pr || 0);
+            // DI-4: an over-limit coin is KEPT but locked — dimmed, tagged, and tapping it
+            // opens the explainer (upgrade / remove others) instead of the detail screen.
+            const locked = lockedCoins && lockedCoins.has(coin.id);
             return (
-              <div key={coin.id} className="asset-card" onClick={() => { setSel(coin); setScreen("detail"); }}>
+              <div key={coin.id} className={"asset-card" + (locked ? " over-limit" : "")} style={locked ? { opacity: 0.55, position: "relative" } : undefined}
+                   onClick={() => { if (locked) { openLockInfo(coin); return; } setSel(coin); setScreen("detail"); }}>
+                {locked && <div className="over-limit-tag" style={{ position: "absolute", top: 8, right: 8, fontSize: 10, fontWeight: 700, color: "#92400E", background: "#FFF8E1", border: "1px solid #FFE082", borderRadius: 6, padding: "2px 6px" }}>Over plan limit</div>}
                 <div className="ac-top">
                   {/* R25: the shared CoinIcon (accent ring + press) opens the Coin-info overlay */}
                   <CoinIcon coin={coin} />
