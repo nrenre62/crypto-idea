@@ -78,12 +78,17 @@ describe("admin-dashboard", () => {
     await waitFor(() => expect(setAdminClaim).toHaveBeenCalledWith("alice@test.com", true));
   });
 
-  it("BL-2b: move-to-trash is two-tap (arm, then confirm)", async () => {
+  it("R31-5: Delete account → type DELETE → move to trash (never a hard delete from the card)", async () => {
     await openAlice();
-    fireEvent.click(screen.getByRole("button", { name: "Move to trash" }));
-    expect(adminTrashUser).not.toHaveBeenCalled();           // first tap only arms
-    fireEvent.click(screen.getByRole("button", { name: "Confirm move to trash?" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    const moveBtn = screen.getByRole("button", { name: "Move to trash" });
+    expect(moveBtn).toBeDisabled();                          // gated until DELETE is typed
+    expect(adminTrashUser).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByPlaceholderText("DELETE"), { target: { value: "DELETE" } });
+    expect(moveBtn).not.toBeDisabled();
+    fireEvent.click(moveBtn);
     await waitFor(() => expect(adminTrashUser).toHaveBeenCalledWith("u1"));
+    expect(deleteUser).not.toHaveBeenCalled();               // hard delete is Trash-tab only
   });
 
   it("BL-2c: sign-out-all-devices fires immediately (non-destructive)", async () => {
@@ -102,7 +107,12 @@ describe("admin-dashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Trash" }));
     await screen.findByText("Gone1");
     fireEvent.click(screen.getByRole("button", { name: "Empty trash" }));
-    fireEvent.click(await screen.findByRole("button", { name: /Permanently delete 2\?/ }));
+    // R31-5: the bulk hard-delete is gated behind typing DELETE.
+    const del2 = await screen.findByRole("button", { name: /Delete 2/ });
+    expect(del2).toBeDisabled();
+    fireEvent.change(screen.getByPlaceholderText("Type DELETE"), { target: { value: "DELETE" } });
+    expect(del2).not.toBeDisabled();
+    fireEvent.click(del2);
     await waitFor(() => expect(deleteUser).toHaveBeenCalledTimes(2));
     expect(deleteUser).toHaveBeenCalledWith("t1");
     expect(deleteUser).toHaveBeenCalledWith("t2");

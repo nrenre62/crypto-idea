@@ -76,12 +76,16 @@ export function useAdminDashboard() {
   const [lookupMsg, setLookupMsg] = useState("");
   const [actionMsg, setActionMsg] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // BL-2 confirm states: grant/revoke admin is type-to-confirm (the target's email);
-  // move-to-trash and empty-trash are two-tap confirms like delete.
+  // BL-2 confirm states: grant/revoke admin is type-to-confirm (the target's email).
   const [confirmAdmin, setConfirmAdmin] = useState(false);
   const [adminConfirmText, setAdminConfirmText] = useState("");
   const [confirmTrash, setConfirmTrash] = useState(false);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
+  // R31-5: destructive actions are gated behind typing the word DELETE. `delText` is the
+  // shared typed word (only one confirm is open at a time); `purgeUid` is the Trash-tab row
+  // being permanently deleted.
+  const [delText, setDelText] = useState("");
+  const [purgeUid, setPurgeUid] = useState(null);
   const [busy, setBusy] = useState(false);
   // Users tab — full list, searched + paginated client-side; rows open the detail panel.
   const [userList, setUserList] = useState(null);
@@ -121,7 +125,7 @@ export function useAdminDashboard() {
   };
   useEffect(() => { if (tab === "audit" && audit === null && !auditLoading) loadAudit(); }, [tab]);
 
-  const resetConfirms = () => { setConfirmDelete(false); setConfirmAdmin(false); setAdminConfirmText(""); setConfirmTrash(false); };
+  const resetConfirms = () => { setConfirmDelete(false); setConfirmAdmin(false); setAdminConfirmText(""); setConfirmTrash(false); setDelText(""); setPurgeUid(null); };
   const lookup = async () => {
     if (!lookupEmail.trim()) return;
     setBusy(true); setLookupMsg(""); setActionMsg(""); resetConfirms(); setFound(null);
@@ -157,7 +161,7 @@ export function useAdminDashboard() {
       setUserList(l => l && l.map(x => x.uid === found.uid ? { ...x, deleted: true, deletedAt: Date.now() } : x));
       setActionMsg("Moved to trash ✓"); setFound(null);
     } catch (e) { setActionMsg((e && e.message) || "Failed"); }
-    setConfirmTrash(false);
+    setConfirmTrash(false); setConfirmDelete(false); setDelText("");   // R31-5: reset the typed-DELETE flow
     setBusy(false);
   };
   // BL-2c (D9): sign the target out of every device (refresh tokens revoked).
@@ -176,7 +180,7 @@ export function useAdminDashboard() {
       catch (e) { failed++; }
     }
     setActionMsg(failed ? `Emptied ${ok} — ${failed} failed` : `Trash emptied (${ok}) ✓`);
-    setConfirmEmpty(false);
+    setConfirmEmpty(false); setDelText("");
     setBusy(false);
   };
   const changeTier = async (tier) => {
@@ -226,6 +230,7 @@ export function useAdminDashboard() {
     try { await deleteUser(uid);
       setUserList(l => l && l.filter(x => x.uid !== uid)); setActionMsg("Permanently deleted ✓"); }
     catch (e) { setActionMsg((e && e.message) || "Failed"); }
+    setPurgeUid(null); setDelText("");   // R31-5: reset the typed-DELETE flow
     setBusy(false);
   };
 
@@ -237,6 +242,7 @@ export function useAdminDashboard() {
     confirmDelete, setConfirmDelete, busy, setBusy,
     confirmAdmin, setConfirmAdmin, adminConfirmText, setAdminConfirmText,
     confirmTrash, setConfirmTrash, confirmEmpty, setConfirmEmpty,
+    delText, setDelText, purgeUid, setPurgeUid,
     setAdmin, trashUser, signOutUser, emptyTrash,
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,

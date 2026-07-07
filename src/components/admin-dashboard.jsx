@@ -73,6 +73,7 @@ export default function AdminDashboard() {
     restoreFromTrash, purgeFromTrash,
     confirmAdmin, setConfirmAdmin, adminConfirmText, setAdminConfirmText,
     confirmTrash, setConfirmTrash, confirmEmpty, setConfirmEmpty,
+    delText, setDelText, purgeUid, setPurgeUid,
     setAdmin, trashUser, signOutUser, emptyTrash,
   } = useAdminDashboard();
 
@@ -287,39 +288,32 @@ export default function AdminDashboard() {
                 style={{ flex:1, padding:"10px", borderRadius:10, border:`1px solid ${c.or}`, background:c.or+"10", color:c.or, fontSize:12, fontWeight:600, cursor:"pointer" }}>
                 {found.disabled ? "Un-suspend" : "Suspend"}
               </button>
-              {confirmDelete ? (
-                <button disabled={busy} onClick={doDelete}
-                  style={{ flex:1, padding:"10px", borderRadius:10, border:"none", background:c.rd, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                  Confirm delete?
-                </button>
-              ) : (
-                <button disabled={busy} onClick={() => setConfirmDelete(true)}
-                  style={{ flex:1, padding:"10px", borderRadius:10, border:`1px solid ${c.rd}`, background:c.rd+"10", color:c.rd, fontSize:12, fontWeight:600, cursor:"pointer" }}>
-                  Delete account
-                </button>
-              )}
-            </div>
-            <div style={{ fontSize:9, color:c.dm, marginTop:8 }}>Delete permanently removes the account + all their data (GDPR/CCPA erasure). Cannot be undone.</div>
-
-            {/* BL-2b/BL-2c: recoverable trash + force sign-out (moderation, non-destructive-ish) */}
-            <div style={{ display:"flex", gap:6, marginTop:10 }}>
-              {confirmTrash ? (
-                <button disabled={busy} onClick={trashUser}
-                  style={{ flex:1, padding:"10px", borderRadius:10, border:"none", background:c.or, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                  Confirm move to trash?
-                </button>
-              ) : (
-                <button disabled={busy} onClick={() => setConfirmTrash(true)}
-                  style={{ flex:1, padding:"10px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, color:c.tx, fontSize:12, fontWeight:600, cursor:"pointer" }}>
-                  Move to trash
-                </button>
-              )}
               <button disabled={busy} onClick={signOutUser}
                 style={{ flex:1, padding:"10px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, color:c.tx, fontSize:12, fontWeight:600, cursor:"pointer" }}>
                 Sign out all devices
               </button>
             </div>
-            <div style={{ fontSize:9, color:c.dm, marginTop:6 }}>Trash keeps the account recoverable for 30 days (admins can't be trashed — demote first). Sign-out forces every device to re-authenticate.</div>
+            {/* R31-5: ONE delete path — Delete → type DELETE → move to the 30-day trash.
+                Hard (permanent) deletion lives ONLY in the Trash tab. */}
+            {confirmDelete ? (
+              <div style={{ marginTop:10 }}>
+                <div style={{ fontSize:11, color:c.tx, marginBottom:6 }}>Type <b>DELETE</b> to move this account to the trash (recoverable for 30 days):</div>
+                <input value={delText} onChange={e => setDelText(e.target.value)} placeholder="DELETE" autoFocus
+                  style={{ width:"100%", boxSizing:"border-box", padding:"9px 12px", borderRadius:10, border:`1px solid ${c.bd}`, fontSize:13, marginBottom:6 }} />
+                <div style={{ display:"flex", gap:6 }}>
+                  <button disabled={busy} onClick={() => { setConfirmDelete(false); setDelText(""); }}
+                    style={{ flex:1, padding:"10px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, color:c.tx, fontSize:12, fontWeight:600, cursor:"pointer" }}>Cancel</button>
+                  <button disabled={busy || delText !== "DELETE"} onClick={trashUser}
+                    style={{ flex:1, padding:"10px", borderRadius:10, border:"none", background: delText==="DELETE" ? c.rd : c.dm, color:"#fff", fontSize:12, fontWeight:700, cursor: delText==="DELETE"?"pointer":"not-allowed", opacity: (busy||delText!=="DELETE")?0.6:1 }}>Move to trash</button>
+                </div>
+              </div>
+            ) : (
+              <button disabled={busy} onClick={() => { setConfirmDelete(true); setDelText(""); }}
+                style={{ width:"100%", marginTop:10, padding:"10px", borderRadius:10, border:`1px solid ${c.rd}`, background:c.rd+"10", color:c.rd, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                Delete account
+              </button>
+            )}
+            <div style={{ fontSize:9, color:c.dm, marginTop:8 }}>Delete moves the account to the trash — recoverable for 30 days. Permanent erasure (GDPR/CCPA) happens only from the Trash tab. Admins can't be deleted — demote first. Sign-out forces every device to re-authenticate.</div>
 
             {/* BL-2a (D7): grant/revoke admin — type the user's email to confirm.
                 At go-live this action additionally sits behind admin 2FA (U15). */}
@@ -405,13 +399,20 @@ export default function AdminDashboard() {
           {(() => {
             const trashedNow = userList ? partitionUsers(userList).trashed : [];
             if (trashedNow.length === 0) return null;
+            // R31-5: bulk hard-delete is behind a typed DELETE.
             return confirmEmpty ? (
-              <button onClick={() => emptyTrash(trashedNow.map(u => u.uid))} disabled={busy}
-                style={{ padding:"7px 14px", borderRadius:10, border:"none", background:c.rd, color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", opacity:busy?0.6:1 }}>
-                Permanently delete {trashedNow.length}?
-              </button>
+              <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                <input value={delText} onChange={e => setDelText(e.target.value)} placeholder="Type DELETE" autoFocus
+                  style={{ padding:"7px 10px", borderRadius:9, border:`1px solid ${c.bd}`, fontSize:12, width:110 }} />
+                <button onClick={() => emptyTrash(trashedNow.map(u => u.uid))} disabled={busy || delText !== "DELETE"}
+                  style={{ padding:"7px 12px", borderRadius:10, border:"none", background: delText==="DELETE"?c.rd:c.dm, color:"#fff", fontSize:13, fontWeight:700, cursor: delText==="DELETE"?"pointer":"not-allowed", opacity:(busy||delText!=="DELETE")?0.6:1 }}>
+                  Delete {trashedNow.length}
+                </button>
+                <button onClick={() => { setConfirmEmpty(false); setDelText(""); }}
+                  style={{ padding:"7px 12px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, fontSize:13, cursor:"pointer" }}>Cancel</button>
+              </div>
             ) : (
-              <button onClick={() => setConfirmEmpty(true)} disabled={busy}
+              <button onClick={() => { setConfirmEmpty(true); setDelText(""); }} disabled={busy}
                 style={{ padding:"7px 14px", borderRadius:10, border:`1px solid ${c.rd}`, background:c.rd+"10", color:c.rd, fontSize:13, fontWeight:600, cursor:"pointer" }}>
                 Empty trash
               </button>
@@ -437,8 +438,20 @@ export default function AdminDashboard() {
                     </div>
                     <button onClick={() => restoreFromTrash(u.uid)} disabled={busy}
                       style={{ padding:"7px 12px", borderRadius:9, border:"none", background:c.gr, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", opacity:busy?0.6:1, flexShrink:0 }}>Restore</button>
-                    <button onClick={() => purgeFromTrash(u.uid)} disabled={busy}
-                      style={{ padding:"7px 12px", borderRadius:9, border:`1px solid ${c.rd}`, background:c.rd+"12", color:c.rd, fontSize:12, fontWeight:600, cursor:"pointer", opacity:busy?0.6:1, flexShrink:0 }}>Delete now</button>
+                    {/* R31-5: permanent single-account erasure is behind a typed DELETE. */}
+                    {purgeUid === u.uid ? (
+                      <div style={{ display:"flex", gap:4, alignItems:"center", flexShrink:0 }}>
+                        <input value={delText} onChange={e => setDelText(e.target.value)} placeholder="DELETE" autoFocus
+                          style={{ padding:"6px 8px", borderRadius:8, border:`1px solid ${c.bd}`, fontSize:11, width:70 }} />
+                        <button onClick={() => purgeFromTrash(u.uid)} disabled={busy || delText !== "DELETE"}
+                          style={{ padding:"7px 10px", borderRadius:9, border:"none", background: delText==="DELETE"?c.rd:c.dm, color:"#fff", fontSize:12, fontWeight:700, cursor: delText==="DELETE"?"pointer":"not-allowed", opacity:(busy||delText!=="DELETE")?0.6:1 }}>OK</button>
+                        <button onClick={() => { setPurgeUid(null); setDelText(""); }}
+                          style={{ padding:"7px 8px", borderRadius:9, border:`1px solid ${c.bd}`, background:c.w, fontSize:11, cursor:"pointer" }}>✕</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setPurgeUid(u.uid); setDelText(""); }} disabled={busy}
+                        style={{ padding:"7px 12px", borderRadius:9, border:`1px solid ${c.rd}`, background:c.rd+"12", color:c.rd, fontSize:12, fontWeight:600, cursor:"pointer", opacity:busy?0.6:1, flexShrink:0 }}>Delete now</button>
+                    )}
                   </div>
                 );
               })}
