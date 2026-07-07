@@ -166,6 +166,41 @@
 - **Status:** 🟡 **Diagnosed 2026-07-07 — PLAN ONLY**, decisions locked (D1–D7 in DATA-INTEGRITY.md); build
   on founder "go". Supersedes the A2 fix's `permission-denied` → limit-message heuristic.
 
+### A5 · Admin tab kills every non-admin session (empty "Welcome," · plan popup→full-screen · "can't stay logged in after un-suspend") 🟡 (high)
+
+- **Symptom (three founder reports, 2026-07-07, all ONE bug):** (1) after registering, the plan screen
+  shows **"Welcome,"** with no name; (2) a new user who idles on the plan popup sees it **turn into the
+  full-screen plan page after ~1 minute**; (3) after un-suspending a user in the admin panel, logging into
+  that account gets **signed out within 2–3 seconds on every attempt**.
+- **Where:** `src/admin-main.jsx:31-39` (the admin app's `onAuthChange` force-refreshes ANY observed user's
+  token and calls `logoutUser()` for non-admins — even on a claim-check error); `src/api/firebase.config.js`
+  (ONE default Firebase app + `getAuth()` shared by `app.html` AND `admin.html` — same origin, same
+  IndexedDB persistence, so the sign-out propagates to every tab); `src/hooks/useAuthSession.js:99-102`
+  (the signed-out branch clears `user`/`screen` but never `showPlan`); `src/components/Login.jsx:45,131`
+  (`if(showPlan)` renders the picker before the login form, and `user?.name` has no null-user guard).
+- **Root cause:** with the admin panel open in another tab, ANY non-admin sign-in on the same browser is
+  killed by the admin tab (2–3s when the tab is active; ~1 min when Chrome has throttled the backgrounded
+  tab's timers). The user app then runs `onAuthChange(null)` → `setScreen("login")` — but `showPlan` stays
+  `true`, so the still-open plan flow re-renders as the FULL-SCREEN picker with `user=null`: that page IS
+  the empty "Welcome," (the popup variant never shows the header, so the only Welcome header the founder
+  could see was the broken post-sign-out one). Un-suspend itself works (`updateUser {disabled:false}` +
+  clean 10s live session single-tab — verified). Reproduced live: registration showed "Welcome, Wf Name
+  Probe" correctly at ~0.5s; a simulated admin-tab `signOut()` converted it to exactly "Welcome, " with the
+  plan cards still up.
+- **Fix:** DESIGN-PASS **Round 31-1** — give the admin app its own Firebase app instance/auth persistence
+  (`initializeApp(config, "admin")`) and replace its auto-`logoutUser()` with a "Not an admin account"
+  denied screen; user app hardening: clear the plan-flow overlay when the session dies + render the picker
+  only when `showPlan && user`. (Related honest-message fix: `getErrorMessage` has no `auth/user-disabled`
+  entry, so a suspended login shows "Something went wrong. Try again." — R31-6a.)
+- **Verify (post-build):** with /admin open in one tab, register + log into user accounts in another —
+  sessions survive; the plan popup never flips to full-screen; "Welcome, {name}" always carries the name;
+  a suspended login says so honestly.
+- **Severity:** high (breaks every founder test session with the admin panel open; in production the same
+  applies to the founder's own browser).
+- **Status:** 🟡 **Diagnosed 2026-07-07 (confirmed live, 10-agent workflow + adversarial verify) — PLAN
+  ONLY**, spec in [`DESIGN-PASS.md`](DESIGN-PASS.md) Round 31. **Local-testing gotcha until built: don't
+  test user-app logins with the admin tab open.**
+
 ---
 
 ## B. Robustness / hardening (recommended, not blocking)

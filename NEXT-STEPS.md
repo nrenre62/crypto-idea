@@ -52,6 +52,37 @@ Everything below is local-first (emulator-verifiable now; no Blaze needed).
       `suspendUser` revokes tokens; admin Plans blank-field = default (0 rejected);
       App Check failure handling noted in §4 go-live checklist.
 
+## R31. Onboarding choice · downgrade select-flow · admin trash-delete · suspension freeze  (📋 PLAN ONLY — build on "go")
+
+Canonical spec + decisions R31-D1…D4: [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 31" · bug diagnosis:
+[`ERRORS.md`](ERRORS.md) §A5 (admin tab kills non-admin sessions — explains the empty "Welcome,", the
+popup→full-screen flip, and the post-un-suspend logout loop; **local-testing gotcha: keep the admin tab
+closed while testing user logins until R31-1 lands**). Pairs with §DI; build R31-1 first.
+
+- [ ] **R31-1 Isolate admin auth** — own Firebase app instance/persistence for `admin-main.jsx`; "not an
+      admin" denied screen instead of auto-signout; user app clears the plan-flow overlay on session death
+      + `showPlan && user` render guard.
+- [ ] **R31-2 Forced new-user plan choice (R31-D1)** — no pre-chosen plan / no CURRENT badge until an
+      explicit choice; three actionable cards (Choose Starter/Pro/Premium), no X or skip link for the
+      fresh registration; `settings.planChosen` persisted (validSettings + rules test); Starter card+CTA
+      gray chrome (`--line-strong`, dark `--edge`); drop the duplicated "Select a plan" subtitle from the
+      upgrade popup (keep it on the welcome picker).
+- [ ] **R31-3 Downgrade select-then-confirm + approve-now (R31-D2)** — chooser cards become a selection
+      (highlight + Continue); "what you'll lose" warning for BOTH targets before any billing step;
+      Premium→Pro: cycle picker (defaults monthly) → approve PayPal NOW with a future start at Premium's
+      end (retires the R29-3 `recheckoutDue` popup); pending notice shows "payment approved ✓";
+      keep-my-plan/change-choice also cancel the scheduled subscription.
+- [ ] **R31-4 No-refund line on every billing surface** — add to the buy/cycle step, the chooser footer,
+      and the new warning step (confirm modal + Account already have it).
+- [ ] **R31-5 Admin delete-via-trash** — remove Move-to-trash; Delete → type-DELETE popup (reuse the BL-2a
+      typed-confirm pattern) → `adminTrashUser`; hard delete ONLY from the Trash tab, also behind typed
+      DELETE.
+- [ ] **R31-6 Suspension freeze + honest message + trash billing (R31-D3/D4)** — `auth/user-disabled` →
+      honest "account suspended" login message; suspend = revoke tokens + `suspendedAt` + PayPal
+      subscription suspend (go-live) + sweep skips suspended; un-suspend reactivates + extends `endDate`
+      by the suspension duration (pure billing.js helper + tests); trash (admin AND self-delete) cancels
+      the PayPal subscription immediately — also fixes hard-delete never cancelling a payer's billing.
+
 ## 0. Product direction — 2026-06-22 build roadmap  (NEXT — top priority)
 
 Canonical decisions: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) (28 decisions; §8 settled

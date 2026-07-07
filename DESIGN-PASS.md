@@ -1845,3 +1845,89 @@ payment stops.**
 `trimToTier(newTier)` now runs on every purchase completion (no-op on normal upgrades, applies the deferred
 trim after a re-checkout); dead `upgradePro`/`downgradeFree` removed. 414/414 unit (+9), build clean,
 browser-verified light+dark, 375+desktop, both re-checkout branches live.
+
+## Round 31 — Onboarding plan choice + downgrade select-flow + admin delete-via-trash + suspension freeze (2026-07-07, PLAN ONLY, FUNCTIONAL + backend)
+
+Founder session 2026-07-07 (5 screenshots) + a 10-agent diagnosis/mapping workflow. Interview
+decisions **R31-D1…D4** locked (recorded below). Builds on Round 29 and **supersedes its
+period-end re-checkout popup** (R31-D2). Backend items ride the same emulator-testable patterns
+as §BL. **Related diagnosis: ERRORS.md §A5** — all three reported login-area bugs (empty
+"Welcome," · plan popup turning full-screen after ~1 min · un-suspended user signed out 2–3s
+after every login) are ONE confirmed mechanism: `admin.html` shares the default Firebase app +
+Auth persistence with the user app, and `admin-main.jsx:31-39` force-signs-out any non-admin
+session it observes (background-tab timer throttling explains the ~1-min vs 2–3s timing).
+
+**R31-1 · Isolate the admin app's auth (fixes ERRORS.md §A5 at the trigger).**
+`admin-main.jsx` gets its OWN Firebase app instance (`initializeApp(config, "admin")` +
+`getAuth(adminApp)` — separate persistence), so the admin tab can no longer see or kill the user
+app's session. Its non-admin handling changes from `logoutUser()` to a "Not an admin account"
+denied screen with a manual sign-out button (never auto-kill). Symptom hardening in the user app:
+`useAuthSession`'s signed-out branch + `logout()` also clear the plan-flow overlay
+(`setShowPlan(false)`, `upgradeFlow`, `upgradeStep`, `showWelcome`), and `Login.jsx` renders the
+plan picker only when `showPlan && user` — a dead session can never show "Welcome, " with an
+empty name or flip the popup to the full-screen picker.
+
+**R31-2 · New-user plan choice (R31-D1: FORCED explicit choice).**
+Registration opens the plan popup with **no pre-chosen plan**: no CURRENT badge, no locked
+"Your current plan" — all three cards actionable ("Choose Starter" / "Choose Pro" /
+"Choose Premium"), no X and no "Continue with Starter →" escape link (the link stays for the
+logged-in picker). Choosing Starter → the existing "Welcome to Starter." success screen →
+portfolio; paid choices → the normal billing flow. The explicit choice is persisted
+(`settings.planChosen` — `validSettings` + rules test extended), and the CURRENT badge/lock
+appears only for users who have chosen (or hold a paid tier). Copy: keep "Select a plan" here;
+**remove the duplicated "Select a plan" subtitle from the popup/upgrade variant** (Modal already
+says "Choose a plan"). Styling: Starter card + its CTA get the system gray chrome —
+`.plan-card.starter { border:1.5px solid var(--line-strong) }` + dark `--edge` override, CTA
+`.plan-card.starter .plan-cta { border:1px solid var(--line-strong) }` + dark `--edge` (exact
+tokens mapped; never use `--edge` in a base rule — it's dark-only).
+
+**R31-3 · Premium downgrade: select-then-confirm + approve-now (R31-D2).**
+The chooser becomes a two-step: tapping Pro/Starter SELECTS the card (highlight, reuses the
+cycle-card selected chrome); a "Continue" button proceeds. Both targets then get a real
+**"What you'll lose" warning** (Premium→target limit diff off `PLAN_BENEFITS`, access-until
+date, no-refund line) — shown BEFORE any billing step. Starter: confirm → pending state (as
+today). Pro: after the warning → **monthly/yearly cycle picker → approve the PayPal payment
+NOW, with the subscription starting when Premium ends** (PayPal `start_time` future-start;
+locally the dev-emulated equivalent stores the approved cycle + start). This RETIRES the R29-3
+period-end re-checkout popup (`recheckoutDue`) — no forced popup later, no yearly-default
+inconsistency (the picker defaults to the promised monthly here). After approval → back to
+Account, pending notice ("Premium until {date}, then Pro — payment approved ✓") + small toast;
+no welcome screen for downgrades. "Keep my plan"/"Change downgrade choice" must also cancel the
+scheduled future-start subscription (server callable at go-live; dev marker locally).
+
+**R31-4 · No-refund disclaimer on EVERY billing surface.**
+The purchase/cycle step has none today — add the R27-4 line ("No refunds. Your subscription
+remains active until the end of the paid period.") to: the billing/cycle step (buy AND
+downgrade-Pro variants), the downgrade chooser footer (explicit "no refunds" wording next to
+"access continues until {date} either way"), and the R31-3 warning step. The downgrade-confirm
+modal + Account plan card already carry it (keep).
+
+**R31-5 · Admin: delete goes through trash (single Delete + type-DELETE).**
+The user card's "Move to trash" button is REMOVED; the 2-tap "Delete account" becomes:
+Delete → a typed-confirmation popup (reuses the BL-2a type-the-email pattern; match target the
+literal word **DELETE**) → `adminTrashUser` (soft-delete, 30-day recovery). **Hard deletion
+exists ONLY in the Trash tab** ("Delete now" / "Empty trash"), now also behind the typed
+DELETE popup. Helper copy re-worded (delete = recoverable for 30 days, purge is the permanent
+step). `deleteUser` keeps its admin-guard + MIN_ADMINS checks and is no longer reachable from
+the user card.
+
+**R31-6 · Honest suspension + freeze-the-clock (R31-D3) + trash cancels billing (R31-D4).**
+(a) Login message: `getErrorMessage` gains `auth/user-disabled` → "This account has been
+suspended. Contact support if you think this is a mistake." (fixes the dishonest "Something
+went wrong. Try again." — screenshot 5). (b) Suspend = freeze: `suspendUser` also
+`revokeRefreshTokens` (DI-6 item, folded here), writes `suspendedAt`, and (go-live) calls
+PayPal `POST /billing/subscriptions/{id}/suspend`; the `enforceSubscriptionPeriods` sweep
+SKIPS suspended accounts. Un-suspend reactivates PayPal (`/activate`) and **extends
+`subscription.endDate` by the suspension duration** (pure helper in `functions/billing.js` +
+unit tests) — the user loses none of their paid time. (c) Trash cancels immediately: both
+`adminTrashUser` AND self-service `deleteMyAccount` cancel the PayPal subscription at trash
+time (restore = re-subscribe; also closes the mapped gap that hard-deleting a payer today
+never cancels their PayPal billing). All three server changes are pure-logic-first
+(billing.js) + emulator-tested; live PayPal calls are go-live-verified like the rest of §BL.
+
+**Decisions:** R31-D1 forced choice · R31-D2 approve-now/charge-at-period-end (supersedes
+R29-3 re-checkout) · R31-D3 freeze-the-clock suspension · R31-D4 trash cancels the
+subscription immediately.
+
+**Status:** 📋 PLAN ONLY — build on founder "go" (pairs with the §DI waves; R31-1 first — it
+unblocks reliable local testing of everything else).
