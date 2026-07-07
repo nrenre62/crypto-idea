@@ -39,7 +39,7 @@ export function Login({ popup }) {
     saveProfile, persistTierDev, calcEndDate, setScreen, authMode, setAuthMode, authErr, setAuthErr,
     authName, setAuthName, authEmail, setAuthEmail, authPass, setAuthPass, handleAuth, site,
     authAgreeTerms, setAuthAgreeTerms, authAgreePrivacy, setAuthAgreePrivacy,
-    authAgreeMarketing, setAuthAgreeMarketing,
+    authAgreeMarketing, setAuthAgreeMarketing, planChosen, markPlanChosen,
   } = useApp();
   const [showPass,setShowPass]=useState(false);
   // R31-1: only render the plan picker/upgrade flow for a LIVE session. If the
@@ -108,6 +108,8 @@ export function Login({ popup }) {
               await persistTierDev(newTier);
               // DI-4 (D3): no trim — an UPGRADE only raises caps (existing data already
               // fits and simply unlocks), and downgrades keep + grey-lock data, never delete it.
+              // R31-2: a completed paid choice also counts as an explicit plan choice.
+              if(markPlanChosen)markPlanChosen();
               setShowWelcome(newTier);
               setUpgradeStep("welcome");
             },2000);
@@ -125,20 +127,27 @@ export function Login({ popup }) {
     // bug), only genuine upgrades are clickable, and lower tiers read "Included"
     // (a Premium user already has more than Starter/Pro; downgrades stay in Account).
     const currentTier=(user&&user.tier)||"free";
-    const cardState=(t)=>t===currentTier?"current":TIER_RANK[t]>TIER_RANK[currentTier]?"upgrade":"included";
+    // R31-2: a FORCED first choice (the user hasn't chosen a plan yet) → every card is
+    // actionable ("Choose X"), NO pre-chosen CURRENT badge, and NO skip link. Once chosen
+    // (or on a paid tier) the R28 current-aware picker applies (locked current tier,
+    // "Included" lower tiers, a Close link — reached from Account).
+    const forced=!planChosen;
+    const cardState=(t)=>forced?"upgrade":t===currentTier?"current":TIER_RANK[t]>TIER_RANK[currentTier]?"upgrade":"included";
     const ctaText=(t,label)=>cardState(t)==="current"?"Your current plan":cardState(t)==="included"?"Included":label;
     const cardGo=(t,go)=>cardState(t)==="upgrade"?go:undefined;   // locked cards ignore clicks
     const lockCls=(t)=>cardState(t)==="upgrade"?"":" locked";
     return wrap(<>
-      {!popup&&<div className="auth-h">Welcome, <span>{user?.name}</span></div>}
-      <div className="auth-sub">Select a plan</div>
+      {!popup&&<div className="auth-h">{forced?<>Welcome, <span>{user?.name}</span></>:"Choose a plan"}</div>}
+      {/* R31-2: the "Select a plan" subtitle stays on the welcome/forced picker; the desktop
+          upgrade Modal already titles itself "Choose a plan", so it's dropped there (popup). */}
+      {!popup&&<div className="auth-sub">Select a plan</div>}
       <div className="plan-col">
-        <div onClick={cardGo("free",()=>{setShowWelcome("free");setUpgradeStep("welcome")})} className={"plan-card"+lockCls("free")} aria-disabled={cardState("free")!=="upgrade"}>
+        <div onClick={cardGo("free",()=>{if(markPlanChosen)markPlanChosen();setShowWelcome("free");setUpgradeStep("welcome")})} className={"plan-card starter"+lockCls("free")} aria-disabled={cardState("free")!=="upgrade"}>
           {cardState("free")==="current"&&<div className="plan-badge">CURRENT</div>}
           <div className="plan-top"><span className="plan-name">Starter</span><span className="plan-price">$0</span></div>
           <div className="plan-feats">{PLAN_BENEFITS.free.limits.join(" · ")}</div>
           <div className="plan-feats">{PLAN_BENEFITS.free.feature}</div>
-          <div className={"plan-cta neutral"+lockCls("free")}>{ctaText("free","Get Started")}</div>
+          <div className={"plan-cta neutral"+lockCls("free")}>{ctaText("free","Choose Starter")}</div>
         </div>
         <div onClick={cardGo("pro",()=>{setUpgradeFlow("pro");setUpgradeStep("billing")})} className={"plan-card rec"+lockCls("pro")} aria-disabled={cardState("pro")!=="upgrade"}>
           {/* CURRENT replaces RECOMMENDED on the user's own card */}
@@ -156,9 +165,9 @@ export function Login({ popup }) {
           <div className={"plan-cta "+(cardState("premium")==="upgrade"?"prem":"neutral locked")}>{ctaText("premium","Choose Premium")}</div>
         </div>
       </div>
-      {/* R28-1: for a free user Starter IS the current plan — the forward action is
-          continuing with it; paid users get a plain close. Same action either way. */}
-      <div className="auth-link" style={{marginTop:14}}><span onClick={()=>{setShowPlan(false);setUpgradeStep("billing");setScreen("portfolio")}}>{currentTier==="free"?"Continue with Starter →":"Close"}</span></div>
+      {/* R31-2: the FORCED first choice has no escape — the three cards ARE the decision.
+          After a plan is chosen, the picker (from Account) gets a Close / Continue link. */}
+      {!forced&&<div className="auth-link" style={{marginTop:14}}><span onClick={()=>{setShowPlan(false);setUpgradeStep("billing");setScreen("portfolio")}}>{currentTier==="free"?"Continue with Starter →":"Close"}</span></div>}
     </>);
   }
   return(<div className="ci-app screen-bg auth-wrap">

@@ -544,6 +544,14 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .plan-card { background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); padding:20px; cursor:pointer; box-shadow:var(--sh-sm); position:relative; }
 .ci-app .plan-card.rec { border:1.5px solid var(--accent); }
 .ci-app .plan-card.prem { border-color:#c9a9e8; }
+/* R31-2: Starter card + its CTA get a distinct border — gray in LIGHT (--line-strong),
+   WHITE in DARK (--ink #ece9e1, the system soft off-white) — so Starter reads as a
+   white-framed tier beside Pro's green and Premium's purple. Dark override only (never
+   put the dark --ink value in a base rule). */
+.ci-app .plan-card.starter { border:1.5px solid var(--line-strong); }
+.ci-app .plan-card.starter .plan-cta { border:1px solid var(--line-strong); }
+html[data-theme="dark"] .ci-app .plan-card.starter,
+html[data-theme="dark"] .ci-app .plan-card.starter .plan-cta { border-color:var(--ink); }
 .ci-app .plan-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
 .ci-app .plan-name { font-size:16px; font-weight:700; }
 .ci-app .plan-name.prem { color:#7d4bbf; }

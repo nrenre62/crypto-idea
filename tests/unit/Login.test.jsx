@@ -17,6 +17,9 @@ const base = {
   authAgreeTerms: false, setAuthAgreeTerms: vi.fn(),
   authAgreePrivacy: false, setAuthAgreePrivacy: vi.fn(),
   authAgreeMarketing: false, setAuthAgreeMarketing: vi.fn(),
+  // R31-2: default to a user who HAS chosen a plan, so the existing picker tests exercise
+  // the current-aware R28 picker; the forced-first-choice flow is tested with planChosen:false.
+  planChosen: true, markPlanChosen: vi.fn(),
 };
 const provide = (value) =>
   render(<AppContext.Provider value={{ ...base, ...value }}><Login /></AppContext.Provider>);
@@ -92,6 +95,24 @@ describe("Login screen (extracted, via AppContext)", () => {
       fireEvent.click(screen.getByText("Your current plan").closest(".plan-card"));
       expect(setUpgradeStep).not.toHaveBeenCalled();
       expect(setShowWelcome).not.toHaveBeenCalled();
+    });
+
+    it("R31-2: a NEW user (planChosen:false) is FORCED to choose — no CURRENT, no skip, 'Choose Starter'", () => {
+      const setUpgradeStep = vi.fn(), setShowWelcome = vi.fn(), markPlanChosen = vi.fn();
+      provide({ showPlan: true, upgradeStep: "pickPlan", planChosen: false, user: { name: "T", tier: "free" }, setUpgradeStep, setShowWelcome, markPlanChosen });
+      // No pre-chosen CURRENT badge; all three cards actionable.
+      expect(screen.queryByText("CURRENT")).toBeNull();
+      expect(screen.getByText("Choose Starter")).toBeInTheDocument();
+      expect(screen.getByText("Choose Pro")).toBeInTheDocument();
+      expect(screen.getByText("Choose Premium")).toBeInTheDocument();
+      // No escape from the forced choice.
+      expect(screen.queryByText(/Continue with Starter/)).toBeNull();
+      expect(screen.queryByText("Close")).toBeNull();
+      // Choosing Starter persists the choice + goes to the welcome screen.
+      fireEvent.click(screen.getByText("Choose Starter").closest(".plan-card"));
+      expect(markPlanChosen).toHaveBeenCalled();
+      expect(setShowWelcome).toHaveBeenCalledWith("free");
+      expect(setUpgradeStep).toHaveBeenCalledWith("welcome");
     });
 
     it("pro user: Pro is CURRENT + locked (can't be charged twice), Premium clickable, Starter 'Included'", () => {

@@ -352,6 +352,17 @@ export default function CryptoIdea(){
       showErr("Couldn't save that setting — check your connection.");
     }
   };
+  // R31-2: a brand-new free user has NOT made an explicit plan choice (no settings.planChosen
+  // and free tier) → the picker FORCES one (no pre-chosen CURRENT badge, no skip). A paid
+  // tier, or a persisted planChosen, means they've chosen.
+  const planChosen=!!(user&&(user.settings?.planChosen===true||(user.tier&&user.tier!=="free")));
+  // Persist the explicit choice when a plan is finalized (Starter success or a completed
+  // paid upgrade) so the forced picker never re-appears.
+  const markPlanChosen=async()=>{
+    if(!user?.uid||user.settings?.planChosen===true)return;
+    setUser(u=>u?{...u,settings:{...(u.settings||{}),planChosen:true}}:u);
+    try{await updateUserSettings(user.uid,{planChosen:true});}catch(_e){}
+  };
   // Email-verify nudge (USER-CREATION.md §5): dismissible banner + resend.
   const [verifyDismissed,setVerifyDismissed]=useState(false);
   const [verifyMsg,setVerifyMsg]=useState("");
@@ -859,7 +870,7 @@ export default function CryptoIdea(){
     delPass,setDelPass,delType,setDelType,cancelDelete,
     pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,
     profName,setProfName,profMsg,saveDisplayName,emNew,setEmNew,emPass,setEmPass,emMsg,requestEmailChange,toggleSetting,
-    showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,
+    showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,planChosen,markPlanChosen,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,persistTierDev,calcEndDate,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site,
     authAgreeTerms,setAuthAgreeTerms,authAgreePrivacy,setAuthAgreePrivacy,authAgreeMarketing,setAuthAgreeMarketing};

@@ -270,12 +270,14 @@ service cloud.firestore {
     // Transactional email (security/payment) has no toggle — it always sends.
     function validSettings(s) {
       return s is map
-             && s.keys().hasOnly(['theme', 'currency', 'emailDigest', 'emailMarketing', 'consentAnalytics', 'updatedAt'])
+             && s.keys().hasOnly(['theme', 'currency', 'emailDigest', 'emailMarketing', 'consentAnalytics', 'planChosen', 'updatedAt'])
              && (!('theme' in s)            || s.theme in ['light', 'dark', 'system'])
              && (!('currency' in s)         || (s.currency is string && s.currency.size() <= 8))
              && (!('emailDigest' in s)      || s.emailDigest is bool)
              && (!('emailMarketing' in s)   || s.emailMarketing is bool)
              && (!('consentAnalytics' in s) || s.consentAnalytics is bool)
+             // R31-2: the new user made an explicit plan choice (no system-chosen default).
+             && (!('planChosen' in s)       || s.planChosen is bool)
              && (!('updatedAt' in s)        || (s.updatedAt is string && s.updatedAt.size() <= 40));
     }
 

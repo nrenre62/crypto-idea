@@ -187,6 +187,12 @@ test("user profile update: owner edits name/settings within shape, never premium
   // Auto-saving a valid settings change (e.g. toggling dark mode) is allowed.
   await assertSucceeds(updateDoc(doc(db, "users", "alice"),
     { settings: { ...goodSettings, theme: "dark", updatedAt: "2026-06-25T00:00:00.000Z" } }));
+  // R31-2: the explicit new-user plan choice persists in settings (bool planChosen).
+  await assertSucceeds(updateDoc(doc(db, "users", "alice"),
+    { settings: { ...goodSettings, planChosen: true, updatedAt: "2026-07-07T00:00:00.000Z" } }));
+  // A non-bool planChosen is rejected by validSettings.
+  await assertFails(updateDoc(doc(db, "users", "alice"),
+    { settings: { ...goodSettings, planChosen: "yes" } }));
   // Editing the display name within bounds is allowed.
   await assertSucceeds(updateDoc(doc(db, "users", "alice"), { name: "Ada L." }));
   // Oversized name on update -> rejected.
