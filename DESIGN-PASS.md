@@ -1931,3 +1931,48 @@ subscription immediately.
 
 **Status:** 📋 PLAN ONLY — build on founder "go" (pairs with the §DI waves; R31-1 first — it
 unblocks reliable local testing of everything else).
+
+## Round 32 — Research → Coins: custom drag-and-drop coin order via the Sort button (2026-07-07, PLAN ONLY, FUNCTIONAL)
+
+Founder ask: pressing **Sort** on the Research tab's Coins view should let them drag the coin
+cards into any order they want — **Coins view only** (Portfolio tab, Overview movers, and the
+allocation math stay on their existing ordering). Today the Sort link is a DEAD anchor
+(`CoinsView.jsx:8` `<a href="#">Sort</a>`) and the cards render biggest-holding-first
+(`utils/portfolio.js:21` value-desc). Interview decisions **R32-D1…D4** locked.
+
+**R32-1 · Sort mode + pointer drag (R32-D2: real drag everywhere).**
+"Sort" becomes a real button toggling a `sorting` state. In sort mode each coin card grows a
+drag handle (≡, top-right; `touch-action:none`); dragging is POINTER-based (pointerdown on the
+handle → pointermove reorders live by card midpoints → pointerup commits) so mouse AND touch
+work with **no new dependency**. The handle is focusable and ArrowUp/ArrowDown moves the card
+(keyboard accessibility for free). While sorting, the header shows **Done** (exit) and
+**Reset to auto** (R32-D4: clears the custom order back to biggest-first). Cards' Ask-AI
+buttons are inert during sort mode.
+
+**R32-2 · Order model (R32-D3: value-first default, new coins at end).**
+Pure util `applyCoinOrder(holdings, coinOrder)` (+ unit tests): ids listed in `coinOrder`
+render first in that order (ids no longer held are skipped); everything not listed follows in
+value-desc order — which yields BOTH the never-sorted default (`coinOrder` empty/absent →
+today's behavior) and "coins added later land at the end". Applied ONLY in the Coins view, on
+top of the untouched `portfolio.holdings` (Overview/allocation unchanged).
+
+**R32-3 · Persistence (R32-D1: per portfolio, synced).**
+`coinOrder: [coinIds]` lives on `users/{uid}/portfolios/{pid}`. Each drop persists immediately
+via a new data-layer `updateCoinOrder(uid, pid, ids)` (single `updateDoc`; Done just exits;
+Reset deletes the field). On write failure: revert the local order + honest toast (the C-R2e /
+DI-1 pattern). Rules: `validPortfolioData` allows the optional `coinOrder` list (size ≤ 1000,
+mirroring the coins hardMax; display-only field, owner-writable; `counterDeltaOk` untouched) +
+rules tests. **Sync plumbing (the two easy-to-miss seams):** `useAuthSession`'s load must carry
+`coinOrder` into the portfolios state, and the C-A3 `watchPortfolios` metas merge — which
+currently rebuilds `{id, name, coins}` — must pass `coinOrder` through, or every metas snapshot
+would silently drop the saved order.
+
+**Tests/DoD:** `applyCoinOrder` unit table (empty/partial/stale/new-coin cases) ·
+CoinsView sort-mode render test (handles, Done/Reset, order applied) · rules test for
+`coinOrder` (accepted on update, size-bounded) · data-layer integration write · browser-verify
+drag on desktop + touch (375px) + a second seeded device picking the order up live.
+
+**Decisions:** R32-D1 per-portfolio synced · R32-D2 pointer drag everywhere · R32-D3
+value-first default / new coins append · R32-D4 Reset-to-auto in sort mode.
+
+**Status:** 📋 PLAN ONLY — build on founder "go" (batches with §DI + Round 31).

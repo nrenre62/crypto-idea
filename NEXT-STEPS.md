@@ -83,6 +83,20 @@ closed while testing user logins until R31-1 lands**). Pairs with §DI; build R3
       by the suspension duration (pure billing.js helper + tests); trash (admin AND self-delete) cancels
       the PayPal subscription immediately — also fixes hard-delete never cancelling a payer's billing.
 
+## R32. Research → Coins: custom drag-and-drop order  (📋 PLAN ONLY — build on "go")
+
+Canonical spec + decisions R32-D1…D4: [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 32". The Coins
+view's Sort link is a dead anchor today; cards render value-desc.
+
+- [ ] **R32-1 Sort mode + pointer drag** — Sort toggles sorting mode; drag handle (≡) per card,
+      pointer-based drag (mouse + touch, no deps), ArrowUp/Down keyboard moves; Done + Reset-to-auto.
+- [ ] **R32-2 Order model** — pure `applyCoinOrder(holdings, coinOrder)` (listed ids first, rest
+      value-desc → default + new-coins-at-end for free); applied ONLY in the Coins view.
+- [ ] **R32-3 Persist + sync** — `coinOrder` array on the portfolio doc, saved per drop
+      (`updateCoinOrder`, revert+toast on failure); `validPortfolioData` optional list ≤1000 + rules
+      tests; carry `coinOrder` through the useAuthSession load AND the C-A3 metas merge (it rebuilds
+      `{id,name,coins}` today and would drop the field).
+
 ## 0. Product direction — 2026-06-22 build roadmap  (NEXT — top priority)
 
 Canonical decisions: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) (28 decisions; §8 settled
