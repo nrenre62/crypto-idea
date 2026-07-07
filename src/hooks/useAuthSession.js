@@ -11,7 +11,7 @@ import { db } from "../utils/storage.js";
 //   checkSubscriptionStatus(user) -> user      — applies expiry/grace-period downgrades
 //   saveProfile(user)                          — persists the non-sensitive profile
 // Returns { user, setUser, dataLoaded }.
-export function useAuthSession({ setScreen, setPortfolios, setActivePortId, checkSubscriptionStatus, saveProfile }) {
+export function useAuthSession({ setScreen, setPortfolios, setActivePortId, checkSubscriptionStatus, saveProfile, onSignedOut }) {
   const [user, setUser] = useState(null);
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -19,7 +19,7 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
   // always calls current versions without re-subscribing — and without tripping on
   // functions declared later in the component (no temporal-dead-zone reads here).
   const cb = useRef(null);
-  cb.current = { setScreen, setPortfolios, setActivePortId, checkSubscriptionStatus, saveProfile };
+  cb.current = { setScreen, setPortfolios, setActivePortId, checkSubscriptionStatus, saveProfile, onSignedOut };
 
   // ═══ Watch Firebase auth state + load saved data on startup ═══
   useEffect(() => {
@@ -97,7 +97,13 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
         setUser(checked);
         cb.current.setScreen("portfolio");
       } else {
+        // Session ended (sign-out, token revoked, or — pre-R31-1 — an admin tab
+        // killing it). Clear the user + any half-open plan/upgrade overlay so a dead
+        // session can never render "Welcome, " with an empty name or flip the plan
+        // popup to full-screen (ERRORS §A5 symptom hardening — belt-and-braces even
+        // now that the admin auth is isolated).
         setUser(null);
+        if (cb.current.onSignedOut) cb.current.onSignedOut();
         cb.current.setScreen("login");
       }
       setDataLoaded(true);

@@ -1,11 +1,14 @@
 import { httpsCallable } from "firebase/functions";
-import { functions } from "./firebase.config.js";
+import { adminFunctions as functions } from "./firebase.admin.config.js";
 
 // Admin-only Cloud Functions. Every one of these re-verifies the {admin:true}
 // custom claim server-side (see functions/index.js) — a non-admin caller is
 // rejected there, regardless of what the client does. Kept in api/ so the
 // admin dashboard never calls httpsCallable directly. Each wrapper returns the
 // payload the caller actually needs (or void for fire-and-forget actions).
+//
+// R31-1: these run on the SEPARATE admin Firebase instance (firebase.admin.config.js)
+// so the admin session (and its token) is fully isolated from the user app's session.
 
 // Combined, anonymised usage for the Overview (no personal data). Returns the stats object.
 export async function getStats() {

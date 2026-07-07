@@ -42,7 +42,11 @@ export function Login({ popup }) {
     authAgreeMarketing, setAuthAgreeMarketing,
   } = useApp();
   const [showPass,setShowPass]=useState(false);
-  if(showPlan){
+  // R31-1: only render the plan picker/upgrade flow for a LIVE session. If the
+  // session died mid-flow (e.g. a token revoke), `showPlan` may still be true for a
+  // tick before the overlay is cleared — without this guard the picker would paint
+  // "Welcome, " with an empty name (ERRORS §A5). No user → fall through to the login form.
+  if(showPlan&&user){
     const tierLabel={free:"Starter",pro:"Pro",premium:"Premium"}[showWelcome||"free"];
     // R27-3: popup = centered body inside the Modal; full-screen wrapper otherwise.
     const wrap=(kids)=>popup

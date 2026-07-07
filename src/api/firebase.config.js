@@ -47,12 +47,19 @@ if (!useReal && !isDev) {
   console.warn("[firebase] No VITE_FIREBASE_* env vars — using demo config. Create .env for production.");
 }
 
-const app = initializeApp(useReal ? realConfig : demoConfig);
+// The resolved config + dev flag are exported so the SEPARATE admin app
+// (firebase.admin.config.js) can spin up its OWN named Firebase instance from the
+// same values — a distinct Auth persistence namespace, so the admin tab can never
+// see or sign out the user app's session (R31-1 / ERRORS §A5). Single source of truth.
+export const firebaseConfig = useReal ? realConfig : demoConfig;
+export { isDev };
+export const recaptchaKey = env.VITE_RECAPTCHA_SITE_KEY;
+
+const app = initializeApp(firebaseConfig);
 
 // App Check (bot/abuse protection for Auth, Firestore, and callable Functions).
 // Enable in production by setting VITE_RECAPTCHA_SITE_KEY (reCAPTCHA v3 site key
 // from the Firebase Console → App Check), then turn on enforcement there.
-const recaptchaKey = env.VITE_RECAPTCHA_SITE_KEY;
 if (!isDev && recaptchaKey) {
   try {
     initializeAppCheck(app, {

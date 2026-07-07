@@ -12,8 +12,10 @@
  */
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
-import { onAuthChange, loginUser, logoutUser } from "./api/firebase-auth.js";
-import { auth } from "./api/firebase.config.js";
+// R31-1: the admin app authenticates on its OWN named Firebase instance (adminAuth),
+// isolated from the user app's session — signing in/out here can never end a user's
+// session in another tab (fixes ERRORS §A5). See api/firebase.admin.config.js.
+import { onAdminAuthChange, adminLogin, adminLogout, adminAuth } from "./api/admin-auth.js";
 import AdminDashboard from "./components/admin-dashboard.jsx";
 
 const wrap = { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 };
@@ -28,24 +30,29 @@ function AdminApp() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => onAuthChange(async (user) => {
-    if (!user) { setPhase((p) => (p === "denied" ? "denied" : "login")); return; }
+  useEffect(() => onAdminAuthChange(async (user) => {
+    if (!user) { setPhase("login"); return; }
     try {
       // Force-refresh so we read the latest custom claim, not a cached token.
       const tr = await user.getIdTokenResult(true);
       if (tr.claims && tr.claims.admin === true) { setErr(""); setPhase("ok"); }
-      else { await logoutUser(); setPhase("denied"); }
-    } catch (e) { await logoutUser(); setPhase("denied"); }
+      // R31-1: a non-admin sign-in on THIS instance shows a denied screen with a
+      // manual sign-out — we no longer auto-sign-out (that only ever mattered because
+      // the session was shared; it isn't anymore). Nothing here touches the user app.
+      else setPhase("denied");
+    } catch (e) { setPhase("denied"); }
   }), []);
 
   const submit = async (e) => {
     e.preventDefault();
     setErr(""); setBusy(true);
-    const res = await loginUser(email.trim().toLowerCase(), pass);
+    const res = await adminLogin(email.trim().toLowerCase(), pass);
     setBusy(false);
     if (!res.success) { setErr(res.error || "Could not sign in"); return; }
-    // onAuthChange (above) does the admin-claim check and screen transition.
+    // onAdminAuthChange (above) does the admin-claim check and screen transition.
   };
+
+  const signOut = async () => { setErr(""); await adminLogout(); setPhase("login"); };
 
   if (phase === "loading") return <div style={{ ...wrap, color: "#999", fontSize: 14 }}>Loading…</div>;
 
@@ -55,8 +62,8 @@ function AdminApp() {
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 20px", borderBottom: "1px solid #E8E8ED", background: "#fff", position: "sticky", top: 0, zIndex: 10 }}>
           <strong style={{ fontSize: 15 }}>Crypto Idea · Admin</strong>
           <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: "#666" }}>
-            <span>{auth.currentUser?.email}</span>
-            <button onClick={logoutUser} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8E8ED", background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Log out</button>
+            <span>{adminAuth.currentUser?.email}</span>
+            <button onClick={signOut} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8E8ED", background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Log out</button>
           </div>
         </header>
         {/* AdminDashboard centers itself (maxWidth ~1040); no extra cap here. */}
@@ -65,15 +72,35 @@ function AdminApp() {
     );
   }
 
-  // login / denied
+  const logo = (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontSize: 22, fontWeight: 200, letterSpacing: "-0.5px" }}>Crypto <strong style={{ fontWeight: 700 }}>Idea</strong></div>
+      <div style={{ fontSize: 11, color: "#999", marginTop: 4, letterSpacing: 1, textTransform: "uppercase" }}>Admin</div>
+    </div>
+  );
+
+  // R31-1: a non-admin who signs in stays signed in on THIS isolated instance and
+  // sees a denied card with a manual sign-out — no auto-kill (which is safe now that
+  // the admin session can't reach the user app's session).
+  if (phase === "denied") {
+    return (
+      <div style={wrap}>
+        <div style={card}>
+          {logo}
+          <div style={{ padding: 10, background: "#FFF7E6", border: "1px solid #FFE0A3", color: "#8A5A00", borderRadius: 10, fontSize: 12, textAlign: "center", lineHeight: 1.5 }}>
+            This account isn't an admin. If you have an admin account, sign out and sign back in with it.
+          </div>
+          <button onClick={signOut} style={btn}>Sign out</button>
+        </div>
+      </div>
+    );
+  }
+
+  // login
   return (
     <div style={wrap}>
       <form onSubmit={submit} style={card}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 22, fontWeight: 200, letterSpacing: "-0.5px" }}>Crypto <strong style={{ fontWeight: 700 }}>Idea</strong></div>
-          <div style={{ fontSize: 11, color: "#999", marginTop: 4, letterSpacing: 1, textTransform: "uppercase" }}>Admin</div>
-        </div>
-        {phase === "denied" && <div style={{ padding: 10, background: "#FFF7E6", border: "1px solid #FFE0A3", color: "#8A5A00", borderRadius: 10, fontSize: 12, textAlign: "center" }}>That account isn't an admin — you've been signed out.</div>}
+        {logo}
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@email.com" autoComplete="email" inputMode="email" style={input} />
         <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Password" autoComplete="current-password" style={input} />
         {err && <div style={{ padding: 10, background: "#FFF0F0", color: "#C0392B", borderRadius: 10, fontSize: 12, textAlign: "center" }}>{err}</div>}

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn() }));
-vi.mock("../../src/api/firebase.config.js", () => ({ functions: { _tag: "fns" } }));
+// R31-1: admin callables run on the SEPARATE admin Firebase instance now.
+vi.mock("../../src/api/firebase.admin.config.js", () => ({ adminFunctions: { _tag: "fns" } }));
 
 import { httpsCallable } from "firebase/functions";
 import {

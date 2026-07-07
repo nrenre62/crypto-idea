@@ -113,6 +113,10 @@ export default function CryptoIdea(){
   const {calcEndDate,getTrimImpact,trimToTier}=useUpgrade({portfolios,setPortfolios,plans:site.plans});
   const[showPortManager,setShowPortManager]=useState(false);
   const[newPortName,setNewPortName]=useState("");
+  // R31-1: one place to tear down any open plan/upgrade/downgrade overlay. Called
+  // when a session ends (so a dead session never shows the picker with an empty name
+  // or a full-screen flip — ERRORS §A5) and on explicit logout.
+  const resetPlanOverlay=()=>{setShowPlan(false);setUpgradeFlow(null);setUpgradeStep("billing");setShowWelcome(null);setDowngradeTo(null);setShowDowngradeChooser(false)};
   // Auth session: owns user/dataLoaded + the auth-watch & profile-save effects.
   // Collaborators are passed as thin wrappers so functions defined lower in this
   // component (saveProfile, checkSubscriptionStatus) are referenced lazily.
@@ -120,6 +124,7 @@ export default function CryptoIdea(){
     setScreen,setPortfolios,setActivePortId,
     checkSubscriptionStatus:(u)=>checkSubscriptionStatus(u),
     saveProfile:(u)=>saveProfile(u),
+    onSignedOut:resetPlanOverlay,
   });
   // Live prices for the held coins (seeded with mock prices, then polled).
   const {prices,api}=useLivePrices(portfolio);
@@ -257,6 +262,7 @@ export default function CryptoIdea(){
     const uid=user?.uid;
     db.del("ci-active-port"); if(uid) db.del("ci-profile-"+uid);
     await logoutUser();
+    resetPlanOverlay();
     setUser(null);setPortfolios(DEFAULT_PORTFOLIOS);setActivePortId("default");setScreen("login");setAuthEmail("");setAuthPass("");setAuthName("");setAuthAgreeTerms(false);setAuthAgreePrivacy(false);setAuthAgreeMarketing(false);setDelConfirm(false);setDelPass("");setDelType("");setPwCur("");setPwNew("");setPwMsg("");setProfMsg("");setEmNew("");setEmPass("");setEmMsg("")};
 
   // ── Self-service privacy (GDPR/CCPA): export + delete your own data ──
