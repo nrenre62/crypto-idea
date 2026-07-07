@@ -61,12 +61,15 @@ closed while testing user logins until R31-1 lands**). Pairs with §DI; build R3
 
 - [ ] **R31-1 Isolate admin auth** — own Firebase app instance/persistence for `admin-main.jsx`; "not an
       admin" denied screen instead of auto-signout; user app clears the plan-flow overlay on session death
-      + `showPlan && user` render guard.
+      + `showPlan && user` render guard. **Also fixes R31-7** (logout ~1 min after upgrade = the same §A5
+      admin-tab kill; DoD adds: upgrade to Pro AND Premium, wait 2+ min with /admin CLOSED, session
+      persists — escalate to a dedicated diagnosis only if it survives with the admin tab closed).
 - [ ] **R31-2 Forced new-user plan choice (R31-D1)** — no pre-chosen plan / no CURRENT badge until an
       explicit choice; three actionable cards (Choose Starter/Pro/Premium), no X or skip link for the
       fresh registration; `settings.planChosen` persisted (validSettings + rules test); Starter card+CTA
-      gray chrome (`--line-strong`, dark `--edge`); drop the duplicated "Select a plan" subtitle from the
-      upgrade popup (keep it on the welcome picker).
+      border **gray in light (`--line-strong`), white in dark (`--ink` #ece9e1)** across every plan-picker
+      surface (R31-D5); drop the duplicated "Select a plan" subtitle from the upgrade popup (keep it on the
+      welcome picker).
 - [ ] **R31-3 Downgrade select-then-confirm + approve-now (R31-D2)** — chooser cards become a selection
       (highlight + Continue); "what you'll lose" warning for BOTH targets before any billing step;
       Premium→Pro: cycle picker (defaults monthly) → approve PayPal NOW with a future start at Premium's

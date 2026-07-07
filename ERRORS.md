@@ -168,10 +168,14 @@
 
 ### A5 · Admin tab kills every non-admin session (empty "Welcome," · plan popup→full-screen · "can't stay logged in after un-suspend") 🟡 (high)
 
-- **Symptom (three founder reports, 2026-07-07, all ONE bug):** (1) after registering, the plan screen
+- **Symptom (four founder reports, 2026-07-07, all ONE bug):** (1) after registering, the plan screen
   shows **"Welcome,"** with no name; (2) a new user who idles on the plan popup sees it **turn into the
   full-screen plan page after ~1 minute**; (3) after un-suspending a user in the admin panel, logging into
-  that account gets **signed out within 2–3 seconds on every attempt**.
+  that account gets **signed out within 2–3 seconds on every attempt**; (4) **after upgrading to Pro/
+  Premium the account auto-logs-out after ~1 minute** (2026-07-07 PM) — same ~1-min backgrounded-tab
+  signature; the upgrade code has NO logout path (`devSetMyTier` only writes `users/{uid}.tier`; the
+  fake-PayPal completion sets tier + `showWelcome`, never signs out), so it's the admin tab killing the
+  session, not the upgrade. Verify with /admin closed as part of the R31-1 fix; escalate if it survives.
 - **Where:** `src/admin-main.jsx:31-39` (the admin app's `onAuthChange` force-refreshes ANY observed user's
   token and calls `logoutUser()` for non-admins — even on a claim-check error); `src/api/firebase.config.js`
   (ONE default Firebase app + `getAuth()` shared by `app.html` AND `admin.html` — same origin, same

@@ -1876,10 +1876,15 @@ portfolio; paid choices → the normal billing flow. The explicit choice is pers
 (`settings.planChosen` — `validSettings` + rules test extended), and the CURRENT badge/lock
 appears only for users who have chosen (or hold a paid tier). Copy: keep "Select a plan" here;
 **remove the duplicated "Select a plan" subtitle from the popup/upgrade variant** (Modal already
-says "Choose a plan"). Styling: Starter card + its CTA get the system gray chrome —
-`.plan-card.starter { border:1.5px solid var(--line-strong) }` + dark `--edge` override, CTA
-`.plan-card.starter .plan-cta { border:1px solid var(--line-strong) }` + dark `--edge` (exact
-tokens mapped; never use `--edge` in a base rule — it's dark-only).
+says "Choose a plan"). Styling — **Starter card + its CTA border: gray in LIGHT, WHITE in DARK**
+(amended 2026-07-07 PM per founder screenshot): light base `.plan-card.starter { border:1.5px
+solid var(--line-strong) }` + CTA `.plan-card.starter .plan-cta { border:1px solid
+var(--line-strong) }`; dark override `html[data-theme="dark"] .ci-app .plan-card.starter,
+html[data-theme="dark"] .ci-app .plan-card.starter .plan-cta { border-color: var(--ink) }` — the
+system soft off-white **#ece9e1** (`--ink` in dark; the "white already in use", founder-picked
+over pure #fff and the too-faint `--edge`), so Starter reads as a distinct white-framed tier next
+to Pro's green and Premium's purple. Applies to every plan-picker surface (welcome / upgrade popup
+/ chooser). Dark-block-only override — never put the dark `--ink`/`--edge` value in a base rule.
 
 **R31-3 · Premium downgrade: select-then-confirm + approve-now (R31-D2).**
 The chooser becomes a two-step: tapping Pro/Starter SELECTS the card (highlight, reuses the
@@ -1925,12 +1930,31 @@ time (restore = re-subscribe; also closes the mapped gap that hard-deleting a pa
 never cancels their PayPal billing). All three server changes are pure-logic-first
 (billing.js) + emulator-tested; live PayPal calls are go-live-verified like the rest of §BL.
 
+**R31-7 · Logout ~1 min after upgrading to Pro/Premium (added 2026-07-07 PM).**
+Founder report: after upgrading, the account auto-logs-out after ~1 minute; it should stay
+signed in. Same timing signature as ERRORS §A5 (the admin tab force-signs-out non-admins; ~1 min
+when backgrounded), and the upgrade code itself has NO logout path (verified: `devSetMyTier`
+only writes `users/{uid}.tier`, touches no auth token/claim; the fake-PayPal completion sets
+tier + `showWelcome`, never signs out). **Almost certainly a §A5 symptom** → **R31-1 fixes it**
+(isolated admin auth). Founder wasn't sure the admin tab was open, so R31-1's DoD gains an
+explicit verify case: **upgrade to Pro AND Premium, wait 2+ minutes with /admin CLOSED, confirm
+the session persists**; if it still reproduces with the admin tab closed, escalate to a dedicated
+diagnosis (trace the post-upgrade session for any token-refresh/`onAuthChange(null)`/timer that
+could sign out — devSetMyTier writing tier could, in theory, race a token refresh, but no code
+forces re-auth on a tier change). Track as ERRORS §A5 symptom #4.
+
+**R31-2b · Starter chrome amendment (2026-07-07 PM):** the Starter card + CTA border is **gray in
+light, white (`--ink` #ece9e1) in dark** — see the R31-2 styling paragraph above (dark-block-only
+override; applies to every plan-picker surface).
+
 **Decisions:** R31-D1 forced choice · R31-D2 approve-now/charge-at-period-end (supersedes
 R29-3 re-checkout) · R31-D3 freeze-the-clock suspension · R31-D4 trash cancels the
-subscription immediately.
+subscription immediately · R31-D5 Starter border white-in-dark/gray-in-light · R31-D6
+logout-after-upgrade is treated as the §A5 admin-tab bug (R31-1), verified with the admin tab
+closed.
 
 **Status:** 📋 PLAN ONLY — build on founder "go" (pairs with the §DI waves; R31-1 first — it
-unblocks reliable local testing of everything else).
+unblocks reliable local testing AND fixes the logout-after-upgrade report).
 
 ## Round 32 — Research → Coins: custom drag-and-drop coin order via the Sort button (2026-07-07, PLAN ONLY, FUNCTIONAL)
 
