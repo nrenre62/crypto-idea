@@ -283,7 +283,7 @@ export function Account() {
             <div className="card-title">Portfolios ({portfolios.length}/{maxPortfolios})</div>
             {portfolios.map(p=>(<PortRow key={p.id} p={p} />))}
             <div className="port-add">
-              <input type="text" value={newPortName} onChange={e=>setNewPortName(e.target.value)} placeholder="New portfolio name" className="field-input"/>
+              <input type="text" value={newPortName} maxLength={50} onChange={e=>setNewPortName(e.target.value)} placeholder="New portfolio name" className="field-input"/>
               <button onClick={addPortfolio} className="add-name">+ Add</button>
             </div>
           </div>

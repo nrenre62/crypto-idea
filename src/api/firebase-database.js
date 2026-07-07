@@ -25,6 +25,31 @@ import { db } from "./firebase.config.js";
 
 
 // ════════════════════════════════════════
+// DI-1 · Honest write-failure classification
+// ════════════════════════════════════════
+// A rejected write (permission-denied) is NOT necessarily a plan limit — it can be a
+// MISSING parent (a portfolio/coin deleted on another device), or INVALID data (e.g. an
+// over-long thesis — the founder's actual bug). Re-read the parent's counter from the
+// SERVER and return the REAL reason, so the UI shows the truth and the limit/upgrade
+// toast fires ONLY when the cap is genuinely reached. `limit` is the caller's current
+// tier cap for that resource. Never throws — degrades to 'invalid-or-denied'.
+//   'limit'            → the server count is truly >= the cap (the ONLY upgrade case)
+//   'missing-target'   → the parent doc no longer exists (kick the self-heal)
+//   'invalid-or-denied'→ the write was rejected for some other reason (bad data)
+async function classifyLimitDenied(parentRef, countField, limit) {
+  try {
+    const snap = await getDocFromServer(parentRef);
+    if (!snap.exists()) return "missing-target";
+    const count = snap.data()[countField] || 0;
+    if (typeof limit === "number" && count >= limit) return "limit";
+    return "invalid-or-denied";
+  } catch (_e) {
+    return "invalid-or-denied";
+  }
+}
+
+
+// ════════════════════════════════════════
 // USER PROFILE
 // ════════════════════════════════════════
 
@@ -76,12 +101,12 @@ export async function getPortfolios(uid) {
 
 // Create a new portfolio (atomically bumps the user's portfolioCount so the
 // tier-limit rule can enforce the cap).
-export async function createPortfolio(uid, name, order = 0) {
+export async function createPortfolio(uid, name, order = 0, limit = null) {
   try {
     const ref = doc(collection(db, "users", uid, "portfolios"));
     const batch = writeBatch(db);
     batch.set(ref, {
-      name,
+      name: String(name || "").slice(0, 50),   // DI-1 defense clamp (mirror the rule's 1–50)
       created: serverTimestamp(),
       order,
       coinCount: 0
@@ -90,7 +115,10 @@ export async function createPortfolio(uid, name, order = 0) {
     await batch.commit();
     return { success: true, id: ref.id };
   } catch (error) {
-    return { success: false, error: error.message, code: error.code };
+    const res = { success: false, error: error.message, code: error.code };
+    if (error.code === "permission-denied")
+      res.reason = await classifyLimitDenied(doc(db, "users", uid), "portfolioCount", limit);
+    return res;
   }
 }
 
@@ -168,14 +196,16 @@ export async function getCoins(uid, portfolioId) {
 // Add a coin to a portfolio (atomically bumps the portfolio's coinCount). An
 // optional `journal` ({ thesis, changeMyMind, status, priceAtAdd, createdAt }) is
 // stored on the coin when the user writes a thesis in the Buy-Journal prompt.
-export async function addCoin(uid, portfolioId, coinData, journal = null) {
+export async function addCoin(uid, portfolioId, coinData, journal = null, limit = null) {
   try {
     const ref = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinData.id);
     const batch = writeBatch(db);
     const coinDoc = {
-      symbol: coinData.symbol,
-      name: coinData.name,
-      thumb: coinData.thumb || "",
+      // DI-1 defense clamps — mirror validCoinData bounds so a stray long field from an
+      // upstream feed can never itself trip a permission-denied (symbol 20 / name 64 / thumb 512).
+      symbol: String(coinData.symbol || "").slice(0, 20),
+      name: String(coinData.name || "").slice(0, 64),
+      thumb: String(coinData.thumb || "").slice(0, 512),
       addedAt: serverTimestamp(),
       txCount: 0
     };
@@ -185,7 +215,10 @@ export async function addCoin(uid, portfolioId, coinData, journal = null) {
     await batch.commit();
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message, code: error.code };
+    const res = { success: false, error: error.message, code: error.code };
+    if (error.code === "permission-denied")
+      res.reason = await classifyLimitDenied(doc(db, "users", uid, "portfolios", portfolioId), "coinCount", limit);
+    return res;
   }
 }
 
@@ -282,7 +315,7 @@ export async function removeCoin(uid, portfolioId, coinId) {
 // ════════════════════════════════════════
 
 // Add a transaction (buy or sell) — atomically bumps the coin's txCount.
-export async function addTransaction(uid, portfolioId, coinId, txData) {
+export async function addTransaction(uid, portfolioId, coinId, txData, limit = null) {
   try {
     const ref = doc(
       collection(db, "users", uid, "portfolios", portfolioId, "coins", coinId, "transactions")
@@ -299,7 +332,10 @@ export async function addTransaction(uid, portfolioId, coinId, txData) {
     await batch.commit();
     return { success: true, id: ref.id };
   } catch (error) {
-    return { success: false, error: error.message, code: error.code };
+    const res = { success: false, error: error.message, code: error.code };
+    if (error.code === "permission-denied")
+      res.reason = await classifyLimitDenied(doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId), "txCount", limit);
+    return res;
   }
 }
 

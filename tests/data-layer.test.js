@@ -92,6 +92,19 @@ test("free tier: coins allowed up to 10, then rejected", async () => {
   assert.equal(r11.success, false, "the 11th coin should be rejected on free tier");
 });
 
+test("DI-1: an at-cap add is reason:'limit', a missing parent is reason:'missing-target'", async () => {
+  // The account above is at the coin cap (10). With the tier limit passed in, an over-cap
+  // add is classified as a REAL limit — the only case the UI shows the upgrade toast.
+  const overCap = await addCoin(uid, "default", { id: "coinX", symbol: "CX", name: "Coin X" }, null, 10);
+  assert.equal(overCap.success, false);
+  assert.equal(overCap.reason, "limit", "an at-cap add is a real limit: " + JSON.stringify(overCap));
+
+  // A write to a parent that no longer exists is 'missing-target', never a fake limit.
+  const gone = await addCoin(uid, "no-such-portfolio", { id: "eth", symbol: "ETH", name: "Ethereum" }, null, 10);
+  assert.equal(gone.success, false);
+  assert.equal(gone.reason, "missing-target", "a missing parent is not a limit: " + JSON.stringify(gone));
+});
+
 test("transactions: add then delete, and they round-trip via getCoins", async () => {
   const add = await addTransaction(uid, "default", "coin0", {
     type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01T00:00",
@@ -208,4 +221,19 @@ test("C-A3: watchCoins surfaces a transaction added after subscribing (txCount b
     const ok = await waitUntil(() => seen.some((cs) => cs.some((x) => x.id === target.id && (x.entries || []).length === baseCount + 1)));
     assert.ok(ok, "the txCount bump should re-surface the coin WITH the new transaction");
   } finally { unsub(); }
+});
+
+// DI-1: the founder's actual bug — a denial caused by BAD DATA (an over-2000-char thesis)
+// on a portfolio BELOW the cap must NOT be mislabelled 'limit'. This registers a fresh
+// account (which re-authenticates the shared SDK), so it runs LAST — nothing after it uses
+// the original user.
+test("DI-1: an over-2000 thesis is rejected as reason:'invalid-or-denied', not a fake limit", async () => {
+  const email2 = `tester2_${Date.now()}@example.com`;
+  const reg = await registerUser(email2, pass, "Tester Two", { termsVersion: "2026-06-24", privacyVersion: "2026-06-24" });
+  assert.ok(reg.success, "second registration: " + JSON.stringify(reg));
+  const uid2 = reg.user.uid;   // fresh account: coinCount 0, well below the free cap of 10
+  const longThesis = { thesis: "x".repeat(2001), changeMyMind: "y", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" };
+  const badAdd = await addCoin(uid2, "default", { id: "btc", symbol: "BTC", name: "Bitcoin" }, longThesis, 10);
+  assert.equal(badAdd.success, false, "an over-2000 thesis is rejected by the rules");
+  assert.equal(badAdd.reason, "invalid-or-denied", "a data-validity denial is NOT a limit: " + JSON.stringify(badAdd));
 });

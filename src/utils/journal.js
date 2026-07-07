@@ -1,15 +1,21 @@
 import { FUNNEL_FIELDS } from "../data/journal-funnel.js";
 
+// DI-1: the shared client cap for every free-text journal field (thesis / changeMyMind /
+// each funnel finding). Mirrors the firestore.rules bound (size() <= 2000) so an
+// over-long field is prevented at the input, never rejected server-side and then
+// mislabelled as a "coin limit" (the founder's bug). One source of truth for the maxLength.
+export const THESIS_MAX = 2000;
+
 // Build a clean `funnel` object from raw text inputs for the manual-research
-// findings (#27). Trims each field, drops the empties, and returns null when
-// nothing was filled — so we never persist an empty `{}` map and a coin with no
-// findings simply has no `funnel` key (which keeps the firestore.rules validator
-// backward-compatible: funnel is optional). Unknown keys are ignored.
+// findings (#27). Trims each field, caps it at THESIS_MAX (defense — mirrors the rule),
+// drops the empties, and returns null when nothing was filled — so we never persist an
+// empty `{}` map and a coin with no findings simply has no `funnel` key (which keeps the
+// firestore.rules validator backward-compatible: funnel is optional). Unknown keys ignored.
 export function cleanFunnel(input) {
   if (!input) return null;
   const out = {};
   for (const { key } of FUNNEL_FIELDS) {
-    const v = (input[key] || "").trim();
+    const v = (input[key] || "").trim().slice(0, THESIS_MAX);
     if (v) out[key] = v;
   }
   return Object.keys(out).length ? out : null;

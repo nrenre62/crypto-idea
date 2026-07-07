@@ -1,22 +1,37 @@
 /**
- * Map a failed data-layer result to an honest, user-facing message.
+ * Map a failed data-layer result to an HONEST, user-facing message (DI-1 "verify-then-toast").
  *
- * The data layer (src/api/firebase-database.js) returns
- * `{ success:false, error, code }` on failure, where `code` is the Firestore error
- * code. A security-rule denial surfaces as `code:"permission-denied"` — which means a
- * plan limit was hit or the write isn't allowed, NOT a network outage. The app used to
- * show "Check your connection." for every failure, masking the real cause (see
- * ERRORS.md §A1 "B-PORT" + §A2).
+ * The data layer (src/api/firebase-database.js) returns `{ success:false, error, code, reason? }`
+ * on failure. A `permission-denied` code is NOT proof of a plan limit — it can be invalid data
+ * (an over-long thesis — the founder's actual bug), a missing parent, or an auth lapse. So the
+ * write functions now CLASSIFY a denial into a `reason` by re-reading the server:
+ *   'limit'            → the count is genuinely at the cap (the ONLY time we show upgrade)
+ *   'missing-target'   → the parent doc no longer exists (caller also kicks a self-heal)
+ *   'invalid-or-denied'→ rejected for some other reason (bad/oversized data)
  *
- * @param res       the failed result ({ success:false, code? })
- * @param fallback  message for a genuine connection/unknown error
- * @param limitMsg  message for a permission-denied at this call site (e.g. a plan
- *                  limit + upgrade hook); omit for the generic "not allowed" default.
+ * The limit/upgrade message therefore fires ONLY on `reason:'limit'` — never on a blind guess
+ * (ERRORS.md §A4, superseding the §A1/§A2 "permission-denied ⇒ limit" mapping).
+ *
+ * @param res       the failed result ({ success:false, code?, reason? })
+ * @param fallback  message for a genuine connection/unknown error (no reason classified)
+ * @param limitMsg  the plan-limit + upgrade message for THIS call site (only used on reason:'limit')
  */
 export function apiErrorMessage(res, fallback, limitMsg) {
   const code = res && res.code;
-  if (code === "permission-denied")
-    return limitMsg || "That action isn't allowed — you may have reached a plan limit.";
+  const reason = res && res.reason;
+  if (reason === "limit")
+    return limitMsg || "You've reached a plan limit — upgrade for more.";
+  if (reason === "missing-target")
+    return "That item no longer exists on the server — resyncing…";
+  if (reason === "invalid-or-denied")
+    return "That change couldn't be saved — please check the details and try again.";
+  if (code === "not-found")
+    return "That item was already removed (maybe on another device).";
   if (code === "unauthenticated") return "Please sign in again.";
+  if (code === "permission-denied")
+    // A denial at a call site that didn't classify (a no-limit op) — honest, never a
+    // guessed "limit".
+    return "That change isn't allowed right now.";
+  // Genuine connection / unknown error.
   return fallback;
 }

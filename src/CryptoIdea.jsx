@@ -189,6 +189,14 @@ export default function CryptoIdea(){
 
   // R21-2: 6s auto-dismiss (was 3s) so a longer validation message is readable.
   const showErr=(m)=>{setErr(m);setTimeout(()=>setErr(""),6000)};
+  // DI-1: the single honest write-failure path. LOG the raw error (diagnostics used to
+  // be discarded) and toast the CLASSIFIED message — the limit/upgrade line fires only
+  // on a server-confirmed reason:'limit'; a 'missing-target' also kicks the DI-2
+  // self-heal so the dangling active-portfolio id repairs itself.
+  const failToast=(res,fallback,limitMsg)=>{
+    if(res&&res.error)console.error("[write-failed]",res.code||"",res.reason||"",res.error);
+    showErr(apiErrorMessage(res,fallback,limitMsg));
+  };
 
   // Persist only non-sensitive profile data (tier, subscription, settings),
   // keyed by Firebase uid. Passwords are handled by Firebase Auth, never stored here.
@@ -462,9 +470,10 @@ export default function CryptoIdea(){
   const addPortfolio=async()=>{
     if(portfolios.length>=maxPortfolios){showErr(isPro?("Max "+maxPortfolios+" portfolios"):"Starter: 1 portfolio — upgrade to Pro for 3");return false}
     if(!newPortName.trim()){showErr("Enter a portfolio name");return false}
+    if(newPortName.trim().length>50){showErr("Name must be 50 characters or fewer");return false}
     if(!user?.uid){showErr("Please sign in again");return false}
-    const res=await dbCreatePortfolio(user.uid,newPortName.trim(),portfolios.length);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't create portfolio. Check your connection.","You've reached your plan's portfolio limit — upgrade for more."));return false}
+    const res=await dbCreatePortfolio(user.uid,newPortName.trim(),portfolios.length,maxPortfolios);
+    if(!res.success){failToast(res,"Couldn't create portfolio. Check your connection.","You've reached your plan's portfolio limit — upgrade for more.");return false}
     const np={id:res.id,name:newPortName.trim(),coins:[]};
     setPortfolios(prev=>[...prev,np]);setActivePortId(res.id);setNewPortName("");return true};
 
@@ -472,7 +481,7 @@ export default function CryptoIdea(){
     if(portfolios.length<=1){showErr("Need at least 1 portfolio");return}
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbDeletePortfolio(user.uid,pid);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't delete portfolio. Check your connection."));return}
+    if(!res.success){failToast(res,"Couldn't delete portfolio. Check your connection.");return}
     setPortfolios(prev=>prev.filter(p=>p.id!==pid));
     if(activePortId===pid){setActivePortId(portfolios.find(p=>p.id!==pid)?.id||"default")}};
 
@@ -491,7 +500,7 @@ export default function CryptoIdea(){
     if(!renameFor){return}
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbUpdatePortfolioName(user.uid,renameFor,name);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't rename portfolio. Check your connection."));return}
+    if(!res.success){failToast(res,"Couldn't rename portfolio. Check your connection.");return}
     setPortfolios(prev=>prev.map(p=>p.id===renameFor?{...p,name}:p));
     closeRename();};
 
@@ -500,8 +509,8 @@ export default function CryptoIdea(){
     const lim=maxCoinsPerPort;
     if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Starter: "+maxCoinsPerPort+" coins — upgrade to Pro for 50");return}
     if(!user?.uid){showErr("Please sign in again");return}
-    const res=await dbAddCoin(user.uid,activePortId,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb},journal);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't add coin. Check your connection.","You've reached this portfolio's coin limit — upgrade for more."));return}
+    const res=await dbAddCoin(user.uid,activePortId,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb},journal,maxCoinsPerPort);
+    if(!res.success){failToast(res,"Couldn't add coin. Check your connection.","You've reached this portfolio's coin limit — upgrade for more.");return}
     setPortfolio(p=>[...p,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb,entries:[],...(journal?{journal}:{})}]);setScreen("portfolio");setSq("")};
   // Record the "is your thesis still intact?" review decision (intact|review|challenged)
   // by merging the new status into the coin's existing journal.
@@ -511,7 +520,7 @@ export default function CryptoIdea(){
     if(!user?.uid){showErr("Please sign in again");return}
     const journal={...coin.journal,status};
     const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't save. Check your connection."));return}
+    if(!res.success){failToast(res,"Couldn't save. Check your connection.");return}
     setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));};
   // Record/replace the manual-research funnel findings (#27) on a coin's journal.
   // Cleans the raw inputs; an all-empty funnel drops the key entirely.
@@ -523,7 +532,7 @@ export default function CryptoIdea(){
     const journal={...coin.journal};
     if(f)journal.funnel=f;else delete journal.funnel;
     const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't save. Check your connection."));return false}
+    if(!res.success){failToast(res,"Couldn't save. Check your connection.");return false}
     setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));return true;};
   // Write a thesis for a coin that was added without one (Journal "Needs a thesis").
   // Builds the full journal object (same shape as the Buy-Journal prompt) and persists
@@ -538,7 +547,7 @@ export default function CryptoIdea(){
     if(!t&&!m&&!f)return false;
     const journal={thesis:t,changeMyMind:m,status:"intact",priceAtAdd:prices[coinId]?.usd||0,createdAt:new Date().toISOString(),...(f?{funnel:f}:{})};
     const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't save. Check your connection."));return false}
+    if(!res.success){failToast(res,"Couldn't save. Check your connection.");return false}
     setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));return true;};
   // Edit an EXISTING thesis (§J1): update the two questions + funnel, preserving the
   // original status/createdAt/priceAtAdd. Both questions required (the form validates).
@@ -552,7 +561,7 @@ export default function CryptoIdea(){
     const journal={...coin.journal,thesis:t,changeMyMind:m};
     if(f)journal.funnel=f;else delete journal.funnel;
     const res=await dbUpdateCoinJournal(user.uid,activePortId,coinId,journal);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't save. Check your connection."));return false}
+    if(!res.success){failToast(res,"Couldn't save. Check your connection.");return false}
     setPortfolio(p=>p.map(x=>x.id===coinId?{...x,journal}:x));return true;};
   // Delete a thesis (§J2): clears the coin's journal so it returns to "Needs a thesis".
   // The coin/holding stays.
@@ -561,12 +570,12 @@ export default function CryptoIdea(){
     if(!coin)return false;
     if(!user?.uid){showErr("Please sign in again");return false}
     const res=await dbClearCoinJournal(user.uid,activePortId,coinId);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't delete. Check your connection."));return false}
+    if(!res.success){failToast(res,"Couldn't delete. Check your connection.");return false}
     setPortfolio(p=>p.map(x=>{if(x.id!==coinId)return x;const c={...x};delete c.journal;return c;}));return true;};
   const remCoin=async(id)=>{
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbRemoveCoin(user.uid,activePortId,id);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't remove coin. Check your connection."));return}
+    if(!res.success){failToast(res,"Couldn't remove coin. Check your connection.");return}
     setPortfolio(p=>p.filter(c=>c.id!==id));if(sel?.id===id){setSel(null);setScreen("portfolio")}};
   // R4-2: open the Add-transaction form for a coin from Detail's Buy/Sell buttons.
   // Mirrors the price/date prefill so a new transaction starts ready to fill. One
@@ -585,6 +594,10 @@ export default function CryptoIdea(){
     const _amt=parseFloat(eAmt),_prc=parseFloat(ePrice);
     if(!(_amt>0)){showErr("Amount must be a positive number.");return}
     if(!(_prc>0)){showErr("Price must be a positive number.");return}
+    // DI-1: mirror the rules' upper bounds so an out-of-range value gets a clear message
+    // BEFORE the write (never mislabelled as the "transaction limit").
+    if(_amt>1e15){showErr("That amount is too large.");return}
+    if(_prc>1e9){showErr("That price is too large.");return}
     if(sel){
       const currentTxCount=sel.entries.filter(e=>!editEntry||e.id!==editEntry.id).length;
       if(currentTxCount>=maxTxPerCoin){showErr("Max "+maxTxPerCoin+" transactions per coin"+(isPro?"":" · Upgrade to Pro for 2,000!"));return}
@@ -610,14 +623,15 @@ export default function CryptoIdea(){
     if(editEntry){
       const txData={type:eTxType,amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate};
       const res=await dbUpdateTransaction(user.uid,activePortId,sel.id,editEntry.id,txData);
-      if(!res.success){showErr(apiErrorMessage(res,"Couldn't save transaction. Check your connection.","You've reached this coin's transaction limit — upgrade for more."));return}
+      // G3: editing a tx touches NO counter, so a limit is structurally impossible — no limitMsg.
+      if(!res.success){failToast(res,"Couldn't save transaction. Check your connection.");return}
       const updated={...editEntry,...txData};
       setPortfolio(p=>p.map(c=>c.id===sel.id?{...c,entries:c.entries.map(e=>e.id===editEntry.id?updated:e)}:c));
       setSel(p=>({...p,entries:p.entries.map(e=>e.id===editEntry.id?updated:e)}));
     }else{
       const txData={type:eTxType,amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate};
-      const res=await dbAddTransaction(user.uid,activePortId,sel.id,txData);
-      if(!res.success){showErr(apiErrorMessage(res,"Couldn't add transaction. Check your connection.","You've reached this coin's transaction limit — upgrade for more."));return}
+      const res=await dbAddTransaction(user.uid,activePortId,sel.id,txData,maxTxPerCoin);
+      if(!res.success){failToast(res,"Couldn't add transaction. Check your connection.","You've reached this coin's transaction limit — upgrade for more.");return}
       const en={id:res.id,...txData,createdAt:Date.now()};
       setPortfolio(p=>p.map(c=>c.id===sel.id?{...c,entries:[...c.entries,en]}:c));
       setSel(p=>({...p,entries:[...p.entries,en]}));
@@ -630,7 +644,7 @@ export default function CryptoIdea(){
       if(bal<-0.00000001){showErr("Can\'t delete — a sell on "+e.date.split("T")[0]+" depends on it");return}}
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbDeleteTransaction(user.uid,activePortId,cid,eid);
-    if(!res.success){showErr(apiErrorMessage(res,"Couldn't delete transaction. Check your connection."));return}
+    if(!res.success){failToast(res,"Couldn't delete transaction. Check your connection.");return}
     setPortfolio(p=>p.map(c=>c.id===cid?{...c,entries:c.entries.filter(e=>e.id!==eid)}:c));setSel(p=>p?{...p,entries:p.entries.filter(e=>e.id!==eid)}:p)};
 
 

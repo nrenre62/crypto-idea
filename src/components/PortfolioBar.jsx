@@ -37,7 +37,7 @@ export function PortfolioBar() {
         // R15-4: the shared Modal (a text-entry form → no scrim-tap-close, so a typed name isn't lost).
         <Modal title="New portfolio" onClose={closeAdd} size="sm" dismissOnScrim={false}>
           <input
-            className="field-input" value={newPortName} autoFocus
+            className="field-input" value={newPortName} autoFocus maxLength={50}
             onChange={(e) => setNewPortName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") save(); }}
             placeholder="Portfolio name"

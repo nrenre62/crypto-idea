@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP } from "../utils/format.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
-import { thesisError, isThesisIncomplete } from "../utils/journal.js";
-import { CI } from "./ui.jsx";
+import { thesisError, isThesisIncomplete, THESIS_MAX } from "../utils/journal.js";
+import { CI, CharCount } from "./ui.jsx";
 import { CoinIcon } from "./CoinIcon.jsx";
 import { HeaderTags } from "./HeaderTags.jsx";
 import { Modal } from "./Modal.jsx";   // Round 15: shared centered-card popup (provides the X-close)
@@ -152,11 +152,13 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
           <>
             <div className="journal-q">
               <div className="q-label">Why you bought it</div>
-              <textarea value={thesis} onChange={(e) => setThesis(e.target.value)} placeholder="e.g. active GitHub, founder talks publicly, real revenue, upcoming catalyst..." />
+              <textarea value={thesis} maxLength={THESIS_MAX} onChange={(e) => setThesis(e.target.value)} placeholder="e.g. active GitHub, founder talks publicly, real revenue, upcoming catalyst..." />
+              <CharCount value={thesis} />
             </div>
             <div className="journal-q">
               <div className="q-label">What would change your mind</div>
-              <textarea value={changeMind} onChange={(e) => setChangeMind(e.target.value)} placeholder="e.g. GitHub goes quiet, founder departs, unlock event overwhelms demand..." />
+              <textarea value={changeMind} maxLength={THESIS_MAX} onChange={(e) => setChangeMind(e.target.value)} placeholder="e.g. GitHub goes quiet, founder departs, unlock event overwhelms demand..." />
+              <CharCount value={changeMind} />
             </div>
             {err && <div className="j-err" role="alert">{err}</div>}
             <button className="btn-primary ov-btn-gap" disabled={busy} onClick={saveThesis}>{busy ? "Saving…" : "Save changes"}</button>
@@ -191,7 +193,8 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
           <div className="journal-q" key={field.key}>
             <div className="q-label">{field.label}</div>
             <div className="q-sub">{field.sub}</div>
-            <textarea value={funnel[field.key]} onChange={(e) => setF(field.key, e.target.value)} placeholder={field.placeholder} />
+            <textarea value={funnel[field.key]} maxLength={THESIS_MAX} onChange={(e) => setF(field.key, e.target.value)} placeholder={field.placeholder} />
+            <CharCount value={funnel[field.key] || ""} />
           </div>
         ))}
         <button className="btn-ghost ov-btn-gap" onClick={saveFindings}>{saved ? "Findings saved ✓" : "Save findings"}</button>
@@ -252,12 +255,14 @@ function AddThesis({ coin, onSave, onClose }) {
         <div className="journal-q">
           <div className="q-label">Why are you buying this?</div>
           <div className="q-sub">What makes you believe in this project? What's the fundamental case?</div>
-          <textarea value={thesis} onChange={(e) => setThesis(e.target.value)} placeholder="e.g. active GitHub, founder talks publicly, real revenue, upcoming catalyst..." />
+          <textarea value={thesis} maxLength={THESIS_MAX} onChange={(e) => setThesis(e.target.value)} placeholder="e.g. active GitHub, founder talks publicly, real revenue, upcoming catalyst..." />
+          <CharCount value={thesis} />
         </div>
         <div className="journal-q">
           <div className="q-label">What would change your mind?</div>
           <div className="q-sub">What signal would tell you your thesis is wrong?</div>
-          <textarea value={changeMind} onChange={(e) => setChangeMind(e.target.value)} placeholder="e.g. GitHub goes quiet, founder departs, unlock event overwhelms demand..." />
+          <textarea value={changeMind} maxLength={THESIS_MAX} onChange={(e) => setChangeMind(e.target.value)} placeholder="e.g. GitHub goes quiet, founder departs, unlock event overwhelms demand..." />
+          <CharCount value={changeMind} />
         </div>
         <div className="journal-q" style={{ marginBottom: 10 }}>
           <div className="q-label">Manual research findings (optional)</div>
@@ -267,7 +272,8 @@ function AddThesis({ coin, onSave, onClose }) {
           <div className="journal-q" key={field.key}>
             <div className="q-label">{field.label}</div>
             <div className="q-sub">{field.sub}</div>
-            <textarea value={funnel[field.key] || ""} onChange={(e) => setF(field.key, e.target.value)} placeholder={field.placeholder} />
+            <textarea value={funnel[field.key] || ""} maxLength={THESIS_MAX} onChange={(e) => setF(field.key, e.target.value)} placeholder={field.placeholder} />
+            <CharCount value={funnel[field.key] || ""} />
           </div>
         ))}
         <button className="btn-primary ov-btn-gap" onClick={closeWithSave}>Save thesis</button>

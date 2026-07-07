@@ -1,8 +1,22 @@
 import { useState } from "react";
 import { c } from "../utils/theme.js";
+import { THESIS_MAX } from "../utils/journal.js";
 
 // Shared presentational UI primitives for the user app. No business logic; these
 // only render. Moved verbatim out of CryptoIdea.jsx.
+
+// DI-1: a live "1,980 / 2,000" character counter for the journal textareas. Renders
+// only as you approach the cap (keeps the form quiet until it matters) and turns red
+// AT the cap. Pairs with maxLength={THESIS_MAX} on the textarea (the hard stop).
+export function CharCount({ value, max = THESIS_MAX }) {
+  const n = (value || "").length;
+  if (n < max - 100) return null;
+  return (
+    <div style={{ fontSize: 11, textAlign: "right", marginTop: 2, color: n >= max ? c.red : c.dim }}>
+      {n.toLocaleString()} / {max.toLocaleString()}
+    </div>
+  );
+}
 
 // Inline SVG icon set. `port`/`srch` are functions taking an `active` flag.
 export const Ic={
