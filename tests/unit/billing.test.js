@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   planTier, activationPatch, salePatch, cancellationPatch,
-  cancelRequestPatch, subscriptionSweepPatch, computeRevenue, webhookEventKey,
+  cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
 } from "../../functions/billing.js";
 
 // BL-1b/BL-1f (D6 + ERRORS.md B8): the PayPal webhook / cancellation / revenue
@@ -115,6 +115,31 @@ describe("billing.subscriptionSweepPatch (the daily server-side period-end flip)
     const sub = { paymentFailed: true, paymentFailedDate: failedAt };
     expect(subscriptionSweepPatch({ tier: "pro", subscription: sub }, failedAt + 6 * DAY)).toBeNull();
     expect(subscriptionSweepPatch({ tier: "pro", subscription: sub }, failedAt + 8 * DAY)).toEqual({ tier: "free", subscription: null });
+  });
+  it("R31-6: a SUSPENDED account's clock is frozen — the sweep never flips it", () => {
+    // Even a long-past endDate is not flipped while suspendedAt is set.
+    expect(subscriptionSweepPatch(
+      { tier: "premium", suspendedAt: Date.parse("2026-06-15"), subscription: { cancelled: true, downgradeTo: "free", endDate: "2026-06-01" } },
+      Date.parse("2026-07-03"))).toBeNull();
+  });
+});
+
+describe("billing.extendForSuspension (R31-6: freeze the paid clock)", () => {
+  const DAY = 24 * 3600 * 1000;
+  it("extends endDate by the suspension duration", () => {
+    const sub = { cancelled: true, endDate: "2026-07-31T00:00:00.000Z" };
+    const suspendedAt = Date.parse("2026-07-01T00:00:00Z");
+    const now = suspendedAt + 10 * DAY;               // suspended for 10 days
+    const out = extendForSuspension(sub, suspendedAt, now);
+    expect(Date.parse(out.endDate)).toBe(Date.parse(sub.endDate) + 10 * DAY);
+    expect(out.cancelled).toBe(true);                 // other fields preserved
+  });
+  it("is a no-op with no sub, no endDate, or a zero-length window", () => {
+    expect(extendForSuspension(null, 1, 2)).toBeNull();
+    const noEnd = { cancelled: true };
+    expect(extendForSuspension(noEnd, 1, 2)).toBe(noEnd);
+    const sub = { endDate: "2026-07-31T00:00:00.000Z" };
+    expect(extendForSuspension(sub, 100, 100)).toBe(sub);   // now == suspendedAt → unchanged
   });
 });
 

@@ -558,10 +558,22 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("failed-precondition", "You cannot suspend your own admin account.");
   }
   await admin.auth().updateUser(uid, { disabled });
-  // DI-6 (G40): revoke the target's refresh tokens on suspend so any LIVE session dies
-  // immediately (disabling alone leaves an existing ~1h token valid). R31-6 extends this
-  // with suspendedAt + the billing freeze.
-  if (disabled) await admin.auth().revokeRefreshTokens(uid);
+  const uref = db.collection("users").doc(uid);
+  if (disabled) {
+    // R31-6 freeze-the-clock: revoke tokens (a live session dies NOW — G40; disabling alone
+    // leaves an existing ~1h token valid) and stamp suspendedAt so the daily sweep skips
+    // this account (its paid clock is stopped). Go-live also suspends the PayPal subscription.
+    await admin.auth().revokeRefreshTokens(uid);
+    await uref.set({ suspendedAt: Date.now() }, { merge: true });
+  } else {
+    // R31-6 un-suspend: extend the subscription's endDate by the frozen duration so the user
+    // loses none of their paid time, and clear suspendedAt (go-live reactivates PayPal).
+    const snap = await uref.get();
+    const d = snap.exists ? snap.data() : {};
+    const patch = { suspendedAt: admin.firestore.FieldValue.delete() };
+    if (d.suspendedAt && d.subscription) patch.subscription = billing.extendForSuspension(d.subscription, d.suspendedAt, Date.now());
+    await uref.set(patch, { merge: true });
+  }
   await writeAudit(context, disabled ? "suspendUser" : "unsuspendUser", { targetUid: uid });
   return { success: true, uid, disabled };
 });
@@ -619,7 +631,14 @@ exports.adminTrashUser = functions.https.onCall(async (data, context) => {
   if (rec && rec.customClaims && rec.customClaims.admin === true) {
     throw new functions.https.HttpsError("failed-precondition", "Can't trash an admin account — remove their admin role first.");
   }
-  await db.collection("users").doc(uid).set({ deleted: true, deletedAt: Date.now() }, { merge: true });
+  const uref = db.collection("users").doc(uid);
+  const usnap = await uref.get();
+  const patch = { deleted: true, deletedAt: Date.now() };
+  // R31-6 (D4): trashing cancels billing immediately — mark the sub cancelled (go-live also
+  // calls PayPal cancel). Also fixes the gap that hard-deleting a payer never cancelled billing.
+  const sub = usnap.exists && usnap.data().subscription;
+  if (sub && !sub.cancelled) patch.subscription = { ...sub, cancelled: true, cancelledAt: Date.now() };
+  await uref.set(patch, { merge: true });
   await writeAudit(context, "adminTrashUser", { targetUid: uid, targetEmail: (rec && rec.email) || "" });
   return { success: true, uid };
 });
@@ -654,7 +673,13 @@ exports.deleteMyAccount = functions.https.onCall(async (data, context) => {
   // A scheduled job (purgeExpiredTrash) permanently erases it after the window. We do
   // NOT disable the Auth account, so the user can sign in to restore it.
   const deletedAt = Date.now();
-  await db.collection("users").doc(uid).set({ deleted: true, deletedAt }, { merge: true });
+  const uref = db.collection("users").doc(uid);
+  const usnap = await uref.get();
+  const patch = { deleted: true, deletedAt };
+  // R31-6 (D4): self-deleting cancels billing immediately too (go-live also calls PayPal cancel).
+  const sub = usnap.exists && usnap.data().subscription;
+  if (sub && !sub.cancelled) patch.subscription = { ...sub, cancelled: true, cancelledAt: Date.now() };
+  await uref.set(patch, { merge: true });
   await writeAudit(context, "selfDeleteAccount", { targetUid: uid });   // BL-1d (D11)
   return { success: true, deletedAt, retrievableUntil: deletedAt + TRASH_MS, graceDays: TRASH_DAYS };
 });

@@ -88,6 +88,9 @@ function subscriptionSweepPatch(userData, nowMs) {
   const d = userData || {};
   const sub = d.subscription;
   if (!sub) return null;
+  // R31-6 freeze: a SUSPENDED account's clock is stopped — the sweep never flips its
+  // tier while suspended (un-suspend extends the paid period by the frozen duration).
+  if (d.suspendedAt) return null;
   const tier = d.tier || "free";
   if (sub.paymentFailed && sub.paymentFailedDate != null && nowMs - toMs(sub.paymentFailedDate) >= GRACE_MS) {
     if (tier === "free") return null;
@@ -100,6 +103,17 @@ function subscriptionSweepPatch(userData, nowMs) {
     return tier === "free" ? { subscription: null } : { tier: "free", subscription: null };
   }
   return null;
+}
+
+// R31-6: un-suspending an account extends its subscription's endDate by the suspension
+// duration (now - suspendedAt), so the user loses none of the paid time they couldn't use
+// while frozen. Pure; index.js persists the result. No sub / no endDate → returned as-is.
+function extendForSuspension(sub, suspendedAtMs, nowMs) {
+  if (!sub || !sub.endDate) return sub || null;
+  const susMs = toMs(suspendedAtMs);
+  if (!(nowMs > susMs)) return sub;                      // no measurable suspension window
+  const frozen = nowMs - susMs;
+  return { ...sub, endDate: new Date(toMs(sub.endDate) + frozen).toISOString() };
 }
 
 // Revenue with REAL billing cycles (D6): an annual payer contributes priceYear/12
@@ -129,5 +143,5 @@ function webhookEventKey(event) {
 
 module.exports = {
   planTier, activationPatch, salePatch, cancellationPatch,
-  cancelRequestPatch, subscriptionSweepPatch, computeRevenue, webhookEventKey,
+  cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
 };

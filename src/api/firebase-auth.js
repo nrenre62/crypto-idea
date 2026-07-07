@@ -282,6 +282,9 @@ function getErrorMessage(code) {
     "auth/network-request-failed": "Network error. Check your connection",
     "auth/requires-recent-login": "Please sign in again, then retry.",
     "auth/invalid-credential": "Incorrect password",
+    // R31-6: an HONEST message for a suspended account (was the misleading
+    // "Something went wrong. Try again.").
+    "auth/user-disabled": "This account has been suspended. Contact support if you think this is a mistake.",
   };
   return messages[code] || "Something went wrong. Try again.";
 }
