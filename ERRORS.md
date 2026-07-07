@@ -135,6 +135,37 @@
   [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 12" + [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP. **PLAN ONLY** — build on
   founder "go".
 
+### A4 · Starter "coin limit" toast with only 2 coins — a >2000-char thesis denied server-side, mislabeled as a plan limit 🟡 (high)
+
+- **Symptom:** On a Starter (free-tier) account holding **2 coins**, adding a new coin via the Search →
+  Buy-Journal popup shows **"You've reached this portfolio's coin limit — upgrade for more."** (founder
+  report + screenshot, 2026-07-07). The account is nowhere near the 10-coin cap.
+- **Where:** `src/CryptoIdea.jsx:498` (`apiErrorMessage(res, …, limitMsg)`), `src/utils/errors.js:18-19`
+  (every `permission-denied` → the limit message), `src/components/Search.jsx:35-48` + `src/utils/journal.js`
+  (`thesisError` checks presence only; `cleanFunnel` trims but never caps; **no `maxLength`** on the thesis /
+  change-my-mind / funnel textareas), `firestore.rules:272-273 / 287-289` (`validJournal`/`validFunnel` cap
+  each field at **2000 chars**).
+- **Root cause (two stacked bugs):** (1) the Buy-Journal inputs have no client length cap, so a >2000-char
+  thesis/finding reaches Firestore and `validJournal` denies the whole `addCoin` batch as `permission-denied`;
+  (2) `apiErrorMessage` maps **every** `permission-denied` at that call site to the coin-limit + upgrade
+  message — a blind guess. Verified empirically: the account's counters were clean (`coinCount=2`), a
+  byte-exact replica of the plain write **succeeded**, and the >2000-char journal variant reproduced the
+  exact toast. The same blind mapping mislabels ≥10 other non-limit failures (missing parent portfolio doc →
+  rules `get()` null-value error; name-bound violations; stale ids; auth lapse) as plan limits — and a
+  27-agent adversarial audit confirmed **36 gaps + 5 critic additions** in this class (state desync, counter
+  drift, screen-only downgrade trims).
+- **Fix:** the **§DI plan** ([`DATA-INTEGRITY.md`](DATA-INTEGRITY.md), build order
+  [`NEXT-STEPS.md`](NEXT-STEPS.md) §DI): DI-1 verify-then-toast (the limit message only when the server count
+  truly ≥ cap) + 2000-char caps with live counters on every thesis writer; DI-2 active-portfolio self-heal;
+  DI-3 guarded counter mutations + `reconcileMyCounters`; DI-4 keep-data downgrade with grey-lock; DI-5
+  watcher robustness; DI-6 session/config hardening.
+- **Verify (post-build):** type a 2,500-char thesis → the input caps at 2,000 with a visible counter and the
+  save succeeds; force a missing active portfolio → the app resyncs instead of toasting a limit; a REAL
+  at-cap add still shows the honest limit + upgrade message.
+- **Severity:** high (a false paywall message on the money path; the founder hit it with real usage).
+- **Status:** 🟡 **Diagnosed 2026-07-07 — PLAN ONLY**, decisions locked (D1–D7 in DATA-INTEGRITY.md); build
+  on founder "go". Supersedes the A2 fix's `permission-denied` → limit-message heuristic.
+
 ---
 
 ## B. Robustness / hardening (recommended, not blocking)

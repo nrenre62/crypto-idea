@@ -12,6 +12,46 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (📋 PLAN ONLY — build on "go")
+
+Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:
+[`ERRORS.md`](ERRORS.md) §A4 · full inventory:
+[`docs/planning/data-integrity-findings.json`](docs/planning/data-integrity-findings.json).
+Trigger: the false **"You've reached this portfolio's coin limit"** toast on a 2-coin Starter
+account (a >2000-char Buy-Journal thesis denied by `validJournal`, mislabeled as a limit).
+A 27-agent adversarial audit confirmed **36 gaps + 5 critic adds** (2 refuted) in the class.
+Everything below is local-first (emulator-verifiable now; no Blaze needed).
+
+- [ ] **DI-1 Honest errors (verify-then-toast + input caps)** — data-layer failure classification
+      (`reason: limit | missing-target | invalid-or-denied`); the limit/upgrade toast ONLY on a
+      server-confirmed real limit; strip `limitMsg` from the tx-EDIT site; honest defaults on the
+      7 generic sites; client caps mirroring rules bounds (thesis/changeMyMind/funnel ≤2000 +
+      live counter on ALL writers incl. both R24 X-save paths; portfolio name ≤50 on create;
+      tx amount/price upper bounds; defense clamps for coin name/symbol/thumb);
+      `console.error` raw errors everywhere.
+- [ ] **DI-2 Active-portfolio self-heal** — reconciliation effect (`activePortId` ∉ portfolios →
+      first real id); zero-portfolio auto-recreate ("My Portfolio", registration parity);
+      `getPortfolios` retry + visible error state (never the silent phantom "default");
+      write guards on a dangling id; forced-sign-out resets state + actually clears
+      `ci-active-port` (fix the persistence-effect resurrection).
+- [ ] **DI-3 Counter integrity** — `runTransaction` guards: add returns `already-exists` (no
+      journal/addedAt clobber, no counter inflation), deletes return `not-found` without
+      decrementing; new `reconcileMyCounters` callable (Admin SDK, own tree) invoked when
+      classification detects drift; rules tests pin the behaviors (rules themselves unchanged).
+- [ ] **DI-4 Keep-data downgrade + grey-lock** — retire `trimToTier` everywhere (nothing deleted,
+      locally or server-side); pure lock-derivation util (portfolios beyond cap by order; newest
+      coins beyond the coin cap); dimmed + "Over plan limit" tag + tap-explainer Modal
+      (Upgrade / OK; deletes always allowed); re-worded downgrade dialogs (`overLimitImpact`);
+      **`resolveRecheckout` + `reactivateSubscription` callables** so the R29 decisions persist
+      (moved UP from §BL-4, emulator-testable now).
+- [ ] **DI-5 Watcher robustness** — watchCoins failed-pass full re-sync (no permanent snapshot
+      drop); watchPortfolios onError → toast; de-dup optimistic appends by id; re-fetch coins on
+      switch when the meta came in empty.
+- [ ] **DI-6 Session & config hardening** — live `users/{uid}` watcher (tier/premiumLimits/trash
+      reach open sessions — completes C-A3); offline detection banner + write blocking;
+      `suspendUser` revokes tokens; admin Plans blank-field = default (0 rejected);
+      App Check failure handling noted in §4 go-live checklist.
+
 ## 0. Product direction — 2026-06-22 build roadmap  (NEXT — top priority)
 
 Canonical decisions: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) (28 decisions; §8 settled
