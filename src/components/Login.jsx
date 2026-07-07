@@ -116,6 +116,8 @@ export function Login({ popup }) {
           }} className="paypal-btn">
             Pay with <span style={{fontStyle:"italic",fontWeight:800}}>Pay<span style={{color:"#253B80"}}>Pal</span></span>
           </button>
+          {/* R31-4: the transparent no-refund line — the buy/cycle step had none. */}
+          <div className="auth-sub" style={{fontSize:11,textAlign:"center",marginTop:8}}>No refunds. Your subscription stays active until the end of the paid period.</div>
           <button onClick={()=>{setUpgradeFlow(null);setUpgradeStep("pickPlan")}} className="back-link">← Back to plans</button>
         </div>
       </>);

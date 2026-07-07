@@ -308,7 +308,7 @@ describe("User walkthrough — all functions", () => {
     getUserProfile.mockResolvedValueOnce({ success: true, tier: "premium", subscription: sub });
   };
 
-  it("R29-1: premium — Downgrade opens the Pro/Starter chooser; picking Starter reaches the confirm", async () => {
+  it("R31-3: premium — Downgrade → select Starter → Continue → warning → Confirm → pending", async () => {
     loginPremium(premiumSub());
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
@@ -321,13 +321,37 @@ describe("User walkthrough — all functions", () => {
     expect(screen.getByText(PLAN_BENEFITS.pro.limits.join(" · "))).toBeInTheDocument();
     expect(screen.getByText(PLAN_BENEFITS.free.limits.join(" · "))).toBeInTheDocument();
     expect(screen.getByText(/either way/i)).toBeInTheDocument();
+    // R31-3: selecting a card no longer confirms — Continue → the "what you'll lose" warning.
     fireEvent.click(screen.getByText("Starter"));
-    // → the EXISTING confirm popup, now targeting Starter
-    expect(await screen.findByText(/Downgrade to Starter\?/)).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Confirm Downgrade"));
+    fireEvent.click(screen.getByText("Continue"));
+    expect(await screen.findByText(/Switch to Starter\?/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Confirm"));
     // → pink pending notice shows the chosen target
     expect(await screen.findByText(/access ends on/i)).toBeInTheDocument();
     expect(screen.getByText(/become Starter/)).toBeInTheDocument();
+  });
+
+  it("R31-3: premium — downgrade to Pro APPROVES the payment now (future start), no re-checkout later", async () => {
+    loginPremium(premiumSub());
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("PREMIUM"));
+    await screen.findByText("Plan usage");
+    fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+    fireEvent.click(screen.getByText("Downgrade"));
+    await screen.findByText("Downgrade to which plan?");
+    // select Pro → Continue → warning → Continue → the approve-now cycle step
+    fireEvent.click(screen.getByText("Pro"));
+    fireEvent.click(screen.getByText("Continue"));
+    expect(await screen.findByText(/Switch to Pro\?/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Continue"));
+    expect(await screen.findByText(/Approve your Pro payment/i)).toBeInTheDocument();
+    // approve the PayPal payment now
+    fireEvent.click(screen.getByText(/Approve with/));
+    // → pending notice shows the pre-approved Pro downgrade
+    expect(await screen.findByText(/access ends on/i)).toBeInTheDocument();
+    expect(screen.getByText(/become Pro/)).toBeInTheDocument();
+    expect(screen.getByText(/Pro payment approved/)).toBeInTheDocument();
   });
 
   it("R29-2: Keep-my-plan un-cancels a pending downgrade (notice gone, Downgrade back)", async () => {

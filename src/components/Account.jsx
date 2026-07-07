@@ -256,6 +256,8 @@ export function Account() {
               <div className="sub-note bad">
                 Your {user.tier==="premium"?"Premium":"Pro"} access ends on<br/>{fmtDate(user.subscription.endDate)}<br/>
                 <span className="sub-sub">Then your account will become {user.subscription.downgradeTo==="free"?"Starter":"Pro"}</span>
+                {/* R31-3: a Premium→Pro downgrade approves the Pro payment up-front */}
+                {user.subscription.proApproved&&<span className="sub-sub" style={{display:"block",marginTop:4}}>Pro payment approved ✓</span>}
               </div>
               <button onClick={keepPlan} className="acct-btn ghost">Keep my plan</button>
               {isPremium&&<button onClick={openDowngradeChooser} className="acct-btn ghost">Change downgrade choice</button>}
