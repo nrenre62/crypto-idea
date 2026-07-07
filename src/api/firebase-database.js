@@ -19,7 +19,7 @@
 import {
   collection, doc, setDoc, getDoc, getDocFromServer, getDocs,
   deleteDoc, updateDoc, deleteField, query, orderBy,
-  serverTimestamp, writeBatch, increment, onSnapshot
+  serverTimestamp, writeBatch, increment, onSnapshot, runTransaction
 } from "firebase/firestore";
 import { db } from "./firebase.config.js";
 
@@ -133,8 +133,15 @@ export async function createPortfolio(uid, name, order = 0, limit = null) {
 // Delete a portfolio and all its coins/transactions
 export async function deletePortfolio(uid, portfolioId) {
   try {
-    const batch = writeBatch(db);
+    const portRef = doc(db, "users", uid, "portfolios", portfolioId);
+    // DI-3 (G14/G18): decrement portfolioCount ONLY if the portfolio still exists. A stale
+    // delete (already removed on another device) used to decrement unconditionally — two
+    // stale devices could drive the counter to zero. (Subcollection deletes need queries, so
+    // this is a pre-check + batch, not a single transaction.)
+    const portSnap = await getDoc(portRef);
+    if (!portSnap.exists()) return { success: false, code: "not-found", reason: "not-found" };
 
+    const batch = writeBatch(db);
     // Delete all transactions in all coins
     const coinsSnap = await getDocs(
       collection(db, "users", uid, "portfolios", portfolioId, "coins")
@@ -148,7 +155,7 @@ export async function deletePortfolio(uid, portfolioId) {
     }
 
     // Delete the portfolio itself and decrement the user's portfolio counter
-    batch.delete(doc(db, "users", uid, "portfolios", portfolioId));
+    batch.delete(portRef);
     batch.update(doc(db, "users", uid), { portfolioCount: increment(-1) });
     await batch.commit();
     return { success: true };
@@ -205,27 +212,38 @@ export async function getCoins(uid, portfolioId) {
 // optional `journal` ({ thesis, changeMyMind, status, priceAtAdd, createdAt }) is
 // stored on the coin when the user writes a thesis in the Buy-Journal prompt.
 export async function addCoin(uid, portfolioId, coinData, journal = null, limit = null) {
+  const coinRef = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinData.id);
+  const portRef = doc(db, "users", uid, "portfolios", portfolioId);
+  const coinDoc = {
+    // DI-1 defense clamps — mirror validCoinData bounds so a stray long field from an
+    // upstream feed can never itself trip a permission-denied (symbol 20 / name 64 / thumb 512).
+    symbol: String(coinData.symbol || "").slice(0, 20),
+    name: String(coinData.name || "").slice(0, 64),
+    thumb: String(coinData.thumb || "").slice(0, 512),
+    addedAt: serverTimestamp(),
+    txCount: 0
+  };
+  if (journal) coinDoc.journal = journal;
   try {
-    const ref = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinData.id);
-    const batch = writeBatch(db);
-    const coinDoc = {
-      // DI-1 defense clamps — mirror validCoinData bounds so a stray long field from an
-      // upstream feed can never itself trip a permission-denied (symbol 20 / name 64 / thumb 512).
-      symbol: String(coinData.symbol || "").slice(0, 20),
-      name: String(coinData.name || "").slice(0, 64),
-      thumb: String(coinData.thumb || "").slice(0, 512),
-      addedAt: serverTimestamp(),
-      txCount: 0
-    };
-    if (journal) coinDoc.journal = journal;
-    batch.set(ref, coinDoc);
-    batch.update(doc(db, "users", uid, "portfolios", portfolioId), { coinCount: increment(1) });
-    await batch.commit();
+    // DI-3 (G15/G31): a re-add of a coin the server ALREADY has used to take the rules
+    // UPDATE path — inflating coinCount forever (a false "limit" fires before the real cap)
+    // AND clobbering the existing journal/addedAt via set(). Guard it in a transaction: if
+    // the coin already exists, do nothing and report 'already-exists' — never overwrite,
+    // never inflate the counter.
+    const outcome = await runTransaction(db, async (t) => {
+      const snap = await t.get(coinRef);
+      if (snap.exists()) return "already-exists";
+      t.set(coinRef, coinDoc);
+      t.update(portRef, { coinCount: increment(1) });
+      return "ok";
+    });
+    if (outcome === "already-exists")
+      return { success: false, code: "already-exists", reason: "already-exists" };
     return { success: true };
   } catch (error) {
     const res = { success: false, error: error.message, code: error.code };
     if (error.code === "permission-denied")
-      res.reason = await classifyLimitDenied(doc(db, "users", uid, "portfolios", portfolioId), "coinCount", limit);
+      res.reason = await classifyLimitDenied(portRef, "coinCount", limit);
     return res;
   }
 }
@@ -299,8 +317,13 @@ export async function saveLearnProgress(uid, progress) {
 // Remove a coin and all its transactions
 export async function removeCoin(uid, portfolioId, coinId) {
   try {
-    const batch = writeBatch(db);
+    const coinRef = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId);
+    // DI-3 (G16): decrement coinCount ONLY if the coin still exists — a stale/duplicate
+    // delete must not drive the counter below the real doc count.
+    const coinSnap = await getDoc(coinRef);
+    if (!coinSnap.exists()) return { success: false, code: "not-found", reason: "not-found" };
 
+    const batch = writeBatch(db);
     // Delete all transactions
     const txSnap = await getDocs(
       collection(db, "users", uid, "portfolios", portfolioId, "coins", coinId, "transactions")
@@ -308,7 +331,7 @@ export async function removeCoin(uid, portfolioId, coinId) {
     txSnap.docs.forEach(tx => batch.delete(tx.ref));
 
     // Delete the coin and decrement the portfolio's coin counter
-    batch.delete(doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId));
+    batch.delete(coinRef);
     batch.update(doc(db, "users", uid, "portfolios", portfolioId), { coinCount: increment(-1) });
     await batch.commit();
     return { success: true };
@@ -365,15 +388,22 @@ export async function updateTransaction(uid, portfolioId, coinId, txId, txData) 
   }
 }
 
-// Delete a transaction — atomically decrements the coin's txCount.
+// Delete a transaction — atomically decrements the coin's txCount, but only if it existed.
 export async function deleteTransaction(uid, portfolioId, coinId, txId) {
+  const txRef = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId, "transactions", txId);
+  const coinRef = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId);
   try {
-    const batch = writeBatch(db);
-    batch.delete(
-      doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId, "transactions", txId)
-    );
-    batch.update(doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId), { txCount: increment(-1) });
-    await batch.commit();
+    // DI-3 (G19): only decrement when the tx actually existed. A stale/duplicate delete
+    // (the same tx removed on another device) used to decrement unconditionally → txCount
+    // deflates below real → a later tx-limit overshoot. The transaction guards it.
+    const outcome = await runTransaction(db, async (t) => {
+      const snap = await t.get(txRef);
+      if (!snap.exists()) return "not-found";
+      t.delete(txRef);
+      t.update(coinRef, { txCount: increment(-1) });
+      return "ok";
+    });
+    if (outcome === "not-found") return { success: false, code: "not-found", reason: "not-found" };
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message, code: error.code };

@@ -707,6 +707,43 @@ exports.exportMyData = functions.https.onCall(async (data, context) => {
   };
 });
 
+// ─── Self-service (DI-3): recompute the caller's OWN aggregate counters from real docs ───
+// The counter fields (portfolioCount / coinCount / txCount) can drift from the actual doc
+// counts — e.g. a re-add that took the rules UPDATE path inflated coinCount, or a stale/
+// duplicate delete decremented it twice. Drift is PERMANENT and fires a FALSE "limit"
+// before the real cap. This recomputes every counter in the caller's own tree from the
+// source of truth (the docs) and writes the corrections via the Admin SDK (which bypasses
+// the counterDeltaOk rule, so it can jump a counter straight to the true value). Acts only
+// on context.auth.uid — no IDOR. The client calls it when a write is denied as 'limit'.
+exports.reconcileMyCounters = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  }
+  const uid = context.auth.uid;
+  const userRef = db.collection("users").doc(uid);
+  const pSnap = await userRef.collection("portfolios").get();
+  const updates = [];   // {ref, data} — committed in ≤450-op chunks (batch limit is 500)
+  for (const p of pSnap.docs) {
+    const cSnap = await p.ref.collection("coins").get();
+    for (const co of cSnap.docs) {
+      const txSnap = await co.ref.collection("transactions").get();
+      if ((co.data().txCount || 0) !== txSnap.size) updates.push({ ref: co.ref, data: { txCount: txSnap.size } });
+    }
+    if ((p.data().coinCount || 0) !== cSnap.size) updates.push({ ref: p.ref, data: { coinCount: cSnap.size } });
+  }
+  const userSnap = await userRef.get();
+  if (userSnap.exists && (userSnap.data().portfolioCount || 0) !== pSnap.size) {
+    updates.push({ ref: userRef, data: { portfolioCount: pSnap.size } });
+  }
+  for (let i = 0; i < updates.length; i += 450) {
+    const batch = db.batch();
+    updates.slice(i, i + 450).forEach((u) => batch.update(u.ref, u.data));
+    await batch.commit();
+  }
+  await writeAudit(context, "reconcileMyCounters", { targetUid: uid, details: "fixed=" + updates.length });
+  return { success: true, fixed: updates.length };
+});
+
 // ─── Admin: full users list for the Users tab (operational data only) ───
 // Merges the Auth record (email / name / disabled / admin) with the Firestore
 // profile (tier, portfolioCount, joined). NEVER returns holdings. Capped; the

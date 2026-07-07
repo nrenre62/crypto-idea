@@ -21,11 +21,13 @@ export function apiErrorMessage(res, fallback, limitMsg) {
   const reason = res && res.reason;
   if (reason === "limit")
     return limitMsg || "You've reached a plan limit — upgrade for more.";
+  if (reason === "already-exists")
+    return "That's already in this portfolio.";
   if (reason === "missing-target")
     return "That item no longer exists on the server — resyncing…";
   if (reason === "invalid-or-denied")
     return "That change couldn't be saved — please check the details and try again.";
-  if (code === "not-found")
+  if (reason === "not-found" || code === "not-found")
     return "That item was already removed (maybe on another device).";
   if (code === "unauthenticated") return "Please sign in again.";
   if (code === "permission-denied")

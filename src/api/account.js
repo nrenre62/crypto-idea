@@ -31,6 +31,14 @@ export async function signOutEverywhere() {
   return res.data;
 }
 
+// DI-3: recompute the caller's own aggregate counters from real docs (self-heal a
+// drifted portfolioCount/coinCount/txCount that would otherwise fire a false "limit").
+// Acts only on the caller's uid. Returns { success, fixed }.
+export async function reconcileMyCounters() {
+  const res = await httpsCallable(functions, "reconcileMyCounters")();
+  return res.data;
+}
+
 // DEV / EMULATOR ONLY — set the CALLER's own tier so an in-app "upgrade" persists to
 // the DB locally (there's no PayPal webhook in the emulator, so the demo upgrade would
 // otherwise never reach Firestore and the portfolio cap would stay at free=1). The

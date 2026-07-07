@@ -105,6 +105,39 @@ test("DI-1: an at-cap add is reason:'limit', a missing parent is reason:'missing
   assert.equal(gone.reason, "missing-target", "a missing parent is not a limit: " + JSON.stringify(gone));
 });
 
+test("DI-3: re-adding an existing coin is 'already-exists' — no counter inflation, no journal clobber", async () => {
+  // coin0 exists (added above). A re-add used to take the rules UPDATE path: inflate
+  // coinCount forever AND overwrite the journal. The runTransaction guard refuses it.
+  const before = await getCoins(uid, "default");
+  const journalBefore = before.coins.find((c) => c.id === "coin0").journal || null;
+  const coinCountBefore = (await getPortfolios(uid)).portfolios.find((p) => p.id === "default").coinCount;
+
+  const readd = await addCoin(uid, "default", { id: "coin0", symbol: "C0", name: "Coin 0" },
+    { thesis: "CLOBBER", changeMyMind: "x", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" }, 10);
+  assert.equal(readd.success, false);
+  assert.equal(readd.reason, "already-exists", "a re-add is refused, not applied: " + JSON.stringify(readd));
+
+  const after = await getCoins(uid, "default");
+  assert.deepEqual(after.coins.find((c) => c.id === "coin0").journal || null, journalBefore, "existing journal preserved (not clobbered)");
+  const coinCountAfter = (await getPortfolios(uid)).portfolios.find((p) => p.id === "default").coinCount;
+  assert.equal(coinCountAfter, coinCountBefore, "coinCount not inflated by the re-add");
+});
+
+test("DI-3: deleting a transaction twice — the 2nd is 'not-found' and doesn't deflate txCount", async () => {
+  const add = await addTransaction(uid, "default", "coin1", { type: "buy", amount: 1, priceAtBuy: 50, date: "2026-02-01T00:00" }, 50);
+  assert.ok(add.success, "add tx: " + JSON.stringify(add));
+  const txCountAfterAdd = (await getCoins(uid, "default")).coins.find((c) => c.id === "coin1").txCount;
+
+  const del1 = await deleteTransaction(uid, "default", "coin1", add.id);
+  assert.ok(del1.success, "first delete ok");
+  const del2 = await deleteTransaction(uid, "default", "coin1", add.id);
+  assert.equal(del2.success, false);
+  assert.equal(del2.reason, "not-found", "second delete is not-found: " + JSON.stringify(del2));
+
+  const txCountFinal = (await getCoins(uid, "default")).coins.find((c) => c.id === "coin1").txCount;
+  assert.equal(txCountFinal, txCountAfterAdd - 1, "txCount decremented exactly once, not twice");
+});
+
 test("transactions: add then delete, and they round-trip via getCoins", async () => {
   const add = await addTransaction(uid, "default", "coin0", {
     type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01T00:00",

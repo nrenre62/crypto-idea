@@ -19,7 +19,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, updateUserSettings, CONSENT_VERSION } from "./api/firebase-auth.js";
-import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier } from "./api/account.js";
+import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier, reconcileMyCounters as apiReconcileMyCounters } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import {
   createPortfolio as dbCreatePortfolio,
@@ -212,6 +212,14 @@ export default function CryptoIdea(){
   const failToast=(res,fallback,limitMsg)=>{
     if(res&&res.error)console.error("[write-failed]",res.code||"",res.reason||"",res.error);
     showErr(apiErrorMessage(res,fallback,limitMsg));
+  };
+  // DI-3: a server 'limit' denial AFTER the local pre-check passed means the counter is
+  // inflated (drift) — recompute the caller's counters server-side. If drift was fixed, the
+  // user can retry against the corrected count; if not, it's a genuine cap → upgrade hint.
+  const reconcileCounters=async(upgradeMsg)=>{
+    if(!user?.uid){showErr(upgradeMsg);return}
+    try{const r=await apiReconcileMyCounters();showErr(r&&r.fixed?"We re-synced your account — please try that again.":upgradeMsg);}
+    catch(_e){showErr(upgradeMsg);}
   };
 
   // Persist only non-sensitive profile data (tier, subscription, settings),
@@ -494,7 +502,9 @@ export default function CryptoIdea(){
     if(newPortName.trim().length>50){showErr("Name must be 50 characters or fewer");return false}
     if(!user?.uid){showErr("Please sign in again");return false}
     const res=await dbCreatePortfolio(user.uid,newPortName.trim(),portfolios.length,maxPortfolios);
-    if(!res.success){failToast(res,"Couldn't create portfolio. Check your connection.","You've reached your plan's portfolio limit — upgrade for more.");return false}
+    if(!res.success){
+      if(res.reason==="limit"){reconcileCounters("You've reached your plan's portfolio limit — upgrade for more.");return false}
+      failToast(res,"Couldn't create portfolio. Check your connection.","You've reached your plan's portfolio limit — upgrade for more.");return false}
     const np={id:res.id,name:newPortName.trim(),coins:[]};
     setPortfolios(prev=>[...prev,np]);setActivePortId(res.id);setNewPortName("");return true};
 
@@ -534,7 +544,9 @@ export default function CryptoIdea(){
     // activePortId valid, but this closes the brief window before it fires).
     if(!portfolios.some(p=>p.id===activePortId)){failToast({reason:"missing-target"});return}
     const res=await dbAddCoin(user.uid,activePortId,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb},journal,maxCoinsPerPort);
-    if(!res.success){failToast(res,"Couldn't add coin. Check your connection.","You've reached this portfolio's coin limit — upgrade for more.");return}
+    if(!res.success){
+      if(res.reason==="limit"){reconcileCounters("You've reached this portfolio's coin limit — upgrade for more.");return}
+      failToast(res,"Couldn't add coin. Check your connection.","You've reached this portfolio's coin limit — upgrade for more.");return}
     setPortfolio(p=>[...p,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb,entries:[],...(journal?{journal}:{})}]);setScreen("portfolio");setSq("")};
   // Record the "is your thesis still intact?" review decision (intact|review|challenged)
   // by merging the new status into the coin's existing journal.
@@ -655,7 +667,9 @@ export default function CryptoIdea(){
     }else{
       const txData={type:eTxType,amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate};
       const res=await dbAddTransaction(user.uid,activePortId,sel.id,txData,maxTxPerCoin);
-      if(!res.success){failToast(res,"Couldn't add transaction. Check your connection.","You've reached this coin's transaction limit — upgrade for more.");return}
+      if(!res.success){
+        if(res.reason==="limit"){reconcileCounters("You've reached this coin's transaction limit — upgrade for more.");return}
+        failToast(res,"Couldn't add transaction. Check your connection.","You've reached this coin's transaction limit — upgrade for more.");return}
       const en={id:res.id,...txData,createdAt:Date.now()};
       setPortfolio(p=>p.map(c=>c.id===sel.id?{...c,entries:[...c.entries,en]}:c));
       setSel(p=>({...p,entries:[...p.entries,en]}));
