@@ -8,7 +8,8 @@
 #
 # Either trigger copies the whole project (EXCLUDING only node_modules + dist, which npm rebuilds;
 # the .git history IS included since this repo has no remote) + ALL personal skills + your Claude
-# config (global ~/.claude/CLAUDE.md + every project's memory folder).
+# config (global ~/.claude/CLAUDE.md, slash commands, settings.json, hooks, + every project's
+# memory folder).
 # WD drive not connected -> logs "skipped" and exits 0; the next run retries, so it simply waits
 # until the drive is plugged back in (never errors, never blocks).
 
@@ -25,6 +26,9 @@ $repo       = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $claudeRoot = Join-Path $env:USERPROFILE ".claude"
 $skillsSrc  = Join-Path $claudeRoot "skills"
 $globalMd   = Join-Path $claudeRoot "CLAUDE.md"   # global instructions for all projects
+$commandsSrc = Join-Path $claudeRoot "commands"      # slash commands (finish, start, ...)
+$hooksSrc    = Join-Path $claudeRoot "hooks"         # guard.ps1 + other hook scripts
+$settingsSrc = Join-Path $claudeRoot "settings.json" # hook wiring (backup + guard) + config
 # All personal skills under ~/.claude/skills, auto-discovered so new skills are always included.
 $skills    = if (Test-Path $skillsSrc) { @(Get-ChildItem $skillsSrc -Directory | Select-Object -ExpandProperty Name) } else { @() }
 # Exclude ONLY rebuildable dirs. .git is intentionally KEPT: this repo is local-only (no remote),
@@ -83,6 +87,19 @@ if ($last -and -not $Force) {
     & robocopy $m.Path (Join-Path $lastCfg ("memory\" + $m.Name)) /MIR /L /NJH /NJS /NFL /NDL *> $null
     if ($LASTEXITCODE -ne 0) { $cfgSame = $false }
   }
+  # Irreplaceable tool state: slash commands, hook wiring (settings.json), and the security guard.
+  if (Test-Path $settingsSrc) {
+    & robocopy $claudeRoot $lastCfg "settings.json" /L /NJH /NJS /NFL /NDL *> $null
+    if ($LASTEXITCODE -ne 0) { $cfgSame = $false }
+  }
+  if (Test-Path $commandsSrc) {
+    & robocopy $commandsSrc (Join-Path $lastCfg "commands") /MIR /L /NJH /NJS /NFL /NDL *> $null
+    if ($LASTEXITCODE -ne 0) { $cfgSame = $false }
+  }
+  if (Test-Path $hooksSrc) {
+    & robocopy $hooksSrc (Join-Path $lastCfg "hooks") /MIR /L /NJH /NJS /NFL /NDL *> $null
+    if ($LASTEXITCODE -ne 0) { $cfgSame = $false }
+  }
   if ($repoSame -and $skillsSame -and $cfgSame) { $changed = $false }
 }
 if (-not $changed) {
@@ -128,6 +145,19 @@ if (Test-Path $globalMd) {
 foreach ($m in Get-MemoryDirs) {
   & robocopy $m.Path (Join-Path $cfgDest ("memory\" + $m.Name)) /E /NFL /NDL /NJH /NJS /R:1 /W:1 *> $null
   if ($LASTEXITCODE -lt 8) { $cfgCopied += ("memory\" + $m.Name) }
+}
+# Irreplaceable tool state: slash commands (finish/start), hook wiring, and the security guard.
+if (Test-Path $settingsSrc) {
+  Copy-Item -LiteralPath $settingsSrc -Destination $cfgDest -Force
+  $cfgCopied += "settings.json"
+}
+if (Test-Path $commandsSrc) {
+  & robocopy $commandsSrc (Join-Path $cfgDest "commands") /E /NFL /NDL /NJH /NJS /R:1 /W:1 *> $null
+  if ($LASTEXITCODE -lt 8) { $cfgCopied += "commands" }
+}
+if (Test-Path $hooksSrc) {
+  & robocopy $hooksSrc (Join-Path $cfgDest "hooks") /E /NFL /NDL /NJH /NJS /R:1 /W:1 *> $null
+  if ($LASTEXITCODE -lt 8) { $cfgCopied += "hooks" }
 }
 
 # Self-describing manifest.
