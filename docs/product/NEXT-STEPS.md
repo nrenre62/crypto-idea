@@ -90,6 +90,17 @@ one-line heads-up. On an error: surface it, then AskUserQuestion for the fix. Th
 **topic→files consistency map** is the concrete checklist (Pricing / Tier limits / AI budget /
 Billing / User settings / Admin / API / Security / Caching). Keep the map current when files move.
 
+**Log — README ↔ code/docs reconciliation (2026-07-17):** ran a read-only 16-section multi-agent
+audit of `README.md` against the code + canonical docs; **19 drift points found, all adversarially
+re-verified (0 false positives).** Fixed all 19 in README (README-only — the canonical docs already
+agreed): stale Setup Guide (no `firebase.config.js` paste / no `window.storage`), the Database Schema
+block rewritten as an exact field-by-field mirror of `firestore.rules` (3-tier `tier`, 7-key
+`settings`, `consent`, counters, `journal`/`funnel`, `learn/progress`, server-managed billing/soft-
+delete fields), Round 11 "planned"→BUILT (+12–32), responsive track table, ships-list, admin
+dashboard path + Audit tab, `NEXT-STEPS.md` root path, `$25 Blaze`→pay-as-you-go, `cache/universe`
+~330 KB→~700 KB, Storage-emulator + `--project` notes. Clean on prior-fixed sections (Tier Limits,
+Cloud Functions table, CoinGecko constants, links).
+
 ## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (✅ BUILT 2026-07-07)
 
 Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:

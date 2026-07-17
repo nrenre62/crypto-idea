@@ -21,7 +21,7 @@ crypto-idea/
 ├── firestore.rules              ← security rules
 ├── tests/                       ← rules + data-layer (node:test) and unit/ (Vitest)
 ├── ARCHITECTURE.md (src/)       ← the layer rules + migration status
-└── NEXT-STEPS.md                ← what's left to do (refactor, known bug, go-live)
+└── docs/product/NEXT-STEPS.md  ← what's left to do (refactor, known bug, go-live)
 ```
 
 > **Frontend architecture is layered** (`api` / `hooks` / `components` / `utils`). The
@@ -69,7 +69,7 @@ npm run test:integration  # data-layer tests: real auth+db code vs the emulator
 2. Scroll to "Your apps" → Click web icon (</>) 
 3. Register app name: "crypto-idea-web"
 4. Copy the firebaseConfig object
-5. Paste into `firebase.config.js` replacing the placeholder values
+5. Copy `.env.example` to `.env` and fill in each `VITE_FIREBASE_*` value from the `firebaseConfig` object (API key, auth domain, project ID, storage bucket, messaging sender ID, app ID). These are read at build time by `src/api/firebase.config.js` — you don't paste the config into a source file. (The Firebase web config is public by design; it ships in the client bundle and is not a secret.)
 
 ### Step 5: Install Dependencies
 
@@ -77,54 +77,74 @@ npm run test:integration  # data-layer tests: real auth+db code vs the emulator
 npm install firebase
 ```
 
-### Step 6: Connect to Your App
+### Step 6: Run the App
 
-Replace the simulated storage calls in the React app with the Firebase functions:
+The app is already fully wired to Firebase through the `src/api/` data layer (`firebase-auth.js` for auth state, `firebase-database.js` for portfolios/coins) — there are no simulated `window.storage` calls left to replace. Start the whole stack (emulators + Vite dev server) with:
 
-```javascript
-// Instead of: window.storage.get("ci-user")
-// Use:
-import { onAuthChange } from "./api/firebase-auth.js";
-import { getPortfolios, getCoins } from "./api/firebase-database.js";
-
-// Listen for auth state on app load
-onAuthChange(async (firebaseUser) => {
-  if (firebaseUser) {
-    const portfolios = await getPortfolios(firebaseUser.uid);
-    // Set your React state with this data
-  }
-});
+```bash
+npm run start:all
 ```
+
+Then open http://localhost:3000 — see **Running locally** below for details.
 
 ## Database Schema
 
 ```
-users/{uid}
-│   email: string
-│   name: string
-│   tier: "free" | "pro"
-│   joined: timestamp
-│   lastLogin: timestamp
-│   settings: { currency: string, theme: string }
+users/{uid}                       ← owner-only (admins can read/manage). Owner CANNOT write tier / billing / soft-delete fields.
+│   email:          string
+│   name:           string (2–50)
+│   tier:           "free" | "pro" | "premium"   // internal "free" = the "Starter" UI label; only an admin can change it
+│   joined:         timestamp
+│   lastLogin:      timestamp
+│   portfolioCount: number         // maintained counter — gates the portfolio tier limit
+│   settings: {                    // closed, typed map (validSettings) — every key optional
+│       theme?: "light" | "dark" | "system",   currency?: string (≤8),
+│       emailDigest?: bool,   emailMarketing?: bool,   consentAnalytics?: bool,
+│       planChosen?: bool,         // R31-2: user made an explicit plan choice
+│       updatedAt?: string (≤40)
+│   }
+│   consent?: {                    // signup Terms/Privacy acceptance record (validConsent)
+│       termsVersion: string (≤20),    termsAcceptedAt: string (≤40),
+│       privacyVersion: string (≤20),  privacyAcceptedAt: string (≤40)
+│   }
+│   ── server-managed, Admin-SDK only (owner writes denied by the rules) ──
+│   subscription,  billingCycle,  paypalSubscriptionId,  tierBeforeFailure   // PayPal lifecycle
+│   premiumLimits?: { portfolios?, coins?, transactions? }                   // admin per-user override
+│   deleted?: bool,   deletedAt?                                             // 30-day soft-delete trash
 │
-└── portfolios/{portfolioId}
-    │   name: string
-    │   created: timestamp
-    │   order: number
+├── learn/progress                 ← one doc — Learn gamification (validLearnProgress)
+│       xp: number (0–10,000,000),   streak: number (0–100,000),
+│       lastActivity: string (≤40),   completedLessons: string[] (≤500),   updatedAt: string (≤40)
+│
+└── portfolios/{portfolioId}       ← validPortfolioData
+    │   name:       string (1–50)
+    │   created:    timestamp
+    │   order:      number
+    │   coinCount:  number          // maintained counter — gates the coin tier limit
+    │   coinOrder?: string[] (≤1000)   // R32 custom Research→Coins order (display-only)
     │
-    └── coins/{coinId}
-        │   symbol: string
-        │   name: string
-        │   thumb: string
-        │   addedAt: timestamp
+    └── coins/{coinId}             ← validCoinData
+        │   symbol:   string (1–20)
+        │   name:     string (1–64)
+        │   thumb?:   string (≤512)
+        │   addedAt:  timestamp
+        │   txCount:  number        // maintained counter — gates the transaction tier limit
+        │   journal?: {             // "write before you buy" thesis (validJournal)
+        │       thesis: string (≤2000),   changeMyMind: string (≤2000),
+        │       status: "intact" | "review" | "challenged",
+        │       priceAtAdd: number (≥0),   createdAt: string (≤40),
+        │       funnel?: { dilution?: string (≤2000), volume?: string (≤2000), yield?: string (≤2000) }   // manual-research findings (#27)
+        │   }
         │
-        └── transactions/{txId}
-                type: "buy" | "sell"
-                amount: number
-                priceAtBuy: number
-                date: string (ISO)
-                createdAt: timestamp
+        └── transactions/{txId}    ← validTransactionData
+                type:       "buy" | "sell"
+                amount:     number (>0)
+                priceAtBuy: number (≥0)
+                date:       string (ISO datetime, 1–40)
+                createdAt:  timestamp
 ```
+
+> Field types + constraints above are validated field-by-field in [`firestore.rules`](firestore.rules) — `validSettings` / `validConsent` / `validJournal` / `validFunnel` / `validLearnProgress`. The `portfolioCount` / `coinCount` / `txCount` counters are maintained atomically (`writeBatch` + `increment`) and enforce the tier limits; `tier`, the billing fields, `premiumLimits`, and `deleted`/`deletedAt` are **server-only** — the rules block owners from writing them.
 
 ## Tier Limits
 
@@ -152,7 +172,7 @@ Firebase free Spark plan covers:
 - 20,000 Firestore writes/day
 - 10 GB hosting storage
 
-This handles roughly 10,000+ active users before you need to upgrade ($25/month Blaze plan, pay-as-you-go).
+This handles roughly 10,000+ active users before you need the Blaze plan (pay-as-you-go — no fixed monthly fee; you pay only for metered usage above the free allowance).
 
 ## Payments (PayPal)
 
@@ -244,7 +264,7 @@ So **100 users, 1,000 users, and 10,000 users cost roughly the same** (~44k call
 ## Storage
 
 Tiny — all within Firebase's free tier (1 GiB Firestore):
-- `cache/universe`: ~3,000 coins × ~110 bytes ≈ **~330 KB** (one doc, well under Firestore's 1 MB limit).
+- `cache/universe`: ~3,000 coins in one doc ≈ **~700 KB** — already ~67% of Firestore's 1 MiB hard limit at ~3,000 coins (~90% at 4,000), so a size guard (`trimUniverse` in `functions/universe-utils.js`) drops the lowest-rank tail above an ~850 KiB soft limit before a write can overflow (C14 / C-R2b).
 - `historyCache/{coin}`: ~365 daily points × ~25 bytes ≈ **~9 KB/coin**; 250 coins ≈ **~2 MB** total.
 - Firestore **reads** per request are minimized by CDN `Cache-Control` headers (repeat identical requests are served from Firebase's edge, never hitting the function or Firestore).
 
@@ -269,7 +289,7 @@ This runs **the whole stack in one lifecycle** (start one → start all; stop on
 | Pub/Sub | :8085 | lets the scheduled cache-refresh functions register |
 | Emulator UI | http://localhost:4000 | inspect data, trigger functions |
 
-Under the hood it's `firebase emulators:exec --ui "npm run dev"`, so Ctrl-C stops everything together. (`npm run dev` alone runs only Vite — the app loads but `/api/*` calls fail with `ECONNREFUSED :5001`.) Other emulators (Realtime Database, Storage) are intentionally off — the app doesn't use them.
+Under the hood it's `firebase emulators:exec --project demo-crypto-idea --ui "npm run dev"`, so Ctrl-C stops everything together. (`npm run dev` alone runs only Vite — the app loads but `/api/*` calls fail with `ECONNREFUSED :5001`.) The Realtime Database emulator is intentionally off (no `database` config, and the app doesn't use it). The Storage emulator does start (on :9199) because `firebase.json` declares a `storage` block pointing at a deny-by-default `storage.rules` (committed by ISO-5 so the tenancy boundary exists before any upload feature ships) — but the app doesn't use Storage either.
 
 > Note: the scheduled functions (`refreshPrices`, `refreshUniverseDaily`) **register** in the emulator but don't auto-fire on their cron; trigger them from the Emulator UI if needed. In production (Blaze) Cloud Scheduler fires them for real. The on-demand cache fill means the app works regardless.
 
@@ -279,7 +299,7 @@ Only the built `dist/` folder reaches the browser. **No backend code or secret e
 
 | Ships to the browser (`dist/`) | Backend only (never downloaded) |
 |--------------------------------|---------------------------------|
-| `index.html`, `app.html`, hashed `assets/*.js`, `icons/`, `manifest.json`, `service-worker.js` | `functions/` (the `api` proxy, PayPal, **all API keys**), `firestore.rules`, `firebase.json`, `vite.config.js`, `scripts/`, `tests/` |
+| `index.html`, `app.html`, `admin.html`, `privacy.html`, `terms.html`, hashed `assets/*.js`, `icons/`, `manifest.json`, `service-worker.js`, and the `public/` scripts (`landing.js`, `sw-register.js`, `site-meta.js`, `termly-embed.js`) | `functions/` (the `api` proxy, PayPal, **all API keys**), `firestore.rules`, `firebase.json`, `vite.config.js`, `scripts/`, `tests/` |
 
 The only config in the bundle is the **public** Firebase web config (`VITE_FIREBASE_*`) — safe by design; security is enforced by the rules, not by hiding it.
 
@@ -292,9 +312,9 @@ desktop-only refinements noted below. Tab screens render inside a centered `.app
 
 | Track | Max width | Screens |
 |-------|-----------|---------|
-| wide | 1040px | **Portfolio** (3-up asset **card grid**) |
-| default | 720px | Search, Account, Research, Journal, Learn |
-| narrow | 560px | Detail, AddEntry, CoinInfo, Login (+ Contact) — forms/detail read better tighter |
+| wide | 1040px | **all 5 tab screens** — Portfolio (3-up asset **card grid**), Research, Journal, Learn, Search |
+| default | 720px | Account (+ other non-tab, non-form screens) |
+| narrow | 560px | Detail, AddEntry — forms/detail read better tighter (CoinInfo is now an overlay) |
 
 Homogeneous **card lists reflow into columns** via the reusable `.grid-auto` utility
 (`repeat(auto-fit, minmax(280px,1fr))`): Portfolio assets, Learn modules, Journal entries, and
@@ -327,9 +347,7 @@ was fixed too. **Follow-on founder rounds shipped 2026-06-30: Round 6** (dark-mo
 consistency → the Research _Portfolio Pulse_ card; supersedes Round 5), **8** (Journal thesis readability —
 white-card Read/Breakdown popups, X-close), **9** (login white toggle pill + Research equal-height cards +
 in-tab "new portfolio" dialog), **10** (full-window paper background + **positive-only Buy/Sell amounts**, which
-also fixed a negative-input value surfacing the misleading "transaction limit" error — the B-PORT class). **Round
-11** (dark-mode account/transaction text + a Learn-quiz "select → Submit → feedback" rework) is planned in
-`DESIGN-PASS.md`. Diagnosed backend issues are logged in [`ERRORS.md`](docs/testing/ERRORS.md).
+also fixed a negative-input value surfacing the misleading "transaction limit" error — the B-PORT class). **Round 11** (dark-mode account/transaction text + a Learn-quiz "select → Submit → feedback" rework) shipped 2026-07-01; **Rounds 12–32 are BUILT too** (see [`DESIGN-PASS.md`](docs/design/DESIGN-PASS.md)). Diagnosed backend issues are logged in [`ERRORS.md`](docs/testing/ERRORS.md).
 
 # Pages & routes
 
@@ -369,13 +387,14 @@ closed, rules-validated shape. As-built file map / data model / security model /
 [`USER-CREATION.md`](docs/product/USER-CREATION.md) + [`USER-SETTINGS.md`](docs/product/USER-SETTINGS.md) (reusable methods:
 the `user-creation` + `user-settings` skills). Wave A is built; MFA / App Check are go-live.
 
-# Admin app (`/admin` — `admin.html` / `src/admin-main.jsx` / `src/admin-dashboard.jsx`)
+# Admin app (`/admin` — `admin.html` / `src/admin-main.jsx` / `src/components/admin-dashboard.jsx`)
 
 A **separate app** from the user-facing one, served at **`/admin`**. It has its own login that verifies the Firebase `{admin:true}` custom claim and **signs out any non-admin**. The admin code is **not** bundled into the user app, so regular users never download it. A different URL is *not* the security boundary — the claim check (enforced server-side in every admin function, re-checked in the admin app) is; the split additionally keeps admin code off users' devices. **2FA for admins is deferred to go-live** (needs Blaze + Identity Platform MFA). Tabs:
 - **Overview** — **real combined usage** from the admin-only `getStats` function: total users, tier breakdown, total portfolios + coins, **avg per user**, and estimated revenue. **No personal data** — aggregate only (privacy by design).
 - **Users** — **full users list** (`listUsers`), **searched + paginated 50/page** client-side. Shows email, name, tier, status (admin/suspended), and portfolio count — **operational data only, never holdings**. Click a row to manage: **change tier** (`setUserTier`), **suspend/un-suspend** (`suspendUser`), **delete** (`deleteUser`, full GDPR erasure). The list merges Auth (email/name/disabled/admin) with the Firestore profile (tier, counts), capped at 5,000.
 - **Trash** — soft-deleted accounts (users who deleted themselves), each with **days left** in the 30-day window and **Restore** / **Delete now** actions (`restoreUser` / `deleteUser`). Trashed accounts are excluded from Overview stats and the Users list. A daily `purgeExpiredTrash` job erases them after 30 days. Both Users and Trash have a **Refresh** button, so a user's self-restore shows up here on demand.
 - **Settings** — **API Keys** (CoinGecko, PayPal) and **Email & Integrations**, saved server-side via the admin-only `saveConfig` function to the locked `config/app` doc.
+- **Audit** — a **read-only** view of the server-only `audit` log (every admin action plus sensitive self-service/billing events), loaded via the admin-only `listAudit` function, with a **Refresh** button.
 
 **Two admins, always:** admin is the `{admin:true}` claim, so keep at least two. A `MIN_ADMINS=2` guard (`countAdmins()`) blocks `deleteUser`/`setAdminClaim` demotion/`deleteMyAccount` whenever the action would leave fewer than 2 admins — admin access can't be wiped out.
 
