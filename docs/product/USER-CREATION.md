@@ -2,13 +2,13 @@
 
 **Canonical spec for how an account is born:** registration → consent → default
 profile → first usable portfolio. Companion to [USER-SETTINGS.md](USER-SETTINGS.md)
-(what a user can change *after* signup) and [PRODUCT-DECISIONS.md](PRODUCT-DECISIONS.md)
-(product/pricing decisions). Security model lives in [firestore.rules](firestore.rules);
+(what a user can change *after* signup) and [PRODUCT-DECISIONS.md](../decisions/PRODUCT-DECISIONS.md)
+(product/pricing decisions). Security model lives in [firestore.rules](../../firestore.rules);
 the reusable framework is the **`user-creation`** skill.
 
 > Decisions locked in the 2026-06-24 founder interview. This doc **wins** over any
 > stale planning note for account-creation behavior. Limits/pricing come from
-> [PRICING.md](PRICING.md); tiers are `free` (UI label **Starter**), `pro`, `premium`
+> [PRICING.md](../decisions/PRICING.md); tiers are `free` (UI label **Starter**), `pro`, `premium`
 > — the internal key is always `free`, never `starter`.
 
 ---
@@ -53,10 +53,10 @@ Register form (Login.jsx)
         ▼  Soft "verify your email" banner until emailVerified
 ```
 
-Current code: [src/api/firebase-auth.js](src/api/firebase-auth.js) `registerUser`,
-[src/components/Login.jsx](src/components/Login.jsx) register form + plan picker,
-[src/hooks/useAuthSession.js](src/hooks/useAuthSession.js) post-login load,
-[src/CryptoIdea.jsx](src/CryptoIdea.jsx) `handleAuth` + `saveProfile`.
+Current code: [src/api/firebase-auth.js](../../src/api/firebase-auth.js) `registerUser`,
+[src/components/Login.jsx](../../src/components/Login.jsx) register form + plan picker,
+[src/hooks/useAuthSession.js](../../src/hooks/useAuthSession.js) post-login load,
+[src/CryptoIdea.jsx](../../src/CryptoIdea.jsx) `handleAuth` + `saveProfile`.
 
 ---
 

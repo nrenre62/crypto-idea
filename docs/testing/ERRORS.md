@@ -3,7 +3,7 @@
 > A running catalog of bugs, warnings, and "looks broken but isn't" caveats found in Crypto Idea —
 > **what the error is** and **how to fix it**. One entry per issue, newest investigations first.
 > Backend/runtime issues live here; **dark-mode CSS readability issues** are tracked in
-> [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 3" + [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP (pointer in §D below).
+> [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) "Round 3" + [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §DP (pointer in §D below).
 
 **Status legend:** ✅ Fixed · 🟡 Diagnosed — fix ready (not yet applied) · 🔎 Needs verification ·
 ℹ️ By design (not a bug — documented so it isn't mistaken for one).
@@ -57,10 +57,10 @@
   A `pro` user under cap → succeeds (confirmed in repro). After part 2, a DB-`premium` user gets 15.
 - **Severity:** high (blocks a core action + misleading message).
 - **Status:** ✅ **FIXED 2026-06-29** (part 1 — the message). New pure mapper
-  [`src/utils/errors.js`](src/utils/errors.js) `apiErrorMessage(res, fallback, limitMsg)`:
+  [`src/utils/errors.js`](../../src/utils/errors.js) `apiErrorMessage(res, fallback, limitMsg)`:
   `permission-denied` → the limit/upgrade message, `unauthenticated` → "Please sign in again.",
   else the connection fallback. Every `createPortfolio`/data-layer catch now returns `code: error.code`
-  ([`firebase-database.js`](src/api/firebase-database.js)); `addPortfolio` ([`CryptoIdea.jsx:397`](src/CryptoIdea.jsx))
+  ([`firebase-database.js`](../../src/api/firebase-database.js)); `addPortfolio` ([`CryptoIdea.jsx:397`](../../src/CryptoIdea.jsx))
   shows *"You've reached your plan's portfolio limit — upgrade for more."* Verified end-to-end on the live
   emulator: `free@test.com` at cap → `createPortfolio` returns `code:"permission-denied"` → mapped to the
   plan-limit message (unit: `tests/unit/errors.test.js`; 277 unit green; build clean). **Part 2** (keep the
@@ -73,8 +73,8 @@
   (`FUNCTIONS_EMULATOR==="true"`, else `permission-denied`) and only called from dev builds (`import.meta.env.DEV`,
   wired into the in-app upgrade completion + expiry-downgrade). In-app upgrade now works end-to-end locally; **prod
   stays PayPal / admin and `tier` is never client-writable** (rules unchanged). Verified e2e on the emulator (`free@`
-  → `pro` → a 2nd portfolio allowed). Full spec [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 17" +
-  [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP.
+  → `pro` → a 2nd portfolio allowed). Full spec [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) "Round 17" +
+  [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §DP.
 
 ### A2 · Generic error toasts hide the real cause (≈10 places) ✅ (high)
 
@@ -94,7 +94,7 @@
   emulator → it says *connection*.
 - **Severity:** high (root reason A1 was confusing).
 - **Status:** ✅ **FIXED 2026-06-29** (with A1). All ~10 CRUD handlers in
-  [`CryptoIdea.jsx`](src/CryptoIdea.jsx) now route their failure toast through `apiErrorMessage(res, …)`:
+  [`CryptoIdea.jsx`](../../src/CryptoIdea.jsx) now route their failure toast through `apiErrorMessage(res, …)`:
   the create/add paths (portfolio / coin / transaction) carry an upgrade-hook limit message; the rest fall
   back to a generic *"That action isn't allowed — you may have reached a plan limit."* on `permission-denied`,
   *"Please sign in again."* on `unauthenticated`, else the connection string. Every data-layer catch returns
@@ -132,7 +132,7 @@
   injects `confirmDel` via the provider — drive it through the trash button instead).
 - **Severity:** medium (misleading destructive-action prompt; no data loss on its own).
 - **Status:** 🟡 **Diagnosed 2026-07-01 — fix ready, not applied.** Full UX spec + build order in
-  [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 12" + [`NEXT-STEPS.md`](NEXT-STEPS.md) §DP. **PLAN ONLY** — build on
+  [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) "Round 12" + [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §DP. **PLAN ONLY** — build on
   founder "go".
 
 ### A4 · Starter "coin limit" toast with only 2 coins — a >2000-char thesis denied server-side, mislabeled as a plan limit 🟡 (high)
@@ -154,8 +154,8 @@
   rules `get()` null-value error; name-bound violations; stale ids; auth lapse) as plan limits — and a
   27-agent adversarial audit confirmed **36 gaps + 5 critic additions** in this class (state desync, counter
   drift, screen-only downgrade trims).
-- **Fix:** the **§DI plan** ([`DATA-INTEGRITY.md`](DATA-INTEGRITY.md), build order
-  [`NEXT-STEPS.md`](NEXT-STEPS.md) §DI): DI-1 verify-then-toast (the limit message only when the server count
+- **Fix:** the **§DI plan** ([`DATA-INTEGRITY.md`](../product/DATA-INTEGRITY.md), build order
+  [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §DI): DI-1 verify-then-toast (the limit message only when the server count
   truly ≥ cap) + 2000-char caps with live counters on every thesis writer; DI-2 active-portfolio self-heal;
   DI-3 guarded counter mutations + `reconcileMyCounters`; DI-4 keep-data downgrade with grey-lock; DI-5
   watcher robustness; DI-6 session/config hardening.
@@ -247,7 +247,7 @@
 
 ### B6 · Landing DCA fetch timeout — confirm it's wired 🔎 (medium)
 - **Where:** the landing DCA calculator fetch of `/api/coinlist` + `/api/history`.
-  [`CALCULATOR.md`](CALCULATOR.md) documents a 12s `AbortController` timeout + offline estimate (N-1 in
+  [`CALCULATOR.md`](../product/CALCULATOR.md) documents a 12s `AbortController` timeout + offline estimate (N-1 in
   NEXT-STEPS §4b is marked done). **Action:** verify the shipped code matches (AbortController + 12s + the
   offline fallback) — throttle to Slow-3G and confirm it errors gracefully, no infinite spinner, no NaN.
   **Status:** 🔎 verify (likely already handled).
@@ -326,8 +326,8 @@
 ## D. Dark-mode readability (CSS/design — tracked in the design plan)
 
 Dark-mode "black on black / white on white / dull" issues are **design** items, not backend errors. They're
-fully specced (file:line + token + dark-only fix) in [`DESIGN-PASS.md`](DESIGN-PASS.md) **"Round 3"** and
-[`NEXT-STEPS.md`](NEXT-STEPS.md) **§DP** (R3-1…R3-8: add-portfolio button, back chevrons, accent "shiny"
+fully specced (file:line + token + dark-only fix) in [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) **"Round 3"** and
+[`NEXT-STEPS.md`](../product/NEXT-STEPS.md) **§DP** (R3-1…R3-8: add-portfolio button, back chevrons, accent "shiny"
 green, account avatar, header tags/numbers, account fields/buttons, the Upgrade/Downgrade modal, and the
 Research "Ask" panel) plus the earlier **R2-8** (Research "A note on diversification" card) and **R2-9**
 (Learn "THE KEY INSIGHT" box). All fixes are **dark-block-only** so light mode is untouched.

@@ -1,7 +1,7 @@
 # Crypto Idea — Plans & Benefits
 
 **For users.** What you get on each plan, in plain language. The math behind
-the numbers lives in [PRICING.md](PRICING.md); this file is what we'd hand to a
+the numbers lives in [PRICING.md](../decisions/PRICING.md); this file is what we'd hand to a
 friend deciding which plan to start on.
 
 ---
@@ -153,5 +153,5 @@ nothing gets deleted on your side until you say so.
 
 ---
 
-*Pricing last updated 2026-06-23. See [PRICING.md](PRICING.md) for the
+*Pricing last updated 2026-06-23. See [PRICING.md](../decisions/PRICING.md) for the
 decision rationale and margin math.*

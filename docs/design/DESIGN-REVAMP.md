@@ -12,7 +12,7 @@ D-7 `8cc0223` · D-8 `bd034b5`. Each was TDD-guarded, browser-verified (light + 
 
 > **Visual targets (signed-off, build the code to match these):** mockups now exist for **every**
 > screen — mobile (2026-06-25) and **desktop (2026-06-26)**. The desktop set is a durable, self-contained
-> gallery with a light/dark toggle: [`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html)
+> gallery with a light/dark toggle: [`docs/mockups/desktop/index.html`](../mockups/desktop/index.html)
 > (Portfolio on the 1040 wide track with the 3-up asset grid; Research/Journal/Learn 2-up; drill-ins/forms
 > on 560/720). Implement phases D-1…D-6 to reproduce them.
 
@@ -26,7 +26,7 @@ asset *card* is an intentional redesign the founder asked for (see [`RESPONSIVE-
 
 ## 0. The design language (extracted from the mockup)
 
-The app already ships this language ([`src/styles/app.css`](src/styles/app.css), scoped `.ci-app`);
+The app already ships this language ([`src/styles/app.css`](../../src/styles/app.css), scoped `.ci-app`);
 the revamp mostly *applies it more fully*. Canonical anatomy:
 
 - **Surfaces:** cream paper `--paper #f8f7f3`; white rounded cards `--paper-2 #fff`, radius `--radius
@@ -37,7 +37,7 @@ the revamp mostly *applies it more fully*. Canonical anatomy:
 - **Up/down:** gains green, losses `--warn #cf3a2c-ish`, shown as **tinted % pills** (green/red bg),
   not plain colored text.
 - **Token circles:** brand-colored circle with the symbol (BTC orange, ETH indigo, SOL teal, LNK
-  blue, ADA blue, RND red) — the `CI` component ([`src/components/ui.jsx`](src/components/ui.jsx)).
+  blue, ADA blue, RND red) — the `CI` component ([`src/components/ui.jsx`](../../src/components/ui.jsx)).
 - **Badges:** `BETA` (blue), `● LIVE` (green), `STARTER`/plan (amber) — `.beta`/`.badge-live`/`.badge-plan`.
 - **Bottom nav:** floating rounded **pill**, centered, 5 tabs (Portfolio·Research·Journal·Learn·Search),
   active = green.
@@ -48,7 +48,7 @@ the revamp mostly *applies it more fully*. Canonical anatomy:
 
 - **Design tokens / fonts / cards / badges / shadows / radii** — `app.css:12–95`.
 - **App header** — `.apphead` + `.title` + `.beta`/`.badge-live`/`.badge-plan` + `.avatar`
-  ([`Portfolio.jsx:26–35`](src/components/Portfolio.jsx)). Matches (title, BETA, ● LIVE, STARTER, avatar).
+  ([`Portfolio.jsx:26–35`](../../src/components/Portfolio.jsx)). Matches (title, BETA, ● LIVE, STARTER, avatar).
 - **Card grids already built:** Research/Coins `.coins-grid`, Journal `.j-grid`, Learn `.module-grid`
   (auto-fit `minmax(280px,1fr)`) — these already reflow 1→2→3 columns and match the language.
 - **Footer disclaimer** — `.disclaimer` "Prices via CoinGecko · Updated live · Not financial advice".
@@ -60,7 +60,7 @@ the revamp mostly *applies it more fully*. Canonical anatomy:
 ## 2. The deltas (current → target)
 
 ### Δ A — Portfolio Value → a white summary CARD with a 3-stat cluster
-**Current** ([`Portfolio.jsx:37–52`](src/components/Portfolio.jsx)): `.port-total-label` ("Portfolio")
+**Current** ([`Portfolio.jsx:37–52`](../../src/components/Portfolio.jsx)): `.port-total-label` ("Portfolio")
 + `.port-total` (value) + `.port-meta` with **two** stats (Invested, Return-as-pill), rendered
 directly on the paper (no card).
 **Target (mockup):** a white rounded **card** containing:
@@ -77,7 +77,7 @@ mobile-row responsive split (a flexbox that wraps — no `@media` needed if done
 24h change × its value share (pure helper in `utils/`).
 
 ### Δ B — Assets: ROWS → CARD GRID (the headline change)
-**Current** ([`Portfolio.jsx:82–123`](src/components/Portfolio.jsx)): `.coin-swipe` + `.coin-row` —
+**Current** ([`Portfolio.jsx:82–123`](../../src/components/Portfolio.jsx)): `.coin-swipe` + `.coin-row` —
 a swipe-to-reveal **row** (left=Edit blue, right=Delete red), tap row → CoinInfo, tap values → Detail.
 **Target (mockup):** an **asset CARD grid** — **3-up @1040 · 2-up @720 · 1-up mobile** (auto-fit
 `minmax(280px,1fr)`). Card anatomy:
@@ -86,7 +86,7 @@ a swipe-to-reveal **row** (left=Edit blue, right=Delete red), tap row → CoinIn
 - bottom row: **price** (`$62,231`, faint) left + **tinted 24h % pill** (green/red bg) right.
 **Work:**
 1. Put Portfolio on the **wide (1040)** track: add `"portfolio"` to `WIDE_SCREENS`
-   ([`CryptoIdea.jsx:587`](src/CryptoIdea.jsx)) — this yields exactly 3-up at 1040 (verified reflow:
+   ([`CryptoIdea.jsx:587`](../../src/CryptoIdea.jsx)) — this yields exactly 3-up at 1040 (verified reflow:
    1@375 → 2@720 → 3@1040).
 2. Replace the row markup with `.grid-auto`/`.assets-grid` of `.asset-card`s; reuse the tinted-pill
    style (`.port-return`/`.chg-pill`) for the 24h % (today `.coin-chg` is plain colored text).
@@ -104,7 +104,7 @@ margins on mobile. Keep the 5 tabs, icons, and active-green. Work: restyle `.tab
 shadow, remove the flush border-top look). File: `app.css` only.
 
 ### Δ D — Token-circle consistency
-Ensure `CI` ([`ui.jsx`](src/components/ui.jsx)) renders brand-colored circles with symbol initials
+Ensure `CI` ([`ui.jsx`](../../src/components/ui.jsx)) renders brand-colored circles with symbol initials
 matching the mockup palette (BTC orange, ETH indigo, SOL teal, LNK blue, ADA blue, RND red) and a
 deterministic fallback color for long-tail coins. Audit/extend the color map. File: `ui.jsx` (+ maybe
 `app.css`).
@@ -112,18 +112,18 @@ deterministic fallback color for long-tail coins. Audit/extend the color map. Fi
 ### Δ E — Consistency pass on the remaining screens (apply the language, don't over-grid)
 Principle (from the `responsive-app` skill): **grid only homogeneous card lists**; restyle — don't
 re-grid — rows and forms.
-- **Search** ([`Search.jsx:37`](src/components/Search.jsx)): `.trend-item` rows → restyle to the
+- **Search** ([`Search.jsx:37`](../../src/components/Search.jsx)): `.trend-item` rows → restyle to the
   token-circle + name/symbol + price + tinted-▵ + green Add-pill language. Keep it a **list** (search
   results are a list, not a card grid).
-- **Detail / CoinInfo** ([`Detail.jsx`](src/components/Detail.jsx) / [`CoinInfo.jsx`](src/components/CoinInfo.jsx)):
+- **Detail / CoinInfo** ([`Detail.jsx`](../../src/components/Detail.jsx) / [`CoinInfo.jsx`](../../src/components/CoinInfo.jsx)):
   keep section `.card`s + `.price-hero`/`.chg-pill`/`kv-row`; confirm they match; tx list stays rows,
   restyled. Stay on the **narrow (560)** track.
-- **AddEntry** ([`AddEntry.jsx`](src/components/AddEntry.jsx)): form — keep; ensure `field-input`/`seg`/
+- **AddEntry** ([`AddEntry.jsx`](../../src/components/AddEntry.jsx)): form — keep; ensure `field-input`/`seg`/
   `submit-buy` match the language. Narrow track.
-- **Account** ([`Account.jsx`](src/components/Account.jsx)): card-per-section stack — already close
+- **Account** ([`Account.jsx`](../../src/components/Account.jsx)): card-per-section stack — already close
   (tier badge, usage bars, toggles). Light polish for parity. **Coordinate with the parallel session's
   recent U7/U11 changes here.**
-- **Login** ([`Login.jsx`](src/components/Login.jsx)): auth form + `.plan-card`/`.cycle-card` — ensure
+- **Login** ([`Login.jsx`](../../src/components/Login.jsx)): auth form + `.plan-card`/`.cycle-card` — ensure
   parity. **Keep Login's inline `#FF3B30` error color** (a unit test asserts it).
 - **Research/Overview + Ask**: already on `.research-root` paper; Overview rows + Ask chat are correct
   as-is — just confirm token/pill parity.
@@ -172,7 +172,7 @@ nested preview — see the preview-verification memory); commit with a clear mes
 
 No new design system / CSS framework / chart library; no new palette beyond the existing tokens; **no
 logic/data/security changes** (presentation only); the **calculator** scope is unchanged (see
-[`CALCULATOR.md`](CALCULATOR.md)); no new dependencies.
+[`CALCULATOR.md`](../product/CALCULATOR.md)); no new dependencies.
 
 ---
 
@@ -182,13 +182,13 @@ logic/data/security changes** (presentation only); the **calculator** scope is u
   (Portfolio now uses the wide track + an asset card grid); record the floating-nav change.
 - Update the `responsive-app` skill note: a row→card change is a *redesign* (fine when asked), distinct
   from "don't grid rows" (still the default for non-homogeneous content).
-- Update [`CLAUDE.md`](CLAUDE.md) design pointer + this file's status PLANNED → BUILT.
+- Update [`CLAUDE.md`](../../CLAUDE.md) design pointer + this file's status PLANNED → BUILT.
 - **Coordinate with the parallel U-track session** before touching `Account.jsx` / theme / `CryptoIdea.jsx`
   (it recently shipped U7/U8/U11 there).
 
 ## 7. Founder design review — 2026-06-26 (LOCKED)
 
-Reviewed the full desktop + mobile mockup gallery ([`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html)).
+Reviewed the full desktop + mobile mockup gallery ([`docs/mockups/desktop/index.html`](../mockups/desktop/index.html)).
 Decisions below are locked and **override anything above them**. **Guardrail reaffirmed:** every design
 change keeps existing **settings, words (where noted), and backend behavior** intact — presentation-only
 unless a new entry point is explicitly listed here. *"Add every setting in all tabs"* = carry **all**
@@ -238,5 +238,5 @@ existing functionality into each redesigned screen; **drop nothing**.
 ---
 
 See also: [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) (the width tracks this builds on),
-[`CALCULATOR.md`](CALCULATOR.md), [`CLAUDE.md`](CLAUDE.md). Method: the `responsive-app` +
+[`CALCULATOR.md`](../product/CALCULATOR.md), [`CLAUDE.md`](../../CLAUDE.md). Method: the `responsive-app` +
 `landing-page-design` skills.

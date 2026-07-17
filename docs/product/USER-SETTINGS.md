@@ -2,12 +2,12 @@
 
 **Canonical spec for everything a signed-in user can change.** Companion to
 [USER-CREATION.md](USER-CREATION.md) (how the account is born) and
-[PRODUCT-DECISIONS.md](PRODUCT-DECISIONS.md). Security boundary =
-[firestore.rules](firestore.rules) + the `functions/index.js` callables. Reusable
+[PRODUCT-DECISIONS.md](../decisions/PRODUCT-DECISIONS.md). Security boundary =
+[firestore.rules](../../firestore.rules) + the `functions/index.js` callables. Reusable
 framework = the **`user-settings`** skill.
 
 > Decisions locked in the 2026-06-24 founder interview. Tiers: `free` (UI **Starter**),
-> `pro`, `premium` — internal key is always `free`. Limits/pricing: [PRICING.md](PRICING.md).
+> `pro`, `premium` — internal key is always `free`. Limits/pricing: [PRICING.md](../decisions/PRICING.md).
 
 > **Status (2026-06-25): BUILT.** Every S1–S10 decision below is implemented and committed
 > (`NEXT-STEPS.md` §U **U1–U12**; unit 238 / integration 10 / rules 20 green), including full
@@ -38,7 +38,7 @@ framework = the **`user-settings`** skill.
 ## 2. Information architecture (S1)
 
 Sections render as cards/segments on the **Account** screen
-([src/components/Account.jsx](src/components/Account.jsx)), top → bottom, danger last.
+([src/components/Account.jsx](../../src/components/Account.jsx)), top → bottom, danger last.
 Mobile = full-width stacked cards (the app is phone-first); each control group has a
 clear heading. The **Danger Zone** is visually isolated (red border + warning glyph,
 not color alone) and physically farthest from any benign Save.
@@ -134,7 +134,7 @@ function validSettings(s) {
 ## 5. Owner-update rule (the security boundary)
 
 Extends the current `users/{uid}` update rule
-([firestore.rules:102](firestore.rules#L102)). Server-only keys stay blocked and now
+([firestore.rules:102](../../firestore.rules#L102)). Server-only keys stay blocked and now
 include **`premiumLimits`** (admin-only, S8); shape is checked when present.
 
 ```
@@ -215,7 +215,7 @@ written/loaded). Make it real:
 > that already protects against denial-of-wallet.
 
 ### Downgrade trim must respect configured limits
-`trimToTier()` ([useUpgrade.js:87](src/hooks/useUpgrade.js#L87)) trims to **hardcoded**
+`trimToTier()` ([useUpgrade.js:87](../../src/hooks/useUpgrade.js#L87)) trims to **hardcoded**
 `TIER_LIMITS` while enforcement reads **configured** `config/app.plans`. If an admin
 raised a cap, a downgrade silently deletes data the admin meant to keep. **Fix:** pass
 `site.plans` into `useUpgrade`/`trimToTier`; add a rules-backed test with an overridden cap.

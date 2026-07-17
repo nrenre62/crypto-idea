@@ -28,7 +28,7 @@ crypto-idea/
 > historically-monolithic `CryptoIdea.jsx` (~1,560 lines) has been peeled into per-screen
 > components + hooks; it now holds only the auth/data effects, mutation handlers, shared context,
 > and the router shell. The rules, current state, and remaining layer violations live in
-> [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md); the to-do list lives in [`NEXT-STEPS.md`](NEXT-STEPS.md).
+> [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md); the to-do list lives in [`NEXT-STEPS.md`](docs/product/NEXT-STEPS.md).
 
 ## Tests
 
@@ -141,8 +141,8 @@ Limits are **server-enforced** by [`firestore.rules`](firestore.rules) (reading 
 admin-editable), with the built-in defaults above as the fallback. "Unlimited" Premium coins is a
 **1,000-coin hard clamp** (Decision #20) — it can only be lowered, never raised past 1,000. Live-AI
 spend is bounded by a per-uid **monthly $-cost ceiling** (`aiMonthlyCents`: Pro ~$4/mo, Premium
-~$25/mo), shown to users as "~N analyses/day" — see [PRICING.md](PRICING.md) §4 and
-[USER-BENEFITS.md](USER-BENEFITS.md).
+~$25/mo), shown to users as "~N analyses/day" — see [PRICING.md](docs/decisions/PRICING.md) §4 and
+[USER-BENEFITS.md](docs/product/USER-BENEFITS.md).
 
 ## Costs
 
@@ -304,7 +304,7 @@ each **Research coin card shows its position detail by default** (mobile stays t
 ## Design system (`.ci-app`, `src/styles/app.css`)
 
 The whole user app now matches the **founder-approved mockup** (design revamp **BUILT 2026-06-26** —
-[`DESIGN-REVAMP.md`](DESIGN-REVAMP.md), phases D-1…D-8; visual gallery
+[`DESIGN-REVAMP.md`](docs/design/DESIGN-REVAMP.md), phases D-1…D-8; visual gallery
 [`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html)). Editorial cream-paper look
 (Fraunces + Hanken), scoped under `.ci-app`. Reusable class sets: `.value-card` (portfolio summary +
 INVESTED/24H/ASSETS), `.asset-card` grid (token circle + serif value + tinted % pill; whole-card tap →
@@ -312,8 +312,8 @@ CoinInfo, Edit/Delete on Detail — swipe retired), `.chg-pill` (one tinted gree
 the `CI` token circle (`coinColor()` brand map, dark-safe via `color-mix`), `.nt-*` (Journal "Needs a
 thesis"), plus the coin-drill-in / form / auth class sets. **Dark mode** (U8 light/dark/system) is fully
 token-driven — every surface flips, including the nav (`--bar-bg`) and token circles. Method captured in
-the `responsive-app` skill; see [`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md) for the responsive shell.
-A subsequent **Design Pass 2** ([`DESIGN-PASS.md`](DESIGN-PASS.md), **COMPLETE 2026-06-29**) screen-by-screen
+the `responsive-app` skill; see [`RESPONSIVE-DESIGN.md`](docs/design/RESPONSIVE-DESIGN.md) for the responsive shell.
+A subsequent **Design Pass 2** ([`DESIGN-PASS.md`](docs/design/DESIGN-PASS.md), **COMPLETE 2026-06-29**) screen-by-screen
 aligned the app to founder mockups and hardened dark mode — **dark-mode fixes are dark-block-only
 (`html[data-theme="dark"]`) so light mode is byte-for-byte unchanged**: accent text uses the dark-remapped
 `--accent-ink`, semantic colours (`--sg/--sr/--sa/--ai-2`) brighten in dark, and the rule is *foreground →
@@ -327,7 +327,7 @@ white-card Read/Breakdown popups, X-close), **9** (login white toggle pill + Res
 in-tab "new portfolio" dialog), **10** (full-window paper background + **positive-only Buy/Sell amounts**, which
 also fixed a negative-input value surfacing the misleading "transaction limit" error — the B-PORT class). **Round
 11** (dark-mode account/transaction text + a Learn-quiz "select → Submit → feedback" rework) is planned in
-`DESIGN-PASS.md`. Diagnosed backend issues are logged in [`ERRORS.md`](ERRORS.md).
+`DESIGN-PASS.md`. Diagnosed backend issues are logged in [`ERRORS.md`](docs/testing/ERRORS.md).
 
 # Pages & routes
 
@@ -335,7 +335,7 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 
 | Route | File | What |
 |-------|------|------|
-| `/` | `index.html` | Static marketing landing. **Section 2 is the free DCA calculator** (`#dca`) — architecture, math & roadmap in [`CALCULATOR.md`](CALCULATOR.md). |
+| `/` | `index.html` | Static marketing landing. **Section 2 is the free DCA calculator** (`#dca`) — architecture, math & roadmap in [`CALCULATOR.md`](docs/product/CALCULATOR.md). |
 | `/app` | `app.html` → React | The tracker (auth, portfolios, coins, transactions, account). |
 | `/admin` | `admin.html` → React | **Separate** admin app (own login + `{admin:true}` check). Not in the user bundle. |
 | `/edge` | React | Education guide. |
@@ -363,8 +363,8 @@ edit, change-password / change-email **behind re-auth**, **sign out everywhere**
 (configured-cap bars, server-authoritative AI-allowance meter, admin per-user custom limits), and a
 **type-`DELETE` + re-auth** danger zone (soft-delete, 30-day trash). All owner-writable data is a
 closed, rules-validated shape. As-built file map / data model / security model / testing live in
-[`USER-SETTINGS-README.md`](USER-SETTINGS-README.md); the design specs are
-[`USER-CREATION.md`](USER-CREATION.md) + [`USER-SETTINGS.md`](USER-SETTINGS.md) (reusable methods:
+[`USER-SETTINGS-README.md`](docs/product/USER-SETTINGS-README.md); the design specs are
+[`USER-CREATION.md`](docs/product/USER-CREATION.md) + [`USER-SETTINGS.md`](docs/product/USER-SETTINGS.md) (reusable methods:
 the `user-creation` + `user-settings` skills). Wave A is built; MFA / App Check are go-live.
 
 # Admin app (`/admin` — `admin.html` / `src/admin-main.jsx` / `src/admin-dashboard.jsx`)

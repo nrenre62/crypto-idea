@@ -6,9 +6,9 @@
 > [§7 Corrections](#7-corrections-applied-to-planning-docs)).
 >
 > Scope: this records *what we decided and why*. The **how-we-build** rules stay in
-> [`AGILE.md`](AGILE.md); the **current code reality** stays in [`CLAUDE.md`](CLAUDE.md)
-> and [`CODEBASE-MAP.md`](CODEBASE-MAP.md); the **backlog** stays in
-> [`NEXT-STEPS.md`](NEXT-STEPS.md). Planning docs live in [`docs/planning/`](docs/planning/).
+> [`AGILE.md`](../product/AGILE.md); the **current code reality** stays in [`CLAUDE.md`](../../CLAUDE.md)
+> and [`CODEBASE-MAP.md`](../product/CODEBASE-MAP.md); the **backlog** stays in
+> [`NEXT-STEPS.md`](../product/NEXT-STEPS.md). Planning docs live in [`docs/planning/`](../planning/).
 >
 > *Date: 2026-06-22 · 28 decisions across 7 interview rounds.*
 
@@ -116,7 +116,7 @@ in fundamentals — not FOMO."*
 
 ## 7. Corrections applied to planning docs
 
-These were edited in [`docs/planning/`](docs/planning/) to match the decisions above
+These were edited in [`docs/planning/`](../planning/) to match the decisions above
 (the original zipped versions in `Design app/` / `system design.zip` are the
 pre-reconciliation archive):
 
@@ -154,7 +154,7 @@ pre-reconciliation archive):
 
 ## 9. Build sequence → see `NEXT-STEPS.md` §0 (authoritative)
 
-The detailed, audited build order now lives in [`NEXT-STEPS.md`](NEXT-STEPS.md) §0, structured as
+The detailed, audited build order now lives in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §0, structured as
 **two waves** around the Blaze/keys boundary (Wave A local-first A1–A9 · Wave B Blaze B1–B7). Two
 refinements from the 2026-06-22 codebase audit supersede the original linear list:
 

@@ -4,7 +4,7 @@
 > Built from a full codebase audit (14-agent read of `functions/index.js`, the `/api` proxy,
 > the admin app, the Settings ↔ `config/app` wiring, the data layer, `firestore.rules`, and the
 > secrets inventory). This doc explains **how everything connects**, lists **every gap found**, and
-> records **the 18 locked decisions**. The sequenced build order lands in [`NEXT-STEPS.md`](NEXT-STEPS.md) §BL.
+> records **the 18 locked decisions**. The sequenced build order lands in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §BL.
 > Where this doc and a stale planning note disagree, **this doc wins** (like PRODUCT-DECISIONS.md does for product).
 
 ---
@@ -177,7 +177,7 @@ docs · verify secret files git-ignored before adding a remote.
 
 ## 5. Sequenced build order
 
-Detail + checkboxes live in [`NEXT-STEPS.md`](NEXT-STEPS.md) §BL. Summary:
+Detail + checkboxes live in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §BL. Summary:
 
 1. **Security foundation (local-buildable):** shared per-uid Firestore limiter + `context.app` gate helper
    (D4/D5); PayPal webhook idempotency + `serverTimestamp`→`Date.now()` + persist billing cycle (D6, fixes

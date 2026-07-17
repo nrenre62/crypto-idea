@@ -8,7 +8,7 @@ suspend/revoke half shipped in R31-6/DI-6). · Founder decisions **ISO-D1…D4**
 dimensions → live cross-tenant/admin-access probes on the running emulator → completeness critic).
 **36 candidate findings → 10 confirmed (all defense-in-depth; NONE a live cross-tenant breach) + 5
 critic adds; 14 refuted.** Full machine-readable inventory:
-[`docs/planning/isolation-audit-findings.json`](docs/planning/isolation-audit-findings.json).
+[`docs/planning/isolation-audit-findings.json`](../planning/isolation-audit-findings.json).
 
 ---
 

@@ -3,19 +3,19 @@
 > This is the **prioritized product backlog** for our [Agile workflow](AGILE.md): top = next.
 > Each item is a small, shippable increment finished to the **Definition of Done** in AGILE.md.
 > The architecture refactor (§1) is complete. The current priority is the **2026-06-22 product
-> direction** (§0, canonical: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md)) — finish the conviction
+> direction** (§0, canonical: [`PRODUCT-DECISIONS.md`](../decisions/PRODUCT-DECISIONS.md)) — finish the conviction
 > engine, Learn, and the tier reconfig behind a secure AI proxy. Go-live tasks (§4) follow.
 
 See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
-[`src/ARCHITECTURE.md`](src/ARCHITECTURE.md) (layer rules + migration detail),
-[`README.md`](README.md) (backend/proxy/deploy), [`CLAUDE.md`](CLAUDE.md) (conventions).
+[`src/ARCHITECTURE.md`](../../src/ARCHITECTURE.md) (layer rules + migration detail),
+[`README.md`](../../README.md) (backend/proxy/deploy), [`CLAUDE.md`](../../CLAUDE.md) (conventions).
 
 ---
 
 ## API. API spec + security review — 2026-07-08 founder interview  (✅ BUILT 2026-07-08)
 
-Canonical: [`API-SECURITY.md`](API-SECURITY.md) (surface map, key model, findings, rotation runbook)
-+ [`openapi.json`](openapi.json) (OpenAPI 3.0.3, 32 operations). A local multi-agent adversarial
+Canonical: [`API-SECURITY.md`](../security/API-SECURITY.md) (surface map, key model, findings, rotation runbook)
++ [`openapi.json`](../../openapi.json) (OpenAPI 3.0.3, 32 operations). A local multi-agent adversarial
 gap-hunt (44 agents, every finding double-verified) found **11 confirmed gaps → 8 fixes** (7 refuted).
 Commits `76a3711` (spec+doc) · `5bf9f1a` (fixes) · `d82786f` (secrets hygiene).
 
@@ -50,7 +50,18 @@ order (most generic first): `secure-by-design`, `api-security`, `tdd-testing`, `
 `drawing-diagram`, `landing-page-design`, `saas-pricing`. Decide the set + naming + license (MIT) in
 a focused session; do NOT publish product docs (PRODUCT-DECISIONS, DESIGN-PASS, etc.).
 
-## DOCS. Reorganize root .md files into categorized docs/ subfolders  (📋 PLAN — 2026-07-17, own focused pass)
+## DOCS. Reorganize root .md files into categorized docs/ subfolders  (✅ BUILT 2026-07-17)
+
+**Done 2026-07-17** — this doc now lives at `docs/product/NEXT-STEPS.md`. All ~25 root `.md` files
+moved into `docs/{decisions,design,security,testing,product}/` via `git mv` (history preserved);
+only `README.md` + `CLAUDE.md` remain in root. 333 relative cross-links rewritten across 25 files
+(a script mapped every old→new path; anchors/URLs untouched) and verified to resolve. The two
+diverged duplicates were resolved: the fuller `docs/` **TEST-REPORT** was kept and the stale root
+copy deleted; **SECURITY-AUDIT** turned out to be *two distinct audits* (root = 2026-06-16
+`secure-by-design`; docs = 2026-06-27 `vibe-security`), so the earlier one was **preserved** as
+`docs/security/SECURITY-AUDIT-2026-06-16.md` rather than deleted. One pre-existing broken link
+(`docs/planning/PRICING-RESEARCH.md`, referenced by PRICING.md — the target never existed) was
+rebased but left flagged. Original plan below.
 
 **Decided** (founder interview 2026-07-17): move the ~25 root-level `.md` files into
 **categorized subfolders** under `docs/`. Keep only `README.md` + `CLAUDE.md` in root (tool/GitHub
@@ -70,8 +81,8 @@ verify no broken links after (grep for `](` targets). Do as its own commit so a 
 ## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (✅ BUILT 2026-07-07)
 
 Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:
-[`ERRORS.md`](ERRORS.md) §A4 · full inventory:
-[`docs/planning/data-integrity-findings.json`](docs/planning/data-integrity-findings.json).
+[`ERRORS.md`](../testing/ERRORS.md) §A4 · full inventory:
+[`docs/planning/data-integrity-findings.json`](../planning/data-integrity-findings.json).
 Trigger: the false **"You've reached this portfolio's coin limit"** toast on a 2-coin Starter
 account (a >2000-char Buy-Journal thesis denied by `validJournal`, mislabeled as a limit).
 A 27-agent adversarial audit confirmed **36 gaps + 5 critic adds** (2 refuted) in the class.
@@ -109,8 +120,8 @@ Everything below is local-first (emulator-verifiable now; no Blaze needed).
 
 ## R31. Onboarding choice · downgrade select-flow · admin trash-delete · suspension freeze  (✅ BUILT 2026-07-07 — live PayPal calls verify at go-live)
 
-Canonical spec + decisions R31-D1…D4: [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 31" · bug diagnosis:
-[`ERRORS.md`](ERRORS.md) §A5 (admin tab kills non-admin sessions — explains the empty "Welcome,", the
+Canonical spec + decisions R31-D1…D4: [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) "Round 31" · bug diagnosis:
+[`ERRORS.md`](../testing/ERRORS.md) §A5 (admin tab kills non-admin sessions — explains the empty "Welcome,", the
 popup→full-screen flip, and the post-un-suspend logout loop; **local-testing gotcha: keep the admin tab
 closed while testing user logins until R31-1 lands**). Pairs with §DI; build R31-1 first.
 
@@ -143,8 +154,8 @@ closed while testing user logins until R31-1 lands**). Pairs with §DI; build R3
 
 ## ISO. User-data & admin isolation — audit + harden + prove  (✅ ISO-1/2/3/5 BUILT 2026-07-07 · ISO-4 = go-live infra)
 
-Canonical: [`ISOLATION.md`](ISOLATION.md) (guarantee + threat model + decisions ISO-D1…D4) ·
-findings: [`docs/planning/isolation-audit-findings.json`](docs/planning/isolation-audit-findings.json).
+Canonical: [`ISOLATION.md`](../security/ISOLATION.md) (guarantee + threat model + decisions ISO-D1…D4) ·
+findings: [`docs/planning/isolation-audit-findings.json`](../planning/isolation-audit-findings.json).
 **Audit result: core isolation VERIFIED SOUND live** (23 cross-tenant probes all denied; guard-first
 callables; admin data walled off; no admin code in the user bundle). Below = defense-in-depth
 hardening (no current breach) + the regression tests that PROVE it. Decision ISO-D1: keep logical
@@ -169,7 +180,7 @@ per-uid isolation (physical per-user DB is an anti-pattern here), harden + prove
 
 ## R32. Research → Coins: custom drag-and-drop order  (✅ BUILT 2026-07-07)
 
-Canonical spec + decisions R32-D1…D4: [`DESIGN-PASS.md`](DESIGN-PASS.md) "Round 32". The Coins
+Canonical spec + decisions R32-D1…D4: [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) "Round 32". The Coins
 view's Sort link is a dead anchor today; cards render value-desc.
 
 - [x] **R32-1 Sort mode + pointer drag** — Sort toggles sorting mode; drag handle (≡) per card,
@@ -183,8 +194,8 @@ view's Sort link is a dead anchor today; cards render value-desc.
 
 ## 0. Product direction — 2026-06-22 build roadmap  (NEXT — top priority)
 
-Canonical decisions: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) (28 decisions; §8 settled
-2026-06-22). Planning docs reconciled in [`docs/planning/`](docs/planning/). **This section is the
+Canonical decisions: [`PRODUCT-DECISIONS.md`](../decisions/PRODUCT-DECISIONS.md) (28 decisions; §8 settled
+2026-06-22). Planning docs reconciled in [`docs/planning/`](../planning/). **This section is the
 authoritative build order**, grounded in a full codebase audit (the audit notes are inline so the
 order can't silently drift back to the stale spec).
 
@@ -226,7 +237,7 @@ skill at code time (never hardcoded from memory).
   live only for Pro/Premium within the monthly $-budget; Starter gets the data-driven offline summary.
 
 ### The one critical re-sequence
-`0d` (the output validator) is **NOT** a later epic. [`ai-client.js`](src/features/research/api/ai-client.js)
+`0d` (the output validator) is **NOT** a later epic. [`ai-client.js`](../../src/features/research/api/ai-client.js)
 is a single throwing stub — the instant the `0b` proxy swaps its body, raw LLM prose reaches the UI
 with no filter. So: **build `validateOutput()` first (A9), wire it INSIDE the `0b` proxy (B2), and it
 must be green BEFORE the client body-swap (B4).** No un-validated LLM output may ever reach the screen.
@@ -383,14 +394,14 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
   `learn-surface.svg`, `subscription-lifecycle.svg` (supersedes the old paypal-flow tier semantics).
 
 ### Still genuinely open (does NOT block Wave A)
-- ~~CoinGecko plan tier under on-demand engine load~~ **DECIDED 2026-06-27: CoinGecko Lite (~100k/mo), keep `HOT_PAGES=5`** (see [`BACKEND-ADMIN-DECISIONS.md`](BACKEND-ADMIN-DECISIONS.md) D16).
+- ~~CoinGecko plan tier under on-demand engine load~~ **DECIDED 2026-06-27: CoinGecko Lite (~100k/mo), keep `HOT_PAGES=5`** (see [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) D16).
 - ~~Which model runs the `0d` judge~~ **DECIDED 2026-06-27: Claude only (Opus 4.8)** for both prose and structured — there is no Gemini, which **voids trap #3** (the Gemini no-train key requirement). See D17.
 
 ---
 
 ## BL. Backend & admin go-live — 2026-06-27 deep-dive + decisions
 
-Canonical: [`BACKEND-ADMIN-DECISIONS.md`](BACKEND-ADMIN-DECISIONS.md) (full workflow map, 27-gap inventory,
+Canonical: [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) (full workflow map, 27-gap inventory,
 18 locked decisions D1–D18, founder provisioning checklist). A 14-agent codebase audit found the gaps; the
 founder interview locked scope. **Founder chose the full secure path:** live AI in v1, server-enforced
 signups, admin 2FA. This section is the **build order** for those decisions; it composes with §0 Wave B and
@@ -473,7 +484,7 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
 
 ## C. Caching policy — 2026-06-29 cache deep-dive + decisions
 
-Canonical: [`CACHE-POLICY.md`](CACHE-POLICY.md) (6-agent cache audit, the 4-tier model mapped to code,
+Canonical: [`CACHE-POLICY.md`](../decisions/CACHE-POLICY.md) (6-agent cache audit, the 4-tier model mapped to code,
 12 locked decisions C1–C12). **The market-data layer is already built and cost-effective — it *is* the
 4-tier model in code.** The open work is the **AI tier** (planned, unbuilt) plus small UX/correctness
 cleanups. North star (C6): **caching is an internal cost lever, invisible to users — everything reads
@@ -558,7 +569,7 @@ round-2 + §4 🔵). Decisions locked; build order:
 ### DoD (every C-increment)
 KISS + secure; `test:unit` / `test:rules` / `test:integration` green; **no user-facing freshness date or
 budget number** (C6); TTL knobs proven clamped by a rules/unit test (a config below the floor is rejected
-or clamped); verify mobile + desktop; committed; [`CACHE-POLICY.md`](CACHE-POLICY.md) updated if a
+or clamped); verify mobile + desktop; committed; [`CACHE-POLICY.md`](../decisions/CACHE-POLICY.md) updated if a
 decision changed.
 
 ---
@@ -759,7 +770,7 @@ want explicit MVC separation:**
 
 - [ ] Create real Firebase project; enable Email/Password Auth + Firestore.
 - [ ] Put web config in `.env` (`VITE_FIREBASE_*`); `firebase deploy` (Blaze plan needed for functions).
-- [ ] ~~`firebase functions:config:set …`~~ **(removed in firebase-functions v7 — a no-op).** Set secrets via the **admin Settings** form (writes the locked `config/app` doc); PayPal **plan IDs + `APP_URL`** are the only env-only secrets → `functions/.env`. See [`BACKEND-ADMIN-DECISIONS.md`](BACKEND-ADMIN-DECISIONS.md) §1.5.
+- [ ] ~~`firebase functions:config:set …`~~ **(removed in firebase-functions v7 — a no-op).** Set secrets via the **admin Settings** form (writes the locked `config/app` doc); PayPal **plan IDs + `APP_URL`** are the only env-only secrets → `functions/.env`. See [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) §1.5.
 - [ ] Deploy `firestore.rules`; bootstrap the first admin via `functions/scripts/set-admin.js`.
 - [ ] Register + promote a **second** admin; store both admins' creds in a password manager (`MIN_ADMINS=2`).
 - [ ] Add a free **CoinGecko Demo key** (unlocks DCA history beyond 365 days + higher rate limit).
@@ -807,7 +818,7 @@ want explicit MVC separation:**
 
 The user app is now ONE responsive layout (centered shell + auto-fit card grids, same markup
 mobile↔desktop, no `@media`, no new deps), **design unchanged**. As-built detail:
-[`RESPONSIVE-DESIGN.md`](RESPONSIVE-DESIGN.md); reusable method: the `responsive-app` skill.
+[`RESPONSIVE-DESIGN.md`](../design/RESPONSIVE-DESIGN.md); reusable method: the `responsive-app` skill.
 
 - [x] **R-0 Shell** — `.app-shell` centered column (720 default / 560 narrow / 1040 wide track) +
   `.grid-auto` utility; bottom bar kept (centers as a pill). (`9fed965`)
@@ -822,7 +833,7 @@ mobile↔desktop, no `@media`, no new deps), **design unchanged**. As-built deta
 ## D. Design revamp — match the canonical Portfolio mockup  (BUILT 2026-06-26)
 
 Founder-approved mockup (desktop + mobile) is the canonical visual target. Full plan, current→target
-deltas, and phases live in [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md). Headline change: Portfolio value →
+deltas, and phases live in [`DESIGN-REVAMP.md`](../design/DESIGN-REVAMP.md). Headline change: Portfolio value →
 white summary card, and Portfolio assets **ROW → CARD GRID on the 1040 wide track** (this supersedes
 §R's "Portfolio rows kept"); plus a floating bottom-nav pill and a token/pill/card consistency pass.
 Dark mode preserved; KISS, no new deps.
@@ -832,10 +843,10 @@ Dark mode preserved; KISS, no new deps.
 - [x] **Desktop mockups for all screens** — produced 2026-06-26: every screen at its desktop width
   (Portfolio on the **1040 wide track with the 3-up asset grid**, Research/Journal/Learn 2-up,
   drill-ins/forms on 560/720) in the approved cream-paper language. Saved as a durable, self-contained
-  gallery with a light/dark toggle: [`docs/mockups/desktop/index.html`](docs/mockups/desktop/index.html)
+  gallery with a light/dark toggle: [`docs/mockups/desktop/index.html`](../mockups/desktop/index.html)
   (open in a real browser for true widths). Verified: 12 frames, Fraunces+Hanken load, 3-up/2-up grids,
   Login `#FF3B30` error preserved, dark mode flips, clean console.
-**Founder review locked 2026-06-26** (full per-screen decisions in [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) §7).
+**Founder review locked 2026-06-26** (full per-screen decisions in [`DESIGN-REVAMP.md`](../design/DESIGN-REVAMP.md) §7).
 Locked wording: drop "held" → just the amount (`0.52 BTC`); Journal labels **Intact/Review/Challenged**;
 Journal note → "Only you can see your journal. Your thesis helps the AI give you better Research & Ask
 answers."; **remove the "Prices updating live" line** (both widths). Guardrail: design-only — keep all
@@ -870,11 +881,11 @@ settings/words/functions unless §7 says otherwise.
 
 **§D Design revamp — COMPLETE (2026-06-26).** D-1…D-8 shipped; all founder-review items (§7) addressed.
 
-(See [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) §3 for per-phase scope + DoD, §4 for the interaction decision, §7 for the founder review.)
+(See [`DESIGN-REVAMP.md`](../design/DESIGN-REVAMP.md) §3 for per-phase scope + DoD, §4 for the interaction decision, §7 for the founder review.)
 
 ## DP. Design Pass 2 — founder mockup alignment  (2026-06-27, PLANNED)
 
-Canonical: [`DESIGN-PASS.md`](DESIGN-PASS.md) (4 design changes + decisions). Design-only except the new
+Canonical: [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) (4 design changes + decisions). Design-only except the new
 cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built as ONE batch in order:
 
 - [ ] **DP-1 Foundations** — add the icon set (Account: lock/bell/palette/shield/chevron/user/card/folder;
@@ -907,7 +918,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   rewritten for the drill-in (21 cases) + 2 e2e nav tests updated. 259 unit green, build clean, verified
   light+dark + mobile/desktop.
 - [x] **Round 2 — founder follow-ups — ✅ ALL BUILT 2026-06-28** — full spec in
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 2". R2-3 (Pulse) + R2-4 (Risk) were already implemented; R2-1/2/5/6/7/8 built + verified (TDD, 272 unit green, light+dark, mobile+desktop).
+  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 2". R2-3 (Pulse) + R2-4 (Risk) were already implemented; R2-1/2/5/6/7/8 built + verified (TDD, 272 unit green, light+dark, mobile+desktop).
   - [ ] **R2-1** Account avatar consistent on Learn + all tabs (currently overlaps the Learn hero card) — ⚠ confirm placement.
   - [ ] **R2-2** Learn: remove the `.badges-row` "graph icon" (not needed) — trivial.
   - [ ] **R2-3** Research › Portfolio Pulse: new design (Share/Regenerate pills + period headline pill); KEEP 24H/7D/30D where they are + KEEP the offline note.
@@ -918,7 +929,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [ ] **R2-8** Research dark-mode bug: "A note on diversification" card is light-on-light (unreadable) — tokenize + audit sibling cards.
   - [ ] **R2-9** Learn dark-mode bug: lesson overlay "THE KEY INSIGHT" box (`.lesson-insight`) light gradient unreadable in dark — tokenize.
 - [x] **Round 3 — dark-mode visibility bugs — ✅ ALL BUILT 2026-06-28** — full spec in
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 3". All dark-block-only (light byte-for-byte unchanged); R3-1…R3-8 built + browser-verified dark + light.
+  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 3". All dark-block-only (light byte-for-byte unchanged); R3-1…R3-8 built + browser-verified dark + light.
   - [ ] **R3-1** Add-portfolio "+ Add" button invisible in dark — `.add-name` (`app.css:463`) `background:var(--ink)` (flips light) + hardcoded `color:#fff` → dark-block override text `var(--paper)`.
   - [ ] **R3-2** Back chevron `<` invisible on every drill-in (CoinInfo/Detail/AddEntry/Account) — `Ic.back` (`ui.jsx:9`) `stroke={c.txt}` (#1A1A1A) + `.icon-btn` has no color → set `stroke="currentColor"` + add `color:var(--ink)` to `.ci-app .icon-btn` (flips correctly both modes).
   - [ ] **R3-3** Accent green dull on black — `--accent` doesn't flip; in the dark block, override **foreground** accent rules (`.nt-btn` + ~11 others + Portfolio.jsx:84 inline) to `var(--accent-ink)` (bright #5cd6a6). Keep `--accent` on solid-bg+white-text buttons & borders.
@@ -935,9 +946,9 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   returns `code: error.code`; the ~10 CRUD toasts now show an honest plan-limit/auth/connection message
   (§A1+§A2 fixed together). Verified end-to-end on the emulator (free@ at cap → plan-limit message); 277 unit
   green, build clean. **Part 2** (client tier ↔ DB tier sync) stays operational (admin/seed locally; PayPal
-  webhook at go-live). Full write-up in [ERRORS.md](ERRORS.md) §A1 + §A2.
+  webhook at go-live). Full write-up in [ERRORS.md](../testing/ERRORS.md) §A1 + §A2.
 - [x] **Round 4 — founder follow-up — ✅ ALL BUILT 2026-06-29** — full spec + as-built notes in
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 4". Decisions honored (header tags = all 5 tabs · delete warning =
+  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 4". Decisions honored (header tags = all 5 tabs · delete warning =
   only when the coin has transactions · simple Cancel/Delete-anyway popup · warn about transactions + thesis,
   hard delete). TDD'd + browser-verified (light+dark, mobile+desktop); 293 unit green; build clean.
   - [x] **R4-1** Research › Coins stat-row consistent (commit `8323fc7`) — `.ps-l` nowrap + smaller
@@ -1006,7 +1017,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
 mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
 
 - [x] **Round 7 — card consistency aligned to the Research _Portfolio Pulse_ card — ✅ BUILT 2026-06-30 (`3e9d1f1`)**
-  (founder follow-up; full spec in [DESIGN-PASS.md](DESIGN-PASS.md) "Round 7"; **supersedes Round 5**). Grounded
+  (founder follow-up; full spec in [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 7"; **supersedes Round 5**). Grounded
   via a 6-agent read-only mapping. Decisions locked (AskUserQuestion): frame scope = **match base chrome
   everywhere, gradient frame on hero cards only**; Pulse buttons = **soft green pill**; diversification icon =
   **accent-tinted glyph**. **R7-1** Journal `.j-entry`/`.nt-row` radius `--radius-sm`→`--radius` (= old R5-2);
@@ -1020,7 +1031,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   share the affordance. **Zero new dark rules** (frame is theme-invariant; pill/icon tokens already flip); light
   mode unchanged. Build R7-1 → R7-6 → R7-4 → R7-5 → R7-3 → R7-2 on "go".
 - [x] **Round 8 — Journal thesis readability (previews · white-card popups · Read/Breakdown · X-close) — ✅ BUILT
-  2026-06-30 (`c2e2079`)** (founder Journal screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 8").
+  2026-06-30 (`c2e2079`)** (founder Journal screenshots; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 8").
   Grounded via a 3-agent read-only mapping. **Gap checked:** thesis text already capped 2000 chars/field server-
   side (`firestore.rules` validJournal/validFunnel) → display bug only, no rule change. Decisions locked
   (AskUserQuestion): Read popup = **full breakdown** (Why + change-my-mind + dilution/volume/yield); **Read shown
@@ -1032,7 +1043,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   X-close, white cards, all fields `pre-wrap`+`overflow-wrap`). No data/handler change; zero new dark rules. Build
   R8-1 → R8-2 → R8-3 on "go".
 - [x] **Round 9 — login polish · Research card heights · in-tab portfolio popup — ✅ BUILT 2026-06-30 (`1389418`)**
-  (founder follow-ups; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 9"). Grounded via a 3-agent read-only
+  (founder follow-ups; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 9"). Grounded via a 3-agent read-only
   mapping. Decisions locked (AskUserQuestion): login = all three (white toggle pill + align Forgot-password +
   dark-safe error); portfolio popup = **centered card dialog** with X. **R9-1** login: (a) `.auth-toggle button.on`
   near-black → **white pill** like `.seg` (`app.css:407`; matches screenshot, both modes, dark-safe); (b) restyle
@@ -1046,16 +1057,16 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   Build R9-2 → R9-1a → R9-1c → R9-1b → R9-3 on "go".
 - [ ] **Round 5 — card design consistency — ⤴️ SUPERSEDED by Round 7 (2026-06-29).** Earlier, plainer version
   (unify on `.asset-card`); Round 7 keeps its two moves but upgrades the canonical chrome to the Pulse card and
-  adds the button + icon fixes. See [DESIGN-PASS.md](DESIGN-PASS.md) "Round 5" (marked superseded). Build Round 7.
+  adds the button + icon fixes. See [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 5" (marked superseded). Build Round 7.
 - [x] **Round 6 — dark-mode visibility follow-up — ✅ BUILT 2026-06-30 (`9cb0759`)** (founder screenshots; full spec
-  in [DESIGN-PASS.md](DESIGN-PASS.md) "Round 6"). Three **dark-block-only** fixes (light untouched): **R6-1**
+  in [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 6"). Three **dark-block-only** fixes (light untouched): **R6-1**
   tab footer `.disclaimer` (+ `.research-root .disclaimer`) `--ink-faint`→`--ink-soft` (readable on dark);
   **R6-2** `.field-input` dark border (`--line-strong`→`--ink-soft`) + placeholder (`--ink-faint`→`--ink-soft`)
   so Account/form fields are visible (typed text already light); **R6-3** the R4-3 delete-coin modal title
   (`Detail.jsx`, hardcoded `c.txt` #1A1A1A → dark-on-dark) → `var(--ink)` so the "Delete {coin}?" header shows
   in dark. Build R6-3 → R6-1 → R6-2 on "go".
 - [x] **Round 10 — full-window paper background · positive-only Buy/Sell amounts — ✅ BUILT 2026-06-30 (`9246fda` R10-2 · `cd1922b` R10-1)**
-  (founder Add-transaction screenshot; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 10"). Decisions locked
+  (founder Add-transaction screenshot; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 10"). Decisions locked
   (AskUserQuestion): (A) extend the **paper** bg to the whole window, both modes; (B) **both** block-typing +
   clear submit error, for Amount & Price. **R10-1** redefine the `--app-bg` token to the paper tone (`app.css`
   `:root` `#ffffff`→`#f8f7f3`; dark `#0f0e0c`→`#14130f`) so the body + the 1040 wrapper (`CryptoIdea.jsx:623`,
@@ -1066,7 +1077,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `min=0`/`inputMode=decimal`; R10-2b validate `amt>0`/`prc>0` in `addEntry` **before** the tx-limit check with a
   clear "… must be a positive number" message. TDD `AddEntry.test.jsx`. Build R10-2 → R10-1 on "go".
 - [x] **Round 11 — dark-mode account/transaction text visibility · Learn quiz Submit rework — 📋 PLAN ONLY
-  (2026-06-30)** (founder screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 11"). Decisions locked
+  (2026-06-30)** (founder screenshots; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 11"). Decisions locked
   (AskUserQuestion): (1) lift dim text, keep hierarchy; (2) quiz = pick → Submit → correct=green+complete,
   wrong=red+hint+retry (gated). **R11-1** `.sr-value` (tier + `1/1`) `--ink-faint`→`--ink` (white dark / black
   light, both modes). **R11-2** dark-block: `.tx-rprice`→`--ink` (white $), `.tx-rcost`→`--ink-soft`. **R11-3**
@@ -1077,8 +1088,8 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   **X-close** (reuse Round 8 `Ic.close`/`.ov-close`); new `.quiz-result.ok/.bad` token banners. TDD Learn.test.jsx.
   Build R11-1 → R11-2 → R11-3 → R11-Q on "go".
 - [x] **Round 12 — delete-coin confirm leaks across navigation · auto-disarm the "Remove" pill — 📋 PLAN ONLY
-  (2026-07-01)** (founder screenshot + repro; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 12"; bug in
-  [ERRORS.md](ERRORS.md) §A3). **Behavioural/error fix.** Repro: arm delete on a **no-transaction** coin (shows
+  (2026-07-01)** (founder screenshot + repro; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 12"; bug in
+  [ERRORS.md](../testing/ERRORS.md) §A3). **Behavioural/error fix.** Repro: arm delete on a **no-transaction** coin (shows
   the "Remove" pill) → leave it → tap **+ Buy** and add a transaction → return to the coin → the "Delete {coin}?
   This coin has 1 buy/sell transaction…" **warning modal pops unbidden**. Root cause: `confirmDel` is **app-level**
   state (`CryptoIdea.jsx:129`, via ctx `:616`) so the armed flag survives navigation — `startAddTx` (`:497`), the
@@ -1091,7 +1102,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   drive via the trash button) + add leak/auto-disarm/modal-still-works cases. Build R12-1 → R12-2 on "go".
 - [x] **Round 13 — header uniformity · sub-title cleanup · disclaimer visibility · Research Risk simplification ·
   Learn header frame — 📋 PLAN ONLY (2026-07-01)** (founder screenshots + notes; full spec
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 13"). Decisions locked (AskUserQuestion): disclaimer → **readable muted**
+  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 13"). Decisions locked (AskUserQuestion): disclaimer → **readable muted**
   (`--ink-soft`) light mode; remove **3** sub-lines (Research/Journal/Search), keep Learn eyebrow; unify headings to
   **28px**; **Learn header only** (not Account). **R13-1** `.disclaimer` `--ink-faint`→`--ink-soft` (both `app.css`
   + `research-tab.css`; drop now-redundant dark rules). **R13-2** delete Research `.sub`, Journal "Write before you
@@ -1104,7 +1115,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   keep "Your Investing Edge"; Search trending tests → `getAllByText("+ Add")`; add sub-title-absent / risk-chips-absent
   / "No thesis yet" / 28px-probe cases. Build R13-1→…→R13-7 on "go".
 - [x] **Round 14 — Portfolio Risk = market-cap tiers (allocation-weighted) — FUNCTIONAL, 📋 PLAN ONLY
-  (2026-07-01)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 14"). The Research Risk meter switches
+  (2026-07-01)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 14"). The Research Risk meter switches
   from concentration to **market cap**: High `<$100M` · Medium `$100M–$1B` · Low `$1B–$100B` · Super-low `≥$100B`
   (BTC/ETH). Decisions locked (AskUserQuestion): **allocation-weighted** aggregate · market-cap **replaces**
   concentration on the meter (concentration stays as the Allocation "High concentration" tag) · unknown mcap →
@@ -1118,7 +1129,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `research-adapters.test.js` for the `marketCap` field; AllocationBar concentration tag unchanged. Independent of
   Round 13 (both touch the Research Overview card). Build R14-1→…→R14-5 on "go".
 - [x] **Round 15 — one popup design: white rounded card for EVERY popup — 📋 PLAN ONLY (2026-07-01)** (founder
-  Journal-Breakdown screenshot; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 15"). Unify all popups to the
+  Journal-Breakdown screenshot; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 15"). Unify all popups to the
   Round 9 `.cm-card` look (centered white rounded card on a dimmed scrim, X-close). **3 patterns today → 1:**
   `.ci-app.overlay` (5 popups: Journal AddThesis/Detail/Breakdown, Learn lesson, Search Buy-Journal) + `.dg-sheet`
   bottom-sheets (Detail delete, upgrade/downgrade) + `.cm-card` (PortfolioBar, the target). Assumed defaults (veto on
@@ -1134,7 +1145,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   card on desktop (one `@media`) · scrim tap closes read/confirm popups but NOT text-entry forms (`dismissOnScrim`
   prop) · confirms → centered cards · X-close everywhere · white=`--paper-2`.
 - [x] **Round 16 — Research "Coins" cards: align numbers + buttons to the bottom — 📋 PLAN ONLY (2026-07-01)**
-  (founder screenshot; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 16"). Cards are already equal-height
+  (founder screenshot; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 16"). Cards are already equal-height
   (`.coins-grid align-items:stretch` + `.coin-card` flex-col, `research-tab.css:154-156`) and desktop shows the
   detail always-expanded (`:181`), but `.cc-detail` (stats + "Ask AI" button) isn't bottom-pinned → the number row +
   button float at different heights across a row (Synapse's extra "no coverage" chips push it down). **R16-1** add
@@ -1143,7 +1154,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `.pos-stats` share `top` across the row. *(The same message's Account "Starter/Pro/Premium" + "1/1" darker-in-light
   ask is already **Round 11 R11-1** — not duplicated.)*
 - [x] **Round 17 — FIX Pro/Premium can't add a portfolio (tier never reaches the DB) — FUNCTIONAL, ✅ BUILT
-  2026-07-01** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 17"; bug [ERRORS.md](ERRORS.md) §A1
+  2026-07-01** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 17"; bug [ERRORS.md](../testing/ERRORS.md) §A1
   part 2). Root cause: demo upgrade sets `user.tier` + `saveProfile`→**localStorage** (`CryptoIdea.jsx:183`), never
   Firestore; the rule reads the DB `users/{uid}.tier` (still `free`, cap 1) → `permission-denied` → plan-limit
   message, even though Pro 3 / Premium 15 caps already exist. Decision locked (AskUserQuestion): **dev-only
@@ -1154,7 +1165,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   DB-`pro` user creates 2nd+3rd, blocked at 4th; dev path inert without the flag; the client-`tier`-write rejection
   test stays green. Build R17-1→R17-3 on "go".
 - [x] **Round 18 — dark-mode border visibility: soft-white edges on cards · pills · popups + Search separator — 📋
-  PLAN ONLY (2026-07-01)** (founder dark-mode screenshots; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 18").
+  PLAN ONLY (2026-07-01)** (founder dark-mode screenshots; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 18").
   Dark-block-only (light untouched). Decisions locked (AskUserQuestion): **soft ~16% off-white** border
   `rgba(236,233,225,.16)` · **outer card/popup borders + Search line only** (internal row-dividers stay subtle) ·
   **neutral pills only** (colored status pills untouched). Constraint: cards + dividers + the search line all share
@@ -1169,7 +1180,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
 - [x] **Round 19 — portfolio delete-confirm · portfolio rename · 2-step transaction delete · transaction
   pagination · transaction ordering · mobile small-dialog centering · Learn header · Learn XP bar · desktop coin
   popups — ✅ BUILT 2026-07-01** (commits c2b7b29/53649f6/d8e6095/9ff3865 + modal-scrim fix b1d1a5e; 359 unit + 22
-  rules green; browser-verified desktop+mobile)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 19"). Nine
+  rules green; browser-verified desktop+mobile)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 19"). Nine
   Portfolio/Learn safety+polish gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
   (empty → two-tap trash w/ ~3s auto-disarm; has-coins → blocking warning `<Modal>`) · rename from **Settings +
   the switcher bar** (edit ✎ on the active pill) · transaction delete = **inline two-tap on the row** (arm →
@@ -1207,7 +1218,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   …→ R19-8 → R19-9 on "go".
 - [x] **Round 20 — Learn lesson player: remove the L1–L5 markers · module-scoped Next/Previous nav · compact
   2-button row · Review-from-start — 📋 PLAN ONLY (2026-07-01)** (founder Learn screenshot; full spec
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 20"). Reworks the lesson flow. Decisions locked (AskUserQuestion):
+  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 20"). Reworks the lesson flow. Decisions locked (AskUserQuestion):
   progress bar — remove **only** the L1–L5 tick-marks/labels, **keep** the gradient fill + level title + the
   "300 / 700 XP to Level N" line · "Next →" advances **within the module**, the module's **last** lesson → "Done →"
   (closes) then pick the next module from the grid (**module-scoped**, not seamless-across-50) · the oversized
@@ -1224,7 +1235,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   change; all overlay state component-local; net removes the R19-8 marker CSS. Build R20-1 → (R20-2+R20-3+R20-4) on "go".
 - [x] **Round 21 — error toast visible above every popup (raise above the scrim) + ~6s auto-dismiss — 📋 PLAN ONLY
   (2026-07-02)** (founder Sell-BTC screenshot: on desktop the validation error renders behind/outside the popup,
-  invisible; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 21"). Root cause: the global `showErr` toast
+  invisible; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 21"). Root cause: the global `showErr` toast
   (CryptoIdea.jsx:676) is `z-index:9500` — the **same** as the `.cm-scrim` (app.css:671) — and the scrim paints
   later → its 50%-black dims/hides the toast under every popup. Every popup error funnels through this one toast
   (AddEntry Buy/Sell, add/rename/delete portfolio, add/remove coin, tx delete), so one fix covers all; the Journal
@@ -1235,7 +1246,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (CryptoIdea.jsx:183). Presentation only — one z-index + one timeout; no data/rules/handler change; verify
   in-browser (a z-index bug jsdom can't see). Build R21-1 → R21-2 on "go".
 - [x] **Round 22 — coin-holding tx rows: total as the bold number, coin price below ("/ SYMBOL"), drop "Recv/Cost" —
-  📋 PLAN ONLY (2026-07-02)** (founder coin-holding tx list; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 22").
+  📋 PLAN ONLY (2026-07-02)** (founder coin-holding tx list; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 22").
   Today the right column (Detail.jsx:116-119) shows the **coin price** bold on top (`.tx-rprice`) and **"Recv"/"Cost"
   + total** muted below (`.tx-rcost`) — "Recv" is unclear + redundant with the SELL/BUY tag. Decisions
   (AskUserQuestion): per-coin line = **"$84,000.00 / BTC"** (price + " / {symbol}") · total = **plain bold** (no
@@ -1248,7 +1259,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `amount×priceAtBuy`). Build R22-1 + R22-2 (one commit) on "go".
 - [x] **Round 23 — Portfolio Risk uses real coin RANK: graduated (log-scale) risk + mega-cap ($100B+) safety floor —
   📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder Research→Portfolio Risk; full spec
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 23"). Refines the R14 market-cap-tier model. Decisions (AskUserQuestion):
+  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 23"). Refines the R14 market-cap-tier model. Decisions (AskUserQuestion):
   **real live CoinGecko rank** per coin · **mega-cap safety floor** (≥40% in $100B+ caps → meter can't read High) ·
   **graduated by size** (smooth log-scale, no tier cliffs). **Key find:** rank is **already fetched + cached** in
   the universe doc (functions/index.js:846, `market_cap_rank`, hot 5-min / daily) but `/api/prices` omits it → **no
@@ -1262,7 +1273,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   endpoint/upstream/dep, no rules change (rank is read-only server data). Build R23-1+R23-2 → R23-3+R23-4 on "go".
 - [x] **Round 24 — Journal: auto-save the thesis on close (X) + keep the Save button + flag incomplete theses —
   📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder "Add your thesis" popup; full spec
-  [DESIGN-PASS.md](DESIGN-PASS.md) "Round 24"). Today the X **discards** everything typed and a thesis needs BOTH
+  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 24"). Today the X **discards** everything typed and a thesis needs BOTH
   questions to save. Decisions (AskUserQuestion): partial on close → **save + flag incomplete** (never lose work) ·
   buttons → **keep "Save thesis" + X (both save), remove Cancel** · scope → **whole journal** (Add + Edit + findings).
   **No rules change** — `validJournal` already allows partial (empty strings pass); `addThesis` already saves partial
@@ -1275,7 +1286,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   closing; keep the edit-form Cancel + "Save findings" as explicit affordances. Component-level; no new dep/attack
   surface. Build R24-1+R24-2 → R24-3 on "go".
 - [x] **Round 25 — coin icon clickable + hover/press shadow everywhere (opens Coin info) + Transactions button
-  restyle — 📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md)
+  restyle — 📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md)
   "Round 25"). Today only the Portfolio icon is clickable (`.ac-img` + accent-ring hover → CoinInfo); elsewhere `<CI>`
   is plain. Decisions (AskUserQuestion): Transactions button = **accent-filled** (thesis `.j-edit-btn` look) · scope
   = **browse/list icons** (Portfolio · Search · trending · thesis cards · holdings header; decorative in-popup
@@ -1291,14 +1302,14 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   concepts + a latent close-to-Portfolio bug; no new endpoint/dep, no rules change (read-only). Update R19-9 tests.
   Build R25-1+R25-2 → R25-3+R25-4 → R25-5 on "go".
 - [x] **Round 26 — copy fix: delete-portfolio warning "theses" → count-aware "its transactions and thesis" —
-  📋 PLAN ONLY (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 26"). The has-coins
+  📋 PLAN ONLY (2026-07-02)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 26"). The has-coins
   delete warning (Account.jsx:84) pluralizes coin/coins but leaves "their … theses" for 1 coin (each coin has one
   thesis). Decision (AskUserQuestion): **count-aware, delete message only** — `const many = p.coins.length>1` →
   "1 coin and all its transactions and thesis" vs "N coins and all their transactions and theses"; **leave** the
   Journal "Your theses (N)" header (a correct plural). Copy-only, no logic change. Update the R19-1 Account
   warning test. Build R26-1 on "go".
 - [x] **Round 27 — Billing: dark-mode readability + selected-card fix + desktop popups (X) + refund policy —
-  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 27").
+  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 27").
   The `showPlan` billing flow (Login.jsx pick-plan/billing-cycle/welcome/processing) mounts as a hand-rolled
   full-screen overlay (CryptoIdea.jsx:677-683), has **zero** dark overrides for `.plan-*`/`.cycle-*` (faint
   `--ink-faint` sub-text), and the **selected** Premium cycle card uses a hardcoded light `#f3ecfb` (app.css:552)
@@ -1313,7 +1324,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   Account cancel caption. Update Login/upgrade tests for the desktop-Modal branch. Build R27-1+R27-2 → R27-3 → R27-4
   on "go".
 - [x] **Round 28 — Billing: current-plan awareness + re-buy guard + honest benefit copy + light-mode readability —
-  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md) "Round 28";
+  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 28";
   grounded via a 3-agent read-only map). **Real bug found:** the plan-picker (Login.jsx:91-113) never reads
   `user?.tier`, so a Pro user can click "Choose Pro" again and be **charged twice** (no guard/badge/disabled state);
   `user.tier` is available but unchecked. **Copy issues:** Premium claims "Priority support · Custom limits" —
@@ -1327,7 +1338,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `--ink-faint`→`--ink-soft` in the BASE rule (**supersedes R27-1**; drop that dark-only override when building).
   Update Login/upgrade/welcome tests. Build R28-1 → R28-2 → R28-3 on "go".
 - [x] **Round 29 — Billing: Premium downgrade chooser (Pro OR Starter) + pending flexibility + Premium→Pro
-  re-checkout — ✅ BUILT 2026-07-03 (commit 8c4a01e), FUNCTIONAL** (founder; full spec [DESIGN-PASS.md](DESIGN-PASS.md)
+  re-checkout — ✅ BUILT 2026-07-03 (commit 8c4a01e), FUNCTIONAL** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md)
   "Round 29"; grounded via a 5-agent read-only billing map). Today Premium can ONLY downgrade to Pro
   (Account.jsx:262 hard-wired) and the at-endDate flip (CryptoIdea.jsx:610-615) grants the target tier with
   `subscription:null` — **a Premium→Pro downgrade lands as Pro with NO monthly payment attached (free Pro

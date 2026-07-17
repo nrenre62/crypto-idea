@@ -15,7 +15,7 @@ change) — and the reusable **`user-creation`** + **`user-settings`** skills.
 
 ## 1. The surface (what a user sees)
 
-The **Account** screen ([src/components/Account.jsx](src/components/Account.jsx)) is a stack of
+The **Account** screen ([src/components/Account.jsx](../../src/components/Account.jsx)) is a stack of
 cards, danger last (no separate route — S1):
 
 | Card | What it does | Save model |
@@ -28,7 +28,7 @@ cards, danger last (no separate route — S1):
 | **Privacy & data** | withdrawable **analytics consent** · export CSV/JSON · delete account | auto-save toggle / actions |
 | **Danger zone** | delete account = **type `DELETE` + re-auth** → soft-delete (30-day trash) | high-friction |
 
-Registration ([src/components/Login.jsx](src/components/Login.jsx)) captures **Terms + Privacy
+Registration ([src/components/Login.jsx](../../src/components/Login.jsx)) captures **Terms + Privacy
 (required) + marketing opt-in**, and an unverified user sees a dismissible **"verify your email"**
 banner with Resend.
 
@@ -38,16 +38,16 @@ banner with Resend.
 
 | Concern | File(s) |
 |---|---|
-| Auth + account ops | [src/api/firebase-auth.js](src/api/firebase-auth.js) — `registerUser`, `verifyEmail`, `confirmPassword`, `changePassword`, `passwordError`, `updateDisplayName`, `changeEmail`, `updateUserSettings`, `CONSENT_VERSION` |
-| Self-service callables (client) | [src/api/account.js](src/api/account.js) — `exportMyData`, `deleteMyAccount`, `restoreMyAccount`, `signOutEverywhere` |
-| Admin callables (client) | [src/api/admin.js](src/api/admin.js) — `setUserTier`, `setPremiumLimits`, … |
-| Session load (server-authoritative) | [src/hooks/useAuthSession.js](src/hooks/useAuthSession.js) — loads `tier`/`subscription`/`deleted`/`settings`/`premiumLimits`/`emailVerified` |
-| Handlers + state + theme effect | [src/CryptoIdea.jsx](src/CryptoIdea.jsx) — `handleAuth`, delete/re-auth, `changeMyPassword`, `signOutEverywhere`, `saveDisplayName`, `requestEmailChange`, `toggleSetting`, the `data-theme` effect, tier-limit + `aiMonthlyCents` derivation |
-| Settings/limit UI | [src/components/Account.jsx](src/components/Account.jsx) (`ToggleRow`, `Cust`) |
-| Admin custom-limits editor | [src/components/admin-dashboard.jsx](src/components/admin-dashboard.jsx) (`PremiumLimitsEditor`) + [src/hooks/useAdminDashboard.js](src/hooks/useAdminDashboard.js) (`changePremiumLimits`) |
-| Server callables / webhook | [functions/index.js](functions/index.js) — `signOutEverywhere`, `setPremiumLimits`, PayPal webhook `tierBeforeFailure` |
-| Security boundary | [firestore.rules](firestore.rules) — `validUserData`/`validConsent`/`validSettings`, `configuredLimit` (reads `premiumLimits` for premium, clamped) |
-| Theme + tokens | [src/styles/app.css](src/styles/app.css) — `html[data-theme="dark"]` overrides the shared `.ci-app` / `.research-root` tokens |
+| Auth + account ops | [src/api/firebase-auth.js](../../src/api/firebase-auth.js) — `registerUser`, `verifyEmail`, `confirmPassword`, `changePassword`, `passwordError`, `updateDisplayName`, `changeEmail`, `updateUserSettings`, `CONSENT_VERSION` |
+| Self-service callables (client) | [src/api/account.js](../../src/api/account.js) — `exportMyData`, `deleteMyAccount`, `restoreMyAccount`, `signOutEverywhere` |
+| Admin callables (client) | [src/api/admin.js](../../src/api/admin.js) — `setUserTier`, `setPremiumLimits`, … |
+| Session load (server-authoritative) | [src/hooks/useAuthSession.js](../../src/hooks/useAuthSession.js) — loads `tier`/`subscription`/`deleted`/`settings`/`premiumLimits`/`emailVerified` |
+| Handlers + state + theme effect | [src/CryptoIdea.jsx](../../src/CryptoIdea.jsx) — `handleAuth`, delete/re-auth, `changeMyPassword`, `signOutEverywhere`, `saveDisplayName`, `requestEmailChange`, `toggleSetting`, the `data-theme` effect, tier-limit + `aiMonthlyCents` derivation |
+| Settings/limit UI | [src/components/Account.jsx](../../src/components/Account.jsx) (`ToggleRow`, `Cust`) |
+| Admin custom-limits editor | [src/components/admin-dashboard.jsx](../../src/components/admin-dashboard.jsx) (`PremiumLimitsEditor`) + [src/hooks/useAdminDashboard.js](../../src/hooks/useAdminDashboard.js) (`changePremiumLimits`) |
+| Server callables / webhook | [functions/index.js](../../functions/index.js) — `signOutEverywhere`, `setPremiumLimits`, PayPal webhook `tierBeforeFailure` |
+| Security boundary | [firestore.rules](../../firestore.rules) — `validUserData`/`validConsent`/`validSettings`, `configuredLimit` (reads `premiumLimits` for premium, clamped) |
+| Theme + tokens | [src/styles/app.css](../../src/styles/app.css) — `html[data-theme="dark"]` overrides the shared `.ci-app` / `.research-root` tokens |
 
 ---
 

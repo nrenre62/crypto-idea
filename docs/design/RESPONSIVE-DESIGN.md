@@ -16,8 +16,8 @@
 > desktop**. Make it a single **responsive** layout that works on phone AND desktop — the *same
 > markup*, **no separate desktop build** — modeled on the admin panel, which is already desktop-width.
 >
-> See also: [`CLAUDE.md`](CLAUDE.md) (design system), [`NEXT-STEPS.md`](NEXT-STEPS.md) (backlog),
-> [`AGILE.md`](AGILE.md) (Definition of Done). Reusable, stack-agnostic methodology lives in the
+> See also: [`CLAUDE.md`](../../CLAUDE.md) (design system), [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) (backlog),
+> [`AGILE.md`](../product/AGILE.md) (Definition of Done). Reusable, stack-agnostic methodology lives in the
 > **`responsive-app`** user skill.
 
 ---
@@ -25,9 +25,9 @@
 ## 1. The problem (grounded in a full audit)
 
 - The app is **mobile-only by construction**: the main wrapper is `maxWidth:430; margin:0 auto`
-  ([`src/CryptoIdea.jsx`](src/CryptoIdea.jsx) ~line 472). Every screen lives inside that column.
+  ([`src/CryptoIdea.jsx`](../../src/CryptoIdea.jsx) ~line 472). Every screen lives inside that column.
 - The entire app `src/` has **only 2 `@media` queries** (one `prefers-reduced-motion` in
-  [`app.css`](src/styles/app.css), one in `research-tab.css`) — it was never built to flex.
+  [`app.css`](../../src/styles/app.css), one in `research-tab.css`) — it was never built to flex.
 - On a wide monitor it shows that 430px column centered with empty gutters. It is **not broken** —
   it just looks like a phone app floating in the middle of the screen.
 - The marketing **landing** (`index.html`) is already responsive, but it's a **separate** static
@@ -78,7 +78,7 @@ Verified each phase: `npm run build` clean + 217/217 unit tests green + browser 
 ## 3. The core technique
 
 One reusable utility does the heavy lifting — copied verbatim from the admin panel
-([`src/components/admin-dashboard.jsx`](src/components/admin-dashboard.jsx) line 36 container, line 73 grid):
+([`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) line 36 container, line 73 grid):
 
 ```css
 /* in app.css, under the .ci-app scope */
@@ -115,7 +115,7 @@ Result: **near-zero new `@media` queries, no JS, no new dependencies.**
 
 **Phase 0 — Shell foundation** *(S, ~½ day, low risk)*
 - `CryptoIdea.jsx` ~472: `maxWidth:430` → `maxWidth:1040`; add `padding:"0 clamp(16px,4vw,32px)"`.
-- Bottom bar ([`app.css`](src/styles/app.css) ~62): **keep** — it already centers as a floating pill.
+- Bottom bar ([`app.css`](../../src/styles/app.css) ~62): **keep** — it already centers as a floating pill.
 - Add the `.grid-auto` utility to `app.css`.
 - *After Phase 0, un-gridded screens look stretched — expected; fixed in 1–3.*
 

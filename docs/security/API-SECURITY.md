@@ -8,7 +8,7 @@
 # API & Key Security
 
 The single source of truth for **what the API is, how it's wired, and how the keys stay safe.**
-The machine-readable contract is [`openapi.json`](openapi.json) (OpenAPI 3.0.3, 32 operations).
+The machine-readable contract is [`openapi.json`](../../openapi.json) (OpenAPI 3.0.3, 32 operations).
 
 ---
 
@@ -32,7 +32,7 @@ Locked in a founder interview before this work:
 
 ## 1. The API surface (what exists)
 
-Everything is a Firebase Cloud Function in [`functions/index.js`](functions/index.js) (v1, Node 22, CommonJS). There are **three shapes**:
+Everything is a Firebase Cloud Function in [`functions/index.js`](../../functions/index.js) (v1, Node 22, CommonJS). There are **three shapes**:
 
 ### A. Public REST — the `api` HTTP function (`onRequest`)
 No auth. Reached at `/api/<action>` (Hosting rewrites `/api/**` → the `api` function). All heavy upstream work is cached and shared, so cost is flat regardless of user count.
@@ -83,7 +83,7 @@ The only **unauthenticated inbound write**. Every event is cryptographically ver
 ```
 
 - **Landing** never authenticates — it only reads cached public data and posts to `/api/subscribe`.
-- **User app** uses the Firebase JS SDK; the SDK attaches the ID token to every callable. Reads/writes to `users/{uid}/…` are gated by [`firestore.rules`](firestore.rules) (owner-only, closed-shape doc, counter-based tier caps).
+- **User app** uses the Firebase JS SDK; the SDK attaches the ID token to every callable. Reads/writes to `users/{uid}/…` are gated by [`firestore.rules`](../../firestore.rules) (owner-only, closed-shape doc, counter-based tier caps).
 - **Admin app** is a **separate Firebase app instance** (`initializeApp(config, "admin")`) so its login can't collide with a user session (ERRORS §A5 fix). Authorization is the **server-side claim check in every admin function** — a different URL is *not* the boundary.
 - **PayPal** posts to the webhook; `custom_id`/`plan_id` are only trusted *after* signature verification.
 
@@ -94,7 +94,7 @@ The only **unauthenticated inbound write**. Every event is cryptographically ver
 **The rule:** every secret lives server-side only. The browser bundle ships **only** the public `VITE_FIREBASE_*` web config (a Firebase web key is not a secret — the rules are the security).
 
 ### Where secrets live
-1. **Primary:** the locked `config/app` Firestore doc, written by `saveConfig` (Admin SDK). [`firestore.rules`](firestore.rules) denies **all** client read/write to `/config/**`. Holds: CoinGecko key, PayPal client/secret/webhook, email-provider key, Anthropic key (reserved for Wave B).
+1. **Primary:** the locked `config/app` Firestore doc, written by `saveConfig` (Admin SDK). [`firestore.rules`](../../firestore.rules) denies **all** client read/write to `/config/**`. Holds: CoinGecko key, PayPal client/secret/webhook, email-provider key, Anthropic key (reserved for Wave B).
 2. **Fallback / deploy-time:** `functions/.env` (git-ignored). Only source for the PayPal plan IDs + `APP_URL`.
 
 ### The set-flag / keep() idiom (never echo a secret)

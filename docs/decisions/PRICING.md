@@ -2,7 +2,7 @@
 
 **Canonical pricing decisions for Crypto Idea.** Last updated 2026-06-23.
 This doc is the source of truth for *what we charge and why*. The user-facing
-benefits page is [USER-BENEFITS.md](USER-BENEFITS.md). The product-direction
+benefits page is [USER-BENEFITS.md](../product/USER-BENEFITS.md). The product-direction
 record is [PRODUCT-DECISIONS.md](PRODUCT-DECISIONS.md) (#19/#21).
 
 Two readers: (1) **future me** — to remember *why* a number is what it is; (2)
@@ -23,9 +23,9 @@ enforce a **monthly dollar-cost ceiling** (`aiMonthlyCents` in `config/app.plans
 because tokens — not call count — drive AI cost. See §4.
 
 Resource limits (portfolios / coins / tx) are enforced server-side by
-[`firestore.rules`](firestore.rules) reading `config/app.plans` via `get()`,
+[`firestore.rules`](../../firestore.rules) reading `config/app.plans` via `get()`,
 with built-in defaults as a fallback. **Limits stay editable from the admin
-panel** ([Plans & Pricing](src/components/admin-dashboard.jsx)) — they are not
+panel** ([Plans & Pricing](../../src/components/admin-dashboard.jsx)) — they are not
 hard-coded into the app.
 
 ---
@@ -115,7 +115,7 @@ This is invisible in normal use. The clamp **never** appears in marketing copy.
 | **PayPal fees** | variable | 2.9% + $0.30 per charge | ~$0.59 on Pro, ~$1.75 on Premium |
 
 Total **fixed monthly infra** ≈ **$160/mo** (flat regardless of user count —
-the CoinGecko proxy is shared-cached; see [README.md "CoinGecko proxy"](README.md)).
+the CoinGecko proxy is shared-cached; see [README.md "CoinGecko proxy"](../../README.md)).
 
 ### 3.2 AI model mix (the "mixed" strategy)
 
@@ -228,7 +228,7 @@ math. Tracked under "Open items" below.
 
 ## 6. What competitors gate behind premium (for roadmap)
 
-From the competitor research (see [PRICING-RESEARCH.md](docs/planning/PRICING-RESEARCH.md)
+From the competitor research (see [PRICING-RESEARCH.md](../planning/PRICING-RESEARCH.md)
 once authored — currently in commit history of this change):
 
 | Feature gate | Who does it | Our position |
@@ -263,12 +263,12 @@ budget. That's the moat.
 
 ## 8. Reference
 
-- Code: [`functions/index.js`](functions/index.js) `DEFAULT_PLANS`, `mergePlans`, `getStats`
-- Admin UI: [`src/components/admin-dashboard.jsx`](src/components/admin-dashboard.jsx) (Plans & Pricing card + Revenue card)
-- Hook state: [`src/hooks/useAdminDashboard.js`](src/hooks/useAdminDashboard.js) `DEFAULT_PLANS`
-- Rules enforcement: [`firestore.rules`](firestore.rules) `configuredLimit`
-- Landing: [`index.html`](index.html) `.plan-price` cards + `setBilling()` + `/api/config` fetch
-- In-app billing screen: [`src/components/Login.jsx`](src/components/Login.jsx) — reads `site.plans` via context
+- Code: [`functions/index.js`](../../functions/index.js) `DEFAULT_PLANS`, `mergePlans`, `getStats`
+- Admin UI: [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) (Plans & Pricing card + Revenue card)
+- Hook state: [`src/hooks/useAdminDashboard.js`](../../src/hooks/useAdminDashboard.js) `DEFAULT_PLANS`
+- Rules enforcement: [`firestore.rules`](../../firestore.rules) `configuredLimit`
+- Landing: [`index.html`](../../index.html) `.plan-price` cards + `setBilling()` + `/api/config` fetch
+- In-app billing screen: [`src/components/Login.jsx`](../../src/components/Login.jsx) — reads `site.plans` via context
 - Decisions log: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) #19 (tiers), #20 (anti-abuse), #21 (AI cost control)
-- User-facing benefits: [`USER-BENEFITS.md`](USER-BENEFITS.md)
+- User-facing benefits: [`USER-BENEFITS.md`](../product/USER-BENEFITS.md)
 - Billing mechanism (PayPal lifecycle, webhook, secrets, go-live): [`BILLING.md`](BILLING.md)

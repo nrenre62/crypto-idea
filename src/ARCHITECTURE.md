@@ -53,7 +53,7 @@ must be a real element, not a conditional function call) → add/extend a naviga
   the auth/data-load + profile-save effects, the portfolio CRUD + upgrade-overlay handlers (kept
   here by design — coupled to UI/form/auth state), the `ctx` object, and the router shell — no
   inline screen JSX. **§1b hooks (`useAuthSession`/`usePortfolios`/`useUpgrade`) are extracted.
-  See [`../NEXT-STEPS.md`](../NEXT-STEPS.md) for the remaining checklist (§1c).**
+  See [`../NEXT-STEPS.md`](../docs/product/NEXT-STEPS.md) for the remaining checklist (§1c).**
 - Multi-page Vite entries (`main.jsx`, `admin-main.jsx`) stay at the `src/` root.
 
 ## Known layer violations (audit)

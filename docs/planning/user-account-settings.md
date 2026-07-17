@@ -1,7 +1,7 @@
 # CryptoIdea — User Account & Tiers
 **v2 · what each user gets, can do, and can't do — limits enforced at the tool level** · **RECONCILED 2026-06-22**
 
-> ⚠️ **Reconciled against [`PRODUCT-DECISIONS.md`](../../PRODUCT-DECISIONS.md) (canonical).** Tier structure corrected:
+> ⚠️ **Reconciled against [`PRODUCT-DECISIONS.md`](../decisions/PRODUCT-DECISIONS.md) (canonical).** Tier structure corrected:
 > **Starter** 1 portfolio / 10 coins · **Pro** 3 portfolios / 50 coins each · **Premium** 15 portfolios / unlimited coins.
 > "Unlimited" is a **high hard ceiling** (anti-abuse: rate-limited add-coin + App Check, decision #20), never bot-inflatable. The matrix below adds the portfolios row and marks the coin cap accordingly.
 

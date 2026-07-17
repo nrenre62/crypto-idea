@@ -5,7 +5,7 @@
 **How audited:** live-emulator reproduction matrix + a 27-agent adversarial workflow (6 mapping
 dimensions → every finding verified by 2 independent lenses: code-trace refuter + UI-reachability
 → completeness critic). **36 findings confirmed + 5 critic additions; 2 refuted.**
-Full machine-readable inventory: [`docs/planning/data-integrity-findings.json`](docs/planning/data-integrity-findings.json).
+Full machine-readable inventory: [`docs/planning/data-integrity-findings.json`](../planning/data-integrity-findings.json).
 
 ---
 

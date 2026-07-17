@@ -9,8 +9,8 @@ invested vs. value, profit/loss, ROI, coins accumulated, and average buy price.
 > as SEO / lead-gen: it's genuinely useful, requires no signup, and — by design — costs ~0 backend
 > calls per visitor. Method captured as a reusable pattern in the **`crypto-calculator`** skill.
 
-Code: [`index.html`](index.html) — markup `#dca` (~L499–546), logic in the closing `<script>`
-(~L872–1026). Backend: [`functions/index.js`](functions/index.js) `/api/coinlist` + `/api/history`.
+Code: [`index.html`](../../index.html) — markup `#dca` (~L499–546), logic in the closing `<script>`
+(~L872–1026). Backend: [`functions/index.js`](../../functions/index.js) `/api/coinlist` + `/api/history`.
 
 ---
 
@@ -119,7 +119,7 @@ function getHist(id){
 
 ## Backend endpoints (the cached proxy)
 
-Both live in [`functions/index.js`](functions/index.js); both serve from a shared cache so cost is
+Both live in [`functions/index.js`](../../functions/index.js); both serve from a shared cache so cost is
 flat. (CDN caching is a deployed-Hosting behaviour — the **local dev server invokes the function
 every time**, so the "~0 calls per visitor" effect is only observable after deploy.)
 
@@ -141,12 +141,12 @@ every time**, so the "~0 calls per visitor" effect is only observable after depl
 
 The app's research/buy flow reuses the same cached `/api/history` (no second data source):
 
-- [`src/hooks/useCoinHistory.js`](src/hooks/useCoinHistory.js) + [`src/api/coingecko.js`](src/api/coingecko.js)
+- [`src/hooks/useCoinHistory.js`](../../src/hooks/useCoinHistory.js) + [`src/api/coingecko.js`](../../src/api/coingecko.js)
   `fetchHistory(id)` — auto-fills a buy-date price from real history (falls back to a built-in
   estimate when null), with a module-level memo.
-- [`src/features/research/utils/priceAdapter.js`](src/features/research/utils/priceAdapter.js) —
+- [`src/features/research/utils/priceAdapter.js`](../../src/features/research/utils/priceAdapter.js) —
   pure `deriveFromHistory()` (7d/30d change + sparkline) and `buildResearchPrices()`; degrades to
-  `0%`, never `NaN`. Covered by [`tests/unit/research-adapters.test.js`](tests/unit/research-adapters.test.js).
+  `0%`, never `NaN`. Covered by [`tests/unit/research-adapters.test.js`](../../tests/unit/research-adapters.test.js).
 
 ---
 
@@ -209,5 +209,5 @@ the lump-sum math); disclaimers/CTA are copy, not controls; commit with a clear 
 - Keep all upstream calls behind `/api/*`; never call CoinGecko from the browser (preserves the
   flat-cost model and keeps any key server-side).
 
-See also: [`README.md`](README.md) (endpoints/deploy), [`CLAUDE.md`](CLAUDE.md) (conventions),
+See also: [`README.md`](../../README.md) (endpoints/deploy), [`CLAUDE.md`](../../CLAUDE.md) (conventions),
 [`NEXT-STEPS.md`](NEXT-STEPS.md) (§4b N-1). Reusable method: the **`crypto-calculator`** skill.

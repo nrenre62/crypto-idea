@@ -1,7 +1,7 @@
 # CryptoIdea — Product Specification
 **Planning document · June 2026** · **RECONCILED 2026-06-22**
 
-> ⚠️ **Reconciled against [`PRODUCT-DECISIONS.md`](../../PRODUCT-DECISIONS.md) (canonical).**
+> ⚠️ **Reconciled against [`PRODUCT-DECISIONS.md`](../decisions/PRODUCT-DECISIONS.md) (canonical).**
 > Where this spec and the decisions doc differ, the decisions doc wins. Corrections applied below:
 > 1. **Tiers** → Starter 1 portfolio/10 coins · Pro 3/50-each · Premium 15/unlimited(-capped); "Free" renamed **Starter**.
 > 2. **Learn voice = no names** — the "Buffett / Munger / Marks" lines are genericized (names removed).

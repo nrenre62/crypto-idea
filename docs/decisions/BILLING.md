@@ -138,7 +138,7 @@ Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyP
 - **The secret is never logged or echoed.** The admin "Settings" save uses the `keep()` idiom: a
   blank field keeps the stored secret rather than clearing it.
 - **No secret is ever in the client bundle or git.** `.gitignore` + the pre-commit content scan
-  catch PayPal-shaped tokens (`A21AA…`). See [API-SECURITY.md](API-SECURITY.md) §3 / §6.
+  catch PayPal-shaped tokens (`A21AA…`). See [API-SECURITY.md](../security/API-SECURITY.md) §3 / §6.
 
 ---
 
@@ -214,9 +214,9 @@ All of the above are **server-authoritative** — `firestore.rules` forbids the 
 
 ## 11. References
 
-- Code: [`functions/index.js`](functions/index.js) (PayPal section), [`functions/billing.js`](functions/billing.js), [`functions/guards.js`](functions/guards.js)
+- Code: [`functions/index.js`](../../functions/index.js) (PayPal section), [`functions/billing.js`](../../functions/billing.js), [`functions/guards.js`](../../functions/guards.js)
 - Prices & margins: [PRICING.md](PRICING.md)
 - Decisions: [BACKEND-ADMIN-DECISIONS.md](BACKEND-ADMIN-DECISIONS.md) (D5/D6), [PRODUCT-DECISIONS.md](PRODUCT-DECISIONS.md)
-- Downgrade UX: [DESIGN-PASS.md](DESIGN-PASS.md) Round 29 / Round 31
-- API surface & secrets: [API-SECURITY.md](API-SECURITY.md), [openapi.json](openapi.json)
-- Open items: [PRICING.md](PRICING.md) §7, [NEXT-STEPS.md](NEXT-STEPS.md)
+- Downgrade UX: [DESIGN-PASS.md](../design/DESIGN-PASS.md) Round 29 / Round 31
+- API surface & secrets: [API-SECURITY.md](../security/API-SECURITY.md), [openapi.json](../../openapi.json)
+- Open items: [PRICING.md](PRICING.md) §7, [NEXT-STEPS.md](../product/NEXT-STEPS.md)

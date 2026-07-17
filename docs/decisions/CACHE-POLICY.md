@@ -5,7 +5,7 @@
 > staleness UX) of `functions/index.js`, the `/api` proxy, `src/hooks/*`, the Research feature, and
 > the decision docs. It explains **how caching works today**, maps the founder's **4-tier mental
 > model** to the code, and records the **12 locked decisions (C1–C12)**. The sequenced build order
-> lands in [`NEXT-STEPS.md`](NEXT-STEPS.md) §C.
+> lands in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §C.
 > Where this doc and a stale planning note disagree, **this doc wins** for caching (as
 > [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) does for product and
 > [`BACKEND-ADMIN-DECISIONS.md`](BACKEND-ADMIN-DECISIONS.md) for backend/admin). It does not
@@ -190,7 +190,7 @@ data model.
 
 ## 4. Gaps & fixes — prioritized build order
 
-Detail + checkboxes in [`NEXT-STEPS.md`](NEXT-STEPS.md) §C. Ranked by leverage.
+Detail + checkboxes in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §C. Ranked by leverage.
 
 ### 🟢 Now — local-buildable + emulator-verifiable (no keys needed)
 - **Remove the stale `2026-06-22` mock conviction date** (`mock-conviction.js`) — it actively
@@ -270,9 +270,9 @@ a re-architecture.
 ---
 
 ## Cross-references
-- Build order + increments: [`NEXT-STEPS.md`](NEXT-STEPS.md) §C (and the refined §0 Wave B / §BL items).
+- Build order + increments: [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §C (and the refined §0 Wave B / §BL items).
 - Product/AI/pricing decisions: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md).
 - Backend/admin workflow + go-live: [`BACKEND-ADMIN-DECISIONS.md`](BACKEND-ADMIN-DECISIONS.md).
-- How the shared universe + `/api` proxy work today: [`CLAUDE.md`](CLAUDE.md) "Known notes" + §1.1 of
+- How the shared universe + `/api` proxy work today: [`CLAUDE.md`](../../CLAUDE.md) "Known notes" + §1.1 of
   BACKEND-ADMIN-DECISIONS.
 - Reusable patterns: the `firebase-saas-starter` skill (cached proxy / flat-cost) + `secure-by-design`.

@@ -18,7 +18,7 @@
 
 Two facts that frame everything below:
 
-- **The in-app upgrade flow is currently a client-side *simulation*.** [`src/components/Login.jsx:65`](../src/components/Login.jsx) runs a `setTimeout` then writes `tier` to `window.storage` (local), not Firestore; the real `createSubscription` callable is never invoked from the client. So there is **no "free Pro" via the UI today**. However, the **server-side PayPal webhook, `cancelSubscription`, and `createSubscription` callables in `functions/index.js` are real, deployable code** — that is where finding **H1** applies.
+- **The in-app upgrade flow is currently a client-side *simulation*.** [`src/components/Login.jsx:65`](../../src/components/Login.jsx) runs a `setTimeout` then writes `tier` to `window.storage` (local), not Firestore; the real `createSubscription` callable is never invoked from the client. So there is **no "free Pro" via the UI today**. However, the **server-side PayPal webhook, `cancelSubscription`, and `createSubscription` callables in `functions/index.js` are real, deployable code** — that is where finding **H1** applies.
 - **The live-AI surface is entirely inert.** `src/features/research/api/ai-client.js` `askClaude()` throws unconditionally, and `functions/validate-output.js` is never imported by any deployed function. There is **no prompt-injection or AI-output XSS surface shipped today.** This becomes live work when the AI proxy is built — see [Deferred / future work](#deferred--future-work).
 
 ### Findings at a glance
@@ -40,7 +40,7 @@ Two facts that frame everything below:
 
 ### H1 — Owner-update rule is a *blocklist*, not a closed shape → server-authoritative billing fields are client-writable
 
-- **Location:** [`firestore.rules:118-126`](../firestore.rules) (and the create rule at `:104-109`); downstream: `functions/index.js` `cancelSubscription` (~201-213), `PAYMENT.SALE.COMPLETED` (~267-275), `BILLING.SUBSCRIPTION.ACTIVATED` (~257-263)
+- **Location:** [`firestore.rules:118-126`](../../firestore.rules) (and the create rule at `:104-109`); downstream: `functions/index.js` `cancelSubscription` (~201-213), `PAYMENT.SALE.COMPLETED` (~267-275), `BILLING.SUBSCRIPTION.ACTIVATED` (~257-263)
 - **Class:** Broken field-level access control / privilege escalation (CWE-639 / deny-list instead of allow-list)
 - **Confidence:** High (verified against the rule text and both downstream handlers)
 
@@ -134,7 +134,7 @@ Then apply the fixed per-IP + global daily upstream-call budget from **M1** spec
 
 ### M1 — Per-IP rate limiter is trivially bypassable
 
-- **Location:** [`functions/index.js:765-773`](../functions/index.js) (`rateLimited`); call sites ~878 (`api`) and ~1011 (`subscribe`)
+- **Location:** [`functions/index.js:765-773`](../../functions/index.js) (`rateLimited`); call sites ~878 (`api`) and ~1011 (`subscribe`)
 - **Class:** Improper rate limiting / trusting client-controlled header (CWE-290 / CWE-307)
 - **Confidence:** High
 
@@ -218,7 +218,7 @@ Also allow the `X-Firebase-AppCheck` header through CORS and enable App Check *e
 
 ### L2 — CSP allows `'unsafe-inline'` in `script-src`
 
-- **Location:** [`firebase.json:22`](../firebase.json)
+- **Location:** [`firebase.json:22`](../../firebase.json)
 - **Class:** Weak CSP / reduced XSS containment (CWE-1021)
 
 `script-src 'self' 'unsafe-inline' …` neutralizes CSP's script-injection protection: if any XSS sink ever appears, the CSP won't block it. **No live XSS sink exists today** (verified: no `innerHTML`/`dangerouslySetInnerHTML`/`eval` in `src/`; the one landing-page `innerHTML` is fed only server-coerced numbers), so this is a hardening gap, rated Low. The rest of the header set is strong (`frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, HSTS, `nosniff`).
@@ -229,7 +229,7 @@ Also allow the `X-Firebase-AppCheck` header through CORS and enable App Check *e
 
 ### L3 — CSV formula (DDE) injection in portfolio export
 
-- **Location:** [`src/utils/export-csv.js:11-15`](../src/utils/export-csv.js) (`esc`)
+- **Location:** [`src/utils/export-csv.js:11-15`](../../src/utils/export-csv.js) (`esc`)
 - **Class:** Formula injection / CSV injection (CWE-1236)
 
 `esc()` only quotes cells containing `" , \n \r`; it never neutralizes a leading formula trigger. A cell beginning with `= + - @` is evaluated as a formula when the downloaded `.csv` is opened in Excel / LibreOffice / Sheets (`=HYPERLINK(…)` can exfiltrate other cells; legacy `=cmd|…` DDE can launch a process on unpatched Excel). Portfolio name and coin name/symbol reach cells un-neutralized (rules only length/type-check them). **Low** because the dominant vector (portfolio name) is self-export only, and modern spreadsheets prompt before evaluating imported formulas — but the product sells the file as a "safe export," so the fix is warranted.
