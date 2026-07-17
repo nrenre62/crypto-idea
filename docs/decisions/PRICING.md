@@ -228,8 +228,9 @@ math. Tracked under "Open items" below.
 
 ## 6. What competitors gate behind premium (for roadmap)
 
-From the competitor research (see [PRICING-RESEARCH.md](../planning/PRICING-RESEARCH.md)
-once authored — currently in commit history of this change):
+From the competitor research — full, sourced, live-2026 pricing pass in
+[PRICING-RESEARCH.md](../planning/PRICING-RESEARCH.md) (see its §13 for figures in this
+table/§2.1 that have since drifted):
 
 | Feature gate | Who does it | Our position |
 |---|---|---|
