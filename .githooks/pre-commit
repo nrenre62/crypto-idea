@@ -10,8 +10,9 @@ set -eu
 fail() { echo "COMMIT BLOCKED (pre-commit): $1" >&2; exit 1; }
 
 # 1. Secret-looking FILENAMES staged (catches `git add -f` past .gitignore).
+#    API-SECURITY (2026-07-08): also block .env.* variants, .p12/.p8, credentials*.json, .npmrc.
 bad_files=$(git diff --cached --name-only \
-  | grep -iE '(^|/)\.env($|\.)(local|production)?|serviceaccount.*\.json|service-account.*\.json|[-_]key\.json$|\.pem$|google-services\.json$' \
+  | grep -iE '(^|/)\.env($|\.)|(^|/)\.npmrc$|serviceaccount.*\.json|service-account.*\.json|[-_]key\.json$|\.pem$|\.p12$|\.p8$|credentials.*\.json$|google-services\.json$' \
   | grep -ivE '\.env\.example$|\.example$' || true)
 if [ -n "$bad_files" ]; then
   fail "secret-looking file(s) staged:
@@ -19,10 +20,14 @@ $bad_files
 Unstage them: git restore --staged <file>  (and confirm they're in .gitignore)."
 fi
 
-# 2. Secret-looking CONTENT in the staged diff (private keys / service-account JSON).
+# 2. Secret-looking CONTENT in the staged diff. Beyond private keys / service-account JSON,
+#    API-SECURITY (2026-07-08): catch the app's ACTUAL runtime key formats (Anthropic sk-ant-,
+#    CoinGecko CG-, PayPal OAuth access token A21AA…). These prefixes are distinctive so they
+#    don't false-positive on ordinary code. The public Firebase web key (AIza…) is intentionally
+#    NOT matched — it legitimately ships in the client bundle.
 if git diff --cached -U0 \
-  | grep -nE -- '-----BEGIN [A-Z ]*PRIVATE KEY-----|"private_key"[[:space:]]*:|"private_key_id"[[:space:]]*:' >/dev/null 2>&1; then
-  fail "staged changes contain a private key / service-account credential. Remove it — keys live server-side, never in git."
+  | grep -nE -- '-----BEGIN [A-Z ]*PRIVATE KEY-----|"private_key"[[:space:]]*:|"private_key_id"[[:space:]]*:|sk-ant-[A-Za-z0-9_-]{20,}|CG-[A-Za-z0-9]{16,}|A21AA[A-Za-z0-9_-]{20,}' >/dev/null 2>&1; then
+  fail "staged changes contain what looks like an API secret (private key / Anthropic / CoinGecko / PayPal token). Remove it — keys live server-side, never in git."
 fi
 
 exit 0

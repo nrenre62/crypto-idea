@@ -8,18 +8,24 @@ functions/node_modules/
 dist/
 .vite/
 
-# Environment variables (NEVER commit these)
+# Environment variables (NEVER commit real values; the *.example templates ARE tracked)
+# API-SECURITY (2026-07-08): broadened from .env/.env.local/.env.production to catch EVERY
+# .env.* variant (.env.staging/.development/.test/…) so a stray one can't be swept in by `git add -A`.
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
 
-# Service-account / private keys (NEVER commit — god-mode credentials)
+# Service-account / private keys / other credentials (NEVER commit — god-mode credentials)
 *serviceAccount*.json
 *service-account*.json
 *-key.json
 *_key.json
 serviceAccountKey.json
 *.pem
+*.p12
+*.p8
+credentials*.json
+.npmrc
 google-services.json
 
 # Firebase
