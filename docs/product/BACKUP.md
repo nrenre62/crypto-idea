@@ -14,10 +14,13 @@ next run just retries once the drive is reconnected. (Reusable pattern: the `aut
 Both triggers run the **same script** (`scripts/auto-backup-to-wd.ps1`) into the **same folder**
 (`D:\apps\crypto-idea-auto-backup\`), and both copy the same thing:
 
-- the **whole project** (excluding `node_modules`, `dist`, `.git`, `*-debug.log`),
+- the **whole project** (excluding `node_modules`, `dist`, `*-debug.log`; **`.git` is kept** — a full
+  offline copy of the history alongside the private GitHub remote),
 - **all skills** (auto-discovered from `~/.claude/skills`),
-- your **Claude config**: global `~/.claude/CLAUDE.md` + every project's `memory\` folder
-  (auto-discovered), under a `claude-config\` folder.
+- your **Claude config** (under a `claude-config\` folder): global `~/.claude/CLAUDE.md`, your slash
+  **commands** (`~/.claude/commands\`, incl. the `finish` command), **`settings.json`** (hook wiring),
+  your **hooks** (`~/.claude/hooks\` — the security guard + rules reminder), and every project's
+  `memory\` folder (all auto-discovered). *(commands / settings.json / hooks added 2026-07-17.)*
 
 Each snapshot is `…\<yyyy-MM-dd_HHmm>[_finish]\` containing `repo\` + `skills\` + `claude-config\`
 + a `backup-info.txt` manifest. A running log is at `…\auto-backup.log`.
@@ -32,6 +35,10 @@ Typing a message containing **`finish`** fires the `UserPromptSubmit` hook
 
 If the WD drive is unplugged when you type "finish", the hook just notes `[WD backup] … skipped`
 and the save happens on the next run once you reconnect.
+
+> The `/finish` **slash command** does *not* fire this hook (it only matches a *typed* message
+> containing `finish`), so the `/finish` routine runs the backup **by hand**
+> (`auto-backup-to-wd.ps1 -Force`) and verifies the `<stamp>_finish` folder — see the `finish` command.
 
 ## The 3-hour loop
 A Windows Scheduled Task `CryptoIdea WD Auto-Backup` (registered by
