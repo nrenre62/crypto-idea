@@ -123,19 +123,21 @@ test("DI-3: re-adding an existing coin is 'already-exists' — no counter inflat
   assert.equal(coinCountAfter, coinCountBefore, "coinCount not inflated by the re-add");
 });
 
-test("DI-3: deleting a transaction twice — the 2nd is 'not-found' and doesn't deflate txCount", async () => {
+test("API-SECURITY (counter-forge): deleting a tx does NOT decrement txCount client-side; 2nd delete is 'not-found'", async () => {
+  // The client can no longer decrement a tier counter (firestore.rules counterNoForge closes a
+  // paywall bypass), so deletes leave the count FAIL-SAFE-high and it's reconciled server-side.
   const add = await addTransaction(uid, "default", "coin1", { type: "buy", amount: 1, priceAtBuy: 50, date: "2026-02-01T00:00" }, 50);
   assert.ok(add.success, "add tx: " + JSON.stringify(add));
   const txCountAfterAdd = (await getCoins(uid, "default")).coins.find((c) => c.id === "coin1").txCount;
 
   const del1 = await deleteTransaction(uid, "default", "coin1", add.id);
-  assert.ok(del1.success, "first delete ok");
+  assert.ok(del1.success, "first delete ok (the tx doc is removed even though the counter is untouched)");
   const del2 = await deleteTransaction(uid, "default", "coin1", add.id);
   assert.equal(del2.success, false);
   assert.equal(del2.reason, "not-found", "second delete is not-found: " + JSON.stringify(del2));
 
   const txCountFinal = (await getCoins(uid, "default")).coins.find((c) => c.id === "coin1").txCount;
-  assert.equal(txCountFinal, txCountAfterAdd - 1, "txCount decremented exactly once, not twice");
+  assert.equal(txCountFinal, txCountAfterAdd, "txCount is NOT decremented by the client delete (counterNoForge)");
 });
 
 test("transactions: add then delete, and they round-trip via getCoins", async () => {

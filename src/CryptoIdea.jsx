@@ -231,6 +231,12 @@ export default function CryptoIdea(){
     try{const r=await apiReconcileMyCounters();showErr(r&&r.fixed?"We re-synced your account — please try that again.":upgradeMsg);}
     catch(_e){showErr(upgradeMsg);}
   };
+  // API-SECURITY (counter-forge fix): deletes no longer decrement the tier counter client-side
+  // (firestore.rules now forbids a client counter DECREASE, closing a paywall bypass). The count
+  // is left fail-safe-high; bring it back to truth server-side, SILENTLY, so the next create isn't
+  // briefly blocked by a stale-high count. Best-effort — a too-high count is safe and also
+  // self-heals on the next limit-hit via reconcileCounters above.
+  const syncCountsAfterDelete=()=>{ if(user?.uid){ apiReconcileMyCounters().catch(()=>{}); } };
 
   // Persist only non-sensitive profile data (tier, subscription, settings),
   // keyed by Firebase uid. Passwords are handled by Firebase Auth, never stored here.
@@ -562,7 +568,8 @@ export default function CryptoIdea(){
     const res=await dbDeletePortfolio(user.uid,pid);
     if(!res.success){failToast(res,"Couldn't delete portfolio. Check your connection.");return}
     setPortfolios(prev=>prev.filter(p=>p.id!==pid));
-    if(activePortId===pid){setActivePortId(portfolios.find(p=>p.id!==pid)?.id||"default")}};
+    if(activePortId===pid){setActivePortId(portfolios.find(p=>p.id!==pid)?.id||"default")}
+    syncCountsAfterDelete();};
 
   // R19-2: rename a portfolio via the shared Modal (reachable from Account → Portfolios
   // and the switcher bar). `renameFor` holds the portfolio id being renamed; `renameName`
@@ -674,7 +681,8 @@ export default function CryptoIdea(){
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbRemoveCoin(user.uid,activePortId,id);
     if(!res.success){failToast(res,"Couldn't remove coin. Check your connection.");return}
-    setPortfolio(p=>p.filter(c=>c.id!==id));if(sel?.id===id){setSel(null);setScreen("portfolio")}};
+    setPortfolio(p=>p.filter(c=>c.id!==id));if(sel?.id===id){setSel(null);setScreen("portfolio")}
+    syncCountsAfterDelete();};
   // R4-2: open the Add-transaction form for a coin from Detail's Buy/Sell buttons.
   // Mirrors the price/date prefill so a new transaction starts ready to fill. One
   // source of truth for "start a new transaction" (Detail returns here on back/save).
@@ -746,7 +754,8 @@ export default function CryptoIdea(){
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbDeleteTransaction(user.uid,activePortId,cid,eid);
     if(!res.success){failToast(res,"Couldn't delete transaction. Check your connection.");return}
-    setPortfolio(p=>p.map(c=>c.id===cid?{...c,entries:c.entries.filter(e=>e.id!==eid)}:c));setSel(p=>p?{...p,entries:p.entries.filter(e=>e.id!==eid)}:p)};
+    setPortfolio(p=>p.map(c=>c.id===cid?{...c,entries:c.entries.filter(e=>e.id!==eid)}:c));setSel(p=>p?{...p,entries:p.entries.filter(e=>e.id!==eid)}:p);
+    syncCountsAfterDelete();};
 
 
   const { value:tv, totalBuys, pnl:tpnl, pnlPct:tpp } = portfolioPnl(portfolio, prices);

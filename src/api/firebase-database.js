@@ -134,10 +134,7 @@ export async function createPortfolio(uid, name, order = 0, limit = null) {
 export async function deletePortfolio(uid, portfolioId) {
   try {
     const portRef = doc(db, "users", uid, "portfolios", portfolioId);
-    // DI-3 (G14/G18): decrement portfolioCount ONLY if the portfolio still exists. A stale
-    // delete (already removed on another device) used to decrement unconditionally — two
-    // stale devices could drive the counter to zero. (Subcollection deletes need queries, so
-    // this is a pre-check + batch, not a single transaction.)
+    // Pre-check so a stale delete (already removed on another device) reports not-found.
     const portSnap = await getDoc(portRef);
     if (!portSnap.exists()) return { success: false, code: "not-found", reason: "not-found" };
 
@@ -154,9 +151,12 @@ export async function deletePortfolio(uid, portfolioId) {
       batch.delete(coinDoc.ref);
     }
 
-    // Delete the portfolio itself and decrement the user's portfolio counter
+    // API-SECURITY (counter-forge fix): delete the portfolio but do NOT decrement portfolioCount
+    // client-side — firestore.rules now forbids a client counter DECREASE (a standalone decrement
+    // could forge a lower count past the tier cap). The count is left too-high (FAIL-SAFE — it can
+    // only make the cap stricter) and brought back to truth by the trusted reconcileMyCounters
+    // callable, which the app fires after a delete. See counterNoForge in firestore.rules.
     batch.delete(portRef);
-    batch.update(doc(db, "users", uid), { portfolioCount: increment(-1) });
     await batch.commit();
     return { success: true };
   } catch (error) {
@@ -334,8 +334,7 @@ export async function saveLearnProgress(uid, progress) {
 export async function removeCoin(uid, portfolioId, coinId) {
   try {
     const coinRef = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId);
-    // DI-3 (G16): decrement coinCount ONLY if the coin still exists — a stale/duplicate
-    // delete must not drive the counter below the real doc count.
+    // Pre-check so a stale/duplicate delete reports not-found.
     const coinSnap = await getDoc(coinRef);
     if (!coinSnap.exists()) return { success: false, code: "not-found", reason: "not-found" };
 
@@ -346,9 +345,10 @@ export async function removeCoin(uid, portfolioId, coinId) {
     );
     txSnap.docs.forEach(tx => batch.delete(tx.ref));
 
-    // Delete the coin and decrement the portfolio's coin counter
+    // API-SECURITY (counter-forge fix): delete the coin but do NOT decrement coinCount client-side
+    // (firestore.rules now forbids a client counter DECREASE). Count is left fail-safe-high and
+    // reconciled server-side. See counterNoForge in firestore.rules.
     batch.delete(coinRef);
-    batch.update(doc(db, "users", uid, "portfolios", portfolioId), { coinCount: increment(-1) });
     await batch.commit();
     return { success: true };
   } catch (error) {
@@ -404,19 +404,17 @@ export async function updateTransaction(uid, portfolioId, coinId, txId, txData) 
   }
 }
 
-// Delete a transaction — atomically decrements the coin's txCount, but only if it existed.
+// Delete a transaction. Reports not-found for a stale/duplicate delete.
 export async function deleteTransaction(uid, portfolioId, coinId, txId) {
   const txRef = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId, "transactions", txId);
-  const coinRef = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId);
   try {
-    // DI-3 (G19): only decrement when the tx actually existed. A stale/duplicate delete
-    // (the same tx removed on another device) used to decrement unconditionally → txCount
-    // deflates below real → a later tx-limit overshoot. The transaction guards it.
+    // API-SECURITY (counter-forge fix): delete the tx but do NOT decrement txCount client-side
+    // (firestore.rules now forbids a client counter DECREASE). Count is left fail-safe-high and
+    // reconciled server-side. The exists-check still reports not-found for a stale delete.
     const outcome = await runTransaction(db, async (t) => {
       const snap = await t.get(txRef);
       if (!snap.exists()) return "not-found";
       t.delete(txRef);
-      t.update(coinRef, { txCount: increment(-1) });
       return "ok";
     });
     if (outcome === "not-found") return { success: false, code: "not-found", reason: "not-found" };

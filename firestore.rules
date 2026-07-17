@@ -105,12 +105,19 @@ service cloud.firestore {
     function maxCoins(userId)      { return configuredLimit(userId, 'coins', 10, 50, 1000, 1000); }
     function maxTx(userId)         { return configuredLimit(userId, 'transactions', 50, 2000, 5000, 1000000); }
 
-    // Counter changes (made by clients to keep aggregates in sync) must move by at
-    // most 1 per write, so they can't be reset to smuggle past a limit in one shot.
-    function counterDeltaOk(field) {
+    // API-SECURITY (2026-07-08): a client-writable counter that GATES a tier limit must never be
+    // allowed to move DOWN by a client write. The old rule permitted ±1, but a standalone
+    // decrement (an owner updating ONLY the counter, with no accompanying child delete) forged a
+    // lower count to slip past the cap, then created again — unbounded, defeating the paywall AND
+    // the #20 denial-of-wallet ceiling. So the owner may only KEEP the counter the same or raise
+    // it by exactly 1 (the create path's +1). The counter is brought DOWN to the true value ONLY
+    // by the trusted reconcileMyCounters callable (Admin SDK — recomputes from real docs, bypasses
+    // this rule). Client deletes therefore no longer decrement; the resulting too-high count is
+    // FAIL-SAFE (it can only make the cap stricter) and is reconciled server-side.
+    function counterNoForge(field) {
       let oldVal = resource.data.get(field, 0);
       let newVal = request.resource.data.get(field, 0);
-      return newVal >= oldVal - 1 && newVal <= oldVal + 1;
+      return newVal >= oldVal && newVal <= oldVal + 1;
     }
 
     // ─── User Profile ───
@@ -159,7 +166,7 @@ service cloud.firestore {
                       // fields owner-writable — the exact trap this closes.
                       && request.resource.data.diff(resource.data)
                             .affectedKeys().hasOnly(['name', 'settings', 'consent', 'portfolioCount', 'lastLogin'])
-                      && counterDeltaOk('portfolioCount')
+                      && counterNoForge('portfolioCount')
                       && (!('name'     in request.resource.data) || validUserData(request.resource.data))
                       && (!('settings' in request.resource.data) || validSettings(request.resource.data.settings))
                       && (!('consent'  in request.resource.data) || validConsent(request.resource.data.consent))
@@ -183,8 +190,9 @@ service cloud.firestore {
                       && getAfter(userRef()).data.portfolioCount == get(userRef()).data.get('portfolioCount', 0) + 1
                       && getAfter(userRef()).data.portfolioCount <= maxPortfolios(userId);
 
-        // Update (incl. coinCount maintenance) — coinCount may move by ±1 only
-        allow update: if (isOwner(userId) && validPortfolioData() && counterDeltaOk('coinCount'))
+        // Update (incl. coinCount maintenance) — coinCount may only stay or rise by 1 (never a
+        // client decrement; see counterNoForge). A delete leaves the count high, reconciled server-side.
+        allow update: if (isOwner(userId) && validPortfolioData() && counterNoForge('coinCount'))
                       || isAdmin();
 
         allow delete: if isOwner(userId) || isAdmin();
@@ -203,10 +211,10 @@ service cloud.firestore {
                         && getAfter(portfolioRef()).data.coinCount == get(portfolioRef()).data.get('coinCount', 0) + 1
                         && getAfter(portfolioRef()).data.coinCount <= maxCoins(userId);
 
-          // Validate content (incl. the optional thesis journal) on update too, and
-          // keep txCount moving by at most 1 — so a coin's journal can be written/
-          // reviewed but the doc can't be corrupted or used to smuggle past a limit.
-          allow update: if (isOwner(userId) && validCoinData() && counterDeltaOk('txCount')) || isAdmin();
+          // Validate content (incl. the optional thesis journal) on update too, and let txCount
+          // only stay or rise by 1 (never a client decrement; see counterNoForge) — so a coin's
+          // journal can be written/reviewed but the counter can't be forged down past a limit.
+          allow update: if (isOwner(userId) && validCoinData() && counterNoForge('txCount')) || isAdmin();
 
           allow delete: if isOwner(userId) || isAdmin();
 

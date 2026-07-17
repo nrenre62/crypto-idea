@@ -128,6 +128,26 @@ test("a user cannot promote their own tier, but an admin can", async () => {
   await assertSucceeds(updateDoc(doc(adminDb(), "users", "alice"), { tier: "pro" }));
 });
 
+test("API-SECURITY (counter-forge): an owner cannot DECREMENT a tier counter (only keep it or +1)", async () => {
+  // A standalone client decrement (no accompanying child delete) forged a lower count to slip
+  // past the tier cap, then created again — unbounded. counterNoForge forbids ANY client
+  // decrease; the count is brought down only by the trusted reconcileMyCounters callable.
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { name: "Alice", tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P1", coinCount: 5 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "c1"), { symbol: "BTC", name: "Bitcoin", txCount: 3 });
+  });
+  // Decrementing ANY of the three counters is denied — this was the paywall bypass.
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice"), { portfolioCount: 0 }));
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice", "portfolios", "p1"), { coinCount: 4 }));
+  await assertFails(updateDoc(doc(aliceDb(), "users", "alice", "portfolios", "p1", "coins", "c1"), { txCount: 2 }));
+  // Keeping a counter the same (e.g. a rename / journal edit that touches the doc) is still fine.
+  await assertSucceeds(updateDoc(doc(aliceDb(), "users", "alice"), { portfolioCount: 1 }));
+  await assertSucceeds(updateDoc(doc(aliceDb(), "users", "alice", "portfolios", "p1"), { name: "P1b", coinCount: 5 }));
+  // An admin (Admin-SDK path in prod) can still correct a counter down.
+  await assertSucceeds(updateDoc(doc(adminDb(), "users", "alice"), { portfolioCount: 0 }));
+});
+
 test("a user cannot set the soft-delete fields (server-only); an admin can", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });

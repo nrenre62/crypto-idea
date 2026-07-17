@@ -34,10 +34,15 @@ const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
 // BL-1a/BL-1b: shared security guards (per-uid limiter / cooldown / App Check gate)
 // and the pure PayPal-billing decision logic — both dependency-injected + unit-tested.
-const { checkCooldown } = require("./guards.js");
+const { checkCooldown, consumeDailyBudget } = require("./guards.js");
 const billing = require("./billing.js");
 // C-R2b (C14): trim the universe's lowest-rank tail instead of hitting the 1 MiB doc cap.
 const { trimUniverse } = require("./universe-utils.js");
+// API-SECURITY (2026-07-08): spoof-resistant client IP for the per-IP rate limiter.
+const { clientIp } = require("./net-utils.js");
+// How many trusted proxy hops the platform appends on the RIGHT of X-Forwarded-For.
+// Default 2 (common GCLB→Cloud Functions); confirm from a prod log + override if needed.
+const RL_TRUSTED_HOPS = Number(process.env.RL_TRUSTED_HOPS) || 2;
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -280,6 +285,11 @@ async function verifyPayPalWebhook(req) {
 
 // ─── PayPal Webhook (public, but every event is signature-verified) ───
 exports.paypalWebhook = functions.https.onRequest(async (req, res) => {
+  // API-SECURITY (webhook integrity): the idempotency marker is written BEFORE the side effect,
+  // so if the side effect later throws we must ROLL BACK the marker — otherwise PayPal's retry
+  // sees the marker, is acknowledged as a duplicate, and the paid tier change is dropped forever
+  // (webhookEvents is never purged). Track the key we marked THIS call and delete it on failure.
+  let markedKey = null;
   try {
     const ok = await verifyPayPalWebhook(req);
     if (!ok) {
@@ -303,6 +313,7 @@ exports.paypalWebhook = functions.https.onRequest(async (req, res) => {
         return false;
       });
       if (duplicate) { res.json({ received: true, duplicate: true }); return; }
+      markedKey = evKey;   // we just claimed it — roll back if processing below fails
     }
 
     const planIds = { proPlanId: PAYPAL_PLAN_ID, premiumPlanId: PAYPAL_PREMIUM_PLAN_ID };
@@ -356,6 +367,10 @@ exports.paypalWebhook = functions.https.onRequest(async (req, res) => {
     res.json({ received: true });
   } catch (error) {
     console.error("paypalWebhook error:", error);
+    // API-SECURITY: roll back the idempotency marker so PayPal's retry genuinely REPROCESSES
+    // this event (all patches are idempotent set-merges, so a rare double-process is harmless).
+    // Without this the marker permanently suppresses a paid-tier change that failed transiently.
+    if (markedKey) { try { await db.doc(`webhookEvents/${markedKey}`).delete(); } catch (e) { console.error("paypalWebhook: marker rollback failed:", e && e.message); } }
     res.status(400).json({ error: "Webhook processing failed" });
   }
 });
@@ -722,6 +737,11 @@ exports.exportMyData = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
   const uid = context.auth.uid;
+  // API-SECURITY (read amplification): each call re-reads the caller's ENTIRE holdings tree.
+  // A short cooldown stops a scripted loop from driving unbounded billed reads — exports are a
+  // rare, user-initiated download, so this never impedes real use.
+  const exCd = await checkCooldown(db, { uid, key: "exportMyData", cooldownMs: 10_000 });
+  if (!exCd.allowed) throw new functions.https.HttpsError("resource-exhausted", "Please wait a few seconds before exporting again.");
   const userSnap = await db.collection("users").doc(uid).get();
   const portfolios = [];
   const pSnap = await db.collection("users").doc(uid).collection("portfolios").get();
@@ -756,6 +776,11 @@ exports.reconcileMyCounters = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
   const uid = context.auth.uid;
+  // API-SECURITY (read amplification): recomputing the whole tree is bounded per UTC-day so a
+  // scripted loop can't drive unbounded reads/writes. Generous ceiling — the app calls this only
+  // after a delete or on a drift-corrected retry, never in a tight legitimate loop.
+  const rcBudget = await consumeDailyBudget(db, { uid, key: "reconcile", limit: 500 });
+  if (!rcBudget.allowed) throw new functions.https.HttpsError("resource-exhausted", "Too many account-sync attempts today — please try again tomorrow.");
   const userRef = db.collection("users").doc(uid);
   const pSnap = await userRef.collection("portfolios").get();
   const updates = [];   // {ref, data} — committed in ≤450-op chunks (batch limit is 500)
@@ -992,9 +1017,14 @@ const RATE_WINDOW = 60 * 1000;   // per 60 seconds, per IP
 const _rl = {};                   // sliding-window store for general (read) traffic
 const _rlSub = {};                // SEPARATE store so the write endpoint has its own tight budget
 function rateLimited(req, store = _rl, limit = RATE_LIMIT) {
-  const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip || "unknown";
+  // API-SECURITY: key on a spoof-resistant client IP (right-anchored XFF, NOT the
+  // attacker-controlled left-most token) so rotating X-Forwarded-For can't mint a fresh
+  // bucket per request. See net-utils.clientIp.
+  const ip = clientIp(req.headers["x-forwarded-for"], req.ip, RL_TRUSTED_HOPS);
   const now = Date.now();
-  if (Object.keys(store).length > 10000) { for (const k in store) delete store[k]; } // guard against unbounded growth
+  // Overflow guard: prune only EXPIRED buckets (never a full wipe — a spoofed-IP flood used
+  // to reset every legitimate user's window when the map hit the cap).
+  if (Object.keys(store).length > 10000) { for (const k in store) if (now > store[k].resetAt) delete store[k]; }
   let e = store[ip];
   if (!e || now > e.resetAt) { e = { count: 0, resetAt: now + RATE_WINDOW }; store[ip] = e; }
   e.count++;
@@ -1019,6 +1049,7 @@ const HOT_PAGES = 5;                              // 5 × 250 = top ~1,250 coins
 const UNIVERSE_TTL = 5 * 60 * 1000;              // lazy full-refresh window (when no scheduler runs)
 const HOT_TTL = 5 * 60 * 1000;                   // per-coin price freshness for the app (long tail refetched past this)
 const HISTORY_TTL = 30 * 24 * 60 * 60 * 1000;    // per-coin history: 30 days (past data never changes)
+const HISTORY_NEG_TTL = 60 * 60 * 1000;          // API-SECURITY: negative-cache a failed history fetch for 1h so a real-but-unavailable coin isn't re-fetched (denial-of-wallet) on every request
 const UNIVERSE_DOC = "cache/universe";
 const TRENDING_DOC = "cache/trending";
 const TRENDING_TTL = 30 * 60 * 1000;            // trending refreshes lazily every 30 min (volatile, but cheap)
@@ -1224,10 +1255,14 @@ exports.api = functions.https.onRequest(async (req, res) => {
         // /coins/markets) so the client risk model can use it — no new upstream call.
         if (m && (now - (m.at || 0)) < HOT_TTL) {
           out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc, usd_24h_vol: m.v, circulating: m.cs, usd_market_cap_rank: m.rank ?? null };
-        } else {
-          if (m) out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc, usd_24h_vol: m.v, circulating: m.cs, usd_market_cap_rank: m.rank ?? null }; // last-known, refreshed just below
+        } else if (m) {
+          out[id] = { usd: m.p, usd_24h_change: m.ch, usd_market_cap: m.mc, usd_24h_vol: m.v, circulating: m.cs, usd_market_cap_rank: m.rank ?? null }; // last-known, refreshed just below
           stale.push(id);
         }
+        // API-SECURITY (denial-of-wallet): an id NOT in the shared universe is IGNORED — never
+        // pushed to `stale`, so a novel/garbage id can never trigger an upstream /simple/price
+        // call. Only real, already-known coins are refreshed on demand (they cache after the
+        // first hit), so the fan-out is bounded by the ~3,000-coin universe, not by request count.
       }
       // Refresh stale/missing held coins ON DEMAND and fold the fresh price back
       // into the shared universe doc, so the next request — for ANY user — is served
@@ -1251,7 +1286,12 @@ exports.api = functions.https.onRequest(async (req, res) => {
                 // preserve metadata if we already had it; only update price fields.
                 // `at: fetchedAt` — the SHARED fetch's start time, not this request's
                 // arrival, so a coalesced follower can't claim fake-newer freshness.
-                upd[id] = { ...(universe[id] || {}), p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: fetchedAt };
+                // API-SECURITY (denial-of-wallet): only fold back coins ALREADY in the universe —
+                // never create a net-new off-list entry from user-supplied ids (that would grow the
+                // shared 1 MiB doc unbounded and, past the cap, silently break the 5-min refresh for
+                // everyone). The stale-gate above already ensures universe[id] is set here; this makes
+                // the invariant explicit on the write itself.
+                if (universe[id]) upd[id] = { ...universe[id], p: d[id].usd, ch: d[id].usd_24h_change, mc: d[id].usd_market_cap, at: fetchedAt };
               }
             }
             if (Object.keys(upd).length) {
@@ -1341,10 +1381,21 @@ exports.api = functions.https.onRequest(async (req, res) => {
     if (action === "history") {
       const id = String(req.query.id || "").slice(0, 100);
       if (!id) { res.status(400).json({ error: "id required" }); return; }
+      // API-SECURITY (denial-of-wallet): only fetch history for a coin that's ACTUALLY in the
+      // shared universe. market_chart is one of CoinGecko's heaviest endpoints and a garbage id
+      // returns 404 (never caches), so without this gate a loop of novel ids forces one (or two)
+      // uncached upstream calls per request. Every legitimate history request is for a coin the
+      // client already got FROM the universe (DCA coinlist / Research prices), so gating here
+      // never breaks a real request; it just refuses to fan out on ids we don't recognise.
+      const universe = await getUniverse();
+      if (!universe[id]) { res.set("Cache-Control", "public, max-age=86400"); res.json({ prices: [] }); return; }
       const ref = db.doc("historyCache/" + id.replace(/[^a-zA-Z0-9_-]/g, "_"));
       let data = null;
       try { const snap = await ref.get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
-      if (!data || (Date.now() - (data.updatedAt || 0)) > HISTORY_TTL) {
+      // Fresh cache: 30 days for real data, but only 1h for a negative (miss) marker so a
+      // temporarily-unavailable coin retries sooner without hammering upstream every request.
+      const ttl = (data && data.miss) ? HISTORY_NEG_TTL : HISTORY_TTL;
+      if (!data || (Date.now() - (data.updatedAt || 0)) > ttl) {
         // Daily history in ONE call; reused for every date range + every user.
         // Public API allows only the last 365 days; a Demo/paid key extends it.
         // (Don't pass interval=daily — that's Enterprise-only; granularity is
@@ -1356,6 +1407,8 @@ exports.api = functions.https.onRequest(async (req, res) => {
             r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=365`, { headers: await cgHeaders() });
           }
           if (r.ok) { const d = await r.json(); data = { updatedAt: Date.now(), prices: d.prices || [] }; await ref.set(data); }
+          // API-SECURITY: negative-cache a real-but-failed lookup so repeats don't re-fetch for 1h.
+          else { data = { updatedAt: Date.now(), prices: [], miss: true }; try { await ref.set(data); } catch (e2) { /* ignore */ } }
         } catch (e) { /* ignore */ }
       }
       res.set("Cache-Control", "public, max-age=86400");
