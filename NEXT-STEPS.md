@@ -50,6 +50,23 @@ order (most generic first): `secure-by-design`, `api-security`, `tdd-testing`, `
 `drawing-diagram`, `landing-page-design`, `saas-pricing`. Decide the set + naming + license (MIT) in
 a focused session; do NOT publish product docs (PRODUCT-DECISIONS, DESIGN-PASS, etc.).
 
+## DOCS. Reorganize root .md files into categorized docs/ subfolders  (📋 PLAN — 2026-07-17, own focused pass)
+
+**Decided** (founder interview 2026-07-17): move the ~25 root-level `.md` files into
+**categorized subfolders** under `docs/`. Keep only `README.md` + `CLAUDE.md` in root (tool/GitHub
+convention). Proposed buckets: `docs/decisions/` (PRODUCT-DECISIONS, BACKEND-ADMIN-DECISIONS,
+PRICING, BILLING, CACHE-POLICY), `docs/design/` (DESIGN-PASS, DESIGN-REVAMP, RESPONSIVE-DESIGN),
+`docs/security/` (API-SECURITY, SECURITY-AUDIT, ISOLATION), `docs/testing/` (TEST-REPORT, ERRORS,
+REVIEW-FINDINGS, ARCHITECTURE-AUDIT), `docs/product/` (USER-BENEFITS, USER-CREATION, USER-SETTINGS,
+USER-SETTINGS-README, CALCULATOR, DATA-FLOW, DATA-INTEGRITY, CODEBASE-MAP, AGILE, BACKUP, NEXT-STEPS)
+— refine when doing it. Keep the existing `docs/planning/` + `docs/diagrams/`.
+**Must-do carefully:** (1) `git mv` to preserve history; (2) **rewrite every relative cross-link**
+(docs reference each other AND code paths like `firestore.rules`, `functions/index.js` — these gain
+a `../` or lose a `docs/` depending on direction); (3) **resolve the 2 diverged duplicates** —
+`SECURITY-AUDIT.md` (root 126L vs `docs/` 315L) and `TEST-REPORT.md` (root 66L vs `docs/` 158L):
+keep the fuller `docs/` copies, delete the stale root ones (confirm no unique content first); (4)
+verify no broken links after (grep for `](` targets). Do as its own commit so a link break is isolated.
+
 ## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (✅ BUILT 2026-07-07)
 
 Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:
