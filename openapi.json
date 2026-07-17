@@ -2,18 +2,14 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Crypto Idea API",
-    "description": "Complete HTTP surface of the Crypto Idea backend (Firebase Cloud Functions v1 + Firestore security rules).\n\nThree kinds of endpoint are documented:\n\n1. **Public REST** (`/api/*`) — the `api` HTTP function. No authentication. Serves cached CoinGecko market data to the landing DCA calculator and the app, plus the public app config and the landing email-capture form. In production these are also reachable at `https://<your-domain>/api/*` via a Firebase Hosting rewrite (`firebase.json`).\n\n2. **Callable functions** — Firebase `onCall` functions. The Firebase SDK POSTs `{\"data\": <input>}` and receives `{\"result\": <output>}`; on error it returns a non-2xx status with `{\"error\": {\"message\", \"status\", \"details\"}}`. Every callable verifies the caller's Firebase ID token server-side and acts on `context.auth.uid` — never a uid taken from the request body (no IDOR by design). **Admin** callables additionally require the verified `{admin:true}` custom claim.\n\n3. **PayPal webhook** (`/paypalWebhook`) — the only unauthenticated inbound write. Every event is cryptographically verified against PayPal's verify-webhook-signature API before it is trusted.\n\nSecurity model summary: Firestore rules are the authorization boundary (owner-only data, closed-shape user doc, users cannot write their own `tier`/`subscription`/`premiumLimits`/`deleted`). Secrets (CoinGecko / PayPal / email / Anthropic keys) live only in the server-side locked `config/app` Firestore doc or environment variables; they are never returned to a client and never shipped in the browser bundle.",
+    "description": "Complete HTTP surface of the Crypto Idea backend (Firebase Cloud Functions v1 + Firestore security rules).\n\nThree kinds of endpoint are documented:\n\n1. **Public REST** (`/api/*`) — the `api` HTTP function. No authentication. Serves cached CoinGecko market data to the landing DCA calculator and the app, plus the public app config and the landing email-capture form. In production these are also reachable at `https://<your-domain>/api/*` via a Firebase Hosting rewrite (`firebase.json`).\n\n2. **Callable functions** — Firebase `onCall` functions. The Firebase SDK POSTs `{\"data\": <input>}` and receives `{\"result\": <output>}`; on error it returns a non-2xx status with `{\"error\": {\"message\", \"status\", \"details\"}}`. Every callable verifies the caller's Firebase ID token server-side and acts on `context.auth.uid` — never a uid taken from the request body (no IDOR by design). **Admin** callables additionally require the verified `{admin:true}` custom claim.\n\n3. **PayPal webhook** (`/paypalWebhook`) — the only inbound write not gated by a Firebase user login; it is authenticated instead by PayPal's webhook signature (documented as the `PayPalWebhookSignature` scheme). Every event is cryptographically verified against PayPal's verify-webhook-signature API before it is trusted.\n\nSecurity model summary: Firestore rules are the authorization boundary (owner-only data, closed-shape user doc, users cannot write their own `tier`/`subscription`/`premiumLimits`/`deleted`). Secrets (CoinGecko / PayPal / email / Anthropic keys) live only in the server-side locked `config/app` Firestore doc or environment variables; they are never returned to a client and never shipped in the browser bundle.",
     "version": "1.0.0",
     "contact": { "name": "Crypto Idea" }
   },
   "servers": [
     {
-      "url": "http://localhost:5001/demo-crypto-idea/us-central1",
-      "description": "Local Firebase emulator — Cloud Functions base. Plaintext HTTP is expected here: the emulator serves on localhost only (never exposed to the network), so no TLS is used. This is the ONLY http:// surface — production (below) and the PayPal webhook are always HTTPS. REST endpoints are under /api/*; callables and the webhook are at /<functionName>."
-    },
-    {
       "url": "https://us-central1-YOUR_PROJECT.cloudfunctions.net",
-      "description": "Production — Cloud Functions base (replace YOUR_PROJECT at go-live). REST is also served at https://<your-domain>/api/* via the Hosting rewrite."
+      "description": "Production — Cloud Functions base (replace YOUR_PROJECT at go-live). REST is also served at https://<your-domain>/api/* via the Hosting rewrite. Local development uses the Firebase emulator at localhost:5001/<project>/us-central1 (localhost-only, no TLS — never network-exposed); it is intentionally not listed as a server URL here so the documented contract stays HTTPS-only. See README."
     }
   ],
   "tags": [
@@ -536,7 +532,7 @@
           "401": { "description": "Invalid webhook signature.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
           "400": { "description": "Webhook processing failed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
         },
-        "security": []
+        "security": [{ "PayPalWebhookSignature": [] }]
       }
     }
   },
@@ -547,6 +543,12 @@
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "description": "The signed-in user's Firebase ID token. The Firebase callable SDK sends it as `Authorization: Bearer <idToken>`; the function verifies it server-side and reads `context.auth.uid`. Admin operations additionally require the verified `{admin:true}` custom claim on that token."
+      },
+      "PayPalWebhookSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "paypal-transmission-sig",
+        "description": "PayPal's webhook transmission signature. Every event is cryptographically verified against PayPal's verify-webhook-signature API (using all five paypal-* headers) BEFORE it is trusted; unverified events are rejected. This documents that the webhook is authenticated (not public), even though it is not a bearer/OAuth flow."
       }
     },
     "schemas": {
@@ -608,7 +610,7 @@
       },
       "CoinListResponse": {
         "type": "object",
-        "properties": { "coins": { "type": "array", "items": { "$ref": "#/components/schemas/CoinSummary" } } },
+        "properties": { "coins": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/components/schemas/CoinSummary" } } },
         "required": ["coins"]
       },
       "HistoryResponse": {
@@ -617,6 +619,7 @@
           "prices": {
             "type": "array",
             "description": "Array of [timestampMs, price] pairs.",
+            "maxItems": 20000,
             "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
           }
         },
@@ -776,7 +779,7 @@
               "exportedAt": { "type": "string", "format": "date-time" },
               "account": { "type": "object", "properties": { "uid": { "type": "string" }, "email": { "type": "string" } } },
               "profile": { "type": "object", "additionalProperties": true },
-              "portfolios": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+              "portfolios": { "type": "array", "maxItems": 100, "items": { "type": "object", "additionalProperties": true } }
             }
           }
         }
@@ -837,7 +840,7 @@
           "result": {
             "type": "object",
             "properties": {
-              "users": { "type": "array", "items": { "$ref": "#/components/schemas/AdminUser" } },
+              "users": { "type": "array", "maxItems": 5000, "items": { "$ref": "#/components/schemas/AdminUser" } },
               "total": { "type": "integer" },
               "capped": { "type": "boolean" }
             }
@@ -920,7 +923,7 @@
       },
       "ListAuditResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "type": "object", "properties": { "entries": { "type": "array", "items": { "$ref": "#/components/schemas/AuditEntry" } } } } }
+        "properties": { "result": { "type": "object", "properties": { "entries": { "type": "array", "maxItems": 500, "items": { "$ref": "#/components/schemas/AuditEntry" } } } } }
       },
       "AdminConfigResultEnvelope": {
         "type": "object",

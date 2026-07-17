@@ -58,7 +58,7 @@ Same as B **plus** a verified `{admin:true}` custom claim check at the top of ev
 `getStats` · `listUsers` · `lookupUser` · `setUserTier` · `setPremiumLimits` · `suspendUser` · `deleteUser` · `restoreUser` · `adminTrashUser` · `adminSignOutUser` · `setAdminClaim` · `listAudit` · `getAdminConfig` · `saveConfig`.
 
 ### D. PayPal webhook — `paypalWebhook` (`onRequest`)
-The only **unauthenticated inbound write**. Every event is cryptographically verified against PayPal's verify-webhook-signature API **before any DB write**, and processed **once** (idempotency ledger keyed by event id).
+The only inbound write **not gated by a Firebase user login** — it is authenticated instead by **PayPal's webhook signature** (documented in `openapi.json` as the `PayPalWebhookSignature` scheme). Every event is cryptographically verified against PayPal's verify-webhook-signature API **before any DB write**, and processed **once** (idempotency ledger keyed by event id).
 
 ### Plus: scheduled jobs (no HTTP surface)
 `refreshPrices` (5 min) · `refreshUniverseDaily` (24h) · `purgeOldAudit` (24h) · `purgeExpiredTrash` (24h) · `enforceSubscriptionPeriods` (24h).

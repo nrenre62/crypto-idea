@@ -41,6 +41,22 @@ Commits `76a3711` (spec+doc) · `5bf9f1a` (fixes) · `d82786f` (secrets hygiene)
   (email unconfigured), tierBeforeFailure resurrection (signature-gated), full-collection scans
   (scale-only). See API-SECURITY.md §4.
 
+**Log — 42Crunch audit remediation (2026-07-18):** ran the 42Crunch `42c-ast` static audit (v3.57.0,
+Token/freemium mode) on `openapi.json`. Baseline **9.24/100** (Security 1.88 · Data 7.36). Applied the
+"honest blocking fixes" (target 70, block HIGH+): (1) dropped the `http://localhost` emulator entry from
+`servers` so the documented contract is HTTPS-only — killed the CRITICAL "bearer-over-cleartext" (24 ops)
++ the MEDIUM global-http-clear; (2) added `maxItems` to the 5 response arrays (bounds match real caps —
+users 5000, audit 500, portfolios 100, coins 10000, history 20000); (3) documented the PayPal webhook's
+signature auth as a `PayPalWebhookSignature` apiKey scheme (reconciled the "unauthenticated" wording in
+`openapi.json` info + `API-SECURITY.md` §D to match). Re-audit **32.56/100** (Security **24.61**, +22.7).
+- **Accepted-by-design:** 7 HIGH `security:[]` findings on the genuinely public `/api/*` endpoints —
+  flipping them to bearer would misrepresent the API; left as-is.
+- **📋 Deferred (to reach ≥70):** the MEDIUM Data-Validation tail (~600 occurrences) — string
+  `pattern`/`maxLength`, numeric min/max, `additionalProperties:false`, object `properties`, and the
+  standard `401/403/404/406/415/429/default` responses across the ~32 ops. Larger multi-cycle spec pass;
+  each constraint should mirror real server-side validation, not just appease the scanner.
+- Next 42Crunch step available: `42crunch-scan` (live conformance / BOLA / BFLA) against the running stack.
+
 ## OSS. Open-source skills to build the GitHub account  (📋 PLAN — pick & scrub in a session)
 
 The product code stays **private** (this repo). Separately, publish the most generic, least
