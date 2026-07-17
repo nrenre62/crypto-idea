@@ -179,8 +179,9 @@ order can't silently drift back to the stale spec).
 
 **Locked numbers (2026-06-22 interview follow-up):** Premium ceiling **1,000 coins/portfolio** (the
 *identical literal* in `DEFAULT_PLANS` + the `firestore.rules` hard clamp) · keep tx caps (Pro 2,000 /
-Premium 5,000) · add-coin anti-abuse = **`addCoinGuarded` callable** · live-AI budget **Starter
-offline · Pro 50 · Premium 300 per day** (durable per-uid Firestore counter) · news allowlist
+Premium 5,000) · add-coin anti-abuse = **`addCoinGuarded` callable** · live-AI budget **per-uid
+monthly $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day,
+token-cost-metered — see PRICING.md §4) · news allowlist
 **deferred** (Founders/Community show ⬛ until domains are supplied) · regen cap **N = 2** · App Check
 **v1 manual `context.app`**, prod-flag gated · Claude/Gemini model ids resolved via the `claude-api`
 skill at code time (never hardcoded from memory).
@@ -195,7 +196,7 @@ skill at code time (never hardcoded from memory).
   per-user generation**). **On-demand only — no scheduled refresh job.** Pro/Premium can trigger a
   (re)generation for **any coin (held or searched), at any rank** when the cached entry exceeds their
   tier TTL — **Premium 24h · Pro 48h**; **Starter is read-only** (never triggers → reads the shared
-  cache or ⬛). **No rank gate** — the daily budget (50 / 300 cold runs) + TTL are the only limiters,
+  cache or ⬛). **No rank gate** — the monthly $-budget (`aiMonthlyCents`) + TTL are the only limiters,
   and a held coin always gets a lookup. Cache hits are free. Every user's PWA keeps a **local offline
   copy** of viewed coins (stamped "as of DATE"). **⬛ = insufficient-data is a *finding*, not a gap** —
   shown with a per-axis reason chip (`no public repo` / `no coverage` / `anonymous team`) and taught in
@@ -205,7 +206,7 @@ skill at code time (never hardcoded from memory).
   "upgrade to check this coin" hook). NB: with the news allowlist deferred, Founders + Community are ⬛
   for *all* coins (incl. BTC) until domains are supplied — that's the allowlist, not rank.
 - **Pulse / tutor** are per-user (not per-coin): cached per (uid + portfolio-hash + tf) with a TTL,
-  live only for Pro/Premium within the daily budget; Starter gets the data-driven offline summary.
+  live only for Pro/Premium within the monthly $-budget; Starter gets the data-driven offline summary.
 
 ### The one critical re-sequence
 `0d` (the output validator) is **NOT** a later epic. [`ai-client.js`](src/features/research/api/ai-client.js)
@@ -325,9 +326,9 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
   Settings fields (set-flags only, `keep()` idiom). The Gemini key **must be a paid no-train key**
   (trap 3) — document it in `functions/.env.example` + README.
 - [ ] **B2 · 0b-proxy (KEYSTONE, extends N-3):** `researchAsk` callable — Claude (prose) / Gemini
-  (structured) **+ `validateOutput` (A9) wired in, fail-closed** + per-uid **Firestore** rate limiter
-  (Pro 50 / Premium 300 per day) + **`context.app` App Check gate** (v1, prod-flag) + server-side
-  tier-gate. Extract guard/budget/validator logic as pure helpers and unit-test them.
+  (structured) **+ `validateOutput` (A9) wired in, fail-closed** + per-uid **Firestore** monthly
+  $-budget (`aiMonthlyCents`, token-cost-metered — see PRICING.md §4) + **`context.app` App Check gate**
+  (v1, prod-flag) + server-side tier-gate. Extract guard/budget/validator logic as pure helpers and unit-test them.
 - [ ] **B3 · 0a-antiabuse (#20):** `addCoinGuarded` callable — **reuses B2's per-uid limiter + App
   Check gate**; the client write path routes through it. Closes #20's rate-limit + the write-path App
   Check. Integration throttle test (rapid adds → `resource-exhausted`).
@@ -481,11 +482,12 @@ extend B5/B6/BL-2, they don't replace them.
 - [ ] **C-B1 · validator wired fail-closed (P0)** — restated keystone: `validateOutput` (A9) runs INSIDE
   the B2 proxy, fail-closed, **before** the B4 body-swap. Error contract: throw → offline fallback,
   never the held-back text. (Same as §0 "the one critical re-sequence" — listed here as a P0 gate.)
-- [ ] **C-B2 · per-uid AI budget = daily cold-run COUNT + hidden cost breaker (C3)** — build BL-1's
-  limiter as a daily count (Starter 0 / Pro 50 / Premium 300) with a hidden server-side token-cost
-  circuit-breaker behind it. **Reconciles the 3 conflicting specs** (count vs. token-decrement vs.
-  `aiMonthlyCents`) → the count is the ceiling, the breaker is the safety. Server-enforced, never
-  user-visible (C6/C7).
+- [ ] **C-B2 · per-uid AI budget = monthly $-ceiling (`aiMonthlyCents`) (C3)** — build BL-1's
+  limiter to decrement a per-uid **monthly** counter by the **actual token cost** of each call, capped
+  at the plan's `aiMonthlyCents` (Starter $0 / Pro $4 / Premium $25). **Reconciles the 3 conflicting
+  specs** (daily count vs. token-decrement vs. `aiMonthlyCents`) → the **$-ceiling** is the ceiling
+  (a call-count isn't margin-safe). Server-enforced, never user-visible (C6/C7); shown as
+  "~N analyses/day". Canonical: PRICING.md §4.
 - [ ] **C-B3 · App Check + `addCoinGuarded` alongside the proxy (C11)** — every *novel* coin = one paid
   cold run, so the per-uid add-limiter + `context.app` gate ship in the **same** Wave B push (B2/B3),
   before exposure. (Already mandated #20/D4/D5 — C11 confirms the sequencing.)

@@ -1,8 +1,9 @@
 /**
  * Shared security guards (BL-1a · D4/D5/C16) — CommonJS, dependency-injected.
  *
- * ONE mechanism, reused everywhere it's mandated instead of built three times:
- *  - the Wave-B AI proxy's per-uid daily budget (C-B2: Starter 0 / Pro 50 / Premium 300)
+ * ONE mechanism, reused everywhere a per-uid Firestore counter is mandated:
+ *  - the Wave-B AI proxy's per-uid budget (C-B2) — note: the AI ceiling is a MONTHLY
+ *    $-cost cap (`aiMonthlyCents`), metered on token cost, not a daily call count (PRICING.md §4)
  *  - addCoinGuarded's add-limiter (B3/C11)
  *  - createSubscription's spam cooldown (BL-1c, D5)
  *
@@ -23,7 +24,7 @@ function rateDocPath(uid, key, day) {
   return `rateLimits/${uid}__${key}__${day}`;
 }
 
-// Count-based daily budget (D5; the same counter shape C-B2's AI budget uses).
+// Count-based daily budget (D5) — used by the createSubscription cooldown + reconcile budget.
 // Transactional read+increment so concurrent calls can't both pass at the limit.
 // A denied call consumes nothing. Returns the decision — the caller throws.
 async function consumeDailyBudget(db, { uid, key, limit, now = new Date() }) {

@@ -89,7 +89,7 @@ in fundamentals — not FOMO."*
 |---|---|---|---|---|
 | 19 | Tiers | **Starter** 1 portfolio/10 coins · **Pro** 3 portfolios/50 coins each · **Premium** 15 portfolios/"unlimited" coins (**hard clamp 1,000/portfolio**) · keep tx caps (Pro 2,000 / Premium 5,000) · rename Free→**Starter** (label only; internal tier key stays `free`) | 🔧 | `config/app.plans` + `firestore.rules` + admin defaults + plan labels |
 | 20 | Anti-abuse | "Unlimited" = **1,000-coin hard clamp (rules `min(config,1000)`) + `addCoinGuarded` callable (per-uid rate limit) + App Check (v1 `context.app`)** — never bot-inflatable | 🆕 | The clamp is *independent of* `config/app.plans` (a finite default isn't a ceiling); protects data *and* AI cost (each novel coin = a fresh engine run) |
-| 21 | AI cost control | **Template-first tutor** (personalize only the coin) + **per-uid daily live-AI budget: Starter offline · Pro 50 · Premium 300** (durable Firestore counter) | 🆕 | Keeps the flat-cost model; "unlimited" Premium needs finite ceilings |
+| 21 | AI cost control | **Template-first tutor** (personalize only the coin) + **per-uid monthly live-AI $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), metered on actual token cost — see [PRICING.md §4](PRICING.md). *Supersedes the retired "Pro 50 / Premium 300 per day" call-count (not margin-safe).* | 🆕 | Keeps the flat-cost model; "unlimited" Premium needs finite ceilings |
 | 22 | Journal storage | **Firestore** (already on the coin doc: `journal{thesis,changeMyMind,status,priceAtAdd,createdAt}`, `validJournal` rule) | ✅ | Required for AI read + cross-device sync — **already done** |
 | 23 | Learn at launch | **Full library + gamification + AI tutor** (tutor templated per #21) | 🆕 | Largest content lift: ~9 modules / ~50 lessons + XP/badges/streaks + quiz + wiring |
 | 24 | Learn voice | **No names** — principles taught without attribution | ✅/🔧 | `learn-tab` already no-names; **fix the landing/spec copy that names Buffett/Munger/Marks** |
@@ -107,7 +107,7 @@ in fundamentals — not FOMO."*
 - **Anti-abuse on "unlimited"**: 1,000-coin hard clamp + `addCoinGuarded` callable (rate-limited) + App Check.
 - **No-training LLM tiers** + privacy-policy disclosure (because chat sends the journal raw); Gemini **paid** key only.
 - **Regen cap N = 2** with a safe fallback; the validator **fails closed** (judge error → fallback, never the raw text).
-- **Live-AI budget**: Starter offline · Pro 50/day · Premium 300/day (durable per-uid Firestore counter).
+- **Live-AI budget**: per-uid **monthly $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), metered on actual token cost (see [PRICING.md §4](PRICING.md); supersedes the retired 50/300 daily count).
 - **Every signal carries its fetch date**; dated catalysts auto-expire.
 - **Hard naming wall** between the anonymized app and the named published reports.
 - **No advice anywhere in-app**: no targets, no model portfolio, no aggregate score.
@@ -139,7 +139,7 @@ pre-reconciliation archive):
 | Learn-progress storage | **Firestore** — `users/{uid}/learn/progress` doc + `validLearnProgress` rule (mirrors the journal) |
 | Anti-abuse ceiling number | **1,000 coins/portfolio** — identical literal in `DEFAULT_PLANS` + the `firestore.rules` hard clamp |
 | Add-coin rate-limit | **`addCoinGuarded` callable** (per-uid sliding window + App Check), Wave B |
-| Live-AI budget | **Starter offline · Pro 50/day · Premium 300/day** (durable per-uid Firestore counter) |
+| Live-AI budget | **Monthly $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), token-cost-metered — see [PRICING.md §4](PRICING.md) (supersedes the retired 50/300 daily count) |
 | Regen cap N | **2**, then safe fallback (validator fails closed) |
 | Founders/Community news allowlist | **Deferred** — fetchers built against an (initially empty) config list; those axes show ⬛ until domains are supplied |
 | App Check approach | **v1 `onCall` + manual `context.app`** check, prod-flag gated (no v1/v2 mix) |

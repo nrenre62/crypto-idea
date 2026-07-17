@@ -84,11 +84,13 @@ portfolio-hash + timeframe); Ask is per-user and uncached. *Rationale:* this sin
 keystone of viable margins — it keeps AI spend bounded by the coin universe (~thousands) instead of
 unbounded by signups. *Impact:* the flat-cost property for the AI tier.
 
-**C3 — AI budget unit: a daily cold-run COUNT with a hidden token-cost circuit-breaker.**
-The enforced ceiling is a **per-uid daily count of cold runs** (Starter 0 / Pro 50 / Premium 300),
-with a hidden server-side token-cost breaker behind it for safety against a few giant prompts. This
-resolves the three conflicting specs (daily count vs. token-cost decrement vs. monthly `aiMonthlyCents`
-$-cap) in favour of the count. *Impact:* simple to reason about; the breaker prevents a runaway bill.
+**C3 — AI budget unit: a per-uid MONTHLY live-AI $-cost ceiling (`aiMonthlyCents`).**
+Live-AI spend is bounded by a per-uid monthly dollar ceiling (Starter $0 offline / Pro $4/mo /
+Premium $25/mo), decremented by the **actual token cost** of each call and shown to users as
+"~N analyses/day" (~13 / ~80). This resolves the three conflicting specs (daily count vs. token-cost
+decrement vs. monthly `aiMonthlyCents` $-cap) in favour of the **$-ceiling** — a call-count cap
+isn't margin-safe (one giant prompt blows it), whereas a token-cost-metered $-ceiling can't be gamed.
+Canonical: [PRICING.md §4](PRICING.md). *Impact:* margin-safe; graceful degrade to offline summaries at the cap.
 
 **C4 — Conviction TTL: Premium 24h / Pro 48h / Starter read-only.**
 A cached per-coin signal is valid for the caller's tier window before a paid regeneration may fire.
@@ -203,7 +205,7 @@ Detail + checkboxes in [`NEXT-STEPS.md`](NEXT-STEPS.md) §C. Ranked by leverage.
 - **Wire `validate-output.js` fail-closed inside the proxy** (B2) before any client body-swap (B4).
   Define its error contract: throw → offline fallback, **never** show held-back text. (Re-sequence
   already in §0; restated here because it's the highest-consequence line.)
-- **Per-uid daily AI budget** (count + hidden token-cost breaker), server-enforced. (C3 / BL-1.)
+- **Per-uid monthly AI $-budget** (`aiMonthlyCents`, token-cost-metered), server-enforced. (C3 / BL-1; see PRICING.md §4.)
 - **App Check + `addCoinGuarded`** per-uid limiter. (C11 / B3.)
 
 ### 🟠 Wave B P1 — the AI cache layer itself

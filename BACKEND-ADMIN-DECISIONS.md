@@ -124,8 +124,9 @@ docs · verify secret files git-ignored before adding a remote.
 ### Abuse, cost & App Check
 - **D4 — App Check is a hard go-live gate.** Provision reCAPTCHA + add server-side `context.app` checks on
   sensitive callables and the `/api` proxy. Built once, reused by the AI proxy + addCoin + billing.
-- **D5 — Per-uid limiting + already-paid guard.** A Firestore-backed per-uid cooldown (same mechanism as the
-  AI daily budget 50/300) + an "already on a paid tier" short-circuit in `createSubscription`.
+- **D5 — Per-uid limiting + already-paid guard.** A Firestore-backed per-uid cooldown (the shared
+  `consumeDailyBudget`/`checkCooldown` counter in `guards.js`) + an "already on a paid tier" short-circuit
+  in `createSubscription`. (The live-AI ceiling is a monthly $-cap — `aiMonthlyCents` — not a daily count; see PRICING.md §4.)
 - **D6 — PayPal webhook idempotency now.** Store each processed `event.id` and skip duplicates.
 
 ### Admin panel capabilities

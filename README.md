@@ -128,15 +128,21 @@ users/{uid}
 
 ## Tier Limits
 
-| Feature               | Free  | Pro        | Premium          |
-|----------------------|-------|------------|------------------|
-| Portfolios           | 1     | 3          | 15 (customizable)|
-| Coins per portfolio  | 10    | 50         | 1,000 (customizable)|
-| Transactions per coin| 50    | 2,000      | 5,000 (customizable)|
-| DCA calculations/day | 20    | Unlimited  | Unlimited        |
-| Max storage          | 5 MB  | 500 MB     | 15 GB            |
-| Price: monthly       | $0    | $9.99      | $49.99           |
-| Price: yearly        | $0    | $79.99     | $399.99          |
+| Feature                | Starter           | Pro              | Premium             |
+|------------------------|-------------------|------------------|---------------------|
+| Portfolios             | 1                 | 3                | 15                  |
+| Coins per portfolio    | 10                | 50               | 1,000 (hard clamp)  |
+| Transactions per coin  | 50                | 2,000            | 5,000               |
+| Live AI                | offline summaries | ~13 analyses/day | ~80 analyses/day    |
+| Price: monthly         | $0                | $9.99            | $49.99              |
+| Price: yearly          | $0                | $99.99           | $499.99             |
+
+Limits are **server-enforced** by [`firestore.rules`](firestore.rules) (reading `config/app.plans`,
+admin-editable), with the built-in defaults above as the fallback. "Unlimited" Premium coins is a
+**1,000-coin hard clamp** (Decision #20) — it can only be lowered, never raised past 1,000. Live-AI
+spend is bounded by a per-uid **monthly $-cost ceiling** (`aiMonthlyCents`: Pro ~$4/mo, Premium
+~$25/mo), shown to users as "~N analyses/day" — see [PRICING.md](PRICING.md) §4 and
+[USER-BENEFITS.md](USER-BENEFITS.md).
 
 ## Costs
 
