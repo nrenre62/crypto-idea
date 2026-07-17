@@ -78,6 +78,18 @@ a `../` or lose a `docs/` depending on direction); (3) **resolve the 2 diverged 
 keep the fuller `docs/` copies, delete the stale root ones (confirm no unique content first); (4)
 verify no broken links after (grep for `](` targets). Do as its own commit so a link break is isolated.
 
+## PROCESS. Interview & consistency SOP  (✅ BUILT 2026-07-17)
+
+Standing operating procedure so **code + rules + README + every MD doc stay in agreement** — one
+topic change (pricing, tier limits, settings, admin, API, security…) is reflected *everywhere* it
+lives, no silent drift. Canonical: [`docs/interview.md`](../interview.md); bound via a MANDATORY rule
+in [`CLAUDE.md`](../../CLAUDE.md) → Conventions (loaded every session). Flow for substantive work:
+**AskUserQuestion → find gaps across all related files → plan + get a yes → consistency sweep (every
+file in the topic's map row) → verify → log here → commit.** Trivial single-file fixes skip it with a
+one-line heads-up. On an error: surface it, then AskUserQuestion for the fix. The `interview.md`
+**topic→files consistency map** is the concrete checklist (Pricing / Tier limits / AI budget /
+Billing / User settings / Admin / API / Security / Caching). Keep the map current when files move.
+
 ## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (✅ BUILT 2026-07-07)
 
 Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:

@@ -31,6 +31,14 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - Output encoding: React auto-escapes; the static landing uses `textContent`, never `innerHTML`, for API data. **CSP `script-src` has NO `unsafe-inline`** (D12, 2026-07-03): all page scripts are external files in `public/` (`landing.js`, `sw-register.js`, `termly-embed.js`) — never add an inline `<script>` to any HTML entry; the build ships zero inline scripts.
 
 ## Conventions
+- **Interview & consistency ([`docs/interview.md`](docs/interview.md)) — MANDATORY for substantive work:**
+  for any new/edited **function, tool, option, category, or plan**, any **review** (code / settings /
+  admin / security / API / pricing), or anything touching a topic in the interview.md **consistency
+  map** — first **interview with AskUserQuestion**, **find the gaps** across all related code+docs,
+  **plan and get a yes** before editing, then do the **consistency sweep** (change it in EVERY file
+  the topic's map row lists — no silent drift), verify, log the plan in `NEXT-STEPS.md`, commit. On an
+  error: surface it plainly, then use AskUserQuestion to pick the fix. *Trivial, obvious, single-file
+  fixes (typo / one-liner) skip this with a one-line heads-up.*
 - **Agile workflow ([`AGILE.md`](docs/product/AGILE.md)):** work the prioritized backlog (`NEXT-STEPS.md`) one
   small, shippable increment at a time; every increment meets the **Definition of Done** (KISS +
   secure, tests green, verified, committed, docs updated). Retrospective = Kaizen (leave it better,
