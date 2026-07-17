@@ -48,7 +48,7 @@ in fundamentals — not FOMO."*
 | 2 | Platform | **Web PWA now, native later** · fully responsive **mobile + desktop** | ✅/🆕 | Stay on Vite/React/Firebase; responsive is a hard UI requirement |
 | 3 | Acquisition funnel | **Research-led** — @CryptoIdea reports on Substack/X feed signups | — | Marketing motion, not app code; see naming wall (#14) |
 | 4 | Acquisition hook | **Anti-FOMO / regret** ("still holding a coin that quietly died?") | 🔧 | Landing/onboarding copy leads anti-hype, not FOMO |
-| 5 | Payments | **PayPal** (already partly wired: signature-verified webhook + callables) | ✅ | No Stripe/RevenueCat unless a native pivot later |
+| 5 | Payments | **PayPal only** (signature-verified webhook + callables) | ✅ | PayPal is the sole processor; no alternate planned unless a native pivot later |
 
 ---
 

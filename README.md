@@ -154,17 +154,13 @@ Firebase free Spark plan covers:
 
 This handles roughly 10,000+ active users before you need to upgrade ($25/month Blaze plan, pay-as-you-go).
 
-## Adding Stripe Payments (for Pro tier)
+## Payments (PayPal)
 
-1. Create account at [stripe.com](https://stripe.com)
-2. Install: `npm install stripe`
-3. Create a subscription product in Stripe Dashboard
-4. Use Stripe Checkout for payment flow
-5. Set up a webhook to update user tier in Firestore when payment succeeds
-
-Stripe takes ~3% per transaction (much less than Apple's 30%).
-
-> Note: payments are implemented with **PayPal** (see `functions/index.js`), not Stripe.
+Subscriptions (Pro + Premium) are handled with **PayPal** — a signature-verified, idempotent
+webhook, an already-paid guard + per-uid cooldown, and period-end downgrades (access always runs
+to the end of the paid period). The code lives in `functions/index.js` (PayPal section) +
+`functions/billing.js`. The full lifecycle, webhook events, secret handling, and the go-live
+checklist are in **[BILLING.md](docs/decisions/BILLING.md)**. PayPal fees are 2.9% + $0.30 per charge.
 
 ---
 

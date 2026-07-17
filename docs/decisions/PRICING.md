@@ -255,9 +255,6 @@ budget. That's the moat.
    compute per-cycle fees accurately (and so the user's Account page can show
    "Renews 2026-08-15 · annual" instead of guessing).
 3. **App Check (#20)** before launching any free-tier live-AI taste.
-4. **Stripe as an alternate processor** — PayPal fees (2.9% + $0.30) are
-   competitive but Stripe's per-charge fee is the same and conversion is
-   higher in many markets. Track as a post-launch experiment.
 
 ---
 
