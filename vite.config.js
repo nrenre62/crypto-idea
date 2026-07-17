@@ -19,7 +19,8 @@ const r = (p) => fileURLToPath(new URL(p, import.meta.url));
 // In dev, map clean routes to their HTML entry. Firebase Hosting does the same
 // via rewrites in production.
 //   /app, /edge, /pro-success → app.html (React tracker)
-//   /dca                       → dca.html (static free DCA calculator)
+//   /admin                     → admin.html (separate admin app)
+// (The free DCA calculator is a section of the landing, index.html#dca — not its own page.)
 const appRoutes = ["/app", "/edge", "/pro-success"];
 const cleanUrlsDev = {
   name: "clean-urls-dev",
