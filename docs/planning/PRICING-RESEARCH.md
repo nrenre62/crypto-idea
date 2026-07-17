@@ -1,9 +1,10 @@
 # Competitor Pricing Research
 
-**Purpose.** The raw competitor research behind [PRICING.md](../decisions/PRICING.md) §2 (price
-anchors) and §6 (what competitors gate behind premium). PRICING.md's Section 6 promised this doc
-"once authored" — this is it. It backs *why* Premium sits at **$49.99/mo** and where our
-feature-gating lines up with the market.
+**Purpose.** The competitor pricing research that our own pricing decisions in
+[PRICING.md](../decisions/PRICING.md) are anchored against. This is the **single home for competitor
+data** — PRICING.md stays focused on *our* app's prices, rationale, and benefits and links here, so
+decisions and market research don't rot into each other. It backs *why* Premium sits at **$49.99/mo**
+and where our feature-gating lines up with the market.
 
 **Scope.** The 7 competitors PRICING.md already cites — CoinStats, Token Metrics, Rotki, Glassnode,
 Santiment, Nansen, Messari — plus three close portfolio-tracker peers (DeBank, Zerion, Delta).
@@ -25,8 +26,8 @@ they conflicted with the official page (most stale reviews still cite retired ti
 >   customer-facing copy.
 
 **As of:** 2026-07-17. **Not** a canonical decisions doc — PRICING.md remains the source of truth
-for our own numbers. This is the evidence file; when these figures and PRICING.md's anchors diverge,
-see [§13 Reconciliation](#13-reconciliation--deltas-vs-pricingmd).
+for our own numbers; this is the competitor evidence behind them. For what these findings mean for
+our anchor, see [§13 Implications for our pricing](#13-implications-for-our-pricing).
 
 ---
 
@@ -43,9 +44,9 @@ see [§13 Reconciliation](#13-reconciliation--deltas-vs-pricingmd).
   AI-research layer — which is exactly the wedge PRICING.md §6 identifies.
 - **Gating pattern across the market:** AI/research, tax/CSV export, advanced analytics, API access,
   higher capacity, and faster support are the near-universal paywall levers (see [§12 matrix](#12-cross-market-premium-gating-matrix)).
-- **PRICING.md has drifted in three spots** since 2026-06-23 — CoinStats *Degen*, *Token Metrics*,
-  and *Messari* figures are now stale (details in [§12](#12-reconciliation--deltas-vs-pricingmd)).
-  Per this pass's scope, those figures are flagged here, **not** edited in PRICING.md.
+- **Three competitors restructured** since our 2026-06-23 pricing decision — CoinStats *Degen*,
+  *Token Metrics*, and *Messari* — so their older figures are stale (details in
+  [§13](#13-implications-for-our-pricing)). None of it moves our $49.99 anchor.
 
 ---
 
@@ -348,26 +349,27 @@ PRICING.md §6 claims, and the market confirms it's defensible: nobody in this s
 
 ---
 
-## 13. Reconciliation — deltas vs PRICING.md
+## 13. Implications for our pricing
 
-PRICING.md's anchor table (§2.1) and notes were written **2026-06-23**. Comparing to this live pass:
+Our **$49.99 Premium** anchor was set 2026-06-23. Does the current market still support it? **Yes.**
+A few competitor figures that decision leaned on have since changed — recorded here (not copied back
+into PRICING.md) so nobody re-imports stale numbers:
 
-| PRICING.md says | Live finding (2026-07) | Status |
+| Figure the June-2026 decision leaned on | Live finding (2026-07) | Status |
 |---|---|---|
-| Nansen Pro **$49/mo** (annual) | Pro is **$69/mo monthly, $49/mo annual-effective** ($588/yr) | ✅ Accurate (annual). Add "monthly $69" nuance |
-| Glassnode Advanced **$49/mo** (annual) | Advanced **$49/mo billed annually** | ✅ Accurate |
-| Santiment Pro **$49/mo** | Sanbase Pro **$49/mo** ($529/yr) | ✅ Accurate |
-| CoinStats Premium **$13.99/mo** | Premium **$13.99/mo** list | ✅ Accurate |
-| CoinStats Degen **~$9.90/mo equiv** | Degen is a **high-end** tier: ~$62.91/mo annual (~$755/yr), ~$89/mo monthly | ❌ **Stale** — Degen is now a premium power-user tier, not a cheap one |
-| Messari Enterprise **quote-based** | Now a **published $5,000/yr** Individual list price; Lite/Pro **retired** | ⚠️ **Update** — no longer purely quote; Individual list exists |
-| Token Metrics Premium **$199.99/mo** | Old Basic/Advanced/Premium/VIP **retired**; now Signal $49 / Alpha $199 / Roundtable $499 (product = "Daily Pulse") | ❌ **Stale** — "Premium $199.99" tier no longer exists |
-| §2.3: "competitor **Delta** does **41%**" annual | Delta markets **"Save 40%"** on yearly; restructured to PRO/PRO+ | ⚠️ Minor — 40% not 41% |
+| Nansen Pro **$49/mo** (annual) | Pro **$69/mo monthly, $49/mo annual-effective** ($588/yr) | ✅ Holds (annual); monthly is now $69 |
+| Glassnode Advanced **$49/mo** (annual) | Advanced **$49/mo billed annually** | ✅ Holds |
+| Santiment Pro **$49/mo** | Sanbase Pro **$49/mo** ($529/yr) | ✅ Holds |
+| CoinStats Premium **$13.99/mo** | Premium **$13.99/mo** list | ✅ Holds |
+| CoinStats Degen **~$9.90/mo** | Degen is a **high-end** tier: ~$62.91/mo annual (~$755/yr), ~$89/mo monthly | ❌ Changed — now a premium power-user tier |
+| Messari Enterprise **quote-based** | **published $5,000/yr** Individual; Lite/Pro **retired** | ⚠️ Changed — a published individual list price now exists |
+| Token Metrics Premium **$199.99/mo** | old Basic/Advanced/Premium/VIP **retired**; now Signal $49 / Alpha $199 / Roundtable $499 ("Daily Pulse") | ❌ Changed — that "Premium" tier no longer exists |
+| Annual discounting: "Delta does 41%" | Delta markets **"Save 40%"**; restructured to PRO/PRO+ | ⚠️ Minor — 40%, not 41% |
 
-**Bottom line for our pricing:** the **$49 band that anchors Premium is intact** (Nansen/Glassnode/
-Santiment all ~$49), so the $49.99 decision still stands on current evidence. The stale rows above
-are competitor-side drift that don't move our anchor, but PRICING.md §2.1's *examples* should be
-refreshed on the next pricing review. **Per the scope of this pass, PRICING.md's numbers were left
-unchanged — this table is the flag.**
+**Bottom line:** the **~$49 band that anchors Premium is intact** (Nansen / Glassnode / Santiment all
+~$49), so **the $49.99 decision still stands on current evidence.** The changed rows are
+competitor-side drift that don't touch our anchor — and they're exactly why this research now lives
+in one place instead of being copied into PRICING.md.
 
 ---
 

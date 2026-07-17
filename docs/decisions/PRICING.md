@@ -1,9 +1,11 @@
 # Crypto Idea — Pricing Plan
 
-**Canonical pricing decisions for Crypto Idea.** Last updated 2026-06-23.
-This doc is the source of truth for *what we charge and why*. The user-facing
-benefits page is [USER-BENEFITS.md](../product/USER-BENEFITS.md). The product-direction
-record is [PRODUCT-DECISIONS.md](PRODUCT-DECISIONS.md) (#19/#21).
+**Canonical pricing decisions for Crypto Idea.** Last updated 2026-07-17.
+This doc is the source of truth for *what we charge and why* — our tiers, prices,
+rationale, per-tier benefits, and margins. **Competitor pricing research lives separately
+in [PRICING-RESEARCH.md](../planning/PRICING-RESEARCH.md)** so this doc stays focused on our
+own numbers. The user-facing benefits page is [USER-BENEFITS.md](../product/USER-BENEFITS.md);
+the product-direction record is [PRODUCT-DECISIONS.md](PRODUCT-DECISIONS.md) (#19/#21).
 
 Two readers: (1) **future me** — to remember *why* a number is what it is; (2)
 **Claude / a teammate** — so they don't silently undo a margin-critical choice.
@@ -34,21 +36,15 @@ hard-coded into the app.
 
 ### 2.1 Premium stays at $49.99/mo
 
-Anchored against the segment we compete in:
-
-| Comparable | Top tier | Notes |
-|---|---|---|
-| Nansen Pro | **$49/mo** (annual) | On-chain analytics — same price band |
-| Glassnode Advanced | **$49/mo** (annual) | Premium metrics — same price band |
-| Santiment Pro | **$49/mo** | Trader-grade research — same price band |
-| CoinStats Premium | $13.99/mo | Casual tracker — below our band |
-| CoinStats Degen | ~$9.90/mo equiv | Power-user upsell |
-| Messari Enterprise | quote-based | Above us (institutional) |
-| Token Metrics Premium | $199.99/mo | Premium pricing exists above us |
-
 Decision: **$49.99/mo is the right anchor for a research/conviction tool that
-ships AI on top of a portfolio tracker.** Users at $49 expect more than alerts;
-that's exactly what conviction signals + Pulse + Ask deliver.
+ships AI on top of a portfolio tracker.** It sits squarely in the ~$49/mo band
+that serious crypto-research tools charge, so a user paying $49 expects more than
+alerts — that's exactly what conviction signals + Pulse + Ask deliver. There's
+clear headroom above us in the market, so $49.99 is an anchor, not a ceiling.
+
+The competitor pricing this is anchored against — and the confirmation that the
+~$49 band still holds — is in
+[PRICING-RESEARCH.md](../planning/PRICING-RESEARCH.md).
 
 ### 2.2 Pro at $9.99/mo
 
@@ -63,13 +59,14 @@ landing). Add a mid-tier then, not before.
 ### 2.3 Annual at "2 months free" (−17%)
 
 Industry standard for SaaS where retention is the lever, not aggressive
-discounting. Examples: **Token Metrics literally markets "2 months free"**;
-TradingView annual saves up to 17%; CoinMarketCap API ~17%.
+discounting (how competitors discount their annual plans — several use the same
+"2 months free" framing — is in
+[PRICING-RESEARCH.md](../planning/PRICING-RESEARCH.md)).
 
 Aggressive options we considered and rejected:
 - −20% (gives up another $10–20 per Premium signup for no obvious lift)
-- −33% (matches old landing copy but burns margin; competitor Delta does 41%
-  with a much lower base price — different game)
+- −33% (matches old landing copy but burns margin — deep annual discounts suit a
+  much lower base price, a different game than ours)
 - No annual at all (leaves recurring-revenue / churn-reduction on the table)
 
 The annual price is **stored**, not computed (`config/app.plans.<tier>.priceYear`).
@@ -226,24 +223,24 @@ math. Tracked under "Open items" below.
 
 ---
 
-## 6. What competitors gate behind premium (for roadmap)
+## 6. What our Premium gates (positioning)
 
-From the competitor research — full, sourced, live-2026 pricing pass in
-[PRICING-RESEARCH.md](../planning/PRICING-RESEARCH.md) (see its §13 for figures in this
-table/§2.1 that have since drifted):
+Our Premium's wedge **isn't capacity** — every tracker offers more portfolios and
+coins. It's the **integration of journal + AI conviction + research**, gated by the
+AI budget. That's the moat. What each paid tier actually unlocks:
 
-| Feature gate | Who does it | Our position |
-|---|---|---|
-| **AI research / copilot** | CoinStats Premium, Token Metrics Premium | ✅ Premium gets Pulse + Ask at full budget |
-| **Custom dashboards / historical analytics** | Rotki Premium, Glassnode Pro | Future — backlog |
-| **Tax / compliance exports** | CoinStats Premium, Rotki Premium | Backlog (P0 post-launch) |
-| **VIP / faster support** | CoinStats Degen | ✅ Premium includes priority support |
-| **API access** | Santiment Max | Not on roadmap (we are not a data API) |
-| **Higher capacity** | every competitor | ✅ 15 portfolios / 1,000 coins / 5,000 tx |
+| Capability | Our position |
+|---|---|
+| **AI research / copilot** (conviction + Pulse + Ask) | ✅ Premium at full budget; Pro at a smaller budget; Starter offline-only |
+| **Higher capacity** | ✅ 15 portfolios / 1,000 coins / 5,000 tx on Premium (see §1) |
+| **Priority / faster support** | ✅ Premium includes priority support |
+| **Custom dashboards / historical analytics** | Backlog |
+| **Tax / compliance exports** | Backlog (P0 post-launch) |
+| **API access** | Not on roadmap — we're a conviction tool, not a data API |
 
-The wedge for our Premium isn't capacity (everyone offers more capacity).
-It's the **integration of journal + AI conviction + research**, gated by AI
-budget. That's the moat.
+For how competitors gate *their* premium features (AI, analytics, tax exports, API,
+capacity, support), see the cross-market matrix in
+[PRICING-RESEARCH.md §12](../planning/PRICING-RESEARCH.md#12-cross-market-premium-gating-matrix).
 
 ---
 
