@@ -174,21 +174,27 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 
 | Function | Type | Purpose |
 |----------|------|---------|
-| `api` | HTTP | CoinGecko proxy — `/api/prices`, `/api/search`, `/api/trending`, `/api/history` (see below) |
+| `api` | HTTP | CoinGecko proxy + public config — `/api/prices`, `/api/search`, `/api/trending`, `/api/coinlist`, `/api/history` (see below), plus `/api/config` (public app flags) and `/api/subscribe` (landing email capture) |
 | `refreshPrices` | Scheduled (every 5 min) | Keeps prices fresh for the **hot set** (top ~1,250, `HOT_PAGES`) in `cache/universe`; the long tail is priced on demand by `/api/prices` |
-| `refreshUniverseDaily` | Scheduled (every 24 h) | Refreshes all ~3,000 (metadata + price), guarantees the full list, and prunes coins that dropped off |
-| `paypalWebhook` | HTTP | Verifies PayPal signatures and updates a user's tier |
-| `createSubscription` / `cancelSubscription` | Callable | Start/cancel a PayPal subscription (auth-enforced) |
+| `refreshUniverseDaily` | Scheduled (every 24 h) | Refreshes all ~3,000 (metadata + price), guarantees the full list, prunes coins that dropped off, and prunes `historyCache` docs past `HISTORY_TTL` |
+| `paypalWebhook` | HTTP | Signature-verified + idempotent; updates a user's tier/subscription from PayPal events (see [BILLING.md](docs/decisions/BILLING.md)) |
+| `createSubscription` / `cancelSubscription` | Callable | Start / cancel a PayPal subscription (auth-enforced; cancel keeps access to the period end) |
+| `resolveRecheckout` / `reactivateSubscription` | Callable (self) | Resolve a pending Premium→Pro re-checkout / "Keep my plan" un-cancel (R29) |
+| `enforceSubscriptionPeriods` | Scheduled (every 24 h) | The billing sweep — drops a cancelled sub to Starter once its period ends, and a payment-failed sub after the 7-day grace |
 | `getStats` | Callable | Admin-only **combined** usage/revenue stats (no personal data) |
 | `setAdminClaim` | Callable | Admin-only: grant/revoke the `{admin:true}` custom claim |
-| `listUsers` | Callable | Admin-only: full users list (Auth+profile merge, operational data only, capped 5000) |
-| `lookupUser` | Callable | Admin-only: look up one user by email (tier/status/usage) for support |
-| `getAdminConfig` | Callable | Admin-only: read saved config to pre-fill Settings (secrets returned as set-flags only) |
+| `listUsers` / `lookupUser` | Callable | Admin-only: full users list (Auth+profile merge, operational data only, capped 5000) / look up one user by email for support |
+| `getAdminConfig` / `saveConfig` | Callable | Admin-only: read config to pre-fill Settings (secrets returned as set-flags) / write API keys + settings to the locked `config/app` doc |
 | `listAudit` | Callable | Admin-only: recent admin-action audit log |
 | `setUserTier` / `suspendUser` / `deleteUser` / `restoreUser` | Callable | Admin-only: change tier / suspend / delete-with-erasure (blocks self-target) / restore from trash |
+| `setPremiumLimits` | Callable | Admin-only: set a user's per-user custom limits (`premiumLimits`, clamped to the same hard ceilings) |
+| `adminTrashUser` / `adminSignOutUser` | Callable | Admin-only: soft-delete a user to the 30-day trash (cancels their billing; can't trash an admin) / revoke a target's refresh tokens (sign out all their devices) |
 | `deleteMyAccount` / `restoreMyAccount` / `exportMyData` | Callable | Self-service GDPR/CCPA: a user soft-deletes (30-day trash), restores, or exports **their own** data |
-| `purgeExpiredTrash` | Scheduled (daily) | Permanently erases soft-deleted accounts past the 30-day window |
-| `saveConfig` | Callable | Admin-only: write API keys to the locked `config/app` doc |
+| `signOutEverywhere` / `reconcileMyCounters` | Callable (self) | Sign out all of the caller's own devices / recompute the caller's own portfolio/coin/tx counters from actual data (daily-budgeted) |
+| `purgeExpiredTrash` / `purgeOldAudit` | Scheduled (every 24 h) | Permanently erase soft-deleted accounts past the 30-day window / delete audit-log entries past retention |
+| `devSetMyTier` | Callable (dev-only) | Set the caller's own tier in the **emulator only** — hard-refuses in production (`FUNCTIONS_EMULATOR` gate), so tier stays server-only live |
+
+> The complete request/response contract for every function + `/api/*` endpoint is in [openapi.json](openapi.json) (32 operations); the full billing flow is in [BILLING.md](docs/decisions/BILLING.md).
 
 ## CoinGecko proxy (`api`)
 
