@@ -2,8 +2,10 @@
 **v4 · what the in-app AI may and may not do — enforced, not suggested** · **RECONCILED 2026-06-22**
 
 > ⚠️ **Reconciled against [`PRODUCT-DECISIONS.md`](../../PRODUCT-DECISIONS.md) (canonical).** Additions:
-> - **"Unlimited" (Premium chat + coins) = a high HARD ceiling**, never bot-inflatable to infinity — rate-limited endpoints + App Check (decision #20).
+> - **"Unlimited" (Premium chat + coins) = a high HARD ceiling**, never bot-inflatable to infinity — rate-limited endpoints + App Check (decision #20). Live-AI usage is bounded by a per-uid **monthly $-ceiling** (`aiMonthlyCents`), shown to users as "~N analyses/day"; see [`PRICING.md §4`](../../PRICING.md).
 > - **LLM split is decided:** Claude for prose (chat, Pulse), Gemini for structured signal extraction (decision #18).
+>
+> **⚠️ Two specifics below were superseded by LATER decisions — this doc is the AI tool-*policy* record, not canonical for them:** (a) the LLM provider is now **Claude-only** (Opus 4.8) for both prose and structured — no Gemini (see [`BACKEND-ADMIN-DECISIONS.md`](../../BACKEND-ADMIN-DECISIONS.md) D17); (b) the conviction-cache TTL is **tiered** (Premium 24h / Pro 48h), not a flat 48h (see [`CACHE-POLICY.md`](../../CACHE-POLICY.md) C4). The AI usage limits here are reconciled to the **$-ceiling** below.
 > - **Portfolio Pulse is its own AI surface** (own cache, trigger, tier-gate, validation) — bind portfolio-level "describe, don't prescribe" (decision #12).
 > - **Fail-closed = up to N regens then safe fallback**, with N capped to bound latency/cost (decision #16).
 
@@ -53,14 +55,14 @@ portfolio + journal, and the engine's *cached* signals.
 Tier limits live in the backend, not the client and not the prompt. Full matrix in
 `user-account-settings`; the tool-level rules:
 
-- **Chat rate limit:** Starter 5/day · Pro 50/day · Premium unlimited — counted server-side.
+- **Live-AI usage:** Starter **offline** (no live AI — data-driven summaries only) · Pro **~13/day** · Premium **~80/day** — the real ceiling is the per-uid **monthly $-budget** (`aiMonthlyCents`: Pro $4/mo, Premium $25/mo), metered on token cost and shown to users as "~N analyses/day". "Premium unlimited" = a high hard ceiling most users never reach, not infinity. Enforced server-side; see [`PRICING.md §4`](../../PRICING.md).
 - **On-demand engine fetch:** Pro & Premium only. A Starter request for an untracked coin is refused with an upgrade prompt — the engine is never invoked.
 - **Real-time fetch** (bypassing the 48h cache): Premium only. Pro and Starter read the 48h cache.
 - **AI deep-dive report** (a fuller synthesis from the same approved sources): Premium only.
 - **AI thesis review** (the model critiques the user's written journal thesis): Premium only.
 - **AI tutor in lessons** (Premium learning): answers questions on a lesson, quizzes the user and explains gaps, and re-explains using coins they hold — drawn from the lesson content + the user's portfolio. No open web.
 - **Personalized lessons** (Premium learning): examples from the user's holdings, a gap-tailored path, and portfolio-triggered lessons — driven by the user's own data. No open web.
-- **Coin cap & watchlist size:** Starter 10 · Pro 50 · Premium ∞ — checked per request.
+- **Coin cap & watchlist size:** Starter 10 · Pro 50 · Premium **1,000** (the "∞" hard clamp, #20) — checked per request server-side.
 
 A reminder on the Premium-only features: every one of them — the deep-dive report, the
 thesis review, the AI tutor, and personalized lessons — runs on the **same approved

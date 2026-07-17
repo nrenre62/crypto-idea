@@ -9,7 +9,7 @@
   "servers": [
     {
       "url": "http://localhost:5001/demo-crypto-idea/us-central1",
-      "description": "Local Firebase emulator — Cloud Functions base. REST endpoints are under /api/*; callables and the webhook are at /<functionName>."
+      "description": "Local Firebase emulator — Cloud Functions base. Plaintext HTTP is expected here: the emulator serves on localhost only (never exposed to the network), so no TLS is used. This is the ONLY http:// surface — production (below) and the PayPal webhook are always HTTPS. REST endpoints are under /api/*; callables and the webhook are at /<functionName>."
     },
     {
       "url": "https://us-central1-YOUR_PROJECT.cloudfunctions.net",

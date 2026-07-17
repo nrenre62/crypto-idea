@@ -271,3 +271,4 @@ budget. That's the moat.
 - In-app billing screen: [`src/components/Login.jsx`](src/components/Login.jsx) — reads `site.plans` via context
 - Decisions log: [`PRODUCT-DECISIONS.md`](PRODUCT-DECISIONS.md) #19 (tiers), #20 (anti-abuse), #21 (AI cost control)
 - User-facing benefits: [`USER-BENEFITS.md`](USER-BENEFITS.md)
+- Billing mechanism (PayPal lifecycle, webhook, secrets, go-live): [`BILLING.md`](BILLING.md)
