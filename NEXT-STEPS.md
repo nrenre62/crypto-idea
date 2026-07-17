@@ -12,6 +12,44 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## API. API spec + security review — 2026-07-08 founder interview  (✅ BUILT 2026-07-08)
+
+Canonical: [`API-SECURITY.md`](API-SECURITY.md) (surface map, key model, findings, rotation runbook)
++ [`openapi.json`](openapi.json) (OpenAPI 3.0.3, 32 operations). A local multi-agent adversarial
+gap-hunt (44 agents, every finding double-verified) found **11 confirmed gaps → 8 fixes** (7 refuted).
+Commits `76a3711` (spec+doc) · `5bf9f1a` (fixes) · `d82786f` (secrets hygiene).
+
+- [x] **API-1 OpenAPI spec** — `openapi.json` from the codebase: public REST `/api/*`, user+billing
+      callables, all 14 admin callables, the PayPal webhook; validated (refs resolve, unique opIds,
+      no GET bodies); secrets modeled as set-flags; emulator + prod-placeholder servers.
+- [x] **API-2 Counter-forge (HIGH)** — `firestore.rules` `counterNoForge` forbids any client counter
+      DECREASE; client deletes no longer decrement (fail-safe-high, reconciled after delete); rules
+      test proves the decrement is denied.
+- [x] **API-3 Rate-limiter XFF spoof (HIGH)** — pure `functions/net-utils.js` `clientIp` right-anchored
+      + IP-validated (unit-tested); overflow wipe prunes only expired buckets.
+- [x] **API-4 Denial-of-wallet gates** — `/api/history` + `/api/prices` gate on shared-universe
+      membership before any CoinGecko fetch; fold-back never creates off-list entries; 1h negative cache.
+- [x] **API-5 Read-amplification budgets** — `exportMyData` cooldown + `reconcileMyCounters` daily budget
+      (wires the built-but-unused `guards.consumeDailyBudget`).
+- [x] **API-6 Webhook idempotency ordering** — roll back the event marker on a processing failure so a
+      retry reprocesses (was permanently dropping a failed paid event).
+- [x] **API-7 Secrets hygiene** — `.gitignore` `.env*` + `*.p12`/`*.p8`/`credentials*.json`/`.npmrc`;
+      pre-commit content scan adds the app's real key formats (`sk-ant-`/`CG-`/PayPal). Bundle + full
+      git history scanned clean.
+- **Refuted (verified NOT exploitable, not fixed):** SSRF non-dotted IP (Node URL normalises),
+  `getAdminConfig` webhookId echo (admin-gated), config cache stale-secret window, subscribe abuse
+  (email unconfigured), tierBeforeFailure resurrection (signature-gated), full-collection scans
+  (scale-only). See API-SECURITY.md §4.
+
+## OSS. Open-source skills to build the GitHub account  (📋 PLAN — pick & scrub in a session)
+
+The product code stays **private** (this repo). Separately, publish the most generic, least
+product-revealing skills as their own public repos to build the GitHub profile. Each needs a
+**sanitization pass** (scrub project-specific paths/names/decisions) before publishing. Candidate
+order (most generic first): `secure-by-design`, `api-security`, `tdd-testing`, `responsive-app`,
+`drawing-diagram`, `landing-page-design`, `saas-pricing`. Decide the set + naming + license (MIT) in
+a focused session; do NOT publish product docs (PRODUCT-DECISIONS, DESIGN-PASS, etc.).
+
 ## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (✅ BUILT 2026-07-07)
 
 Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:
