@@ -12,6 +12,49 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
+
+Canonical: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) (scored gap-audit vs. external
+best practice + cited sources + phased plan). A limited-but-grounded pass (4 read-only research agents
+over React-Admin / Refine / AdminJS / Stripe / PayPal / PostHog / OWASP / Auth0 / WorkOS / LaunchDarkly
+/ Unleash / Sentry docs + OSS repos, then a synthesis cross-referenced against the code). **Nothing
+built** — this is the plan; each item runs the full §PROCESS interview+sweep when scheduled. Composes
+with §BL (admin capabilities), §4 go-live (MFA/App Check), §C (config/kill-switches), §U (settings) —
+does not duplicate them. Score of the gaps: **2 critical · 7 high · ~13 medium · ~12 low**. The panel
+is already strong (isolated `/admin`, soft-delete/trash, real audit log, editable server config,
+aggregate-only privacy views); gaps cluster in **billing-ops visibility, observability, audit depth,
+growth metrics**. Recurring win: most valuable gaps are cheap because they extend existing patterns
+(`config/app.flags` → kill-switches + announcement; `webhookEvents` → webhook health; `getStats` →
+trend snapshots). Phases (KISS-first, most valuable first):
+
+- [ ] **ADMIN-0 · Launch gate** (🔴 critical) — admin **MFA/2FA** + **App Check** enforcement +
+      `beforeCreate` **hard signups-off** + make the `audit` collection **append-only** in rules.
+      *(MFA/App Check/signups already tracked in §BL-4/§4/§U; listed here for completeness — MFA needs
+      Blaze + Identity Platform, so partly infra.)*
+- [ ] **ADMIN-1 · Billing-ops visibility** ⭐ (🟠 high) — persist (if not already) + show the PayPal
+      **subscription id + status** (`active`/`past_due`/`paused`/`canceled`) on the user card; a
+      **past_due / canceled** filter; a **webhook-health** list (recent `webhookEvents` + last-processed
+      + gaps). **Read-only** — cancels/refunds stay in the PayPal dashboard for now. Biggest new value.
+- [ ] **ADMIN-2 · Operational safety net** (🟠 high) — **per-feature kill-switches** (extend
+      `config/app.flags` with a `features:{}` map, read via the existing `/api/config` path) + wire
+      **Sentry** (functions + client) + one uptime/cron monitor + 2–3 alert rules (error spike /
+      webhook fail / upstream) + a tiny status strip in Overview. Failure visibility via external tools,
+      not a hand-built dashboard.
+- [ ] **ADMIN-3 · Audit & data hygiene** (🟠 high / 🟡 med) — audit tab **filter + pagination + CSV
+      export** + a source-IP field; a **retention TTL** (ties to §C C15); **user-list CSV/JSON export**
+      (quick win); **config change versioning / diff** (store prior values in the audit entry).
+- [ ] **ADMIN-4 · Growth metrics** (🟡 med) — a daily scheduled snapshot `stats/daily/{date}` (counts +
+      per-tier revenue, reusing `getStats` math) → Overview renders **MRR/subs/signup trend + churn**.
+      GA4/Plausible already cover engagement; this fills the revenue/churn gap they can't see.
+- [ ] **ADMIN-5 · Team-scale & support** (🟡 med / ⚪ low; build when a non-founder joins or it's needed)
+      — **RBAC admin roles** (least-privilege; required before any non-founder admin), impersonation
+      (logged + time-boxed + bannered), announcement banner (config string → app banner), bulk user
+      actions, per-field filters + saved views, private admin notes, before/after diff in audit.
+- **Deliberately deferred (⚪ low / out-of-scope):** content-moderation queue (theses are private →
+      revisit only if shareable), in-panel refund/cancel actions (use PayPal), IP allowlisting, formal
+      break-glass (min-2-admins covers it), cohort/NRR/LTV (external tools), status page, i18n,
+      staged/percentage rollout. KYC/AML/custody = N/A (non-custodial).
+
 ## API. API spec + security review — 2026-07-08 founder interview  (✅ BUILT 2026-07-08)
 
 Canonical: [`API-SECURITY.md`](../security/API-SECURITY.md) (surface map, key model, findings, rotation runbook)
