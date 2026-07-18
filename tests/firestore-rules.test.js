@@ -51,7 +51,12 @@ async function seed(fn) {
 const aliceDb = () => testEnv.authenticatedContext("alice").firestore();
 const bobDb = () => testEnv.authenticatedContext("bob").firestore();
 const carolDb = () => testEnv.authenticatedContext("carol").firestore();
-const adminDb = () => testEnv.authenticatedContext("zadmin", { admin: true }).firestore();
+// ADMIN-SEC: admin is no longer one flat claim. The blanket write/delete over user
+// documents is OWNER-only; managers (and pre-ADMIN-SEC role-less admins) keep read
+// access for the panel but must fail closed on writes.
+const adminDb = () => testEnv.authenticatedContext("zadmin", { admin: true, role: "owner" }).firestore();
+const managerDb = () => testEnv.authenticatedContext("zmanager", { admin: true, role: "manager" }).firestore();
+const legacyAdminDb = () => testEnv.authenticatedContext("zlegacy", { admin: true }).firestore();
 
 // BL-1a/BL-1b: the guard + webhook-idempotency collections are SERVER-ONLY
 // (Admin SDK bypasses rules; there is no match block, so clients hit the
@@ -597,4 +602,87 @@ test("ISO-2: clients (and an admin's browser) can't read config / audit / cache"
   await assertFails(getDoc(doc(adminDb(), "config", "app")));
   await assertFails(getDoc(doc(adminDb(), "audit", "a1")));
   await assertFails(getDoc(doc(adminDb(), "cache", "universe")));
+});
+
+/* ===========================================================================
+ * ADMIN-SEC — the manager wall at the RULES layer
+ * ===========================================================================
+ * The callables refuse a manager for Settings, grants and permanent erasure. But a
+ * manager's browser token still carries admin:true, so without an owner-aware rule
+ * they could skip the callables entirely and write Firestore directly from devtools.
+ * These tests are the proof that the wall is real and not merely UI-deep.
+ */
+test("ADMIN-SEC: a manager can READ user docs (the panel needs it)", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { email: "a@x.com", tier: "free" });
+  });
+  await assertSucceeds(getDoc(doc(managerDb(), "users", "alice")));
+  await assertSucceeds(getDoc(doc(legacyAdminDb(), "users", "alice")));
+});
+
+test("ADMIN-SEC: a manager CANNOT write a user doc directly (no callable bypass)", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { email: "a@x.com", tier: "free" });
+  });
+  // The exact escalations the callable layer refuses — they must also fail here.
+  await assertFails(updateDoc(doc(managerDb(), "users", "alice"), { tier: "premium" }));
+  await assertFails(updateDoc(doc(managerDb(), "users", "alice"), { deleted: true, deletedAt: 1 }));
+  await assertFails(updateDoc(doc(managerDb(), "users", "alice"), { premiumLimits: { coins: 999 } }));
+  await assertFails(updateDoc(doc(managerDb(), "users", "alice"), { subscription: { cancelled: false } }));
+});
+
+test("ADMIN-SEC: a manager CANNOT hard-delete a user doc", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { email: "a@x.com", tier: "free" });
+  });
+  await assertFails(deleteDoc(doc(managerDb(), "users", "alice")));
+  await assertSucceeds(deleteDoc(doc(adminDb(), "users", "alice")));   // owner still can
+});
+
+test("ADMIN-SEC: a manager cannot escalate ANOTHER admin's document", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "zadmin"), { email: "owner@x.com", tier: "free" });
+  });
+  await assertFails(updateDoc(doc(managerDb(), "users", "zadmin"), { tier: "premium" }));
+  await assertFails(deleteDoc(doc(managerDb(), "users", "zadmin")));
+});
+
+test("ADMIN-SEC: a LEGACY role-less admin fails closed on writes until backfilled", async () => {
+  // The migration case: an existing {admin:true} token with no role claim. It must be
+  // treated as unprivileged for the dangerous branches rather than grandfathered in.
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { email: "a@x.com", tier: "free" });
+  });
+  await assertFails(updateDoc(doc(legacyAdminDb(), "users", "alice"), { tier: "pro" }));
+  await assertFails(deleteDoc(doc(legacyAdminDb(), "users", "alice")));
+});
+
+test("ADMIN-SEC: a near-miss role value is not an owner", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { email: "a@x.com", tier: "free" });
+  });
+  for (const role of ["OWNER", "Owner", "owner ", "ownerr", ""]) {
+    const db = testEnv.authenticatedContext(`z-${role || "empty"}`, { admin: true, role }).firestore();
+    await assertFails(deleteDoc(doc(db, "users", "alice")));
+  }
+});
+
+test("ADMIN-SEC: a role claim without admin:true grants nothing", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { email: "a@x.com", tier: "free" });
+  });
+  const fakeOwner = testEnv.authenticatedContext("zfake", { role: "owner" }).firestore();
+  await assertFails(getDoc(doc(fakeOwner, "users", "alice")));
+  await assertFails(updateDoc(doc(fakeOwner, "users", "alice"), { tier: "premium" }));
+  await assertFails(deleteDoc(doc(fakeOwner, "users", "alice")));
+});
+
+test("ADMIN-SEC: managers still cannot reach config, audit or cache", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "config", "app"), { coingecko: "secret" });
+    await setDoc(doc(db, "audit", "a1"), { action: "x" });
+  });
+  await assertFails(getDoc(doc(managerDb(), "config", "app")));
+  await assertFails(getDoc(doc(managerDb(), "audit", "a1")));
+  await assertFails(setDoc(doc(managerDb(), "config", "app"), { coingecko: "mine" }));
 });

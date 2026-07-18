@@ -41,6 +41,21 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.get('admin', false) == true;
     }
 
+    // ADMIN-SEC: an admin whose claim also carries role == "owner". NOTE isOwner(userId)
+    // above is a different concept — that's the DOCUMENT's owner (the user themselves).
+    //
+    // Why this exists: the panel walls managers out of Settings and permanent erasure at
+    // the callable layer, but a manager's browser token still carries admin:true. Without
+    // an owner-aware rule they could open devtools and write/delete any user document
+    // directly with the client SDK — bypassing every callable check, the closed-shape
+    // allowlist and counterNoForge. So the two branches that grant blanket write and
+    // delete over user data are owner-only; reads stay open to any admin (the panel needs
+    // them). Same null-safe .get() idiom as isAdmin (G3) — a token with no role claim
+    // reads as '' and is NOT an owner, so legacy role-less admins fail CLOSED here.
+    function isAdminOwner() {
+      return isAdmin() && request.auth.token.get('role', '') == 'owner';
+    }
+
     // ─── Server-only config (API keys, email settings) ───
     // No client can read or write this — only the Admin SDK (Cloud Functions:
     // saveConfig writes it; the proxy/PayPal functions read it).
@@ -156,7 +171,11 @@ service cloud.firestore {
       // 'billingCycle' (revenue accounting). All written by Admin-SDK callables only.
       // They may only nudge portfolioCount by ±1 (kept in sync with portfolio create/
       // delete), and any name/settings/consent they DO write must keep the closed shape.
-      allow update: if isAdmin() || (
+      // ADMIN-SEC: the blanket admin write is OWNER-only. It bypasses the closed-shape
+      // allowlist below (and counterNoForge), so leaving it open to every admin claim
+      // would let a manager set any field on any user — tier, billing, even another
+      // admin's doc — straight from the browser, defeating the callable-layer wall.
+      allow update: if isAdminOwner() || (
                       isOwner(userId)
                       // ISO-1 (G1): CLOSED-SHAPE allowlist on the CHANGED keys — an owner
                       // may only ever touch these five fields. Anything else (the privileged
@@ -172,7 +191,9 @@ service cloud.firestore {
                       && (!('consent'  in request.resource.data) || validConsent(request.resource.data.consent))
                     );
 
-      allow delete: if isAdmin();
+      // ADMIN-SEC: hard-deleting a user document is OWNER-only — a manager doing this
+      // from devtools would be permanent erasure with no audit entry and no owner check.
+      allow delete: if isAdminOwner();
 
       // ─── Portfolios ───
       match /portfolios/{portfolioId} {
