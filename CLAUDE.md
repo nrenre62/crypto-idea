@@ -13,7 +13,9 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 
 ## Build, test, deploy
 - `npm run build` — Vite build + stamps the service worker + the **no-names `dist/` guard** (`scripts/check-dist-names.js`, #24): the build FAILS if a real investor name (Buffett/Munger/Marks/Graham) leaks into the shipped bundle. Must be clean before deploy.
-- `npm run test:unit` (Vitest, ~462) · `npm run test:rules` (24; `npm run test:rules:solo` runs them against an isolated firestore emulator on :8099 via `firebase.rules-only.json`) · `npm run test:integration` (12) — component/hook + Firestore rules + data layer (rules/integration via emulators; counts drift — run them for live numbers). (Unit also covers the server-side `functions/validate-output.js` + `guards.js` + `billing.js` + `universe-utils.js`, imported directly.)
+- `npm run test:unit` (Vitest, ~530) · `npm run test:rules` (24) · `npm run test:integration` (19) — component/hook + Firestore rules + data layer + **live callables** (rules/integration via emulators; counts drift — run them for live numbers). (Unit also covers the server-side `functions/validate-output.js` + `guards.js` + `billing.js` + `universe-utils.js`, imported directly.)
+  - **`:solo` variants** (`test:rules:solo`, `test:integration:solo`) run against an isolated emulator on alternate ports via `firebase.solo.json`, so tests work while a full `start:all` stack holds the default ports.
+  - **`test:integration` now starts the FUNCTIONS emulator too** and `tests/functions-callable.test.js` invokes real callables over HTTP. This is the only tier that executes a callable *body* — the client-side tests all mock `httpsCallable`, which is how the ERRORS.md **C6** un-suspend bug shipped. Add a case here when a callable's behaviour (not just its pure helpers) matters. It discovers the functions port from the emulator hub, so it follows whichever config started the run.
 - `npm run deploy` — build + `firebase deploy` (needs the Blaze plan for functions).
 
 ## Architecture

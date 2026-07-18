@@ -320,6 +320,29 @@
 - **C5 · No-names dist guard — add an integration test.** `scripts/check-dist-names.js` fails the build if an
   investor name (Buffett/Munger/Marks/Graham) leaks to `dist/`; it's unit-tested but there's no build-level
   test that intentionally leaks a name and asserts the build fails. Add one to lock the guard. (low) ℹ️
+- **C6 · Un-suspend returned INTERNAL and silently skipped the paid-time credit — FIXED 2026-07-18.**
+  `suspendUser`'s un-suspend branch built its patch with `admin.firestore.FieldValue.delete()`. Inside the
+  functions emulator the `admin.firestore` **namespace is proxied and its static members are `undefined`**
+  (`admin.firestore()` as a *call* still works, which is why the line reads as idiomatic) — so `.delete()`
+  threw a TypeError that surfaced to the admin as `INTERNAL`. Verified by probe inside the running emulator:
+  `typeof admin.firestore === "function"` but `typeof admin.firestore.FieldValue === "undefined"`. Same trap
+  as **C3**, which `writeAudit` had already worked around with `Date.now()`.
+  **Why it was worse than a failed action:** `admin.auth().updateUser(uid, {disabled:false})` runs *before*
+  the throw, so the Auth account WAS re-enabled — the user could sign in and the operation looked half-done.
+  What was lost is the Firestore bookkeeping: `suspendedAt` was never cleared (so the daily
+  `enforceSubscriptionPeriods` sweep stayed frozen on that account forever) and `billing.extendForSuspension`
+  never ran, so a suspended paying customer silently lost the frozen days (R31-6). Suspending worked fine, so
+  the failure only showed on the reverse action.
+  **Fix:** `const { FieldValue } = require("firebase-admin/firestore")` — the modular subpath resolves the
+  same way in the emulator and in deployed functions. (Note: in a plain Node process, and so most likely in
+  deployed functions, `admin.firestore.FieldValue` *is* defined — this reproduced as an emulator-runtime
+  failure. Since the app has not gone live, the emulator is the only runtime that has executed this path.)
+  **Why no suite caught it:** `extendForSuspension` is pure and covered in `billing.test.js`, the gate is
+  covered in `admin-gate-coverage.test.js`, and every client-side callable test mocks `httpsCallable` — so
+  nothing ever executed a callable *body*. Now covered from both sides: `tests/unit/functions-runtime-safety.test.js`
+  (source guard banning `admin.firestore.<Static>`, runs in `test:unit`) and `tests/functions-callable.test.js`
+  (invokes the real callable over HTTP against the functions emulator, asserting `suspendedAt` is cleared and
+  `endDate` is extended by the frozen window). Both were confirmed to fail against the buggy line. ✅
 
 ---
 
