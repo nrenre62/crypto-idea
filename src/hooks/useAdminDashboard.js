@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setAdminClaim, adminTrashUser, adminSignOutUser } from "../api/admin.js";
+import { getStats, listUsers, listAudit, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser } from "../api/admin.js";
+import { getAdminRole, reauthAdmin } from "../api/admin-auth.js";
+
+// ADMIN-SEC: how long one password confirmation keeps the sensitive areas unlocked.
+// UX only — the server independently rejects a stale auth_time on every call.
+const UNLOCK_MS = 10 * 60 * 1000;
+// Returned by withUnlock when the owner dismisses the password prompt, so callers
+// can tell "cancelled" apart from "succeeded".
+const CANCELLED = Symbol("unlock-cancelled");
 
 // Combined real usage shown on the Overview before getStats resolves (no fake data).
 const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0, grossRevenue: 0, paymentFees: 0, netRevenue: 0, proPrice: 9.99, premiumPrice: 49.99 };
@@ -13,6 +21,83 @@ export function useAdminDashboard() {
   const [stats, setStats] = useState(null);   // real combined usage from getStats (admin-only)
   const [statsErr, setStatsErr] = useState("");
   const [tab, setTab] = useState("overview");
+
+  /* ADMIN-SEC — role + step-up unlock.
+   * `role` is "owner" | "manager" | "" (a legacy role-less admin). It drives what the
+   * UI RENDERS only; every sensitive callable re-checks it server-side, so hiding a
+   * control is a convenience, never the security boundary.
+   * `unlockedUntil` is the ~10-minute client-side unlock. Also pure UX: the real gate
+   * is the auth_time inside the ID token, which the server checks on every call. */
+  const [role, setRole] = useState("");
+  const [roleLoaded, setRoleLoaded] = useState(false);
+  const [unlockedUntil, setUnlockedUntil] = useState(0);
+  const [unlockNow, setUnlockNow] = useState(Date.now());
+  const [unlockPrompt, setUnlockPrompt] = useState(null);  // { onDone } while asking for the password
+  const [unlockPass, setUnlockPass] = useState("");
+  const [unlockErr, setUnlockErr] = useState("");
+  // Admin access tab (owner-only): grant/revoke a manager.
+  const [grantEmail, setGrantEmail] = useState("");
+  const [grantEmail2, setGrantEmail2] = useState("");
+  const [grantFound, setGrantFound] = useState(null);
+  const [grantMsg, setGrantMsg] = useState("");
+  const [grantWarn, setGrantWarn] = useState(false);
+
+  /* ADMIN-SEC — step-up unlock.
+   * The client timer is a convenience so an owner isn't re-prompted for every field in
+   * a Settings session. The ACTUAL control is server-side: sensitive callables reject a
+   * token whose auth_time is stale. So this never assumes it's unlocked — it runs the
+   * action, and if the server says reauth-required it prompts and retries once. That
+   * ordering means a tampered timer gains nothing, and a clock drift can't lock you out.
+   */
+  const unlocked = unlockedUntil > unlockNow;
+  // Re-render as the window expires so the padlock state is honest.
+  useEffect(() => {
+    if (!unlockedUntil) return;
+    const t = setInterval(() => setUnlockNow(Date.now()), 15000);
+    return () => clearInterval(t);
+  }, [unlockedUntil]);
+
+  const askPassword = () => new Promise((resolve) => {
+    setUnlockErr(""); setUnlockPass("");
+    setUnlockPrompt({ onDone: resolve });
+  });
+
+  const submitUnlock = async () => {
+    setBusy(true); setUnlockErr("");
+    const res = await reauthAdmin(unlockPass);
+    setBusy(false);
+    if (!res.success) { setUnlockErr(res.error || "Incorrect password"); return; }
+    setUnlockedUntil(Date.now() + UNLOCK_MS); setUnlockNow(Date.now());
+    setUnlockPass("");
+    const done = unlockPrompt && unlockPrompt.onDone;
+    setUnlockPrompt(null);
+    if (done) done(true);
+  };
+
+  const cancelUnlock = () => {
+    const done = unlockPrompt && unlockPrompt.onDone;
+    setUnlockPass(""); setUnlockErr(""); setUnlockPrompt(null);
+    if (done) done(false);
+  };
+
+  const isReauthError = (e) => {
+    const msg = (e && e.message) || "";
+    return msg.includes("reauth-required");
+  };
+
+  // Run `fn`; if the server demands a fresh password, prompt and retry exactly once.
+  // Returns CANCELLED if the owner dismissed the prompt, so callers don't report
+  // success for something that never ran. `fn` must NOT swallow its own errors.
+  const withUnlock = async (fn) => {
+    try { return await fn(); }
+    catch (e) {
+      if (!isReauthError(e)) throw e;
+      const ok = await askPassword();
+      if (!ok) return CANCELLED;
+      return await fn();
+    }
+  };
+
 
   // Settings forms (saved via the admin-only saveConfig Cloud Function).
   const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "", anthropicKey: "" });
@@ -39,7 +124,8 @@ export function useAdminDashboard() {
   // only whether they're set), so you can SEE what's configured and persisted.
   const loadConfig = async () => {
     try {
-      const d = await getAdminConfig();
+      const d = await withUnlock(() => getAdminConfig());
+      if (!d || d === CANCELLED) return;
       setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "", anthropicKey: "" });
       setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "" });
       setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet), anthropicKey: !!(d.ai && d.ai.anthropicKeySet) });
@@ -53,7 +139,10 @@ export function useAdminDashboard() {
   const saveConfig = async () => {
     setSavedMsg("Saving…");
     try {
-      await saveConfigFn({ keys, email: mail, flags: controls, analytics, legal, plans });
+      // ADMIN-SEC: owner + fresh password. withUnlock re-prompts and retries once if
+      // the ~10-min window lapsed mid-session, so a long Settings edit is never lost.
+      const r = await withUnlock(() => saveConfigFn({ keys, email: mail, flags: controls, analytics, legal, plans }));
+      if (r === CANCELLED) { setSavedMsg("Cancelled — not saved"); setTimeout(() => setSavedMsg(""), 4000); return; }
       await loadConfig();             // re-read so the saved state is visible immediately
       setSavedMsg("Saved ✓");
     } catch (e) {
@@ -65,7 +154,11 @@ export function useAdminDashboard() {
   const saveControls = async (next) => {
     setControls(next);
     setSavedMsg("Saving…");
-    try { await saveConfigFn({ keys, email: mail, flags: next }); setSavedMsg("Saved ✓"); }
+    try {
+      const r = await withUnlock(() => saveConfigFn({ keys, email: mail, flags: next }));
+      if (r === CANCELLED) { setControls(controls); setSavedMsg("Cancelled — not saved"); setTimeout(() => setSavedMsg(""), 3000); return; }
+      setSavedMsg("Saved ✓");
+    }
     catch (e) { setSavedMsg("Save failed: " + ((e && e.message) || "error")); await loadConfig(); }
     setTimeout(() => setSavedMsg(""), 3000);
   };
@@ -76,9 +169,6 @@ export function useAdminDashboard() {
   const [lookupMsg, setLookupMsg] = useState("");
   const [actionMsg, setActionMsg] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // BL-2 confirm states: grant/revoke admin is type-to-confirm (the target's email).
-  const [confirmAdmin, setConfirmAdmin] = useState(false);
-  const [adminConfirmText, setAdminConfirmText] = useState("");
   const [confirmTrash, setConfirmTrash] = useState(false);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   // R31-5: destructive actions are gated behind typing the word DELETE. `delText` is the
@@ -99,14 +189,30 @@ export function useAdminDashboard() {
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditMsg, setAuditMsg] = useState("");
 
-  // Load combined usage + the saved config once on mount.
+  // Load combined usage on mount. ADMIN-SEC: the config is OWNER-only, so it's loaded
+  // from the role effect below instead — asking for it as a manager would just produce
+  // a permission error on every page load.
   useEffect(() => {
     getStats()
       .then(d => setStats(d))
       .catch(e => setStatsErr((e && e.message) || "Could not load stats"));
-    loadConfig();
+  }, []);
+
+  // ADMIN-SEC: resolve our own role once, forcing a token refresh so a just-granted
+  // (or just-revoked) role is picked up without making the admin sign out and back in.
+  useEffect(() => {
+    let alive = true;
+    getAdminRole({ force: true }).then((r) => {
+      if (!alive) return;
+      setRole(r); setRoleLoaded(true);
+      // Sign-in itself sets a fresh auth_time, so an owner opening the panel is already
+      // inside the step-up window — no password prompt just to view Settings.
+      if (r === "owner") { setUnlockedUntil(Date.now() + UNLOCK_MS); loadConfig(); }
+    });
+    return () => { alive = false; };
   }, []);
   const s = stats || EMPTY_STATS;
+  const isOwner = role === "owner";
 
   const loadUserList = async () => {
     setListLoading(true); setListMsg("");
@@ -125,7 +231,7 @@ export function useAdminDashboard() {
   };
   useEffect(() => { if (tab === "audit" && audit === null && !auditLoading) loadAudit(); }, [tab]);
 
-  const resetConfirms = () => { setConfirmDelete(false); setConfirmAdmin(false); setAdminConfirmText(""); setConfirmTrash(false); setDelText(""); setPurgeUid(null); };
+  const resetConfirms = () => { setConfirmDelete(false); setConfirmTrash(false); setDelText(""); setPurgeUid(null); };
   const lookup = async () => {
     if (!lookupEmail.trim()) return;
     setBusy(true); setLookupMsg(""); setActionMsg(""); resetConfirms(); setFound(null);
@@ -140,17 +246,33 @@ export function useAdminDashboard() {
     catch (e) { setLookupMsg((e && e.message) || "Lookup failed"); }
     setBusy(false);
   };
-  // BL-2a (D7): grant/revoke the admin claim — the component gates this behind a
-  // type-the-email confirm; the server keeps MIN_ADMINS enforced. (MFA at go-live.)
-  const setAdmin = async (makeAdmin) => {
-    setBusy(true); setActionMsg("");
+  /* ADMIN-SEC: grant/revoke a MANAGER (owner-only, from the Admin access tab).
+   * Deliberately NOT reachable from the Users tab any more — a per-user "Make admin"
+   * button is what made the owner-deletion bypass a two-click operation.
+   * Flow: search by email → type the email twice → warning → owner password. */
+  const grantLookup = async () => {
+    const email = grantEmail.trim().toLowerCase();
+    if (!email) return;
+    setBusy(true); setGrantMsg(""); setGrantFound(null); setGrantWarn(false);
+    try { setGrantFound(await lookupUser(email)); }
+    catch (e) { setGrantMsg((e && e.message) || "No user with that email."); }
+    setBusy(false);
+  };
+
+  const setManager = async (grant) => {
+    if (!grantFound) return;
+    // Belt: the server refuses an owner target regardless, but don't even offer it.
+    if (grantFound.role === "owner") { setGrantMsg("Owner accounts are protected — use scripts/set-admin.js."); return; }
+    setBusy(true); setGrantMsg("");
     try {
-      await setAdminClaim(found.email, makeAdmin);
-      setFound({ ...found, isAdmin: makeAdmin });
-      setUserList(l => l && l.map(x => x.uid === found.uid ? { ...x, isAdmin: makeAdmin } : x));
-      setActionMsg(makeAdmin ? "Admin granted ✓" : "Admin revoked ✓");
-    } catch (e) { setActionMsg((e && e.message) || "Failed"); }
-    setConfirmAdmin(false); setAdminConfirmText("");
+      const r = await withUnlock(() => setManagerRole(grantFound.email, grant));
+      if (r === CANCELLED) { setBusy(false); return; }
+      setGrantFound({ ...grantFound, isAdmin: grant, role: grant ? "manager" : "" });
+      setUserList(l => l && l.map(x => x.uid === grantFound.uid ? { ...x, isAdmin: grant, role: grant ? "manager" : "" } : x));
+      setGrantMsg(grant ? "Manager access granted ✓" : "Manager access removed ✓");
+      setGrantEmail2(""); setGrantWarn(false);
+      loadAudit();
+    } catch (e) { setGrantMsg((e && e.message) || "Failed"); }
     setBusy(false);
   };
   // BL-2b (D8): move the open user to the 30-day trash (server refuses admins).
@@ -240,10 +362,14 @@ export function useAdminDashboard() {
     controls, setControls, analytics, setAnalytics, legal, setLegal, plans, setPlans,
     lookupEmail, setLookupEmail, found, setFound, lookupMsg, setLookupMsg, actionMsg, setActionMsg,
     confirmDelete, setConfirmDelete, busy, setBusy,
-    confirmAdmin, setConfirmAdmin, adminConfirmText, setAdminConfirmText,
     confirmTrash, setConfirmTrash, confirmEmpty, setConfirmEmpty,
     delText, setDelText, purgeUid, setPurgeUid,
-    setAdmin, trashUser, signOutUser, emptyTrash,
+    trashUser, signOutUser, emptyTrash,
+    // ADMIN-SEC — role, step-up unlock and the owner-only Admin access tab.
+    role, roleLoaded, isOwner, unlocked,
+    unlockPrompt, unlockPass, setUnlockPass, unlockErr, submitUnlock, cancelUnlock,
+    grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound, setGrantFound,
+    grantMsg, setGrantMsg, grantWarn, setGrantWarn, grantLookup, setManager,
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,
     s,

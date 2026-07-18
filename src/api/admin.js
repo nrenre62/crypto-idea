@@ -62,10 +62,13 @@ export async function restoreUser(uid) {
   await httpsCallable(functions, "restoreUser")({ uid });
 }
 
-// BL-2a (D7): grant/revoke the {admin:true} claim by email. Server-side it keeps
-// MIN_ADMINS enforced; the UI gates it behind a type-to-confirm (MFA at go-live).
-export async function setAdminClaim(email, admin) {
-  const res = await httpsCallable(functions, "setAdminClaim")({ email, admin });
+// ADMIN-SEC: grant/revoke the MANAGER role by email. Owners only, and the server also
+// requires a recent password re-auth (see reauthAdmin in api/admin-auth.js). Owners
+// themselves are never grantable or revocable here — only scripts/set-admin.js can
+// mint one, which is what makes them un-removable from inside the panel.
+// Replaces the old setAdminClaim, which let ANY admin promote anyone (the bypass).
+export async function setManagerRole(email, grant) {
+  const res = await httpsCallable(functions, "setManagerRole")({ email, grant });
   return res.data;
 }
 

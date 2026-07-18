@@ -8,7 +8,7 @@ import { httpsCallable } from "firebase/functions";
 import {
   getStats, listUsers, listAudit, lookupUser,
   setUserTier, setPremiumLimits, suspendUser, deleteUser, getAdminConfig, saveConfig,
-  setAdminClaim, adminTrashUser, adminSignOutUser,
+  setManagerRole, adminTrashUser, adminSignOutUser,
 } from "../../src/api/admin.js";
 
 // Each wrapper should target its named callable on the shared functions instance
@@ -57,12 +57,14 @@ describe("api/admin", () => {
     expect(call).toHaveBeenCalledWith({ uid: "u1" });
   });
 
-  it("BL-2: setAdminClaim / adminTrashUser / adminSignOutUser target their callables with the right args", async () => {
+  it("ADMIN-SEC: setManagerRole / adminTrashUser / adminSignOutUser target their callables with the right args", async () => {
     const call = vi.fn().mockResolvedValue({ data: { success: true } });
     httpsCallable.mockReturnValue(call);
-    await setAdminClaim("a@b.com", true);
-    expect(httpsCallable).toHaveBeenCalledWith({ _tag: "fns" }, "setAdminClaim");
-    expect(call).toHaveBeenCalledWith({ email: "a@b.com", admin: true });
+    // ADMIN-SEC: replaces setAdminClaim. Grants the MANAGER role only — owners are
+    // mintable solely by scripts/set-admin.js, so no client wrapper can create one.
+    await setManagerRole("a@b.com", true);
+    expect(httpsCallable).toHaveBeenCalledWith({ _tag: "fns" }, "setManagerRole");
+    expect(call).toHaveBeenCalledWith({ email: "a@b.com", grant: true });
     await adminTrashUser("u1");
     expect(httpsCallable).toHaveBeenCalledWith({ _tag: "fns" }, "adminTrashUser");
     expect(call).toHaveBeenCalledWith({ uid: "u1" });

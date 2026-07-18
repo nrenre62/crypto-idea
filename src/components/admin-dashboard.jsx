@@ -71,10 +71,13 @@ export default function AdminDashboard() {
     s,
     loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, changePremiumLimits, toggleSuspend, doDelete,
     restoreFromTrash, purgeFromTrash,
-    confirmAdmin, setConfirmAdmin, adminConfirmText, setAdminConfirmText,
     confirmTrash, setConfirmTrash, confirmEmpty, setConfirmEmpty,
     delText, setDelText, purgeUid, setPurgeUid,
-    setAdmin, trashUser, signOutUser, emptyTrash,
+    trashUser, signOutUser, emptyTrash,
+    role, roleLoaded, isOwner, unlocked,
+    unlockPrompt, unlockPass, setUnlockPass, unlockErr, submitUnlock, cancelUnlock,
+    grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound,
+    grantMsg, grantWarn, setGrantWarn, grantLookup, setManager,
   } = useAdminDashboard();
 
   const c = { bg:"#F5F5F5", w:"#fff", tx:"#1A1A1A", dm:"#999", bd:"#E8E8ED", gr:"#34C759", or:"#FF9500", bl:"#007AFF", rd:"#FF3B30", pr:"#AF52DE" };
@@ -99,15 +102,29 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — ADMIN-SEC: Settings and Admin access are owner-only. Hiding them is a
+          convenience; the callables refuse a manager regardless, and firestore.rules
+          refuses a manager's direct writes, so this is the third layer, not the first. */}
       <div style={{ display:"flex", gap:4, marginBottom:14, background:c.w, borderRadius:12, padding:4, border:`1px solid ${c.bd}` }}>
-        {["overview","users","trash","settings","audit"].map(tb => (
+        {["overview","users","trash", ...(isOwner ? ["settings","access"] : []), "audit"].map(tb => (
           <button key={tb} onClick={() => { setTab(tb); }}
             style={{ flex:1, padding:10, borderRadius:10, border:"none", fontSize:13, fontWeight:600, cursor:"pointer", background:tab===tb?c.tx:"transparent", color:tab===tb?"#fff":c.dm }}>
-            {tb.charAt(0).toUpperCase()+tb.slice(1)}
+            {tb === "access" ? "Admin access" : tb.charAt(0).toUpperCase()+tb.slice(1)}
           </button>
         ))}
       </div>
+
+      {/* ADMIN-SEC: make the caller's own role legible — a manager who can't find
+          Settings should see WHY, and a legacy role-less admin needs to know they're
+          mid-migration rather than assume the panel is broken. */}
+      {roleLoaded && role !== "owner" && (
+        <div style={{ marginBottom:12, padding:"9px 12px", borderRadius:10, fontSize:11,
+          border:`1px solid ${role === "manager" ? c.bd : c.or}`, background: role === "manager" ? c.w : c.or+"10", color: role === "manager" ? c.dm : c.or }}>
+          {role === "manager"
+            ? <>Signed in as a <b>manager</b> — accounts only. Settings, admin access and permanent deletion are owner-only.</>
+            : <>⚠ This admin account has <b>no role</b> yet (created before roles existed). Account actions work, but Settings and admin access stay locked until an owner runs <code>set-admin.js --role=…</code> and you sign in again.</>}
+        </div>
+      )}
 
       {/* ═══ OVERVIEW (real, combined, no personal data) ═══ */}
       {/* BL-1e: a getStats failure renders as an explicit error — never as a
@@ -313,35 +330,18 @@ export default function AdminDashboard() {
                 Delete account
               </button>
             )}
-            <div style={{ fontSize:9, color:c.dm, marginTop:8 }}>Delete moves the account to the trash — recoverable for 30 days. Permanent erasure (GDPR/CCPA) happens only from the Trash tab. Admins can't be deleted — demote first. Sign-out forces every device to re-authenticate.</div>
+            <div style={{ fontSize:9, color:c.dm, marginTop:8 }}>Delete moves the account to the trash — recoverable for 30 days. Permanent erasure (GDPR/CCPA) happens only from the Trash tab. Owner accounts can never be deleted or demoted. Sign-out forces every device to re-authenticate.</div>
 
-            {/* BL-2a (D7): grant/revoke admin — type the user's email to confirm.
-                At go-live this action additionally sits behind admin 2FA (U15). */}
-            <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${c.bd}` }}>
-              {!confirmAdmin ? (
-                <button disabled={busy} onClick={() => { setConfirmAdmin(true); setAdminConfirmText(""); }}
-                  style={{ width:"100%", padding:"10px", borderRadius:10, border:`1px solid ${c.tx}`, background:c.tx+"08", color:c.tx, fontSize:12, fontWeight:600, cursor:"pointer" }}>
-                  {found.isAdmin ? "Remove admin role" : "Make admin"}
-                </button>
-              ) : (
-                <div>
-                  <div style={{ fontSize:11, color:c.dm, marginBottom:6 }}>Type <b>{found.email}</b> to confirm {found.isAdmin ? "removing the admin role from" : "granting admin to"} this account:</div>
-                  <input value={adminConfirmText} onChange={e => setAdminConfirmText(e.target.value)} placeholder={found.email}
-                    style={{ width:"100%", padding:"9px 10px", borderRadius:9, border:`1px solid ${c.bd}`, fontSize:12, marginBottom:6, boxSizing:"border-box" }} />
-                  <div style={{ display:"flex", gap:6 }}>
-                    <button disabled={busy} onClick={() => { setConfirmAdmin(false); setAdminConfirmText(""); }}
-                      style={{ flex:1, padding:"9px", borderRadius:9, border:`1px solid ${c.bd}`, background:c.w, fontSize:12, cursor:"pointer" }}>Cancel</button>
-                    <button disabled={busy || adminConfirmText.trim().toLowerCase() !== (found.email || "").toLowerCase()}
-                      onClick={() => setAdmin(!found.isAdmin)}
-                      style={{ flex:1, padding:"9px", borderRadius:9, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:700,
-                        cursor:"pointer", opacity: adminConfirmText.trim().toLowerCase() === (found.email || "").toLowerCase() ? 1 : 0.4 }}>
-                      {found.isAdmin ? "Confirm revoke" : "Confirm grant"}
-                    </button>
-                  </div>
-                  <div style={{ fontSize:9, color:c.dm, marginTop:6 }}>The server keeps at least 2 admins at all times. Admin 2FA will additionally gate this at go-live.</div>
-                </div>
-              )}
-            </div>
+            {/* ADMIN-SEC: the per-user "Make admin" button lived here and is GONE.
+                It was the bypass — any admin could promote throw-away accounts and then
+                delete the real owners while the admin count still looked healthy. Roles
+                are now granted only from the owner-only Admin access tab, and owners can
+                only ever be minted by functions/scripts/set-admin.js. */}
+            {found.role === "owner" && (
+              <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${c.bd}`, fontSize:10, color:c.dm }}>
+                🔒 This is an <b>owner</b> account — protected. It can't be suspended, trashed, deleted or demoted from the panel.
+              </div>
+            )}
             {actionMsg && <div style={{ textAlign:"center", marginTop:10, fontSize:12, color:c.gr, fontWeight:600 }}>{actionMsg}</div>}
           </div>
         )}
@@ -615,6 +615,93 @@ export default function AdminDashboard() {
         {savedMsg && <div style={{ textAlign:"center", marginTop:12, fontSize:12, color:c.gr, fontWeight:600 }}>{savedMsg}</div>}
       </>)}
 
+      {/* ═══ ADMIN ACCESS (owner-only) — ADMIN-SEC ═══
+          The only place an admin role can be granted. Deliberately NOT per-user in the
+          Users tab: a "Make admin" button next to every account is what turned the
+          count-based floor into a two-click owner takeover. Flow: search by email →
+          type it twice → warning → owner password (enforced server-side as a fresh
+          auth_time, not by this UI). */}
+      {tab === "access" && isOwner && (<>
+        <div style={{ fontSize:11, color:c.dm, lineHeight:1.5, marginBottom:12, maxWidth:"78ch" }}>
+          Grant or remove <b>manager</b> access. Managers can manage accounts (tier, suspend, sign-out, custom limits, trash)
+          but never see Settings, this tab, or permanent deletion. <b>Owners</b> can only be created by running{" "}
+          <code style={{ background:c.bg, padding:"1px 5px", borderRadius:4 }}>functions/scripts/set-admin.js --role=owner</code>{" "}
+          with a service-account key — never from here, which is what makes owner accounts impossible to remove from inside the panel.
+        </div>
+
+        <div style={{ background:c.w, border:`1px solid ${c.bd}`, borderRadius:14, padding:16, maxWidth:560 }}>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:1, color:c.dm, marginBottom:10 }}>FIND THE ACCOUNT</div>
+          <div style={{ display:"flex", gap:8, marginBottom:4 }}>
+            <input value={grantEmail} onChange={e => { setGrantEmail(e.target.value); setGrantWarn(false); }}
+              onKeyDown={e => e.key === "Enter" && grantLookup()} placeholder="email@example.com"
+              style={{ flex:1, padding:"10px 12px", borderRadius:9, border:`1px solid ${c.bd}`, fontSize:13, boxSizing:"border-box" }} />
+            <button disabled={busy} onClick={grantLookup}
+              style={{ padding:"10px 16px", borderRadius:9, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>Search</button>
+          </div>
+          <div style={{ fontSize:9, color:c.dm }}>Search by the exact email so you can confirm you have the right person before granting anything.</div>
+
+          {grantFound && (
+            <div style={{ marginTop:14, paddingTop:14, borderTop:`1px solid ${c.bd}` }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
+                <div style={{ fontSize:14, fontWeight:600 }}>{grantFound.name || grantFound.email}</div>
+                {grantFound.role === "owner" && <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:20, background:c.bl+"18", color:c.bl }}>OWNER</span>}
+                {grantFound.role === "manager" && <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:20, background:c.pr+"18", color:c.pr }}>MANAGER</span>}
+                {grantFound.isAdmin && !grantFound.role && <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:20, background:c.or+"18", color:c.or }}>NO ROLE</span>}
+              </div>
+              <div style={{ fontSize:11, color:c.dm, marginBottom:12 }}>{grantFound.email}</div>
+
+              {grantFound.role === "owner" ? (
+                <div style={{ fontSize:11, color:c.dm, background:c.bg, padding:12, borderRadius:10 }}>
+                  🔒 Owner accounts are protected — they can't be changed from the panel, by anyone. Use <code>set-admin.js</code>.
+                </div>
+              ) : grantFound.role === "manager" ? (
+                <button disabled={busy} onClick={() => setManager(false)}
+                  style={{ width:"100%", padding:"11px", borderRadius:10, border:`1px solid ${c.rd}`, background:c.rd+"10", color:c.rd, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                  Remove manager access
+                </button>
+              ) : !grantWarn ? (
+                <div>
+                  <div style={{ fontSize:11, color:c.dm, marginBottom:6 }}>Re-type <b>{grantFound.email}</b> to confirm this is the right account:</div>
+                  <input value={grantEmail2} onChange={e => setGrantEmail2(e.target.value)} placeholder={grantFound.email}
+                    style={{ width:"100%", padding:"10px 12px", borderRadius:9, border:`1px solid ${c.bd}`, fontSize:13, marginBottom:8, boxSizing:"border-box" }} />
+                  <button disabled={busy || grantEmail2.trim().toLowerCase() !== (grantFound.email || "").toLowerCase()}
+                    onClick={() => setGrantWarn(true)}
+                    style={{ width:"100%", padding:"11px", borderRadius:10, border:"none", background:c.tx, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer",
+                      opacity: grantEmail2.trim().toLowerCase() === (grantFound.email || "").toLowerCase() ? 1 : 0.4 }}>
+                    Continue
+                  </button>
+                </div>
+              ) : (
+                <div style={{ border:`1px solid ${c.or}`, background:c.or+"0d", borderRadius:10, padding:12 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:c.or, marginBottom:6 }}>⚠ Grant manager access?</div>
+                  <div style={{ fontSize:11, color:c.tx, lineHeight:1.55, marginBottom:10 }}>
+                    <b>{grantFound.email}</b> will be able to see every account and change tiers, suspend, force sign-out,
+                    set custom limits and move accounts to the trash. They will <b>not</b> get Settings, API keys, plans,
+                    this tab, or permanent deletion. You can remove this at any time.
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button disabled={busy} onClick={() => setGrantWarn(false)}
+                      style={{ flex:1, padding:"10px", borderRadius:9, border:`1px solid ${c.bd}`, background:c.w, fontSize:12, cursor:"pointer" }}>Cancel</button>
+                    <button disabled={busy} onClick={() => setManager(true)}
+                      style={{ flex:1, padding:"10px", borderRadius:9, border:"none", background:c.or, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                      Confirm — grant manager
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {grantMsg && <div style={{ marginTop:12, fontSize:12, fontWeight:600, color: grantMsg.includes("✓") ? c.gr : c.rd }}>{grantMsg}</div>}
+        </div>
+
+        {typeof s.activeOwners === "number" && s.activeOwners < 2 && (
+          <div style={{ marginTop:14, maxWidth:560, border:`1px solid ${c.rd}`, background:c.rd+"0d", borderRadius:12, padding:12, fontSize:11, color:c.rd, lineHeight:1.55 }}>
+            ⚠ Only <b>{s.activeOwners}</b> active owner account. Owners can't be created from the panel, so if this one becomes
+            inaccessible there is no in-app way back. Promote a second owner with <code>set-admin.js --role=owner</code> now.
+          </div>
+        )}
+      </>)}
+
       {/* ═══ AUDIT LOG ═══ */}
       {tab === "audit" && (<>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:10 }}>
@@ -640,8 +727,37 @@ export default function AdminDashboard() {
             </div>)}
       </>)}
 
+      {/* ADMIN-SEC step-up prompt. Raised only when the SERVER refuses a sensitive call
+          with reauth-required — never on a client timer alone. That ordering is what
+          makes tampering with the timer pointless and a clock drift non-fatal. */}
+      {unlockPrompt && (
+        <div style={{ position:"fixed", inset:0, background:"#0006", display:"flex", alignItems:"center", justifyContent:"center", padding:20, zIndex:1000 }}>
+          <form onSubmit={e => { e.preventDefault(); submitUnlock(); }}
+            style={{ width:"100%", maxWidth:360, background:c.w, borderRadius:16, padding:22, boxShadow:"0 10px 40px #00000026" }}>
+            <div style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>Confirm your password</div>
+            <div style={{ fontSize:11, color:c.dm, lineHeight:1.55, marginBottom:14 }}>
+              Settings, API keys, plans and admin access need a recent password confirmation.
+              This keeps them unlocked for about 10 minutes.
+            </div>
+            <input type="password" value={unlockPass} onChange={e => setUnlockPass(e.target.value)} autoFocus
+              placeholder="Owner password" autoComplete="current-password"
+              style={{ width:"100%", padding:"11px 12px", borderRadius:10, border:`1px solid ${unlockErr ? c.rd : c.bd}`, fontSize:14, boxSizing:"border-box" }} />
+            {unlockErr && <div style={{ fontSize:11, color:c.rd, marginTop:6 }}>{unlockErr}</div>}
+            <div style={{ display:"flex", gap:8, marginTop:14 }}>
+              <button type="button" onClick={cancelUnlock}
+                style={{ flex:1, padding:"11px", borderRadius:10, border:`1px solid ${c.bd}`, background:c.w, fontSize:13, cursor:"pointer" }}>Cancel</button>
+              <button type="submit" disabled={busy || !unlockPass}
+                style={{ flex:1, padding:"11px", borderRadius:10, border:"none", background:c.tx, color:"#fff", fontSize:13, fontWeight:700, cursor:"pointer", opacity: unlockPass ? 1 : 0.4 }}>
+                {busy ? "Checking…" : "Unlock"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <div style={{ textAlign:"center", padding:"18px 0", fontSize:10, color:c.dm }}>
         Crypto Idea Admin · v4.3.0
+        {roleLoaded && role && <> · signed in as <b>{role}</b>{isOwner && unlocked ? " · unlocked" : ""}</>}
       </div>
     </div>
   );

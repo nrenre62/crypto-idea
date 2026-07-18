@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 
 // Mock the API layer so the dashboard mounts without touching Firebase. The
 // wrappers return the payloads the component expects (see src/api/admin.js).
@@ -23,13 +23,22 @@ vi.mock("../../src/api/admin.js", () => ({
   saveConfig: vi.fn(() => Promise.resolve()),
   restoreUser: vi.fn(() => Promise.resolve()),
   setPremiumLimits: vi.fn(() => Promise.resolve({ premiumLimits: {} })),
-  setAdminClaim: vi.fn(() => Promise.resolve({ success: true })),
+  setManagerRole: vi.fn(() => Promise.resolve({ success: true })),
   adminTrashUser: vi.fn(() => Promise.resolve()),
   adminSignOutUser: vi.fn(() => Promise.resolve()),
 }));
 
+// ADMIN-SEC: the dashboard now resolves its own role from the verified custom claims.
+// Default to OWNER so the existing coverage (which exercises Settings) still applies;
+// individual tests override this to assert the manager/legacy walls.
+vi.mock("../../src/api/admin-auth.js", () => ({
+  getAdminRole: vi.fn(() => Promise.resolve("owner")),
+  reauthAdmin: vi.fn(() => Promise.resolve({ success: true })),
+}));
+
 import AdminDashboard from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAudit, deleteUser, setAdminClaim, adminTrashUser, adminSignOutUser } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAudit, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig } from "../../src/api/admin.js";
+import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
 describe("admin-dashboard", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -37,7 +46,9 @@ describe("admin-dashboard", () => {
   it("loads stats + config on mount and shows the live overview", async () => {
     render(<AdminDashboard />);
     expect(getStats).toHaveBeenCalled();
-    expect(getAdminConfig).toHaveBeenCalled();
+    // ADMIN-SEC: the config is owner-only, so it is fetched AFTER the role resolves —
+    // not on mount. A manager would never request it and see a permission error.
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByText("Live Data")).toBeInTheDocument());
     expect(screen.getByText("Est. Monthly Revenue")).toBeInTheDocument();
     expect(screen.getByText("Plan Limits")).toBeInTheDocument();
@@ -50,7 +61,7 @@ describe("admin-dashboard", () => {
     await waitFor(() => expect(listUsers).toHaveBeenCalled());
     expect(screen.getByPlaceholderText(/Search email or name/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
     expect(screen.getByText(/Email & Integrations/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Audit" }));
@@ -65,17 +76,84 @@ describe("admin-dashboard", () => {
     await screen.findByText("CHANGE TIER");
   };
 
-  it("BL-2a: grant admin is type-to-confirm — disabled until the email matches, then calls setAdminClaim", async () => {
+  /* ═══ ADMIN-SEC — roles, owner protection, step-up re-auth ═══ */
+
+  it("ADMIN-SEC: the Users tab no longer offers ANY grant-admin control", async () => {
+    // This button was the bypass: promote two throw-away accounts, then delete the
+    // real owners while the admin count still read >= 2. It must not come back.
     await openAlice();
-    fireEvent.click(screen.getByRole("button", { name: "Make admin" }));
-    const confirmBtn = screen.getByRole("button", { name: "Confirm grant" });
-    expect(confirmBtn).toBeDisabled();                       // nothing typed yet
-    fireEvent.change(screen.getByPlaceholderText("alice@test.com"), { target: { value: "wrong@x.com" } });
-    expect(confirmBtn).toBeDisabled();                       // wrong email
+    expect(screen.queryByRole("button", { name: "Make admin" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove admin role" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Confirm grant/ })).toBeNull();
+  });
+
+  it("ADMIN-SEC: an owner sees Settings + Admin access; a manager sees neither", async () => {
+    render(<AdminDashboard />);
+    expect(await screen.findByRole("button", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Admin access" })).toBeInTheDocument();
+
+    cleanup();
+    getAdminRole.mockResolvedValueOnce("manager");
+    render(<AdminDashboard />);
+    await screen.findByText(/Signed in as a/);
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Admin access" })).toBeNull();
+  });
+
+  it("ADMIN-SEC: a legacy role-less admin is told why, and gets no owner areas", async () => {
+    cleanup();
+    getAdminRole.mockResolvedValueOnce("");
+    render(<AdminDashboard />);
+    await screen.findByText(/no role/i);
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Admin access" })).toBeNull();
+  });
+
+  it("ADMIN-SEC: granting a manager needs the email typed twice AND a warning confirm", async () => {
+    render(<AdminDashboard />);
+    fireEvent.click(await screen.findByRole("button", { name: "Admin access" }));
+    fireEvent.change(screen.getByPlaceholderText("email@example.com"), { target: { value: "alice@test.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await screen.findByText("Alice");
+
+    // 1st gate: the re-typed email must match exactly.
+    const cont = screen.getByRole("button", { name: "Continue" });
+    expect(cont).toBeDisabled();
+    fireEvent.change(screen.getByPlaceholderText("alice@test.com"), { target: { value: "alice@wrong.com" } });
+    expect(cont).toBeDisabled();
     fireEvent.change(screen.getByPlaceholderText("alice@test.com"), { target: { value: "alice@test.com" } });
-    expect(confirmBtn).not.toBeDisabled();
-    fireEvent.click(confirmBtn);
-    await waitFor(() => expect(setAdminClaim).toHaveBeenCalledWith("alice@test.com", true));
+    expect(cont).not.toBeDisabled();
+
+    // 2nd gate: an explicit warning, and nothing is granted until it is confirmed.
+    fireEvent.click(cont);
+    await screen.findByText(/Grant manager access?/);
+    expect(setManagerRole).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /Confirm — grant manager/ }));
+    await waitFor(() => expect(setManagerRole).toHaveBeenCalledWith("alice@test.com", true));
+  });
+
+  it("ADMIN-SEC: an owner target is refused in the UI before the server is asked", async () => {
+    lookupUser.mockResolvedValueOnce({ uid: "o1", email: "owner@test.com", name: "Owner", tier: "free", role: "owner", isAdmin: true, portfolioCount: 0, coinCount: 0 });
+    render(<AdminDashboard />);
+    fireEvent.click(await screen.findByRole("button", { name: "Admin access" }));
+    fireEvent.change(screen.getByPlaceholderText("email@example.com"), { target: { value: "owner@test.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    await screen.findByText(/Owner accounts are protected/);
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(setManagerRole).not.toHaveBeenCalled();
+  });
+
+  it("ADMIN-SEC: a server reauth-required demand raises the password prompt and retries", async () => {
+    // The client timer is only UX — the prompt is driven by the SERVER refusing.
+    saveConfig.mockRejectedValueOnce(new Error("reauth-required: confirm your password to continue."));
+    render(<AdminDashboard />);
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Save/ })[0]);
+    await screen.findByText("Confirm your password");
+    fireEvent.change(screen.getByPlaceholderText("Owner password"), { target: { value: "hunter2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    await waitFor(() => expect(reauthAdmin).toHaveBeenCalledWith("hunter2"));
+    await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(2));   // retried after unlocking
   });
 
   it("R31-5: Delete account → type DELETE → move to trash (never a hard delete from the card)", async () => {
@@ -120,7 +198,7 @@ describe("admin-dashboard", () => {
 
   it("BL-2d: Settings shows the reserved AI card with the Anthropic key field", async () => {
     render(<AdminDashboard />);
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
     expect(screen.getByText(/AI \(reserved/)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/sk-ant/)).toBeInTheDocument();
     // the future cache controls are visibly reserved, not clickable
