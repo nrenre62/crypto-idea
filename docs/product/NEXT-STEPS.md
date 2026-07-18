@@ -169,6 +169,34 @@ signature auth as a `PayPalWebhookSignature` apiKey scheme (reconciled the "unau
   flag it as a conformance gap.
 - Next 42Crunch step available: `42crunch-scan` (live conformance / BOLA / BFLA) against the running stack.
 
+## SKILL. `tdd-testing` audit — top-up + prune  (📋 PLAN — 2026-07-18)
+
+Multi-agent audit of the global `tdd-testing` skill (19 verified gaps / 26 refuted). Verdict: healthy
+in principle, stale in specifics — a targeted top-up, **not** a rewrite. Full plan + ready-to-paste
+text: [`TDD-SKILL-UPDATE.md`](../planning/TDD-SKILL-UPDATE.md). The live skill was **not** edited.
+
+**Decisions (founder interview 2026-07-18):** skill stays stack-agnostic (new emulator mechanics →
+`firebase-saas-starter` §5b, with a pointer back); security-testing depth stays in `tdd-testing`;
+**keep the name** (TDD is a generic industry term — no copyright/trademark restriction, 17 USC
+§102(b); learning it from a video creates none either); gotcha wall stays flat but gains a
+maintenance rule; prune the wall **before** adding so the file stays ~200 lines.
+
+**Highest-value item (H1):** the skill teaches "mock the `api/` layer" and still says "Three tiers" —
+but that mocking is exactly the hole [`ERRORS.md`](../testing/ERRORS.md) **C6** shipped through, and
+the repo grew a fourth tier (`tests/functions-callable.test.js`) on 2026-07-18. Add the tier row + a
+"mocks hide the body — assert side effects, not return values" gotcha. *(The audit's own finder
+agents missed this; a verifier caught it incidentally.)*
+
+**Open piece:** the gotcha-wall pruning pass (§7 of the plan) was stopped mid-flight at session end —
+method is written up, no results. Run it before applying, or accept landing at ~208 lines.
+
+**Also queued — one-time coverage sweep (deliberately NOT a standing DoD line):** find exported logic
+with no test, matching on the **export name**, not the filename (tests are flat and grouped by topic —
+`research-adapters.test.js` covers `priceAdapter` + `sparkline` — so a filename diff false-positives
+~30%). Known misses: `nextBackoff` (`src/features/research/utils/backoff.js`); `riskColor.js`
+(`riskSpectrum`/`levelColor`/`levelTint`); hooks `useAsk`, `usePulse`, `useSharePulse`, `useHoldings`,
+`usePrices`, `useRelativeTime`. Test or consciously waive each. Don't add a coverage tool for this.
+
 ## OSS. Open-source skills to build the GitHub account  (📋 PLAN — pick & scrub in a session)
 
 The product code stays **private** (this repo). Separately, publish the most generic, least
