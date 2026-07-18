@@ -32,6 +32,9 @@
 // environment variable (fallback, from functions/.env or the deploy env).
 const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
+// Sentinels via the modular subpath — `admin.firestore.FieldValue` is undefined inside the
+// functions emulator (the namespace is proxied), so the namespace form throws there. See ERRORS.md C3.
+const { FieldValue } = require("firebase-admin/firestore");
 // BL-1a/BL-1b: shared security guards (per-uid limiter / cooldown / App Check gate)
 // and the pure PayPal-billing decision logic — both dependency-injected + unit-tested.
 const { checkCooldown, consumeDailyBudget } = require("./guards.js");
@@ -597,6 +600,10 @@ exports.lookupUser = functions.https.onCall(async (data, context) => {
     tier: d.tier || "free",
     disabled: !!rec.disabled,
     isAdmin: !!(rec.customClaims && rec.customClaims.admin),
+    // ADMIN-SEC: "" for a plain user AND for a legacy role-less admin. The Admin
+    // access tab keys off this to show owners as protected instead of offering a
+    // grant flow the server would refuse anyway.
+    role: guards.roleOf((rec.customClaims) || null),
     portfolioCount: d.portfolioCount || 0,
     coinCount,
     // BL-1e: the fields the admin panel's "last paid tier" note + limits-editor
@@ -701,7 +708,11 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
     // loses none of their paid time, and clear suspendedAt (go-live reactivates PayPal).
     const snap = await uref.get();
     const d = snap.exists ? snap.data() : {};
-    const patch = { suspendedAt: admin.firestore.FieldValue.delete() };
+    // FieldValue comes from the modular subpath, NOT admin.firestore.FieldValue: inside the
+    // functions emulator the `admin.firestore` namespace is proxied and its static members are
+    // undefined, so the namespace form threw a TypeError → INTERNAL and silently skipped the
+    // paid-time extension below (the Auth account was already re-enabled). Same trap as C3.
+    const patch = { suspendedAt: FieldValue.delete() };
     if (d.suspendedAt && d.subscription) patch.subscription = billing.extendForSuspension(d.subscription, d.suspendedAt, Date.now());
     await uref.set(patch, { merge: true });
   }
