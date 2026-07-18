@@ -144,7 +144,9 @@ Fraunces + Hanken Grotesk, deep-green `--accent`, rounded white cards, pill swit
 
 **Mockup:** [`docs/mockups/admin-settings/index.html`](../mockups/admin-settings/index.html) —
 4 screens (home + API keys + Plans & pricing + Analytics & legal), light + dark, tokens taken 1:1 from
-`app.css`. Email + AI reuse the same detail-card pattern. Build order: `NEXT-STEPS.md` §ADMIN (ADMIN-D).
+`app.css`. Email + AI reuse the same detail-card pattern. The later **interactive full-panel mockup**
+([`admin-panel/index.html`](../mockups/admin-panel/index.html), § below) implements this same drill-in and
+adds the other four tabs — read the two together. Build order: `NEXT-STEPS.md` §ADMIN (ADMIN-D).
 Local-first / emulator-verifiable, no Blaze. When built, runs the §PROCESS interview+sweep (the `Admin`
 map row) and a dark-mode pass like the app's design rounds.
 
@@ -196,7 +198,9 @@ actor, so not a public exploit — but it defeats the "founders can't be locked 
 re-authentication" (was 🟡 medium/partial) rows are now committed here; the owner-deletion bypass is a
 new 🟠 high finding. Note `role:"owner"` being **script-only** also removes the current
 type-email-to-confirm grant/revoke UI in the Users tab and refines the `MIN_ADMINS` logic (kept as a
-secondary floor). True authenticator-app **MFA stays deferred to go-live** (needs Identity Platform —
+secondary floor). **It also overrides three areas of the full-panel mockup**, which was drawn earlier the
+same day — see § Full-panel mockup → "Three areas SUPERSEDED by §ADMIN-SEC". True authenticator-app
+**MFA stays deferred to go-live** (needs Identity Platform —
 §ADMIN-0 / §4) — this increment is the password re-auth + roles, all buildable + emulator-testable now.
 
 **Files this will touch when built (Admin consistency map — plan only, not yet edited):**
@@ -212,6 +216,86 @@ modal; the email-twice + warning grant flow) · `src/hooks/useAdminDashboard.js`
 state/timer + new actions) · docs: `CLAUDE.md` "Admin & privacy", `BACKEND-ADMIN-DECISIONS.md`,
 `ISOLATION.md`, `API-SECURITY.md` + `openapi.json`, this file, `NEXT-STEPS.md` §ADMIN (ADMIN-SEC).
 Local-first / emulator-verifiable, no Blaze. Runs the full §PROCESS interview+sweep when built.
+
+## 🖼️ Full-panel mockup — all five tabs (📋 PLAN, founder 2026-07-18)
+
+**Mockup:** [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) — an **interactive**
+prototype of the whole panel (Overview · Users · Trash · Settings · Audit) in the `.ci-app` paper design.
+Tabs switch, the Settings drill-in works, and the Overview numbers are computed live from the seeded
+users, so the revenue/usage/tier maths can be read straight off the page. Supersedes nothing — the
+earlier Settings-only mockup ([`admin-settings/index.html`](../mockups/admin-settings/index.html)) stays
+as ADMIN-D's spec; this one is the **visual spec for the rest of the panel** (ADMIN-D2).
+
+**It is a reskin, not new function.** Reconciled against the shipped code and this plan (method below):
+**35 of its capabilities already ship today** — it reproduces the current panel almost feature-for-feature
+in the new design language. Only **three** things are genuinely new, all cosmetic:
+
+| New in the mockup | Severity | Note |
+|---|---|---|
+| Paper design extended to **Overview / Users / Trash / Audit** (ADMIN-D covers Settings only) | 🟡 med | Without it the panel is half-paper, half-grey. → **ADMIN-D2** |
+| **One toast** for every mutating action, replacing the two inconsistent inline status fields (`savedMsg` in Settings, `actionMsg` in Users/Trash — which even colour differently per tab) | ⚪ low | Fixes a real inconsistency; fold into ADMIN-D2 |
+| **Pre-empting a blocked delete** — clicking Delete on an admin toasts instead of opening the typed-DELETE confirm | ⚪ low | Today the confirm opens, the call fires, and the server error surfaces late. Zero security value (the server check is authoritative); the shipped copy already *promises* this behaviour |
+
+Everything else maps to work already planned: the Settings drill-in + Configuration status card → **ADMIN-D**
+(the mockup answers "optional; drop if unwanted" — it's in, with a live amber/green Email dot); view-only
+Audit → **ADMIN-3** owns filter/pagination/export/IP; no billing state on the user card → **ADMIN-1**;
+point-in-time-only Overview → **ADMIN-4** owns MRR/churn trend.
+
+### ⚠️ Three areas SUPERSEDED by §ADMIN-SEC (do not build as drawn)
+
+The mockup was drawn before the roles/security decisions above were locked. Where they disagree,
+**ADMIN-SEC wins** (founder, 2026-07-18) — it is the fix for the owner-deletion bypass:
+
+| Mockup shows | Build instead (ADMIN-SEC) |
+|---|---|
+| An **ADMIN ROLE** card in the Users-tab detail — "Make admin / Remove admin role", type-the-email to confirm | **Remove it.** Managers are added only from the owner-only **Admin access** area (email search → type email twice → warning → owner password) |
+| A **single flat admin** — every tab, Settings, permanent purge and grant-admin visible unconditionally | **Owner vs manager.** Managers get Overview/Users/Trash/Audit only; Settings, Admin access, permanent purge and every grant control are UI-hidden **and** callable-denied |
+| Settings / **API keys** / **Plans & pricing** open and save with **no gate** | **~10-min owner-password unlock** on the client; server requires `role:"owner"` + fresh `auth_time` |
+
+Also restate the footnote copy: the mockup's *"Admins can't be deleted — demote first"* and *"the server
+keeps at least 2 admins"* become **owners can never be deleted or demoted** (`MIN_ADMINS` stays only as a
+secondary floor). The mockup's *"Admin 2FA will additionally gate this at go-live"* line is still correct
+(§ADMIN-0) — but the password re-auth ships **first**, so the copy should mention both.
+
+*(Four further conflicts were claimed during review and refuted on inspection — the `MIN_ADMINS`
+footnote, a missing stats-failure state, "dropped affordances", and missing dark mode. Recorded so they
+aren't re-litigated.)*
+
+### What actually changes visually
+
+Grey inline-styled cards on `#F5F5F5` with an SF-Pro stack → the paper system: cream `#f8f7f3` page,
+white cards at **22px** radius with the two-layer shadow, ink `#15140f`, and warmer semantics (green
+`#0a6b4d`, amber `#b8841f`, purple `#7d4bbf`, danger `#bf4730`). Hanken Grotesk for UI with **Fraunces
+reserved for the H1, sub-screen titles and every large numeral**. New sticky translucent header with the
+CryptoIdea brand lockup + `· Admin`; the tab row becomes a white **segmented pill**; the status dot
+becomes a pulsing "Live Data" badge. Users' detail and all of Settings move into a **680px centred
+drill-in** with a tinted header strip + back chevron. Badges consolidate to one pill recipe (`SUSP` →
+`SUSPENDED`), and destructive chrome gains a gradation (neutral outline → amber Suspend → red Delete →
+solid fill only on the final typed-confirm).
+
+### Build constraints (carry these into ADMIN-D2)
+
+- **Strip the prototype artefacts:** the hard-coded `who:'admin@test.com'` on audit rows, the
+  `showSampleData` seed, three unbound Refresh buttons, and the **uncontrolled inputs** — every Settings
+  field except the provider select and the 18 plan inputs has a placeholder but no value/onChange, and
+  its Save toasts without reading anything. Wire them to the existing handlers; `saveConfig` is untouched.
+- **Keep the maintenance toggle's warning colour.** The mockup renders maintenance and signups both green;
+  the shipped panel correctly renders maintenance in orange, and ADMIN-D already requires a warning state.
+- **Responsive:** the mockup is a fixed 1140px track with `repeat(4,1fr)` / `1.15fr 1fr 1fr` grids and
+  **no media queries**. The app's standard is a 1040px track with `repeat(auto-fit,minmax(280px,1fr))`
+  (§R / `responsive-app`). Port it to auto-fit — the admin panel is desktop-first but must not break narrow.
+- **Dark mode:** this mockup is light-only (hard-coded literals, no CSS vars). The Settings mockup has
+  both modes; ADMIN-D2 needs the same dark pass, using `app.css` tokens rather than inline literals.
+- **Accessibility to fix on the way in:** the tier bar is unlabelled divs, user rows are clickable
+  `div`s with no keyboard affordance, card titles aren't headings, and Trash urgency is colour-only.
+  The mockup's `style-hover`/`style-focus` attributes must become real CSS.
+- **Leave room** in the user-detail layout for ADMIN-1's billing block and in the audit row for ADMIN-3's
+  controls, so those screens aren't redesigned twice.
+
+**Method:** a 3-phase workflow — 4 agents reading the mockup's tabs + 1 on the shipped code + 1 on this
+plan, a reconciliation pass, then **one adversarial verifier per claim** instructed to refute. 8 claimed
+conflicts → **3 confirmed, 4 refuted, 1 partial** (the responsive gap); 3 new capabilities → all confirmed
+absent from the code. The refuted claims are listed above so they don't come back.
 
 ## Sources
 

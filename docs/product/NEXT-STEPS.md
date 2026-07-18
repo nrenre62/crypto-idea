@@ -39,7 +39,9 @@ trend snapshots). Phases (KISS-first, most valuable first):
       Plans & pricing / grant-manager**. Managers can't see Settings, Admin access, permanent purge, or
       any grant control (UI-hidden **and** callable-denied). Absorbs the old RBAC + step-up-reauth audit
       rows; MFA stays §ADMIN-0/§4. Spec + role matrix + file map:
-      [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) § Admin roles. Local-first / emulator-
+      [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) § Admin roles. **Build before the
+      design items** — it overrides three areas of the ADMIN-D2 mockup and adds the unlock gate to
+      Settings, so reskinning first means drawing those screens twice. Local-first / emulator-
       verifiable; runs the §PROCESS interview+sweep (Admin map row) when built.
 - [ ] **ADMIN-0 · Launch gate** (🔴 critical) — admin **MFA/2FA** + **App Check** enforcement +
       `beforeCreate` **hard signups-off** + make the `audit` collection **append-only** in rules.
@@ -68,10 +70,30 @@ trend snapshots). Phases (KISS-first, most valuable first):
       reskin the admin **Settings** tab to match the app's user-settings (**Account**) screen: adopt
       the `.ci-app` paper design + the **drill-in list** pattern (home with the two global toggles
       inline + a category row per detail card), `saveConfig` logic untouched. Nothing dropped; adds an
-      optional **Configuration** summary card. Mockup (4 screens, light+dark):
-      [`docs/mockups/admin-settings/index.html`](../mockups/admin-settings/index.html). Spec:
-      [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) § Settings redesign. Local-first /
-      emulator-verifiable; run the §PROCESS interview+sweep + a dark-mode pass when built.
+      optional **Configuration** summary card — **confirmed in**, with a live amber/green Email dot.
+      Mockups: [`admin-settings/index.html`](../mockups/admin-settings/index.html) (4 screens,
+      light+dark) + the interactive [`admin-panel/index.html`](../mockups/admin-panel/index.html)
+      (same drill-in, all 5 tabs). Spec: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md)
+      § Settings redesign. **Keep maintenance in its warning colour** (the mockup renders it green).
+      **Sequence after ADMIN-SEC** — Settings gains the owner-only unlock gate, so building it first
+      means drawing the screen twice. Local-first / emulator-verifiable; run the §PROCESS
+      interview+sweep + a dark-mode pass when built.
+- [ ] **ADMIN-D2 · Paper reskin — the other four tabs** (🎨 design-only · 🟡 med · founder 2026-07-18)
+      — extend the ADMIN-D paper design to **Overview · Users · Trash · Audit** so the panel isn't
+      half-paper/half-grey. Visual spec = the interactive
+      [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) (tabs switch, Overview
+      maths compute live). **It is a reskin: 35 of its capabilities already ship** — the only additions
+      are **one shared toast** replacing the two inconsistent inline status fields (`savedMsg` /
+      `actionMsg`) and **pre-empting a blocked delete** with a toast instead of opening the confirm.
+      **Three areas are SUPERSEDED by ADMIN-SEC and must NOT be built as drawn** (the Users-tab ADMIN
+      ROLE card, the flat single-admin model, ungated Settings/API-keys/Plans) — see
+      [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) § Full-panel mockup. Carry the build
+      constraints from that section: strip the prototype artefacts (uncontrolled Settings inputs,
+      `showSampleData`, unbound Refresh, hard-coded audit actor), port the fixed 1140px grids to the
+      app's `auto-fit` responsive standard (§R), add the dark pass, and fix the a11y gaps (unlabelled
+      tier bar, non-keyboard user rows, non-heading card titles). Leave room for ADMIN-1's billing
+      block and ADMIN-3's audit controls so those screens aren't redesigned twice. **Sequence after
+      ADMIN-SEC + ADMIN-D.** Local-first / emulator-verifiable; runs the §PROCESS interview+sweep.
 - **Deliberately deferred (⚪ low / out-of-scope):** content-moderation queue (theses are private →
       revisit only if shareable), in-panel refund/cancel actions (use PayPal), IP allowlisting, formal
       break-glass (min-2-admins covers it), cohort/NRR/LTV (external tools), status page, i18n,
