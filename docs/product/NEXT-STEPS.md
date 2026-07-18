@@ -102,10 +102,25 @@ signature auth as a `PayPalWebhookSignature` apiKey scheme (reconciled the "unau
 `openapi.json` info + `API-SECURITY.md` §D to match). Re-audit **32.56/100** (Security **24.61**, +22.7).
 - **Accepted-by-design:** 7 HIGH `security:[]` findings on the genuinely public `/api/*` endpoints —
   flipping them to bearer would misrepresent the API; left as-is.
-- **📋 Deferred (to reach ≥70):** the MEDIUM Data-Validation tail (~600 occurrences) — string
-  `pattern`/`maxLength`, numeric min/max, `additionalProperties:false`, object `properties`, and the
-  standard `401/403/404/406/415/429/default` responses across the ~32 ops. Larger multi-cycle spec pass;
-  each constraint should mirror real server-side validation, not just appease the scanner.
+- **Data-validation push → 65.06/100 (2026-07-18, commit `8d118c0` formatting-normalize + the constraints
+  commit):** on founder "push toward 70", added server-GROUNDED honest constraints — a 4-agent analysis
+  workflow (each agent read `functions/index.js` + `firestore.rules`) fed one reviewable transform, then a
+  3-agent adversarial honesty pass returned **0 issues**. Added: `default` response on all 32 ops + honest
+  `429`/`401` only where the server truly returns them; generous `maxLength` on every string; honest
+  `minimum`/`maximum` on every number; `pattern` ONLY where every real value provably matches (id-family,
+  status, action, ISO `exportedAt`); `additionalProperties:false` on every fixed response schema AND request
+  wrapper. Score **9.24 → 32.56 → 48.35** (responses-only) **→ 65.06** (also closing request bodies).
+  Security **24.61/30**, Data **40.45/70**.
+- **70 is NOT honestly reachable** — the wall is ~55 `pattern` findings on genuinely free-form /
+  provider-controlled strings (coin names, admin-entered analytics/Termly IDs, opaque secrets, nullable
+  emails/URLs): any pattern there could reject a REAL value, so we don't fake them. Also accepted by design:
+  the 7 public `security:[]`, the webhook's honest `apiKey`-in-header scheme, and the free-form export /
+  CoinGecko / PayPal passthrough objects (`PricesResponse` map, export `profile`/`portfolios`, `PayPalEvent`).
+- **📋 Follow-up (server hardening — security-forward, not yet built):** the request-body
+  `additionalProperties:false` now documents a STRICTER input contract than the callables enforce (they
+  currently ignore unknown fields). Harden the callables to **reject unknown request keys** (deny-by-default
+  input) so the contract is backed by real validation — until then a live `42crunch-scan` will (correctly)
+  flag it as a conformance gap.
 - Next 42Crunch step available: `42crunch-scan` (live conformance / BOLA / BFLA) against the running stack.
 
 ## OSS. Open-source skills to build the GitHub account  (📋 PLAN — pick & scrub in a session)

@@ -106,6 +106,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "security": []
@@ -143,8 +153,28 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limited / resource exhausted — retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -176,8 +206,28 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limited / resource exhausted — retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -208,6 +258,26 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Rate limited / resource exhausted — retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "security": []
@@ -228,6 +298,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PublicConfig"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited / resource exhausted — retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -252,7 +342,8 @@
             "description": "CoinGecko coin id (capped at 100 chars).",
             "schema": {
               "type": "string",
-              "maxLength": 100
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_-]*$"
             },
             "example": "bitcoin"
           }
@@ -278,8 +369,28 @@
               }
             }
           },
+          "429": {
+            "description": "Rate limited / resource exhausted — retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -380,6 +491,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "security": []
@@ -453,6 +574,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -510,6 +641,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -557,6 +698,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -597,6 +748,16 @@
           },
           "401": {
             "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -661,6 +822,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -718,6 +889,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -758,6 +939,16 @@
           },
           "401": {
             "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -812,6 +1003,26 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Rate limited / resource exhausted — retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -852,6 +1063,26 @@
           },
           "401": {
             "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited / resource exhausted — retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -916,6 +1147,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -954,8 +1195,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1001,8 +1262,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1058,6 +1339,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
             "content": {
@@ -1070,6 +1361,16 @@
           },
           "404": {
             "description": "not-found — no user with that email.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1124,8 +1425,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1181,8 +1502,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1238,6 +1579,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
             "content": {
@@ -1250,6 +1601,16 @@
           },
           "500": {
             "description": "failed-precondition — can't suspend your own account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1305,6 +1666,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
             "content": {
@@ -1327,6 +1698,16 @@
           },
           "500": {
             "description": "failed-precondition — self-target or last-admin guard.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1382,6 +1763,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
             "content": {
@@ -1394,6 +1785,16 @@
           },
           "500": {
             "description": "failed-precondition — can't trash an admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1448,8 +1849,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1504,8 +1925,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1561,6 +2002,16 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
             "content": {
@@ -1573,6 +2024,16 @@
           },
           "500": {
             "description": "failed-precondition — last-admin guard.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1617,8 +2078,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1664,8 +2145,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1711,8 +2212,28 @@
               }
             }
           },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1743,7 +2264,8 @@
             "in": "header",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -1751,7 +2273,8 @@
             "in": "header",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 2048
             }
           },
           {
@@ -1759,7 +2282,8 @@
             "in": "header",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 256
             }
           },
           {
@@ -1767,7 +2291,8 @@
             "in": "header",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 512
             }
           },
           {
@@ -1775,7 +2300,8 @@
             "in": "header",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 64
             }
           }
         ],
@@ -1819,6 +2345,16 @@
                 }
               }
             }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1850,12 +2386,14 @@
         "properties": {
           "error": {
             "type": "string",
-            "description": "Human-readable error message (no internal details)."
+            "description": "Human-readable error message (no internal details).",
+            "maxLength": 500
           }
         },
         "required": [
           "error"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CallableError": {
         "type": "object",
@@ -1865,11 +2403,14 @@
             "type": "object",
             "properties": {
               "message": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 500
               },
               "status": {
                 "type": "string",
-                "description": "Canonical status, e.g. UNAUTHENTICATED, PERMISSION_DENIED, INVALID_ARGUMENT, RESOURCE_EXHAUSTED, FAILED_PRECONDITION, NOT_FOUND, INTERNAL."
+                "description": "Canonical status, e.g. UNAUTHENTICATED, PERMISSION_DENIED, INVALID_ARGUMENT, RESOURCE_EXHAUSTED, FAILED_PRECONDITION, NOT_FOUND, INTERNAL.",
+                "maxLength": 40,
+                "pattern": "^[A-Z_]+$"
               },
               "details": {
                 "type": "object",
@@ -1879,12 +2420,14 @@
             "required": [
               "message",
               "status"
-            ]
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "error"
-        ]
+        ],
+        "additionalProperties": false
       },
       "SuccessResponse": {
         "type": "object",
@@ -1895,34 +2438,47 @@
         },
         "required": [
           "success"
-        ]
+        ],
+        "additionalProperties": false
       },
       "PriceEntry": {
         "type": "object",
         "properties": {
           "usd": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1000000000000000
           },
           "usd_24h_change": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "minimum": -100000,
+            "maximum": 100000000
           },
           "usd_market_cap": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100000000000000000000
           },
           "usd_24h_vol": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100000000000000000000
           },
           "circulating": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100000000000000000000
           },
           "usd_market_cap_rank": {
             "type": "integer",
-            "nullable": true
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 100000000
           }
         }
       },
@@ -1947,34 +2503,46 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]*$"
           },
           "symbol": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 32
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128
           },
           "thumb": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 2048
           },
           "rank": {
             "type": "integer",
-            "nullable": true
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 100000000
           },
           "price": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1000000000000000
           },
           "change": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "minimum": -100000,
+            "maximum": 100000000
           }
         },
         "required": [
           "id",
           "name"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CoinListResponse": {
         "type": "object",
@@ -1989,7 +2557,8 @@
         },
         "required": [
           "coins"
-        ]
+        ],
+        "additionalProperties": false
       },
       "HistoryResponse": {
         "type": "object",
@@ -2001,7 +2570,9 @@
             "items": {
               "type": "array",
               "items": {
-                "type": "number"
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000
               },
               "minItems": 2,
               "maxItems": 2
@@ -2010,30 +2581,44 @@
         },
         "required": [
           "prices"
-        ]
+        ],
+        "additionalProperties": false
       },
       "PlanConfig": {
         "type": "object",
         "properties": {
           "price": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000000
           },
           "priceYear": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000000
           },
           "aiMonthlyCents": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
           },
           "portfolios": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
           },
           "coins": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
           },
           "transactions": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
           }
-        }
+        },
+        "additionalProperties": false
       },
       "Plans": {
         "type": "object",
@@ -2047,35 +2632,43 @@
           "premium": {
             "$ref": "#/components/schemas/PlanConfig"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "Analytics": {
         "type": "object",
         "properties": {
           "ga4": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "plausible": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128
           }
-        }
+        },
+        "additionalProperties": false
       },
       "Legal": {
         "type": "object",
         "properties": {
           "termlyUuid": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "termlyPrivacyId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "termlyTermsId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "cookieBanner": {
             "type": "boolean"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "PublicConfig": {
         "type": "object",
@@ -2095,7 +2688,8 @@
           "legal": {
             "$ref": "#/components/schemas/Legal"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SubscribeRequest": {
         "type": "object",
@@ -2107,12 +2701,14 @@
           },
           "hp": {
             "type": "string",
-            "description": "Honeypot field — must be empty. Any value is silently dropped."
+            "description": "Honeypot field — must be empty. Any value is silently dropped.",
+            "maxLength": 256
           }
         },
         "required": [
           "email"
-        ]
+        ],
+        "additionalProperties": false
       },
       "Tier": {
         "type": "string",
@@ -2120,14 +2716,16 @@
           "free",
           "pro",
           "premium"
-        ]
+        ],
+        "maxLength": 1024
       },
       "PremiumLimits": {
         "type": "object",
         "properties": {
           "portfolios": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 100000
           },
           "coins": {
             "type": "integer",
@@ -2136,9 +2734,11 @@
           },
           "transactions": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 1000000
           }
-        }
+        },
+        "additionalProperties": false
       },
       "EmptyEnvelope": {
         "type": "object",
@@ -2148,7 +2748,8 @@
             "type": "object",
             "nullable": true
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SuccessResultEnvelope": {
         "type": "object",
@@ -2156,7 +2757,8 @@
           "result": {
             "$ref": "#/components/schemas/SuccessResponse"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "UidEnvelope": {
         "type": "object",
@@ -2165,17 +2767,21 @@
             "type": "object",
             "properties": {
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               }
             },
             "required": [
               "uid"
-            ]
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "data"
-        ]
+        ],
+        "additionalProperties": false
       },
       "UidResultEnvelope": {
         "type": "object",
@@ -2187,11 +2793,15 @@
                 "type": "boolean"
               },
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "EmailEnvelope": {
         "type": "object",
@@ -2207,12 +2817,14 @@
             },
             "required": [
               "email"
-            ]
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "data"
-        ]
+        ],
+        "additionalProperties": false
       },
       "CreateSubscriptionEnvelope": {
         "type": "object",
@@ -2226,7 +2838,8 @@
                   "pro",
                   "premium"
                 ],
-                "description": "Defaults to pro."
+                "description": "Defaults to pro.",
+                "maxLength": 1024
               },
               "billing": {
                 "type": "string",
@@ -2234,11 +2847,14 @@
                   "monthly",
                   "yearly"
                 ],
-                "description": "Defaults to monthly."
+                "description": "Defaults to monthly.",
+                "maxLength": 1024
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreateSubscriptionResultEnvelope": {
         "type": "object",
@@ -2248,15 +2864,20 @@
             "properties": {
               "approvalUrl": {
                 "type": "string",
-                "nullable": true
+                "nullable": true,
+                "maxLength": 2048
               },
               "subscriptionId": {
                 "type": "string",
-                "nullable": true
+                "nullable": true,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CancelSubscriptionEnvelope": {
         "type": "object",
@@ -2270,11 +2891,14 @@
                   "pro",
                   "free"
                 ],
-                "description": "Only a premium user may target pro."
+                "description": "Only a premium user may target pro.",
+                "maxLength": 32
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CancelSubscriptionResultEnvelope": {
         "type": "object",
@@ -2286,15 +2910,19 @@
                 "type": "boolean"
               },
               "downgradeTo": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 32
               },
               "endDate": {
                 "type": "string",
-                "nullable": true
+                "nullable": true,
+                "maxLength": 40
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "DeleteMyAccountResultEnvelope": {
         "type": "object",
@@ -2307,18 +2935,26 @@
               },
               "deletedAt": {
                 "type": "integer",
-                "format": "int64"
+                "format": "int64",
+                "minimum": 0,
+                "maximum": 1000000000000000
               },
               "retrievableUntil": {
                 "type": "integer",
-                "format": "int64"
+                "format": "int64",
+                "minimum": 0,
+                "maximum": 1000000000000000
               },
               "graceDays": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "RestoreMyAccountResultEnvelope": {
         "type": "object",
@@ -2332,9 +2968,11 @@
               "restored": {
                 "type": "boolean"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ExportMyDataResultEnvelope": {
         "type": "object",
@@ -2344,16 +2982,20 @@
             "properties": {
               "exportedAt": {
                 "type": "string",
-                "format": "date-time"
+                "format": "date-time",
+                "maxLength": 30
               },
               "account": {
                 "type": "object",
                 "properties": {
                   "uid": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_-]*$"
                   },
                   "email": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 254
                   }
                 }
               },
@@ -2383,11 +3025,15 @@
                 "type": "boolean"
               },
               "fixed": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "DevSetMyTierEnvelope": {
         "type": "object",
@@ -2401,12 +3047,14 @@
             },
             "required": [
               "tier"
-            ]
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "data"
-        ]
+        ],
+        "additionalProperties": false
       },
       "DevSetMyTierResultEnvelope": {
         "type": "object",
@@ -2420,9 +3068,11 @@
               "tier": {
                 "$ref": "#/components/schemas/Tier"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "StatsResultEnvelope": {
         "type": "object",
@@ -2431,56 +3081,86 @@
             "type": "object",
             "properties": {
               "totalUsers": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               },
               "proUsers": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               },
               "premiumUsers": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               },
               "freeUsers": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               },
               "totalPortfolios": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               },
               "totalCoins": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               },
               "proPrice": {
-                "type": "number"
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000
               },
               "premiumPrice": {
-                "type": "number"
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000
               },
               "grossRevenue": {
-                "type": "number"
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000
               },
               "paymentFees": {
-                "type": "number"
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000
               },
               "netRevenue": {
-                "type": "number"
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000
               },
               "estimatedRevenue": {
-                "type": "number"
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "AdminUser": {
         "type": "object",
         "properties": {
           "uid": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]*$"
           },
           "email": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 254
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128
           },
           "tier": {
             "$ref": "#/components/schemas/Tier"
@@ -2492,12 +3172,16 @@
             "type": "boolean"
           },
           "portfolioCount": {
-            "type": "integer"
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000
           },
           "joinedMs": {
             "type": "integer",
             "format": "int64",
-            "nullable": true
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1000000000000000
           },
           "deleted": {
             "type": "boolean"
@@ -2505,9 +3189,12 @@
           "deletedAt": {
             "type": "integer",
             "format": "int64",
-            "nullable": true
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1000000000000000
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ListUsersResultEnvelope": {
         "type": "object",
@@ -2523,14 +3210,18 @@
                 }
               },
               "total": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               },
               "capped": {
                 "type": "boolean"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "LookupUserResultEnvelope": {
         "type": "object",
@@ -2539,13 +3230,17 @@
             "type": "object",
             "properties": {
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               },
               "email": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 254
               },
               "name": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128
               },
               "tier": {
                 "$ref": "#/components/schemas/Tier"
@@ -2557,13 +3252,18 @@
                 "type": "boolean"
               },
               "portfolioCount": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               },
               "coinCount": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               },
               "tierBeforeFailure": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 32
               },
               "premiumLimits": {
                 "$ref": "#/components/schemas/PremiumLimits"
@@ -2572,11 +3272,14 @@
                 "type": "boolean"
               },
               "billingCycle": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 32
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SetUserTierEnvelope": {
         "type": "object",
@@ -2585,7 +3288,9 @@
             "type": "object",
             "properties": {
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               },
               "tier": {
                 "$ref": "#/components/schemas/Tier"
@@ -2594,12 +3299,14 @@
             "required": [
               "uid",
               "tier"
-            ]
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "data"
-        ]
+        ],
+        "additionalProperties": false
       },
       "SetUserTierResultEnvelope": {
         "type": "object",
@@ -2611,14 +3318,18 @@
                 "type": "boolean"
               },
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               },
               "tier": {
                 "$ref": "#/components/schemas/Tier"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SetPremiumLimitsEnvelope": {
         "type": "object",
@@ -2627,7 +3338,9 @@
             "type": "object",
             "properties": {
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               },
               "limits": {
                 "$ref": "#/components/schemas/PremiumLimits"
@@ -2635,12 +3348,14 @@
             },
             "required": [
               "uid"
-            ]
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "data"
-        ]
+        ],
+        "additionalProperties": false
       },
       "SetPremiumLimitsResultEnvelope": {
         "type": "object",
@@ -2652,14 +3367,18 @@
                 "type": "boolean"
               },
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               },
               "premiumLimits": {
                 "$ref": "#/components/schemas/PremiumLimits"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SuspendUserEnvelope": {
         "type": "object",
@@ -2668,7 +3387,9 @@
             "type": "object",
             "properties": {
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               },
               "disabled": {
                 "type": "boolean"
@@ -2676,12 +3397,14 @@
             },
             "required": [
               "uid"
-            ]
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "data"
-        ]
+        ],
+        "additionalProperties": false
       },
       "SuspendUserResultEnvelope": {
         "type": "object",
@@ -2693,14 +3416,18 @@
                 "type": "boolean"
               },
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               },
               "disabled": {
                 "type": "boolean"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SetAdminClaimEnvelope": {
         "type": "object",
@@ -2710,7 +3437,8 @@
             "properties": {
               "email": {
                 "type": "string",
-                "format": "email"
+                "format": "email",
+                "maxLength": 254
               },
               "admin": {
                 "type": "boolean"
@@ -2718,12 +3446,14 @@
             },
             "required": [
               "email"
-            ]
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "data"
-        ]
+        ],
+        "additionalProperties": false
       },
       "SetAdminClaimResultEnvelope": {
         "type": "object",
@@ -2735,14 +3465,18 @@
                 "type": "boolean"
               },
               "uid": {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
               },
               "admin": {
                 "type": "boolean"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ListAuditEnvelope": {
         "type": "object",
@@ -2755,37 +3489,51 @@
                 "minimum": 1,
                 "maximum": 500
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "AuditEntry": {
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]*$"
           },
           "actorEmail": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 254
           },
           "action": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[A-Za-z]*$"
           },
           "targetUid": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]*$"
           },
           "targetEmail": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 254
           },
           "details": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 500
           },
           "atMs": {
             "type": "integer",
             "format": "int64",
-            "nullable": true
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1000000000000000
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ListAuditResultEnvelope": {
         "type": "object",
@@ -2800,9 +3548,11 @@
                   "$ref": "#/components/schemas/AuditEntry"
                 }
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "AdminConfigResultEnvelope": {
         "type": "object",
@@ -2818,35 +3568,43 @@
                 "type": "object",
                 "properties": {
                   "clientId": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 512
                   },
                   "secretSet": {
                     "type": "boolean"
                   },
                   "webhookId": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 512
                   }
-                }
+                },
+                "additionalProperties": false
               },
               "email": {
                 "type": "object",
                 "properties": {
                   "provider": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 32
                   },
                   "apiKeySet": {
                     "type": "boolean"
                   },
                   "apiUrl": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 2048
                   },
                   "fromEmail": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 254
                   },
                   "listId": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 512
                   }
-                }
+                },
+                "additionalProperties": false
               },
               "flags": {
                 "type": "object",
@@ -2857,7 +3615,8 @@
                   "signupsEnabled": {
                     "type": "boolean"
                   }
-                }
+                },
+                "additionalProperties": false
               },
               "plans": {
                 "$ref": "#/components/schemas/Plans"
@@ -2874,16 +3633,21 @@
                   "anthropicKeySet": {
                     "type": "boolean"
                   }
-                }
+                },
+                "additionalProperties": false
               },
               "updatedAt": {
                 "type": "integer",
                 "format": "int64",
-                "nullable": true
+                "nullable": true,
+                "minimum": 0,
+                "maximum": 1000000000000000
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SaveConfigEnvelope": {
         "type": "object",
@@ -2897,23 +3661,29 @@
                 "properties": {
                   "coingecko": {
                     "type": "string",
-                    "format": "password"
+                    "format": "password",
+                    "maxLength": 512
                   },
                   "paypalClientId": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 512
                   },
                   "paypalSecret": {
                     "type": "string",
-                    "format": "password"
+                    "format": "password",
+                    "maxLength": 512
                   },
                   "paypalWebhookId": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 512
                   },
                   "anthropicKey": {
                     "type": "string",
-                    "format": "password"
+                    "format": "password",
+                    "maxLength": 512
                   }
-                }
+                },
+                "additionalProperties": false
               },
               "email": {
                 "type": "object",
@@ -2924,22 +3694,28 @@
                       "none",
                       "getresponse",
                       "activecampaign"
-                    ]
+                    ],
+                    "maxLength": 32
                   },
                   "apiKey": {
                     "type": "string",
-                    "format": "password"
+                    "format": "password",
+                    "maxLength": 512
                   },
                   "apiUrl": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 2048
                   },
                   "fromEmail": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 254
                   },
                   "listId": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 512
                   }
-                }
+                },
+                "additionalProperties": false
               },
               "flags": {
                 "type": "object",
@@ -2950,7 +3726,8 @@
                   "signupsEnabled": {
                     "type": "boolean"
                   }
-                }
+                },
+                "additionalProperties": false
               },
               "analytics": {
                 "$ref": "#/components/schemas/Analytics"
@@ -2961,23 +3738,28 @@
               "plans": {
                 "$ref": "#/components/schemas/Plans"
               }
-            }
+            },
+            "additionalProperties": false
           }
         },
         "required": [
           "data"
-        ]
+        ],
+        "additionalProperties": false
       },
       "PayPalEvent": {
         "type": "object",
         "description": "A PayPal webhook event. Only trusted after signature verification.",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]*$"
           },
           "event_type": {
             "type": "string",
-            "description": "e.g. BILLING.SUBSCRIPTION.ACTIVATED / CANCELLED / SUSPENDED, PAYMENT.SALE.COMPLETED."
+            "description": "e.g. BILLING.SUBSCRIPTION.ACTIVATED / CANCELLED / SUSPENDED, PAYMENT.SALE.COMPLETED.",
+            "maxLength": 64
           },
           "resource": {
             "type": "object",
@@ -2998,7 +3780,8 @@
         },
         "required": [
           "received"
-        ]
+        ],
+        "additionalProperties": false
       }
     }
   }

@@ -142,6 +142,9 @@ The only inbound write **not gated by a Firebase user login** — it is authenti
 ### Also verified clean
 Callable access control (all 30 exports: auth-before-side-effect, admin claim checks, `context.auth.uid` not body uid, `MIN_ADMINS`), the PayPal signature/idempotency core, the client bundle (no secret ships), CSP/headers (frame-ancestors none, no `unsafe-inline` scripts), and input validation on the `/api` surface (length caps, `encodeURIComponent`, regex-sanitised doc paths).
 
+### 42Crunch static audit (2026-07-18)
+Ran the 42Crunch `42c-ast` static audit on [`openapi.json`](../../openapi.json) and hardened the contract with **server-grounded, honest** constraints (a 4-agent analysis workflow read `functions/index.js` + `firestore.rules`; a 3-agent adversarial honesty pass returned **0 issues**). **Score 9.24 → 65.06/100** (Security 24.61/30, Data 40.45/70): dropped the `http://localhost` server entry (killed the CRITICAL cleartext-bearer transport finding), documented the webhook's signature as a `PayPalWebhookSignature` `apiKey` scheme (§D), and added honest `default`/`429`/`401` responses, `maxLength`/`minimum`/`maximum`/`maxItems`, `pattern` **only** where every real value provably matches, and `additionalProperties:false` on all fixed schemas + request wrappers. **70 is not honestly reachable** — the wall is ~55 `pattern` findings on genuinely free-form / provider-controlled strings (a pattern there could reject a real value). The 7 public `security:[]` endpoints are accepted by design. Full log + the request-enforcement follow-up: `NEXT-STEPS.md` §API.
+
 ---
 
 ## 5. Go-live items (known, deferred — not gaps)
@@ -153,6 +156,7 @@ These are **intended** deferrals to the go-live/Blaze phase, documented so they'
 - **CoinGecko paid key** — the proxy works on the free tier (degrades gracefully); a Demo/paid key is needed for the full 5-min refresh at scale.
 - **Admin 2FA** — needs Identity Platform MFA (Blaze).
 - **Distributed rate limiting** — the current per-IP limiter is in-memory per instance (see §4 for the confirmed implications and the chosen mitigation).
+- **Strict request-body input validation** — `openapi.json` now declares request bodies `additionalProperties:false`, but the callables currently **ignore** unknown fields. Harden them to reject unknown request keys (deny-by-default input) so the documented contract is actually enforced; a live `42crunch-scan` will flag the gap until then. (Added 2026-07-18 with the 42Crunch audit hardening.)
 
 ---
 
