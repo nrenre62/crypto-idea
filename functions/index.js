@@ -35,6 +35,7 @@ const admin = require("firebase-admin");
 // BL-1a/BL-1b: shared security guards (per-uid limiter / cooldown / App Check gate)
 // and the pure PayPal-billing decision logic — both dependency-injected + unit-tested.
 const { checkCooldown, consumeDailyBudget } = require("./guards.js");
+const guards = require("./guards.js");   // ADMIN-SEC role gates (requireOwner/requireFreshAuth/roleOf)
 const billing = require("./billing.js");
 // C-R2b (C14): trim the universe's lowest-rank tail instead of hitting the 1 MiB doc cap.
 const { trimUniverse } = require("./universe-utils.js");
@@ -61,10 +62,88 @@ const PAYPAL_BASE = "https://api-m.paypal.com";
 // which a caller can spoof — that would be an open-redirect).
 const APP_URL = process.env.APP_URL || "https://crypto-idea.web.app";
 
-// Admin is a verified Firebase custom claim ({ admin: true }), set via the Admin SDK
-// (setAdminClaim below, or functions/scripts/set-admin.js for the first admin).
+// Admin is a verified Firebase custom claim, set via the Admin SDK. ADMIN-SEC adds a
+// `role` to it: "owner" (script-only, protected) or "manager" (accounts only).
 function isAdminToken(token) {
   return !!token && token.admin === true;
+}
+
+/* ─── ADMIN-SEC: role gates ───────────────────────────────────────────────────
+ * The decision logic is pure + unit-tested in guards.js; these thin wrappers turn a
+ * decision into the HttpsError the callable throws. Every admin callable goes through
+ * exactly one of them — no callable re-implements the check, which is what stops a
+ * future edit from quietly leaving one endpoint open.
+ *
+ *   assertAdmin   — any admin claim (incl. legacy role-less). Read surface.
+ *   assertManager — account-management surface. Same floor, named for the matrix.
+ *   assertOwner   — Settings, grant/revoke manager, permanent erasure.
+ *   assertFreshOwner — assertOwner + a recent password re-auth (step-up).
+ *
+ * Returns the caller's role so the callable can apply owner-target protection.
+ */
+function denied(reason) {
+  if (reason === "unauthenticated") return new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  if (reason === "owner-required") {
+    return new functions.https.HttpsError("permission-denied", "Owners only. Your admin account doesn't have owner access.");
+  }
+  if (reason === "reauth-required") {
+    // The client watches for this exact code to re-prompt for the password.
+    return new functions.https.HttpsError("failed-precondition", "reauth-required: confirm your password to continue.");
+  }
+  return new functions.https.HttpsError("permission-denied", "Admins only.");
+}
+
+function assertAdmin(context) {
+  const d = guards.requireAdmin(context);
+  if (!d.ok) throw denied(d.reason);
+  return d.role;
+}
+function assertManager(context) {
+  const d = guards.requireManager(context);
+  if (!d.ok) throw denied(d.reason);
+  return d.role;
+}
+function assertOwner(context) {
+  const d = guards.requireOwner(context);
+  if (!d.ok) throw denied(d.reason);
+  return d.role;
+}
+// Step-up gate. `enforce` is read from config so it can be turned off from the
+// Firebase console if it ever misfires — Settings is where the flag lives, so a
+// self-locking gate would otherwise have no recovery path that doesn't need a deploy.
+async function assertFreshOwner(context) {
+  const role = assertOwner(context);
+  const cfg = await getConfig();
+  const enforce = !(cfg && cfg.flags && cfg.flags.stepUpReauth === false);
+  const d = guards.requireFreshAuth(context, { enforce });
+  if (!d.ok) throw denied(d.reason);
+  return role;
+}
+
+// Resolves a TARGET account's role from its custom claims (not from the caller's
+// token). Used for owner protection — owners are identified by identity, which is
+// the whole fix for the "promote sock-puppets, then delete the real owners" bypass.
+async function roleOfUid(uid) {
+  try {
+    const rec = await admin.auth().getUser(uid);
+    return guards.roleOf((rec && rec.customClaims) || null);
+  } catch (e) { return ""; }   // no auth record → not an owner
+}
+
+// Owner protection. Owners can never be demoted or deleted by anyone, and a MANAGER
+// may not act on an owner at all — otherwise "accounts only" still allows suspending
+// both owners (which disables their Auth accounts), locking the founders out by a
+// different route while the admin count looks healthy.
+async function assertTargetAllowed(uid, callerRole, what) {
+  const targetRole = await roleOfUid(uid);
+  if (targetRole !== guards.ROLE_OWNER) return targetRole;
+  if (what === "protected") {
+    throw new functions.https.HttpsError("failed-precondition", "Owner accounts are protected — they can't be deleted or demoted.");
+  }
+  if (callerRole !== guards.ROLE_OWNER) {
+    throw new functions.https.HttpsError("permission-denied", "Owner accounts can only be managed by another owner.");
+  }
+  return targetRole;
 }
 
 // The app must always keep at least this many admins, so admin access can never
@@ -86,6 +165,22 @@ async function countAdmins() {
   do {
     const res = await admin.auth().listUsers(1000, pageToken);
     res.users.forEach((u) => { if (u.customClaims && u.customClaims.admin === true) count += 1; });
+    pageToken = res.pageToken;
+  } while (pageToken);
+  return count;
+}
+
+// ADMIN-SEC: counts OWNERS who can actually sign in. `disabled` matters — a suspended
+// owner still holds the claim, so a count that ignored it would report a healthy floor
+// while nobody could actually get in. Used by the health check the panel surfaces.
+async function countActiveOwners() {
+  let count = 0;
+  let pageToken;
+  do {
+    const res = await admin.auth().listUsers(1000, pageToken);
+    res.users.forEach((u) => {
+      if (!u.disabled && guards.roleOf(u.customClaims || null) === guards.ROLE_OWNER) count += 1;
+    });
     pageToken = res.pageToken;
   } while (pageToken);
   return count;
@@ -386,9 +481,7 @@ const PAYMENT_FEE_FIXED = 0.30;
 
 // ─── Admin Stats (admins only) ───
 exports.getStats = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  assertAdmin(context);
   const usersSnap = await db.collection("users").get();
   let proUsers = 0, premiumUsers = 0, freeUsers = 0, totalPortfolios = 0, activeUsers = 0;
   const payerList = [];   // BL-1b (D6): [{tier, cycle}] so annual payers are priced by cycle
@@ -430,40 +523,61 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     paymentFees,
     netRevenue,
     estimatedRevenue: grossRevenue,   // kept (= gross) for backward compatibility
+    // ADMIN-SEC: owner health. Owners can only be minted by scripts/set-admin.js, so
+    // dropping to 1 (or 0) is a silent single-point-of-failure the panel should warn
+    // about while it's still fixable. Counts only owners who can actually sign in.
+    activeOwners: await countActiveOwners(),
   };
 });
 
-// ─── Grant / revoke admin (admins only) ───
-// Sets the { admin: true|false } custom claim on another user by email.
-// The FIRST admin must be bootstrapped with functions/scripts/set-admin.js
-// (run locally with a service account), since this requires an existing admin.
-exports.setAdminClaim = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
+// ─── Grant / revoke MANAGER (owners only, step-up re-auth) — ADMIN-SEC ───
+// Replaces the old `setAdminClaim`, which any admin could call to promote anyone.
+// That was the bypass: promote two throw-away accounts, then delete the two real
+// owners while the admin COUNT stayed ≥ MIN_ADMINS. Owners are now protected by
+// IDENTITY (the role claim) and can only be minted by scripts/set-admin.js.
+//
+// The panel can grant/revoke MANAGERS only, and only an owner with a fresh password
+// re-auth can do it. Owner targets are refused outright.
+exports.setManagerRole = functions.https.onCall(async (data, context) => {
+  await assertFreshOwner(context);
+  const email = String((data && data.email) || "").trim().toLowerCase();
+  const grant = !!(data && data.grant);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
+    throw new functions.https.HttpsError("invalid-argument", "Enter a valid email.");
   }
-  const email = data && data.email;
-  const makeAdmin = !!(data && data.admin);
-  if (!email) {
-    throw new functions.https.HttpsError("invalid-argument", "email is required.");
+  let userRecord;
+  try { userRecord = await admin.auth().getUserByEmail(email); }
+  catch (e) { throw new functions.https.HttpsError("not-found", "No user with that email."); }
+
+  // Owners are never grantable or revocable from the panel — by design, in both
+  // directions (you can't demote an owner, and you can't "re-grant" one either).
+  await assertTargetAllowed(userRecord.uid, guards.ROLE_OWNER, "protected");
+  if (userRecord.uid === context.auth.uid) {
+    throw new functions.https.HttpsError("failed-precondition", "You can't change your own admin role.");
   }
-  const userRecord = await admin.auth().getUserByEmail(email);
-  // Safety: don't let demoting an admin drop the app below MIN_ADMINS admins.
-  if (!makeAdmin && userRecord.customClaims && userRecord.customClaims.admin === true) {
-    if ((await countAdmins()) <= MIN_ADMINS) {
-      throw new functions.https.HttpsError("failed-precondition", `Can't remove admin — the app must keep at least ${MIN_ADMINS} admins. Promote another admin first.`);
-    }
-  }
-  await admin.auth().setCustomUserClaims(userRecord.uid, { admin: makeAdmin });
-  await writeAudit(context, makeAdmin ? "grantAdmin" : "revokeAdmin", { targetUid: userRecord.uid, targetEmail: email });
-  return { success: true, uid: userRecord.uid, admin: makeAdmin };
+
+  // setCustomUserClaims replaces the object wholesale — write the complete shape.
+  // Revoking clears it entirely so the token carries no admin key at all, which is
+  // what firestore.rules' .get('admin', false) default already assumes.
+  await admin.auth().setCustomUserClaims(userRecord.uid, grant ? { admin: true, role: guards.ROLE_MANAGER } : null);
+  // Without this the change wouldn't take effect until the target's ID token expired
+  // (~1h) — unacceptable when REVOKING someone's access.
+  await admin.auth().revokeRefreshTokens(userRecord.uid);
+  await writeAudit(context, grant ? "grantManager" : "revokeManager", { targetUid: userRecord.uid, targetEmail: email });
+  return { success: true, uid: userRecord.uid, role: grant ? guards.ROLE_MANAGER : null };
+});
+
+// Retained ONLY to fail loudly: the old callable is still deployed until the next
+// deploy, and a stale client (or anyone probing the API) must not get the old
+// behaviour. Deleting the export outright would 404; this makes the refusal explicit.
+exports.setAdminClaim = functions.https.onCall(async () => {
+  throw new functions.https.HttpsError("permission-denied", "Removed — admin roles are managed from Admin access (owners only).");
 });
 
 // ─── Admin: look up ONE user for support / moderation (admins only) ───
 // Returns operational data only (tier, status, usage counts) — NOT holdings.
 exports.lookupUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  assertAdmin(context);
   const email = String((data && data.email) || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
     throw new functions.https.HttpsError("invalid-argument", "Enter a valid email.");
@@ -496,14 +610,14 @@ exports.lookupUser = functions.https.onCall(async (data, context) => {
 
 // ─── Admin: change a user's tier (admins only) ───
 exports.setUserTier = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  const callerRole = assertManager(context);
   const uid = data && data.uid;
   const tier = data && data.tier;
   if (!uid || !["free", "pro", "premium"].includes(tier)) {
     throw new functions.https.HttpsError("invalid-argument", "uid and a valid tier are required.");
   }
+  // ADMIN-SEC: owners are protected — a manager may not act on one at all.
+  await assertTargetAllowed(uid, callerRole, "manage");
   await db.collection("users").doc(uid).update({ tier });
   await writeAudit(context, "setUserTier", { targetUid: uid, details: "tier=" + tier });
   return { success: true, uid, tier };
@@ -542,12 +656,12 @@ exports.devSetMyTier = functions.https.onCall(async (data, context) => {
 // can't write this field (rules blocklist); only admins, here. An empty object clears
 // the override (back to tier defaults).
 exports.setPremiumLimits = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  const callerRole = assertManager(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   const raw = (data && data.limits) || {};
+  // ADMIN-SEC: owners are protected — a manager may not act on one at all.
+  await assertTargetAllowed(uid, callerRole, "manage");
   const num = (x) => (typeof x === "number" && isFinite(x) && x >= 0 ? Math.round(x) : null);
   const caps = { portfolios: 100000, coins: 1000, transactions: 1000000 };
   const out = {};
@@ -563,15 +677,17 @@ exports.setPremiumLimits = functions.https.onCall(async (data, context) => {
 // ─── Admin: suspend / un-suspend a user (admins only) — reversible ───
 // Disables the Auth account so they can't sign in.
 exports.suspendUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  const callerRole = assertManager(context);
   const uid = data && data.uid;
   const disabled = !!(data && data.disabled);
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   if (uid === context.auth.uid) {
     throw new functions.https.HttpsError("failed-precondition", "You cannot suspend your own admin account.");
   }
+  // ADMIN-SEC: suspending disables the Auth account AND revokes tokens, so without
+  // this a manager could lock both owners out of the panel while the admin count
+  // still looked healthy — the un-deletable guarantee by another route.
+  await assertTargetAllowed(uid, callerRole, "manage");
   await admin.auth().updateUser(uid, { disabled });
   const uref = db.collection("users").doc(uid);
   if (disabled) {
@@ -595,15 +711,16 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
 
 // ─── Admin: delete a user + ALL their data (admins only) — GDPR/CCPA erasure ───
 exports.deleteUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  const callerRole = assertOwner(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   if (uid === context.auth.uid) {
     throw new functions.https.HttpsError("failed-precondition", "You cannot delete your own admin account.");
   }
-  // Safety: never let deleting an admin drop the app below MIN_ADMINS admins.
+  // ADMIN-SEC: owners are un-deletable, full stop — this is the primary fix for the
+  // bypass. The MIN_ADMINS floor below is kept only as a secondary backstop; on its
+  // own it protected the admin COUNT, which promoting sock-puppets trivially defeats.
+  await assertTargetAllowed(uid, callerRole, "protected");
   let targetRec;
   try { targetRec = await admin.auth().getUser(uid); }
   catch (e) { throw new functions.https.HttpsError("not-found", "No such user."); }
@@ -620,9 +737,7 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
 
 // ─── Admin: restore a soft-deleted user from the Trash (admins only) ───
 exports.restoreUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  const callerRole = assertManager(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   await db.collection("users").doc(uid).set({ deleted: false, deletedAt: null }, { merge: true });
@@ -636,11 +751,11 @@ exports.restoreUser = functions.https.onCall(async (data, context) => {
 // admin would be hard-purged in 30 days and could drop the app below
 // MIN_ADMINS) — demote them first via setAdminClaim.
 exports.adminTrashUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  const callerRole = assertManager(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  // ADMIN-SEC: owners can never be trashed, by anyone (identity, not count).
+  await assertTargetAllowed(uid, callerRole, "protected");
   let rec = null;
   try { rec = await admin.auth().getUser(uid); } catch (e) { /* no auth record is fine */ }
   if (rec && rec.customClaims && rec.customClaims.admin === true) {
@@ -662,11 +777,11 @@ exports.adminTrashUser = functions.https.onCall(async (data, context) => {
 // Revokes the target's refresh tokens (each device must re-authenticate) —
 // the moderation counterpart of the self-service signOutEverywhere (U6).
 exports.adminSignOutUser = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  const callerRole = assertManager(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  // ADMIN-SEC: repeated force-sign-out is a denial-of-access vector against an owner.
+  await assertTargetAllowed(uid, callerRole, "manage");
   await admin.auth().revokeRefreshTokens(uid);
   await writeAudit(context, "adminSignOutUser", { targetUid: uid });
   return { success: true, uid };
@@ -679,7 +794,12 @@ exports.deleteMyAccount = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
   const uid = context.auth.uid;
-  // Safety: an admin can't self-delete the app below MIN_ADMINS admins.
+  // ADMIN-SEC: an owner can't self-delete at all — owner accounts are the recovery
+  // path for the whole panel, and there is no in-app way to mint a replacement.
+  if (guards.isOwner(context.auth.token)) {
+    throw new functions.https.HttpsError("failed-precondition", "Owner accounts can't be deleted. Transfer ownership with scripts/set-admin.js first.");
+  }
+  // Secondary floor: any other admin still can't self-delete below MIN_ADMINS.
   if (context.auth.token.admin === true && (await countAdmins()) <= MIN_ADMINS) {
     throw new functions.https.HttpsError("failed-precondition", `As one of the last ${MIN_ADMINS} admins you can't delete your account yet — promote another admin first.`);
   }
@@ -839,9 +959,7 @@ exports.reactivateSubscription = functions.https.onCall(async (data, context) =>
 // profile (tier, portfolioCount, joined). NEVER returns holdings. Capped; the
 // dashboard paginates + searches client-side.
 exports.listUsers = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  assertAdmin(context);
   const CAP = 5000;
   const prof = {};
   try { const snap = await db.collection("users").get(); snap.forEach((d) => { prof[d.id] = d.data(); }); } catch (e) { /* ignore */ }
@@ -859,6 +977,9 @@ exports.listUsers = functions.https.onCall(async (data, context) => {
         tier: p.tier || "free",
         disabled: !!u.disabled,
         isAdmin: !!(u.customClaims && u.customClaims.admin),
+        // ADMIN-SEC: "" for a plain user AND for a legacy role-less admin. The UI uses
+        // this to badge owners and to hide controls that the server would refuse anyway.
+        role: guards.roleOf(u.customClaims || null),
         portfolioCount: p.portfolioCount || 0,
         joinedMs,
         deleted: p.deleted === true,
@@ -873,9 +994,7 @@ exports.listUsers = functions.https.onCall(async (data, context) => {
 
 // ─── Admin: read the recent audit log (admins only) ───
 exports.listAudit = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  assertAdmin(context);
   const limit = Math.min(Math.max(parseInt((data && data.limit) || 100, 10) || 100, 1), 500);
   let snap;
   try { snap = await db.collection("audit").orderBy("at", "desc").limit(limit).get(); }
@@ -899,9 +1018,7 @@ exports.listAudit = functions.https.onCall(async (data, context) => {
 // Secrets are NOT returned in full — only whether each is set — so the admin can
 // see what's configured and replace it without the secret reaching the client.
 exports.getAdminConfig = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  const callerRole = await assertFreshOwner(context);
   let cfg = {};
   try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* ignore */ }
   const pp = cfg.paypal || {}, em = cfg.email || {}, fl = cfg.flags || {}, an = cfg.analytics || {}, lg = cfg.legal || {};
@@ -924,9 +1041,7 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
 // to the LOCKED config/app Firestore doc that the proxy + PayPal functions read.
 // Clients can never read this doc (firestore.rules deny all access to /config).
 exports.saveConfig = functions.https.onCall(async (data, context) => {
-  if (!context.auth || !isAdminToken(context.auth.token)) {
-    throw new functions.https.HttpsError("permission-denied", "Admins only.");
-  }
+  const callerRole = await assertFreshOwner(context);
   const k = (data && data.keys) || {};
   const m = (data && data.email) || {};
   // Read existing so a blank SECRET field means "keep the saved value" — the form

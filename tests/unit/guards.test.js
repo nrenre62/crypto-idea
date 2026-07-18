@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk } from "../../functions/guards.js";
+import {
+  utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk,
+  roleOf, requireAdmin, requireManager, requireOwner, requireFreshAuth,
+} from "../../functions/guards.js";
 
 // BL-1a (D4/D5/C16): the shared per-uid limiter + App Check gate are pure and
 // dependency-injected, so they're tested here with an in-memory Firestore fake —
@@ -86,5 +89,120 @@ describe("guards.appCheckOk (D4: v1 manual context.app, prod-flag gated)", () =>
     const denied = appCheckOk({}, { enforce: true });
     expect(denied.ok).toBe(false);
     expect(denied.reason).toBe("app-check-required");
+  });
+});
+
+/* ===========================================================================
+ * ADMIN-SEC — admin roles, owner protection & step-up re-auth
+ * ===========================================================================
+ * These pure guards ARE the access matrix, so this block is the executable copy
+ * of it. Every case defaults to DENY: the recurring failure mode for claim-based
+ * roles is a truthiness check letting `undefined` / "OWNER" / "owner " through.
+ */
+const ctx = (token, uid = "a1") => (token === null ? {} : { auth: { uid, token } });
+const OWNER = { admin: true, role: "owner", email: "owner@test.com" };
+const MANAGER = { admin: true, role: "manager", email: "mgr@test.com" };
+const LEGACY = { admin: true, email: "legacy@test.com" };          // pre-ADMIN-SEC claim
+const USER = { email: "user@test.com" };
+
+describe("guards.roleOf (ADMIN-SEC: strict, null-safe role read)", () => {
+  it("reads the two real roles", () => {
+    expect(roleOf(OWNER)).toBe("owner");
+    expect(roleOf(MANAGER)).toBe("manager");
+  });
+
+  it("is empty for a legacy admin with no role claim", () => {
+    expect(roleOf(LEGACY)).toBe("");
+  });
+
+  it("never infers a role from a non-admin token", () => {
+    expect(roleOf({ role: "owner" })).toBe("");            // role without admin:true
+    expect(roleOf({ admin: false, role: "owner" })).toBe("");
+    expect(roleOf(USER)).toBe("");
+    expect(roleOf(null)).toBe("");
+    expect(roleOf(undefined)).toBe("");
+  });
+
+  it("rejects near-miss role values instead of normalising them", () => {
+    for (const role of ["OWNER", "Owner", "owner ", " owner", "ownerr", "", null, undefined, 1, true]) {
+      expect(roleOf({ admin: true, role })).toBe("");
+    }
+  });
+});
+
+describe("guards.requireAdmin / requireManager (shared account surface)", () => {
+  it("admits owners, managers AND legacy role-less admins", () => {
+    expect(requireAdmin(ctx(OWNER)).ok).toBe(true);
+    expect(requireAdmin(ctx(MANAGER)).ok).toBe(true);
+    expect(requireAdmin(ctx(LEGACY)).ok).toBe(true);       // migration window stays usable
+    expect(requireManager(ctx(MANAGER)).ok).toBe(true);
+  });
+
+  it("reports the caller's role so callers can branch on it", () => {
+    expect(requireAdmin(ctx(OWNER)).role).toBe("owner");
+    expect(requireAdmin(ctx(MANAGER)).role).toBe("manager");
+    expect(requireAdmin(ctx(LEGACY)).role).toBe("");
+  });
+
+  it("refuses non-admins and the unauthenticated", () => {
+    expect(requireAdmin(ctx(USER))).toMatchObject({ ok: false, reason: "not-admin" });
+    expect(requireAdmin(ctx({ admin: "true" }))).toMatchObject({ ok: false, reason: "not-admin" });
+    expect(requireAdmin(ctx({ admin: 1 }))).toMatchObject({ ok: false, reason: "not-admin" });
+    expect(requireAdmin(ctx(null))).toMatchObject({ ok: false, reason: "unauthenticated" });
+    expect(requireAdmin(undefined)).toMatchObject({ ok: false, reason: "unauthenticated" });
+  });
+});
+
+describe("guards.requireOwner (ADMIN-SEC: Settings + grant/revoke + purge)", () => {
+  it("admits only an owner", () => {
+    expect(requireOwner(ctx(OWNER))).toMatchObject({ ok: true, role: "owner" });
+  });
+
+  it("refuses a manager — this is the wall the whole build rests on", () => {
+    expect(requireOwner(ctx(MANAGER))).toMatchObject({ ok: false, reason: "owner-required" });
+  });
+
+  it("refuses a legacy role-less admin (fails CLOSED until backfilled)", () => {
+    expect(requireOwner(ctx(LEGACY))).toMatchObject({ ok: false, reason: "owner-required" });
+  });
+
+  it("refuses non-admins before it ever looks at the role", () => {
+    expect(requireOwner(ctx(USER))).toMatchObject({ ok: false, reason: "not-admin" });
+    expect(requireOwner(ctx({ role: "owner" }))).toMatchObject({ ok: false, reason: "not-admin" });
+    expect(requireOwner(ctx(null))).toMatchObject({ ok: false, reason: "unauthenticated" });
+  });
+});
+
+describe("guards.requireFreshAuth (ADMIN-SEC: step-up re-auth on sensitive calls)", () => {
+  const now = Date.UTC(2026, 6, 18, 12, 0, 0);       // fixed clock
+  const at = (secondsAgo) => ({ auth: { uid: "a1", token: { ...OWNER, auth_time: Math.floor(now / 1000) - secondsAgo } } });
+
+  it("allows a token minted inside the window", () => {
+    expect(requireFreshAuth(at(0), { now })).toMatchObject({ ok: true });
+    expect(requireFreshAuth(at(599), { now })).toMatchObject({ ok: true });
+  });
+
+  it("tolerates clock skew at the edge rather than locking the owner out", () => {
+    expect(requireFreshAuth(at(640), { now }).ok).toBe(true);      // 600 + 60 skew
+  });
+
+  it("denies a stale token", () => {
+    expect(requireFreshAuth(at(3600), { now })).toMatchObject({ ok: false, reason: "reauth-required" });
+  });
+
+  it("denies when auth_time is missing or unusable — never assumes fresh", () => {
+    for (const auth_time of [undefined, null, "", "abc", NaN, Infinity]) {
+      expect(requireFreshAuth(ctx({ ...OWNER, auth_time }), { now })).toMatchObject({ ok: false, reason: "reauth-required" });
+    }
+    expect(requireFreshAuth(ctx(null), { now })).toMatchObject({ ok: false, reason: "reauth-required" });
+  });
+
+  it("honours the server kill-flag (console-flippable escape hatch)", () => {
+    expect(requireFreshAuth(at(99999), { enforce: false, now })).toMatchObject({ ok: true, enforced: false });
+  });
+
+  it("respects a custom window", () => {
+    expect(requireFreshAuth(at(120), { maxAgeSec: 30, skewSec: 0, now }).ok).toBe(false);
+    expect(requireFreshAuth(at(20), { maxAgeSec: 30, skewSec: 0, now }).ok).toBe(true);
   });
 });

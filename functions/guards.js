@@ -61,4 +61,78 @@ function appCheckOk(context, { enforce }) {
   return context && context.app ? { ok: true } : { ok: false, reason: "app-check-required" };
 }
 
-module.exports = { utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk };
+/* ===========================================================================
+ * ADMIN-SEC — admin roles, owner protection & step-up re-auth
+ * ===========================================================================
+ * Two roles, both carried as verified custom claims on the ID token:
+ *   owner   = { admin: true, role: "owner" }    set ONLY by scripts/set-admin.js
+ *   manager = { admin: true, role: "manager" }  granted by an owner from the panel
+ *
+ * These are PURE — they read the already-decoded `context.auth.token` and return a
+ * decision object; the caller maps it to an HttpsError. Same contract as the rest of
+ * this file, so the whole role matrix is unit-testable with no emulator.
+ *
+ * FAIL CLOSED, ALWAYS. A legacy admin whose token predates this build has no `role`
+ * claim: they stay a working admin for account actions (`requireManager`) but are NOT
+ * an owner, so Settings and grant/revoke deny until `set-admin.js --role=owner` is run
+ * and they re-login. Never widen `roleOf` to guess — an unknown role is not an owner.
+ */
+const ROLE_OWNER = "owner";
+const ROLE_MANAGER = "manager";
+
+// Strict, null-safe role read. No trimming, no case-folding, no defaulting to a role:
+// anything that isn't exactly "owner"/"manager" is "" and is treated as unprivileged.
+function roleOf(token) {
+  if (!token || token.admin !== true) return "";
+  return token.role === ROLE_OWNER || token.role === ROLE_MANAGER ? token.role : "";
+}
+
+function isOwner(token) { return roleOf(token) === ROLE_OWNER; }
+
+// Any admin claim holder — the floor for the shared read surface (Overview/Users/
+// Trash/Audit). Legacy role-less admins pass here, which is what keeps the panel
+// working through the migration window.
+function requireAdmin(context) {
+  const token = context && context.auth && context.auth.token;
+  if (!context || !context.auth) return { ok: false, reason: "unauthenticated" };
+  if (!token || token.admin !== true) return { ok: false, reason: "not-admin" };
+  return { ok: true, role: roleOf(token), uid: context.auth.uid };
+}
+
+// Account-management surface: owner OR manager (and legacy role-less admins).
+// Alias of requireAdmin today — named separately so the call sites read as the
+// access matrix, and so tightening managers later is a one-line change here.
+function requireManager(context) { return requireAdmin(context); }
+
+// Owner-only surface: Settings (getAdminConfig/saveConfig), grant/revoke manager,
+// permanent erasure. A manager or a legacy role-less admin is refused.
+function requireOwner(context) {
+  const base = requireAdmin(context);
+  if (!base.ok) return base;
+  if (!isOwner(context.auth.token)) return { ok: false, reason: "owner-required", role: base.role };
+  return { ok: true, role: ROLE_OWNER, uid: context.auth.uid };
+}
+
+// Step-up re-auth: the token must have been minted from a RECENT password
+// re-authentication. `auth_time` is seconds since epoch, set by Firebase when the
+// user actually authenticated — a client cannot forge it, which is why this and not
+// the client's unlock timer is the real control.
+//
+// `enforce` mirrors appCheckOk's flag convention: the gate is the one control that
+// can lock an owner out of Settings, and the flag lives in Settings — so it must be
+// flippable from the Firebase console without the panel. Defaults ON at the caller.
+// `skewSec` tolerates a client/server clock difference at the window edge.
+function requireFreshAuth(context, { enforce = true, maxAgeSec = 600, skewSec = 60, now = Date.now() } = {}) {
+  if (!enforce) return { ok: true, enforced: false };
+  const token = context && context.auth && context.auth.token;
+  const authTime = token && Number(token.auth_time);
+  if (!authTime || !Number.isFinite(authTime)) return { ok: false, reason: "reauth-required", ageSec: null };
+  const ageSec = Math.floor(now / 1000) - authTime;
+  if (ageSec > maxAgeSec + skewSec) return { ok: false, reason: "reauth-required", ageSec };
+  return { ok: true, enforced: true, ageSec };
+}
+
+module.exports = {
+  utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk,
+  ROLE_OWNER, ROLE_MANAGER, roleOf, isOwner, requireAdmin, requireManager, requireOwner, requireFreshAuth,
+};

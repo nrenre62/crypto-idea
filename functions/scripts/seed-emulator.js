@@ -27,11 +27,15 @@ const COIN_POOL = [
 ];
 
 // portfolios: array of coin-counts, e.g. [6, 4] = two portfolios with 6 and 4 coins.
-async function makeUser(email, password, tier, portfolios, isAdmin) {
+// role (ADMIN-SEC): "owner" | "manager" | "legacy" | null.
+//   "legacy" writes the PRE-ADMIN-SEC flat claim { admin:true } with no role, so the
+//   fail-closed path (owner-only areas must deny a role-less admin) is testable locally.
+async function makeUser(email, password, tier, portfolios, role) {
   let u;
   try { u = await auth.getUserByEmail(email); }
   catch { u = await auth.createUser({ email, password, displayName: email.split("@")[0] }); }
-  if (isAdmin) await auth.setCustomUserClaims(u.uid, { admin: true });
+  if (role === "legacy") await auth.setCustomUserClaims(u.uid, { admin: true });
+  else if (role) await auth.setCustomUserClaims(u.uid, { admin: true, role });
 
   const userRef = db.collection("users").doc(u.uid);
   await userRef.set({ email, name: email.split("@")[0], tier, joined: now, portfolioCount: portfolios.length }, { merge: true });
@@ -52,15 +56,19 @@ async function makeUser(email, password, tier, portfolios, isAdmin) {
 }
 
 (async () => {
-  await makeUser("admin@test.com",  "test1234", "free", [2],    true);   // 1 portfolio, 2 coins
-  await makeUser("admin2@test.com", "test1234", "free", [],     true);   // backup admin (no data)
-  await makeUser("free@test.com",   "test1234", "free", [3],    false);  // 1 portfolio, 3 coins
-  await makeUser("pro@test.com",    "test1234", "pro",  [6, 4], false);  // 2 portfolios, 10 coins
+  await makeUser("admin@test.com",   "test1234", "free", [2],    "owner");    // 1 portfolio, 2 coins
+  await makeUser("admin2@test.com",  "test1234", "free", [],     "owner");    // backup owner (no data)
+  await makeUser("manager@test.com", "test1234", "free", [],     "manager");  // ADMIN-SEC: accounts-only admin
+  await makeUser("legacy@test.com",  "test1234", "free", [],     "legacy");   // ADMIN-SEC: role-less claim (must fail CLOSED)
+  await makeUser("free@test.com",    "test1234", "free", [3],    null);       // 1 portfolio, 3 coins
+  await makeUser("pro@test.com",     "test1234", "pro",  [6, 4], null);       // 2 portfolios, 10 coins
   console.log("Seeded the emulator:");
-  console.log("  ADMIN  -> admin@test.com  / test1234   (can open the admin panel)");
-  console.log("  ADMIN  -> admin2@test.com / test1234   (backup admin)");
-  console.log("  user   -> free@test.com   / test1234");
-  console.log("  user   -> pro@test.com    / test1234");
-  console.log("Expected: 4 users (3 free, 1 pro) | 4 portfolios | 15 coins | avg 1.0 portfolios & 3.8 coins/user.");
+  console.log("  OWNER   -> admin@test.com   / test1234  (full panel incl. Settings + Admin access)");
+  console.log("  OWNER   -> admin2@test.com  / test1234  (backup owner)");
+  console.log("  MANAGER -> manager@test.com / test1234  (accounts only — no Settings, no grants)");
+  console.log("  legacy  -> legacy@test.com  / test1234  (pre-ADMIN-SEC {admin:true}, no role — owner areas must DENY)");
+  console.log("  user    -> free@test.com    / test1234");
+  console.log("  user    -> pro@test.com     / test1234");
+  console.log("Expected: 6 users (5 free, 1 pro) | 4 portfolios | 15 coins | avg 0.7 portfolios & 2.5 coins/user.");
   process.exit(0);
 })();
