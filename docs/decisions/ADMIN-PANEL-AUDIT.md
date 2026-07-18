@@ -148,6 +148,71 @@ Fraunces + Hanken Grotesk, deep-green `--accent`, rounded white cards, pill swit
 Local-first / emulator-verifiable, no Blaze. When built, runs the §PROCESS interview+sweep (the `Admin`
 map row) and a dark-mode pass like the app's design rounds.
 
+## 🔐 Admin roles, owner protection & sensitive-area re-auth (security — founder 2026-07-18)
+
+**Security finding (🟠 high) — owner-deletion bypass.** Today admin = a flat `{admin:true}` claim and
+`MIN_ADMINS=2` blocks a delete/demote only when it would leave **fewer than 2 admins total**. So an
+admin can promote two throw-away accounts from the Users tab (count → 4), then delete the two real
+owner accounts (still ≥2 remain) — a rogue or compromised admin can seize sole control and lock the
+founders out. The floor protects the *count*, not the *specific owners*. (Requires an already-admin
+actor, so not a public exploit — but it defeats the "founders can't be locked out" guarantee.)
+
+**Decisions (founder interview, 2026-07-18):**
+- **Two admin roles via custom claims.**
+  - **Owner** = `{admin:true, role:"owner"}`, set **only** by `functions/scripts/set-admin.js` with a
+    service-account key — **never grantable/revocable from the panel**. Exactly 2. Un-deletable,
+    un-demotable, and can't self-delete (server-enforced). This is what makes the owners un-removable
+    by identity, closing the bypass.
+  - **Manager** = `{admin:true, role:"manager"}`, granted/revoked by an **owner** from a new
+    owner-only **Admin access** area (never the Users tab). Scope: **accounts only, no settings.**
+- **Role → access matrix:**
+
+  | Area | Owner | Manager |
+  |---|---|---|
+  | Overview · Users · Trash (restore) · Audit | ✅ | ✅ |
+  | Change tier · suspend · sign-out · custom limits · move-to-trash | ✅ | ✅ |
+  | **Settings** (App Controls · API keys · Plans & pricing · Email · Analytics/legal) | ✅ | ❌ hidden + server-denied |
+  | **Admin access** (grant/revoke managers) | ✅ | ❌ |
+  | Permanent purge (hard-delete from Trash) | ✅ | ❌ |
+  | Being deleted / demoted | ❌ never | ✅ (by an owner) |
+
+- **Grant-admin moves out of the Users tab** → the per-user "Make admin / Remove admin role" button
+  is removed. A manager is added only from the owner-only **Admin access** area, via this flow:
+  **(1)** search the user by **email** (find the correct address, reuses `lookupUser`) → **(2)** type
+  the target's email **twice** and they must match → **(3)** a **warning** confirmation → **(4)** gated
+  by the owner **password** (below). Owners appear here as locked/protected entries with no revoke button.
+- **Sensitive-area password gate = a ~10-minute unlock.** Enter the owner password once
+  (`reauthenticateWithCredential`) to unlock the sensitive areas for ~10 min, then it auto-re-locks.
+  The **real boundary is server-side**: sensitive callables require `token.role === "owner"` **and** a
+  **fresh `auth_time`** (within ~600 s) — a stale token is rejected with a "re-authenticate" error and
+  the client re-prompts. Applies to: **Settings** (App Controls, **API keys**, **Plans & pricing**,
+  Email, Analytics/legal → all of `saveConfig`/`getAdminConfig`) and **grant/revoke manager**. The
+  client timer is only UX; the freshness check is the control.
+- **Manager walls (UI + server).** Managers never see the Settings tab, Admin access, permanent purge,
+  or any grant-admin control (hidden in the UI **and** denied in the callables — `getAdminConfig`/
+  `saveConfig`/grant/revoke add an owner check on top of today's `admin:true` check).
+
+**What it supersedes / absorbs:** the audit's "RBAC admin roles" (was 🟡 medium) and "Step-up
+re-authentication" (was 🟡 medium/partial) rows are now committed here; the owner-deletion bypass is a
+new 🟠 high finding. Note `role:"owner"` being **script-only** also removes the current
+type-email-to-confirm grant/revoke UI in the Users tab and refines the `MIN_ADMINS` logic (kept as a
+secondary floor). True authenticator-app **MFA stays deferred to go-live** (needs Identity Platform —
+§ADMIN-0 / §4) — this increment is the password re-auth + roles, all buildable + emulator-testable now.
+
+**Files this will touch when built (Admin consistency map — plan only, not yet edited):**
+`functions/index.js` (owner-vs-manager checks on each callable; owner-protection guards on
+`deleteUser`/`adminTrashUser`/`deleteMyAccount`; `auth_time` freshness on sensitive callables;
+`grantManager`/`revokeManager` replace the panel's `setAdminClaim` usage) · `functions/guards.js`
+(`requireOwner`/`requireManager`/`requireFreshAuth` helpers) · `functions/scripts/set-admin.js`
+(`--owner` role) · `firestore.rules` (the `users` doc shape already blocks self-setting `isAdmin`;
+confirm `role` can't be self-written) · `src/api/admin.js` + `src/api/admin-auth.js` (grant/revoke
+manager, reauthenticate helper, role read, owner-gated config) · `src/components/admin-dashboard.jsx`
+(remove Users-tab grant-admin; role-aware tabs; owner-only Settings + Admin-access; unlock/password
+modal; the email-twice + warning grant flow) · `src/hooks/useAdminDashboard.js` (role + unlock
+state/timer + new actions) · docs: `CLAUDE.md` "Admin & privacy", `BACKEND-ADMIN-DECISIONS.md`,
+`ISOLATION.md`, `API-SECURITY.md` + `openapi.json`, this file, `NEXT-STEPS.md` §ADMIN (ADMIN-SEC).
+Local-first / emulator-verifiable, no Blaze. Runs the full §PROCESS interview+sweep when built.
+
 ## Sources
 
 - React-Admin — Features: https://marmelab.com/react-admin/Features.html · List states: https://marmelab.com/react-admin/List.html

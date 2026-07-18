@@ -27,6 +27,20 @@ growth metrics**. Recurring win: most valuable gaps are cheap because they exten
 (`config/app.flags` → kill-switches + announcement; `webhookEvents` → webhook health; `getStats` →
 trend snapshots). Phases (KISS-first, most valuable first):
 
+- [ ] **ADMIN-SEC · Admin roles, owner protection & sensitive-area re-auth** (🟠 high · security ·
+      founder 2026-07-18 · **next security build**) — closes the **owner-deletion bypass** (promote
+      sock-puppets → delete the real owners while count stays ≥`MIN_ADMINS`). Split admin into two
+      claim roles: **owner** (`role:"owner"`, set **only** by `set-admin.js`, un-deletable/un-demotable,
+      2 accounts) and **manager** (`role:"manager"`, granted by an owner, **accounts-only, no
+      settings**). **Remove grant-admin from the Users tab**; add an **owner-only "Admin access"** area
+      to add a manager via **email search → type email twice → warning → owner password**. Password gate
+      = a **~10-min unlock** (`reauthenticateWithCredential`); the real control is server-side
+      (sensitive callables require `role:"owner"` **+ fresh `auth_time`**) on **Settings / API keys /
+      Plans & pricing / grant-manager**. Managers can't see Settings, Admin access, permanent purge, or
+      any grant control (UI-hidden **and** callable-denied). Absorbs the old RBAC + step-up-reauth audit
+      rows; MFA stays §ADMIN-0/§4. Spec + role matrix + file map:
+      [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) § Admin roles. Local-first / emulator-
+      verifiable; runs the §PROCESS interview+sweep (Admin map row) when built.
 - [ ] **ADMIN-0 · Launch gate** (🔴 critical) — admin **MFA/2FA** + **App Check** enforcement +
       `beforeCreate` **hard signups-off** + make the `audit` collection **append-only** in rules.
       *(MFA/App Check/signups already tracked in §BL-4/§4/§U; listed here for completeness — MFA needs
@@ -47,9 +61,9 @@ trend snapshots). Phases (KISS-first, most valuable first):
       per-tier revenue, reusing `getStats` math) → Overview renders **MRR/subs/signup trend + churn**.
       GA4/Plausible already cover engagement; this fills the revenue/churn gap they can't see.
 - [ ] **ADMIN-5 · Team-scale & support** (🟡 med / ⚪ low; build when a non-founder joins or it's needed)
-      — **RBAC admin roles** (least-privilege; required before any non-founder admin), impersonation
-      (logged + time-boxed + bannered), announcement banner (config string → app banner), bulk user
-      actions, per-field filters + saved views, private admin notes, before/after diff in audit.
+      — *(RBAC owner/manager roles are split out to **ADMIN-SEC** above)* impersonation (logged +
+      time-boxed + bannered), announcement banner (config string → app banner), bulk user actions,
+      per-field filters + saved views, private admin notes, before/after diff in audit.
 - [ ] **ADMIN-D · Settings redesign — paper design system** (🎨 design-only; founder 2026-07-18) —
       reskin the admin **Settings** tab to match the app's user-settings (**Account**) screen: adopt
       the `.ci-app` paper design + the **drill-in list** pattern (home with the two global toggles
