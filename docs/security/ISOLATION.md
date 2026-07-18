@@ -21,7 +21,8 @@ enforced server-side, not by the client.** 23 live cross-tenant probes against t
 - **Per-user separation (logical, correct SaaS model).** One Firestore database; each account's data
   is a per-uid document subtree — `users/{uid}/portfolios/{pid}/coins/{coinId}/transactions/{txId}`
   and `users/{uid}/learn/progress`. Every read AND write requires `isOwner(userId)` =
-  `request.auth.uid == userId` (or an admin claim). A signed-in user **cannot** read another user's
+  `request.auth.uid == userId` (reads also allow any admin claim; the blanket admin **write**/delete
+  branches are **owner-role only** via `isAdminOwner()`). A signed-in user **cannot** read another user's
   doc, **cannot** list `/users` (no account enumeration), **cannot** traverse into another uid's
   subtree, and **cannot** run a `collectionGroup` query to bypass the per-uid parent (no
   collectionGroup rule exists → client group queries denied; the one group query in the codebase is
@@ -29,10 +30,21 @@ enforced server-side, not by the client.** 23 live cross-tenant probes against t
 - **Admin data separated from all user accounts.** API keys/config (`config/**`) and the admin action
   log (`audit/**`) are **top-level collections `allow read, write: if false`** — NOT under any
   `users/{uid}`, and unreadable by ANY client including an admin's browser (they're written/read only
-  by Cloud Functions via the Admin SDK). Admin power is a **Firebase custom claim `{admin:true}`**
-  (set with the Admin SDK), never a field on a user document — so it can't be forged client-side.
+  by Cloud Functions via the Admin SDK). Admin power is a **Firebase custom claim with a role** —
+  `{admin:true, role:"owner"}` or `{admin:true, role:"manager"}` — never a field on a user document, so
+  it can't be forged client-side. **Owner** is set ONLY out-of-band by
+  `functions/scripts/set-admin.js --role=owner|manager` (with `--revoke`/`--show`); **manager** is granted
+  by an owner from the owner-only "Admin access" tab via `setManagerRole({email, grant})`. The old
+  `setAdminClaim` is removed (the export now always throws `permission-denied`), and the Users tab has no
+  grant/revoke control.
 - **Backend access is guard-first.** All 21 `onCall` callables + the `/api` proxy were probed: every
-  one checks `context.auth.uid` (self) or `isAdminToken` (admin) **before** touching data. No IDOR —
+  one checks `context.auth.uid` (self) or a **role-tiered admin gate** — `assertAdmin` (read-only:
+  `getStats`/`lookupUser`/`listUsers`/`listAudit`) · `assertManager` (user actions: `setUserTier`,
+  `setPremiumLimits`, `suspendUser`, `restoreUser`, `adminTrashUser`, `adminSignOutUser`) · `assertOwner`
+  (`deleteUser`) · `assertFreshOwner` (owner + password re-auth within ~600s: `getAdminConfig`,
+  `saveConfig`, `setManagerRole`) — **before** touching data. The gates are pure helpers in
+  `functions/guards.js` (`roleOf`/`isOwner`/`requireAdmin`/`requireManager`/`requireOwner`/
+  `requireFreshAuth`); step-up re-auth is server-flagged by `config/app.flags.stepUpReauth` (default ON). No IDOR —
   no callable acts on a uid/id from the request body without an ownership/admin check. A non-admin
   calling an admin callable is rejected; `exportMyData`/`deleteMyAccount` act only on the caller's uid.
 - **Frontend exposure: none.** The user bundle loads **only the signed-in uid's own subtree** (every
@@ -104,7 +116,9 @@ guarantee. Full detail per item in the findings JSON.
   create blocklist. Keeps G1 pre-empted: new fields are privileged-by-default.
 - Explicit `allow read, write: if false` blocks for `rateLimits/{document=**}`, `webhookEvents/**`,
   `cache/**` (defense-in-depth; cache stays proxy-only).
-- Null-safe `isAdmin()`.
+- Null-safe `isAdmin()` — plus `isAdminOwner()`
+  (`request.auth.token.get('role', '') == 'owner'`), which now gates the blanket users update/delete
+  branches; admin reads stay open to any admin.
 - **Rules tests** for each: owner-writes-`admin:true` DENIED, owner-writes-unknown-key DENIED,
   client read of rateLimits/webhookEvents/cache DENIED, admin still works.
 
@@ -112,7 +126,10 @@ guarantee. Full detail per item in the findings JSON.
 A dedicated regression suite (extends `tests/firestore-rules.test.js`) that FAILS if isolation ever
 breaks: user A cannot get/list/write any of user B's user-doc/portfolio/coin/tx/learn; no client can
 read `config`/`audit`/`cache`/`rateLimits`/`webhookEvents`; no user doc can grant itself admin
-(closed shape); a non-admin call to every admin callable is rejected (extends the callable tests);
+(closed shape); a non-admin call to every admin callable is rejected, **a manager is rejected by the
+owner-only callables** (`deleteUser`, `getAdminConfig`, `saveConfig`, `setManagerRole`) and may not act on
+an owner at all (suspend / sign-out / tier / limits / trash / delete all refuse) (extends the callable
+tests);
 `exportMyData` returns only the caller's data. This is the living proof of §1, not a one-time audit.
 
 ### ISO-3 · Shared-device erasure hygiene (G4)
@@ -132,7 +149,8 @@ wired into `firebase.json`, even though Storage is unused today.
 
 ## 6 · Testing & DoD
 Every ISO-1 rule change ships with a rules test (deny + allow) · ISO-2 is itself the test deliverable ·
-`npm run test:rules` green · no behavior change to legitimate flows (verify seeded users still
+`npm run test:rules` green (or `npm run test:rules:solo` for an isolated
+firestore-only emulator on :8099) · no behavior change to legitimate flows (verify seeded users still
 read/write their own data). AGILE.md DoD per wave; docs (this file + privacy policy for ISO-4)
 updated.
 

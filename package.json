@@ -12,9 +12,10 @@
     "emulators": "firebase emulators:start --project demo-crypto-idea",
     "start:all": "firebase emulators:exec --project demo-crypto-idea --ui \"npm run dev\"",
     "test:rules": "firebase emulators:exec --only firestore --project demo-crypto-idea \"node --test tests/firestore-rules.test.js\"",
-    "test:integration": "firebase emulators:exec --only auth,firestore --project demo-crypto-idea \"node --test --test-force-exit tests/data-layer.test.js\"",
+    "test:integration": "firebase emulators:exec --only auth,firestore,functions --project demo-crypto-idea \"node --test --test-force-exit tests/data-layer.test.js tests/functions-callable.test.js\"",
     "test:unit": "vitest run",
-    "test:rules:solo": "firebase emulators:exec --only firestore --project demo-crypto-idea --config firebase.rules-only.json \"node --test tests/firestore-rules.test.js\""
+    "test:rules:solo": "firebase emulators:exec --only firestore --project demo-crypto-idea --config firebase.solo.json \"node --test tests/firestore-rules.test.js\"",
+    "test:integration:solo": "firebase emulators:exec --only auth,firestore,functions --project demo-crypto-idea --config firebase.solo.json \"node --test --test-force-exit tests/data-layer.test.js tests/functions-callable.test.js\""
   },
   "dependencies": {
     "firebase": "^12.14.0",

@@ -35,6 +35,7 @@ crypto-idea/
 ```bash
 npm run test:unit         # Vitest: component/hook tests in jsdom (api/ mocked) — fast, no emulator
 npm run test:rules        # Firestore security-rules tests (runs against the emulator)
+npm run test:rules:solo   # same tests on an isolated firestore emulator (:8099, firebase.rules-only.json)
 npm run test:integration  # data-layer tests: real auth+db code vs the emulator
 ```
 
@@ -197,14 +198,15 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | `createSubscription` / `cancelSubscription` | Callable | Start / cancel a PayPal subscription (auth-enforced; cancel keeps access to the period end) |
 | `resolveRecheckout` / `reactivateSubscription` | Callable (self) | Resolve a pending Premium→Pro re-checkout / "Keep my plan" un-cancel (R29) |
 | `enforceSubscriptionPeriods` | Scheduled (every 24 h) | The billing sweep — drops a cancelled sub to Starter once its period ends, and a payment-failed sub after the 7-day grace |
-| `getStats` | Callable | Admin-only **combined** usage/revenue stats (no personal data) |
-| `setAdminClaim` | Callable | Admin-only: grant/revoke the `{admin:true}` custom claim |
-| `listUsers` / `lookupUser` | Callable | Admin-only: full users list (Auth+profile merge, operational data only, capped 5000) / look up one user by email for support |
-| `getAdminConfig` / `saveConfig` | Callable | Admin-only: read config to pre-fill Settings (secrets returned as set-flags) / write API keys + settings to the locked `config/app` doc |
+| `getStats` | Callable | Any admin (owner or manager): **combined** usage/revenue stats (no personal data, plus `activeOwners`) |
+| `setManagerRole` | Callable | **Owner-only + step-up re-auth**: grant/revoke the `manager` role (`{admin:true, role:"manager"}`). Owners are set only by `functions/scripts/set-admin.js`; the old `setAdminClaim` export is removed and always throws `permission-denied` |
+| `listUsers` / `lookupUser` | Callable | Any admin (owner or manager): full users list (Auth+profile merge, operational data only, capped 5000, each with a `role` field — `""` for plain users) / look up one user by email for support |
+| `getAdminConfig` / `saveConfig` | Callable | **Owner-only + step-up re-auth**: read config to pre-fill Settings (secrets returned as set-flags) / write API keys + settings to the locked `config/app` doc |
 | `listAudit` | Callable | Admin-only: recent admin-action audit log |
-| `setUserTier` / `suspendUser` / `deleteUser` / `restoreUser` | Callable | Admin-only: change tier / suspend / delete-with-erasure (blocks self-target) / restore from trash |
-| `setPremiumLimits` | Callable | Admin-only: set a user's per-user custom limits (`premiumLimits`, clamped to the same hard ceilings) |
-| `adminTrashUser` / `adminSignOutUser` | Callable | Admin-only: soft-delete a user to the 30-day trash (cancels their billing; can't trash an admin) / revoke a target's refresh tokens (sign out all their devices) |
+| `setUserTier` / `suspendUser` / `restoreUser` | Callable | Manager-or-owner: change tier / suspend / restore from trash (a manager may not act on an owner at all) |
+| `deleteUser` | Callable | **Owner-only**: delete-with-erasure (blocks self-target; owners can never be deleted) |
+| `setPremiumLimits` | Callable | Manager-or-owner: set a user's per-user custom limits (`premiumLimits`, clamped to the same hard ceilings) |
+| `adminTrashUser` / `adminSignOutUser` | Callable | Manager-or-owner: soft-delete a user to the 30-day trash (cancels their billing; **an owner can never be trashed**) / revoke a target's refresh tokens (sign out all their devices) |
 | `deleteMyAccount` / `restoreMyAccount` / `exportMyData` | Callable | Self-service GDPR/CCPA: a user soft-deletes (30-day trash), restores, or exports **their own** data |
 | `signOutEverywhere` / `reconcileMyCounters` | Callable (self) | Sign out all of the caller's own devices / recompute the caller's own portfolio/coin/tx counters from actual data (daily-budgeted) |
 | `purgeExpiredTrash` / `purgeOldAudit` | Scheduled (every 24 h) | Permanently erase soft-deleted accounts past the 30-day window / delete audit-log entries past retention |
@@ -357,7 +359,7 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 |-------|------|------|
 | `/` | `index.html` | Static marketing landing. **Section 2 is the free DCA calculator** (`#dca`) — architecture, math & roadmap in [`CALCULATOR.md`](docs/product/CALCULATOR.md). |
 | `/app` | `app.html` → React | The tracker (auth, portfolios, coins, transactions, account). |
-| `/admin` | `admin.html` → React | **Separate** admin app (own login + `{admin:true}` check). Not in the user bundle. |
+| `/admin` | `admin.html` → React | **Separate** admin app (own login + admin-claim check; owner/manager roles). Not in the user bundle. |
 | `/edge` | React | Education guide. |
 | `/pro-success` | React | PayPal return / upgrade confirmation. |
 | `/api/*` | `api` function | CoinGecko proxy: `prices` / `search` / `trending` / `history` / `coinlist`; plus `config` = public app flags (maintenance, signups). All cached / CDN-friendly. |
@@ -389,16 +391,17 @@ the `user-creation` + `user-settings` skills). Wave A is built; MFA / App Check 
 
 # Admin app (`/admin` — `admin.html` / `src/admin-main.jsx` / `src/components/admin-dashboard.jsx`)
 
-A **separate app** from the user-facing one, served at **`/admin`**. It has its own login that verifies the Firebase `{admin:true}` custom claim and **signs out any non-admin**. The admin code is **not** bundled into the user app, so regular users never download it. A different URL is *not* the security boundary — the claim check (enforced server-side in every admin function, re-checked in the admin app) is; the split additionally keeps admin code off users' devices. **2FA for admins is deferred to go-live** (needs Blaze + Identity Platform MFA). Tabs:
+A **separate app** from the user-facing one, served at **`/admin`**. It has its own login that verifies the Firebase admin custom claims and **signs out any non-admin**. There are **two roles**: **owner** (`{admin:true, role:"owner"}`, set only by `functions/scripts/set-admin.js`) and **manager** (`{admin:true, role:"manager"}`, granted by an owner from the owner-only **Admin access** tab). Owners can never be deleted, trashed or demoted, and a manager may not act on an owner at all. The admin code is **not** bundled into the user app, so regular users never download it. A different URL is *not* the security boundary — the claim check (enforced server-side in every admin function, re-checked in the admin app) is; the split additionally keeps admin code off users' devices. **2FA for admins is deferred to go-live** (needs Blaze + Identity Platform MFA). Tabs:
 - **Overview** — **real combined usage** from the admin-only `getStats` function: total users, tier breakdown, total portfolios + coins, **avg per user**, and estimated revenue. **No personal data** — aggregate only (privacy by design).
-- **Users** — **full users list** (`listUsers`), **searched + paginated 50/page** client-side. Shows email, name, tier, status (admin/suspended), and portfolio count — **operational data only, never holdings**. Click a row to manage: **change tier** (`setUserTier`), **suspend/un-suspend** (`suspendUser`), **delete** (`deleteUser`, full GDPR erasure). The list merges Auth (email/name/disabled/admin) with the Firestore profile (tier, counts), capped at 5,000.
+- **Users** — **full users list** (`listUsers`), **searched + paginated 50/page** client-side. Shows email, name, tier, status (admin/suspended), and portfolio count — **operational data only, never holdings**. Click a row to manage: **change tier** (`setUserTier`), **suspend/un-suspend** (`suspendUser`), **delete** (`deleteUser`, owner-only, full GDPR erasure). The list merges Auth (email/name/disabled/admin/role) with the Firestore profile (tier, counts), capped at 5,000. **There is no grant-admin control here** — roles are managed from the owner-only **Admin access** tab.
 - **Trash** — soft-deleted accounts (users who deleted themselves), each with **days left** in the 30-day window and **Restore** / **Delete now** actions (`restoreUser` / `deleteUser`). Trashed accounts are excluded from Overview stats and the Users list. A daily `purgeExpiredTrash` job erases them after 30 days. Both Users and Trash have a **Refresh** button, so a user's self-restore shows up here on demand.
-- **Settings** — **API Keys** (CoinGecko, PayPal) and **Email & Integrations**, saved server-side via the admin-only `saveConfig` function to the locked `config/app` doc.
+- **Settings** — **API Keys** (CoinGecko, PayPal) and **Email & Integrations**, saved server-side via the **owner-only** `saveConfig` function to the locked `config/app` doc. Reading and saving both require a **step-up password re-auth** (within ~600s), gated by the server flag `config/app.flags.stepUpReauth` (default ON).
+- **Admin access** (owner-only) — grant/revoke the **manager** role by email (`setManagerRole`); also step-up-re-auth gated. Owners can't be demoted here.
 - **Audit** — a **read-only** view of the server-only `audit` log (every admin action plus sensitive self-service/billing events), loaded via the admin-only `listAudit` function, with a **Refresh** button.
 
-**Two admins, always:** admin is the `{admin:true}` claim, so keep at least two. A `MIN_ADMINS=2` guard (`countAdmins()`) blocks `deleteUser`/`setAdminClaim` demotion/`deleteMyAccount` whenever the action would leave fewer than 2 admins — admin access can't be wiped out.
+**Owners can't be wiped out:** the primary protection is **identity** — an owner can never be deleted, trashed, demoted or self-deleted, by anyone including themselves. `MIN_ADMINS=2` (`countAdmins()`, alongside `countActiveOwners()`) remains only as a secondary floor. Still keep **two owners**, promoted with `node functions/scripts/set-admin.js <email> --role=owner` (also `--role=manager`, `--revoke`, `--show`, `--force`).
 
-**Seeding test data (emulator):** `node functions/scripts/seed-emulator.js` creates two admins (`admin@test.com` + `admin2@test.com` / `test1234`) + a couple of test users with portfolios/coins. Re-run anytime; the emulator's data is in-memory.
+**Seeding test data (emulator):** `node functions/scripts/seed-emulator.js` creates two **owners** (`admin@test.com` + `admin2@test.com` / `test1234`), a **manager** (`manager@test.com`), a role-less legacy admin (`legacy@test.com`) + a couple of test users with portfolios/coins. Re-run anytime; the emulator's data is in-memory.
 
 ## User privacy & data rights (GDPR/CCPA)
 Self-service, from the app's **Account → "Privacy & your data"** card (acts only on the caller's own account — no IDOR):
@@ -454,8 +457,8 @@ Defense in depth across the whole app:
 | Layer | Protection |
 |-------|-----------|
 | **Auth** | Firebase Auth (no plaintext passwords). Password reset doesn't reveal whether an account exists. |
-| **Admin** | A verified Firebase **custom claim** (`{admin:true}`), set server-side — not an email list. |
-| **Firestore rules** | Owner-only access; users can't change their own `tier`; counter-based plan limits; `/config` is server-only (no client read/write). Verified by `npm run test:rules`. |
+| **Admin** | Verified Firebase **custom claims**, set server-side — not an email list. Two roles: **owner** (`role:"owner"`, script-only) and **manager** (`role:"manager"`, granted by an owner). Owner-only actions (`deleteUser`, config read/write, role grants) additionally require a **step-up password re-auth**. |
+| **Firestore rules** | Owner-only access; users can't change their own `tier`; counter-based plan limits; `/config` is server-only (no client read/write). The blanket `users` update/delete branches are gated by `isAdminOwner()` (**owner role only**); reads stay open to any admin. Verified by `npm run test:rules`. |
 | **Functions** | Callable functions enforce auth and act on the caller's uid (no IDOR). The PayPal webhook verifies signatures. |
 | **Secrets** | API keys live only in the Cloud Function (the locked `config/app` doc, or env vars / `functions/.env`). The Firebase web config is public by design. |
 | **Bot / abuse** | `/api` has a **per-IP rate limit** (60/min). **Firebase App Check** (reCAPTCHA v3) protects Auth/Firestore/callable Functions when `VITE_RECAPTCHA_SITE_KEY` is set + enforcement is on. The landing email form has a honeypot. |

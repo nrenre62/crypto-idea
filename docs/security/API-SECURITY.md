@@ -53,9 +53,16 @@ The Firebase SDK sends `{data}` + the caller's ID token; the function verifies t
 `createSubscription` · `cancelSubscription` · `reactivateSubscription` · `resolveRecheckout` · `deleteMyAccount` · `restoreMyAccount` · `signOutEverywhere` · `exportMyData` · `reconcileMyCounters` · `devSetMyTier` *(emulator-only, hard-gated)*.
 
 ### C. Callable functions (`onCall`) — admin only
-Same as B **plus** a verified `{admin:true}` custom claim check at the top of every function.
+Same as B **plus** a verified admin custom claim, in **two roles**: `owner` (`{admin:true, role:"owner"}`, minted only by `functions/scripts/set-admin.js --role=owner`) and `manager` (`{admin:true, role:"manager"}`, granted by an owner from the admin app's owner-only **Admin access** tab). Every function goes through one shared gate in [`functions/index.js`](../../functions/index.js) — `assertAdmin` / `assertManager` / `assertOwner` / `assertFreshOwner` (owner **plus** a password re-auth within ~600s, server-flagged by `config/app.flags.stepUpReauth`, default on) — never a copy-pasted inline check.
 
-`getStats` · `listUsers` · `lookupUser` · `setUserTier` · `setPremiumLimits` · `suspendUser` · `deleteUser` · `restoreUser` · `adminTrashUser` · `adminSignOutUser` · `setAdminClaim` · `listAudit` · `getAdminConfig` · `saveConfig`.
+| Gate | Callables |
+|---|---|
+| `assertAdmin` (read-only) | `getStats` · `lookupUser` · `listUsers` · `listAudit` |
+| `assertManager` | `setUserTier` · `setPremiumLimits` · `suspendUser` · `restoreUser` · `adminTrashUser` · `adminSignOutUser` |
+| `assertOwner` | `deleteUser` |
+| `assertFreshOwner` | `getAdminConfig` · `saveConfig` · `setManagerRole` |
+
+**Owner protection is by identity:** an owner can never be deleted, trashed, demoted or self-deleted, and a **manager may not act on an owner at all** (suspend / sign-out / tier / limits / trash / delete all refuse). `MIN_ADMINS` remains only as a secondary floor. `setAdminClaim` is **removed** — the old export now always throws `permission-denied`; use `setManagerRole({email, grant})`.
 
 ### D. PayPal webhook — `paypalWebhook` (`onRequest`)
 The only inbound write **not gated by a Firebase user login** — it is authenticated instead by **PayPal's webhook signature** (documented in `openapi.json` as the `PayPalWebhookSignature` scheme). Every event is cryptographically verified against PayPal's verify-webhook-signature API **before any DB write**, and processed **once** (idempotency ledger keyed by event id).
@@ -75,7 +82,7 @@ The only inbound write **not gated by a Firebase user login** — it is authenti
  User app (app.html) ───►│  onCall (user)  ──► verify ID token ──► users/{uid}/…  (owner rules) │
    Firebase JS SDK       │  /api/prices,history  (same cached proxy)                            │
                          │                                                                      │
- Admin app (admin.html)─►│  onCall (admin) ──► verify {admin:true} claim ──► any user / config  │
+ Admin app (admin.html)─►│  onCall (admin) ──► verify claim + admin role ──► any user / config  │
    SEPARATE named app    │                                                                      │
                          │  config/app  ◄── saveConfig (Admin SDK only; rules deny all clients) │
  PayPal ────────────────►│  /paypalWebhook ──► verify signature ──► users/{uid}.tier/subscription│
@@ -84,7 +91,8 @@ The only inbound write **not gated by a Firebase user login** — it is authenti
 
 - **Landing** never authenticates — it only reads cached public data and posts to `/api/subscribe`.
 - **User app** uses the Firebase JS SDK; the SDK attaches the ID token to every callable. Reads/writes to `users/{uid}/…` are gated by [`firestore.rules`](../../firestore.rules) (owner-only, closed-shape doc, counter-based tier caps).
-- **Admin app** is a **separate Firebase app instance** (`initializeApp(config, "admin")`) so its login can't collide with a user session (ERRORS §A5 fix). Authorization is the **server-side claim check in every admin function** — a different URL is *not* the boundary.
+- **Admin app** is a **separate Firebase app instance** (`initializeApp(config, "admin")`) so its login can't collide with a user session (ERRORS §A5 fix). Authorization is the **server-side role gate in every admin function** (§1C) — a different URL is *not* the boundary, and neither is the claim alone: manager-, owner- and fresh-owner-only operations are separated server-side. The Users tab has **no** grant-admin control; roles are granted from the owner-only Admin access tab.
+- **`firestore.rules` know the roles too:** reads of `users/**` stay open to any admin, but the blanket `allow update` / `allow delete` on `users` are **owner-only** (`isAdminOwner()`, a null-safe `request.auth.token.get("role", "") == "owner"` check). Verify with `npm run test:rules`, or `npm run test:rules:solo` for an isolated Firestore emulator on `:8099`.
 - **PayPal** posts to the webhook; `custom_id`/`plan_id` are only trusted *after* signature verification.
 
 ---
@@ -140,7 +148,7 @@ The only inbound write **not gated by a Firebase user login** — it is authenti
 - **Full-collection scans in scheduled sweeps** — fine at current scale; a documented go-live scaling item, not a live gap.
 
 ### Also verified clean
-Callable access control (all 30 exports: auth-before-side-effect, admin claim checks, `context.auth.uid` not body uid, `MIN_ADMINS`), the PayPal signature/idempotency core, the client bundle (no secret ships), CSP/headers (frame-ancestors none, no `unsafe-inline` scripts), and input validation on the `/api` surface (length caps, `encodeURIComponent`, regex-sanitised doc paths).
+Callable access control (all 30 exports: auth-before-side-effect, the shared role gates `assertAdmin`/`assertManager`/`assertOwner`/`assertFreshOwner`, `context.auth.uid` not body uid, owner-identity protection with `MIN_ADMINS` as a secondary floor), the PayPal signature/idempotency core, the client bundle (no secret ships), CSP/headers (frame-ancestors none, no `unsafe-inline` scripts), and input validation on the `/api` surface (length caps, `encodeURIComponent`, regex-sanitised doc paths).
 
 ### 42Crunch static audit (2026-07-18)
 Ran the 42Crunch `42c-ast` static audit on [`openapi.json`](../../openapi.json) and hardened the contract with **server-grounded, honest** constraints (a 4-agent analysis workflow read `functions/index.js` + `firestore.rules`; a 3-agent adversarial honesty pass returned **0 issues**). **Score 9.24 → 65.06/100** (Security 24.61/30, Data 40.45/70): dropped the `http://localhost` server entry (killed the CRITICAL cleartext-bearer transport finding), documented the webhook's signature as a `PayPalWebhookSignature` `apiKey` scheme (§D), and added honest `default`/`429`/`401` responses, `maxLength`/`minimum`/`maximum`/`maxItems`, `pattern` **only** where every real value provably matches, and `additionalProperties:false` on all fixed schemas + request wrappers. **70 is not honestly reachable** — the wall is ~55 `pattern` findings on genuinely free-form / provider-controlled strings (a pattern there could reject a real value). The 7 public `security:[]` endpoints are accepted by design. Full log + the request-enforcement follow-up: `NEXT-STEPS.md` §API.
@@ -188,3 +196,4 @@ Because every runtime secret is read from `config/app` (or env) and never from t
 - Use the CoinGecko **Demo** tier key (read-only market data) — never a higher-scoped one.
 - Use **separate keys per environment** where the provider supports it.
 - The Firebase service account used by `set-admin.js` should be the **least-privileged** SA that can set custom claims — not the default all-powerful one (an ISO-4 go-live item).
+- `set-admin.js` is the **only** way to mint an **owner** (`--role=owner|manager`, `--revoke`, `--show`, `--force`), so the key file is effectively the root of the admin trust chain. **Managers** need no key file — an owner grants them in-app via `setManagerRole`.

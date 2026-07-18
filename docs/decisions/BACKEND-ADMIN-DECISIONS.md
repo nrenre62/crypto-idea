@@ -50,15 +50,29 @@ client-side only when the reCAPTCHA key is set — and the server never verifies
 ### 1.3 Admin app & the claim boundary
 `/admin` is a **separate Vite app** (`admin.html` → `admin-main.jsx`, never in the user bundle). The URL is
 **not** the boundary — the **`{admin:true}` custom claim** is: `admin-main.jsx` force-refreshes the token and
-only proceeds if `claims.admin===true`. The dashboard is presentation-only; all logic is in
-`useAdminDashboard.js` → 11 thin wrappers in `src/api/admin.js`. **Five tabs:** Overview (`getStats`), Users
-(`listUsers`/`lookupUser`/`setUserTier`/`setPremiumLimits`/`suspendUser`/`deleteUser`), Trash
-(`restoreUser`/purge), Settings (`getAdminConfig`/`saveConfig`), Audit (`listAudit`). Every callable
-re-verifies the claim server-side (`isAdminToken`). Safety nets: **`MIN_ADMINS=2`** blocks dropping below 2
-admins; suspend/delete block self-target; `writeAudit()` logs admin actions to a server-only `audit` collection.
+only proceeds if `claims.admin===true`. The claim now carries a **role** too — **owner**
+(`{admin:true, role:"owner"}`, set only out-of-band by `set-admin.js`) or **manager**
+(`{admin:true, role:"manager"}`, granted by an owner in-panel); `admin:true` alone is the *entry* ticket,
+the role decides what each callable will do. The dashboard is presentation-only; all logic is in
+`useAdminDashboard.js` → 11 thin wrappers in `src/api/admin.js`. **Six tabs:** Overview (`getStats`), Users
+(`listUsers`/`lookupUser`/`setUserTier`/`setPremiumLimits`/`suspendUser`/`adminTrashUser`/`adminSignOutUser`/`deleteUser`
+— **no grant-admin control**), Trash (`restoreUser`/purge), Settings (**owner + step-up re-auth**:
+`getAdminConfig`/`saveConfig`), Audit (`listAudit`), and the **owner-only "Admin access" tab**
+(`setManagerRole` — grant/revoke *manager*). Every callable
+re-verifies the claim server-side through one of four gates in `functions/guards.js`: **`assertAdmin`**
+(read-only: `getStats`/`lookupUser`/`listUsers`/`listAudit`) · **`assertManager`** (day-to-day writes:
+`setUserTier`/`setPremiumLimits`/`suspendUser`/`restoreUser`/`adminTrashUser`/`adminSignOutUser`) ·
+**`assertOwner`** (`deleteUser`) · **`assertFreshOwner`** (owner **+** a password re-auth within ~600s:
+`getAdminConfig`/`saveConfig`/`setManagerRole`; toggled by the server flag `config/app.flags.stepUpReauth`,
+default ON). Safety nets: **owner protection by identity** — an owner can never be deleted, trashed,
+demoted or self-deleted, and a *manager* may not act on an owner at all (suspend / sign-out / tier /
+limits / trash / delete all refuse); **`MIN_ADMINS=2`** remains only as a secondary floor. `firestore.rules`
+mirrors this with `isAdminOwner()` — the blanket `users` update/delete allowances are **owner-only**, reads
+stay open to any admin (`npm run test:rules:solo` runs them against an isolated emulator on :8099).
+Suspend/delete block self-target; `writeAudit()` logs admin actions to a server-only `audit` collection.
 
 ### 1.4 Settings → `config/app` → its consumers
-The locked **`config/app`** doc is written **only** by `saveConfig` (admin-gated). Rules deny **all** client
+The locked **`config/app`** doc is written **only** by `saveConfig` (owner-gated, step-up re-auth). Rules deny **all** client
 read/write to `/config`. Reads split 3 ways: **(a)** admin pre-fill via `getAdminConfig` (secrets returned as
 boolean **set-flags only** — raw secrets never leave the server); **(b)** server consumers via `getConfig()`
 (5-min cache, invalidated on save); **(c)** the **public `/api/config`** (non-secrets only, CDN 60s). The
@@ -81,8 +95,9 @@ boolean **set-flags only** — raw secrets never leave the server); **(b)** serv
 
 ### 1.5 Keys & secrets — where each lives
 The only values in `dist/` are the **public** `VITE_FIREBASE_*` config and the **public** reCAPTCHA site key.
-Every real secret resolves **`config/app` first, then `process.env`**. The first admin is bootstrapped
-out-of-band via `functions/scripts/set-admin.js` + a **service-account JSON (must stay out of git)**.
+Every real secret resolves **`config/app` first, then `process.env`**. The first **owner** is bootstrapped
+out-of-band via `functions/scripts/set-admin.js` (`--role=owner|manager`, plus `--revoke`/`--show`/`--force`)
++ a **service-account JSON (must stay out of git)** — it is the only way an owner claim can ever be set.
 ⚠️ Stale doc: NEXT-STEPS §4 / root `.env.example` still recommend `firebase functions:config:set`, **removed
 in functions v7** — a silent no-op at go-live.
 
@@ -97,7 +112,8 @@ no-names/no-advice guard) is imported nowhere.** The validator must be wired *in
 ## 2. Gap inventory (27 found, prioritized)
 
 **🔴 High** — (1) App Check never verified server-side; (2) live AI unbuilt + validator unwired;
-(3) no grant/revoke-admin UI (`setAdminClaim` unreachable); (4) `lookupUser` drops `tierBeforeFailure` +
+(3) ~~no grant/revoke-admin UI~~ **CLOSED** — `setAdminClaim` is removed; owners grant/revoke
+*manager* via `setManagerRole` in the "Admin access" tab; (4) `lookupUser` drops `tierBeforeFailure` +
 `premiumLimits` (breaks two UI elements); (5) no per-uid rate limit on callables + no createSubscription
 "already paid" guard.
 
@@ -130,8 +146,9 @@ docs · verify secret files git-ignored before adding a remote.
 - **D6 — PayPal webhook idempotency now.** Store each processed `event.id` and skip duplicates.
 
 ### Admin panel capabilities
-- **D7 — In-panel grant/revoke admin**, wrapping the existing `setAdminClaim`, gated behind a confirm step +
-  the new admin MFA.
+- **D7 — In-panel grant/revoke admin** — **BUILT** as an **owner-only "Admin access" tab** calling
+  **`setManagerRole({email, grant})`** (`setAdminClaim` is deleted and now throws). Gated by
+  `assertFreshOwner` (owner role + password re-auth); admin MFA layers on at go-live.
 - **D8 — Admin soft-delete + Empty-trash bulk action** (parity with self-service 30-day trash).
 - **D9 — Dedicated admin "sign out of all devices"** (admin-target `revokeRefreshTokens`).
 - **D10 — Reserve the AI Settings section now** — Anthropic key field (`keep()` idiom) + manual
@@ -171,7 +188,9 @@ docs · verify secret files git-ignored before adding a remote.
 - [ ] **reCAPTCHA v3** site key (`VITE_RECAPTCHA_SITE_KEY`) + enable App Check enforcement in console (D4).
 - [ ] **PayPal** live clientId/secret/webhookId → Settings; plan IDs + `APP_URL` → `functions/.env` (the only env-only secrets).
 - [ ] **Service-account JSON** for `set-admin.js` (bootstrap admin #1) — keep out of git.
-- [ ] Register + promote a **second** admin; store both admins' creds in a password manager (`MIN_ADMINS=2`).
+- [ ] Register + promote a **second owner** with `set-admin.js --role=owner` (only this script can mint an
+  owner, and owners can't be deleted or demoted); store both owners' creds in a password manager. Extra
+  staff get **manager** from the owner-only "Admin access" tab.
 
 ---
 
@@ -184,14 +203,15 @@ Detail + checkboxes live in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §BL. Su
    annual revenue); `createSubscription` already-paid guard (D5); audit expansion (D11); quick admin fixes
    (`lookupUser` returns `tierBeforeFailure`/`premiumLimits`/`emailVerified`; premium-limit-`0` falsy bug;
    `getStats` distinct error state).
-2. **Admin capabilities:** grant/revoke admin UI behind confirm+MFA (D7); admin soft-delete + empty-trash
+2. **Admin capabilities:** ✅ owner-only "Admin access" tab → `setManagerRole`, step-up re-auth (D7); admin soft-delete + empty-trash
    (D8); admin revoke-sessions (D9); reserve AI Settings section (D10).
 3. **AI proxy (Claude-only keystone):** B1 Anthropic key in Settings → B2 `researchAsk` (validateOutput wired
    fail-closed + per-uid budget + App Check + tier gate) → B3 `addCoinGuarded` → B4 swap `ai-client.js` (flip
    the "coming soon" label → real meter) → B5 per-coin `convictionCache` + `getConviction` → B6/B8/B7 Pulse /
    PWA offline copy / tutor. (D1/D10/D13/D17)
 4. **Identity Platform hardening (console + Blaze):** U14 `beforeCreate` enforcing `signupsEnabled` + IP limit
-   + App Check enforcement (D2/D4); U13 server password policy; U15 admin MFA (D3) — gates the D7 grant UI.
+   + App Check enforcement (D2/D4); U13 server password policy; U15 admin MFA (D3) — layers on top of the
+   already-shipped owner + step-up re-auth gate on D7.
 5. **Transactional email + legal/analytics + CSP:** GetResponse transactional path (D15, makes `fromEmail`
    real) → Termly + cookie banner + Plausible (D18) → drop `unsafe-inline` (D12).
 6. **Display-honesty + docs cleanup (quick, can run early):** AI "coming soon" label + raw-cents fix (D13);

@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Crypto Idea API",
-    "description": "Complete HTTP surface of the Crypto Idea backend (Firebase Cloud Functions v1 + Firestore security rules).\n\nThree kinds of endpoint are documented:\n\n1. **Public REST** (`/api/*`) — the `api` HTTP function. No authentication. Serves cached CoinGecko market data to the landing DCA calculator and the app, plus the public app config and the landing email-capture form. In production these are also reachable at `https://<your-domain>/api/*` via a Firebase Hosting rewrite (`firebase.json`).\n\n2. **Callable functions** — Firebase `onCall` functions. The Firebase SDK POSTs `{\"data\": <input>}` and receives `{\"result\": <output>}`; on error it returns a non-2xx status with `{\"error\": {\"message\", \"status\", \"details\"}}`. Every callable verifies the caller's Firebase ID token server-side and acts on `context.auth.uid` — never a uid taken from the request body (no IDOR by design). **Admin** callables additionally require the verified `{admin:true}` custom claim.\n\n3. **PayPal webhook** (`/paypalWebhook`) — the only inbound write not gated by a Firebase user login; it is authenticated instead by PayPal's webhook signature (documented as the `PayPalWebhookSignature` scheme). Every event is cryptographically verified against PayPal's verify-webhook-signature API before it is trusted.\n\nSecurity model summary: Firestore rules are the authorization boundary (owner-only data, closed-shape user doc, users cannot write their own `tier`/`subscription`/`premiumLimits`/`deleted`). Secrets (CoinGecko / PayPal / email / Anthropic keys) live only in the server-side locked `config/app` Firestore doc or environment variables; they are never returned to a client and never shipped in the browser bundle.",
+    "description": "Complete HTTP surface of the Crypto Idea backend (Firebase Cloud Functions v1 + Firestore security rules).\n\nThree kinds of endpoint are documented:\n\n1. **Public REST** (`/api/*`) — the `api` HTTP function. No authentication. Serves cached CoinGecko market data to the landing DCA calculator and the app, plus the public app config and the landing email-capture form. In production these are also reachable at `https://<your-domain>/api/*` via a Firebase Hosting rewrite (`firebase.json`).\n\n2. **Callable functions** — Firebase `onCall` functions. The Firebase SDK POSTs `{\"data\": <input>}` and receives `{\"result\": <output>}`; on error it returns a non-2xx status with `{\"error\": {\"message\", \"status\", \"details\"}}`. Every callable verifies the caller's Firebase ID token server-side and acts on `context.auth.uid` — never a uid taken from the request body (no IDOR by design). **Admin** callables additionally require the verified `{admin:true}` custom claim, which now also carries a role: `manager` (account management, granted by an owner from the Admin access tab) or `owner` (minted ONLY by `functions/scripts/set-admin.js --role=owner`). The owner-only callables (`getAdminConfig`, `saveConfig`, `setManagerRole`) additionally require a password re-auth within the last ~600s (step-up).\n\n3. **PayPal webhook** (`/paypalWebhook`) — the only inbound write not gated by a Firebase user login; it is authenticated instead by PayPal's webhook signature (documented as the `PayPalWebhookSignature` scheme). Every event is cryptographically verified against PayPal's verify-webhook-signature API before it is trusted.\n\nSecurity model summary: Firestore rules are the authorization boundary (owner-only data, closed-shape user doc, users cannot write their own `tier`/`subscription`/`premiumLimits`/`deleted`). Secrets (CoinGecko / PayPal / email / Anthropic keys) live only in the server-side locked `config/app` Firestore doc or environment variables; they are never returned to a client and never shipped in the browser bundle.",
     "version": "1.0.0",
     "contact": {
       "name": "Crypto Idea"
@@ -37,7 +37,7 @@
     },
     {
       "name": "Admin",
-      "description": "Admin-only operations. Require the verified {admin:true} custom claim. Kept in the PRIVATE repo."
+      "description": "Admin-only operations. Require the verified {admin:true} custom claim in one of two roles: `manager` (read + account management) or `owner` (Settings, manager grants, permanent erasure — plus a step-up password re-auth). Owners are protected by IDENTITY: they can never be deleted, trashed, demoted or self-deleted, and a manager may not act on an owner at all; the MIN_ADMINS count is only a secondary floor. firestore.rules matches — any admin may READ users, but the blanket update/delete branches are owner-only. Kept in the PRIVATE repo."
     },
     {
       "name": "Webhook",
@@ -778,7 +778,7 @@
       "post": {
         "operationId": "deleteMyAccount",
         "summary": "Soft-delete the signed-in user's own account (GDPR/CCPA)",
-        "description": "Callable. Marks the caller's account as trashed (recoverable for 30 days) and cancels billing. An admin who is one of the last 2 admins is refused.",
+        "description": "Callable. Marks the caller's account as trashed (recoverable for 30 days) and cancels billing. An OWNER can never self-delete (transfer ownership with `scripts/set-admin.js` first); any other admin who is one of the last 2 admins is refused.",
         "tags": [
           "Account"
         ],
@@ -814,7 +814,7 @@
             }
           },
           "500": {
-            "description": "failed-precondition — last-admin guard.",
+            "description": "failed-precondition — owner account, or the last-admin guard.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1170,7 +1170,7 @@
       "post": {
         "operationId": "getStats",
         "summary": "Aggregate usage & revenue stats (admin)",
-        "description": "Callable, admin-only. Returns aggregate counts and revenue — no personal data or holdings.",
+        "description": "Callable, any admin role. Returns aggregate counts and revenue — no personal data or holdings. Also returns `activeOwners` (owners who are not disabled) so the panel can warn about a single point of failure while it is still fixable.",
         "tags": [
           "Admin"
         ],
@@ -1237,7 +1237,7 @@
       "post": {
         "operationId": "listUsers",
         "summary": "Full users list — operational data only (admin)",
-        "description": "Callable, admin-only. Merges Auth + profile (tier, disabled, admin, portfolioCount, joined, deleted). Never returns holdings. Capped at 5000.",
+        "description": "Callable, any admin role. Merges Auth + profile (tier, disabled, admin, role, portfolioCount, joined, deleted). `role` is \"\" for plain users and for legacy role-less admins. Never returns holdings. Capped at 5000.",
         "tags": [
           "Admin"
         ],
@@ -1304,7 +1304,7 @@
       "post": {
         "operationId": "lookupUser",
         "summary": "Look up one user by email (admin)",
-        "description": "Callable, admin-only. Operational data only (tier, status, usage) — not holdings.",
+        "description": "Callable, any admin role. Operational data only (tier, status, usage, role) — not holdings.",
         "tags": [
           "Admin"
         ],
@@ -1544,7 +1544,7 @@
       "post": {
         "operationId": "suspendUser",
         "summary": "Suspend / un-suspend a user (admin)",
-        "description": "Callable, admin-only. Disables the Auth account and revokes tokens; freezes the paid clock. Cannot target the caller's own account.",
+        "description": "Callable, manager or owner. Disables the Auth account and revokes tokens; freezes the paid clock. Cannot target the caller's own account, and a manager cannot target an owner.",
         "tags": [
           "Admin"
         ],
@@ -1630,8 +1630,8 @@
     "/deleteUser": {
       "post": {
         "operationId": "deleteUser",
-        "summary": "Hard-delete a user + all their data (admin, GDPR erasure)",
-        "description": "Callable, admin-only. Recursively deletes Firestore data and the Auth account. Refuses self-target and refuses to drop below the minimum admin count.",
+        "summary": "Hard-delete a user + all their data (owner, GDPR erasure)",
+        "description": "Callable, owner-only. Recursively deletes Firestore data and the Auth account. Owners are un-deletable by identity; self-target is refused; the minimum-admin-count floor is kept only as a secondary backstop.",
         "tags": [
           "Admin"
         ],
@@ -1677,7 +1677,7 @@
             }
           },
           "403": {
-            "description": "permission-denied — admins only.",
+            "description": "permission-denied — owners only.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1697,7 +1697,7 @@
             }
           },
           "500": {
-            "description": "failed-precondition — self-target or last-admin guard.",
+            "description": "failed-precondition — owner target, self-target, or the last-admin floor.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1728,7 +1728,7 @@
       "post": {
         "operationId": "adminTrashUser",
         "summary": "Soft-delete a user to the 30-day trash (admin)",
-        "description": "Callable, admin-only. Recoverable soft-delete; cancels billing. Refuses admin targets (demote first).",
+        "description": "Callable, manager or owner. Recoverable soft-delete; cancels billing. Owners can never be trashed, by anyone; other admin targets are refused too (revoke their role with `setManagerRole` first).",
         "tags": [
           "Admin"
         ],
@@ -1784,7 +1784,7 @@
             }
           },
           "500": {
-            "description": "failed-precondition — can't trash an admin.",
+            "description": "failed-precondition — can't trash an owner or an admin.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1963,11 +1963,11 @@
         ]
       }
     },
-    "/setAdminClaim": {
+    "/setManagerRole": {
       "post": {
-        "operationId": "setAdminClaim",
-        "summary": "Grant / revoke the admin claim (admin)",
-        "description": "Callable, admin-only. Sets `{admin:true|false}` on another user by email. Refuses to drop below the minimum admin count on revoke.",
+        "operationId": "setManagerRole",
+        "summary": "Grant / revoke the manager role (owner, step-up)",
+        "description": "Callable, owner-only, and only with a password re-auth within the last ~600s. Grants or revokes the MANAGER role on another user by email; revoking clears the claim entirely and revokes the target's refresh tokens. Owner targets are refused in both directions (owners can only be minted by `functions/scripts/set-admin.js --role=owner`), as is the caller's own account. Replaces the removed `setAdminClaim`, which any admin could call to promote anyone.",
         "tags": [
           "Admin"
         ],
@@ -1976,24 +1976,24 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetAdminClaimEnvelope"
+                "$ref": "#/components/schemas/SetManagerRoleEnvelope"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Claim updated.",
+            "description": "Role updated.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SetAdminClaimResultEnvelope"
+                  "$ref": "#/components/schemas/SetManagerRoleResultEnvelope"
                 }
               }
             }
           },
           "400": {
-            "description": "invalid-argument — email required.",
+            "description": "invalid-argument — a valid email is required.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2013,7 +2013,17 @@
             }
           },
           "403": {
-            "description": "permission-denied — admins only.",
+            "description": "permission-denied — owners only, or the step-up password re-auth is missing/stale.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not-found — no user with that email.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2023,7 +2033,7 @@
             }
           },
           "500": {
-            "description": "failed-precondition — last-admin guard.",
+            "description": "failed-precondition — owner target, or the caller's own account.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2119,8 +2129,8 @@
     "/getAdminConfig": {
       "post": {
         "operationId": "getAdminConfig",
-        "summary": "Read saved app config to pre-fill Settings (admin)",
-        "description": "Callable, admin-only. Secrets are returned as boolean set-flags ONLY (e.g. `secretSet`, `apiKeySet`, `anthropicKeySet`) — the secret values never leave the server.",
+        "summary": "Read saved app config to pre-fill Settings (owner, step-up)",
+        "description": "Callable, owner-only, and only with a password re-auth within the last ~600s (server flag `config/app.flags.stepUpReauth`, default on). Secrets are returned as boolean set-flags ONLY (e.g. `secretSet`, `apiKeySet`, `anthropicKeySet`) — the secret values never leave the server.",
         "tags": [
           "Admin"
         ],
@@ -2156,7 +2166,7 @@
             }
           },
           "403": {
-            "description": "permission-denied — admins only.",
+            "description": "permission-denied — owners only, or the step-up password re-auth is missing/stale.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2186,8 +2196,8 @@
     "/saveConfig": {
       "post": {
         "operationId": "saveConfig",
-        "summary": "Save app config / API keys (admin)",
-        "description": "Callable, admin-only. Writes the locked `config/app` doc. A blank secret field keeps the saved value (`keep()` idiom); secrets are never echoed back. Clients can never read `config/app` (Firestore rules deny all access).",
+        "summary": "Save app config / API keys (owner, step-up)",
+        "description": "Callable, owner-only, and only with a password re-auth within the last ~600s (server flag `config/app.flags.stepUpReauth`, default on). Writes the locked `config/app` doc. A blank secret field keeps the saved value (`keep()` idiom); secrets are never echoed back. Clients can never read `config/app` (Firestore rules deny all access).",
         "tags": [
           "Admin"
         ],
@@ -2223,7 +2233,7 @@
             }
           },
           "403": {
-            "description": "permission-denied — admins only.",
+            "description": "permission-denied — owners only, or the step-up password re-auth is missing/stale.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2371,7 +2381,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "The signed-in user's Firebase ID token. The Firebase callable SDK sends it as `Authorization: Bearer <idToken>`; the function verifies it server-side and reads `context.auth.uid`. Admin operations additionally require the verified `{admin:true}` custom claim on that token."
+        "description": "The signed-in user's Firebase ID token. The Firebase callable SDK sends it as `Authorization: Bearer <idToken>`; the function verifies it server-side and reads `context.auth.uid`. Admin operations additionally require the verified `{admin:true}` custom claim on that token, plus the `role` it carries (`owner` or `manager`). Owner-only operations also require a password re-auth within the last ~600s — a server flag (`config/app.flags.stepUpReauth`, default on) can disable that step-up."
       },
       "PayPalWebhookSignature": {
         "type": "apiKey",
@@ -3139,6 +3149,11 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1000000000000000
+              },
+              "activeOwners": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               }
             },
             "additionalProperties": false
@@ -3170,6 +3185,15 @@
           },
           "isAdmin": {
             "type": "boolean"
+          },
+          "role": {
+            "type": "string",
+            "maxLength": 16,
+            "enum": [
+              "",
+              "manager",
+              "owner"
+            ]
           },
           "portfolioCount": {
             "type": "integer",
@@ -3250,6 +3274,15 @@
               },
               "isAdmin": {
                 "type": "boolean"
+              },
+              "role": {
+                "type": "string",
+                "maxLength": 16,
+                "enum": [
+                  "",
+                  "manager",
+                  "owner"
+                ]
               },
               "portfolioCount": {
                 "type": "integer",
@@ -3429,7 +3462,7 @@
         },
         "additionalProperties": false
       },
-      "SetAdminClaimEnvelope": {
+      "SetManagerRoleEnvelope": {
         "type": "object",
         "properties": {
           "data": {
@@ -3440,7 +3473,7 @@
                 "format": "email",
                 "maxLength": 254
               },
-              "admin": {
+              "grant": {
                 "type": "boolean"
               }
             },
@@ -3455,7 +3488,7 @@
         ],
         "additionalProperties": false
       },
-      "SetAdminClaimResultEnvelope": {
+      "SetManagerRoleResultEnvelope": {
         "type": "object",
         "properties": {
           "result": {
@@ -3469,8 +3502,14 @@
                 "maxLength": 128,
                 "pattern": "^[A-Za-z0-9_-]*$"
               },
-              "admin": {
-                "type": "boolean"
+              "role": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 16,
+                "enum": [
+                  "manager",
+                  null
+                ]
               }
             },
             "additionalProperties": false

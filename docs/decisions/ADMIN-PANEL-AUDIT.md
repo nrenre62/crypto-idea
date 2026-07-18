@@ -152,6 +152,19 @@ map row) and a dark-mode pass like the app's design rounds.
 
 ## 🔐 Admin roles, owner protection & sensitive-area re-auth (security — founder 2026-07-18)
 
+> **✅ BUILT 2026-07-18** — `8c7ea66` (server roles + owner protection + step-up) · `9e1b1d4`
+> (owner-only rules) · `3aa3de0` (role-aware UI + Admin access tab) · `485bb5b` (`lookupUser` role).
+> Verified: **527 unit · 36 rules · 35/35 live role probes** against the emulator · build clean ·
+> browser-checked as owner and as manager. **Two holes beyond this spec were found and closed:**
+> (1) `firestore.rules` was role-blind, so a manager could skip every callable and write/delete user
+> documents directly from devtools — the blanket `users` update/delete branches are now
+> `isAdminOwner()`; (2) a manager could **suspend** both owners (disabling their Auth accounts) and
+> lock the founders out while `MIN_ADMINS` still read 2 — owner-target protection now covers
+> tier / limits / suspend / sign-out / trash / delete. **Before deploying:** run
+> `node functions/scripts/set-admin.js <email> --role=owner` for both real owner accounts (until
+> then they are legacy role-less admins and Settings fails closed for them), and back up the
+> service-account key — it is the only way to mint an owner.
+
 **Security finding (🟠 high) — owner-deletion bypass.** Today admin = a flat `{admin:true}` claim and
 `MIN_ADMINS=2` blocks a delete/demote only when it would leave **fewer than 2 admins total**. So an
 admin can promote two throw-away accounts from the Users tab (count → 4), then delete the two real

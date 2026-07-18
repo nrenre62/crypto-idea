@@ -27,8 +27,18 @@ growth metrics**. Recurring win: most valuable gaps are cheap because they exten
 (`config/app.flags` → kill-switches + announcement; `webhookEvents` → webhook health; `getStats` →
 trend snapshots). Phases (KISS-first, most valuable first):
 
-- [ ] **ADMIN-SEC · Admin roles, owner protection & sensitive-area re-auth** (🟠 high · security ·
-      founder 2026-07-18 · **next security build**) — closes the **owner-deletion bypass** (promote
+- [x] **ADMIN-SEC · Admin roles, owner protection & sensitive-area re-auth** (🟠 high · security ·
+      founder 2026-07-18 · **✅ BUILT 2026-07-18** — `8c7ea66` server · `9e1b1d4` rules · `3aa3de0`
+      client · `485bb5b` fix. Verified: 527 unit · 36 rules · **35/35 live role probes** on the
+      emulator · build clean · browser-checked as owner and as manager. Two extra holes found and
+      closed during the build, beyond the original spec: a manager could bypass every callable wall
+      by writing Firestore straight from devtools (rules were role-blind), and could lock both owners
+      out by **suspending** them while the admin count still read ≥2. Owner-target protection now
+      covers tier/limits/suspend/sign-out/trash/delete. 📋 Follow-ups: **run
+      `set-admin.js <email> --role=owner` for both real owner accounts before any deploy** — until
+      then they are legacy role-less admins and Settings will refuse them; back up the
+      service-account key (it is the only way to mint an owner); true MFA stays §ADMIN-0.) —
+      closed the **owner-deletion bypass** (promote
       sock-puppets → delete the real owners while count stays ≥`MIN_ADMINS`). Split admin into two
       claim roles: **owner** (`role:"owner"`, set **only** by `set-admin.js`, un-deletable/un-demotable,
       2 accounts) and **manager** (`role:"manager"`, granted by an owner, **accounts-only, no
