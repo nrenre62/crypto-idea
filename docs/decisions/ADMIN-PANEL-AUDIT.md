@@ -122,6 +122,32 @@ patterns. Phase 4 needs one small new data source. Phase 5 waits for a second op
 - **Break-glass / IP allowlist:** the min-2-admins design + dynamic founder IP make these low-value
   now; skip until scale/team demand them.
 
+## 🎨 Settings redesign — match the app's paper design (📋 PLAN, 2026-07-18)
+
+**Decision (founder, 2026-07-18):** reskin the admin **Settings** tab to match the app's user-settings
+(**Account**) screen. Today admin Settings is a flat scroll of grey, inline-styled cards in a visual
+language of its own; the user app uses the `.ci-app` **paper design system** (`src/styles/app.css` —
+Fraunces + Hanken Grotesk, deep-green `--accent`, rounded white cards, pill switches). **Design-only**
+— the `saveConfig` logic and handlers are untouched (same as the earlier Account design migration).
+
+**The structural move:** adopt the Account screen's **iOS-style drill-in list** (`settings-row` +
+`sr-icon`/`sr-label`/`sr-chev`, home → detail views). The current cards map with nothing dropped:
+- **App Controls** (maintenance, signups) → the **two global switches inline** on the Settings home
+  (like Account's Email-digest `Switch`), maintenance rendered as a warning state.
+- **API keys · Email & integrations · Plans & pricing · AI (reserved) · Analytics & legal** → one
+  **tappable row each** → a detail **card** built from `card`/`card-title`/`acct-label`/`field-input`/
+  `acct-btn.accent`; Plans keeps its per-tier numeric grid; Analytics keeps the cookie-banner toggle
+  (as the app's pill `switch`).
+- **New element proposed:** a **Configuration** summary card at the top of the home (green/amber
+  status dots for Payments / Market data / Email / Analytics / AI) mirroring Account's "Plan usage"
+  card — an at-a-glance read of what's connected. Optional; drop if unwanted.
+
+**Mockup:** [`docs/mockups/admin-settings/index.html`](../mockups/admin-settings/index.html) —
+4 screens (home + API keys + Plans & pricing + Analytics & legal), light + dark, tokens taken 1:1 from
+`app.css`. Email + AI reuse the same detail-card pattern. Build order: `NEXT-STEPS.md` §ADMIN (ADMIN-D).
+Local-first / emulator-verifiable, no Blaze. When built, runs the §PROCESS interview+sweep (the `Admin`
+map row) and a dark-mode pass like the app's design rounds.
+
 ## Sources
 
 - React-Admin — Features: https://marmelab.com/react-admin/Features.html · List states: https://marmelab.com/react-admin/List.html

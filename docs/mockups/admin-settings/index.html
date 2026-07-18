@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Settings — paper-design proposal · Crypto Idea</title>
+<!--
+  MOCKUP (design-only) — the admin Settings tab rebuilt in the app's .ci-app paper
+  design system as an iOS-style drill-in list. Tokens + components taken 1:1 from
+  src/styles/app.css. Canonical plan: docs/decisions/ADMIN-PANEL-AUDIT.md (§ Settings
+  redesign); backlog: docs/product/NEXT-STEPS.md §ADMIN (ADMIN-D). Not wired to data.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{ box-sizing:border-box; }
+  /* ============ CHROME (page around the mockups) ============ */
+  :root{
+    --c-bg:#e9e7e0; --c-panel:#f6f5f1; --c-ink:#262420; --c-soft:#6c6a60;
+    --c-line:#d7d4cb; --c-accent:#0a6b4d;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --c-bg:#161510; --c-panel:#1f1e18; --c-ink:#ece9e1; --c-soft:#9c988d;
+      --c-line:#332f28; --c-accent:#5cd6a6; }
+  }
+  :root[data-theme="dark"]{ --c-bg:#161510; --c-panel:#1f1e18; --c-ink:#ece9e1;
+    --c-soft:#9c988d; --c-line:#332f28; --c-accent:#5cd6a6; }
+  :root[data-theme="light"]{ --c-bg:#e9e7e0; --c-panel:#f6f5f1; --c-ink:#262420;
+    --c-soft:#6c6a60; --c-line:#d7d4cb; --c-accent:#0a6b4d; }
+
+  html,body{ margin:0; }
+  .page{ background:var(--c-bg); color:var(--c-ink);
+    font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif; min-height:100vh;
+    -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:1160px; margin:0 auto; padding:34px 20px 64px; }
+  .eyebrow{ text-transform:uppercase; letter-spacing:.16em; font-size:12px; font-weight:700;
+    color:var(--c-accent); }
+  h1{ font-family:"Fraunces",Georgia,serif; font-weight:600; letter-spacing:-.02em;
+    font-size:clamp(26px,4.2vw,40px); line-height:1.1; margin:.35em 0 .3em; text-wrap:balance; }
+  .lede{ max-width:66ch; color:var(--c-soft); font-size:16px; line-height:1.65; margin:0; }
+  .bar{ display:flex; flex-wrap:wrap; gap:16px 24px; align-items:center;
+    justify-content:space-between; margin:26px 0 34px; padding-top:20px;
+    border-top:1px solid var(--c-line); }
+  .bar .hint{ font-size:13px; color:var(--c-soft); max-width:60ch; line-height:1.5; }
+  .bar .hint b{ color:var(--c-ink); font-weight:600; }
+  .theme-toggle{ display:inline-flex; gap:3px; background:var(--c-panel);
+    border:1px solid var(--c-line); border-radius:999px; padding:4px; flex:none; }
+  .theme-toggle button{ font:inherit; font-size:13px; font-weight:600; color:var(--c-soft);
+    background:none; border:0; border-radius:999px; padding:7px 16px; cursor:pointer;
+    transition:.18s cubic-bezier(.22,.61,.36,1); }
+  .theme-toggle button.on{ background:var(--c-accent); color:#fff; }
+  :root[data-theme="dark"] .theme-toggle button.on{ color:#12130f; }
+  @media (prefers-color-scheme: dark){ .theme-toggle button.on{ color:#12130f; } }
+
+  .gallery{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,360px));
+    gap:34px 30px; justify-content:center; align-items:start; }
+  .frame-wrap{ display:flex; flex-direction:column; gap:13px; }
+  .cap{ font-size:13.5px; color:var(--c-soft); line-height:1.5; }
+  .cap .num{ display:inline-grid; place-items:center; width:22px; height:22px; border-radius:7px;
+    background:var(--c-accent); color:#fff; font-size:12px; font-weight:700; margin-right:7px;
+    vertical-align:middle; }
+  :root[data-theme="dark"] .cap .num{ color:#12130f; }
+  @media (prefers-color-scheme: dark){ .cap .num{ color:#12130f; } }
+  .cap b{ color:var(--c-ink); font-weight:700; }
+  .foot{ margin-top:44px; padding-top:20px; border-top:1px solid var(--c-line);
+    font-size:12.5px; color:var(--c-soft); line-height:1.6; max-width:80ch; }
+  .foot code{ font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:.92em;
+    background:color-mix(in srgb,var(--c-ink) 8%,transparent); padding:1px 5px; border-radius:5px; }
+
+  /* ============ PRODUCT TOKENS (the .ci-app paper design, from src/styles/app.css) ============ */
+  #gallery{
+    --ink:#15140f; --ink-soft:#55534b; --ink-faint:#928f85;
+    --paper:#f8f7f3; --paper-2:#ffffff; --paper-3:#fcfbf8;
+    --accent:#0a6b4d; --accent-soft:#e9f2ed; --accent-ink:#07503a;
+    --ai-2:#3f7df0; --warn:#bf4730; --amber:#b8841f; --prem:#7d4bbf; --prem-soft:#f3ecfb;
+    --line:#ece9e1; --line-2:rgba(21,20,15,.06); --line-strong:#ddd9cf;
+    --radius:22px; --radius-sm:14px;
+    --sh-sm:0 1px 1px rgba(21,20,15,.03),0 4px 12px -6px rgba(21,20,15,.07);
+    --display:"Fraunces",Georgia,"Times New Roman",serif;
+    --body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  #gallery[data-mode="dark"]{
+    --ink:#ece9e1; --ink-soft:#b5b1a6; --ink-faint:#86837a;
+    --paper:#14130f; --paper-2:#1c1b17; --paper-3:#211f19;
+    --accent:#0a6b4d; --accent-soft:rgba(31,157,85,.18); --accent-ink:#5cd6a6;
+    --prem:#b98cf0; --prem-soft:rgba(125,75,191,.2);
+    --line:#2c2a24; --line-2:rgba(236,233,225,.10); --line-strong:#3a382f;
+  }
+
+  /* device frame */
+  #gallery .frame{ background:var(--paper); border-radius:30px; overflow:hidden;
+    font-family:var(--body); color:var(--ink); letter-spacing:-.005em;
+    box-shadow:0 30px 60px -34px rgba(21,20,15,.42), 0 0 0 1px var(--line);
+    padding-bottom:16px; }
+  #gallery[data-mode="dark"] .frame{ box-shadow:0 30px 60px -30px rgba(0,0,0,.7), 0 0 0 1px var(--line-strong); }
+
+  #gallery .detail-head{ display:flex; align-items:center; justify-content:space-between;
+    gap:10px; padding:16px 16px 8px; }
+  #gallery .dh-title{ font-family:var(--display); font-size:19px; font-weight:500; flex:1;
+    text-align:center; }
+  #gallery .icon-btn{ display:grid; place-items:center; width:34px; height:34px; border-radius:11px;
+    background:var(--paper-2); border:1px solid var(--line-strong); color:var(--ink-soft);
+    cursor:pointer; }
+  #gallery .icon-btn svg{ width:18px; height:18px; }
+  #gallery .pad{ padding:4px 16px 0; }
+
+  #gallery .card{ background:var(--paper-2); border:1px solid var(--line-2);
+    border-radius:var(--radius); padding:18px; margin-bottom:16px; box-shadow:var(--sh-sm); }
+  #gallery .card-title{ font-size:13px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+  #gallery .card-sub{ font-size:11.5px; color:var(--ink-faint); line-height:1.5; margin-bottom:12px; }
+  #gallery .card.acct-list{ padding:4px 18px; }
+
+  /* configuration status card */
+  #gallery .status-row{ display:flex; align-items:center; gap:10px; padding:8px 0;
+    border-bottom:1px solid var(--line-2); }
+  #gallery .status-row:last-child{ border-bottom:0; }
+  #gallery .dot{ width:8px; height:8px; border-radius:50%; flex:none; }
+  #gallery .dot.ok{ background:#1f9d55; box-shadow:0 0 0 3px rgba(31,157,85,.14); }
+  #gallery .dot.idle{ background:var(--amber); box-shadow:0 0 0 3px rgba(184,132,31,.14); }
+  #gallery .st-label{ flex:1; font-size:13px; color:var(--ink-soft); }
+  #gallery .st-val{ font-size:12.5px; font-weight:600; color:var(--ink); }
+
+  /* drill-in settings rows */
+  #gallery .settings-row{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 0;
+    border:0; border-bottom:1px solid var(--line-2); background:none; font-family:var(--body);
+    text-align:left; color:var(--ink); }
+  #gallery .acct-list > .settings-row:last-child{ border-bottom:0; }
+  #gallery button.settings-row{ cursor:pointer; transition:background .15s; }
+  #gallery button.settings-row:hover{ background:var(--paper-3); }
+  #gallery .sr-icon{ display:grid; place-items:center; width:34px; height:34px; border-radius:10px;
+    background:var(--paper-3); color:var(--ink-soft); flex:none; }
+  #gallery .sr-icon svg{ width:18px; height:18px; }
+  #gallery .sr-label{ flex:1; font-size:14px; font-weight:600; color:var(--ink); }
+  #gallery .sr-value{ font-size:13px; font-weight:600; color:var(--ink); }
+  #gallery .sr-value.muted{ color:var(--ink-faint); font-weight:600; }
+  #gallery .sr-chev{ display:flex; color:var(--ink-faint); }
+  #gallery .sr-chev svg{ width:18px; height:18px; }
+  #gallery .sr-ctrl{ flex:none; display:flex; align-items:center; }
+
+  /* pill switch */
+  #gallery .switch{ position:relative; display:inline-block; width:42px; height:24px; flex:none; }
+  #gallery .switch input{ position:absolute; opacity:0; width:0; height:0; }
+  #gallery .switch .slider{ position:absolute; inset:0; background:var(--line-strong);
+    border-radius:999px; transition:.2s cubic-bezier(.22,.61,.36,1); cursor:pointer; }
+  #gallery .switch .slider::before{ content:""; position:absolute; width:18px; height:18px; left:3px;
+    top:3px; background:#fff; border-radius:50%; transition:.2s cubic-bezier(.22,.61,.36,1);
+    box-shadow:0 1px 2px rgba(0,0,0,.25); }
+  #gallery .switch input:checked + .slider{ background:var(--accent); }
+  #gallery .switch input:checked + .slider::before{ transform:translateX(18px); }
+
+  /* form bits */
+  #gallery .acct-label{ display:block; font-size:11px; font-weight:600; color:var(--ink-faint);
+    margin:13px 0 6px; letter-spacing:.02em; }
+  #gallery .acct-label:first-of-type{ margin-top:2px; }
+  #gallery .field-input{ width:100%; padding:13px 15px; background:var(--paper-2);
+    border:1px solid var(--line-strong); border-radius:var(--radius-sm); color:var(--ink);
+    font-family:var(--body); font-size:15px; outline:none; box-sizing:border-box; }
+  #gallery .field-input::placeholder{ color:var(--ink-faint); }
+  #gallery .field-input:focus{ border-color:var(--accent); }
+  #gallery .field-input[readonly]{ cursor:default; }
+  #gallery .acct-btn{ width:100%; padding:13px; border-radius:12px; border:0; font-family:var(--body);
+    font-size:14px; font-weight:700; cursor:pointer; margin-top:16px; }
+  #gallery .acct-btn.accent{ background:var(--accent); color:#fff; }
+  #gallery[data-mode="dark"] .acct-btn.accent{ color:#f4fbf7; }
+
+  /* plans grid */
+  #gallery .plan-block{ margin-bottom:16px; }
+  #gallery .plan-name{ font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.06em; margin-bottom:8px; }
+  #gallery .plan-name.starter{ color:var(--amber); }
+  #gallery .plan-name.pro{ color:var(--accent-ink); }
+  #gallery .plan-name.prem{ color:var(--prem); }
+  #gallery .mini-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  #gallery .mini-field label{ display:block; font-size:9px; color:var(--ink-faint); margin-bottom:3px;
+    letter-spacing:.02em; }
+  #gallery .mini-field input{ width:100%; padding:8px; border-radius:9px; border:1px solid var(--line-strong);
+    background:var(--paper-2); color:var(--ink); font-family:var(--body); font-size:12.5px; outline:none;
+    box-sizing:border-box; font-variant-numeric:tabular-nums; }
+  #gallery .mini-field input:focus{ border-color:var(--accent); }
+
+  /* toggle row inside a detail card (cookie banner) */
+  #gallery .ctrl-line{ display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:14px 0 4px; margin-top:6px; border-top:1px solid var(--line-2); }
+  #gallery .ctrl-line .cl-label{ font-size:13.5px; font-weight:600; color:var(--ink); }
+  #gallery .ctrl-line .cl-hint{ font-size:11px; color:var(--ink-faint); margin-top:2px; }
+
+  #gallery .foot-note{ font-size:11px; color:var(--ink-faint); line-height:1.55; padding:2px 4px 0; }
+  #gallery .foot-note code{ font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:.9em; }
+
+  :focus-visible{ outline:2px solid var(--c-accent); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="wrap">
+    <header>
+      <div class="eyebrow">Crypto Idea · admin panel · design proposal</div>
+      <h1>Admin Settings, rebuilt in the app's own design</h1>
+      <p class="lede">Today the admin <b style="color:inherit">Settings</b> tab is a flat scroll of grey, inline-styled cards in a visual language of its own. This proposal rebuilds it with the app's <b style="color:inherit">paper design system</b> — the same headings, cards, switches, segmented controls and deep-green accent your users already meet in <b style="color:inherit">Account</b> — and borrows the Account screen's drill-in list, so a long settings page becomes a short, scannable home.</p>
+      <div class="bar">
+        <div class="hint">Same tokens as <b>src/styles/app.css</b>: the iOS-style <b>drill-in list</b>, the pill <b>switch</b>, <b>field-input</b> rows and the green accent — nothing new invented. Try light and dark →</div>
+        <div class="theme-toggle" role="group" aria-label="Preview theme">
+          <button type="button" data-mode="light" class="on" aria-pressed="true">Light</button>
+          <button type="button" data-mode="dark" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+    </header>
+
+    <div id="gallery" data-mode="light">
+
+      <!-- 1 · HOME -->
+      <div class="frame-wrap">
+        <div class="cap"><span class="num">1</span><b>Settings — home.</b> The two global switches sit inline; every category is a tappable row that opens a detail card. A Configuration summary reads connection state at a glance.</div>
+        <div class="frame">
+          <div class="detail-head">
+            <button class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <span class="dh-title">Settings</span>
+            <span style="width:34px"></span>
+          </div>
+          <div class="pad">
+            <div class="card">
+              <div class="card-title" style="margin-bottom:12px">Configuration</div>
+              <div class="status-row"><span class="dot ok"></span><span class="st-label">Payments</span><span class="st-val">PayPal connected</span></div>
+              <div class="status-row"><span class="dot ok"></span><span class="st-label">Market data</span><span class="st-val">CoinGecko connected</span></div>
+              <div class="status-row"><span class="dot ok"></span><span class="st-label">Email</span><span class="st-val">ActiveCampaign</span></div>
+              <div class="status-row"><span class="dot ok"></span><span class="st-label">Analytics &amp; legal</span><span class="st-val">GA4 · Termly</span></div>
+              <div class="status-row"><span class="dot idle"></span><span class="st-label">AI</span><span class="st-val">Key saved · starts at go-live</span></div>
+            </div>
+
+            <div class="card acct-list">
+              <div class="settings-row">
+                <span class="sr-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a3.8 3.8 0 0 1-5 5L5 16v3h3l4.7-4.7a3.8 3.8 0 0 0 5-5l-2.3 2.3-2-2 2.3-2.3z"/></svg></span>
+                <span class="sr-label">Maintenance mode</span>
+                <span class="sr-ctrl"><label class="switch"><input type="checkbox" aria-label="Maintenance mode"><span class="slider"></span></label></span>
+              </div>
+              <div class="settings-row">
+                <span class="sr-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20c0-3.3 2.5-5.5 5.5-5.5s5.5 2.2 5.5 5.5"/><path d="M18.5 8v6M15.5 11h6"/></svg></span>
+                <span class="sr-label">Allow new signups</span>
+                <span class="sr-ctrl"><label class="switch"><input type="checkbox" checked aria-label="Allow new signups"><span class="slider"></span></label></span>
+              </div>
+              <button type="button" class="settings-row">
+                <span class="sr-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="3.4"/><path d="M10.4 12.6 20 3M17 6l2.2 2M14.6 8.4l2 2"/></svg></span>
+                <span class="sr-label">API keys</span><span class="sr-value">4 set</span>
+                <span class="sr-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
+              </button>
+              <button type="button" class="settings-row">
+                <span class="sr-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.4"/><path d="m3.5 7.5 8.5 6 8.5-6"/></svg></span>
+                <span class="sr-label">Email &amp; integrations</span><span class="sr-value">ActiveCampaign</span>
+                <span class="sr-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
+              </button>
+              <button type="button" class="settings-row">
+                <span class="sr-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.4"/><path d="M3 10h18"/></svg></span>
+                <span class="sr-label">Plans &amp; pricing</span><span class="sr-value">3 tiers</span>
+                <span class="sr-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
+              </button>
+              <button type="button" class="settings-row">
+                <span class="sr-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l1.7 4.4 4.4 1.7-4.4 1.7L12 15.7l-1.7-4.4L5.9 9.6l4.4-1.7z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></span>
+                <span class="sr-label">AI</span><span class="sr-value muted">Reserved</span>
+                <span class="sr-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
+              </button>
+              <button type="button" class="settings-row">
+                <span class="sr-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19h16"/><path d="M6 19v-6M11 19V6M16 19v-9"/></svg></span>
+                <span class="sr-label">Analytics &amp; legal</span><span class="sr-value">GA4 · Termly</span>
+                <span class="sr-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
+              </button>
+            </div>
+
+            <div class="foot-note">Saved to the locked <code>config/app</code> document — clients can never read it. Toggles go live within about a minute.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 · API KEYS -->
+      <div class="frame-wrap">
+        <div class="cap"><span class="num">2</span><b>API keys.</b> Each key is an app-style labelled field; a saved secret shows as dots and keeps its value if you leave it blank.</div>
+        <div class="frame">
+          <div class="detail-head">
+            <button class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <span class="dh-title">API keys</span>
+            <span style="width:34px"></span>
+          </div>
+          <div class="pad">
+            <div class="card">
+              <div class="card-title">API keys</div>
+              <div class="card-sub">For price data (CoinGecko) and payments (PayPal). Stored server-side — never sent to users.</div>
+              <label class="acct-label">CoinGecko Demo key</label>
+              <input class="field-input" type="password" value="cg-demo-9f3a1b" readonly>
+              <label class="acct-label">PayPal Client ID</label>
+              <input class="field-input" type="text" value="AeB2qkP7...n4Xr" readonly>
+              <label class="acct-label">PayPal Secret</label>
+              <input class="field-input" type="text" placeholder="•••••••• saved — leave blank to keep" readonly>
+              <label class="acct-label">PayPal Webhook ID</label>
+              <input class="field-input" type="text" value="WH-8XS204..." readonly>
+              <button type="button" class="acct-btn accent">Save keys</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 · PLANS & PRICING -->
+      <div class="frame-wrap">
+        <div class="cap"><span class="num">3</span><b>Plans &amp; pricing.</b> Per-tier price and limits in a compact numeric grid — same card, same green Save button as the app.</div>
+        <div class="frame">
+          <div class="detail-head">
+            <button class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <span class="dh-title">Plans &amp; pricing</span>
+            <span style="width:34px"></span>
+          </div>
+          <div class="pad">
+            <div class="card">
+              <div class="card-title">Plans &amp; pricing</div>
+              <div class="card-sub">Prices drive the revenue estimate and what users see; limits are enforced server-side by security rules.</div>
+
+              <div class="plan-block">
+                <div class="plan-name starter">Starter</div>
+                <div class="mini-grid">
+                  <div class="mini-field"><label>Mo $</label><input value="0" readonly></div>
+                  <div class="mini-field"><label>Yr $</label><input value="0" readonly></div>
+                  <div class="mini-field"><label>AI ¢/mo</label><input value="0" readonly></div>
+                  <div class="mini-field"><label>Portfolios</label><input value="1" readonly></div>
+                  <div class="mini-field"><label>Coins</label><input value="10" readonly></div>
+                  <div class="mini-field"><label>Tx/coin</label><input value="50" readonly></div>
+                </div>
+              </div>
+              <div class="plan-block">
+                <div class="plan-name pro">Pro</div>
+                <div class="mini-grid">
+                  <div class="mini-field"><label>Mo $</label><input value="9.99" readonly></div>
+                  <div class="mini-field"><label>Yr $</label><input value="99.90" readonly></div>
+                  <div class="mini-field"><label>AI ¢/mo</label><input value="150" readonly></div>
+                  <div class="mini-field"><label>Portfolios</label><input value="3" readonly></div>
+                  <div class="mini-field"><label>Coins</label><input value="50" readonly></div>
+                  <div class="mini-field"><label>Tx/coin</label><input value="2000" readonly></div>
+                </div>
+              </div>
+              <div class="plan-block">
+                <div class="plan-name prem">Premium</div>
+                <div class="mini-grid">
+                  <div class="mini-field"><label>Mo $</label><input value="49.99" readonly></div>
+                  <div class="mini-field"><label>Yr $</label><input value="499.90" readonly></div>
+                  <div class="mini-field"><label>AI ¢/mo</label><input value="900" readonly></div>
+                  <div class="mini-field"><label>Portfolios</label><input value="15" readonly></div>
+                  <div class="mini-field"><label>Coins</label><input value="1000" readonly></div>
+                  <div class="mini-field"><label>Tx/coin</label><input value="5000" readonly></div>
+                </div>
+              </div>
+              <button type="button" class="acct-btn accent">Save plans</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 · ANALYTICS & LEGAL -->
+      <div class="frame-wrap">
+        <div class="cap"><span class="num">4</span><b>Analytics &amp; legal.</b> Public IDs plus a real switch for the cookie banner — the same toggle the app uses for Appearance and Email digest.</div>
+        <div class="frame">
+          <div class="detail-head">
+            <button class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <span class="dh-title">Analytics &amp; legal</span>
+            <span style="width:34px"></span>
+          </div>
+          <div class="pad">
+            <div class="card">
+              <div class="card-title">Analytics &amp; legal</div>
+              <div class="card-sub">Public IDs injected on the landing page and app. Leave blank to disable.</div>
+              <label class="acct-label">Google Analytics 4 ID</label>
+              <input class="field-input" type="text" value="G-7QK4ZP2M8L" readonly>
+              <label class="acct-label">Plausible domain</label>
+              <input class="field-input" type="text" value="cryptoidea.app" readonly>
+              <label class="acct-label">Termly website UUID</label>
+              <input class="field-input" type="text" value="4f0c…e1a9" readonly>
+              <div class="ctrl-line">
+                <div>
+                  <div class="cl-label">Cookie consent banner</div>
+                  <div class="cl-hint">Needs the Termly UUID</div>
+                </div>
+                <label class="switch"><input type="checkbox" checked aria-label="Cookie consent banner"><span class="slider"></span></label>
+              </div>
+              <button type="button" class="acct-btn accent">Save analytics &amp; legal</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="foot"><b style="color:var(--c-ink)">Mockup only.</b> Layout, spacing, color and every component are taken 1:1 from <code>src/styles/app.css</code> (the <code>.ci-app</code> paper system); type is the app's <b style="color:var(--c-ink)">Fraunces</b> + <b style="color:var(--c-ink)">Hanken Grotesk</b>. Fields show sample data and aren't wired to anything. The Email and AI detail screens reuse the exact same card + field pattern as screens 2–4.</p>
+  </div>
+</div>
+
+<script>
+  (function(){
+    var gallery = document.getElementById('gallery');
+    var btns = document.querySelectorAll('.theme-toggle button');
+    btns.forEach(function(b){
+      b.addEventListener('click', function(){
+        var mode = b.getAttribute('data-mode');
+        gallery.setAttribute('data-mode', mode);
+        btns.forEach(function(x){
+          var on = x === b;
+          x.classList.toggle('on', on);
+          x.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      });
+    });
+  })();
+</script>
+</body>
+</html>

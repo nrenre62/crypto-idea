@@ -50,6 +50,14 @@ trend snapshots). Phases (KISS-first, most valuable first):
       — **RBAC admin roles** (least-privilege; required before any non-founder admin), impersonation
       (logged + time-boxed + bannered), announcement banner (config string → app banner), bulk user
       actions, per-field filters + saved views, private admin notes, before/after diff in audit.
+- [ ] **ADMIN-D · Settings redesign — paper design system** (🎨 design-only; founder 2026-07-18) —
+      reskin the admin **Settings** tab to match the app's user-settings (**Account**) screen: adopt
+      the `.ci-app` paper design + the **drill-in list** pattern (home with the two global toggles
+      inline + a category row per detail card), `saveConfig` logic untouched. Nothing dropped; adds an
+      optional **Configuration** summary card. Mockup (4 screens, light+dark):
+      [`docs/mockups/admin-settings/index.html`](../mockups/admin-settings/index.html). Spec:
+      [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) § Settings redesign. Local-first /
+      emulator-verifiable; run the §PROCESS interview+sweep + a dark-mode pass when built.
 - **Deliberately deferred (⚪ low / out-of-scope):** content-moderation queue (theses are private →
       revisit only if shareable), in-panel refund/cancel actions (use PayPal), IP allowlisting, formal
       break-glass (min-2-admins covers it), cohort/NRR/LTV (external tools), status page, i18n,
