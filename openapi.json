@@ -4,7 +4,9 @@
     "title": "Crypto Idea API",
     "description": "Complete HTTP surface of the Crypto Idea backend (Firebase Cloud Functions v1 + Firestore security rules).\n\nThree kinds of endpoint are documented:\n\n1. **Public REST** (`/api/*`) — the `api` HTTP function. No authentication. Serves cached CoinGecko market data to the landing DCA calculator and the app, plus the public app config and the landing email-capture form. In production these are also reachable at `https://<your-domain>/api/*` via a Firebase Hosting rewrite (`firebase.json`).\n\n2. **Callable functions** — Firebase `onCall` functions. The Firebase SDK POSTs `{\"data\": <input>}` and receives `{\"result\": <output>}`; on error it returns a non-2xx status with `{\"error\": {\"message\", \"status\", \"details\"}}`. Every callable verifies the caller's Firebase ID token server-side and acts on `context.auth.uid` — never a uid taken from the request body (no IDOR by design). **Admin** callables additionally require the verified `{admin:true}` custom claim.\n\n3. **PayPal webhook** (`/paypalWebhook`) — the only inbound write not gated by a Firebase user login; it is authenticated instead by PayPal's webhook signature (documented as the `PayPalWebhookSignature` scheme). Every event is cryptographically verified against PayPal's verify-webhook-signature API before it is trusted.\n\nSecurity model summary: Firestore rules are the authorization boundary (owner-only data, closed-shape user doc, users cannot write their own `tier`/`subscription`/`premiumLimits`/`deleted`). Secrets (CoinGecko / PayPal / email / Anthropic keys) live only in the server-side locked `config/app` Firestore doc or environment variables; they are never returned to a client and never shipped in the browser bundle.",
     "version": "1.0.0",
-    "contact": { "name": "Crypto Idea" }
+    "contact": {
+      "name": "Crypto Idea"
+    }
   },
   "servers": [
     {
@@ -13,13 +15,34 @@
     }
   ],
   "tags": [
-    { "name": "MarketData", "description": "Public, cached CoinGecko market data (prices, search, coin list, history, trending)." },
-    { "name": "Config", "description": "Public non-secret app configuration read by the client on load." },
-    { "name": "Subscribe", "description": "Public landing-page email capture." },
-    { "name": "Billing", "description": "Signed-in user subscription lifecycle (PayPal)." },
-    { "name": "Account", "description": "Signed-in user self-service account actions (GDPR/CCPA, sessions, counters)." },
-    { "name": "Admin", "description": "Admin-only operations. Require the verified {admin:true} custom claim. Kept in the PRIVATE repo." },
-    { "name": "Webhook", "description": "Inbound PayPal webhook (signature-verified)." }
+    {
+      "name": "MarketData",
+      "description": "Public, cached CoinGecko market data (prices, search, coin list, history, trending)."
+    },
+    {
+      "name": "Config",
+      "description": "Public non-secret app configuration read by the client on load."
+    },
+    {
+      "name": "Subscribe",
+      "description": "Public landing-page email capture."
+    },
+    {
+      "name": "Billing",
+      "description": "Signed-in user subscription lifecycle (PayPal)."
+    },
+    {
+      "name": "Account",
+      "description": "Signed-in user self-service account actions (GDPR/CCPA, sessions, counters)."
+    },
+    {
+      "name": "Admin",
+      "description": "Admin-only operations. Require the verified {admin:true} custom claim. Kept in the PRIVATE repo."
+    },
+    {
+      "name": "Webhook",
+      "description": "Inbound PayPal webhook (signature-verified)."
+    }
   ],
   "paths": {
     "/api/prices": {
@@ -27,25 +50,63 @@
         "operationId": "getPrices",
         "summary": "Current price + market data for one or more coins",
         "description": "Served from the shared cached coin universe; long-tail coins are refreshed on demand and folded back so upstream cost stays flat regardless of user count. Public and CDN-cached (max-age 120s).",
-        "tags": ["MarketData"],
+        "tags": [
+          "MarketData"
+        ],
         "parameters": [
           {
             "name": "ids",
             "in": "query",
             "required": true,
             "description": "Comma-separated CoinGecko coin ids (e.g. `bitcoin,ethereum`). Capped at 500; blank ids are dropped.",
-            "schema": { "type": "string", "maxLength": 8000 },
+            "schema": {
+              "type": "string",
+              "maxLength": 8000
+            },
             "example": "bitcoin,ethereum"
           }
         ],
         "responses": {
           "200": {
             "description": "Map of coin id → price entry (only requested ids that resolved are present).",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PricesResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricesResponse"
+                }
+              }
+            }
           },
-          "400": { "description": "`ids` query parameter is required.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
-          "429": { "description": "Per-IP rate limit exceeded (60/min).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
-          "500": { "description": "Server error.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+          "400": {
+            "description": "`ids` query parameter is required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-IP rate limit exceeded (60/min).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
         },
         "security": []
       }
@@ -55,20 +116,43 @@
         "operationId": "searchCoins",
         "summary": "Search the coin universe by id / name / symbol",
         "description": "Client-side-friendly search over the cached ~3,000-coin universe (no per-search upstream call). Returns up to 25 matches sorted by market-cap rank. Public, CDN-cached (max-age 300s).",
-        "tags": ["MarketData"],
+        "tags": [
+          "MarketData"
+        ],
         "parameters": [
           {
             "name": "q",
             "in": "query",
             "required": false,
             "description": "Search term (lower-cased, capped at 100 chars). Empty returns an empty list.",
-            "schema": { "type": "string", "maxLength": 100 },
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
             "example": "bitc"
           }
         ],
         "responses": {
-          "200": { "description": "Matching coins.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CoinListResponse" } } } },
-          "500": { "description": "Server error.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+          "200": {
+            "description": "Matching coins.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoinListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
         },
         "security": []
       }
@@ -78,10 +162,30 @@
         "operationId": "getCoinList",
         "summary": "Full coin list (metadata + last price) for the landing DCA calculator",
         "description": "The whole cached universe (id/symbol/name/icon/rank + last price + 24h change), fetched ONCE by the landing page and served from the CDN for a day, so thousands of visitors add ~0 function calls. Public.",
-        "tags": ["MarketData"],
+        "tags": [
+          "MarketData"
+        ],
         "responses": {
-          "200": { "description": "Full coin list.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CoinListResponse" } } } },
-          "500": { "description": "Server error.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+          "200": {
+            "description": "Full coin list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoinListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
         },
         "security": []
       }
@@ -91,9 +195,20 @@
         "operationId": "getTrending",
         "summary": "Currently-trending coins",
         "description": "CoinGecko /search/trending, cached in its own doc (30-min TTL) and on the CDN. Backs the Search tab empty state. Public; an empty array signals the client to use its built-in fallback list.",
-        "tags": ["MarketData"],
+        "tags": [
+          "MarketData"
+        ],
         "responses": {
-          "200": { "description": "Trending coins.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CoinListResponse" } } } }
+          "200": {
+            "description": "Trending coins.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoinListResponse"
+                }
+              }
+            }
+          }
         },
         "security": []
       }
@@ -103,9 +218,20 @@
         "operationId": "getPublicConfig",
         "summary": "Public app configuration",
         "description": "Non-secret app config the client reads on load: maintenance flag, signups on/off, plan prices/limits, analytics IDs, legal (Termly) IDs. NEVER includes API keys or any secret. Public, short CDN cache (max-age 60s).",
-        "tags": ["Config"],
+        "tags": [
+          "Config"
+        ],
         "responses": {
-          "200": { "description": "Public configuration.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PublicConfig" } } } }
+          "200": {
+            "description": "Public configuration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicConfig"
+                }
+              }
+            }
+          }
         },
         "security": []
       }
@@ -115,24 +241,53 @@
         "operationId": "getHistory",
         "summary": "Daily price history for one coin",
         "description": "Daily price series fetched once per coin and reused for every date range and every user (cached 30 days). Public, CDN-cached (max-age 86400s).",
-        "tags": ["MarketData"],
+        "tags": [
+          "MarketData"
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "query",
             "required": true,
             "description": "CoinGecko coin id (capped at 100 chars).",
-            "schema": { "type": "string", "maxLength": 100 },
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
             "example": "bitcoin"
           }
         ],
         "responses": {
           "200": {
             "description": "Array of `[timestampMs, price]` pairs (empty if unavailable — the client degrades to its built-in estimate).",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HistoryResponse" } } }
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                }
+              }
+            }
           },
-          "400": { "description": "`id` query parameter is required.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
-          "500": { "description": "Server error.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+          "400": {
+            "description": "`id` query parameter is required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
         },
         "security": []
       }
@@ -142,19 +297,90 @@
         "operationId": "subscribeEmail",
         "summary": "Landing-page email capture (public write)",
         "description": "The only public unauthenticated write. Forwards the email to the admin-configured provider (ActiveCampaign / GetResponse) server-side; the provider key never reaches the client. Protected by a strict per-IP budget (5/min), a honeypot field, and (at go-live) App Check/reCAPTCHA.",
-        "tags": ["Subscribe"],
+        "tags": [
+          "Subscribe"
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubscribeRequest" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeRequest"
+              }
+            }
+          }
         },
         "responses": {
-          "200": { "description": "Accepted (also returned for a tripped honeypot, which is silently dropped).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResponse" } } } },
-          "400": { "description": "Invalid email.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
-          "429": { "description": "Per-IP subscribe rate limit exceeded (5/min).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
-          "501": { "description": "Email provider not implemented.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
-          "502": { "description": "Upstream email provider rejected the request.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
-          "503": { "description": "Email not configured (no provider/key).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
-          "500": { "description": "Server error.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+          "200": {
+            "description": "Accepted (also returned for a tripped honeypot, which is silently dropped).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Per-IP subscribe rate limit exceeded (5/min).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Email provider not implemented.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Upstream email provider rejected the request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Email not configured (no provider/key).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
         },
         "security": []
       }
@@ -164,16 +390,76 @@
         "operationId": "createSubscription",
         "summary": "Start a PayPal subscription checkout for the signed-in user",
         "description": "Callable. Creates a PayPal subscription for `context.auth.uid` and returns the approval URL. Guards against re-buying the current tier and against duplicate submissions (60s per-uid cooldown).",
-        "tags": ["Billing"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateSubscriptionEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Approval URL to redirect the user to.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateSubscriptionResultEnvelope" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "400": { "description": "invalid-argument.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "429": { "description": "resource-exhausted — cooldown active.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "500": { "description": "internal / failed-precondition (already on this plan, plan not configured).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Billing"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubscriptionEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Approval URL to redirect the user to.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSubscriptionResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "resource-exhausted — cooldown active.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal / failed-precondition (already on this plan, plan not configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/cancelSubscription": {
@@ -181,14 +467,56 @@
         "operationId": "cancelSubscription",
         "summary": "Cancel the signed-in user's subscription (access runs to period end)",
         "description": "Callable. Cancels the caller's own PayPal subscription; the tier is NOT dropped immediately — access continues until the paid period ends. A premium user may target `pro`.",
-        "tags": ["Billing"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CancelSubscriptionEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Cancellation recorded.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CancelSubscriptionResultEnvelope" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "500": { "description": "failed-precondition — no active subscription.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Billing"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelSubscriptionEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Cancellation recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelSubscriptionResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "failed-precondition — no active subscription.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/reactivateSubscription": {
@@ -196,13 +524,46 @@
         "operationId": "reactivateSubscription",
         "summary": "Un-cancel a pending downgrade (\"Keep my plan\")",
         "description": "Callable. Clears the caller's own cancellation marker so the paid tier continues.",
-        "tags": ["Billing"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Reactivated.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResultEnvelope" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Billing"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Reactivated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/resolveRecheckout": {
@@ -210,13 +571,46 @@
         "operationId": "resolveRecheckout",
         "summary": "Clear a pending Premium→Pro re-checkout marker",
         "description": "Callable. Clears the caller's own `subscription` re-checkout marker so the prompt doesn't recur across devices.",
-        "tags": ["Billing"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Resolved.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResultEnvelope" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Billing"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Resolved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/deleteMyAccount": {
@@ -224,14 +618,56 @@
         "operationId": "deleteMyAccount",
         "summary": "Soft-delete the signed-in user's own account (GDPR/CCPA)",
         "description": "Callable. Marks the caller's account as trashed (recoverable for 30 days) and cancels billing. An admin who is one of the last 2 admins is refused.",
-        "tags": ["Account"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Account trashed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeleteMyAccountResultEnvelope" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "500": { "description": "failed-precondition — last-admin guard.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Account"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Account trashed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteMyAccountResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "failed-precondition — last-admin guard.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/restoreMyAccount": {
@@ -239,14 +675,56 @@
         "operationId": "restoreMyAccount",
         "summary": "Restore the signed-in user's own soft-deleted account",
         "description": "Callable. Restores the caller's account if still within the 30-day grace window.",
-        "tags": ["Account"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Restore result.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RestoreMyAccountResultEnvelope" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "500": { "description": "failed-precondition — grace window passed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Account"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Restore result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreMyAccountResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "failed-precondition — grace window passed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/signOutEverywhere": {
@@ -254,13 +732,46 @@
         "operationId": "signOutEverywhere",
         "summary": "Revoke all of the signed-in user's sessions",
         "description": "Callable. Revokes the caller's own refresh tokens so every device must re-authenticate.",
-        "tags": ["Account"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Signed out everywhere.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResultEnvelope" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Account"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Signed out everywhere.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/exportMyData": {
@@ -268,13 +779,46 @@
         "operationId": "exportMyData",
         "summary": "Export all of the signed-in user's own data (GDPR/CCPA)",
         "description": "Callable. Returns the caller's profile and full portfolios/coins/transactions tree.",
-        "tags": ["Account"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Full data export.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExportMyDataResultEnvelope" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Account"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Full data export.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportMyDataResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/reconcileMyCounters": {
@@ -282,13 +826,46 @@
         "operationId": "reconcileMyCounters",
         "summary": "Recompute the signed-in user's aggregate counters from real docs",
         "description": "Callable. Recomputes portfolioCount/coinCount/txCount for the caller's own tree, fixing drift that could fire a false limit.",
-        "tags": ["Account"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Counters reconciled.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ReconcileResultEnvelope" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Account"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Counters reconciled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconcileResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/devSetMyTier": {
@@ -296,14 +873,56 @@
         "operationId": "devSetMyTier",
         "summary": "[EMULATOR ONLY] Set the caller's own tier for local testing",
         "description": "Callable. HARD-gated to the emulator (`FUNCTIONS_EMULATOR === 'true'`); refuses with permission-denied in production. Lets a developer exercise Pro/Premium caps locally where no PayPal webhook exists. Not a production endpoint.",
-        "tags": ["Account"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DevSetMyTierEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Tier set (emulator only).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DevSetMyTierResultEnvelope" } } } },
-          "403": { "description": "permission-denied — not available in production.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "401": { "description": "Not signed in.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Account"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevSetMyTierEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Tier set (emulator only).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevSetMyTierResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — not available in production.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/getStats": {
@@ -311,13 +930,46 @@
         "operationId": "getStats",
         "summary": "Aggregate usage & revenue stats (admin)",
         "description": "Callable, admin-only. Returns aggregate counts and revenue — no personal data or holdings.",
-        "tags": ["Admin"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Stats.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatsResultEnvelope" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Stats.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResultEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/listUsers": {
@@ -325,13 +977,46 @@
         "operationId": "listUsers",
         "summary": "Full users list — operational data only (admin)",
         "description": "Callable, admin-only. Merges Auth + profile (tier, disabled, admin, portfolioCount, joined, deleted). Never returns holdings. Capped at 5000.",
-        "tags": ["Admin"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Users list.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ListUsersResultEnvelope" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Users list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListUsersResultEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/lookupUser": {
@@ -339,29 +1024,122 @@
         "operationId": "lookupUser",
         "summary": "Look up one user by email (admin)",
         "description": "Callable, admin-only. Operational data only (tier, status, usage) — not holdings.",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmailEnvelope" } } } },
-        "responses": {
-          "200": { "description": "User record.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LookupUserResultEnvelope" } } } },
-          "400": { "description": "invalid-argument — bad email.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "404": { "description": "not-found — no user with that email.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "User record.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LookupUserResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument — bad email.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not-found — no user with that email.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/setUserTier": {
       "post": {
         "operationId": "setUserTier",
         "summary": "Set a user's tier (admin)",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SetUserTierEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Tier set.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SetUserTierResultEnvelope" } } } },
-          "400": { "description": "invalid-argument.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUserTierEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Tier set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetUserTierResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/setPremiumLimits": {
@@ -369,14 +1147,56 @@
         "operationId": "setPremiumLimits",
         "summary": "Set a user's per-user custom limits (admin)",
         "description": "Callable, admin-only. Each value is clamped to the product hard ceiling (coins ≤ 1,000) so a custom limit can only raise WITHIN — never past — the ceiling. Empty object clears the override.",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SetPremiumLimitsEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Limits set.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SetPremiumLimitsResultEnvelope" } } } },
-          "400": { "description": "invalid-argument.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPremiumLimitsEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Limits set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetPremiumLimitsResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/suspendUser": {
@@ -384,15 +1204,66 @@
         "operationId": "suspendUser",
         "summary": "Suspend / un-suspend a user (admin)",
         "description": "Callable, admin-only. Disables the Auth account and revokes tokens; freezes the paid clock. Cannot target the caller's own account.",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuspendUserEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Suspension state changed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuspendUserResultEnvelope" } } } },
-          "400": { "description": "invalid-argument.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "500": { "description": "failed-precondition — can't suspend your own account.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuspendUserEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Suspension state changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuspendUserResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "failed-precondition — can't suspend your own account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/deleteUser": {
@@ -400,16 +1271,76 @@
         "operationId": "deleteUser",
         "summary": "Hard-delete a user + all their data (admin, GDPR erasure)",
         "description": "Callable, admin-only. Recursively deletes Firestore data and the Auth account. Refuses self-target and refuses to drop below the minimum admin count.",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UidEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Deleted.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UidResultEnvelope" } } } },
-          "400": { "description": "invalid-argument.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "404": { "description": "not-found.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "500": { "description": "failed-precondition — self-target or last-admin guard.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UidEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UidResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not-found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "failed-precondition — self-target or last-admin guard.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/adminTrashUser": {
@@ -417,43 +1348,178 @@
         "operationId": "adminTrashUser",
         "summary": "Soft-delete a user to the 30-day trash (admin)",
         "description": "Callable, admin-only. Recoverable soft-delete; cancels billing. Refuses admin targets (demote first).",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UidEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Trashed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UidResultEnvelope" } } } },
-          "400": { "description": "invalid-argument.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "500": { "description": "failed-precondition — can't trash an admin.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UidEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Trashed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UidResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "failed-precondition — can't trash an admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/restoreUser": {
       "post": {
         "operationId": "restoreUser",
         "summary": "Restore a soft-deleted user from trash (admin)",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UidEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Restored.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UidResultEnvelope" } } } },
-          "400": { "description": "invalid-argument.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UidEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Restored.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UidResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/adminSignOutUser": {
       "post": {
         "operationId": "adminSignOutUser",
         "summary": "Revoke a target user's sessions (admin)",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UidEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Signed out.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UidResultEnvelope" } } } },
-          "400": { "description": "invalid-argument.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UidEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Signed out.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UidResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/setAdminClaim": {
@@ -461,28 +1527,112 @@
         "operationId": "setAdminClaim",
         "summary": "Grant / revoke the admin claim (admin)",
         "description": "Callable, admin-only. Sets `{admin:true|false}` on another user by email. Refuses to drop below the minimum admin count on revoke.",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SetAdminClaimEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Claim updated.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SetAdminClaimResultEnvelope" } } } },
-          "400": { "description": "invalid-argument — email required.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
-          "500": { "description": "failed-precondition — last-admin guard.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAdminClaimEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Claim updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetAdminClaimResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument — email required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "failed-precondition — last-admin guard.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/listAudit": {
       "post": {
         "operationId": "listAudit",
         "summary": "Read the recent admin audit log (admin)",
-        "tags": ["Admin"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ListAuditEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Audit entries.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ListAuditResultEnvelope" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListAuditEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Audit entries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAuditResultEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/getAdminConfig": {
@@ -490,13 +1640,46 @@
         "operationId": "getAdminConfig",
         "summary": "Read saved app config to pre-fill Settings (admin)",
         "description": "Callable, admin-only. Secrets are returned as boolean set-flags ONLY (e.g. `secretSet`, `apiKeySet`, `anthropicKeySet`) — the secret values never leave the server.",
-        "tags": ["Admin"],
-        "requestBody": { "required": false, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Admin config (secrets as set-flags).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminConfigResultEnvelope" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Admin config (secrets as set-flags).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminConfigResultEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/saveConfig": {
@@ -504,13 +1687,46 @@
         "operationId": "saveConfig",
         "summary": "Save app config / API keys (admin)",
         "description": "Callable, admin-only. Writes the locked `config/app` doc. A blank secret field keeps the saved value (`keep()` idiom); secrets are never echoed back. Clients can never read `config/app` (Firestore rules deny all access).",
-        "tags": ["Admin"],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SaveConfigEnvelope" } } } },
-        "responses": {
-          "200": { "description": "Saved.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SuccessResultEnvelope" } } } },
-          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveConfigEnvelope"
+              }
+            }
+          }
         },
-        "security": [{ "FirebaseAuth": [] }]
+        "responses": {
+          "200": {
+            "description": "Saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResultEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
       }
     },
     "/paypalWebhook": {
@@ -518,21 +1734,98 @@
         "operationId": "paypalWebhook",
         "summary": "Inbound PayPal subscription webhook (signature-verified)",
         "description": "PayPal posts subscription lifecycle events here. Every event is cryptographically verified against PayPal's verify-webhook-signature API BEFORE any DB write; unverified events are rejected. Idempotent (each event id processed once). Not called by clients.",
-        "tags": ["Webhook"],
-        "parameters": [
-          { "name": "paypal-auth-algo", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "paypal-cert-url", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "paypal-transmission-id", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "paypal-transmission-sig", "in": "header", "required": true, "schema": { "type": "string" } },
-          { "name": "paypal-transmission-time", "in": "header", "required": true, "schema": { "type": "string" } }
+        "tags": [
+          "Webhook"
         ],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PayPalEvent" } } } },
-        "responses": {
-          "200": { "description": "Event received (or acknowledged duplicate).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WebhookAck" } } } },
-          "401": { "description": "Invalid webhook signature.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } },
-          "400": { "description": "Webhook processing failed.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } } }
+        "parameters": [
+          {
+            "name": "paypal-auth-algo",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "paypal-cert-url",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "paypal-transmission-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "paypal-transmission-sig",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "paypal-transmission-time",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayPalEvent"
+              }
+            }
+          }
         },
-        "security": [{ "PayPalWebhookSignature": [] }]
+        "responses": {
+          "200": {
+            "description": "Event received (or acknowledged duplicate).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookAck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Webhook processing failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid webhook signature.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PayPalWebhookSignature": []
+          }
+        ]
       }
     }
   },
@@ -554,8 +1847,15 @@
     "schemas": {
       "ApiError": {
         "type": "object",
-        "properties": { "error": { "type": "string", "description": "Human-readable error message (no internal details)." } },
-        "required": ["error"]
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message (no internal details)."
+          }
+        },
+        "required": [
+          "error"
+        ]
       },
       "CallableError": {
         "type": "object",
@@ -564,54 +1864,132 @@
           "error": {
             "type": "object",
             "properties": {
-              "message": { "type": "string" },
-              "status": { "type": "string", "description": "Canonical status, e.g. UNAUTHENTICATED, PERMISSION_DENIED, INVALID_ARGUMENT, RESOURCE_EXHAUSTED, FAILED_PRECONDITION, NOT_FOUND, INTERNAL." },
-              "details": { "type": "object", "nullable": true }
+              "message": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "description": "Canonical status, e.g. UNAUTHENTICATED, PERMISSION_DENIED, INVALID_ARGUMENT, RESOURCE_EXHAUSTED, FAILED_PRECONDITION, NOT_FOUND, INTERNAL."
+              },
+              "details": {
+                "type": "object",
+                "nullable": true
+              }
             },
-            "required": ["message", "status"]
+            "required": [
+              "message",
+              "status"
+            ]
           }
         },
-        "required": ["error"]
+        "required": [
+          "error"
+        ]
       },
       "SuccessResponse": {
         "type": "object",
-        "properties": { "success": { "type": "boolean" } },
-        "required": ["success"]
+        "properties": {
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ]
       },
       "PriceEntry": {
         "type": "object",
         "properties": {
-          "usd": { "type": "number", "nullable": true },
-          "usd_24h_change": { "type": "number", "nullable": true },
-          "usd_market_cap": { "type": "number", "nullable": true },
-          "usd_24h_vol": { "type": "number", "nullable": true },
-          "circulating": { "type": "number", "nullable": true },
-          "usd_market_cap_rank": { "type": "integer", "nullable": true }
+          "usd": {
+            "type": "number",
+            "nullable": true
+          },
+          "usd_24h_change": {
+            "type": "number",
+            "nullable": true
+          },
+          "usd_market_cap": {
+            "type": "number",
+            "nullable": true
+          },
+          "usd_24h_vol": {
+            "type": "number",
+            "nullable": true
+          },
+          "circulating": {
+            "type": "number",
+            "nullable": true
+          },
+          "usd_market_cap_rank": {
+            "type": "integer",
+            "nullable": true
+          }
         }
       },
       "PricesResponse": {
         "type": "object",
         "description": "Map of coin id → price entry.",
-        "additionalProperties": { "$ref": "#/components/schemas/PriceEntry" },
-        "example": { "bitcoin": { "usd": 64000, "usd_24h_change": 1.2, "usd_market_cap": 1250000000000, "usd_24h_vol": 25000000000, "circulating": 19700000, "usd_market_cap_rank": 1 } }
+        "additionalProperties": {
+          "$ref": "#/components/schemas/PriceEntry"
+        },
+        "example": {
+          "bitcoin": {
+            "usd": 64000,
+            "usd_24h_change": 1.2,
+            "usd_market_cap": 1250000000000,
+            "usd_24h_vol": 25000000000,
+            "circulating": 19700000,
+            "usd_market_cap_rank": 1
+          }
+        }
       },
       "CoinSummary": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "symbol": { "type": "string" },
-          "name": { "type": "string" },
-          "thumb": { "type": "string" },
-          "rank": { "type": "integer", "nullable": true },
-          "price": { "type": "number", "nullable": true },
-          "change": { "type": "number", "nullable": true }
+          "id": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "thumb": {
+            "type": "string"
+          },
+          "rank": {
+            "type": "integer",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "nullable": true
+          },
+          "change": {
+            "type": "number",
+            "nullable": true
+          }
         },
-        "required": ["id", "name"]
+        "required": [
+          "id",
+          "name"
+        ]
       },
       "CoinListResponse": {
         "type": "object",
-        "properties": { "coins": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/components/schemas/CoinSummary" } } },
-        "required": ["coins"]
+        "properties": {
+          "coins": {
+            "type": "array",
+            "maxItems": 10000,
+            "items": {
+              "$ref": "#/components/schemas/CoinSummary"
+            }
+          }
+        },
+        "required": [
+          "coins"
+        ]
       },
       "HistoryResponse": {
         "type": "object",
@@ -620,92 +1998,221 @@
             "type": "array",
             "description": "Array of [timestampMs, price] pairs.",
             "maxItems": 20000,
-            "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 }
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
           }
         },
-        "required": ["prices"]
+        "required": [
+          "prices"
+        ]
       },
       "PlanConfig": {
         "type": "object",
         "properties": {
-          "price": { "type": "number" },
-          "priceYear": { "type": "number" },
-          "aiMonthlyCents": { "type": "integer" },
-          "portfolios": { "type": "integer" },
-          "coins": { "type": "integer" },
-          "transactions": { "type": "integer" }
+          "price": {
+            "type": "number"
+          },
+          "priceYear": {
+            "type": "number"
+          },
+          "aiMonthlyCents": {
+            "type": "integer"
+          },
+          "portfolios": {
+            "type": "integer"
+          },
+          "coins": {
+            "type": "integer"
+          },
+          "transactions": {
+            "type": "integer"
+          }
         }
       },
       "Plans": {
         "type": "object",
         "properties": {
-          "free": { "$ref": "#/components/schemas/PlanConfig" },
-          "pro": { "$ref": "#/components/schemas/PlanConfig" },
-          "premium": { "$ref": "#/components/schemas/PlanConfig" }
+          "free": {
+            "$ref": "#/components/schemas/PlanConfig"
+          },
+          "pro": {
+            "$ref": "#/components/schemas/PlanConfig"
+          },
+          "premium": {
+            "$ref": "#/components/schemas/PlanConfig"
+          }
         }
       },
       "Analytics": {
         "type": "object",
-        "properties": { "ga4": { "type": "string" }, "plausible": { "type": "string" } }
+        "properties": {
+          "ga4": {
+            "type": "string"
+          },
+          "plausible": {
+            "type": "string"
+          }
+        }
       },
       "Legal": {
         "type": "object",
         "properties": {
-          "termlyUuid": { "type": "string" },
-          "termlyPrivacyId": { "type": "string" },
-          "termlyTermsId": { "type": "string" },
-          "cookieBanner": { "type": "boolean" }
+          "termlyUuid": {
+            "type": "string"
+          },
+          "termlyPrivacyId": {
+            "type": "string"
+          },
+          "termlyTermsId": {
+            "type": "string"
+          },
+          "cookieBanner": {
+            "type": "boolean"
+          }
         }
       },
       "PublicConfig": {
         "type": "object",
         "properties": {
-          "maintenance": { "type": "boolean" },
-          "signupsEnabled": { "type": "boolean" },
-          "plans": { "$ref": "#/components/schemas/Plans" },
-          "analytics": { "$ref": "#/components/schemas/Analytics" },
-          "legal": { "$ref": "#/components/schemas/Legal" }
+          "maintenance": {
+            "type": "boolean"
+          },
+          "signupsEnabled": {
+            "type": "boolean"
+          },
+          "plans": {
+            "$ref": "#/components/schemas/Plans"
+          },
+          "analytics": {
+            "$ref": "#/components/schemas/Analytics"
+          },
+          "legal": {
+            "$ref": "#/components/schemas/Legal"
+          }
         }
       },
       "SubscribeRequest": {
         "type": "object",
         "properties": {
-          "email": { "type": "string", "format": "email", "maxLength": 200 },
-          "hp": { "type": "string", "description": "Honeypot field — must be empty. Any value is silently dropped." }
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 200
+          },
+          "hp": {
+            "type": "string",
+            "description": "Honeypot field — must be empty. Any value is silently dropped."
+          }
         },
-        "required": ["email"]
+        "required": [
+          "email"
+        ]
       },
-      "Tier": { "type": "string", "enum": ["free", "pro", "premium"] },
+      "Tier": {
+        "type": "string",
+        "enum": [
+          "free",
+          "pro",
+          "premium"
+        ]
+      },
       "PremiumLimits": {
         "type": "object",
         "properties": {
-          "portfolios": { "type": "integer", "minimum": 0 },
-          "coins": { "type": "integer", "minimum": 0, "maximum": 1000 },
-          "transactions": { "type": "integer", "minimum": 0 }
+          "portfolios": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "coins": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "transactions": {
+            "type": "integer",
+            "minimum": 0
+          }
         }
       },
       "EmptyEnvelope": {
         "type": "object",
         "description": "Callable request with no input.",
-        "properties": { "data": { "type": "object", "nullable": true } }
+        "properties": {
+          "data": {
+            "type": "object",
+            "nullable": true
+          }
+        }
       },
       "SuccessResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "$ref": "#/components/schemas/SuccessResponse" } }
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/SuccessResponse"
+          }
+        }
       },
       "UidEnvelope": {
         "type": "object",
-        "properties": { "data": { "type": "object", "properties": { "uid": { "type": "string" } }, "required": ["uid"] } },
-        "required": ["data"]
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "uid": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "uid"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "UidResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "type": "object", "properties": { "success": { "type": "boolean" }, "uid": { "type": "string" } } } }
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "uid": {
+                "type": "string"
+              }
+            }
+          }
+        }
       },
       "EmailEnvelope": {
         "type": "object",
-        "properties": { "data": { "type": "object", "properties": { "email": { "type": "string", "format": "email", "maxLength": 200 } }, "required": ["email"] } },
-        "required": ["data"]
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "email"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "CreateSubscriptionEnvelope": {
         "type": "object",
@@ -713,8 +2220,22 @@
           "data": {
             "type": "object",
             "properties": {
-              "plan": { "type": "string", "enum": ["pro", "premium"], "description": "Defaults to pro." },
-              "billing": { "type": "string", "enum": ["monthly", "yearly"], "description": "Defaults to monthly." }
+              "plan": {
+                "type": "string",
+                "enum": [
+                  "pro",
+                  "premium"
+                ],
+                "description": "Defaults to pro."
+              },
+              "billing": {
+                "type": "string",
+                "enum": [
+                  "monthly",
+                  "yearly"
+                ],
+                "description": "Defaults to monthly."
+              }
             }
           }
         }
@@ -725,8 +2246,14 @@
           "result": {
             "type": "object",
             "properties": {
-              "approvalUrl": { "type": "string", "nullable": true },
-              "subscriptionId": { "type": "string", "nullable": true }
+              "approvalUrl": {
+                "type": "string",
+                "nullable": true
+              },
+              "subscriptionId": {
+                "type": "string",
+                "nullable": true
+              }
             }
           }
         }
@@ -734,7 +2261,19 @@
       "CancelSubscriptionEnvelope": {
         "type": "object",
         "properties": {
-          "data": { "type": "object", "properties": { "downgradeTo": { "type": "string", "enum": ["pro", "free"], "description": "Only a premium user may target pro." } } }
+          "data": {
+            "type": "object",
+            "properties": {
+              "downgradeTo": {
+                "type": "string",
+                "enum": [
+                  "pro",
+                  "free"
+                ],
+                "description": "Only a premium user may target pro."
+              }
+            }
+          }
         }
       },
       "CancelSubscriptionResultEnvelope": {
@@ -743,9 +2282,16 @@
           "result": {
             "type": "object",
             "properties": {
-              "success": { "type": "boolean" },
-              "downgradeTo": { "type": "string" },
-              "endDate": { "type": "string", "nullable": true }
+              "success": {
+                "type": "boolean"
+              },
+              "downgradeTo": {
+                "type": "string"
+              },
+              "endDate": {
+                "type": "string",
+                "nullable": true
+              }
             }
           }
         }
@@ -756,10 +2302,20 @@
           "result": {
             "type": "object",
             "properties": {
-              "success": { "type": "boolean" },
-              "deletedAt": { "type": "integer", "format": "int64" },
-              "retrievableUntil": { "type": "integer", "format": "int64" },
-              "graceDays": { "type": "integer" }
+              "success": {
+                "type": "boolean"
+              },
+              "deletedAt": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "retrievableUntil": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "graceDays": {
+                "type": "integer"
+              }
             }
           }
         }
@@ -767,7 +2323,17 @@
       "RestoreMyAccountResultEnvelope": {
         "type": "object",
         "properties": {
-          "result": { "type": "object", "properties": { "success": { "type": "boolean" }, "restored": { "type": "boolean" } } }
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "restored": {
+                "type": "boolean"
+              }
+            }
+          }
         }
       },
       "ExportMyDataResultEnvelope": {
@@ -776,26 +2342,87 @@
           "result": {
             "type": "object",
             "properties": {
-              "exportedAt": { "type": "string", "format": "date-time" },
-              "account": { "type": "object", "properties": { "uid": { "type": "string" }, "email": { "type": "string" } } },
-              "profile": { "type": "object", "additionalProperties": true },
-              "portfolios": { "type": "array", "maxItems": 100, "items": { "type": "object", "additionalProperties": true } }
+              "exportedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "account": {
+                "type": "object",
+                "properties": {
+                  "uid": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  }
+                }
+              },
+              "profile": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "portfolios": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
             }
           }
         }
       },
       "ReconcileResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "type": "object", "properties": { "success": { "type": "boolean" }, "fixed": { "type": "integer" } } } }
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "fixed": {
+                "type": "integer"
+              }
+            }
+          }
+        }
       },
       "DevSetMyTierEnvelope": {
         "type": "object",
-        "properties": { "data": { "type": "object", "properties": { "tier": { "$ref": "#/components/schemas/Tier" } }, "required": ["tier"] } },
-        "required": ["data"]
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "tier": {
+                "$ref": "#/components/schemas/Tier"
+              }
+            },
+            "required": [
+              "tier"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "DevSetMyTierResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "type": "object", "properties": { "success": { "type": "boolean" }, "tier": { "$ref": "#/components/schemas/Tier" } } } }
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "tier": {
+                "$ref": "#/components/schemas/Tier"
+              }
+            }
+          }
+        }
       },
       "StatsResultEnvelope": {
         "type": "object",
@@ -803,18 +2430,42 @@
           "result": {
             "type": "object",
             "properties": {
-              "totalUsers": { "type": "integer" },
-              "proUsers": { "type": "integer" },
-              "premiumUsers": { "type": "integer" },
-              "freeUsers": { "type": "integer" },
-              "totalPortfolios": { "type": "integer" },
-              "totalCoins": { "type": "integer" },
-              "proPrice": { "type": "number" },
-              "premiumPrice": { "type": "number" },
-              "grossRevenue": { "type": "number" },
-              "paymentFees": { "type": "number" },
-              "netRevenue": { "type": "number" },
-              "estimatedRevenue": { "type": "number" }
+              "totalUsers": {
+                "type": "integer"
+              },
+              "proUsers": {
+                "type": "integer"
+              },
+              "premiumUsers": {
+                "type": "integer"
+              },
+              "freeUsers": {
+                "type": "integer"
+              },
+              "totalPortfolios": {
+                "type": "integer"
+              },
+              "totalCoins": {
+                "type": "integer"
+              },
+              "proPrice": {
+                "type": "number"
+              },
+              "premiumPrice": {
+                "type": "number"
+              },
+              "grossRevenue": {
+                "type": "number"
+              },
+              "paymentFees": {
+                "type": "number"
+              },
+              "netRevenue": {
+                "type": "number"
+              },
+              "estimatedRevenue": {
+                "type": "number"
+              }
             }
           }
         }
@@ -822,16 +2473,40 @@
       "AdminUser": {
         "type": "object",
         "properties": {
-          "uid": { "type": "string" },
-          "email": { "type": "string" },
-          "name": { "type": "string" },
-          "tier": { "$ref": "#/components/schemas/Tier" },
-          "disabled": { "type": "boolean" },
-          "isAdmin": { "type": "boolean" },
-          "portfolioCount": { "type": "integer" },
-          "joinedMs": { "type": "integer", "format": "int64", "nullable": true },
-          "deleted": { "type": "boolean" },
-          "deletedAt": { "type": "integer", "format": "int64", "nullable": true }
+          "uid": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tier": {
+            "$ref": "#/components/schemas/Tier"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "isAdmin": {
+            "type": "boolean"
+          },
+          "portfolioCount": {
+            "type": "integer"
+          },
+          "joinedMs": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "deletedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
         }
       },
       "ListUsersResultEnvelope": {
@@ -840,9 +2515,19 @@
           "result": {
             "type": "object",
             "properties": {
-              "users": { "type": "array", "maxItems": 5000, "items": { "$ref": "#/components/schemas/AdminUser" } },
-              "total": { "type": "integer" },
-              "capped": { "type": "boolean" }
+              "users": {
+                "type": "array",
+                "maxItems": 5000,
+                "items": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "capped": {
+                "type": "boolean"
+              }
             }
           }
         }
@@ -853,77 +2538,271 @@
           "result": {
             "type": "object",
             "properties": {
-              "uid": { "type": "string" },
-              "email": { "type": "string" },
-              "name": { "type": "string" },
-              "tier": { "$ref": "#/components/schemas/Tier" },
-              "disabled": { "type": "boolean" },
-              "isAdmin": { "type": "boolean" },
-              "portfolioCount": { "type": "integer" },
-              "coinCount": { "type": "integer" },
-              "tierBeforeFailure": { "type": "string" },
-              "premiumLimits": { "$ref": "#/components/schemas/PremiumLimits" },
-              "emailVerified": { "type": "boolean" },
-              "billingCycle": { "type": "string" }
+              "uid": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "tier": {
+                "$ref": "#/components/schemas/Tier"
+              },
+              "disabled": {
+                "type": "boolean"
+              },
+              "isAdmin": {
+                "type": "boolean"
+              },
+              "portfolioCount": {
+                "type": "integer"
+              },
+              "coinCount": {
+                "type": "integer"
+              },
+              "tierBeforeFailure": {
+                "type": "string"
+              },
+              "premiumLimits": {
+                "$ref": "#/components/schemas/PremiumLimits"
+              },
+              "emailVerified": {
+                "type": "boolean"
+              },
+              "billingCycle": {
+                "type": "string"
+              }
             }
           }
         }
       },
       "SetUserTierEnvelope": {
         "type": "object",
-        "properties": { "data": { "type": "object", "properties": { "uid": { "type": "string" }, "tier": { "$ref": "#/components/schemas/Tier" } }, "required": ["uid", "tier"] } },
-        "required": ["data"]
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "uid": {
+                "type": "string"
+              },
+              "tier": {
+                "$ref": "#/components/schemas/Tier"
+              }
+            },
+            "required": [
+              "uid",
+              "tier"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "SetUserTierResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "type": "object", "properties": { "success": { "type": "boolean" }, "uid": { "type": "string" }, "tier": { "$ref": "#/components/schemas/Tier" } } } }
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "uid": {
+                "type": "string"
+              },
+              "tier": {
+                "$ref": "#/components/schemas/Tier"
+              }
+            }
+          }
+        }
       },
       "SetPremiumLimitsEnvelope": {
         "type": "object",
-        "properties": { "data": { "type": "object", "properties": { "uid": { "type": "string" }, "limits": { "$ref": "#/components/schemas/PremiumLimits" } }, "required": ["uid"] } },
-        "required": ["data"]
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "uid": {
+                "type": "string"
+              },
+              "limits": {
+                "$ref": "#/components/schemas/PremiumLimits"
+              }
+            },
+            "required": [
+              "uid"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "SetPremiumLimitsResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "type": "object", "properties": { "success": { "type": "boolean" }, "uid": { "type": "string" }, "premiumLimits": { "$ref": "#/components/schemas/PremiumLimits" } } } }
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "uid": {
+                "type": "string"
+              },
+              "premiumLimits": {
+                "$ref": "#/components/schemas/PremiumLimits"
+              }
+            }
+          }
+        }
       },
       "SuspendUserEnvelope": {
         "type": "object",
-        "properties": { "data": { "type": "object", "properties": { "uid": { "type": "string" }, "disabled": { "type": "boolean" } }, "required": ["uid"] } },
-        "required": ["data"]
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "uid": {
+                "type": "string"
+              },
+              "disabled": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "uid"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "SuspendUserResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "type": "object", "properties": { "success": { "type": "boolean" }, "uid": { "type": "string" }, "disabled": { "type": "boolean" } } } }
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "uid": {
+                "type": "string"
+              },
+              "disabled": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
       },
       "SetAdminClaimEnvelope": {
         "type": "object",
-        "properties": { "data": { "type": "object", "properties": { "email": { "type": "string", "format": "email" }, "admin": { "type": "boolean" } }, "required": ["email"] } },
-        "required": ["data"]
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "admin": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "email"
+            ]
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "SetAdminClaimResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "type": "object", "properties": { "success": { "type": "boolean" }, "uid": { "type": "string" }, "admin": { "type": "boolean" } } } }
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "uid": {
+                "type": "string"
+              },
+              "admin": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
       },
       "ListAuditEnvelope": {
         "type": "object",
-        "properties": { "data": { "type": "object", "properties": { "limit": { "type": "integer", "minimum": 1, "maximum": 500 } } } }
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 500
+              }
+            }
+          }
+        }
       },
       "AuditEntry": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "actorEmail": { "type": "string" },
-          "action": { "type": "string" },
-          "targetUid": { "type": "string" },
-          "targetEmail": { "type": "string" },
-          "details": { "type": "string" },
-          "atMs": { "type": "integer", "format": "int64", "nullable": true }
+          "id": {
+            "type": "string"
+          },
+          "actorEmail": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "targetUid": {
+            "type": "string"
+          },
+          "targetEmail": {
+            "type": "string"
+          },
+          "details": {
+            "type": "string"
+          },
+          "atMs": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
         }
       },
       "ListAuditResultEnvelope": {
         "type": "object",
-        "properties": { "result": { "type": "object", "properties": { "entries": { "type": "array", "maxItems": 500, "items": { "$ref": "#/components/schemas/AuditEntry" } } } } }
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "entries": {
+                "type": "array",
+                "maxItems": 500,
+                "items": {
+                  "$ref": "#/components/schemas/AuditEntry"
+                }
+              }
+            }
+          }
+        }
       },
       "AdminConfigResultEnvelope": {
         "type": "object",
@@ -932,15 +2811,76 @@
             "type": "object",
             "description": "Secrets appear ONLY as boolean set-flags — never the values.",
             "properties": {
-              "coingeckoSet": { "type": "boolean" },
-              "paypal": { "type": "object", "properties": { "clientId": { "type": "string" }, "secretSet": { "type": "boolean" }, "webhookId": { "type": "string" } } },
-              "email": { "type": "object", "properties": { "provider": { "type": "string" }, "apiKeySet": { "type": "boolean" }, "apiUrl": { "type": "string" }, "fromEmail": { "type": "string" }, "listId": { "type": "string" } } },
-              "flags": { "type": "object", "properties": { "maintenance": { "type": "boolean" }, "signupsEnabled": { "type": "boolean" } } },
-              "plans": { "$ref": "#/components/schemas/Plans" },
-              "analytics": { "$ref": "#/components/schemas/Analytics" },
-              "legal": { "$ref": "#/components/schemas/Legal" },
-              "ai": { "type": "object", "properties": { "anthropicKeySet": { "type": "boolean" } } },
-              "updatedAt": { "type": "integer", "format": "int64", "nullable": true }
+              "coingeckoSet": {
+                "type": "boolean"
+              },
+              "paypal": {
+                "type": "object",
+                "properties": {
+                  "clientId": {
+                    "type": "string"
+                  },
+                  "secretSet": {
+                    "type": "boolean"
+                  },
+                  "webhookId": {
+                    "type": "string"
+                  }
+                }
+              },
+              "email": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "apiKeySet": {
+                    "type": "boolean"
+                  },
+                  "apiUrl": {
+                    "type": "string"
+                  },
+                  "fromEmail": {
+                    "type": "string"
+                  },
+                  "listId": {
+                    "type": "string"
+                  }
+                }
+              },
+              "flags": {
+                "type": "object",
+                "properties": {
+                  "maintenance": {
+                    "type": "boolean"
+                  },
+                  "signupsEnabled": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "plans": {
+                "$ref": "#/components/schemas/Plans"
+              },
+              "analytics": {
+                "$ref": "#/components/schemas/Analytics"
+              },
+              "legal": {
+                "$ref": "#/components/schemas/Legal"
+              },
+              "ai": {
+                "type": "object",
+                "properties": {
+                  "anthropicKeySet": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "updatedAt": {
+                "type": "integer",
+                "format": "int64",
+                "nullable": true
+              }
             }
           }
         }
@@ -955,46 +2895,110 @@
               "keys": {
                 "type": "object",
                 "properties": {
-                  "coingecko": { "type": "string", "format": "password" },
-                  "paypalClientId": { "type": "string" },
-                  "paypalSecret": { "type": "string", "format": "password" },
-                  "paypalWebhookId": { "type": "string" },
-                  "anthropicKey": { "type": "string", "format": "password" }
+                  "coingecko": {
+                    "type": "string",
+                    "format": "password"
+                  },
+                  "paypalClientId": {
+                    "type": "string"
+                  },
+                  "paypalSecret": {
+                    "type": "string",
+                    "format": "password"
+                  },
+                  "paypalWebhookId": {
+                    "type": "string"
+                  },
+                  "anthropicKey": {
+                    "type": "string",
+                    "format": "password"
+                  }
                 }
               },
               "email": {
                 "type": "object",
                 "properties": {
-                  "provider": { "type": "string", "enum": ["none", "getresponse", "activecampaign"] },
-                  "apiKey": { "type": "string", "format": "password" },
-                  "apiUrl": { "type": "string" },
-                  "fromEmail": { "type": "string" },
-                  "listId": { "type": "string" }
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "getresponse",
+                      "activecampaign"
+                    ]
+                  },
+                  "apiKey": {
+                    "type": "string",
+                    "format": "password"
+                  },
+                  "apiUrl": {
+                    "type": "string"
+                  },
+                  "fromEmail": {
+                    "type": "string"
+                  },
+                  "listId": {
+                    "type": "string"
+                  }
                 }
               },
-              "flags": { "type": "object", "properties": { "maintenance": { "type": "boolean" }, "signupsEnabled": { "type": "boolean" } } },
-              "analytics": { "$ref": "#/components/schemas/Analytics" },
-              "legal": { "$ref": "#/components/schemas/Legal" },
-              "plans": { "$ref": "#/components/schemas/Plans" }
+              "flags": {
+                "type": "object",
+                "properties": {
+                  "maintenance": {
+                    "type": "boolean"
+                  },
+                  "signupsEnabled": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "analytics": {
+                "$ref": "#/components/schemas/Analytics"
+              },
+              "legal": {
+                "$ref": "#/components/schemas/Legal"
+              },
+              "plans": {
+                "$ref": "#/components/schemas/Plans"
+              }
             }
           }
         },
-        "required": ["data"]
+        "required": [
+          "data"
+        ]
       },
       "PayPalEvent": {
         "type": "object",
         "description": "A PayPal webhook event. Only trusted after signature verification.",
         "properties": {
-          "id": { "type": "string" },
-          "event_type": { "type": "string", "description": "e.g. BILLING.SUBSCRIPTION.ACTIVATED / CANCELLED / SUSPENDED, PAYMENT.SALE.COMPLETED." },
-          "resource": { "type": "object", "additionalProperties": true }
+          "id": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "e.g. BILLING.SUBSCRIPTION.ACTIVATED / CANCELLED / SUSPENDED, PAYMENT.SALE.COMPLETED."
+          },
+          "resource": {
+            "type": "object",
+            "additionalProperties": true
+          }
         },
         "additionalProperties": true
       },
       "WebhookAck": {
         "type": "object",
-        "properties": { "received": { "type": "boolean" }, "duplicate": { "type": "boolean" } },
-        "required": ["received"]
+        "properties": {
+          "received": {
+            "type": "boolean"
+          },
+          "duplicate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "received"
+        ]
       }
     }
   }
