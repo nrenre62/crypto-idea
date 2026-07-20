@@ -677,6 +677,43 @@ test("ADMIN-SEC: a role claim without admin:true grants nothing", async () => {
   await assertFails(deleteDoc(doc(fakeOwner, "users", "alice")));
 });
 
+test("ADMIN-SEC (B6): a manager CANNOT write or delete a user's portfolio DATA", async () => {
+  // The owner-only wall on users/{uid} originally stopped at the doc itself, so a
+  // manager — walled out of deleteUser server-side — could still destroy or
+  // silently forge any customer's entire portfolio straight from devtools, with
+  // no callable check and no audit entry. Every level must fail closed.
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { email: "a@x.com", tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P1", coinCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "c1"), { symbol: "BTC", name: "Bitcoin", txCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "c1", "transactions", "t1"), { type: "buy", amount: 1, priceAtBuy: 100 });
+    await setDoc(doc(db, "users", "alice", "learn", "progress"), { xp: 10 });
+  });
+  const pf = ["users", "alice", "portfolios", "p1"];
+  const cn = [...pf, "coins", "c1"];
+  const tx = [...cn, "transactions", "t1"];
+  for (const db of [managerDb(), legacyAdminDb()]) {
+    await assertFails(updateDoc(doc(db, ...pf), { name: "hacked" }));
+    await assertFails(deleteDoc(doc(db, ...pf)));
+    await assertFails(updateDoc(doc(db, ...cn), { name: "hacked" }));
+    await assertFails(deleteDoc(doc(db, ...cn)));
+    await assertFails(updateDoc(doc(db, ...tx), { amount: 999 }));
+    await assertFails(deleteDoc(doc(db, ...tx)));
+    await assertFails(deleteDoc(doc(db, "users", "alice", "learn", "progress")));
+  }
+});
+
+test("ADMIN-SEC (B6): a manager can still READ portfolio data, and an owner can still fix it", async () => {
+  // The read path is deliberately untouched — the admin panel needs it — and the
+  // owner branch must keep working so a counter can still be corrected.
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P1", coinCount: 5 });
+  });
+  await assertSucceeds(getDoc(doc(managerDb(), "users", "alice", "portfolios", "p1")));
+  await assertSucceeds(updateDoc(doc(adminDb(), "users", "alice", "portfolios", "p1"), { coinCount: 1 }));
+  await assertSucceeds(deleteDoc(doc(adminDb(), "users", "alice", "portfolios", "p1")));
+});
+
 test("ADMIN-SEC: managers still cannot reach config, audit or cache", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "config", "app"), { coingecko: "secret" });

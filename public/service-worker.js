@@ -2,7 +2,11 @@
  * Crypto Idea - Service Worker
  * =============================
  * Enables offline support for the PWA.
- * Caches app shell, fonts, and API responses.
+ * Caches the same-origin app shell, Google Fonts, and CoinGecko prices/images.
+ * Deliberately does NOT cache: non-GET requests, /api/** (the function and CDN
+ * set correct per-endpoint TTLs, so the browser's HTTP cache handles it), and any
+ * other cross-origin traffic — Firestore/Auth responses must never persist in
+ * Cache Storage, where they would survive sign-out.
  *
  * Place this file at the ROOT of your hosting directory (dist/sw.js)
  */
@@ -88,6 +92,39 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
+
+  // Google Fonts: cache first (immutable, public, unauthenticated). This branch
+  // must sit ABOVE the same-origin guard below — the app's editorial type
+  // (Fraunces + Hanken) is loaded cross-origin from both HTML entries, and
+  // without it an offline reload silently falls back to the system font stack.
+  if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          const clone = response.clone();
+          caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, clone));
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // ─── What this catch-all may touch ───
+  // It used to cache EVERY remaining request, which meant authenticated Firestore
+  // and Auth responses landed in on-disk Cache Storage and survived sign-out.
+  // The origin guard is the load-bearing one: Firestore's WebChannel talks over
+  // long-lived GET streams, so a method-only filter would still cache (and clone,
+  // holding the stream open) that traffic.
+  // /api/** is skipped too — the function and the CDN already set a correct
+  // per-endpoint max-age, so the browser's own HTTP cache handles it properly
+  // instead of the SW pinning a response with no expiry.
+  const isCacheable =
+    event.request.method === "GET" &&
+    url.origin === self.location.origin &&
+    !url.pathname.startsWith("/api/");
+  if (!isCacheable) return;   // no respondWith → normal browser handling
 
   // App shell / page navigations: NETWORK FIRST, fall back to cache when offline.
   // (Cache-first served stale pages after every deploy — network-first means users

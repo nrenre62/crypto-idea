@@ -114,7 +114,7 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 
 ### HTTP vs HTTPS
 **All billing traffic is HTTPS in production.** Every function is `functions.https.*`; the webhook
-is `https://<project>.cloudfunctions.net/paypalWebhook`; PayPal is called at
+is `https://<region>-<project>.cloudfunctions.net/paypalWebhook`; PayPal is called at
 `https://api-m.paypal.com`; redirects use `https://<app>.web.app`. The **only** `http://` anywhere
 is the **local Firebase emulator** (`http://localhost:5001/...` in `openapi.json`) — it serves on
 localhost only, is never exposed to the network, and needs no TLS. It is not a production surface.
@@ -168,12 +168,22 @@ Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyP
 ## 8. Go-live checklist
 
 1. `cd functions && npm install`, then `firebase deploy --only functions`.
-2. Create the two PayPal **subscription plans** (Pro, Premium — monthly + annual) in the PayPal
-   dashboard; put their plan IDs in `functions/.env` (`PAYPAL_PLAN_ID`, `PAYPAL_PREMIUM_PLAN_ID`).
+2. Create the PayPal **subscription plans** in the PayPal dashboard; put their plan IDs in
+   `functions/.env` (`PAYPAL_PLAN_ID`, `PAYPAL_PREMIUM_PLAN_ID`).
+   > ⚠️ **Known gap (audit H6, not yet fixed):** the UI sells monthly **and** yearly, but
+   > `createSubscription` never consults the billing cycle — there are only two plan IDs, so an
+   > annual buyer is sent to the MONTHLY plan while revenue is booked as `priceYear/12`.
+   > Launching paid tiers requires **four** plans + selecting by tier *and* cycle. See
+   > [`GO-LIVE-AUDIT.md`](../product/GO-LIVE-AUDIT.md) §3 H6.
 3. Set `PAYPAL_CLIENT_ID` / `PAYPAL_SECRET` (env **or** admin Settings) and `APP_URL`.
-4. PayPal Dashboard → **Webhooks → Add** `https://<PROJECT>.cloudfunctions.net/paypalWebhook`,
-   subscribe to: `BILLING.SUBSCRIPTION.ACTIVATED`, `.CANCELLED`, `.SUSPENDED`,
-   `PAYMENT.SALE.COMPLETED`. Copy the **Webhook ID** into `webhookId` (admin) or `PAYPAL_WEBHOOK_ID`.
+4. PayPal Dashboard → **Webhooks → Add** the EXACT URL the deploy printed —
+   `https://<REGION>-<PROJECT>.cloudfunctions.net/paypalWebhook` (v1 functions are region-prefixed;
+   a region-less URL registers fine and silently receives nothing) — subscribe to:
+   `BILLING.SUBSCRIPTION.ACTIVATED`, `.CANCELLED`, `.SUSPENDED`, `PAYMENT.SALE.COMPLETED`.
+   Copy the **Webhook ID** into `webhookId` (admin) or `PAYPAL_WEBHOOK_ID`. **Until it is set,
+   `verifyPayPalWebhook` returns false and EVERY event is rejected with 401** — and because the ID
+   differs between sandbox and live, this is the single most likely go-live failure. Use PayPal's
+   "Send test event" and confirm a doc lands in `webhookEvents` before trusting it.
 5. **Live end-to-end test** (still pending): a real sandbox→live subscribe, renew, cancel, and a
    failed-payment path, confirming the webhook lands and the sweep flips at period end.
 6. Confirm `App Check` / abuse gates per [BACKEND-ADMIN-DECISIONS.md](BACKEND-ADMIN-DECISIONS.md)

@@ -13,7 +13,9 @@
  *      APP_URL are env-only (not stored in the config doc).
  * 3. firebase deploy --only functions
  * 4. PayPal Developer Dashboard → Webhooks → Add URL:
- *    https://YOUR-PROJECT.cloudfunctions.net/paypalWebhook
+ *    https://<REGION>-<PROJECT>.cloudfunctions.net/paypalWebhook   (e.g. us-central1-…)
+ *    v1 functions are region-prefixed — copy the EXACT URL the deploy printed.
+ *    A region-less URL registers fine at PayPal and silently receives nothing.
  *    Events: BILLING.SUBSCRIPTION.ACTIVATED, CANCELLED, SUSPENDED, PAYMENT.SALE.COMPLETED
  *    Then copy the Webhook ID into paypal.webhook_id above.
  *
@@ -382,7 +384,12 @@ async function verifyPayPalWebhook(req) {
 }
 
 // ─── PayPal Webhook (public, but every event is signature-verified) ───
-exports.paypalWebhook = functions.https.onRequest(async (req, res) => {
+// Also publicly reachable, so it is capped too. A cap is safe here specifically
+// because PayPal retries with backoff and the handler is idempotent — a throttled
+// event comes back rather than being lost.
+exports.paypalWebhook = functions
+  .runWith({ maxInstances: 10, timeoutSeconds: 60 })
+  .https.onRequest(async (req, res) => {
   // API-SECURITY (webhook integrity): the idempotency marker is written BEFORE the side effect,
   // so if the side effect later throws we must ROLL BACK the marker — otherwise PayPal's retry
   // sees the marker, is acknowledged as a duplicate, and the paid tier change is dropped forever
@@ -1282,10 +1289,30 @@ async function getTrending() {
   return data.coins;
 }
 
+// ─── Runtime caps (go-live) ───
+// Blaze has NO hard spend cap and gen-1 functions scale to 3,000 instances by
+// default, so every export is bounded explicitly.
+//
+// DAILY sweeps only — they walk every user/coin, so they get the long ceiling.
+// Do NOT reuse this for a job that runs more often than 540s: a timeout longer
+// than the schedule interval makes overlapping invocations possible, which the
+// gen-1 default (60s) quietly prevented.
+const SCHEDULED = functions.runWith({ maxInstances: 5, timeoutSeconds: 540 });
+
 // Keep the HOT set fresh (every 5 min) — top ~1,250 coins, always merged so the
 // long tail (refreshed daily) is preserved. The tail is priced on demand by /api/prices.
-exports.refreshPrices = functions.pubsub.schedule("every 5 minutes").onRun(async () => {
-  try { await refreshUniverse({ pages: HOT_PAGES }); } catch (e) { console.error("refreshPrices:", e); }
+// NOT on SCHEDULED: this runs every 5 min (300s), so it needs its own shorter
+// ceiling. timeoutSeconds must stay BELOW the interval, and maxInstances:1 makes
+// an overlap structurally impossible even if that ever stops holding — two
+// concurrent runs would merge-write the universe doc over each other and leave
+// `updatedAt` falsely fresh, suppressing the lazy full refresh.
+exports.refreshPrices = functions
+  .runWith({ maxInstances: 1, timeoutSeconds: 120 })
+  .pubsub.schedule("every 5 minutes").onRun(async () => {
+  // Log THEN rethrow: a swallowed error returns success, so the built-in
+  // "function errors" alert never fires and a broken refresh stays invisible.
+  try { await refreshUniverse({ pages: HOT_PAGES }); }
+  catch (e) { console.error("refreshPrices:", e); throw e; }
   return null;
 });
 
@@ -1293,14 +1320,19 @@ exports.refreshPrices = functions.pubsub.schedule("every 5 minutes").onRun(async
 // that dropped off the market-cap list. Cheap and reliable even on the free tier.
 // C-R2f: also prunes historyCache docs past HISTORY_TTL (they only re-fill on demand,
 // so expired ones are dead weight).
-exports.refreshUniverseDaily = functions.pubsub.schedule("every 24 hours").onRun(async () => {
-  try { await refreshUniverse({ pages: UNIVERSE_PAGES, prune: true }); } catch (e) { console.error("refreshUniverseDaily:", e); }
+exports.refreshUniverseDaily = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
+  // Both halves always run (a failed refresh shouldn't skip the prune), but the
+  // first error is remembered and rethrown so the invocation is marked FAILED.
+  let failure = null;
+  try { await refreshUniverse({ pages: UNIVERSE_PAGES, prune: true }); }
+  catch (e) { console.error("refreshUniverseDaily:", e); failure = e; }
   try {
     const cutoff = Date.now() - HISTORY_TTL;
     const stale = await db.collection("historyCache").where("updatedAt", "<", cutoff).get();
     for (const d of stale.docs) await d.ref.delete();
     if (stale.size) console.log("refreshUniverseDaily: pruned", stale.size, "expired historyCache docs");
-  } catch (e) { console.error("historyCache prune:", e); }
+  } catch (e) { console.error("historyCache prune:", e); failure = failure || e; }
+  if (failure) throw failure;
   return null;
 });
 
@@ -1308,30 +1340,35 @@ exports.refreshUniverseDaily = functions.pubsub.schedule("every 24 hours").onRun
 // Audit entries are kept on legitimate interest but AGE OUT after a fixed window,
 // regardless of account deletion (no per-account scrub). Disclosure: privacy.html.
 const AUDIT_RETENTION_MS = 365 * 24 * 3600 * 1000;   // 12 months
-exports.purgeOldAudit = functions.pubsub.schedule("every 24 hours").onRun(async () => {
+exports.purgeOldAudit = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
   try {
     const cutoff = Date.now() - AUDIT_RETENTION_MS;
     const old = await db.collection("audit").where("at", "<", cutoff).limit(500).get();
     for (const d of old.docs) await d.ref.delete();
     if (old.size) console.log("purgeOldAudit: removed", old.size, "expired audit entries");
-  } catch (e) { console.error("purgeOldAudit:", e); }
+  } catch (e) { console.error("purgeOldAudit:", e); throw e; }
   return null;
 });
 
 // Daily: permanently erase accounts whose 30-day trash window has elapsed.
 // (Cloud Scheduler fires this in prod; trigger it from the emulator UI in dev.)
-exports.purgeExpiredTrash = functions.pubsub.schedule("every 24 hours").onRun(async () => {
-  try {
-    const cutoff = Date.now() - TRASH_MS;
-    const snap = await db.collection("users").where("deleted", "==", true).get();
-    for (const d of snap.docs) {
+exports.purgeExpiredTrash = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
+  // Per-user isolation: one undeletable account must not stop the sweep for
+  // everyone else. Errors are remembered and rethrown after the loop so the
+  // invocation still reports FAILED (see refreshPrices for why).
+  const cutoff = Date.now() - TRASH_MS;
+  let failure = null;
+  const snap = await db.collection("users").where("deleted", "==", true).get();
+  for (const d of snap.docs) {
+    try {
       if ((d.data().deletedAt || 0) <= cutoff) {
         await db.recursiveDelete(d.ref);
         try { await admin.auth().deleteUser(d.id); } catch (e) { /* already gone */ }
         console.log("purgeExpiredTrash: permanently deleted", d.id);
       }
-    }
-  } catch (e) { console.error("purgeExpiredTrash:", e); }
+    } catch (e) { console.error("purgeExpiredTrash:", d.id, e); failure = failure || e; }
+  }
+  if (failure) throw failure;
   return null;
 });
 
@@ -1340,21 +1377,32 @@ exports.purgeExpiredTrash = functions.pubsub.schedule("every 24 hours").onRun(as
 // its marker so the app's R29 re-checkout popup decides the landing — an approved
 // Pro payment arrives as a fresh ACTIVATED webhook); payment failures drop after
 // the 7-day grace (U12). Pure decision per user in billing.subscriptionSweepPatch.
-exports.enforceSubscriptionPeriods = functions.pubsub.schedule("every 24 hours").onRun(async () => {
-  try {
-    const snap = await db.collection("users").get();
-    for (const d of snap.docs) {
+exports.enforceSubscriptionPeriods = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
+  // This is the money one: if it silently fails, cancelled subscribers keep a
+  // paid tier forever. Per-user isolation + rethrow so a real failure alerts.
+  let failure = null;
+  const snap = await db.collection("users").get();
+  for (const d of snap.docs) {
+    try {
       const patch = billing.subscriptionSweepPatch(d.data(), Date.now());
       if (patch) {
         await d.ref.set(patch, { merge: true });
         console.log("enforceSubscriptionPeriods:", d.id, JSON.stringify(patch));
       }
-    }
-  } catch (e) { console.error("enforceSubscriptionPeriods:", e); }
+    } catch (e) { console.error("enforceSubscriptionPeriods:", d.id, e); failure = failure || e; }
+  }
+  if (failure) throw failure;
   return null;
 });
 
-exports.api = functions.https.onRequest(async (req, res) => {
+// PUBLIC + unauthenticated + CORS-*, so this is the one endpoint a flood can
+// reach for free. maxInstances is the real spend ceiling (a billing budget only
+// ALERTS, it never stops spend). 20 is deliberate, not minimal: gen-1 serves one
+// request per instance and this backs BOTH the landing calculator and every
+// in-app price read, so a tighter cap would 429 real users.
+exports.api = functions
+  .runWith({ maxInstances: 20, timeoutSeconds: 120 })
+  .https.onRequest(async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   if (req.method === "OPTIONS") {
     res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");

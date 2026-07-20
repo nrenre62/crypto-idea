@@ -24,12 +24,43 @@
         ]
       },
       {
-        "source": "**/*.@(js|css|woff|woff2|ttf|otf|png|jpg|jpeg|gif|svg|webp|ico)",
+        "_comment": "ONLY /assets/** is content-hashed by Vite, so only it may be immutable. The old **/*.@(js|css|...) glob also matched the UNHASHED root files (landing.js, site-meta.js, sw-register.js, termly-embed.js), pinning them in browser caches for a year — a stale landing page with no way to push a fix.",
+        "source": "/assets/**",
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      },
+      {
+        "_comment": "Icons are unhashed but change very rarely — a month is the compromise.",
+        "source": "/icons/**",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=2592000" }]
       },
       {
         "source": "/service-worker.js",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "_comment": "The /api/** rewrites are matched by the catch-all ** block above, whose no-cache would defeat the CDN caching the flat-cost model depends on. These blocks come LAST (later match wins) and MIRROR the TTLs the function already sets on each response — so the header is correct no matter which layer wins.",
+        "source": "/api/coinlist",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, s-maxage=86400" }]
+      },
+      {
+        "source": "/api/history",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }]
+      },
+      {
+        "source": "/api/search",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=300" }]
+      },
+      {
+        "source": "/api/trending",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=300, s-maxage=300" }]
+      },
+      {
+        "source": "/api/prices",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=120" }]
+      },
+      {
+        "source": "/api/config",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=60, s-maxage=60" }]
       }
     ]
   },

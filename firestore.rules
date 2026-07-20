@@ -213,10 +213,15 @@ service cloud.firestore {
 
         // Update (incl. coinCount maintenance) — coinCount may only stay or rise by 1 (never a
         // client decrement; see counterNoForge). A delete leaves the count high, reconciled server-side.
+        // ADMIN-SEC sweep: the blanket write/delete branch is OWNER-only, matching
+        // the users doc (:178/:196). A manager carries admin:true in their browser
+        // token, so an isAdmin() branch here would let them destroy or forge any
+        // customer's data straight from devtools — no callable check, no audit entry.
+        // Reads stay open to any admin (the panel needs them).
         allow update: if (isOwner(userId) && validPortfolioData() && counterNoForge('coinCount'))
-                      || isAdmin();
+                      || isAdminOwner();
 
-        allow delete: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdminOwner();
 
         // ─── Coins ───
         match /coins/{coinId} {
@@ -235,9 +240,9 @@ service cloud.firestore {
           // Validate content (incl. the optional thesis journal) on update too, and let txCount
           // only stay or rise by 1 (never a client decrement; see counterNoForge) — so a coin's
           // journal can be written/reviewed but the counter can't be forged down past a limit.
-          allow update: if (isOwner(userId) && validCoinData() && counterNoForge('txCount')) || isAdmin();
+          allow update: if (isOwner(userId) && validCoinData() && counterNoForge('txCount')) || isAdminOwner();
 
-          allow delete: if isOwner(userId) || isAdmin();
+          allow delete: if isOwner(userId) || isAdminOwner();
 
           // ─── Transactions ───
           match /transactions/{txId} {
@@ -252,9 +257,9 @@ service cloud.firestore {
                           && getAfter(coinRef()).data.txCount == get(coinRef()).data.get('txCount', 0) + 1
                           && getAfter(coinRef()).data.txCount <= maxTx(userId);
 
-            allow update: if (isOwner(userId) && validTransactionData()) || isAdmin();
+            allow update: if (isOwner(userId) && validTransactionData()) || isAdminOwner();
 
-            allow delete: if isOwner(userId) || isAdmin();
+            allow delete: if isOwner(userId) || isAdminOwner();
           }
         }
       }
@@ -267,7 +272,7 @@ service cloud.firestore {
       match /learn/{docId} {
         allow read: if isOwner(userId) || isAdmin();
         allow create, update: if isOwner(userId) && validLearnProgress(request.resource.data);
-        allow delete: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdminOwner();
       }
     }
 
