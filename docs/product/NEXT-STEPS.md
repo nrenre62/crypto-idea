@@ -169,26 +169,45 @@ signature auth as a `PayPalWebhookSignature` apiKey scheme (reconciled the "unau
   flag it as a conformance gap.
 - Next 42Crunch step available: `42crunch-scan` (live conformance / BOLA / BFLA) against the running stack.
 
-## SKILL. `tdd-testing` audit — top-up + prune  (📋 PLAN — 2026-07-18)
+## SKILL. `tdd-testing` audit — top-up + research conformance  (✅ APPLIED 2026-07-20)
 
-Multi-agent audit of the global `tdd-testing` skill (19 verified gaps / 26 refuted). Verdict: healthy
-in principle, stale in specifics — a targeted top-up, **not** a rewrite. Full plan + ready-to-paste
-text: [`TDD-SKILL-UPDATE.md`](../planning/TDD-SKILL-UPDATE.md). The live skill was **not** edited.
+Two phases, both landed. **(1) Content audit 2026-07-18:** multi-agent audit, 19 verified gaps /
+26 refuted — healthy in principle, stale in specifics. **(2) Research conformance 2026-07-20:** the
+"Build Agent Skills" research doc compared against skill + plan (13 confirmed gaps / 1 refuted + 3
+completeness-critic finds), reconciled in an 11-decision founder interview, then **applied the same
+session**. Full record incl. what changed vs the written plan:
+[`TDD-SKILL-UPDATE.md`](../planning/TDD-SKILL-UPDATE.md) **§10**.
 
-**Decisions (founder interview 2026-07-18):** skill stays stack-agnostic (new emulator mechanics →
-`firebase-saas-starter` §5b, with a pointer back); security-testing depth stays in `tdd-testing`;
-**keep the name** (TDD is a generic industry term — no copyright/trademark restriction, 17 USC
-§102(b); learning it from a video creates none either); gotcha wall stays flat but gains a
-maintenance rule; prune the wall **before** adding so the file stays ~200 lines.
+**Applied to `tdd-testing` (185→254 lines):** four tiers (+**Callables** — the
+[`ERRORS.md`](../testing/ERRORS.md) C6 class) + the mocks-never-run-the-server-body gotcha ·
+deny-checklist rules bullet · claim-truthiness near-misses · counter-decrease deny · error
+classification · idempotency redelivery+rollback tests · injected-`db` fake · source-matrix
+**merged** into the parallel-session bullet (not duplicated) · retrying-assertion replaces the
+fixed-sleep advice · matchMedia/CSS-selector bullet split · flat+pruned maintenance note **with the
+emulator-mechanics routing clause** · **directive description rewrite** (ALWAYS-invoke +
+BEFORE-marking-done + Do-NOT clause, 1002/1024 chars) · all new content **repo-filename-free**
+(citation rule: file+symbol in repo docs, pattern-only in reusable skills).
+**Fleet:** `firebase-saas-starter` got the fleet's first `references/` split (emulator run mechanics
+→ `references/emulator-testing.md`, 585→566 lines, two duplicate gotchas retired) + emulator-test
+triggers in its description; `api-security` got its **missing frontmatter** (it had none — it could
+never auto-trigger); `~/.claude/skills` is now a **git repo** (baseline `6d6ec99`, apply `39044bc`);
+`.githooks/pre-push` now runs `test:unit` (measured 168s — founder chose push over per-commit).
 
-**Highest-value item (H1):** the skill teaches "mock the `api/` layer" and still says "Three tiers" —
-but that mocking is exactly the hole [`ERRORS.md`](../testing/ERRORS.md) **C6** shipped through, and
-the repo grew a fourth tier (`tests/functions-callable.test.js`) on 2026-07-18. Add the tier row + a
-"mocks hide the body — assert side effects, not return values" gotcha. *(The audit's own finder
-agents missed this; a verifier caught it incidentally.)*
-
-**Open piece:** the gotcha-wall pruning pass (§7 of the plan) was stopped mid-flight at session end —
-method is written up, no results. Run it before applying, or accept landing at ~208 lines.
+**Still queued:**
+- **Eval pass (1 session):** skill-creator evals for `tdd-testing` — 3 scenarios (loop compliance ·
+  gotcha retrieval · fourth-tier placement, which doubles as live H1 verification) + the description
+  optimizer (held-out scoring decides any further description changes). Run after real use.
+- **Fleet description pass (1 session):** research checklist (directive formula, negative triggers,
+  length) across the other 9 skills. `firebase-saas-starter` is still 566/500 — its §10
+  (monolith-refactor) and §11 (design-module integration) sections are the natural next
+  `references/` splits if it should go under the line.
+- **Pruning pass (quality/token-only):** `tdd-testing` is ~5.6k tokens vs the ~5k official soft
+  guidance. Method = plan §7 (keep-biased); **no line target** — the ~200 budget is superseded by
+  the official 500-line ceiling.
+- **You-run check:** `/doctor` + `/context` in a fresh session to verify the skill LISTING isn't
+  overflowing (12 personal + ~33 plugin skills compete; overflow silently drops descriptions).
+- **At §OSS time:** stamp a version + short changelog on each published skill (copy-installed users
+  have no git history) and re-grep for repo residue then.
 
 **Also queued — one-time coverage sweep (deliberately NOT a standing DoD line):** find exported logic
 with no test, matching on the **export name**, not the filename (tests are flat and grouped by topic —
@@ -945,19 +964,69 @@ want explicit MVC separation:**
 
 ---
 
-## 4. Go-live checklist (from CLAUDE.md / README)
+## 4. Go-live checklist
 
-- [ ] Create real Firebase project; enable Email/Password Auth + Firestore.
-- [ ] Put web config in `.env` (`VITE_FIREBASE_*`); `firebase deploy` (Blaze plan needed for functions).
-- [ ] ~~`firebase functions:config:set …`~~ **(removed in firebase-functions v7 — a no-op).** Set secrets via the **admin Settings** form (writes the locked `config/app` doc); PayPal **plan IDs + `APP_URL`** are the only env-only secrets → `functions/.env`. See [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) §1.5.
-- [ ] Deploy `firestore.rules`; bootstrap the first admin via `functions/scripts/set-admin.js`.
-- [ ] Register + promote a **second** admin; store both admins' creds in a password manager (`MIN_ADMINS=2`).
-- [ ] Add a free **CoinGecko Demo key** (unlocks DCA history beyond 365 days + higher rate limit).
-- [ ] **App Check:** create reCAPTCHA v3 key, set `VITE_RECAPTCHA_SITE_KEY`, enable enforcement in console.
+> **⚠️ Rewritten 2026-07-20** after the multi-agent go-live audit. The previous version had
+> **four defects**: it set secrets via the admin panel *before* creating the admin who can open it
+> (impossible), told you to paste Termly snippets into the HTML (wrong mechanism — the pages read
+> doc IDs from `config/app`), and had no Firestore-region or backup step at all.
+> **The ordered runbook with commands, verification steps and gotchas lives in
+> [`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md) §5. This is the summary.**
+
+**Phase 0 — code (✅ DONE 2026-07-20, see GO-LIVE-AUDIT.md §"Phase 0 shipped")**
+- [x] `maxInstances` + `timeoutSeconds` on `api`, `paypalWebhook` and all five schedulers.
+- [x] Subcollection write/delete narrowed to `isAdminOwner()` (+ rules regression tests).
+- [x] Hosting cache headers: `immutable` scoped to `/assets/**`; per-endpoint `/api/**` TTLs.
+- [x] Service worker no longer caches non-GET or cross-origin (auth/Firestore) traffic.
+- [x] Schedulers rethrow so a failed run reports FAILED instead of silent success.
+- [x] `npm run deploy` blocks on a missing/placeholder `.env` and targets the `prod` alias.
+
+**Phase 1 — create the project**
+- [ ] Create the real Firebase project; enable Email/Password Auth + Firestore.
+      **Choose the Firestore location deliberately — it is permanent.** `nam5`/us-central matches
+      the default `us-central1` functions region.
+- [ ] Upgrade to **Blaze**, then immediately set a **billing budget + alerts** (~$25/mo, 50/90/100%).
+      A budget only *alerts*; the `maxInstances` caps from Phase 0 are what actually bound spend.
+- [ ] **Enable PITR + a daily backup schedule BEFORE any real signup** — PITR cannot be enabled
+      retroactively. Commands in GO-LIVE-AUDIT.md §5 Phase 1.
+- [ ] `firebase use --add` → select the real project → alias it **`prod`** (`npm run deploy` needs it).
+
+**Phase 2 — secrets & build**
+- [ ] Fill `.env` with the six `VITE_FIREBASE_*` values (the deploy guard now enforces this).
+- [ ] Fill `functions/.env`: `APP_URL`, `COINGECKO_DEMO_KEY` (**env var, not admin Settings** — only
+      the env var unlocks `days=max` history), and PayPal plan IDs if launching paid tiers.
+
+**Phase 3 — deploy**
+- [ ] Rules + storage first, then `functions:api,paypalWebhook`, then everything.
+- [ ] Confirm 5 Cloud Scheduler jobs exist; force-run `refreshUniverseDaily` to warm `cache/universe`.
+
+**Phase 4 — admin bootstrap (⚠️ MUST precede any admin-Settings step)**
+- [ ] Register both owner accounts **through the live app UI** (creates their profile + default portfolio).
+- [ ] Generate a service-account key, store it **outside the repo** + in a password manager.
+- [ ] `node functions/scripts/set-admin.js <email> --role=owner` for **both** owners (script-only; the
+      panel can never mint an owner). Sign in again afterwards — tokens are revoked.
+- [ ] *Then* fill admin Settings (Termly IDs, PayPal creds) — it needs a fresh owner session.
+
+**Phase 5 — legal (blocker for a public launch)**
+- [ ] Create the Privacy Policy + Terms in Termly; set the **doc IDs in admin Settings**
+      (do **not** paste snippets into `privacy.html` / `terms.html`). Load both pages and confirm
+      the embed renders (`/api/config` is CDN-cached ~60s).
+- [ ] Bump `CONSENT_VERSION` to the publication date; delete pre-launch test accounts whose consent
+      records point at documents that never existed.
+
+**Phase 6 — App Check (strict order, or you lock out every user)**
+- [ ] Register the app + create the reCAPTCHA v3 key → set `VITE_RECAPTCHA_SITE_KEY` → build → deploy
+      → watch "unverified requests" fall to ~0 → **only then** enable enforcement, one service at a time.
+
+**Phase 7 — verify + observe**
+- [ ] `curl -sI` the cache headers (`/api/coinlist` must not be `no-cache`; `/landing.js` must be).
+- [ ] Create the Cloud Logging error alert for the schedulers + webhook (GO-LIVE-AUDIT.md §3 H3).
 - [ ] Test the **CSP** on the deployed site; loosen a directive only if it blocks something legit.
-- [ ] Paste **Termly** snippets into `privacy.html` / `terms.html`.
-- [ ] Enable **Identity Platform MFA (2FA)** for admins + add the enrollment/challenge flow to the admin app.
-- [ ] Wire the admin **Settings** forms fully and confirm the email provider (ActiveCampaign/GetResponse) end-to-end.
+- [ ] Register a throwaway account end-to-end: verification email, password reset, portfolio save.
+
+**Later (not launch blockers)**
+- [ ] Enable **Identity Platform MFA (2FA)** for admins + the enrollment/challenge flow in the admin app.
+- [ ] Confirm the email provider (ActiveCampaign/GetResponse) end-to-end.
 
 ---
 

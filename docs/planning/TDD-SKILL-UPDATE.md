@@ -1,7 +1,9 @@
 # `tdd-testing` skill — audit & update plan
 
-**Status: 📋 PLAN ONLY — the live skill has NOT been edited.**
-Founder interview + multi-agent audit, **2026-07-18**. Apply on a "go".
+**Status: ✅ APPLIED 2026-07-20** *(was 📋 PLAN ONLY since 2026-07-18)*. The 2026-07-20
+research-conformance interview (**§10**) reconciled this plan against the *Build Agent Skills*
+research doc and the post-audit drift, and everything landed the same session. §§4–9 are preserved
+as written for provenance — **§10 records every place the applied version deliberately differs.**
 
 The skill under review is `~/.claude/skills/tdd-testing/SKILL.md` (175 lines, last modified
 2026-07-02). It is a *global user skill*, not part of this repo — but it is the testing doctrine this
@@ -457,9 +459,15 @@ Without pruning this lands ~224. Decision 7 (prune first) is what buys it back.
 
 ## 7. Pruning pass — retirement list
 
-**⏸️ NOT YET RUN — this is the one open piece of the plan.** The analysis was in flight when the
-session ended and was stopped rather than left orphaned; no results were produced. Nothing else in
-this document depends on it.
+**⏸️ NOT YET RUN — still the one open piece.** The analysis was in flight when the 07-18 session
+ended and was stopped rather than left orphaned; no results were produced. Nothing else in this
+document depends on it.
+
+> **Scope updated 2026-07-20 (§10, decision R2):** the "recover ~20 lines before adding" gate is
+> retired — the apply landed first, and the ~200-line budget is superseded by the official 500-line
+> / ~5,000-token guidance. When this pass runs it is a **quality/token pass only**: retire only what
+> the five questions below condemn; the number to watch is tokens (~5.6k vs the ~5k soft
+> recommendation), never a round line count.
 
 **Method to use when resuming** (it was designed to bias *against* losing scar tissue):
 
@@ -494,7 +502,8 @@ The recurring reasons:
 |---|---|
 | **Reorganise the gotcha wall into a taxonomy** | Six bullets fit no proposed bucket; the categories would fight the content. Flat + pruned instead (G3). |
 | **Split into a second testing skill** | Two skills covering one loop is the top drift risk; five findings were refuted on these grounds. |
-| **Add a `references/` directory** | The file loads whole on trigger and has no jump-to-section mechanism, so a split buys nothing at this size and adds a moving part. |
+| **Add a `references/` directory** | The file loads whole on trigger and has no jump-to-section mechanism, so a split buys nothing at this size and adds a moving part. *Anchored 2026-07-20 to the official threshold: single-file is correct under ~500 lines / ~5,000 tokens; the post-apply file (254 lines ≈ 5.6k tokens) approaches the TOKEN figure first — that is the revisit trigger.* |
+| **Rename to gerund form (`auditing-tdd` etc.)** | Weighed 2026-07-20: the research doc's §1 gerund preference is an official soft "prefer" with zero functional effect (the description drives triggering; the name passes every hard constraint and already ends in a gerund). Revisit only at §OSS publication, when the folder name becomes public identity. Decision 4 stands. |
 | **Move security-testing depth to `api-security`** | Considered and rejected in the interview (decision 2) — these are committed regression suites; the person writing a rules test must see them. |
 | **Rename the skill** | Decision 4. No legal driver; the description drives triggering, not the folder name. |
 | **Add IP/attribution/disclaimer boilerplate** | Changes no testing behaviour and dilutes 175 lines of incident-grounded guidance. |
@@ -537,3 +546,87 @@ shifts all the ones below it.
 
 **Then:** run `npm run test:unit` to confirm nothing referenced changed, and commit the two skills
 separately from the `NEXT-STEPS.md` entry.
+
+---
+
+## 10. 2026-07-20 addendum — research conformance + THE APPLY
+
+**Trigger:** the founder's *Build Agent Skills* research doc (`Research/skills/Build Agent
+Skills.md` in the workspace) — the practical guide to authoring skills (official structure/limits,
+description formula, enforcement ladder, eval loop). A 22-agent adversarial pass compared it against
+the skill + this plan: **23 candidates → 13 confirmed / 1 refuted**, plus **3 completeness-critic
+finds** the six dimensions didn't think to look at. Everything below was interviewed (11 founder
+decisions), then applied the same session.
+
+### 10.1 Decisions (founder interview, 2026-07-20)
+
+| # | Decision | Notes |
+|---|---|---|
+| R1 | **Approve + apply the same session** | Ends the drift race — the plan went stale within hours on 07-18 (parallel sessions edit skills) |
+| R2 | **Official ceiling supersedes the ~200-line budget** | 500 lines / ~5,000 tokens (official). Decision 7's prune-first gate retired; pruning = follow-up **quality/token** pass, no line target (§7 note) |
+| R3 | **`firebase-saas-starter`: split the emulator block into `references/`** | The fleet's first references/ file — chosen over accept-~600 and over pruning it |
+| R4 | **Strip repo filenames from all new skill content** | Citation rule amended: file+symbol in repo docs; **pattern-only in reusable skills**. Serves §OSS directly |
+| R5 | **Full directive description rewrite** for `tdd-testing` | ALWAYS-invoke + "BEFORE marking ANY coding task done" + a Do-NOT clause; stronger than the recommended minimal edit — founder's call |
+| R6 | **Queue a skill-creator eval pass** | 3 scenarios (loop compliance · gotcha retrieval · fourth-tier placement = live H1 verification) + the description optimizer; its held-out score judges R5 empirically |
+| R7 | **Test gate EARNED — at pre-push** | Founder confirmed sessions HAVE finished red (the research's Stage-4 recurrence benchmark met). Suite measured **168 s / 539 tests** → per-commit rejected as friction; `--changed` rejected as partial; `/finish`-only rejected as too late. `.githooks/pre-push` runs `test:unit` |
+| R8 | **Routing clause lives IN the skill** (G3 note) + all 4 day-zero bullets grandfathered | The §1 boundary rule failed day-zero because it lived only in this doc; now every future capture-learnings session sees it at the point of append |
+| R9 | **`api-security` frontmatter written now** | The critic found it had NO YAML block at all — zero trigger surface; it only ever fired by name |
+| R10 | **`~/.claude/skills` under git** (local repo, no remote) | Baseline `6d6ec99` → apply `39044bc`. Parallel-session drift becomes a visible diff; §9's "commit the two skills" is finally executable; free §OSS provenance |
+| R11 | **Fleet description pass queued** (other 9 skills) | Uses the research checklist + whatever the eval pass learns first |
+
+Mechanical (no decision needed, from the verified gaps): description-sync was added as apply item 14
+(the plan had never audited `tdd-testing`'s own description — post-H1 it would have said "unit/rules/
+integration" under a "Four tiers" body, with no callable trigger words and no negative-trigger
+routing); §9's line-number anchors were re-keyed by CONTENT (four parallel-session bullets at the old
+:79–98 had shifted everything ≥ :93 — the §3 no-`file:line` rule applied to this doc's own table);
+semver/changelogs skipped for private use but **required at §OSS publication**; the gerund-name point
+and the official references/ threshold recorded in §8 so no future audit re-litigates them.
+
+### 10.2 What the applied version deliberately changed vs §§4–9
+
+- **D1 was MERGED, not appended** — a parallel session had already landed the same source-level-test
+  lesson (filename-free) on 07-18; the applied bullet folds in D1's delta (committed name→gate map ·
+  ban-the-idiom · rename-aware failure message · pair-with-behavioural-guard-tests). §6.1's E1
+  sacrifice became moot; E1 landed too (filename-free).
+- **§4.2 landed as `references/emulator-testing.md` (57 lines), not as an inline §5b** — and as a
+  MERGE: firebase-saas-starter's §5 already carried the `:solo` and `--test-force-exit` gotchas in
+  more detail than the paste, so one canonical telling of each survived; net-new were hub port
+  discovery, `clearFirestore`, `singleProjectMode`, shared-SDK ordering, append-only sequencing. Two
+  duplicate flat gotchas (hot-reload, FieldValue) were retired into the reference. SKILL.md 585→566.
+- **F1/F2/E1/D1 filenames stripped** per R4 (`src/utils/errors.js`, `useTrending.test.jsx`,
+  `makeFakeDb`/`guards.test.js`, `admin-gate-coverage`/`functions-runtime-safety`) — each lesson
+  stated as the pattern; verified by grep that none entered the skill.
+- **The tier row + gotcha (H1), C4+C2, C3, C1, E2, G1, G2, G3 (+routing clause), the pointer line,
+  and the description rewrite** landed as §4.1 wrote them (pointer now cites
+  `references/emulator-testing.md` instead of "§5b").
+
+### 10.3 Applied results (verified)
+
+| Artifact | Result |
+|---|---|
+| `tdd-testing/SKILL.md` | 185 → **254 lines**, ≈ 5.6k tokens; description **1002/1024 chars**; residue grep clean; "Four tiers" + Callables row live |
+| `firebase-saas-starter` | 585 → **566 lines** + `references/emulator-testing.md` (57 lines, < 100 so no TOC); description 993 chars w/ emulator-test triggers |
+| `api-security` | frontmatter added (name + 842-char directive description w/ Do-NOT routing vs `secure-by-design`/`vibe-security`/`firebase-saas-starter`) |
+| Skills repo | `git init` → baseline `6d6ec99` (pre-edit) → apply `39044bc` — today's whole change is one reviewable diff |
+| Unit suite | **539/539 green**, 168 s (the timing run that decided R7) |
+| This repo | `.githooks/pre-push` (test gate) + this doc + `NEXT-STEPS.md` §SKILL |
+
+**Honest numbers:** `tdd-testing` sits slightly over the ~5k-token soft guidance (the queued §7
+quality pass is the remedy); `firebase-saas-starter` is still 566/500 — the emulator split alone
+was never going to clear it (§5 was only 27 of 585 lines). Its §10/§11 sections are the natural next
+`references/` candidates; queued as fleet-pass options, not silently expanded into today's scope.
+
+### 10.4 Refuted / not doing (2026-07-20 additions to §8's spirit)
+
+- **Freeze an §OSS sanitization checklist now** — anchors rot faster than publication approaches; a
+  fresh grep at §OSS time takes minutes (the one refuted gap).
+- **Semver/changelog on private skills** — ceremony vs KISS; git (R10) + WD snapshots cover it.
+  Required at §OSS publication instead.
+- **Hooks to coax skill TRIGGERING** — the research's own caveat: they backfire (a scoring hook cost
+  30 points of activation). The description is the lever; R7's hook gates TESTS, not triggering.
+
+### 10.5 Still open
+
+The §7 pruning pass (quality/token-only now) · the eval pass (R6) · the fleet description pass (R11)
+· the founder-run `/doctor` + `/context` listing-budget check · §OSS versioning. All queued in
+`NEXT-STEPS.md` §SKILL.

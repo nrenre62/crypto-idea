@@ -1,0 +1,19 @@
+#!/bin/sh
+# Block pushes while the unit suite is red — "never finish red" made deterministic.
+# Founder decision (2026-07-20 skill interview): sessions HAVE finished red despite the
+# skill's wording, so the rule earned a hook; the full suite measured ~170s, too slow
+# per commit (the founder commits every change), so the gate sits on PUSH — commits stay
+# instant and nothing red leaves the machine. The only bypass is --no-verify, which the
+# Claude Code global guard (~/.claude/hooks/guard.ps1) also blocks.
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+set -eu
+
+echo "pre-push: running the unit suite (~3 min; deterministic never-finish-red gate)..." >&2
+if ! npm run test:unit; then
+  echo "" >&2
+  echo "PUSH BLOCKED (pre-push): the unit suite is red. Fix it before pushing (never" >&2
+  echo "finish red). To iterate on one file: npx vitest run tests/unit/<File>.test.jsx" >&2
+  exit 1
+fi
+exit 0
