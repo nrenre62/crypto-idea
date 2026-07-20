@@ -488,8 +488,23 @@ The admin **Settings** tab saves to a **locked** Firestore doc `config/app` via 
 Every `firebase deploy` reaches **all users immediately** — no one is stuck on an old cached version:
 
 - **HTML is never cached** (`Cache-Control: no-cache` on all pages + `/service-worker.js`), so every page load fetches the latest. The CDN is purged on each deploy automatically.
-- **JS/CSS/images are content-hashed** (`app-AbC123.js`) and cached forever (`immutable`). A new build = new filenames, so there's never a stale-asset problem and repeat visits stay fast.
+- **Only `/assets/**` is content-hashed** (`app-AbC123.js`) and cached forever (`immutable`). A new build = new filenames, so there's never a stale-asset problem and repeat visits stay fast.
+  ⚠️ The root scripts (`landing.js`, `site-meta.js`, `sw-register.js`, `termly-embed.js`) are **not** hashed — they're referenced by fixed name — so they get `no-cache` alongside the HTML. Before 2026-07-20 the `immutable` glob wrongly matched them too, which would have pinned the whole marketing page in browser caches for a year with no way to push a fix (`GO-LIVE-AUDIT.md` H5).
 - **The service worker is network-first** for pages (never serves stale HTML online) and is **auto-stamped with a unique build id** each build (`npm run build` → `scripts/stamp-sw.js`), so it updates on every deploy.
 - **Open tabs auto-refresh:** when a new version is detected, the tab reloads itself (skipping the first install); it also checks for updates when you switch back to the tab.
 
 So after you deploy: a user who reloads or navigates is instantly on the new version, and a user with the app already open gets auto-refreshed. Just run `npm run deploy`.
+
+> **`npm run deploy` has two gates (added 2026-07-20).** It runs `scripts/check-env.js` first and
+> **fails** if `.env` is missing or still holds `.env.example` placeholders — otherwise a production
+> build silently ships the **demo** Firebase config (the app only logs a `console.warn`). It also
+> deploys to an explicit **`prod` alias**, so create one with `firebase use --add`; without it the
+> deploy stops with a clear error instead of following whatever `firebase use` last selected.
+
+> ### 🚀 Going live for the first time?
+> **Read [`GO-LIVE-AUDIT.md`](docs/product/GO-LIVE-AUDIT.md) before you deploy.** It is the canonical
+> record of the 2026-07-20 multi-agent audit (60 verified findings): what is already solid, the
+> remaining blockers, and an ordered runbook with the steps that **cannot be undone if done in the
+> wrong order** — the permanent Firestore region, PITR (not enablable retroactively), the admin
+> bootstrap that must precede any admin-Settings step, and the App Check ordering that otherwise
+> locks out every user. `NEXT-STEPS.md` §4 is the checklist summary.

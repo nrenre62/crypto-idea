@@ -964,6 +964,46 @@ want explicit MVC separation:**
 
 ---
 
+## GOLIVE. Production-readiness audit  (✅ Phase 0 BUILT 2026-07-20 · blockers remain)
+
+Canonical: **[`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md)** — 74-agent audit, 60 adversarially-verified
+findings, ordered runbook. Verdict at audit time: **not production ready, 6 blockers.**
+
+- [x] **Phase 0 (code)** — commit `2cedafb`: spend caps (`maxInstances` on every public + scheduled
+      export), the subcollection admin-write hole closed (`isAdminOwner()` + 2 regression tests),
+      hosting cache headers scoped correctly, service-worker no longer caches authenticated
+      cross-origin traffic, schedulers rethrow so failures are visible, and a deploy guard that
+      blocks shipping the demo Firebase config. Itself adversarially reviewed (2 regressions caught
+      and fixed pre-commit).
+- [ ] **Remaining blockers** (all need a Firebase project or a founder decision): PITR + backups
+      *before* first signup · real checkout (Path A free-only vs Path B paid) · published Privacy
+      Policy + Terms · Blaze + billing budget · real project + `prod` alias · admin bootstrap.
+- [ ] **First week:** App Check enforcement (in the right order), the Cloud Logging error alert,
+      React error boundary, PayPal webhook test event.
+
+### FLAKE. The test suites are flaky — "green" is not currently trustworthy  (📋 OPEN, found 2026-07-20)
+
+**Integration (`test:integration:solo`): proven pre-existing.** Six runs gave 19/19, 18/19, 19/19,
+17/19, and — with `functions/index.js` + `firestore.rules` reverted to HEAD — 18/19, 19/19. The
+baseline flakes on the same test, so it is not caused by the Phase 0 diff. A *different* test fails
+each run (`watchCoins` listener, the `suspendUser` pair), which is the signature of test pollution,
+not a defect. Full table in `GO-LIVE-AUDIT.md` §3b.
+
+**Unit (`test:unit`): also observed flaky 2026-07-20** — `tests/unit/CryptoIdea.walkthrough.test.jsx`
+failed 2 of 26 on one run (~31s for that file alone) after passing 539/539 twice on **identical**
+code with no source change in between. This matters more than the integration flakiness because the
+new `.githooks/pre-push` gate runs the unit suite: a flaky gate either blocks good pushes or trains
+you to bypass it.
+
+**Suspected cause (both tiers):** shared state + timing. The integration suite runs two files in one
+process against one emulator with a known shared-SDK ordering hazard; the walkthrough test is a long
+multi-step render that clears uid-keyed `localStorage` per test. **Fix direction:** isolate state per
+test file (separate emulator run / `clearFirestore` between files), and replace fixed-tick waits with
+condition-based waits (`findBy*` / `waitFor`) in the walkthrough. Until then: **re-run before
+believing a single red run**, and never bypass the hook — fix the flake instead.
+
+---
+
 ## 4. Go-live checklist
 
 > **⚠️ Rewritten 2026-07-20** after the multi-agent go-live audit. The previous version had
