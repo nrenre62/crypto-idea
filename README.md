@@ -35,8 +35,9 @@ crypto-idea/
 ```bash
 npm run test:unit         # Vitest: component/hook tests in jsdom (api/ mocked) — fast, no emulator
 npm run test:rules        # Firestore security-rules tests (runs against the emulator)
-npm run test:rules:solo   # same tests on an isolated firestore emulator (:8099, firebase.rules-only.json)
-npm run test:integration  # data-layer tests: real auth+db code vs the emulator
+npm run test:rules:solo   # same tests on an isolated firestore emulator (:8099, firebase.solo.json)
+npm run test:integration  # data-layer + live-callable tests: real auth+db+functions code vs the emulator
+npm run test:integration:solo  # same tests on the isolated emulator (auth :9098, firestore :8099, functions :5002)
 ```
 
 ## Setup Guide (15 minutes)
