@@ -42,7 +42,7 @@ npm run test:integration:solo  # same tests on the isolated emulator (auth :9098
 
 Bugs are tracked in Jira (project **CRYP**) and fixed failing-test-first — see
 [`JIRA-WORKFLOW.md`](docs/testing/JIRA-WORKFLOW.md) for the loop, the `it("CRYP-42: …")` traceability
-marker, and the `/jira-bug` · `/jira-fix` · `/jira-test-sync` commands.
+marker, and the `/jira-bug` · `/jira-fix` · `/jira-test-sync` · `/jira-bug-hunt` commands.
 
 ## Setup Guide (15 minutes)
 

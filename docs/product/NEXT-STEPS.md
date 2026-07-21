@@ -299,9 +299,15 @@ and [`AGILE.md`](AGILE.md) → Testing conventions; consistency-map row added to
 regression test behind**, and the red test is committed *before* the fix so the diff proves the code
 changed rather than the test being weakened.
 
-**Shipped:** three project-local commands — `/jira-bug` (file a well-formed ticket), `/jira-fix <KEY>`
+**Shipped:** four project-local commands — `/jira-bug` (file a well-formed ticket), `/jira-fix <KEY>`
 (read → branch `fix/CRYP-nn-slug` → **failing test first** → commit red → fix → green → push → comment →
-transition), `/jira-test-sync` (run the suite, map results onto tickets, **propose before writing**).
+transition), `/jira-test-sync` (run the suite, map results onto tickets, **propose before writing**),
+and `/jira-bug-hunt` (2026-07-21, CRYP-2 — autonomous **emulator-only** hunt: suites baseline → 50-user
+scale/plan-limit probe (20–100% fill per tier, counter-seeded boundaries) → cross-user isolation probe →
+per-tab data-flow & privacy audit → flake-filtered verification → a dated report under
+`docs/testing/bug-hunts/`. **Reports only, never fixes**: confirmed findings are proposed as Jira Bugs
+and filed after an explicit yes; each fix the user approves then runs per-ticket through `/jira-fix` and
+lands in `ERRORS.md` + the consistency-map docs).
 Plus `scripts/jira-test-map.js` — a pure vitest-JSON → `CRYP-key → pass/fail` mapper (TDD'd via
 `tests/unit/jira-test-map.test.js`), which exists because a full run's artifact is ~190 KB on one line.
 
@@ -328,6 +334,9 @@ to the first failure line; and the documented suite flake (**§FLAKE** below, ru
       but it hasn't yet driven a genuine bug red→green end-to-end. Next real bug goes through it.
 - [ ] **JIRA-2 · Decide whether `In Review` earns its column.** The board has four states; a solo dev
       likely wants three. Leave unused or remove.
+- [ ] **JIRA-3 · Run the first `/jira-bug-hunt` end-to-end.** The command is built (CRYP-2) but no hunt
+      has produced a report yet — first run proves the probe specs against the live emulator and seeds
+      `docs/testing/bug-hunts/`.
 
 ## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (✅ BUILT 2026-07-07)
 

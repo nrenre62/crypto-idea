@@ -117,7 +117,13 @@ with a *different* test failing each run — see `NEXT-STEPS.md` **§FLAKE** and
 `GO-LIVE-AUDIT.md` **§3b**. If something unrelated to your change fails, re-run before believing it, and
 never report a flake onto the ticket as if it were your bug.
 
-## 7 · Commit and push
+## 7 · Record the diagnosis, then commit and push
+
+Before committing, in the same increment: add the **[`ERRORS.md`](../../docs/testing/ERRORS.md)**
+entry for any non-trivial bug (what the error was + the fix, its standing format), and update
+whichever docs/skills the consistency map ([`docs/interview.md`](../../docs/interview.md)) lists for
+the touched topic. They ship in the fix commit — a fix without its ERRORS.md entry and doc sweep
+isn't done.
 
 ```bash
 git add -A && git commit -m "fix(CRYP-42): <what changed>"

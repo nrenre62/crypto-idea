@@ -60,6 +60,7 @@ solo dev can leave it unused.
 | [`/jira-bug`](../../.claude/commands/jira-bug.md) | File a well-formed bug into CRYP from the conversation. Files only — never fixes. |
 | [`/jira-fix <KEY>`](../../.claude/commands/jira-fix.md) | The loop: read ticket → branch → **failing test first** → commit red → fix → green → push → comment → transition. |
 | [`/jira-test-sync`](../../.claude/commands/jira-test-sync.md) | Run the suite, map results to tickets, **propose** comments/transitions, write only after an explicit yes. |
+| [`/jira-bug-hunt`](../../.claude/commands/jira-bug-hunt.md) | Autonomous hunt (emulator only): suites + scale/isolation/privacy probes → verified findings → dated report (§10). **Never fixes.** |
 
 They live in `.claude/commands/` (project-local) because they name this project's Jira key and test
 tiers. That's not a duplicate of the global `~/.claude/commands` set — those are cross-project.
@@ -173,6 +174,29 @@ clean board. Cross-check a suspicious "no results" against a query you know retu
   code. Use ≥ 300000 ms for any test run, and for `git push` (pre-push re-runs the suite).
 - **Don't record test counts in prose.** They drift constantly. If a run must be recorded, use a single
   dated `**Status <date>:**` line.
+
+## 10 · The bug hunt — find → report → approve → fix 🟡
+
+`/jira-bug-hunt` is the autonomous side of the workflow: instead of starting from a reported bug, it
+goes looking. Five probe phases, all **emulator-only** (`firebase.solo.json`, demo project — never a
+real Firebase project): the three suites as a baseline · a **50-user scale probe** (users split across
+Starter/Pro/Premium, filled to 20–100% of their plan limits, counter-seeded, boundary writes asserted
+allowed-at-limit / denied-past-it) · a **cross-user isolation probe** (get AND list AND write denied on
+every per-user collection, server-only collections closed, no self-escalation) · a **per-tab
+data-flow & privacy audit** (what each of the 5 tabs reads/writes, where it is stored, which of it is
+personal) · a **verification pass** (everything must reproduce twice — the §FLAKE rule — and is checked
+against the known-issues docs before it may be called CONFIRMED).
+
+Its output is a dated report — `docs/testing/bug-hunts/BUG-HUNT-<YYYY-MM-DD>.md` — and nothing else:
+
+1. **The hunt reports, it never fixes.** The report file is its only committed write (gitignored
+   `.tmp/` probe scripts and test artifacts excepted).
+2. **Confirmed findings are proposed as Jira Bugs** in a table and filed only after an explicit yes
+   (label `bug-hunt`) — tickets are permanent, so unverified findings are never filed.
+3. **Fixing is a separately-approved step.** For each ticket the user approves, the normal loop runs:
+   `/jira-fix CRYP-nn` (failing test first, committed red) → the diagnosis lands in
+   [`ERRORS.md`](ERRORS.md) → the consistency-map docs/skills (see `docs/interview.md`) are updated as
+   part of that fix — never by the hunt.
 
 ---
 
