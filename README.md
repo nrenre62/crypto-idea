@@ -40,6 +40,10 @@ npm run test:integration  # data-layer + live-callable tests: real auth+db+funct
 npm run test:integration:solo  # same tests on the isolated emulator (auth :9098, firestore :8099, functions :5002)
 ```
 
+Bugs are tracked in Jira (project **CRYP**) and fixed failing-test-first — see
+[`JIRA-WORKFLOW.md`](docs/testing/JIRA-WORKFLOW.md) for the loop, the `it("CRYP-42: …")` traceability
+marker, and the `/jira-bug` · `/jira-fix` · `/jira-test-sync` commands.
+
 ## Setup Guide (15 minutes)
 
 ### Step 1: Create Firebase Project

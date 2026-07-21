@@ -289,6 +289,45 @@ dashboard path + Audit tab, `NEXT-STEPS.md` root path, `$25 Blaze`→pay-as-you-
 ~330 KB→~700 KB, Storage-emulator + `--project` notes. Clean on prior-fixed sections (Tier Limits,
 Cloud Functions table, CoinGecko constants, links).
 
+## JIRA. Jira-backed bug tracking + regression-test loop  (✅ BUILT 2026-07-21 — CRYP-1)
+
+Bugs are tracked in Jira project **CRYP** (`cryptoidea.atlassian.net`) through the user-level Rovo MCP
+connection — **no Jira API token exists in this repo**, and none should be added. Canonical:
+[`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md); bound from [`CLAUDE.md`](../../CLAUDE.md) → Conventions
+and [`AGILE.md`](AGILE.md) → Testing conventions; consistency-map row added to
+[`interview.md`](../interview.md). The point of the whole thing: **every fixed bug leaves a permanent
+regression test behind**, and the red test is committed *before* the fix so the diff proves the code
+changed rather than the test being weakened.
+
+**Shipped:** three project-local commands — `/jira-bug` (file a well-formed ticket), `/jira-fix <KEY>`
+(read → branch `fix/CRYP-nn-slug` → **failing test first** → commit red → fix → green → push → comment →
+transition), `/jira-test-sync` (run the suite, map results onto tickets, **propose before writing**).
+Plus `scripts/jira-test-map.js` — a pure vitest-JSON → `CRYP-key → pass/fail` mapper (TDD'd via
+`tests/unit/jira-test-map.test.js`), which exists because a full run's artifact is ~190 KB on one line.
+
+**Traceability marker:** the ticket key goes in the **`it()` title** (`it("CRYP-42: …")`), extending the
+repo's existing `it("R26: …")` style. Verified collision-free (`git grep -nE "CRYP-"` matched nothing).
+`describe()` titles and filenames are explicitly rejected as markers — a `-t` pattern matching a suite
+runs its siblings, so an unrelated failure would be attributed to the wrong ticket.
+
+**Verified live against CRYP-1:** create → labels → read → `getTransitions` → transition all round-trip;
+mapper GREEN/RED/INCONCLUSIVE paths each confirmed at the CLI with real artifacts.
+
+**Traps recorded (each cost a design change):** CRYP is *team-managed* so there is **no `priority`
+field** (use labels); transition ids are per-project and were undiscoverable until an issue existed —
+resolve at runtime, never hardcode; `searchJiraIssuesUsingJql` returns **empty for invalid JQL** instead
+of erroring (proven with a control query), so an empty board is not a clean board; a run that executed
+**zero tests is INCONCLUSIVE, never a pass** (a port clash exits non-zero having run nothing, and there
+is no `npm test` script); the red checkpoint must be **commit-only** because `.githooks/pre-push` runs
+the full suite; raw test stdout carries seeded emails + verification links so Jira comments are bounded
+to the first failure line; and the documented suite flake (§FLAKE/§GOLIVE) means a red must repeat twice
+before it is reported onto a ticket.
+
+- [ ] **JIRA-1 · Exercise the loop on a real bug.** `/jira-fix` is built and its Jira calls are proven,
+      but it hasn't yet driven a genuine bug red→green end-to-end. Next real bug goes through it.
+- [ ] **JIRA-2 · Decide whether `In Review` earns its column.** The board has four states; a solo dev
+      likely wants three. Leave unused or remove.
+
 ## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (✅ BUILT 2026-07-07)
 
 Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:

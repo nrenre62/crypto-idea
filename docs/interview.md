@@ -93,5 +93,10 @@ wins in a conflict) is **bold**.
 - Docs: **[`CACHE-POLICY.md`](decisions/CACHE-POLICY.md)** · `README.md` (CoinGecko proxy) · [`DATA-FLOW.md`](product/DATA-FLOW.md)
 - Code: `functions/index.js` (universe / cache / history) · `functions/universe-utils.js`
 
+### Testing & issue tracking (Jira CRYP, test ↔ ticket traceability)
+- Docs: **[`JIRA-WORKFLOW.md`](testing/JIRA-WORKFLOW.md)** · [`AGILE.md`](product/AGILE.md) (Definition of Done + testing conventions) · [`ERRORS.md`](testing/ERRORS.md) · `README.md` (Tests) · `CLAUDE.md` (Conventions)
+- Commands: `.claude/commands/jira-bug.md` · `.claude/commands/jira-fix.md` · `.claude/commands/jira-test-sync.md`
+- Code/config: `scripts/jira-test-map.js` + `tests/unit/jira-test-map.test.js` · `package.json` (test scripts) · `.githooks/pre-push` · `.gitignore` (`.tmp/`)
+
 > **Keep this map current.** When a file moves or a new canonical doc is added (e.g. `BILLING.md`),
 > update the affected row in the *same* change — the map itself is subject to the consistency rule.

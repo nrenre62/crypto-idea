@@ -51,6 +51,10 @@ Every commit is a **potentially shippable increment**: the app builds and runs a
   e.g. `Login.test.jsx`), plus `tests/firestore-rules.test.js` and `tests/data-layer.test.js`. Flat by
   choice (KISS) — they are not mirrored into `src/` subfolders.
 - **TDD:** new behavior gets a failing test first (see Definition of Done).
+- **Jira-tracked bugs:** a bug worked from a Jira ticket carries its key in the **`it()` title** —
+  `it("CRYP-42: …")`, extending the existing `it("R26: …")` marker style — so the test is traceable back
+  to the ticket and `vitest -t "CRYP-42"` selects it. Never mark a `describe()` or a filename instead.
+  Full workflow + traps: [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md).
 
 ## Retrospective = Kaizen
 After each increment, leave the code a little better than found and log any new improvement
