@@ -193,21 +193,30 @@ triggers in its description; `api-security` got its **missing frontmatter** (it 
 never auto-trigger); `~/.claude/skills` is now a **git repo** (baseline `6d6ec99`, apply `39044bc`);
 `.githooks/pre-push` now runs `test:unit` (measured 168s — founder chose push over per-commit).
 
+**Update 2026-07-21 — skills-playbook monorepo session (✅ APPLIED):** the whole fleet was
+reorganized per the founder's "skills playbook" research + a 7-decision interview. `~/.claude/skills`
+stays THE repo in place (the playbook's symlink migration is a Windows trap — MSYS `ln -s` silently
+copies) and is now the **private GitHub monorepo `nrenre62/claude-skills`** (catalog README, MIT
+LICENSE © nrenre62, CONTRIBUTING, .gitignore; `license`+`metadata{author,version:"1.0"}` frontmatter
+on all 12; CHANGELOG deferred to the first tagged release). **Full readability pass on all 12 skills**
+(12 editors + adversarial verifiers + a fleet-consistency pass): every description is now directive
+(third-person verb + ALWAYS-invoke + quoted triggers + Do-NOT routing, all ≤1024 chars — this
+RETIRES the queued fleet-description pass), every body ≤500 lines (`firebase-saas-starter` 639→~495
+via three new `references/` splits: frontend-refactor, design-integration, admin-roles-gdpr), and all
+repo-specific citations scrubbed to pattern-only. Side fixes: stale `.claude/commands` project dupes
+deleted (global canonical), `/XD .git` added to the WD backup change-detector, the bundled backup
+script re-synced with the live one, orphaned worktree purged.
+
 **Still queued:**
 - **Eval pass (1 session):** skill-creator evals for `tdd-testing` — 3 scenarios (loop compliance ·
   gotcha retrieval · fourth-tier placement, which doubles as live H1 verification) + the description
   optimizer (held-out scoring decides any further description changes). Run after real use.
-- **Fleet description pass (1 session):** research checklist (directive formula, negative triggers,
-  length) across the other 9 skills. `firebase-saas-starter` is still 566/500 — its §10
-  (monolith-refactor) and §11 (design-module integration) sections are the natural next
-  `references/` splits if it should go under the line.
-- **Pruning pass (quality/token-only):** `tdd-testing` is ~5.6k tokens vs the ~5k official soft
-  guidance. Method = plan §7 (keep-biased); **no line target** — the ~200 budget is superseded by
-  the official 500-line ceiling.
+- **Pruning pass (quality/token-only):** `tdd-testing` (~270 lines after the readability pass) is
+  still above the ~5k-token soft guidance. Method = plan §7 (keep-biased); **no line target** — the
+  ~200 budget is superseded by the official 500-line ceiling.
 - **You-run check:** `/doctor` + `/context` in a fresh session to verify the skill LISTING isn't
   overflowing (12 personal + ~33 plugin skills compete; overflow silently drops descriptions).
-- **At §OSS time:** stamp a version + short changelog on each published skill (copy-installed users
-  have no git history) and re-grep for repo residue then.
+- **At §OSS time:** run the playbook's gated go-public checklist on `claude-skills` (see §OSS).
 
 **Also queued — one-time coverage sweep (deliberately NOT a standing DoD line):** find exported logic
 with no test, matching on the **export name**, not the filename (tests are flat and grouped by topic —
@@ -218,12 +227,16 @@ with no test, matching on the **export name**, not the filename (tests are flat 
 
 ## OSS. Open-source skills to build the GitHub account  (📋 PLAN — pick & scrub in a session)
 
-The product code stays **private** (this repo). Separately, publish the most generic, least
-product-revealing skills as their own public repos to build the GitHub profile. Each needs a
-**sanitization pass** (scrub project-specific paths/names/decisions) before publishing. Candidate
-order (most generic first): `secure-by-design`, `api-security`, `tdd-testing`, `responsive-app`,
-`drawing-diagram`, `landing-page-design`, `saas-pricing`. Decide the set + naming + license (MIT) in
-a focused session; do NOT publish product docs (PRODUCT-DECISIONS, DESIGN-PASS, etc.).
+The product code stays **private** (this repo). The skills now live in ONE private monorepo —
+**github.com/nrenre62/claude-skills** (= `~/.claude/skills` in place; MIT, catalog README, all 12
+readability-passed and citation-scrubbed 2026-07-21) — so going public is a **flip, not a build**:
+run the playbook's gated go-public checklist in a focused session — `gitleaks git .` over full
+history · generalize `auto-backup-loop`'s personal defaults (D:\ paths, task name — the only skill
+carrying machine-specific content) · decide fresh-start history vs keep · re-scan · flip visibility ·
+add topics (`claude`, `claude-code`, `agent-skills`) · tag `v0.1.0` · pin on the profile. If a
+subset-only release is preferred instead, the least product-revealing candidates remain:
+`secure-by-design`, `api-security`, `tdd-testing`, `responsive-app`, `drawing-diagram`. Do NOT
+publish product docs (PRODUCT-DECISIONS, DESIGN-PASS, etc.).
 
 ## DOCS. Reorganize root .md files into categorized docs/ subfolders  (✅ BUILT 2026-07-17)
 
