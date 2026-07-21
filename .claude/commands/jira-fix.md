@@ -26,11 +26,14 @@ Work Jira issue: $ARGUMENTS
 ## 2 · Branch
 
 ```bash
-git checkout master && git checkout -b fix/CRYP-42-<short-slug>
+git fetch origin && git switch -c fix/CRYP-42-<short-slug> origin/master || git switch fix/CRYP-42-<short-slug>
 ```
 
-Match the repo's existing `<type>/<kebab-slug>` convention (`fix/…`, `feat/…`) and keep the key in the
-name so the branch is greppable. Never commit the fix straight to `master`.
+Fetch first (so the branch cuts from fresh `master`, not a stale local one); the `||` arm makes a
+re-run land on the existing branch instead of dying. **Then confirm `git branch --show-current` is not
+`master` before writing anything.** Match the repo's existing `<type>/<kebab-slug>` convention
+(`fix/…`, `feat/…`) and keep the key in the name so the branch is greppable. Never commit the fix
+straight to `master`.
 
 ## 3 · Write the FAILING test first — do NOT write the fix yet
 
@@ -46,11 +49,20 @@ filename.** A suite-level marker makes `-t` select siblings, so an unrelated tes
 reported onto this ticket.
 
 Pick the tier that actually proves it ([`JIRA-WORKFLOW.md`](../../docs/testing/JIRA-WORKFLOW.md) has the
-routing). Then run **only** that test:
+routing). Then run **only** that test — note the **trailing colon**: `-t` and `--test-name-pattern` are
+unanchored substring matches, so a bare `"CRYP-1"` also selects CRYP-10, CRYP-15, …; the colon that the
+marker format guarantees makes the match exact:
 
 ```bash
-npx vitest run -t "CRYP-42"          # unit tier
+npx vitest run -t "CRYP-42:"         # unit tier
+# rules tier (node:test — vitest can't run these; the name filter goes INSIDE the quoted child command):
+firebase emulators:exec --only firestore --project demo-crypto-idea --config firebase.solo.json "node --test --test-name-pattern 'CRYP-42:' tests/firestore-rules.test.js"
+# integration/callables tier:
+firebase emulators:exec --only auth,firestore,functions --project demo-crypto-idea --config firebase.solo.json "node --test --test-force-exit --test-name-pattern 'CRYP-42:' tests/data-layer.test.js tests/functions-callable.test.js"
 ```
+
+(`npm run test:rules:solo -- --test-name-pattern …` does **not** work — the extra args land on
+`firebase emulators:exec`, not the inner `node --test`, so spell out the full form.)
 
 Use a Bash **timeout of at least 300000 ms** for anything that runs tests — the full unit suite takes
 ~170 s and the tool's 120 s default will kill it and destroy the exit code.
@@ -72,7 +84,8 @@ or the test was weakened.
 
 ## 5 · Implement until green
 
-Write the **minimum** code that makes the test pass. Re-run `npx vitest run -t "CRYP-42"`.
+Write the **minimum** code that makes the test pass. Re-run the same single-test command from step 3
+(`npx vitest run -t "CRYP-42:"`, or the tier's `--test-name-pattern` form).
 
 > **HARD RULE: never weaken, skip, delete, or rewrite the test to make it pass.** If the test looks
 > wrong, say so and ask — don't silently edit it. Changing the assertion is how a bug ships green.
@@ -81,7 +94,8 @@ Write the **minimum** code that makes the test pass. Re-run `npx vitest run -t "
 
 ```bash
 npm run test:unit                # ~170 s — timeout 300000
-npm run test:integration:solo    # only if backend/data-layer behaviour changed
+npm run test:rules:solo          # only if firestore.rules changed
+npm run test:integration:solo    # only if backend/data-layer/callable behaviour changed
 ```
 
 Prefer the **`:solo`** emulator variants: they use alternate ports (`firebase.solo.json`), so they work
@@ -99,16 +113,19 @@ Classify the result honestly:
 script in this repo — calling it produces an npm error, not a test result.
 
 **Known flake:** `test:integration:solo` and the walkthrough test are documented as intermittently red
-with a *different* test failing each run (`GO-LIVE-AUDIT.md` §FLAKE, `NEXT-STEPS.md`). If something
-unrelated to your change fails, re-run before believing it, and never report a flake onto the ticket as
-if it were your bug.
+with a *different* test failing each run — see `NEXT-STEPS.md` **§FLAKE** and the run-by-run table in
+`GO-LIVE-AUDIT.md` **§3b**. If something unrelated to your change fails, re-run before believing it, and
+never report a flake onto the ticket as if it were your bug.
 
 ## 7 · Commit and push
 
 ```bash
-git commit -m "fix(CRYP-42): <what changed>"
+git add -A && git commit -m "fix(CRYP-42): <what changed>"
 git push -u origin fix/CRYP-42-<slug>     # timeout 300000 — pre-push reruns the ~170 s suite
 ```
+
+(`git add` first — step 4 staged only the test file, so the source changes from step 5 are still
+unstaged; a bare `git commit -m` here commits nothing.)
 
 Add the `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` trailer, matching the repo's history.
 

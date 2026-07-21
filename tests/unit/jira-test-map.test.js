@@ -182,4 +182,115 @@ describe("jira-test-map — mapJiraResults", () => {
     expect("CRYP-42: x".match(JIRA_KEY_RE)).toEqual(["CRYP-42"]);
     expect("XCRYP-42 and CRYP-4a".match(JIRA_KEY_RE)).toBeNull();
   });
+
+  it("is INCONCLUSIVE when every test was SKIPPED — counters say total>0 but nothing executed", () => {
+    // vitest counts skipped tests in numTotalTests; a run of .skip-ed tests must
+    // not read as GREEN (nothing was actually proven).
+    const json = artifact({
+      total: 2,
+      passed: 0,
+      failed: 0,
+      files: [
+        {
+          name: "C:/repo/tests/unit/a.test.js",
+          status: "passed",
+          assertionResults: [t("CRYP-8: skipped one", "skipped"), t("CRYP-8: skipped two", "skipped")],
+        },
+      ],
+    });
+
+    expect(mapJiraResults(json).verdict).toBe("INCONCLUSIVE");
+  });
+
+  it("a key whose only evidence is a SKIPPED test is reported skipped, never passed", () => {
+    const json = artifact({
+      total: 2,
+      passed: 1,
+      failed: 0,
+      files: [
+        {
+          name: "C:/repo/tests/unit/a.test.js",
+          status: "passed",
+          assertionResults: [t("unrelated green test", "passed"), t("CRYP-9: skipped regression", "skipped")],
+        },
+      ],
+    });
+
+    const out = mapJiraResults(json);
+    expect(out.keys["CRYP-9"].status).toBe("skipped");
+    // and the result flags that some key lacks executed evidence
+    expect(out.skippedKeys).toEqual(["CRYP-9"]);
+  });
+
+  it("is INCONCLUSIVE when a suite failed to load even though every collected test passed", () => {
+    // A file with a broken import is not collected: counters look green but
+    // success:false / numFailedTestSuites>0. That run proved nothing about the
+    // uncollected file's tickets — never GREEN.
+    const json = {
+      ...artifact({
+        total: 3,
+        passed: 3,
+        failed: 0,
+        files: [
+          {
+            name: "C:/repo/tests/unit/ok.test.js",
+            status: "passed",
+            assertionResults: [t("CRYP-5: fine", "passed")],
+          },
+        ],
+      }),
+      success: false,
+      numFailedTestSuites: 1,
+    };
+
+    expect(mapJiraResults(json).verdict).toBe("INCONCLUSIVE");
+  });
+
+  it("a title naming two keys is attributed to the FIRST key only", () => {
+    // "CRYP-42: … (regression for CRYP-43)" must not mark CRYP-43 failed too.
+    const json = artifact({
+      total: 1,
+      passed: 0,
+      failed: 1,
+      files: [
+        {
+          name: "C:/repo/tests/unit/a.test.js",
+          status: "failed",
+          assertionResults: [
+            t("CRYP-42: cap rejects the 4th (regression for CRYP-43)", "failed", ["AssertionError: nope"]),
+          ],
+        },
+      ],
+    });
+
+    const out = mapJiraResults(json);
+    expect(Object.keys(out.keys)).toEqual(["CRYP-42"]);
+  });
+
+  it("redacts paths, URLs and emails from the failure line and caps its length", () => {
+    const json = artifact({
+      total: 1,
+      passed: 0,
+      failed: 1,
+      files: [
+        {
+          name: "C:/repo/tests/unit/a.test.js",
+          status: "failed",
+          assertionResults: [
+            t("CRYP-6: leak probe", "failed", [
+              "Error: ENOENT open 'C:\\Users\\nrenr\\OneDrive\\מסמכים\\crypto idea app\\x.js' for tester_1@example.com via https://127.0.0.1:9099/verify?oobCode=abc123",
+            ]),
+          ],
+        },
+      ],
+    });
+
+    const failure = mapJiraResults(json).keys["CRYP-6"].tests[0].failure;
+    expect(failure).not.toContain("מסמכים");
+    expect(failure).not.toContain("nrenr");
+    expect(failure).not.toContain("example.com");
+    expect(failure).not.toContain("oobCode");
+    expect(failure).toContain("ENOENT");
+    expect(failure.length).toBeLessThanOrEqual(200);
+  });
 });

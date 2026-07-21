@@ -10,22 +10,33 @@
  * Atlassian MCP connection (so no API token has to exist in this repo).
  *
  * The three-state verdict is the whole point. "No failures" is NOT the same as
- * "everything passed": a port clash, a missing emulator, or a typo'd script name
- * all exit non-zero having run ZERO tests. Collapsing that into pass/fail is how
- * a ticket gets closed by a run that never happened, so a run with no tests is
- * INCONCLUSIVE and callers must refuse to report it.
+ * "everything passed":
+ *  - a port clash, a missing emulator, or a typo'd script name exits non-zero
+ *    having run ZERO tests;
+ *  - a run where every test was SKIPPED has total > 0 but executed nothing;
+ *  - a suite that failed to LOAD (broken import) leaves its tests uncollected,
+ *    so the counters look green while `success` is false.
+ * All three are INCONCLUSIVE, and callers must refuse to report them — collapsing
+ * them into pass/fail is how a ticket gets closed by a run that never happened.
  *
  * Keys are read from the it()/test() title ONLY, never from the describe() title.
  * A suite-level marker would attribute a sibling test's failure to the wrong
- * ticket (a suite "portfolio cap (CRYP-42)" holding a failing CRYP-43 test would
- * report CRYP-42 as broken). The repo already marks tests this way — e.g.
- * `it("R26: ...")` — so `it("CRYP-42: ...")` extends an existing convention.
+ * ticket. A title naming several keys is attributed to the FIRST key only, so
+ * "CRYP-42: … (regression for CRYP-43)" doesn't mark CRYP-43 as failed too. The
+ * repo already marks tests this way — e.g. `it("R26: ...")` — so
+ * `it("CRYP-42: ...")` extends an existing convention.
+ *
+ * The failure detail is bounded AND redacted before it can reach a Jira comment:
+ * first line only, paths/URLs/emails masked, capped at 200 chars — emulator
+ * output carries seeded emails and live verification links, and stack lines
+ * carry absolute local paths.
  *
  * The pure mapper is exported so tests/unit/jira-test-map.test.js can exercise it
  * without running a real suite (same pattern as scripts/check-dist-names.js).
  *
  * CLI:  node scripts/jira-test-map.js .tmp/jira-report.json
- * Exit: 0 = GREEN · 1 = RED · 2 = INCONCLUSIVE
+ * Exit: 0 = GREEN · 1 = RED · 2 = INCONCLUSIVE (also used when a CRYP key's only
+ *       evidence is skipped tests — that key was not actually proven).
  */
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
@@ -39,11 +50,22 @@ export const JIRA_KEY_RE = /\bCRYP-\d+\b/g;
 
 const count = (v) => (Number.isFinite(v) ? v : 0);
 
-/** First line only — the rest of a failure message is a stack trace whose absolute
- *  paths would leak the local user/folder names into a Jira comment. */
+const MAX_FAILURE_CHARS = 200;
+
+/** First line only, then redact: absolute paths (drive-letter or /Users|/home,
+ *  spaces included — this repo's path has both spaces and Hebrew), URLs (the
+ *  auth emulator prints live verification links), and email addresses (seeded
+ *  test users). The rest of a failure message is a stack trace — dropped. */
 const firstLine = (messages) => {
   if (!Array.isArray(messages) || messages.length === 0) return null;
-  const line = String(messages[0]).split("\n")[0].trim();
+  const line = String(messages[0])
+    .split("\n")[0]
+    .replace(/[A-Za-z]:[\\/][^'")\n]*/g, "<path>")
+    .replace(/\/(?:Users|home)\/[^'")\n ]*/g, "<path>")
+    .replace(/https?:\/\/\S+/g, "<url>")
+    .replace(/\S+@\S+\.\S+/g, "<email>")
+    .trim()
+    .slice(0, MAX_FAILURE_CHARS);
   return line || null;
 };
 
@@ -51,11 +73,17 @@ const firstLine = (messages) => {
  * @param {unknown} json Parsed vitest JSON report (`--reporter=json`).
  * @returns {{verdict: "GREEN"|"RED"|"INCONCLUSIVE",
  *            totals: {total: number, passed: number, failed: number},
- *            keys: Record<string, {status: "passed"|"failed",
+ *            skippedKeys: string[],
+ *            keys: Record<string, {status: "passed"|"failed"|"skipped",
  *                                  tests: Array<{title: string, file: string, failure: string|null}>}>}}
  */
 export function mapJiraResults(json) {
-  const inconclusive = { verdict: "INCONCLUSIVE", totals: { total: 0, passed: 0, failed: 0 }, keys: {} };
+  const inconclusive = {
+    verdict: "INCONCLUSIVE",
+    totals: { total: 0, passed: 0, failed: 0 },
+    skippedKeys: [],
+    keys: {},
+  };
   if (!json || typeof json !== "object") return inconclusive;
 
   const totals = {
@@ -64,8 +92,8 @@ export function mapJiraResults(json) {
     failed: count(json.numFailedTests),
   };
 
-  // Zero tests executed => we learned nothing. Never report this as a pass.
-  if (totals.total === 0) return inconclusive;
+  // Nothing EXECUTED (zero collected, or all skipped) => we learned nothing.
+  if (totals.passed + totals.failed === 0) return { ...inconclusive, totals };
 
   const keys = {};
   for (const file of Array.isArray(json.testResults) ? json.testResults : []) {
@@ -75,16 +103,30 @@ export function mapJiraResults(json) {
       const matched = title.match(JIRA_KEY_RE);
       if (!matched) continue;
 
-      const failed = assertion?.status === "failed";
-      for (const key of new Set(matched)) {
-        if (!keys[key]) keys[key] = { status: "passed", tests: [] };
-        if (failed) keys[key].status = "failed";
-        keys[key].tests.push({ title, file: where, failure: failed ? firstLine(assertion?.failureMessages) : null });
-      }
+      const key = matched[0]; // FIRST key owns the test — see header
+      const status = assertion?.status === "failed" ? "failed" : assertion?.status === "passed" ? "passed" : "skipped";
+      if (!keys[key]) keys[key] = { status: "skipped", tests: [] };
+      // failed dominates; passed beats skipped; skipped never overrides evidence
+      if (status === "failed") keys[key].status = "failed";
+      else if (status === "passed" && keys[key].status !== "failed") keys[key].status = "passed";
+      keys[key].tests.push({
+        title,
+        file: where,
+        failure: status === "failed" ? firstLine(assertion?.failureMessages) : null,
+      });
     }
   }
 
-  return { verdict: totals.failed > 0 ? "RED" : "GREEN", totals, keys };
+  const skippedKeys = Object.keys(keys).filter((k) => keys[k].status === "skipped").sort();
+  const anyKeyFailed = Object.values(keys).some((k) => k.status === "failed");
+  const suiteBroke = count(json.numFailedTestSuites) > 0 || json.success === false;
+
+  const verdict =
+    totals.failed > 0 || anyKeyFailed ? "RED"
+    : suiteBroke ? "INCONCLUSIVE" // a file failed to LOAD — its tests were never collected
+    : "GREEN";
+
+  return { verdict, totals, skippedKeys, keys };
 }
 
 /** Human-readable one-line-per-key summary for the command to read. */
@@ -97,7 +139,8 @@ export function formatSummary(result) {
   }
   for (const key of keys) {
     const entry = result.keys[key];
-    lines.push(`${key}: ${entry.status.toUpperCase()} (${entry.tests.length} test${entry.tests.length === 1 ? "" : "s"})`);
+    const label = entry.status === "skipped" ? "SKIPPED (no executed evidence — not proof)" : entry.status.toUpperCase();
+    lines.push(`${key}: ${label} (${entry.tests.length} test${entry.tests.length === 1 ? "" : "s"})`);
     for (const test of entry.tests.filter((t) => t.failure)) {
       lines.push(`    ✗ ${test.file} — ${test.title}`);
       lines.push(`      ${test.failure}`);
@@ -118,10 +161,15 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   try {
     parsed = JSON.parse(readFileSync(path, "utf8"));
   } catch (err) {
-    console.error(`INCONCLUSIVE — could not read ${path}: ${err.message}`);
+    console.error(`INCONCLUSIVE — could not read the artifact: ${String(err.message).split("\n")[0]}`);
     process.exit(EXIT.INCONCLUSIVE);
   }
   const result = mapJiraResults(parsed);
   console.log(formatSummary(result));
+  // A GREEN run with a skipped CRYP key still proved nothing about THAT ticket.
+  if (result.verdict === "GREEN" && result.skippedKeys.length > 0) {
+    console.error(`NOTE: ${result.skippedKeys.join(", ")} had only skipped tests — inconclusive for those tickets.`);
+    process.exit(EXIT.INCONCLUSIVE);
+  }
   process.exit(EXIT[result.verdict]);
 }

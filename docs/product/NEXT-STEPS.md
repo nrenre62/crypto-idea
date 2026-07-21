@@ -306,9 +306,10 @@ Plus `scripts/jira-test-map.js` — a pure vitest-JSON → `CRYP-key → pass/fa
 `tests/unit/jira-test-map.test.js`), which exists because a full run's artifact is ~190 KB on one line.
 
 **Traceability marker:** the ticket key goes in the **`it()` title** (`it("CRYP-42: …")`), extending the
-repo's existing `it("R26: …")` style. Verified collision-free (`git grep -nE "CRYP-"` matched nothing).
-`describe()` titles and filenames are explicitly rejected as markers — a `-t` pattern matching a suite
-runs its siblings, so an unrelated failure would be attributed to the wrong ticket.
+repo's existing `it("R26: …")` style. Verified collision-free before adoption (no unrelated token used
+the `CRYP-` prefix). `describe()` titles and filenames are explicitly rejected as markers — a `-t`
+pattern matching a suite runs its siblings, so an unrelated failure would be attributed to the wrong
+ticket. Selection needs the trailing colon (`-t "CRYP-42:"`) — `-t` is a substring match.
 
 **Verified live against CRYP-1:** create → labels → read → `getTransitions` → transition all round-trip;
 mapper GREEN/RED/INCONCLUSIVE paths each confirmed at the CLI with real artifacts.
@@ -320,8 +321,8 @@ of erroring (proven with a control query), so an empty board is not a clean boar
 **zero tests is INCONCLUSIVE, never a pass** (a port clash exits non-zero having run nothing, and there
 is no `npm test` script); the red checkpoint must be **commit-only** because `.githooks/pre-push` runs
 the full suite; raw test stdout carries seeded emails + verification links so Jira comments are bounded
-to the first failure line; and the documented suite flake (§FLAKE/§GOLIVE) means a red must repeat twice
-before it is reported onto a ticket.
+to the first failure line; and the documented suite flake (**§FLAKE** below, run log in
+[`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md) §3b) means a red must repeat twice before it is reported onto a ticket.
 
 - [ ] **JIRA-1 · Exercise the loop on a real bug.** `/jira-fix` is built and its Jira calls are proven,
       but it hasn't yet driven a genuine bug red→green end-to-end. Next real bug goes through it.

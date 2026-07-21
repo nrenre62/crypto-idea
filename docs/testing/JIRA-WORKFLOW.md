@@ -90,8 +90,13 @@ it("CRYP-42: portfolio total ignores a coin with no price", () => { … });
 
 - This **extends an existing convention** — the repo already marks tests by change id this way
   (`it("R26: …")`, `it("R22: …")` and similar across the unit suite).
-- `CRYP-<n>` is **collision-free**: `git grep -nE "CRYP-"` matches nothing else in the tree.
-- It makes `npx vitest run -t "CRYP-42"` select exactly that ticket's tests.
+- No unrelated token in the codebase uses the `CRYP-` prefix (it was verified collision-free before
+  adoption; the only occurrences today are this workflow's own docs, fixtures and markers).
+- It makes `npx vitest run -t "CRYP-42:"` select exactly that ticket's tests — **keep the trailing
+  colon**: `-t` (and node's `--test-name-pattern`) are unanchored substring matches, so a bare
+  `"CRYP-1"` also selects CRYP-10, CRYP-15, … The colon the marker format guarantees makes it exact.
+- A title naming several keys is attributed to the **first** key only, so
+  `it("CRYP-42: … (regression for CRYP-43)")` never marks CRYP-43 as failed.
 
 ⚠️ **`describe()` titles and filenames do NOT work as markers.** A `-t` pattern matching a *suite* runs
 and can fail its siblings, so an unrelated test's failure gets attributed to this ticket; and the
@@ -125,9 +130,9 @@ node scripts/jira-test-map.js .tmp/jira-report.json
 
 | verdict | exit | condition |
 |---|---|---|
-| GREEN | `0` | tests ran, none failed |
-| RED | `1` | tests ran, ≥1 failed |
-| **INCONCLUSIVE** | `2` | **zero tests ran**, or the artifact is unreadable |
+| GREEN | `0` | tests executed, none failed, every suite loaded |
+| RED | `1` | tests executed, ≥1 failed |
+| **INCONCLUSIVE** | `2` | **zero tests executed** (incl. all-skipped), a suite **failed to load** (broken import — its tests were never collected), the artifact is unreadable, or a CRYP key's only evidence is skipped tests |
 
 ⚠️ **"No failures" is not "passed."** A port clash, a stopped emulator, or a wrong script name exits
 non-zero having executed nothing — and there is **no `npm test` script** in this repo, so `npm test`
@@ -159,10 +164,11 @@ clean board. Cross-check a suspicious "no results" against a query you know retu
 - **Never paste raw test output into a Jira comment.** Integration stdout interleaves emulator lines
   including seeded user emails and live email-verification links; stack traces carry absolute local
   paths. Comment the test name, its file basename, and the first line of the failure — nothing more.
-- **The suites have a documented flake.** Recorded consecutive `test:integration:solo` runs scored
-  19/19, 18/19, 19/19, 17/19, 18/19, 19/19 with a *different* test failing each time, and the
-  walkthrough test has failed on unchanged code (`GO-LIVE-AUDIT.md` §FLAKE, `NEXT-STEPS.md`). Require
-  **two consecutive failures of the same test** before reporting it as real.
+- **The suites have a documented flake** — a *different* test fails on different runs of unchanged
+  code. Run-by-run table: [`GO-LIVE-AUDIT.md`](../product/GO-LIVE-AUDIT.md) **§3b** (measured
+  2026-07-20); standing item: [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) **§FLAKE** ("the test suites
+  are flaky — 'green' is not currently trustworthy"). Require **two consecutive failures of the same
+  test** before reporting it as real.
 - **Bash timeouts.** The unit suite runs ~170 s; the tool's 120 s default kills it and destroys the exit
   code. Use ≥ 300000 ms for any test run, and for `git push` (pre-push re-runs the suite).
 - **Don't record test counts in prose.** They drift constantly. If a run must be recorded, use a single
