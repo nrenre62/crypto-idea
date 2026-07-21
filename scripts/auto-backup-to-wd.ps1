@@ -75,7 +75,7 @@ if ($last -and -not $Force) {
   $lastCfg    = Join-Path $last.FullName "claude-config"
   & robocopy $repo $lastRepo /MIR /L /NJH /NJS /NFL /NDL /XD $exclDirs /XF $exclFiles *> $null
   $repoSame = ($LASTEXITCODE -eq 0)                 # 0 = identical; 1-7 = differences
-  & robocopy $skillsSrc $lastSkills /MIR /L /NJH /NJS /NFL /NDL *> $null
+  & robocopy $skillsSrc $lastSkills /MIR /L /NJH /NJS /NFL /NDL /XD .git *> $null
   $skillsSame = ($LASTEXITCODE -eq 0)
   # Claude config: global CLAUDE.md + each project's memory folder.
   $cfgSame = $true
