@@ -471,7 +471,7 @@ Defense in depth across the whole app:
 | **Bot / abuse** | `/api` has a **per-IP rate limit** (60/min). **Firebase App Check** (reCAPTCHA v3) protects Auth/Firestore/callable Functions when `VITE_RECAPTCHA_SITE_KEY` is set + enforcement is on. The landing email form has a honeypot. |
 | **HTTP headers** | `firebase.json` sets CSP, `X-Frame-Options: DENY` (clickjacking), `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, and HSTS on every response. |
 | **XSS** | The React app auto-escapes (JSX); the static landing builds DOM with `textContent`, never `innerHTML`, for API data. |
-| **Dependencies** | Production `npm audit` = 0 vulnerabilities. |
+| **Dependencies** | **Runtime `npm audit --omit=dev` = 0 vulnerabilities in BOTH trees** (root/browser and `functions/`/server), re-verified 2026-07-22 after the PR #5 Dependabot sweep. Remaining open alerts are all `scope=development` build tooling — they never reach a user. Note `npm audit` with no flag *includes* dev deps, so it will report a non-zero count; that is expected and is not a shipped risk. Details + the one upgrade worth scheduling (a vite 5→6 major clears four alerts at once): `NEXT-STEPS.md` §5 DEPS-1. |
 
 ## Admin settings (API keys & email) — `saveConfig`
 

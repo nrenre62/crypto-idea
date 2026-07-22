@@ -1064,6 +1064,29 @@ test file (separate emulator run / `clearFirestore` between files), and replace 
 condition-based waits (`findBy*` / `waitFor`) in the walkthrough. Until then: **re-run before
 believing a single red run**, and never bypass the hook — fix the flake instead.
 
+**UNIT TIER RE-DIAGNOSED 2026-07-22 — it is machine load, not test pollution.** While verifying the
+PR #5 dependency merge, an A/B on one machine under one load isolated the variable:
+
+| Tree | vitest | Run shape | Result |
+|---|---|---|---|
+| PR branch (new deps) | 4.1.10 | `admin-dashboard.test.jsx` alone | **14/14 pass** |
+| master (old deps) | 4.1.8 | `admin-dashboard.test.jsx` alone | **14/14 pass** |
+| PR branch (new deps) | 4.1.10 | full suite (59 files) | 2 failed / 550 |
+| master (old deps) | 4.1.8 | full suite (59 files) | **4 failed / 548** |
+
+The same file passes **14/14 in isolation on both dependency trees**, and the *older* tree fails
+*more* in the full run — so neither the code nor the dependency bump is the cause. Every failure is
+a `waitFor` hitting the **5000ms default `testTimeout`**, and `environment` setup time was **417–461s
+across 59 parallel files** while `start:all` held six emulator ports on the same machine. The tests
+are starved of CPU, not racing on shared state.
+
+**Revised fix direction (unit tier):** raise `testTimeout` in `vite.config.js` (5000ms is too tight
+for a 59-file parallel jsdom run on this box) and/or cap `poolOptions.threads.maxThreads`; and
+**do not run `test:unit` while `start:all` is up** — that alone roughly doubles the failure count.
+The integration-tier diagnosis above (shared emulator state) is unchanged and still stands.
+Practical rule: a red unit run on a loaded machine is **inconclusive, not a failure** — re-run it
+idle before believing it.
+
 ---
 
 ## 4. Go-live checklist
@@ -1754,6 +1777,26 @@ verified live on the emulator). Original spec below.
   audit (`--omit=dev`) is now 0**. ~11 dev-only advisories remain (Vitest/jsdom tooling) and would
   need `--force`/breaking bumps — left per policy. Build + 72 unit tests green after the fix.
 - [x] Debug logs (`firebase-debug.log`, etc.) are already gitignored.
+- [x] **Dependabot sweep — PR #5 merged 2026-07-22** (`2deb348`, squashed). Cleared the bulk of the
+  alert backlog *without* a breaking major: the key move was an `overrides: { uuid: "^11.1.1" }` in
+  **both** `package.json` and `functions/package.json`, which resolves the whole
+  `firebase-admin → gaxios / google-gax / teeny-request / @google-cloud/*` chain **without** the
+  firebase-admin 12→14 major. Also bumped tar, js-yaml, undici, body-parser, protobufjs, form-data,
+  firebase 12.16.0, vite 5.4.21, firebase-tools 15.24.0, vitest 4.1.10.
+  Verified on the *merge result* (not the PR branch): `npm ci` clean in root + functions, build clean
+  incl. the no-names `dist/` guard, and **runtime audit 0 vulnerabilities in BOTH trees**
+  (`npm audit --omit=dev` → root 0, functions 0).
+
+- [ ] **DEPS-1. Remaining Dependabot alerts are all `scope=development` (7 open).** Nothing reaching a
+  user — confirmed by the two runtime audits above. Do NOT chase the count to zero with more
+  dependency PRs; two of these (`sharp` #21, `@hono/node-server` #20) were *introduced* by PR #5's own
+  `firebase-tools` bump, so the backlog partly regenerates itself.
+  **Four of the seven are one chain:** `esbuild` #4 (fix 0.25.0) + `vite` #5 (fix 6.4.2) + `vite`
+  #7/#8 (fix 6.4.3) all clear with a single **vite 5→6+ major** — one coordinated upgrade, not four
+  fixes. That upgrade is the only one worth scheduling, and it needs a full build + browser sweep
+  because it changes the bundler. The vulnerable esbuild path is the **dev server**, unreachable in a
+  deployed build. `@opentelemetry/core` #9 has no honest fix: npm's suggestion is a *downgrade* to
+  firebase-tools v14, which this project can't use.
 
 ---
 
