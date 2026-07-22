@@ -93,6 +93,12 @@ gcloud firestore databases update --database='(default)' --enable-pitr --project
 gcloud firestore backups schedules create --database='(default)' --recurrence=daily --retention=7d --project=PROJECT_ID
 ```
 
+**`gcloud` is NOT installed on the dev machine** (verified 2026-07-22), and you do not need it for
+PITR: the Firebase Console exposes a *Point-in-time recovery* toggle under Firestore → ⚙️/⋮. Use the
+Console for step 5 of Phase 1. Only the **backup schedule** may still require gcloud if your
+project's Console does not offer Firestore → *Backups* → *Create schedule* — install it then, not
+pre-emptively.
+
 Then add a "Production data recovery" section to `BACKUP.md`, **do one practice restore** (a restore
 always lands in a *new* database — not something to learn at 2am), and disclose the backup window in
 `privacy.html` alongside the existing audit-retention block. Match the number to the real `--retention`.
@@ -236,12 +242,41 @@ the new `.githooks/pre-push` hook uses.
 ### Phase 0 — code ✅ DONE
 Committed 2026-07-20. Verify with `npm run test:unit && npm run test:rules && npm run test:integration`.
 
-### Phase 1 — create the project
-1. Console → create the real project. **Choose the Firestore location deliberately — it is
-   permanent.** `nam5`/us-central matches the default `us-central1` functions region.
-2. **Upgrade to Blaze**, then immediately create the billing budget. Do not defer.
-3. **PITR + backup schedule (B3) — before any real data exists.**
-4. `firebase use --add` → select the project → alias it **`prod`**.
+### Phase 1 — create the project ⚠️ *holds the only two irreversible steps in this runbook*
+
+**You drive this phase.** It needs a browser login, your Google account and your card. Claude can
+navigate and verify afterwards, but cannot log in as you, create the project, or attach a billing
+account — entering payment details is a hard line, not a preference.
+
+> **DECIDED 2026-07-22 (founder): the Firestore location is `nam5` (US multi-region).**
+> Same continent as the default `us-central1` functions region, so no cross-region latency or
+> egress; multi-region replication for durability (99.999% vs 99.99%); the cost delta over
+> single-region is cents per month at this data size. **This is settled — do not re-open it in the
+> console with a form already on screen.**
+
+1. `npx firebase login` — browser OAuth against your Google account, run in your own terminal.
+2. https://console.firebase.google.com → **Add project**. Note the generated **project ID** — also
+   permanent. Skip Google Analytics; GA4 is already wired through `config/app`.
+3. **Upgrade to Blaze, then create the billing budget in the same sitting** —
+   https://console.cloud.google.com/billing → *Budgets & alerts* → ~$25/mo, alerts at 50/90/100%.
+   Blaze has **no hard spend cap**. The `maxInstances` caps shipped in `2cedafb` are what actually
+   *bound* spend; a budget only *tells you* it is happening. You need both.
+4. Firestore Database → **Create database**.
+   - ⚠️ **Production mode, NOT test mode.** Test mode ships allow-all rules for 30 days. The real
+     rules do not deploy until Phase 3, so test mode leaves a window in which any client can read
+     every user's portfolio.
+   - ⚠️ **Location `nam5 (us-central)` — PERMANENT.** The only remedy is a new project plus a full
+     data migration.
+5. **PITR → ON** (B3). Firestore → ⚙️/⋮ → *Point-in-time recovery*. The recovery window starts at
+   enablement, so this must precede both the first deploy and the first account.
+6. **Daily backup schedule, 7-day retention** (B3).
+7. Authentication → *Get started* → **Email/Password** → Enable.
+8. `npx firebase use --add` → select the project → alias it exactly **`prod`**
+   (`package.json:10` runs `firebase deploy --project prod`; that alias does not exist yet —
+   `.firebaserc` currently holds only `demo-crypto-idea`).
+
+**Register no accounts — not even a throwaway test one — until step 5 is done.** Your two owner
+accounts are created deliberately in Phase 4, under PITR's protection.
 
 ### Phase 2 — secrets and build
 5. `.env` ← the six `VITE_FIREBASE_*` from Console → Project Settings → SDK config.

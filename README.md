@@ -63,8 +63,10 @@ marker, and the `/jira-bug` · `/jira-fix` · `/jira-test-sync` · `/jira-bug-hu
 ### Step 3: Enable Firestore Database
 
 1. Build → Firestore Database → "Create database"
-2. Select "Start in production mode"
-3. Pick a region close to your users (e.g., us-central1)
+2. Select "Start in production mode" (never "test mode" — that is allow-all rules for 30 days)
+3. Location: **`nam5` (US multi-region)** — decided 2026-07-22 and **permanent**; it matches the
+   default `us-central1` functions region. See [GO-LIVE-AUDIT.md](docs/product/GO-LIVE-AUDIT.md)
+   §5 Phase 1 before creating a real project — the ordering there is load-bearing.
 4. Once created, go to Rules tab
 5. Copy contents of `firestore.rules` and paste there
 6. Click "Publish"

@@ -1085,8 +1085,10 @@ believing a single red run**, and never bypass the hook — fix the flake instea
 
 **Phase 1 — create the project**
 - [ ] Create the real Firebase project; enable Email/Password Auth + Firestore.
-      **Choose the Firestore location deliberately — it is permanent.** `nam5`/us-central matches
-      the default `us-central1` functions region.
+      **Location DECIDED 2026-07-22: `nam5` (US multi-region)** — matches the default `us-central1`
+      functions region; permanent, so it is settled, not a console-time choice. Create the database
+      in **production mode, not test mode** (test mode = allow-all rules until Phase 3 deploys the
+      real ones). Click-by-click: GO-LIVE-AUDIT.md §5 Phase 1.
 - [ ] Upgrade to **Blaze**, then immediately set a **billing budget + alerts** (~$25/mo, 50/90/100%).
       A budget only *alerts*; the `maxInstances` caps from Phase 0 are what actually bound spend.
 - [ ] **Enable PITR + a daily backup schedule BEFORE any real signup** — PITR cannot be enabled
