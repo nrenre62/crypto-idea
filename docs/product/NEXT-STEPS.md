@@ -1787,16 +1787,29 @@ verified live on the emulator). Original spec below.
   incl. the no-names `dist/` guard, and **runtime audit 0 vulnerabilities in BOTH trees**
   (`npm audit --omit=dev` → root 0, functions 0).
 
-- [ ] **DEPS-1. Remaining Dependabot alerts are all `scope=development` (7 open).** Nothing reaching a
-  user — confirmed by the two runtime audits above. Do NOT chase the count to zero with more
-  dependency PRs; two of these (`sharp` #21, `@hono/node-server` #20) were *introduced* by PR #5's own
-  `firebase-tools` bump, so the backlog partly regenerates itself.
-  **Four of the seven are one chain:** `esbuild` #4 (fix 0.25.0) + `vite` #5 (fix 6.4.2) + `vite`
-  #7/#8 (fix 6.4.3) all clear with a single **vite 5→6+ major** — one coordinated upgrade, not four
-  fixes. That upgrade is the only one worth scheduling, and it needs a full build + browser sweep
-  because it changes the bundler. The vulnerable esbuild path is the **dev server**, unreachable in a
-  deployed build. `@opentelemetry/core` #9 has no honest fix: npm's suggestion is a *downgrade* to
-  firebase-tools v14, which this project can't use.
+- [x] **DEPS-1. Vite 5→6 major — DONE 2026-07-22.** Bumped the app's `vite` `^5.4.0 → ^6.4.3`.
+  The floor is pinned to `6.4.3`, **not** `^6.0.0`, deliberately: the advisory range is `<= 6.4.2`,
+  so a bare `^6` could resolve a still-vulnerable 6.0–6.4.2 on a fresh install. Cleared **four**
+  dev-scope alerts in one move — `esbuild` #4 (the app path now bundles `esbuild@0.25.12` via vite),
+  `vite` #5 (fix 6.4.2), `vite` #7/#8 (fix 6.4.3). `@vitejs/plugin-react@4.7.0` already supports
+  vite 6 (peer `^4.2 || ^5 || ^6 || ^7`) → no plugin bump needed. Verified: `npm run build` clean
+  under **vite 6.4.3** (all 5 multi-page entries, `manualChunks` firebase/vendor split intact,
+  no-names `dist/` guard clean); **552/552** unit tests, 59/59 files; runtime audit `--omit=dev`
+  still **0 in both trees**; browser sweep of the vite-6 dev server → React app mounts + renders the
+  login screen with **zero console errors** (the `/api` proxy ECONNREFUSED is the expected
+  no-emulator case, handled by the app's offline fallbacks). Note: vitest runs its **own**
+  `vite@8.1.5` (Rolldown/oxc) and emits a harmless *deprecated-`esbuild`-option* warning from
+  plugin-react 4.7 — **pre-existing** (vitest was already on vite 8 before this bump), orthogonal to
+  it, and gracefully handled ("oxc options will be used"). The clean fix is plugin-react v5 — a
+  separate future item, not required here.
+
+- [ ] **DEPS-2. Three dev-scope alerts remain — none reach a user** (runtime audit `--omit=dev` = 0
+  in both trees). Do NOT chase the count to zero with more dependency PRs — PR #5's own
+  `firebase-tools` bump *introduced* two of these, so the backlog partly regenerates itself. Honest
+  status per alert: `sharp` #21 (high; fix = `sharp@0.35.3`, a **breaking major**; build-time image
+  tooling only, never shipped) · `@hono/node-server` #20 (moderate; non-breaking `npm audit fix`
+  available; a `firebase-tools` transitive) · `@opentelemetry/core` #9 (moderate; **no honest fix** —
+  npm's only suggestion is a *downgrade* to firebase-tools v14, which this project can't use).
 
 ---
 
