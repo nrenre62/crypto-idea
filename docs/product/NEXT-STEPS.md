@@ -1800,8 +1800,18 @@ verified live on the emulator). Original spec below.
   no-emulator case, handled by the app's offline fallbacks). Note: vitest runs its **own**
   `vite@8.1.5` (Rolldown/oxc) and emits a harmless *deprecated-`esbuild`-option* warning from
   plugin-react 4.7 — **pre-existing** (vitest was already on vite 8 before this bump), orthogonal to
-  it, and gracefully handled ("oxc options will be used"). The clean fix is plugin-react v5 — a
-  separate future item, not required here.
+  it, and gracefully handled ("oxc options will be used"). **Clearing the warning is a separate,
+  deferred item** (researched 2026-07-23 — the earlier "the clean fix is plugin-react v5" note was
+  wrong): a plain `@vitejs/plugin-react` v5 bump will **not** clear it — v5's peer still caps at
+  `vite ^7`, so it doesn't cover vitest's `vite@8`, and it leaves the two-vite-majors split in place.
+  The fully oxc-native plugin is **v6, which requires vite 8**. No single plugin-react version
+  supports both the app's vite 6 and vitest's vite 8, so the two approaches that actually work are:
+  **(a)** pin vitest's bundled vite down to the app's 6.4.3 via `overrides: { vite: "$vite" }` — one
+  line, removes vite 8 from the tree, warning gone at the root, app stays on the verified vite 6
+  (**recommended**, lowest risk, no plugin bump); or **(b)** modernize to **vite 8 + plugin-react 6**
+  (the Rolldown/oxc bundler, `rollupOptions`→`rolldownOptions`, a new browser-target baseline, needs a
+  fresh full build + browser sweep — bigger blast radius). **Deferred 2026-07-23 — no approach chosen
+  yet.** The warning is harmless meanwhile (all 552 tests pass).
 
 - [ ] **DEPS-2. Three dev-scope alerts remain — none reach a user** (runtime audit `--omit=dev` = 0
   in both trees). Do NOT chase the count to zero with more dependency PRs — PR #5's own
