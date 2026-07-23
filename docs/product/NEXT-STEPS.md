@@ -104,6 +104,28 @@ trend snapshots). Phases (KISS-first, most valuable first):
       tier bar, non-keyboard user rows, non-heading card titles). Leave room for ADMIN-1's billing
       block and ADMIN-3's audit controls so those screens aren't redesigned twice. **Sequence after
       ADMIN-SEC + ADMIN-D.** Local-first / emulator-verifiable; runs the §PROCESS interview+sweep.
+- [ ] **ADMIN-D3 · Fold "Admin access" into Settings** (🎨 IA / design-only · founder 2026-07-23) —
+      move the owner-only **Admin access** tab (grant/revoke a manager) *into* the **Settings** tab and
+      drop the separate top-level tab. **No security change:** both areas are already owner-only AND
+      both sit behind the same step-up re-auth gate — `setManagerRole`, `saveConfig` and `getAdminConfig`
+      all use `assertFreshOwner`, so the callable walls + `firestore.rules` are untouched; this is purely
+      UI / information-architecture. **Best built as part of ADMIN-D** — in the Settings drill-in list,
+      "Admin access · grant a manager" becomes one more category row / detail card alongside App Controls
+      / Plans & Pricing / Analytics & Legal / AI, which is exactly the drill-in pattern; if done
+      standalone before ADMIN-D it is a small in-place merge. Consistency sweep when built:
+      `src/components/admin-dashboard.jsx` — remove `"access"` from the tabs array (~L109) and the
+      `tb === "access" ? "Admin access"` label special-case (~L112); move the whole
+      `{tab === "access" && isOwner && …}` block (~L624) into the `{tab === "settings"}` block (~L464) as
+      a card/section; reword the manager & no-role notice ("Settings, admin access and permanent deletion
+      are owner-only", ~L124–125) now that Admin access lives *inside* Settings. `useAdminDashboard` grant
+      state (`grantEmail`/`grantEmail2`/`grantFound`/`grantMsg`/`grantWarn`/`setManager`/`grantLookup`) is
+      unchanged — it just renders under `settings`. Update tests (`tests/unit/admin-dashboard.test.jsx` —
+      anything selecting the Admin-access tab or asserting the tab list) + every doc that names the
+      "Admin access tab" (CLAUDE.md § Admin & privacy, [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md),
+      the ADMIN-D / ADMIN-D2 mockups → Settings gains an Admin-access row, owner tab count drops 5→4).
+      Interpretation to confirm at the build interview: "admin access" = the manager grant/revoke tab
+      (the reading here); keep the manager-grant flow as one Settings detail card (recommended). Local-
+      first / emulator-verifiable; runs the §PROCESS interview+sweep (Admin map row) when scheduled.
 - **Deliberately deferred (⚪ low / out-of-scope):** content-moderation queue (theses are private →
       revisit only if shareable), in-panel refund/cancel actions (use PayPal), IP allowlisting, formal
       break-glass (min-2-admins covers it), cohort/NRR/LTV (external tools), status page, i18n,
