@@ -12,6 +12,11 @@
  */
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
+// ADMIN-D: the Settings tab is reskinned to the app's .ci-app paper design system.
+// app.css is scoped under .ci-app (inert elsewhere); admin-settings.css adds the few
+// Settings-only classes the user app doesn't need (kept out of the user bundle).
+import "./styles/app.css";
+import "./styles/admin-settings.css";
 // R31-1: the admin app authenticates on its OWN named Firebase instance (adminAuth),
 // isolated from the user app's session — signing in/out here can never end a user's
 // session in another tab (fixes ERRORS §A5). See api/firebase.admin.config.js.

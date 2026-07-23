@@ -34,7 +34,8 @@ enforced server-side, not by the client.** 23 live cross-tenant probes against t
   `{admin:true, role:"owner"}` or `{admin:true, role:"manager"}` — never a field on a user document, so
   it can't be forged client-side. **Owner** is set ONLY out-of-band by
   `functions/scripts/set-admin.js --role=owner|manager` (with `--revoke`/`--show`); **manager** is granted
-  by an owner from the owner-only "Admin access" tab via `setManagerRole({email, grant})`. The old
+  by an owner from the owner-only "Admin access" section inside Settings (a drill-in row, folded in from
+  a former top-level tab by ADMIN-D3) via `setManagerRole({email, grant})`. The old
   `setAdminClaim` is removed (the export now always throws `permission-denied`), and the Users tab has no
   grant/revoke control.
 - **Backend access is guard-first.** All 21 `onCall` callables + the `/api` proxy were probed: every

@@ -122,7 +122,21 @@ patterns. Phase 4 needs one small new data source. Phase 5 waits for a second op
 - **Break-glass / IP allowlist:** the min-2-admins design + dynamic founder IP make these low-value
   now; skip until scale/team demand them.
 
-## 🎨 Settings redesign — match the app's paper design (📋 PLAN, 2026-07-18)
+## 🎨 Settings redesign — match the app's paper design (✅ BUILT 2026-07-23 — with ADMIN-D3)
+
+> **✅ BUILT 2026-07-23 (ADMIN-D + ADMIN-D3).** The Settings tab is reskinned to the `.ci-app` paper
+> drill-in exactly as specced below: home = a **Configuration** status card + the Maintenance/Signups
+> **switches inline** + a **row per category** → paper detail cards; the Configuration card is **IN**;
+> maintenance keeps its **amber warning** colour (`.switch.warn`). Design-only — `saveConfig` /
+> `saveControls` and every handler are unchanged. **ADMIN-D3 folded in:** the owner-only Admin access
+> grant/revoke flow is now the **last Settings row** (its own detail view); the separate "Admin access"
+> top-level tab is **gone** (owner tabs 6→5). Files: `src/components/admin-dashboard.jsx` (local
+> `settingsView` + `NavRow`/`CtrlRow`/`Switch`/`DHead`, mirrors `Account.jsx`; saves live in the detail
+> views), `admin.html` (Fraunces/Hanken fonts), `src/admin-main.jsx` (`app.css` + new admin-only
+> **`src/styles/admin-settings.css`**, verified out of the user bundle). **Dark mode N/A** — the admin app
+> never sets `html[data-theme]`, so Settings renders **light paper**. Verified **552/552 unit · build
+> clean · browser-checked as owner**. Scope was the Settings tab **only**; the header, tab bar and the
+> other four tabs stay grey until **ADMIN-D2**.
 
 **Decision (founder, 2026-07-18):** reskin the admin **Settings** tab to match the app's user-settings
 (**Account**) screen. Today admin Settings is a flat scroll of grey, inline-styled cards in a visual

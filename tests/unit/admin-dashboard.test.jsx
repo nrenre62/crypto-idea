@@ -62,7 +62,7 @@ describe("admin-dashboard", () => {
     expect(screen.getByPlaceholderText(/Search email or name/i)).toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
-    expect(screen.getByText(/Email & Integrations/i)).toBeInTheDocument();
+    expect(screen.getByText("Configuration")).toBeInTheDocument();   // ADMIN-D: Settings home (paper drill-in)
 
     fireEvent.click(screen.getByRole("button", { name: "Audit" }));
     await waitFor(() => expect(listAudit).toHaveBeenCalled());
@@ -87,9 +87,11 @@ describe("admin-dashboard", () => {
     expect(screen.queryByRole("button", { name: /Confirm grant/ })).toBeNull();
   });
 
-  it("ADMIN-SEC: an owner sees Settings + Admin access; a manager sees neither", async () => {
+  it("ADMIN-SEC/ADMIN-D3: an owner sees Settings (with Admin access inside); a manager sees neither", async () => {
     render(<AdminDashboard />);
     expect(await screen.findByRole("button", { name: "Settings" })).toBeInTheDocument();
+    // ADMIN-D3: Admin access is no longer a top-level tab — it's a Settings drill-in row.
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByRole("button", { name: "Admin access" })).toBeInTheDocument();
 
     cleanup();
@@ -111,7 +113,8 @@ describe("admin-dashboard", () => {
 
   it("ADMIN-SEC: granting a manager needs the email typed twice AND a warning confirm", async () => {
     render(<AdminDashboard />);
-    fireEvent.click(await screen.findByRole("button", { name: "Admin access" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Admin access" }));
     fireEvent.change(screen.getByPlaceholderText("email@example.com"), { target: { value: "alice@test.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await screen.findByText("Alice");
@@ -135,7 +138,8 @@ describe("admin-dashboard", () => {
   it("ADMIN-SEC: an owner target is refused in the UI before the server is asked", async () => {
     lookupUser.mockResolvedValueOnce({ uid: "o1", email: "owner@test.com", name: "Owner", tier: "free", role: "owner", isAdmin: true, portfolioCount: 0, coinCount: 0 });
     render(<AdminDashboard />);
-    fireEvent.click(await screen.findByRole("button", { name: "Admin access" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Admin access" }));
     fireEvent.change(screen.getByPlaceholderText("email@example.com"), { target: { value: "owner@test.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     await screen.findByText(/Owner accounts are protected/);
@@ -148,7 +152,8 @@ describe("admin-dashboard", () => {
     saveConfig.mockRejectedValueOnce(new Error("reauth-required: confirm your password to continue."));
     render(<AdminDashboard />);
     fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
-    fireEvent.click(screen.getAllByRole("button", { name: /Save/ })[0]);
+    fireEvent.click(screen.getByRole("button", { name: /API keys/ }));   // ADMIN-D: saves live in the detail views now
+    fireEvent.click(screen.getByRole("button", { name: "Save keys" }));
     await screen.findByText("Confirm your password");
     fireEvent.change(screen.getByPlaceholderText("Owner password"), { target: { value: "hunter2" } });
     fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
@@ -199,6 +204,7 @@ describe("admin-dashboard", () => {
   it("BL-2d: Settings shows the reserved AI card with the Anthropic key field", async () => {
     render(<AdminDashboard />);
     fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByText("AI", { selector: ".sr-label" }));   // ADMIN-D: drill into the AI detail
     expect(screen.getByText(/AI \(reserved/)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/sk-ant/)).toBeInTheDocument();
     // the future cache controls are visibly reserved, not clickable

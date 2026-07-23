@@ -146,9 +146,11 @@ docs · verify secret files git-ignored before adding a remote.
 - **D6 — PayPal webhook idempotency now.** Store each processed `event.id` and skip duplicates.
 
 ### Admin panel capabilities
-- **D7 — In-panel grant/revoke admin** — **BUILT** as an **owner-only "Admin access" tab** calling
+- **D7 — In-panel grant/revoke admin** — **BUILT** as an **owner-only "Admin access" area** calling
   **`setManagerRole({email, grant})`** (`setAdminClaim` is deleted and now throws). Gated by
   `assertFreshOwner` (owner role + password re-auth); admin MFA layers on at go-live.
+  *(ADMIN-D3, 2026-07-23: this area was **folded into the Settings tab** as its last drill-in row — no
+  longer a separate top-level tab; the `setManagerRole` + `assertFreshOwner` gate is unchanged.)*
 - **D8 — Admin soft-delete + Empty-trash bulk action** (parity with self-service 30-day trash).
 - **D9 — Dedicated admin "sign out of all devices"** (admin-target `revokeRefreshTokens`).
 - **D10 — Reserve the AI Settings section now** — Anthropic key field (`keep()` idiom) + manual

@@ -76,7 +76,8 @@ trend snapshots). Phases (KISS-first, most valuable first):
       — *(RBAC owner/manager roles are split out to **ADMIN-SEC** above)* impersonation (logged +
       time-boxed + bannered), announcement banner (config string → app banner), bulk user actions,
       per-field filters + saved views, private admin notes, before/after diff in audit.
-- [ ] **ADMIN-D · Settings redesign — paper design system** (🎨 design-only; founder 2026-07-18) —
+- [x] **ADMIN-D · Settings redesign — paper design system** (🎨 design-only; founder 2026-07-18 ·
+      **✅ BUILT 2026-07-23** — with **ADMIN-D3** folded in) —
       reskin the admin **Settings** tab to match the app's user-settings (**Account**) screen: adopt
       the `.ci-app` paper design + the **drill-in list** pattern (home with the two global toggles
       inline + a category row per detail card), `saveConfig` logic untouched. Nothing dropped; adds an
@@ -88,6 +89,25 @@ trend snapshots). Phases (KISS-first, most valuable first):
       **Sequence after ADMIN-SEC** — Settings gains the owner-only unlock gate, so building it first
       means drawing the screen twice. Local-first / emulator-verifiable; run the §PROCESS
       interview+sweep + a dark-mode pass when built.
+      **✅ BUILT 2026-07-23 (this session):** Settings tab reskinned to the `.ci-app` paper drill-in —
+      home = a **Configuration** status card + the Maintenance/Signups **switches inline** + a category
+      **row per detail card** (API keys · Email · Plans · AI · Analytics & legal · **Admin access**); each
+      row → a paper detail card with the app's `field-input`/`acct-btn`/`switch`. `saveConfig` /
+      `saveControls` and every handler are unchanged (design-only). Files: `src/components/admin-dashboard.jsx`
+      (new `settingsView` local state + `NavRow`/`CtrlRow`/`Switch`/`DHead` helpers, mirrors `Account.jsx`;
+      Save buttons moved into the detail views; AI detail gained a "Save AI settings" button) ·
+      `admin.html` (Fraunces/Hanken font links) · `src/admin-main.jsx` (imports `app.css` +
+      `src/styles/admin-settings.css`) · new **`src/styles/admin-settings.css`** (the few Settings-only
+      classes — status rows, plans grid, cookie ctrl-line, foot-note, maintenance-warn switch — imported
+      ONLY by the admin bundle, verified out of the user bundle). **Maintenance stays its warning colour**
+      (`.switch.warn` → amber). **Configuration card = IN** (status dots derived from saved config).
+      **ADMIN-D3 folded in:** the owner-only Admin access grant/revoke flow is now the last Settings row
+      (its own detail view) and the separate "Admin access" top-level tab is **gone** (owner tabs 6→5).
+      **Dark mode is N/A** — the admin app never sets `html[data-theme]`, so Settings renders **light
+      paper** (consistent with the still-grey rest of the panel until ADMIN-D2). Verified: **552/552 unit
+      · build clean (name-guard) · browser-checked as owner** (paper renders, drill-in nav works, Admin
+      access search wired, 0 console errors). Reskin covers the Settings tab **only**; the header, tab bar
+      and other four tabs stay grey until **ADMIN-D2**.
 - [ ] **ADMIN-D2 · Paper reskin — the other four tabs** (🎨 design-only · 🟡 med · founder 2026-07-18)
       — extend the ADMIN-D paper design to **Overview · Users · Trash · Audit** so the panel isn't
       half-paper/half-grey. Visual spec = the interactive
@@ -104,7 +124,9 @@ trend snapshots). Phases (KISS-first, most valuable first):
       tier bar, non-keyboard user rows, non-heading card titles). Leave room for ADMIN-1's billing
       block and ADMIN-3's audit controls so those screens aren't redesigned twice. **Sequence after
       ADMIN-SEC + ADMIN-D.** Local-first / emulator-verifiable; runs the §PROCESS interview+sweep.
-- [ ] **ADMIN-D3 · Fold "Admin access" into Settings** (🎨 IA / design-only · founder 2026-07-23) —
+- [x] **ADMIN-D3 · Fold "Admin access" into Settings** (🎨 IA / design-only · founder 2026-07-23 ·
+      **✅ BUILT 2026-07-23 with ADMIN-D** — Admin access is now the last Settings drill-in row; the
+      separate top-level tab is gone (owner tabs 6→5); the grant flow + `setManagerRole` gate unchanged) —
       move the owner-only **Admin access** tab (grant/revoke a manager) *into* the **Settings** tab and
       drop the separate top-level tab. **No security change:** both areas are already owner-only AND
       both sit behind the same step-up re-auth gate — `setManagerRole`, `saveConfig` and `getAdminConfig`
