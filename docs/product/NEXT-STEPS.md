@@ -34,7 +34,7 @@ founder chose machine-local over a committed baseline).
 
 ---
 
-## ADMIN-UI. Admin panel chrome redesign — unified sticky header + persistent H1 + back-nav + login reskin  (📋 PLAN — 2026-07-25; not scheduled)
+## ADMIN-UI. Admin panel mockup match — unified chrome (UI-1) + card/tab/sizing fidelity (UI-2)  (📋 PLAN — 2026-07-25; not scheduled)
 
 Canonical: [`docs/design/ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) (mockup→code spec + file
 map + acceptance criteria). Reference mockup: [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html).
@@ -61,6 +61,23 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       change); admin stays light-paper-only (no dark mode). DoD: one sticky bar, no overlap, H1 on every
       view, back-nav everywhere, no purple; `test:unit` green + `build` clean + browser-verified owner &
       manager, mobile & desktop.
+
+- [ ] **ADMIN-UI-2 · Card / tab / sizing fidelity** (🟡 design · founder 2026-07-25 · **📋 PLAN**) — Make
+      the panel's **cards, category (tab) bar and sizing** match the mockup pixel-for-pixel. Interview
+      (2026-07-25) locked **all** of it: match spacing/density **+** typography **+** content width;
+      **pill-card look on ALL card surfaces** (stat tiles, content panels, Users/Audit rows, Settings
+      panels, modals); **whole panel** (every tab/drill-in/modal); **keep the current responsive
+      breakpoints** and stacking (mockup is desktop-only — restyle only). Measured targets: active tab
+      **near-black `--ink` → green `--accent` (#0a6b4d, already a token — no new hex)**, 13→14px; cards →
+      **22px** radius + faint 0.8px border + soft 2-layer shadow + 20–24px pad, from **one** shared
+      `--adm-card-*` token set; card titles sentence-case 13/700; shell **1040 → 1140px** (≈680px columns);
+      H1 34px. Files: `src/styles/admin-settings.css` (the bulk) · `src/components/admin-dashboard.jsx`
+      (class normalising only, no logic) · `tests/unit/admin-dashboard.test.jsx`. **Design-only** (no
+      callable/rule/logic change); light-paper only; **no new dependency**. Naturally the **same build as
+      ADMIN-UI-1** (same two files, same mockup). Spec: [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md)
+      §8. DoD: green active tab, one card-token set on every surface, 1140px shell, no overflow at 375/768,
+      light-paper only; `test:unit` green + `build` clean + browser-verified owner & manager, mobile &
+      desktop.
 
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 

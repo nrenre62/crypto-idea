@@ -12,6 +12,10 @@
 > is the *capability* plan (ADMIN-0…5, all built); this doc is the *visual chrome* plan and does not
 > overlap it. Precedent for the paper design system: [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) /
 > [`DESIGN-PASS.md`](DESIGN-PASS.md) (the user app) and the ADMIN-D/D2/D3 reskin already shipped.
+>
+> **Addendum (2026-07-25):** §8 below extends this plan to **visual fidelity** — making the panel's
+> **cards, category (tab) bar, and sizing** match the mockup pixel-for-pixel (still design-only, still
+> PLAN). §1–§7 = the *chrome* (header/H1/back-nav/login); §8 = the *card/tab/sizing* match.
 
 ## 1. Problem — why (the overlap the founder reported)
 
@@ -139,3 +143,81 @@ using purple `#6C5CE7` + grey borders — off-brand.
 - No functional/logic/security change — the callables, rules, role gates, audit and step-up re-auth all
   stay exactly as they are.
 - No new charting/UI dependency (the header is plain CSS; the logo tile is a styled `<div>`/inline SVG).
+
+## 8. Visual fidelity — cards · category bar · sizing (added 2026-07-25)
+
+> **Second founder request (2026-07-25):** make the panel's **cards ("pill cards"), the category (tab)
+> bar, and the overall sizing** match [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html)
+> precisely, while **keeping the current responsive behaviour** (the mockup is desktop-only — it has no
+> phone/tablet layout). Still **PLAN / DOC ONLY** — nothing built. Values below were **measured from the
+> mockup** (rendered in-browser + read from its embedded CSS) on 2026-07-25, so they are targets, not
+> guesses.
+
+### 8.1 Interview — locked decisions (2026-07-25)
+1. **"Size match" = all three axes:** **spacing/density** (padding, radius, gaps) **+** **typography scale**
+   (H1 34px, tab text, card numbers/titles/labels) **+** **content width** (desktop shell).
+2. **Pill-card look on ALL card surfaces** — Overview stat tiles + content panels, Users/Audit list rows,
+   Settings panels, **and** modals — extrapolated to the surfaces the mockup doesn't itself show.
+3. **Whole panel** — every tab, drill-in and modal, not just the Overview the mockup depicts.
+4. **Mobile/tablet:** **keep the existing responsive breakpoints and stacking exactly**; restyle only. The
+   mockup's desktop-only layout is never forced onto small screens.
+
+### 8.2 Measured mockup targets vs. current (the deltas to close)
+Line refs are into [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) as it stands today.
+
+| Surface | Mockup target (measured 2026-07-25) | Current | Change |
+|---|---|---|---|
+| **Shell width** (`.adm-shell`) | `max-width: 1140px` (two ~680px inner columns) | `1040px` (L65) | widen **1040 → 1140** |
+| **Category bar** (`.adm-tabs`) | white bg · 1px `--line-2` · radius 999px · **gap 3px** · pad 4px · soft 2-layer shadow | `--paper-2` bg · gap 4px · pad 4px · radius 999 (L81) | bg → white · gap 4→3 · add the soft shadow |
+| **Active tab** (`.adm-tab.active`) | **green `--accent` (#0a6b4d)** bg · white text · **14px**/600 · pad **11px 0** | **`--ink`** (near-black) bg · 13px · pad 9px 6px (L82,84) | **near-black → green** · 13→14px · taller pad |
+| **Cards** (`.adm-stat`, `.adm-card`, list rows, Settings panels, modal) | white · radius **22px** · **0.8px** border `rgba(21,20,15,.06)` · shadow `0 1px 1px rgba(21,20,15,.03), 0 4px 12px -6px rgba(21,20,15,.07)` · pad **20–24px** | `--paper-2` · `--radius-sm` · 1px `--line-2` · `--sh-sm` · pad 16×12 (L94) | radius → 22 · softer border+shadow · roomier pad |
+| **Card title** | 13px Hanken **700**, sentence case, tight tracking | stat label `.l` = 9.5px **UPPERCASE** (L96) | title style: sentence-case 13/700 (labels stay as-is) |
+| **Stat number** (`.adm-stat .n`) | Fraunces display, large | 30px display (L95) | keep; scale to the mockup at build |
+| **H1 "Admin dashboard"** | 34px Fraunces 600, `--ink` | no H1 today (drill-in titles read as the title) | add — see §4.2 |
+
+**The green is already a token.** `#0a6b4d` = the app's existing `--accent` (`app.css` L16 / `research-tab.css`
+L10). "Match the mockup colours" for the category bar therefore means **reuse `--accent`, do NOT introduce a
+new hex** — the active tab simply moves from near-black to the house green (which also makes the admin selected
+state consistent with the user app's accent).
+
+### 8.3 How to build it (KISS · tokens · admin-scoped)
+- **One file does most of the work:** [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css)
+  (admin-only — already verified out of the user bundle). **No change to `app.css` tokens.**
+- Introduce a **small admin-scoped token set** for the mockup's card values so every card surface points at
+  one source of truth (retire per-element ad-hoc radii/shadows):
+  `--adm-card-radius: 22px` · `--adm-card-border: .8px solid rgba(21,20,15,.06)` ·
+  `--adm-card-shadow: 0 1px 1px rgba(21,20,15,.03), 0 4px 12px -6px rgba(21,20,15,.07)` · `--adm-card-pad`.
+- **Category bar:** flip `.adm-tab.active` background `--ink → --accent`; bump font 13→14px and padding to
+  ~11px; `.adm-tabs` gap 4→3 + white bg + the soft shadow.
+- **Cards:** apply the shared card tokens to `.adm-stat`, `.adm-card`, the Users/Audit row cards, the Settings
+  drill-in panels, and the shared modal card. Card titles → sentence-case 13/700 (the small UPPERCASE stat
+  *labels* stay — they read as labels, not titles).
+- **Width:** `.adm-shell` max-width `1040 → 1140`; desktop two-column content targets ~680px columns.
+- **Responsive (unchanged):** everything above lives **inside** the existing media queries. Do **not** touch the
+  breakpoints or the auto-fit stacking — on phone/tablet the cards keep stacking, just with the new
+  radius/shadow. Verify no horizontal overflow at 375px and 768px.
+
+### 8.4 Acceptance criteria (fidelity — on BUILD)
+- [ ] Active tab renders **green** (`--accent`) with white text at the mockup's size; inactive tabs unchanged.
+- [ ] Every card surface (stat tiles, content panels, Users/Audit rows, Settings panels, modals) uses the **22px
+      rounded white-card** treatment from **one** shared admin token set — no ad-hoc per-card radii left.
+- [ ] Desktop shell width = **1140px**; two-column content ≈ 680px columns.
+- [ ] Typography matches the mockup: 34px H1, 14px tabs, 13/700 sentence-case card titles, mockup-scaled numbers.
+- [ ] **Responsive unchanged:** same breakpoints + stacking; **no horizontal overflow at 375px & 768px**; admin
+      stays **light-paper only** (no dark mode).
+- [ ] **No new hex colours** (green = existing `--accent`); **no new dependency**; **design-only** (no
+      callable / rule / handler / logic change).
+- [ ] `npm run test:unit` green · `npm run build` clean · browser-verified **owner + manager**, **mobile +
+      desktop**.
+
+### 8.5 Files (adds to the §5 map — same build as §1–§7 where they overlap)
+| File | Change |
+|---|---|
+| [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | The bulk: shell width 1040→1140; `.adm-tabs`/`.adm-tab.active` (green + sizes + gap + shadow); the shared `--adm-card-*` token set applied to every card class; card-title style. |
+| [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) | Only if card markup/class names need normalising so every card shares the token set — **no logic change**. |
+| [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Assert the active tab uses the accent/green active state; card structure unchanged; no overflow assumptions broken. |
+
+> **Overlap with §1–§7:** the chrome plan (§1–§7) and this fidelity plan (§8) touch the **same two files**
+> (`admin-settings.css`, `admin-dashboard.jsx`) and target the **same mockup**, so they are naturally **one
+> build** when the founder says go — §8 is the "make the cards/tabs/sizes match" half, §1–§7 the "fix the
+> header/H1/back-nav/login" half. Either can ship first; doing them together avoids re-touching the CSS twice.
