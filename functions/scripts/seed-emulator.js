@@ -1,7 +1,13 @@
 // Dev-only: seed the EMULATOR with an admin account + a few test users (with real
 // portfolios & coins) so the admin dashboard shows real combined usage + averages.
-// NEVER run against production.  Run (with emulators up):
-//   node functions/scripts/seed-emulator.js
+// NEVER run against production.
+//
+// Preferred (persists across restarts): `npm run seed` — brings up the auth +
+//   firestore emulators, runs this script, and EXPORTS the result to the
+//   git-ignored ./emulator-data, which `npm run start:all` then re-imports. So you
+//   seed once per machine, not once per restart. Run it with the stack stopped.
+// Direct (against an already-running stack): `node functions/scripts/seed-emulator.js`
+//   — seeds the live `start:all` emulators; start:all exports them on exit.
 process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
 

@@ -34,6 +34,11 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 
+# Persistent emulator data — DEV-ONLY baseline created by `npm run seed` and
+# re-exported by `npm run start:all`. NEVER commit it: it holds throwaway dev
+# accounts + local data, is machine-local, and is never part of a deploy.
+emulator-data/
+
 # IDE
 .vscode/
 .idea/

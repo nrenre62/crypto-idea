@@ -12,6 +12,28 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## DEVEX. Persistent emulator seed accounts  (✅ BUILT 2026-07-25)
+
+Dev-only quality-of-life: the seeded emulator accounts used to die on every restart (in-memory
+emulator → `re-seed each start`). Now they **persist across restarts** via Firebase's emulator
+import/export, scoped to a **git-ignored `./emulator-data`** (never committed, never deployed —
+founder chose machine-local over a committed baseline).
+
+- New **`npm run seed`** (stack stopped) brings up auth+firestore, runs `functions/scripts/seed-emulator.js`,
+  and **exports** the snapshot to `./emulator-data`.
+- **`start:all`** now runs **`scripts/dev-stack.js`** — a tiny cross-platform launcher that **imports**
+  `./emulator-data` when it exists and **always `--export-on-exit`**. `--import` is added *only* when the
+  folder exists, because `firebase --import=<missing dir>` hard-fails (first run / fresh clone starts
+  empty and says so). The pure arg-builder is unit-tested (`tests/unit/dev-stack.test.js`).
+- `.gitignore` excludes `emulator-data/`. Reset-to-baseline = re-run `npm run seed`; start-empty = delete
+  the folder. The direct `node functions/scripts/seed-emulator.js` still seeds a *running* stack.
+- Verified live: `npm run seed` exported all 6 accounts + firestore; a fresh `npm run start:all` logged
+  `Importing accounts from …/emulator-data/auth_export/accounts.json` and came up with them present —
+  persistence across restarts proven. 842/842 unit green (incl. the new test); docs swept (README,
+  CLAUDE.md, `emulator-dev-stack.svg` + diagrams index). Commit `<pending>`.
+
+---
+
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
 Canonical: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) (scored gap-audit vs. external

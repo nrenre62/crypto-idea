@@ -7,8 +7,15 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   - Vite dev: http://localhost:3000  · Hosting (built `dist/`): http://localhost:5000  · Emulator UI: http://localhost:4000
   - Emulators: auth 9099, firestore 8080, functions 5001 (`/api`), pubsub 8085.
 - `npm run dev` alone runs ONLY Vite → `/api/*` fails with `ECONNREFUSED :5001`. Don't use it alone.
-- **`start:all` brings up an EMPTY in-memory emulator — it does NOT seed.** After it's up, seed once
-  with `node functions/scripts/seed-emulator.js` (owners `admin@test.com`/`admin2@test.com`, `manager@test.com`, role-less `legacy@test.com` + `free@`/`pro@test.com`, all `test1234`). Re-seed after every restart (the emulator is in-memory). See "Seed test data" below.
+- **Seed the dev accounts ONCE per machine, and they persist across restarts.** Run **`npm run seed`**
+  (with the stack stopped) — it spins up auth+firestore, seeds owners `admin@test.com`/`admin2@test.com`,
+  `manager@test.com`, role-less `legacy@test.com` + `free@`/`pro@test.com` (all `test1234`), and **exports
+  the snapshot to the git-ignored `./emulator-data`**. `npm run start:all` then **auto-imports** that folder
+  on startup and **re-exports on exit** (via `scripts/dev-stack.js`), so accounts + anything you add survive
+  restarts — no more re-seeding every time. First run (no `./emulator-data` yet) starts EMPTY and says so.
+  To reset to a clean baseline re-run `npm run seed`; to start totally empty delete `./emulator-data`.
+  (You can still seed a *running* stack directly with `node functions/scripts/seed-emulator.js`.) See
+  "Seed test data" below.
 - Realtime Database & Storage emulators are intentionally off — the app doesn't use them.
 
 ## Build, test, deploy
@@ -194,7 +201,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - Admin Users tab = full users list (search + 50/page) with per-user actions; Overview shows aggregate only (no holdings anywhere).
 - `privacy.html` / `terms.html` are static pages (vite inputs) that **auto-embed the Termly documents by ID** — `public/termly-embed.js` reads `legal.termlyPrivacyId`/`termlyTermsId` from `/api/config` and bails silently when unset. **Set the IDs in admin Settings; never paste a snippet into the HTML.** Both currently show a "being finalized" placeholder — a launch blocker while signup forces users to accept them (GO-LIVE-AUDIT.md B5).
 - **Two owners, no single point of failure:** owner is the `{admin:true, role:"owner"}` claim, so have ≥2. Dev: the seed makes `admin@test.com` + `admin2@test.com` as owners (backup). Prod: register the backup as a normal account, then run `node functions/scripts/set-admin.js <email> --role=owner` with a service-account key (`--role=owner|manager`, `--revoke`, `--show`, `--force`) — **owners can only be minted by the script**. An owner can grant a **manager** from the panel's Admin access tab (`setManagerRole({email, grant:true})`). Store both owners' creds in a password manager.
-- **Seed test data:** `node functions/scripts/seed-emulator.js` → owners `admin@test.com` + `admin2@test.com`, a manager `manager@test.com`, a role-less `legacy@test.com` / `test1234` + test users (emulator is in-memory; re-run after a restart). New function exports need a stack restart to register (emulator hot-reloads edits, not new triggers).
+- **Seed test data (persists across restarts):** **`npm run seed`** (stack stopped) → owners `admin@test.com` + `admin2@test.com`, a manager `manager@test.com`, a role-less `legacy@test.com` / `test1234` + test users, **exported to the git-ignored `./emulator-data`** which `npm run start:all` auto-imports on startup and re-exports on exit. So you seed once per machine, not once per restart. `node functions/scripts/seed-emulator.js` still works to seed a *running* stack directly. New function exports need a stack restart to register (emulator hot-reloads edits, not new triggers).
 
 ## Research tab (`src/features/research/`)
 - **Self-contained feature module** (own `components/hooks/utils/api/styles`), rendered as a bottom-nav tab (5 tabs: Portfolio · **Research** · Journal · Learn · Search) via `Research.jsx` → `ResearchTab.jsx`. Three sub-views: **Overview** (daily brief, Portfolio Pulse, allocation bar, risk meter, stress test), **Coins** (per-holding cards + 7-day sparkline + cost/now/P&L + the 4-state **conviction-signal pills** graded by the `utils/conviction.js` rubric reducer, mock-fed until Wave B), **Ask** (chat about your holdings).
