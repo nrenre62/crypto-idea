@@ -57,7 +57,7 @@ Same as B **plus** a verified admin custom claim, in **two roles**: `owner` (`{a
 
 | Gate | Callables |
 |---|---|
-| `assertAdmin` (read-only) | `getStats` · `lookupUser` · `listUsers` · `listAudit` |
+| `assertAdmin` (read-only) | `getStats` · `lookupUser` · `listUsers` · `listAudit` · `listWebhookEvents` (ADMIN-1: PayPal webhook ledger) |
 | `assertManager` | `setUserTier` · `setPremiumLimits` · `suspendUser` · `restoreUser` · `adminTrashUser` · `adminSignOutUser` |
 | `assertOwner` | `deleteUser` |
 | `assertFreshOwner` | `getAdminConfig` · `saveConfig` · `setManagerRole` |

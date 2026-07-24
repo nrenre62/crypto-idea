@@ -91,6 +91,46 @@ function TierPill({ tier }) {
   return <span className="adm-pill" style={{ background: t.soft, color: t.ink }}>{t.label.toUpperCase()}</span>;
 }
 
+/* ═══ ADMIN-1 — billing-ops visibility (read-only) ═══
+   The subscription status is derived server-side (billing.billingStatusOf) from the
+   already-persisted fields; here we just map it to a paper colour. Cancels/refunds
+   stay in the PayPal dashboard — this surface is read-only. */
+const BILL = {
+  active:   { label:"Active",          dot:"var(--sg)",        soft:"var(--sg-s)",                                       ink:"var(--accent-ink)" },
+  past_due: { label:"Past due",        dot:"var(--amber)",     soft:"color-mix(in srgb, var(--amber) 15%, transparent)", ink:"#8a6414" },
+  canceled: { label:"Canceled",        dot:"var(--sr)",        soft:"var(--sr-s)",                                       ink:"var(--sr)" },
+  none:     { label:"No subscription", dot:"var(--ink-faint)", soft:"var(--paper-3)",                                    ink:"var(--ink-faint)" },
+};
+function BillPill({ status }) {
+  const b = BILL[status] || BILL.none;
+  return <span className="adm-pill" style={{ background: b.soft, color: b.ink }}>{b.label.toUpperCase()}</span>;
+}
+// A small status dot for the Users-list rows (paid accounts only).
+function BillDot({ status }) {
+  const b = BILL[status] || BILL.none;
+  return <span className="adm-bill-dot" style={{ background: b.dot }} title={b.label} />;
+}
+// Relative "time ago" for webhook + last-payment timestamps (ms epoch). Component
+// context, so Date.now() is fine here (unlike the pure server/workflow code).
+function relTime(ms) {
+  if (!ms) return "—";
+  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60); if (m < 60) return m + "m ago";
+  const h = Math.floor(m / 60); if (h < 24) return h + "h ago";
+  const d = Math.floor(h / 24); return d + "d ago";
+}
+// Friendly PayPal webhook event-type labels for the Overview billing card.
+const WH_LABELS = {
+  "BILLING.SUBSCRIPTION.ACTIVATED": "Subscription activated",
+  "BILLING.SUBSCRIPTION.CANCELLED": "Subscription cancelled",
+  "BILLING.SUBSCRIPTION.SUSPENDED": "Subscription suspended",
+  "BILLING.SUBSCRIPTION.EXPIRED": "Subscription expired",
+  "PAYMENT.SALE.COMPLETED": "Payment completed",
+  "PAYMENT.SALE.REFUNDED": "Payment refunded",
+};
+const whLabel = (t) => WH_LABELS[t] || t || "Unknown event";
+
 // Per-user custom-limits editor (Premium overrides, S8). Transient form state lives
 // here (presentation only); the actual write goes through the hook's changePremiumLimits
 // → setPremiumLimits callable. Blank field = tier default; the server clamps each value.
@@ -140,7 +180,9 @@ export default function AdminDashboard() {
     found, setFound, lookupMsg, actionMsg,
     confirmDelete, setConfirmDelete, busy,
     userList, listMsg, listLoading, q, setQ, page, setPage, PAGE_SIZE,
+    billingFilter, setBillingFilter,
     audit, auditLoading, auditMsg,
+    webhookEvents, webhookLoading, webhookMsg, loadWebhookEvents,
     s,
     saveConfig, saveControls, loadUserList, loadAudit, openUser, changeTier, changePremiumLimits, toggleSuspend,
     restoreFromTrash, purgeFromTrash,
@@ -308,6 +350,49 @@ export default function AdminDashboard() {
               })}
             </div>
           </div>
+
+          {/* ADMIN-1: Billing & webhook health — a read-only view of the PayPal
+              webhook ledger (webhookEvents). No new storage; events only appear
+              once real subscriptions fire, so an empty list is NORMAL before launch
+              (shown as an expected empty-state, never an error). */}
+          <div className="card">
+            <div className="adm-card-head">
+              <div className="card-title" style={{ marginBottom:0 }}>Billing &amp; webhooks</div>
+              <button className="adm-btn sm" onClick={loadWebhookEvents} disabled={webhookLoading}>{webhookLoading ? "…" : "Refresh"}</button>
+            </div>
+            {webhookMsg && <div className="adm-inline-err" style={{ marginTop:10 }}>{webhookMsg}</div>}
+            {(() => {
+              if (webhookLoading && !webhookEvents) return <div className="adm-loading">Loading…</div>;
+              const events = webhookEvents || [];
+              // On a load failure the hook sets webhookMsg AND events=[]; the red error
+              // banner already rendered above, so suppress the "empty is expected" hint —
+              // don't tell the admin a failure is the normal pre-launch state.
+              if (events.length === 0) return webhookMsg ? null : <div className="adm-hint" style={{ marginTop:8 }}>No PayPal webhook events processed yet. They appear here once live subscriptions start firing — an empty list is expected before launch.</div>;
+              const lastAt = events[0] && events[0].atMs;
+              const fresh = lastAt && (Date.now() - lastAt) < 24 * 3600 * 1000;
+              const byType = {};
+              for (const e of events) byType[e.type] = (byType[e.type] || 0) + 1;
+              return (<>
+                <div className="adm-wh-summary">
+                  <span className="lv-dot" style={{ background: fresh ? "var(--sg)" : "var(--ink-faint)" }} />
+                  <span>{events.length} processed · last {relTime(lastAt)}</span>
+                </div>
+                <div className="adm-wh-types">
+                  {Object.entries(byType).map(([t, n]) => (
+                    <span key={t} className="adm-wh-chip">{whLabel(t)} · {n}</span>
+                  ))}
+                </div>
+                <div className="adm-wh-list">
+                  {events.slice(0, 8).map(e => (
+                    <div key={e.id} className="adm-wh-row">
+                      <span className="wh-t">{whLabel(e.type)}</span>
+                      <span className="wh-when">{relTime(e.atMs)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>);
+            })()}
+          </div>
         </>)}
 
         {/* ═══ USERS — full list + a per-user drill-in for support / moderation ═══ */}
@@ -337,6 +422,30 @@ export default function AdminDashboard() {
                   {[[found.portfolioCount,"Portfolios"],[found.coinCount,"Coins"]].map(([v,l]) => (
                     <div key={l} className="adm-mini"><div className="n">{v}</div><div className="l">{l}</div></div>
                   ))}
+                </div>
+
+                {/* ADMIN-1: Billing — read-only PayPal subscription status + id, derived
+                    from persisted fields. Cancels/refunds stay in the PayPal dashboard. */}
+                <div className="adm-billing">
+                  <div className="adm-billing-head">
+                    <span className="adm-label" style={{ marginBottom:0 }}>Billing</span>
+                    <BillPill status={found.billingStatus} />
+                  </div>
+                  {(found.billingStatus && found.billingStatus !== "none") ? (
+                    <div className="adm-billing-body">
+                      {/* A manual admin tier change (setUserTier writes only `tier`) reads as
+                          "active" with no PayPal fields — say so instead of a blank body. */}
+                      {found.billingStatus === "active" && !found.paypalSubscriptionId && <div className="adm-bl-row"><span className="k">Source</span><span className="v">Manual upgrade — no PayPal subscription on file</span></div>}
+                      {found.paypalSubscriptionId && <div className="adm-bl-row"><span className="k">PayPal subscription</span><span className="v mono">{found.paypalSubscriptionId}</span></div>}
+                      {found.billingCycle && <div className="adm-bl-row"><span className="k">Cycle</span><span className="v">{found.billingCycle === "yearly" ? "Annual" : "Monthly"}</span></div>}
+                      {found.billingStatus === "canceled" && found.subEndDate && <div className="adm-bl-row"><span className="k">Access ends</span><span className="v">{new Date(found.subEndDate).toLocaleDateString()}{found.subDowngradeTo === "pro" ? " · then Pro" : ""}</span></div>}
+                      {found.billingStatus === "past_due" && <div className="adm-bl-row"><span className="k">Status</span><span className="v" style={{ color:"#8a6414" }}>Payment failed — 7-day grace, then auto-downgrade</span></div>}
+                      {found.lastPayment && <div className="adm-bl-row"><span className="k">Last payment</span><span className="v">{relTime(found.lastPayment)}</span></div>}
+                    </div>
+                  ) : (
+                    <div className="adm-hint" style={{ marginTop:6 }}>No active subscription (free tier).</div>
+                  )}
+                  <div className="adm-hint" style={{ marginTop:8 }}>Read-only. Cancellations and refunds are handled in the PayPal dashboard.</div>
                 </div>
 
                 {/* Last paid tier — survives an auto-downgrade so "was Pro/Premium" isn't lost (S9) */}
@@ -414,6 +523,14 @@ export default function AdminDashboard() {
             <button className="adm-btn" onClick={loadUserList} disabled={listLoading}>{listLoading ? "…" : "Refresh"}</button>
           </div>
 
+          {/* ADMIN-1: billing filter — narrow the list to the accounts that need
+              attention (a failed payment or a pending cancellation). */}
+          <div className="adm-billing-filter">
+            {[["all","All"],["past_due","Past due"],["canceled","Canceled"]].map(([v,l]) => (
+              <button key={v} type="button" className={"adm-chip" + (billingFilter===v ? " on" : "")} onClick={() => { setBillingFilter(v); setPage(1); }}>{l}</button>
+            ))}
+          </div>
+
           {lookupMsg && <div className="adm-inline-err">{lookupMsg}</div>}
           {listMsg && <div className="adm-inline-err">{listMsg}</div>}
 
@@ -423,7 +540,9 @@ export default function AdminDashboard() {
             if (!userList) return null;
             const needle = q.trim().toLowerCase();
             const { active } = partitionUsers(userList); // trashed accounts live in the Trash tab
-            const filtered = needle ? active.filter(u => (u.email||"").toLowerCase().includes(needle) || (u.name||"").toLowerCase().includes(needle)) : active;
+            const searched = needle ? active.filter(u => (u.email||"").toLowerCase().includes(needle) || (u.name||"").toLowerCase().includes(needle)) : active;
+            // ADMIN-1: apply the billing filter (past_due / canceled) on top of the search.
+            const filtered = billingFilter === "all" ? searched : searched.filter(u => u.billingStatus === billingFilter);
             const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
             const pg = Math.min(page, pages);
             const rows = filtered.slice((pg-1)*PAGE_SIZE, pg*PAGE_SIZE);
@@ -438,6 +557,7 @@ export default function AdminDashboard() {
                       <div className="em">{u.email}</div>
                     </div>
                     <div className="cnt" title="Portfolios">{u.portfolioCount}</div>
+                    {u.billingStatus && u.billingStatus !== "none" && <BillDot status={u.billingStatus} />}
                     <TierPill tier={u.tier} />
                     {u.disabled && <span className="adm-pill susp">SUSP</span>}
                     {u.isAdmin && <span className="adm-pill admin">ADMIN</span>}

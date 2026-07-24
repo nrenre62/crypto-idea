@@ -141,7 +141,27 @@ function webhookEventKey(event) {
   return typeof id === "string" && id.length > 0 && id.length <= 200 ? id : null;
 }
 
+// ADMIN-1 (billing-ops visibility): derive the CURRENT subscription status for the
+// admin panel from the already-persisted fields — no new storage. Order = most
+// urgent first, so a user who both failed a payment AND is cancelled reads as the
+// one that needs attention:
+//   "past_due" — a payment failed / PayPal SUSPENDED (7-day grace before the drop)
+//   "canceled" — the user cancelled; access continues to endDate, then the sweep drops
+//   "active"   — a paid tier with no problem marker
+//   "none"     — free, no subscription
+// PayPal SUSPENDED folds into past_due (the webhook records it as paymentFailed —
+// there is no separate persisted "paused" state).
+function billingStatusOf(userData) {
+  const d = userData || {};
+  const sub = d.subscription || null;
+  if (sub && sub.paymentFailed) return "past_due";
+  if (sub && sub.cancelled) return "canceled";
+  if ((d.tier || "free") !== "free") return "active";
+  return "none";
+}
+
 module.exports = {
   planTier, activationPatch, salePatch, cancellationPatch,
   cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
+  billingStatusOf,
 };

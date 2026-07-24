@@ -619,6 +619,15 @@ exports.lookupUser = functions.https.onCall(async (data, context) => {
     premiumLimits: d.premiumLimits || {},
     emailVerified: !!rec.emailVerified,
     billingCycle: d.billingCycle || "",
+    // ADMIN-1 (billing-ops visibility): the PayPal subscription id + a status
+    // DERIVED from already-persisted fields (no new storage), plus the period-end
+    // date the cancellation marker carries. Read-only — cancels/refunds stay in
+    // the PayPal dashboard. The card renders these; the list uses billingStatus only.
+    billingStatus: billing.billingStatusOf(d),
+    paypalSubscriptionId: d.paypalSubscriptionId || "",
+    subEndDate: (d.subscription && d.subscription.endDate) || null,
+    subDowngradeTo: (d.subscription && d.subscription.downgradeTo) || "",
+    lastPayment: d.lastPayment || null,
   };
 });
 
@@ -1002,6 +1011,10 @@ exports.listUsers = functions.https.onCall(async (data, context) => {
         joinedMs,
         deleted: p.deleted === true,
         deletedAt: p.deletedAt || null,
+        // ADMIN-1: derived subscription status for the Users-tab billing filter +
+        // per-row status dot (active / past_due / canceled / none). The full doc is
+        // already loaded into `p`, so this adds no read.
+        billingStatus: billing.billingStatusOf(p),
       });
     }
     pageToken = res.pageToken;
@@ -1030,6 +1043,29 @@ exports.listAudit = functions.https.onCall(async (data, context) => {
     };
   });
   return { entries };
+});
+
+// ─── ADMIN-1: read the recent PayPal webhook-processing ledger (admins only) ───
+// The paypalWebhook function records every SUCCESSFULLY processed event as
+// webhookEvents/{event.id} = { at, type } (the D6 idempotency ledger). Surfacing
+// it read-only gives the panel a "webhook health" view — the last processed event,
+// staleness, and the recent event mix — without any new storage. webhookEvents is
+// server-only in firestore.rules; this callable reads it via the Admin SDK.
+exports.listWebhookEvents = functions.https.onCall(async (data, context) => {
+  assertAdmin(context);
+  const limit = Math.min(Math.max(parseInt((data && data.limit) || 50, 10) || 50, 1), 200);
+  let snap;
+  try { snap = await db.collection("webhookEvents").orderBy("at", "desc").limit(limit).get(); }
+  catch (e) { return { events: [] }; }
+  const events = snap.docs.map((d) => {
+    const x = d.data();
+    return {
+      id: d.id,
+      type: x.type || "",
+      atMs: typeof x.at === "number" ? x.at : (x.at && typeof x.at.toMillis === "function" ? x.at.toMillis() : null),
+    };
+  });
+  return { events };
 });
 
 // ─── Admin: read current saved config to pre-fill the Settings form ───

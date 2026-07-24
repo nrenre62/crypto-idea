@@ -57,10 +57,30 @@ trend snapshots). Phases (KISS-first, most valuable first):
       `beforeCreate` **hard signups-off** + make the `audit` collection **append-only** in rules.
       *(MFA/App Check/signups already tracked in §BL-4/§4/§U; listed here for completeness — MFA needs
       Blaze + Identity Platform, so partly infra.)*
-- [ ] **ADMIN-1 · Billing-ops visibility** ⭐ (🟠 high) — persist (if not already) + show the PayPal
-      **subscription id + status** (`active`/`past_due`/`paused`/`canceled`) on the user card; a
-      **past_due / canceled** filter; a **webhook-health** list (recent `webhookEvents` + last-processed
-      + gaps). **Read-only** — cancels/refunds stay in the PayPal dashboard for now. Biggest new value.
+- [x] **ADMIN-1 · Billing-ops visibility** ⭐ (🟠 high · **✅ BUILT 2026-07-24**) — persist (if not already)
+      + show the PayPal **subscription id + status** (`active`/`past_due`/`paused`/`canceled`) on the user
+      card; a **past_due / canceled** filter; a **webhook-health** list (recent `webhookEvents` +
+      last-processed + gaps). **Read-only** — cancels/refunds stay in the PayPal dashboard for now. Biggest
+      new value.
+      **✅ BUILT 2026-07-24 (this session):** **no new storage** — the sub id (`paypalSubscriptionId`) +
+      the `subscription` marker were already server-persisted, so status is **derived** by a pure
+      `billing.billingStatusOf(userData)` → `active` / `past_due` / `canceled` / `none` (precedence:
+      paymentFailed > cancelled > paid-tier > free; **PayPal SUSPENDED folds into `past_due`** — there is
+      no separate persisted "paused" state, noted so it isn't re-litigated). `lookupUser` + `listUsers`
+      now return the derived `billingStatus` (lookupUser also returns `paypalSubscriptionId` / `subEndDate`
+      / `subDowngradeTo` / `lastPayment`); a **new read-only callable `listWebhookEvents`** (`assertAdmin`,
+      clamp 1–200) surfaces the `webhookEvents` ledger. UI: the user-detail card gained a **Billing**
+      section (status pill + sub id + cycle + renews/ends date), the Users list gained a **past-due/canceled
+      filter + a per-row status dot**, and the **Overview** gained a **"Billing & webhooks"** card (last
+      processed + freshness dot + events by type + recent list; an empty list is the expected pre-launch
+      state, never an error). **Read-only — no write/mutation path added; `webhookEvents` stays server-only
+      (the callable reads via the Admin SDK).** Files: `functions/billing.js` (+ the pure
+      `billingStatusOf`, unit-tested), `functions/index.js` (fields + the new callable), `src/api/admin.js`,
+      `src/hooks/useAdminDashboard.js`, `src/components/admin-dashboard.jsx`, `src/styles/admin-settings.css`
+      (admin-only `adm-billing`/`adm-wh-*` classes, verified out of the user bundle). Verified: **563/563
+      unit** (11 new) · build clean · admin CSS out of the user bundle · **browser-checked live as owner**
+      (patched a canceled-premium + past-due-pro user + 3 webhook events → the Overview card, list dots,
+      Past-due filter, and detail Billing section all render correctly, 0 console errors).
 - [ ] **ADMIN-2 · Operational safety net** (🟠 high) — **per-feature kill-switches** (extend
       `config/app.flags` with a `features:{}` map, read via the existing `/api/config` path) + wire
       **Sentry** (functions + client) + one uptime/cron monitor + 2–3 alert rules (error spike /

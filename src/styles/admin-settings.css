@@ -200,3 +200,42 @@
 .ci-app .adm-err-card .h { font-size:13px; font-weight:700; color:var(--warn); margin-bottom:4px; }
 .ci-app .adm-err-card .p { font-size:12px; color:var(--ink-soft); line-height:1.5; }
 .ci-app .adm-foot { text-align:center; padding:22px 0 4px; font-size:10.5px; color:var(--ink-faint); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ADMIN-1 — billing-ops visibility (read-only). Same rules as above: admin-only,
+ * scoped .ci-app, light paper. A per-row billing status dot on the Users list, a
+ * Billing section on the user-detail card, a past-due/canceled filter, and the
+ * Overview "Billing & webhooks" health card.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Card header with an inline action (webhook Refresh). */
+.ci-app .adm-card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+
+/* Users-list per-row status dot. */
+.ci-app .adm-bill-dot { width:8px; height:8px; border-radius:50%; flex:none; }
+
+/* Users-tab billing filter chips. */
+.ci-app .adm-billing-filter { display:flex; gap:6px; margin-bottom:12px; }
+.ci-app .adm-chip { padding:6px 13px; border-radius:999px; border:1px solid var(--line-strong); background:var(--paper-2); color:var(--ink-soft); font-family:var(--body); font-size:12px; font-weight:600; cursor:pointer; }
+.ci-app .adm-chip:hover { background:var(--paper-3); }
+.ci-app .adm-chip.on { background:var(--ink); border-color:var(--ink); color:var(--paper); }
+
+/* User-detail Billing section. */
+.ci-app .adm-billing { padding:12px 0 4px; margin-bottom:12px; border-top:1px solid var(--line-2); }
+.ci-app .adm-billing-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.ci-app .adm-billing-body { display:flex; flex-direction:column; gap:7px; }
+.ci-app .adm-bl-row { display:flex; align-items:baseline; justify-content:space-between; gap:12px; font-size:12.5px; }
+.ci-app .adm-bl-row .k { color:var(--ink-faint); flex:none; }
+.ci-app .adm-bl-row .v { color:var(--ink); font-weight:600; text-align:right; overflow-wrap:anywhere; }
+.ci-app .adm-bl-row .v.mono { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-weight:500; font-size:11.5px; }
+
+/* Overview "Billing & webhooks" health card. */
+.ci-app .adm-wh-summary { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; margin-bottom:10px; }
+.ci-app .adm-wh-summary .lv-dot { width:8px; height:8px; border-radius:50%; flex:none; }
+.ci-app .adm-wh-types { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.ci-app .adm-wh-chip { font-size:10.5px; font-weight:600; color:var(--ink-soft); background:var(--paper-3); border:1px solid var(--line-2); border-radius:999px; padding:4px 10px; }
+.ci-app .adm-wh-list { border-top:1px solid var(--line-2); }
+.ci-app .adm-wh-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-2); }
+.ci-app .adm-wh-row:last-child { border-bottom:0; }
+.ci-app .adm-wh-row .wh-t { font-size:12.5px; color:var(--ink); }
+.ci-app .adm-wh-row .wh-when { font-size:11px; color:var(--ink-faint); white-space:nowrap; flex:none; }

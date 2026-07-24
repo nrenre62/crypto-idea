@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser } from "../api/admin.js";
+import { getStats, listUsers, listAudit, listWebhookEvents, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser } from "../api/admin.js";
 import { getAdminRole, reauthAdmin } from "../api/admin-auth.js";
 
 // ADMIN-SEC: how long one password confirmation keeps the sensitive areas unlocked.
@@ -184,10 +184,17 @@ export function useAdminDashboard() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 50;
+  // ADMIN-1: Users-tab billing filter — "all" | "past_due" | "canceled". Filters
+  // the loaded list client-side by each user's derived billingStatus.
+  const [billingFilter, setBillingFilter] = useState("all");
   // Audit tab.
   const [audit, setAudit] = useState(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditMsg, setAuditMsg] = useState("");
+  // ADMIN-1: Overview billing/webhook-health card — recent processed PayPal events.
+  const [webhookEvents, setWebhookEvents] = useState(null);
+  const [webhookLoading, setWebhookLoading] = useState(false);
+  const [webhookMsg, setWebhookMsg] = useState("");
 
   // Load combined usage on mount. ADMIN-SEC: the config is OWNER-only, so it's loaded
   // from the role effect below instead — asking for it as a manager would just produce
@@ -230,6 +237,15 @@ export function useAdminDashboard() {
     setAuditLoading(false);
   };
   useEffect(() => { if (tab === "audit" && audit === null && !auditLoading) loadAudit(); }, [tab]);
+
+  // ADMIN-1: load the webhook-health ledger the first time the Overview is shown.
+  const loadWebhookEvents = async () => {
+    setWebhookLoading(true); setWebhookMsg("");
+    try { setWebhookEvents(await listWebhookEvents(50)); }
+    catch (e) { setWebhookMsg((e && e.message) || "Could not load webhook events"); setWebhookEvents([]); }
+    setWebhookLoading(false);
+  };
+  useEffect(() => { if (tab === "overview" && webhookEvents === null && !webhookLoading) loadWebhookEvents(); }, [tab]);
 
   const resetConfirms = () => { setConfirmDelete(false); setConfirmTrash(false); setDelText(""); setPurgeUid(null); };
   const lookup = async () => {
@@ -371,7 +387,9 @@ export function useAdminDashboard() {
     grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound, setGrantFound,
     grantMsg, setGrantMsg, grantWarn, setGrantWarn, grantLookup, setManager,
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
+    billingFilter, setBillingFilter,
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,
+    webhookEvents, webhookLoading, webhookMsg, loadWebhookEvents,
     s,
     loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, changePremiumLimits, toggleSuspend, doDelete,
     restoreFromTrash, purgeFromTrash,

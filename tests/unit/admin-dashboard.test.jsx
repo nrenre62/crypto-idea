@@ -11,11 +11,12 @@ vi.mock("../../src/api/admin.js", () => ({
   })),
   getAdminConfig: vi.fn(() => Promise.resolve({})),
   listUsers: vi.fn(() => Promise.resolve([
-    { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1 },
+    { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1, billingStatus: "none" },
   ])),
   listAudit: vi.fn(() => Promise.resolve([])),
+  listWebhookEvents: vi.fn(() => Promise.resolve([])),   // ADMIN-1: Overview billing card
   lookupUser: vi.fn(() => Promise.resolve(
-    { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1, coinCount: 3 },
+    { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1, coinCount: 3, billingStatus: "none" },
   )),
   setUserTier: vi.fn(() => Promise.resolve()),
   suspendUser: vi.fn(() => Promise.resolve()),
@@ -37,7 +38,7 @@ vi.mock("../../src/api/admin-auth.js", () => ({
 }));
 
 import AdminDashboard from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAudit, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig } from "../../src/api/admin.js";
 import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
 describe("admin-dashboard", () => {
@@ -228,5 +229,55 @@ describe("admin-dashboard", () => {
     await screen.findByText("CHANGE TIER");          // detail panel (after lookupUser resolves)
     expect(screen.getByRole("button", { name: "Suspend" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete account" })).toBeInTheDocument();
+  });
+
+  // ── ADMIN-1: billing-ops visibility (read-only) ──
+
+  it("ADMIN-1: the user detail shows the PayPal subscription status, id + end date", async () => {
+    lookupUser.mockResolvedValueOnce({
+      uid: "u1", email: "alice@test.com", name: "Alice", tier: "premium", disabled: false,
+      portfolioCount: 1, coinCount: 3, billingStatus: "canceled",
+      paypalSubscriptionId: "I-SUBTEST9", billingCycle: "yearly", subEndDate: "2099-06-01T00:00:00Z", subDowngradeTo: "",
+    });
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    fireEvent.click(await screen.findByText("Alice"));
+    await screen.findByText("CHANGE TIER");
+    expect(screen.getByText("CANCELED")).toBeInTheDocument();        // BillPill (derived status)
+    expect(screen.getByText("I-SUBTEST9")).toBeInTheDocument();      // the persisted PayPal sub id
+    expect(screen.getByText("Access ends")).toBeInTheDocument();     // canceled → period-end row
+  });
+
+  it("ADMIN-1: the Users billing filter narrows the list to past-due accounts", async () => {
+    listUsers.mockResolvedValueOnce([
+      { uid: "a", email: "active@test.com", name: "ActiveUser", tier: "pro", portfolioCount: 1, billingStatus: "active" },
+      { uid: "p", email: "pastdue@test.com", name: "PastDueUser", tier: "pro", portfolioCount: 1, billingStatus: "past_due" },
+    ]);
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    await screen.findByText("ActiveUser");
+    expect(screen.getByText("PastDueUser")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Past due" }));   // filter chip
+    expect(screen.queryByText("ActiveUser")).toBeNull();                 // filtered out
+    expect(screen.getByText("PastDueUser")).toBeInTheDocument();         // kept
+  });
+
+  it("ADMIN-1: the Overview 'Billing & webhooks' card lists recent webhook events", async () => {
+    listWebhookEvents.mockResolvedValueOnce([
+      { id: "WH-1", type: "BILLING.SUBSCRIPTION.ACTIVATED", atMs: Date.now() - 60000 },
+    ]);
+    render(<AdminDashboard />);
+    await waitFor(() => expect(listWebhookEvents).toHaveBeenCalled());   // loads on the Overview tab
+    expect(await screen.findByText("Billing & webhooks")).toBeInTheDocument();
+    expect(await screen.findByText("Subscription activated")).toBeInTheDocument();   // the event row
+    expect(screen.getByText(/1 processed/)).toBeInTheDocument();
+  });
+
+  it("ADMIN-1: the webhook card shows the reassuring empty-state before any events (default pre-launch view)", async () => {
+    // The default listWebhookEvents mock returns [] — the state every admin sees pre-launch.
+    render(<AdminDashboard />);
+    await waitFor(() => expect(listWebhookEvents).toHaveBeenCalled());
+    expect(await screen.findByText("Billing & webhooks")).toBeInTheDocument();
+    expect(await screen.findByText(/empty list is expected before launch/i)).toBeInTheDocument();
   });
 });

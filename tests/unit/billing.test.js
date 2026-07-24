@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   planTier, activationPatch, salePatch, cancellationPatch,
   cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
+  billingStatusOf,
 } from "../../functions/billing.js";
 
 // BL-1b/BL-1f (D6 + ERRORS.md B8): the PayPal webhook / cancellation / revenue
@@ -167,5 +168,27 @@ describe("billing.webhookEventKey (D6 idempotency key)", () => {
     expect(webhookEventKey({})).toBeNull();
     expect(webhookEventKey({ id: 42 })).toBeNull();
     expect(webhookEventKey({ id: "x".repeat(201) })).toBeNull();
+  });
+});
+
+describe("billing.billingStatusOf (ADMIN-1: derive status from persisted fields)", () => {
+  it("a paid tier with no marker is 'active'", () => {
+    expect(billingStatusOf({ tier: "pro" })).toBe("active");
+    expect(billingStatusOf({ tier: "premium", subscription: {} })).toBe("active");
+  });
+  it("free with no subscription is 'none'", () => {
+    expect(billingStatusOf({ tier: "free" })).toBe("none");
+    expect(billingStatusOf({})).toBe("none");            // missing tier defaults to free
+    expect(billingStatusOf(null)).toBe("none");
+  });
+  it("a cancelled marker is 'canceled' even while access continues (tier still paid)", () => {
+    expect(billingStatusOf({ tier: "premium", subscription: { cancelled: true, endDate: "2099-01-01" } })).toBe("canceled");
+  });
+  it("a cancelled marker kept on a swept-to-free account (R29 re-checkout pending) still reads 'canceled'", () => {
+    expect(billingStatusOf({ tier: "free", subscription: { cancelled: true, downgradeTo: "pro" } })).toBe("canceled");
+  });
+  it("a failed payment (or PayPal SUSPENDED) is 'past_due' — and OUTRANKS cancelled (most urgent first)", () => {
+    expect(billingStatusOf({ tier: "pro", subscription: { paymentFailed: true } })).toBe("past_due");
+    expect(billingStatusOf({ tier: "premium", subscription: { paymentFailed: true, cancelled: true } })).toBe("past_due");
   });
 });

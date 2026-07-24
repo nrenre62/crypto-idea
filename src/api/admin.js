@@ -28,6 +28,13 @@ export async function listAudit(limit = 100) {
   return (res.data && res.data.entries) || [];
 }
 
+// ADMIN-1: recent PayPal webhook-processing events (id, type, atMs) for the
+// Overview billing/webhook-health card. Read-only. Returns an array (newest first).
+export async function listWebhookEvents(limit = 50) {
+  const res = await httpsCallable(functions, "listWebhookEvents")({ limit });
+  return (res.data && res.data.events) || [];
+}
+
 // Look up one user by email (support/moderation). Returns the user detail object.
 export async function lookupUser(email) {
   const res = await httpsCallable(functions, "lookupUser")({ email });
