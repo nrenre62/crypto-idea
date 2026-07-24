@@ -244,7 +244,18 @@ state/timer + new actions) · docs: `CLAUDE.md` "Admin & privacy", `BACKEND-ADMI
 `ISOLATION.md`, `API-SECURITY.md` + `openapi.json`, this file, `NEXT-STEPS.md` §ADMIN (ADMIN-SEC).
 Local-first / emulator-verifiable, no Blaze. Runs the full §PROCESS interview+sweep when built.
 
-## 🖼️ Full-panel mockup — all five tabs (📋 PLAN, founder 2026-07-18)
+## 🖼️ Full-panel mockup — all five tabs (✅ BUILT 2026-07-24 via ADMIN-D2; mockup by founder 2026-07-18)
+
+> **✅ BUILT (ADMIN-D2, 2026-07-24):** the four remaining tabs (Overview · Users · Trash · Audit) plus
+> the header, segmented tab bar, role notice, step-up unlock modal and footer are now on the `.ci-app`
+> paper design — the whole panel is paper, no grey left. The two new capabilities shipped: **one shared
+> toast** (`adm-toast`) replacing `savedMsg`/`actionMsg`, and **pre-empting a blocked owner delete** with
+> a warn toast instead of opening the typed-DELETE confirm. The three ADMIN-SEC-superseded areas were NOT
+> built as drawn. The build constraints below were honoured except the **dark pass**, which is **N/A** for
+> the admin app (it never sets `html[data-theme]`, so it renders light paper only — see § Settings redesign).
+> a11y gaps fixed (user rows → keyboard `<button>`s, tier-bar keeps a text legend, trash urgency is
+> colour + a word, card titles are headings). Grids ported to the app's `auto-fit` responsive standard.
+> `adm-*` classes live in `src/styles/admin-settings.css`, verified out of the user bundle.
 
 **Mockup:** [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) — an **interactive**
 prototype of the whole panel (Overview · Users · Trash · Settings · Audit) in the `.ci-app` paper design.

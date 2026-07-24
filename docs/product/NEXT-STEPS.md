@@ -108,7 +108,8 @@ trend snapshots). Phases (KISS-first, most valuable first):
       · build clean (name-guard) · browser-checked as owner** (paper renders, drill-in nav works, Admin
       access search wired, 0 console errors). Reskin covers the Settings tab **only**; the header, tab bar
       and other four tabs stay grey until **ADMIN-D2**.
-- [ ] **ADMIN-D2 · Paper reskin — the other four tabs** (🎨 design-only · 🟡 med · founder 2026-07-18)
+- [x] **ADMIN-D2 · Paper reskin — the other four tabs** (🎨 design-only · 🟡 med · founder 2026-07-18 ·
+      **✅ BUILT 2026-07-24**)
       — extend the ADMIN-D paper design to **Overview · Users · Trash · Audit** so the panel isn't
       half-paper/half-grey. Visual spec = the interactive
       [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) (tabs switch, Overview
@@ -124,6 +125,28 @@ trend snapshots). Phases (KISS-first, most valuable first):
       tier bar, non-keyboard user rows, non-heading card titles). Leave room for ADMIN-1's billing
       block and ADMIN-3's audit controls so those screens aren't redesigned twice. **Sequence after
       ADMIN-SEC + ADMIN-D.** Local-first / emulator-verifiable; runs the §PROCESS interview+sweep.
+      **✅ BUILT 2026-07-24 (this session):** the whole panel now renders inside ONE `.ci-app` wrapper —
+      **Overview · Users · Trash · Audit** plus the header, tab bar, role notice, step-up unlock modal
+      and footer are on the paper design (Overview = paper stat tiles + revenue/usage/tier cards +
+      plan-limits grid; Users = paper list with the search/filter/pager, and a per-user **drill-in**
+      via `DHead` back-chevron; Trash + Audit = paper `adm-list` rows). Added **one shared toast**
+      (`adm-toast`, ok/err/warn/info) that mirrors the hook's `savedMsg`+`actionMsg` — the two inline
+      status fields are gone — and **pre-empting an owner delete** with a warn toast instead of opening
+      the dead-end typed-DELETE confirm (server gate unchanged). **a11y fixes:** user rows are now
+      `<button>`s (keyboard-reachable), card titles use headings/`card-title`, the tier bar keeps a
+      text legend (not colour-only), trash urgency is colour **+ a word**. **Responsive:** ported to the
+      app's `auto-fit` grids (`grid-auto` / `adm-stats` / `adm-plans`) — desktop-first, collapses narrow.
+      Files: `src/components/admin-dashboard.jsx` (rewritten presentation-only — every hook handler
+      unchanged; the old `c` inline-style object + `Bdg` are gone, replaced by paper classes + a
+      `TierPill`) · new **`adm-*` classes appended to `src/styles/admin-settings.css`** (admin-only,
+      **verified out of the user bundle** — `dist/app.html` links only `app.css`; `.adm-*` appear only
+      in the admin CSS chunk). **Dark mode is N/A** (admin renders light paper only — the admin app never
+      sets `html[data-theme]`; the "add the dark pass" build-constraint line is moot here, noted so it
+      isn't re-litigated). The three ADMIN-SEC-superseded areas were already handled in ADMIN-SEC/ADMIN-D
+      and are **not** in the panel. Verified: **552/552 unit · build clean (name-guard) · admin CSS out
+      of the user bundle · browser-checked as owner** (all four tabs paper, drill-in nav, shared toast
+      ok+warn kinds, owner-delete pre-empt fires + confirm stays closed, 0 console errors). The whole
+      admin panel is now **fully paper** — no grey left.
 - [x] **ADMIN-D3 · Fold "Admin access" into Settings** (🎨 IA / design-only · founder 2026-07-23 ·
       **✅ BUILT 2026-07-23 with ADMIN-D** — Admin access is now the last Settings drill-in row; the
       separate top-level tab is gone (owner tabs 6→5); the grant flow + `setManagerRole` gate unchanged) —
