@@ -7,13 +7,8 @@
 // Pure + unit-tested. (Current market value isn't included — the export holds your own
 // data only, no live prices.)
 import { txCreatedMillis } from "./tx.js";
-
-// CSV-escape one field: wrap in quotes if it contains a comma, quote, or newline.
-function esc(v) {
-  const s = v == null ? "" : String(v);
-  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-}
-const row = (cells) => cells.map(esc).join(",");
+// ADMIN-3: esc/row moved to the shared csv.js so the admin exports quote identically.
+import { row } from "./csv.js";
 
 // Round to `dp` decimals and drop float noise / trailing zeros (0.3, not 0.30000000004).
 const num = (n, dp) => {

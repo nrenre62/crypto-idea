@@ -21,6 +21,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, updateUserSettings, CONSENT_VERSION } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier, reconcileMyCounters as apiReconcileMyCounters, resolveRecheckout as apiResolveRecheckout, reactivateSubscription as apiReactivateSubscription } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
+import { CSV_BOM } from "./utils/csv.js";
 import {
   createPortfolio as dbCreatePortfolio,
   deletePortfolio as dbDeletePortfolio,
@@ -401,7 +402,7 @@ export default function CryptoIdea(){
       const data=await exportMyData();
       const csv=buildPortfolioCsv(data);
       // Prepend a UTF-8 BOM so Excel opens the file with the right encoding.
-      const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
+      const blob=new Blob([CSV_BOM+csv],{type:"text/csv;charset=utf-8"});
       const url=URL.createObjectURL(blob);
       const a=document.createElement("a");a.href=url;a.download="crypto-idea-portfolio.csv";a.click();
       URL.revokeObjectURL(url);

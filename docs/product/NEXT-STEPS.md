@@ -86,9 +86,79 @@ trend snapshots). Phases (KISS-first, most valuable first):
       **Sentry** (functions + client) + one uptime/cron monitor + 2–3 alert rules (error spike /
       webhook fail / upstream) + a tiny status strip in Overview. Failure visibility via external tools,
       not a hand-built dashboard.
-- [ ] **ADMIN-3 · Audit & data hygiene** (🟠 high / 🟡 med) — audit tab **filter + pagination + CSV
+- [x] **ADMIN-3 · Audit & data hygiene** (🟠 high / 🟡 med · **✅ BUILT 2026-07-24**) — audit tab **filter + pagination + CSV
       export** + a source-IP field; a **retention TTL** (ties to §C C15); **user-list CSV/JSON export**
       (quick win); **config change versioning / diff** (store prior values in the audit entry).
+      **✅ BUILT 2026-07-24 (this session).** Founder decisions: filtering **client-side** over the existing
+      fetch (no composite indexes / cursor API — the Users-tab pattern); source IP on **every** audited
+      event, self-service included; config diff with **before→after values, secrets redacted**.
+      **Scope correction:** the **retention TTL already shipped** — `purgeOldAudit` has swept a 365-day
+      `AUDIT_RETENTION_MS` daily since BATCH-3 (C-R2c); this round only documents it in the UI.
+      **JSON export was NOT built** — CSV only for both tabs; nothing in the panel needed the raw shape,
+      and the users list is already available as JSON to a developer via the callable.
+      - **Source IP** (`functions/net-utils.js` `auditIp`): reuses the rate limiter's **spoof-resistant**
+        right-anchored X-Forwarded-For rule, because a *forgeable* origin in an audit log is worse than
+        none — it would put an innocent address next to someone else's action. ⚠️ **Empty in the
+        emulator** (verified live): the functions emulator passes a **synthetic `rawRequest` with headers
+        only** — no `ip`, no `socket`, no XFF — so there is genuinely no origin to record locally. The
+        render path was proven live by seeding an entry with an IP. **The real value can only be
+        confirmed after deploy.**
+      - **Pre-existing bug found + fixed while building:** `isValidIp` rejected **IPv4-mapped IPv6**
+        (`::ffff:x.x.x.x`, what a dual-stack Node/Express server puts in `req.ip`), so `clientIp` fell
+        through to `"unknown"` and **every such caller shared ONE rate-limit bucket**. Fixed, plus a new
+        `normalizeIp` folding the mapped form to its IPv4 so one client is one bucket whichever form the
+        platform reports. Regression-tested.
+      - **Config diff** (new pure `functions/config-diff.js`, unit-tested): `saveConfig` now logs
+        `flags.maintenance: false → true`-style changes instead of "updated app config". Secrets never
+        leak — a `keep()`-guarded field records only `(changed)`, asserted for **every** entry in
+        `SECRET_PATHS`. Walks the keys of the **written** doc only (`{merge:true}` means an omitted key is
+        kept, so walking the union would log phantom removals). `DETAILS_MAX` = **500** = the
+        `AuditEntry.details.maxLength` the API contract declares — a mismatch found and closed during
+        the sweep.
+      - **Audit tab**: search (actor/target/details/IP) · action filter listing only the actions actually
+        present · 50/page pager · **Load more** deepening the fetch to `listAudit`'s 500 clamp.
+      - **CSV export** on the Audit **and** Users tabs — exactly the filtered rows on screen, with a
+        disclosure that a downloaded copy leaves the 365-day retention + erasure controls. New pure
+        `src/utils/export-admin-csv.js`; CSV escaping extracted to a shared `src/utils/csv.js` (the user
+        export now imports it, so there is one implementation).
+      Files: `functions/net-utils.js` · new `functions/config-diff.js` · `functions/index.js` ·
+      `src/hooks/useAdminDashboard.js` · `src/components/admin-dashboard.jsx` ·
+      `src/styles/admin-settings.css` (`adm-count-row`/`adm-select`) · new `src/utils/csv.js` +
+      `src/utils/export-admin-csv.js` · `src/CryptoIdea.jsx` (uses the shared BOM) · `openapi.json`
+      (`AuditEntry.ip` + a `details` description) · `CLAUDE.md` · `API-SECURITY.md`.
+      Verified: **unit suite green · build clean (name-guard) · admin CSS out of the user bundle ·
+      browser-checked live as owner** (real tier-change + config-save entries; the diff rendered with
+      `coingecko: (changed)` / `paypal.secret: (changed)` and truncation, the action filter and IP
+      search each narrowed to 1 of 6, both Export buttons enable/disable correctly, 0 console errors).
+      **Adversarial review (4 dimensions) folded in — 8 fixes, all with regression tests:**
+      1. 🔴 **CSV injection (CWE-1236)** — a user naming themselves `=HYPERLINK("http://evil","x")`
+         would execute a formula inside the admin's spreadsheet. `csv.esc` now prefixes a
+         `= + - @ TAB CR` lead with `'`, **exempting plain numbers** so `-12.5` stays numeric. Fixes
+         the **user portfolio export too** (shared escaper).
+      2. 🔴 **Privilege leak the diff itself created** — `listAudit` is `assertAdmin`, but Settings is
+         owner-only + step-up re-auth, so the new diff would have shown plan prices / legal IDs /
+         PayPal client id to any **manager**. New pure `auditDetailsFor()` withholds a `saveConfig`
+         entry's details from a non-owner (the trail stays, the content doesn't).
+      3. **Secret rotations now sort FIRST** in the diff — on a first save the 500-char cap would
+         otherwise truncate away exactly the "an API key was set" lines.
+      4. **Silent 500 cap** → the tab now says older entries may exist and aren't in the export.
+      5. **Stale pager index** — Prev/Next now step from the *clamped* page (a shrunken reload left
+         Prev enabled but dead). Same one-line fix applied to the Users pager.
+      6. **Failed load no longer also claims "No admin actions logged yet"** (same error+reassurance
+         contradiction fixed for the ADMIN-1 webhook card).
+      7. **Action filter keeps its selection** when a reload drops that action (was: blank `<select>`).
+      8. `isValidIp` **shape-gate tightened** (`:::::`, `1::2::3`, `12345::1` rejected) so colon-junk
+         can't be recorded as an origin; blob URL revoked on the next tick, not synchronously.
+      ⚠️ **One finding NOT fixed — it cannot be settled locally.** `RL_TRUSTED_HOPS` (how many hops the
+      platform appends to X-Forwarded-For) is **per ingress path**, and one constant is applied to both
+      `/api/*` (via Hosting) and callables (direct on `cloudfunctions.net`). If the callable chain is
+      shorter than the configured count, the recorded IP is the caller-supplied token — **forgeable**.
+      The emulator sends no XFF at all, so this needs a prod log. **`audit.ip` is therefore advisory,
+      not evidence, until go-live item 26** (sharpened to cover both paths). Not an authorization
+      fail-open — nothing is authorized on the IP.
+      **Accepted with reason (not fixed):** `diffConfig` logs nothing for an object→scalar change —
+      `saveConfig` builds a fixed shape, so that transition cannot occur; fixing it would add branching
+      for an unreachable case.
 - [ ] **ADMIN-4 · Growth metrics** (🟡 med) — a daily scheduled snapshot `stats/daily/{date}` (counts +
       per-tier revenue, reusing `getStats` math) → Overview renders **MRR/subs/signup trend + churn**.
       GA4/Plausible already cover engagement; this fills the revenue/churn gap they can't see.

@@ -280,4 +280,190 @@ describe("admin-dashboard", () => {
     expect(await screen.findByText("Billing & webhooks")).toBeInTheDocument();
     expect(await screen.findByText(/empty list is expected before launch/i)).toBeInTheDocument();
   });
+
+  /* ═══ ADMIN-3 — audit filter / pagination / export + source IP ═══ */
+
+  // Three entries with distinct actions + actors so filtering and search are provable.
+  const AUDIT_ROWS = [
+    { id: "e1", atMs: Date.UTC(2026, 6, 24, 9, 0, 0), action: "setUserTier", actorEmail: "owner@test.com", targetEmail: "alice@test.com", targetUid: "u1", details: "tier=pro", ip: "203.0.113.9" },
+    { id: "e2", atMs: Date.UTC(2026, 6, 24, 8, 0, 0), action: "suspendUser", actorEmail: "mgr@test.com", targetEmail: "bob@test.com", targetUid: "u2", details: "", ip: "198.51.100.4" },
+    { id: "e3", atMs: Date.UTC(2026, 6, 24, 7, 0, 0), action: "saveConfig", actorEmail: "owner@test.com", targetEmail: "", targetUid: "", details: "flags.maintenance: false → true", ip: "" },
+  ];
+  const openAudit = async (rows = AUDIT_ROWS) => {
+    listAudit.mockResolvedValueOnce(rows);
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Audit" }));
+    await waitFor(() => expect(listAudit).toHaveBeenCalled());
+  };
+  // The action <select> lists the same friendly labels as the rows, so every row
+  // assertion scopes to the row's .act element — otherwise it matches the <option> too.
+  const actRow = (label) => screen.getByText(label, { selector: ".act" });
+  const noActRow = (label) => screen.queryByText(label, { selector: ".act" });
+
+  it("ADMIN-3: an audit row shows the source IP it was performed from", async () => {
+    await openAudit();
+    expect(await screen.findByText(/from 203\.0\.113\.9/)).toBeInTheDocument();
+  });
+
+  it("ADMIN-3: the saveConfig entry shows WHAT changed, not just 'updated app config'", async () => {
+    await openAudit();
+    expect(await screen.findByText(/flags\.maintenance: false → true/)).toBeInTheDocument();
+    expect(screen.queryByText(/updated app config/)).toBeNull();
+  });
+
+  it("ADMIN-3: the action filter narrows the log to one action type", async () => {
+    await openAudit();
+    await screen.findByText("Changed tier", { selector: ".act" });
+    expect(actRow("Suspended user")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Filter by action"), { target: { value: "suspendUser" } });
+    expect(noActRow("Changed tier")).toBeNull();            // filtered out
+    expect(actRow("Suspended user")).toBeInTheDocument();   // kept
+  });
+
+  it("ADMIN-3: search matches the actor, the target and the IP", async () => {
+    await openAudit();
+    const box = await screen.findByPlaceholderText(/Search actor, target, details or IP/i);
+    fireEvent.change(box, { target: { value: "bob@test.com" } });   // by target
+    expect(actRow("Suspended user")).toBeInTheDocument();
+    expect(noActRow("Changed tier")).toBeNull();
+    fireEvent.change(box, { target: { value: "203.0.113.9" } });    // by IP
+    expect(actRow("Changed tier")).toBeInTheDocument();
+    expect(noActRow("Suspended user")).toBeNull();
+  });
+
+  it("ADMIN-3: the filter says so when nothing matches, rather than looking like an empty log", async () => {
+    await openAudit();
+    const box = await screen.findByPlaceholderText(/Search actor, target, details or IP/i);
+    fireEvent.change(box, { target: { value: "no-such-thing" } });
+    expect(screen.getByText("No entries match this filter.")).toBeInTheDocument();
+    expect(screen.queryByText("No admin actions logged yet.")).toBeNull();
+  });
+
+  it("ADMIN-3: the audit log paginates at 50 per page", async () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({
+      id: "x" + i, atMs: Date.UTC(2026, 6, 24) - i * 1000, action: "setUserTier",
+      actorEmail: `a${i}@test.com`, targetEmail: "", targetUid: "", details: "", ip: "",
+    }));
+    await openAudit(many);
+    expect(await screen.findByText("Page 1 of 2")).toBeInTheDocument();
+    // Assert the page really is 50 rows — "Page 1 of 2" would still render if the pager
+    // computed pages correctly but sliced nothing.
+    expect(document.querySelectorAll(".adm-aud")).toHaveLength(50);
+    expect(screen.getByText("a0@test.com", { exact: false })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+    expect(document.querySelectorAll(".adm-aud")).toHaveLength(10);   // the remainder
+    expect(screen.queryByText("a0@test.com", { exact: false })).toBeNull();
+  });
+
+  it("ADMIN-3: 'Load more' re-fetches a deeper slice only when the page came back full", async () => {
+    // 100 rows == the default limit, so older entries may exist → the button shows.
+    const full = Array.from({ length: 100 }, (_, i) => ({
+      id: "y" + i, atMs: Date.UTC(2026, 6, 24) - i * 1000, action: "setUserTier",
+      actorEmail: "a@test.com", targetEmail: "", targetUid: "", details: "", ip: "",
+    }));
+    await openAudit(full);
+    const more = await screen.findByRole("button", { name: /Load more/ });
+    fireEvent.click(more);
+    await waitFor(() => expect(listAudit).toHaveBeenLastCalledWith(500));
+  });
+
+  it("ADMIN-3: no 'Load more' when the log is shorter than the fetch limit", async () => {
+    await openAudit();   // 3 rows < 100
+    await screen.findByText("Changed tier", { selector: ".act" });
+    expect(screen.queryByRole("button", { name: /Load more/ })).toBeNull();
+  });
+
+  it("ADMIN-3: both tabs offer a CSV export, disabled when there is nothing to export", async () => {
+    await openAudit();
+    await screen.findByText("Changed tier", { selector: ".act" });
+    expect(screen.getByRole("button", { name: "Export CSV" })).toBeEnabled();
+    // Filter down to nothing → the export must not offer an empty file.
+    fireEvent.change(await screen.findByPlaceholderText(/Search actor, target, details or IP/i), { target: { value: "zzz" } });
+    expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+
+    cleanup();
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    await screen.findByText("Alice");
+    expect(screen.getByRole("button", { name: "Export CSV" })).toBeEnabled();
+  });
+
+  it("ADMIN-3: the audit tab discloses that an exported copy leaves the retention controls", async () => {
+    await openAudit();
+    expect(await screen.findByText(/leaves the app's 365-day retention/i)).toBeInTheDocument();
+  });
+
+  it("ADMIN-3: a failed load shows the error and does NOT also claim the log is empty", async () => {
+    // "Could not load…" next to "No admin actions logged yet" reads as reassurance that
+    // nothing happened, which is the opposite of what a failed audit load means.
+    listAudit.mockRejectedValueOnce(new Error("unavailable"));
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Audit" }));
+    expect(await screen.findByText(/unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByText("No admin actions logged yet.")).toBeNull();
+  });
+
+  it("ADMIN-3: at the server's 500 cap it SAYS older entries may not be shown", async () => {
+    // A silent cap reads as "this is the whole log" — and the export would quietly omit
+    // older activity while the UI calls it a copy of the log. Walk the REAL path: a full
+    // 100-row first page → Load more → the server's 500-row clamp.
+    const rows = (n, tag) => Array.from({ length: n }, (_, i) => ({
+      id: tag + i, atMs: Date.UTC(2026, 6, 24) - i * 1000, action: "setUserTier",
+      actorEmail: "a@test.com", targetEmail: "", targetUid: "", details: "", ip: "",
+    }));
+    await openAudit(rows(100, "p"));
+    listAudit.mockResolvedValueOnce(rows(500, "q"));
+    fireEvent.click(await screen.findByRole("button", { name: /Load more/ }));
+    await waitFor(() => expect(listAudit).toHaveBeenLastCalledWith(500));
+
+    expect(await screen.findByText(/older entries may exist in the log/i)).toBeInTheDocument();
+    // Nothing deeper to ask for, so the button must not promise more.
+    expect(screen.queryByRole("button", { name: /Load more/ })).toBeNull();
+  });
+
+  it("ADMIN-3: clicking Export CSV writes exactly the FILTERED rows, not the whole log", async () => {
+    // The UI tells the operator the file matches what's on screen. Nothing tested the
+    // wiring, so the builders could have been handed the unfiltered list and every unit
+    // test would still pass. jsdom has no object-URL plumbing — stub it and read the Blob.
+    const blobs = [];
+    const origCreate = URL.createObjectURL, origRevoke = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn((b) => { blobs.push(b); return "blob:mock"; });
+    URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    try {
+      await openAudit();
+      await screen.findByText("Changed tier", { selector: ".act" });
+      fireEvent.change(screen.getByLabelText("Filter by action"), { target: { value: "suspendUser" } });
+      fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+
+      expect(blobs).toHaveLength(1);
+      // NB: Blob.text() decodes via TextDecoder, which strips a leading BOM — so the BOM
+      // cannot be asserted from here even though the downloaded file carries it. The
+      // CSV_BOM constant itself is pinned by tests/unit/csv.test.js.
+      const text = await blobs[0].text();
+      expect(text).toContain("When (UTC),Action,Actor,Target,Details,Source IP");
+      expect(text).toContain("suspendUser");
+      expect(text).toContain("198.51.100.4");
+      // The two filtered-out entries must NOT be in the file.
+      expect(text).not.toContain("setUserTier");
+      expect(text).not.toContain("saveConfig");
+      expect(text.trim().split("\n")).toHaveLength(2);               // header + 1 row
+      expect(clickSpy).toHaveBeenCalled();
+    } finally {
+      URL.createObjectURL = origCreate; URL.revokeObjectURL = origRevoke; clickSpy.mockRestore();
+    }
+  });
+
+  it("ADMIN-3: the action filter keeps its selection visible after a reload that drops it", async () => {
+    await openAudit();
+    fireEvent.change(await screen.findByLabelText("Filter by action"), { target: { value: "saveConfig" } });
+    // Reload returns a slice with no saveConfig entry at all.
+    listAudit.mockResolvedValueOnce([AUDIT_ROWS[0]]);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(listAudit).toHaveBeenCalledTimes(2));
+    // The <select> must still show the active filter rather than rendering blank.
+    expect(screen.getByLabelText("Filter by action")).toHaveValue("saveConfig");
+    expect(screen.getByText("No entries match this filter.")).toBeInTheDocument();
+  });
 });

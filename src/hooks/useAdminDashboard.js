@@ -9,6 +9,13 @@ const UNLOCK_MS = 10 * 60 * 1000;
 // can tell "cancelled" apart from "succeeded".
 const CANCELLED = Symbol("unlock-cancelled");
 
+// ADMIN-3: how deep the audit fetch goes. The first load asks for AUDIT_PAGE_LIMIT;
+// "Load more" re-fetches at AUDIT_MAX_LIMIT, which mirrors listAudit's server-side
+// clamp — going past it needs a cursor API, so the UI stops offering it instead of
+// pretending there is more to load.
+const AUDIT_PAGE_LIMIT = 100;
+const AUDIT_MAX_LIMIT = 500;
+
 // Combined real usage shown on the Overview before getStats resolves (no fake data).
 const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0, grossRevenue: 0, paymentFees: 0, netRevenue: 0, proPrice: 9.99, premiumPrice: 49.99 };
 
@@ -191,6 +198,14 @@ export function useAdminDashboard() {
   const [audit, setAudit] = useState(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditMsg, setAuditMsg] = useState("");
+  // ADMIN-3: audit search / action filter / pager — all client-side over the loaded
+  // page, exactly like the Users tab. `auditLimit` is how many rows the last fetch
+  // asked for; "Load more" raises it toward the server's 500 clamp, so a bigger log
+  // stays reachable without composite indexes or a cursor API.
+  const [auditQ, setAuditQ] = useState("");
+  const [auditAction, setAuditAction] = useState("all");
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditLimit, setAuditLimit] = useState(AUDIT_PAGE_LIMIT);
   // ADMIN-1: Overview billing/webhook-health card — recent processed PayPal events.
   const [webhookEvents, setWebhookEvents] = useState(null);
   const [webhookLoading, setWebhookLoading] = useState(false);
@@ -230,9 +245,13 @@ export function useAdminDashboard() {
   // Load the user list the first time the Users or Trash tab is opened (both read it).
   useEffect(() => { if ((tab === "users" || tab === "trash") && userList === null && !listLoading) loadUserList(); }, [tab]);
 
-  const loadAudit = async () => {
+  // ADMIN-3: `limit` is explicit so "Load more" can re-fetch a deeper slice. The
+  // server clamps it to 500, and AUDIT_MAX_LIMIT mirrors that so the button can
+  // disappear once there is nothing deeper to ask for.
+  const loadAudit = async (limit = AUDIT_PAGE_LIMIT) => {
+    const want = Math.min(Math.max(Number(limit) || AUDIT_PAGE_LIMIT, 1), AUDIT_MAX_LIMIT);
     setAuditLoading(true); setAuditMsg("");
-    try { setAudit(await listAudit(100)); }
+    try { setAudit(await listAudit(want)); setAuditLimit(want); }
     catch (e) { setAuditMsg((e && e.message) || "Could not load the audit log"); setAudit([]); }
     setAuditLoading(false);
   };
@@ -389,6 +408,9 @@ export function useAdminDashboard() {
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
     billingFilter, setBillingFilter,
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,
+    // ADMIN-3 — audit search / action filter / pager / fetch depth.
+    auditQ, setAuditQ, auditAction, setAuditAction, auditPage, setAuditPage,
+    auditLimit, AUDIT_MAX_LIMIT,
     webhookEvents, webhookLoading, webhookMsg, loadWebhookEvents,
     s,
     loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, changePremiumLimits, toggleSuspend, doDelete,

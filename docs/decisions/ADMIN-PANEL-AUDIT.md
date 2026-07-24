@@ -102,7 +102,7 @@ retention / NRR / LTV (external tools first) · proration preview (N/A — manua
 | **0 — Launch gate** | Don't expose real data/payments until done | MFA · App Check · `beforeCreate` hard signups · make `audit` append-only in rules | M (MFA is the weight) |
 | **1 — Billing-ops visibility** ⭐ | Highest *new* value the day you go live | Persist (if not already) + show PayPal **subscription id + status** on the user card · **past_due/canceled** filter · **webhook-health** list. Read-only; cancels/refunds stay in PayPal | M |
 | **2 — Operational safety net** | Stop flying blind | **Per-feature kill-switches** (extend `config/app.flags`) · wire **Sentry** + 1 uptime monitor + 2–3 alert rules (error spike / webhook fail / upstream) · tiny status strip in Overview | S–M |
-| **3 — Audit & data hygiene** | Make the log usable | Audit filter + pagination + **CSV export** + source-IP field · retention TTL (ties to C15) · **user-list export** · config **versioning/diff** | S–M |
+| **3 — Audit & data hygiene** ✅ **BUILT 2026-07-24** | Make the log usable | Audit filter + pagination + **CSV export** + source-IP field · ~~retention TTL~~ (already shipped as `purgeOldAudit`, 365 d) · **user-list export** (CSV; JSON not built) · config **versioning/diff** (before→after, secrets redacted) | S–M |
 | **4 — Growth metrics** | See the business move | Daily scheduled snapshot `stats/daily/{date}` → Overview renders **MRR/subs/signup trend + churn** (reuses `getStats` math) | M |
 | **5 — Team-scale & support** | When a non-founder joins or it's needed | **RBAC roles** · impersonation (logged) · announcement banner · bulk actions · per-field filters · private notes | varies |
 

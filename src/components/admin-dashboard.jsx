@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { useAdminDashboard } from "../hooks/useAdminDashboard.js";
 import { trashDaysLeft, partitionUsers } from "../utils/trash.js";
+// ADMIN-3: CSV export of the audit log + the users list (pure builders; the download
+// plumbing is the saveCsv helper below).
+import { buildAuditCsv, buildUsersCsv } from "../utils/export-admin-csv.js";
+import { CSV_BOM } from "../utils/csv.js";
 
 /* ═══ ADMIN-D2 — the whole panel is on the .ci-app paper design ═══
    Overview · Users · Trash · Audit were reskinned from the old grey inline-styled
@@ -20,13 +24,40 @@ const TIERS = {
   premium: { label:"Premium", ink:"#7d4bbf",           soft:"#f3ecfb",                                           bar:"#7d4bbf", limits:{ portfolios:15, coins:1000, transactions:5000 }, storage:"15 GB",  price:"$49.99/mo" },
 };
 
-// Friendly labels for audit-log action codes.
-const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "Set custom limits", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", restoreUser: "Restored account", grantAdmin: "Granted admin", revokeAdmin: "Revoked admin", saveConfig: "Saved settings",
+// Friendly labels for audit-log action codes. Exported so tests/unit/audit-labels.test.js
+// can assert it covers EVERY action functions/index.js actually writes — an unlabelled
+// action silently degrades to a raw camelCase code in front of the operator, and it also
+// disappears from the ADMIN-3 action filter's readable ordering.
+export const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "Set custom limits", suspendUser: "Suspended user", unsuspendUser: "Un-suspended user", deleteUser: "Deleted account", restoreUser: "Restored account", saveConfig: "Saved settings",
+  // ADMIN-SEC: the server writes grantManager/revokeManager. The old grantAdmin/revokeAdmin
+  // codes were left behind by the setAdminClaim removal and never matched a real entry.
+  grantManager: "Granted manager role", revokeManager: "Revoked manager role",
   // BL-2 admin actions + BL-1d self-service/billing events (all audited server-side)
   adminTrashUser: "Moved to trash", adminSignOutUser: "Signed user out everywhere",
   selfDeleteAccount: "User deleted own account", selfRestoreAccount: "User restored own account",
   signOutEverywhere: "User signed out everywhere", exportMyData: "User exported data",
-  createSubscription: "Started subscription checkout", cancelSubscription: "Cancelled subscription" };
+  createSubscription: "Started subscription checkout", cancelSubscription: "Cancelled subscription",
+  // DI/R29 self-service repair + billing recovery
+  reconcileMyCounters: "User repaired their counters", resolveRecheckout: "User resolved a re-checkout",
+  reactivateSubscription: "User reactivated subscription" };
+
+/* ═══ ADMIN-3 — CSV export ═══
+   Both exports are built from the rows already on screen, so a download always
+   matches the filtered view. They contain personal data (emails, and source IPs in
+   the audit file): once saved they are outside the app's retention + erasure
+   controls, which is why the UI says so next to the buttons. */
+function saveCsv(filename, text) {
+  // BOM-prefixed so Excel on Windows reads it as UTF-8 rather than the local codepage.
+  const blob = new Blob([CSV_BOM + text], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  // Revoke on the next tick, not synchronously: some browsers have not finished reading
+  // the blob when click() returns, and a revoked URL yields an empty download.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+// UTC date stamp for export filenames (YYYY-MM-DD).
+const stamp = () => new Date().toISOString().slice(0, 10);
 
 /* ═══ ADMIN-D + ADMIN-D3 — Settings paper drill-in primitives ═══
    Mirror Account.jsx's NavRow / CtrlRow / Switch; the inline SVGs come 1:1 from
@@ -182,6 +213,7 @@ export default function AdminDashboard() {
     userList, listMsg, listLoading, q, setQ, page, setPage, PAGE_SIZE,
     billingFilter, setBillingFilter,
     audit, auditLoading, auditMsg,
+    auditQ, setAuditQ, auditAction, setAuditAction, auditPage, setAuditPage, auditLimit, AUDIT_MAX_LIMIT,
     webhookEvents, webhookLoading, webhookMsg, loadWebhookEvents,
     s,
     saveConfig, saveControls, loadUserList, loadAudit, openUser, changeTier, changePremiumLimits, toggleSuspend,
@@ -547,7 +579,12 @@ export default function AdminDashboard() {
             const pg = Math.min(page, pages);
             const rows = filtered.slice((pg-1)*PAGE_SIZE, pg*PAGE_SIZE);
             return (<>
-              <div className="adm-count">{filtered.length.toLocaleString()} user{filtered.length===1?"":"s"}{needle?` matching “${q.trim()}”`:""}{userList.length>=5000?" · showing first 5,000":""}</div>
+              {/* ADMIN-3: export exactly the rows this filter is showing. */}
+              <div className="adm-count-row">
+                <span className="adm-count">{filtered.length.toLocaleString()} user{filtered.length===1?"":"s"}{needle?` matching “${q.trim()}”`:""}{userList.length>=5000?" · showing first 5,000":""}</span>
+                <button className="adm-btn sm" disabled={filtered.length === 0}
+                  onClick={() => saveCsv(`crypto-idea-users-${stamp()}.csv`, buildUsersCsv(filtered))}>Export CSV</button>
+              </div>
               <div className="adm-list">
                 {rows.length === 0 && <div className="adm-empty">No users found.</div>}
                 {rows.map(u => (
@@ -566,9 +603,10 @@ export default function AdminDashboard() {
               </div>
               {pages > 1 && (
                 <div className="adm-pager">
-                  <button className="adm-btn sm" onClick={() => setPage(p => Math.max(1, p-1))} disabled={pg<=1}>← Prev</button>
+                  {/* Step from the CLAMPED page — see the Audit pager note. */}
+                  <button className="adm-btn sm" onClick={() => setPage(Math.max(1, pg-1))} disabled={pg<=1}>← Prev</button>
                   <span className="pg">Page {pg} of {pages}</span>
-                  <button className="adm-btn sm" onClick={() => setPage(p => Math.min(pages, p+1))} disabled={pg>=pages}>Next →</button>
+                  <button className="adm-btn sm" onClick={() => setPage(Math.min(pages, pg+1))} disabled={pg>=pages}>Next →</button>
                 </div>
               )}
             </>);
@@ -872,28 +910,96 @@ export default function AdminDashboard() {
           );
         })()}
 
-        {/* ═══ AUDIT LOG ═══ */}
-        {tab === "audit" && (<>
-          <div className="adm-toolbar" style={{ justifyContent:"space-between" }}>
-            <div style={{ fontSize:11.5, color:"var(--ink-faint)", lineHeight:1.5 }}>Recent admin actions — tier changes, suspensions, deletes, admin grants, settings saves.</div>
-            <button className="adm-btn sm" onClick={loadAudit} disabled={auditLoading}>{auditLoading ? "…" : "Refresh"}</button>
-          </div>
-          {auditMsg && <div className="adm-inline-err">{auditMsg}</div>}
-          {auditLoading && !audit ? <div className="adm-loading">Loading…</div> :
-           audit && (audit.length === 0
-            ? <div className="adm-list"><div className="adm-empty">No admin actions logged yet.</div></div>
-            : <div className="adm-list">
-                {audit.map((e) => (
-                  <div key={e.id} className="adm-aud">
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div className="act">{ACTION_LABELS[e.action] || e.action}</div>
-                      <div className="meta">by {e.actorEmail || "—"}{(e.targetEmail || e.targetUid) ? " → " + (e.targetEmail || e.targetUid) : ""}{e.details ? " · " + e.details : ""}</div>
-                    </div>
-                    <div className="when">{e.atMs ? new Date(e.atMs).toLocaleString() : ""}</div>
+        {/* ═══ AUDIT LOG ═══
+            ADMIN-3: search + action filter + 50/page pager + CSV export, all client-side
+            over the fetched slice (the Users-tab pattern) — no composite indexes, no
+            cursor API. "Load more" deepens the fetch toward listAudit's 500 clamp. */}
+        {tab === "audit" && (() => {
+          const list = audit || [];
+          const needle = auditQ.trim().toLowerCase();
+          const searched = needle
+            ? list.filter(e => [e.actorEmail, e.targetEmail, e.targetUid, e.details, e.ip, ACTION_LABELS[e.action] || e.action]
+                .some(v => String(v || "").toLowerCase().includes(needle)))
+            : list;
+          const filtered = auditAction === "all" ? searched : searched.filter(e => e.action === auditAction);
+          const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+          const pg = Math.min(auditPage, pages);
+          const rows = filtered.slice((pg-1)*PAGE_SIZE, pg*PAGE_SIZE);
+          // Only offer filters for actions the loaded log actually contains — a dropdown
+          // of 17 mostly-absent codes is noise, and picking one would show nothing. Keep
+          // the CURRENT selection in the list even if a reload dropped it, or the <select>
+          // would render blank while still filtering everything out.
+          const present = new Set(list.map(e => e.action).filter(Boolean));
+          if (auditAction !== "all") present.add(auditAction);
+          const actions = Array.from(present)
+            .sort((a, b) => (ACTION_LABELS[a] || a).localeCompare(ACTION_LABELS[b] || b));
+          // At the server's clamp there may STILL be older entries, and nothing more to
+          // load. Say so — a silent cap reads as "this is the whole log" when it isn't.
+          const atServerCap = list.length >= AUDIT_MAX_LIMIT;
+          // The fetch came back full, so there may be older entries the server didn't send.
+          // `!atServerCap` is belt-and-braces: never offer to load deeper than the server
+          // will ever return, whatever limit the last fetch happened to ask for.
+          const canLoadMore = list.length >= auditLimit && auditLimit < AUDIT_MAX_LIMIT && !atServerCap;
+          return (<>
+            <div style={{ fontSize:11.5, color:"var(--ink-faint)", lineHeight:1.5, margin:"2px 2px 12px" }}>
+              Admin actions and sensitive account events — tier changes, suspensions, deletes, admin grants and settings saves, plus each user's own delete / export / billing events. Entries are kept for <b>365 days</b>, then purged automatically.
+            </div>
+            <div className="adm-toolbar">
+              <input className="field-input" value={auditQ} onChange={e => { setAuditQ(e.target.value); setAuditPage(1); }} placeholder="Search actor, target, details or IP…" />
+              <select className="field-input adm-select" value={auditAction} onChange={e => { setAuditAction(e.target.value); setAuditPage(1); }} aria-label="Filter by action">
+                <option value="all">All actions</option>
+                {actions.map(a => <option key={a} value={a}>{ACTION_LABELS[a] || a}</option>)}
+              </select>
+              <button className="adm-btn" onClick={() => loadAudit()} disabled={auditLoading}>{auditLoading ? "…" : "Refresh"}</button>
+            </div>
+            {auditMsg && <div className="adm-inline-err">{auditMsg}</div>}
+            {auditLoading && !audit ? <div className="adm-loading">Loading…</div> : audit && (<>
+              <div className="adm-count-row">
+                <span className="adm-count">{filtered.length.toLocaleString()} entr{filtered.length===1?"y":"ies"}{filtered.length !== list.length ? ` of ${list.length.toLocaleString()} loaded` : ""}</span>
+                <button className="adm-btn sm" disabled={filtered.length === 0}
+                  onClick={() => saveCsv(`crypto-idea-audit-${stamp()}.csv`, buildAuditCsv(filtered))}>Export CSV</button>
+              </div>
+              {list.length === 0
+                /* Only claim the log is empty when the load SUCCEEDED. On a failure the
+                   error above already explains it; "No admin actions logged yet" next to
+                   it would read as reassurance that nothing happened. */
+                ? (auditMsg ? null : <div className="adm-list"><div className="adm-empty">No admin actions logged yet.</div></div>)
+                : (<>
+                  <div className="adm-list">
+                    {rows.length === 0 && <div className="adm-empty">No entries match this filter.</div>}
+                    {rows.map((e) => (
+                      <div key={e.id} className="adm-aud">
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div className="act">{ACTION_LABELS[e.action] || e.action}</div>
+                          <div className="meta">by {e.actorEmail || "—"}{(e.targetEmail || e.targetUid) ? " → " + (e.targetEmail || e.targetUid) : ""}{e.details ? " · " + e.details : ""}{e.ip ? " · from " + e.ip : ""}</div>
+                        </div>
+                        <div className="when">{e.atMs ? new Date(e.atMs).toLocaleString() : ""}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>)}
-        </>)}
+                  {pages > 1 && (
+                    /* Step from the CLAMPED page, not the raw state: after a reload
+                       returns fewer entries, a stale high index would leave Prev enabled
+                       but dead (12 → 11 is still past the last page). */
+                    <div className="adm-pager">
+                      <button className="adm-btn sm" onClick={() => setAuditPage(Math.max(1, pg-1))} disabled={pg<=1}>← Prev</button>
+                      <span className="pg">Page {pg} of {pages}</span>
+                      <button className="adm-btn sm" onClick={() => setAuditPage(Math.min(pages, pg+1))} disabled={pg>=pages}>Next →</button>
+                    </div>
+                  )}
+                  {canLoadMore && (
+                    <div className="adm-pager">
+                      <button className="adm-btn sm" onClick={() => loadAudit(AUDIT_MAX_LIMIT)} disabled={auditLoading}>{auditLoading ? "Loading…" : `Load more (up to ${AUDIT_MAX_LIMIT})`}</button>
+                    </div>
+                  )}
+                  <div className="adm-hint" style={{ marginTop:10 }}>
+                    {atServerCap && <><b>Showing the most recent {AUDIT_MAX_LIMIT}</b> entries — that is the maximum this view can load, so older entries may exist in the log that are not shown here or included in the export.<br /></>}
+                    The export contains what's shown above, including email addresses and source IPs. A downloaded copy leaves the app's 365-day retention and erasure controls — store it accordingly.
+                  </div>
+                </>)}
+            </>)}
+          </>);
+        })()}
 
         <div className="adm-foot">
           Crypto Idea Admin · v4.3.0

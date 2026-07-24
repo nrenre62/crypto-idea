@@ -147,6 +147,13 @@
 .ci-app .adm-loading { text-align:center; color:var(--ink-faint); font-size:13px; padding:24px 0; }
 .ci-app .adm-count { font-size:11px; color:var(--ink-faint); margin:2px 2px 8px; }
 
+/* ADMIN-3 — the count line paired with its CSV-export button (Users + Audit). */
+.ci-app .adm-count-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:2px 2px 8px; }
+.ci-app .adm-count-row .adm-count { margin:0; }
+/* Action filter in the audit toolbar. Native select, restyled to the paper input so
+   it can't drift from field-input, and kept narrow so the search box keeps the room. */
+.ci-app .adm-select { flex:0 0 auto; max-width:190px; cursor:pointer; padding-right:12px; }
+
 /* Status pills (SUSPENDED / ADMIN / OWNER / MANAGER / NO ROLE). */
 .ci-app .adm-pill { font-size:9px; font-weight:700; letter-spacing:.05em; padding:3px 8px; border-radius:999px; flex:none; white-space:nowrap; }
 .ci-app .adm-pill.susp { background:var(--sr-s); color:var(--sr); }

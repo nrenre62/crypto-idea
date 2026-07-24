@@ -335,7 +335,14 @@ script can. So:
 ### Phase 7 — post-deploy verification
 24. `curl -sI https://<domain>/api/coinlist | grep -i cache-control` → must **not** be `no-cache`.
 25. `curl -sI https://<domain>/landing.js` → must be `no-cache`; `/assets/<hashed>.js` → `immutable`.
-26. Read a real `x-forwarded-for` in a Functions log to confirm `RL_TRUSTED_HOPS`.
+26. Read a real `x-forwarded-for` in a Functions log to confirm `RL_TRUSTED_HOPS` — **for BOTH
+    ingress paths separately**: `/api/*` (Firebase Hosting → Cloud Functions) *and* a **callable**
+    (invoked directly on `cloudfunctions.net`). The chains can differ in length, and one constant is
+    currently applied to both. Since **ADMIN-3** this also decides whether an audit entry's `ip` is
+    trustworthy: if the configured hop count exceeds the real chain, the value recorded is the
+    caller-supplied XFF token — forgeable. If the two paths differ, split the constant. Until this is
+    done, treat `audit.ip` as advisory, not evidence. Confirm by checking a real entry's `ip` matches
+    the address you actually called from.
 27. Create the Cloud Logging alert (§3).
 28. Register a throwaway account end-to-end: verification email, password reset, portfolio save,
     DCA calculator returning >365 days of history.

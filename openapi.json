@@ -3628,7 +3628,13 @@
           },
           "details": {
             "type": "string",
+            "description": "Free-text summary of the action. For saveConfig this is a field-level diff (old → new); secret values are never included, only '(changed)'. Bounded server-side to this maxLength (functions/config-diff.js DETAILS_MAX). ROLE-DEPENDENT: Settings is owner-only behind a step-up re-auth, so for a saveConfig entry a non-owner caller receives 'settings changed — details are visible to owners only' instead of the diff (functions/config-diff.js auditDetailsFor).",
             "maxLength": 500
+          },
+          "ip": {
+            "type": "string",
+            "description": "ADMIN-3: source IP the action came from, derived spoof-resistantly from X-Forwarded-For (functions/net-utils.js auditIp). Empty string when no origin is available — e.g. entries written before this field shipped, or under the functions emulator, whose synthetic request carries no address.",
+            "maxLength": 45
           },
           "atMs": {
             "type": "integer",

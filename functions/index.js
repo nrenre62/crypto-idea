@@ -45,7 +45,10 @@ const billing = require("./billing.js");
 // C-R2b (C14): trim the universe's lowest-rank tail instead of hitting the 1 MiB doc cap.
 const { trimUniverse } = require("./universe-utils.js");
 // API-SECURITY (2026-07-08): spoof-resistant client IP for the per-IP rate limiter.
-const { clientIp } = require("./net-utils.js");
+// ADMIN-3: auditIp reuses the same derivation to stamp audit entries with an origin.
+const { clientIp, auditIp } = require("./net-utils.js");
+// ADMIN-3: pure before/after config diff for the saveConfig audit entry (secrets redacted).
+const { diffConfig, formatConfigDiff, auditDetailsFor } = require("./config-diff.js");
 // How many trusted proxy hops the platform appends on the RIGHT of X-Forwarded-For.
 // Default 2 (common GCLB→Cloud Functions); confirm from a prod log + override if needed.
 const RL_TRUSTED_HOPS = Number(process.env.RL_TRUSTED_HOPS) || 2;
@@ -193,6 +196,14 @@ async function countActiveOwners() {
 
 // Append an admin action to the server-only `audit` collection. Best-effort:
 // audit logging must NEVER break the action it's recording.
+//
+// ADMIN-3: entries also carry the caller's source `ip`, derived by the same
+// spoof-resistant rule as the rate limiter (net-utils.auditIp) — a forgeable origin
+// is worse than none. Founder decision 2026-07-24: record it on EVERY audited
+// event, including the self-service/billing ones, not just admin actions. That is a
+// deliberate PII trade-off — an IP is personal data and audit rows outlive the
+// account they describe — and the control on it is the existing 365-day retention
+// sweep (purgeOldAudit) plus the collection being server-only in firestore.rules.
 async function writeAudit(context, action, info) {
   try {
     await db.collection("audit").add({
@@ -202,6 +213,7 @@ async function writeAudit(context, action, info) {
       targetUid: (info && info.targetUid) || "",
       targetEmail: (info && info.targetEmail) || "",
       details: (info && info.details) || "",
+      ip: auditIp(context && context.rawRequest, RL_TRUSTED_HOPS),
       at: Date.now(),   // server-side ms; avoids admin.firestore.FieldValue (undefined in the emulator)
     });
   } catch (e) { console.error("writeAudit failed:", e && e.message); }
@@ -1025,7 +1037,12 @@ exports.listUsers = functions.https.onCall(async (data, context) => {
 
 // ─── Admin: read the recent audit log (admins only) ───
 exports.listAudit = functions.https.onCall(async (data, context) => {
-  assertAdmin(context);
+  // ADMIN-3: the audit log is readable by ANY admin, but the saveConfig diff added this
+  // round contains Settings CONTENT — plan prices, analytics/legal IDs, the PayPal client
+  // id — and Settings is owner-only behind a step-up re-auth (assertFreshOwner). Handing
+  // those values to a manager through the Audit tab would route around that boundary, so
+  // a non-owner sees that a config save happened, never what it changed.
+  const callerIsOwner = assertAdmin(context) === "owner";
   const limit = Math.min(Math.max(parseInt((data && data.limit) || 100, 10) || 100, 1), 500);
   let snap;
   try { snap = await db.collection("audit").orderBy("at", "desc").limit(limit).get(); }
@@ -1038,7 +1055,8 @@ exports.listAudit = functions.https.onCall(async (data, context) => {
       action: x.action || "",
       targetUid: x.targetUid || "",
       targetEmail: x.targetEmail || "",
-      details: x.details || "",
+      details: auditDetailsFor(x.action || "", x.details || "", callerIsOwner),
+      ip: x.ip || "",   // ADMIN-3: source IP (blank on entries written before this shipped)
       atMs: typeof x.at === "number" ? x.at : (x.at && typeof x.at.toMillis === "function" ? x.at.toMillis() : null),
     };
   });
@@ -1137,9 +1155,14 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
     },
     updatedAt: Date.now(),
   };
+  // ADMIN-3: record WHAT changed, not just that a save happened, so a bad edit can be
+  // inspected (and reversed by hand) from the audit log. `existing` was already read
+  // above for the keep() idiom, so this costs no extra read. Secret VALUES never reach
+  // the log — a keep()-guarded field records only "(changed)" (see config-diff.js).
+  const changeSummary = formatConfigDiff(diffConfig(existing, cfg));
   await db.doc("config/app").set(cfg, { merge: true });
   _cfg = null; // invalidate cache so the new values are used immediately
-  await writeAudit(context, "saveConfig", { details: "updated app config" });
+  await writeAudit(context, "saveConfig", { details: changeSummary });
   return { success: true };
 });
 
