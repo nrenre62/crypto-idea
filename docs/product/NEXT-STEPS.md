@@ -34,6 +34,34 @@ founder chose machine-local over a committed baseline).
 
 ---
 
+## ADMIN-UI. Admin panel chrome redesign — unified sticky header + persistent H1 + back-nav + login reskin  (📋 PLAN — 2026-07-25; not scheduled)
+
+Canonical: [`docs/design/ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) (mockup→code spec + file
+map + acceptance criteria). Reference mockup: [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html).
+**Design-only, nothing built** — founder interview 2026-07-25 locked: (1) **plan/doc only** for now,
+build on go; (2) back button on **every drill-in AND every popup/modal**; (3) **reskin** the sign-in /
+denied / loading screens too. Distinct from §ADMIN (that is *capabilities* ADMIN-0…5, all built) — this
+is the *visual chrome*.
+
+**Root cause of the reported overlap:** two brand headers both `position:sticky; top:0` collide — the
+outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and the inner paper
+`.adm-head` (`admin-dashboard.jsx`, z-index 20). Fix = collapse to **one** sticky bar.
+
+- [ ] **ADMIN-UI-1 · Unified chrome** (🟡 design · founder 2026-07-25 · **📋 PLAN**) — Merge the two
+      headers into **one** sticky bar (green logo tile + `CryptoIdea · Admin` left; email + Log out
+      right), styled paper with an opaque/blur bg so it's the **only** pinned element. Add a **persistent
+      `Admin dashboard` `<h1>`** below the bar (same on every tab + drill-in) with the **Live Data pill
+      moved beside it** (out of the deleted `.adm-head`). Because the H1 is normal-flow content under an
+      opaque bar, it can never overlap the bar on scroll. Standardize the mockup's **white rounded `‹`
+      back button** on every drill-in (already present via `<DHead>` — restyle) and add/relocate a
+      consistent close on the two modals (unlock = Cancel-only today; view-as ‹ is on the wrong side).
+      **Reskin** sign-in/denied/loading to paper + logo tile (drop the `#6C5CE7` purple). Files:
+      `src/admin-main.jsx` · `src/components/admin-dashboard.jsx` · `src/styles/admin-settings.css` ·
+      `admin.html` · `tests/unit/admin-dashboard.test.jsx`. **Design-only** (no callable/rule/logic
+      change); admin stays light-paper-only (no dark mode). DoD: one sticky bar, no overlap, H1 on every
+      view, back-nav everywhere, no purple; `test:unit` green + `build` clean + browser-verified owner &
+      manager, mobile & desktop.
+
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
 Canonical: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) (scored gap-audit vs. external
