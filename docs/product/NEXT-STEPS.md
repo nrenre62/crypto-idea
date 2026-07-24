@@ -81,11 +81,55 @@ trend snapshots). Phases (KISS-first, most valuable first):
       unit** (11 new) · build clean · admin CSS out of the user bundle · **browser-checked live as owner**
       (patched a canceled-premium + past-due-pro user + 3 webhook events → the Overview card, list dots,
       Past-due filter, and detail Billing section all render correctly, 0 console errors).
-- [ ] **ADMIN-2 · Operational safety net** (🟠 high) — **per-feature kill-switches** (extend
-      `config/app.flags` with a `features:{}` map, read via the existing `/api/config` path) + wire
-      **Sentry** (functions + client) + one uptime/cron monitor + 2–3 alert rules (error spike /
-      webhook fail / upstream) + a tiny status strip in Overview. Failure visibility via external tools,
+- [x] **ADMIN-2 · Operational safety net** (🟠 high · **✅ BUILT 2026-07-24**) — **per-feature kill-switches**
+      (extend `config/app.flags` with a `features:{}` map, read via the existing `/api/config` path) + wire
+      **Sentry** + a cron monitor + a tiny status strip in Overview. Failure visibility via external tools,
       not a hand-built dashboard.
+      **✅ BUILT 2026-07-24 (this session).** Founder decisions: switch set = **money/upstream only**
+      (`marketData` · `checkout` · `aiResearch`, not per-tab); "off" for market data = **serve cache, stop
+      upstream** (not a hard 503 — a switch you're afraid of is a switch you won't flip); Sentry
+      **functions-side only** behind a DSN in Settings; the cron monitor = **heartbeat doc + derived signals**.
+      - **Kill-switches** (`functions/features.js`, pure + unit-tested). **A switch is ON unless config says
+        exactly `false`** — a missing key, a legacy config, or a failed Firestore read must degrade to a
+        WORKING app; a kill-switch may only ever fire because a human flipped it. Declared in ONE map that the
+        admin UI, `/api/config` and the sanitiser all enumerate from, so a switch can't be half-wired.
+      - **Enforced at ONE choke point.** All five direct `` fetch(`${CG_BASE}…`) `` sites now route through
+        `cgFetch()`; a test fails the build if a direct call reappears — sprinkling the check would let a
+        sixth site added later bypass it silently. **Off = zero upstream calls**, caches still serving.
+        `getUniverse`/`getTrending` also skip their lazy refresh, because `refreshUniverse` treats a failed
+        first page as *partial* and would still write `updatedAt: now`, stamping the cache fresh having
+        fetched nothing. `createSubscription` refuses server-side; the UI additionally disables the CTAs.
+      - **The omitted-`features` trap, found while building:** the instant maintenance/signups toggles post
+        `flags` WITHOUT `features`, which under a plain sanitise reads as "everything ON" — so flipping
+        maintenance mid-incident would have silently restarted the spend you had just killed. Fixed with a
+        per-key `mergeFeatures` (an unmentioned switch is KEPT), pinned by unit tests and proven live.
+      - **Cron heartbeats** (`health/jobs`, server-only in rules — **integrity**, not confidentiality: a
+        client that could stamp a heartbeat could keep a dead cron looking alive). Every scheduler runs
+        through `runJob()`, which records the heartbeat **and still rethrows** so H3 (fail loudly) holds. A
+        deliberate kill-switch skip stays GREEN with a stated reason — a switch you flipped must not page you.
+      - **Overview status strip** (`src/utils/status.js`, pure + unit-tested): never / overdue / failing /
+        ok per job + the named switched-off features + cache age + `sentryConfigured`. **A job with no record
+        reads "never", never a reassuring blank**, and a failed status load shows the error instead of a false
+        all-clear (the BL-1e error-vs-empty rule).
+      - **Sentry: functions-only**, DSN in Settings (`keep()`-guarded, added to `SECRET_PATHS`). Zero user-bundle
+        weight, no CSP change, and with no DSN it never even `require()`s the SDK. Events carry no uid, email,
+        URL, headers, cookies or body. ⚠️ **Delivery is UNVERIFIED** — no Sentry account or deployed project
+        exists; only the no-op path, DSN validation and scrubbing are proven locally.
+      - **`getSystemStatus` reads config FRESH**, not through the 5-min `getConfig()` cache — caught live:
+        the strip reported "All features on" while market data was actually off. A status view must not lag
+        the thing it reports on.
+      - **NOT built (deliberate):** the external half — a Sentry account/DSN, an uptime monitor, and the 2–3
+        alert rules. All three need a deployed project and a paid-plan decision; they stay **go-live infra**.
+      - Verified: **760/760 unit** (68 files, +76) · **41/41 rules** (+1) · **19/19 integration** · build clean ·
+        admin-only code + CSS confirmed out of the user bundle and **no Sentry SDK in any client chunk** ·
+        **server enforcement probed live** (marketData off → cache served with `cache/universe.updatedAt`
+        UNCHANGED, i.e. no upstream refresh; `createSubscription` → 400 "Checkout is temporarily unavailable"
+        for an authenticated caller) · browser-checked as owner (all four job states rendered at once,
+        including a real `universe 429` failure and a `skipped — marketData off` note; flipping a switch in
+        the UI preserved the other switches) and as a Pro user (`● PAUSED` on all five tab headers, upgrade
+        CTA refused with an honest toast).
+      - 📋 Follow-ups: **disclose the Sentry third-party transfer in the privacy policy before setting a DSN**;
+        create the Sentry project + uptime monitor + alert rules at go-live.
 - [x] **ADMIN-3 · Audit & data hygiene** (🟠 high / 🟡 med · **✅ BUILT 2026-07-24**) — audit tab **filter + pagination + CSV
       export** + a source-IP field; a **retention TTL** (ties to §C C15); **user-list CSV/JSON export**
       (quick win); **config change versioning / diff** (store prior values in the audit entry).

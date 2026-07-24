@@ -83,7 +83,10 @@ const APP_VERSION = "4.1.0";
 // ── Main App ──
 export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
-  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,plans:null});  // public config from /api/config
+  // Public config from /api/config. ADMIN-2: `features` defaults to all-ON for the same
+  // reason the server does — if the config fetch fails we must degrade to a WORKING app,
+  // never to one that looks deliberately switched off.
+  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,plans:null,features:{marketData:true,checkout:true,aiResearch:true}});
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
   const[authPass,setAuthPass]=useState("");
@@ -164,8 +167,11 @@ export default function CryptoIdea(){
     return()=>document.head.removeChild(style);
   },[]);
 
-  // Public app flags (maintenance / signups) set by an admin — read once on load.
-  useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,plans:d.plans||null})})},[]);
+  // Public app flags (maintenance / signups / ADMIN-2 feature switches) set by an
+  // admin — read once on load. Each switch is ON unless the server says exactly false,
+  // matching functions/features.js so client and server can't disagree about a missing key.
+  useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,plans:d.plans||null,
+    features:{marketData:(d.features||{}).marketData!==false,checkout:(d.features||{}).checkout!==false,aiResearch:(d.features||{}).aiResearch!==false}})})},[]);
 
   // Auth watch + profile auto-save now live in useAuthSession (above).
 
@@ -474,7 +480,13 @@ export default function CryptoIdea(){
   };
   // R28-1 (defense in depth): never open billing for the tier the user already has —
   // Account hides those buttons, but a same-tier call must be a no-op (no double charge).
-  const startUpgrade=(toTier)=>{if(toTier===(user?.tier||"free"))return;setUpgradeFlow(toTier);setUpgradeStep("billing");setShowPlan(true)};
+  // ADMIN-2: every upgrade CTA in the app (Account's two buttons, the over-limit lock
+  // popup) routes through here, so gating this ONE function covers them all — the
+  // server refuses createSubscription anyway, but sending someone into a checkout
+  // that is switched off just wastes their time and earns a support email.
+  const startUpgrade=(toTier)=>{if(toTier===(user?.tier||"free"))return;
+    if(site.features.checkout===false){showErr("Checkout is temporarily unavailable — please try again shortly.");return}
+    setUpgradeFlow(toTier);setUpgradeStep("billing");setShowPlan(true)};
   const startDowngrade=(toTier)=>{setDowngradeTo(toTier)};
   const confirmDowngrade=async()=>{
     // In production: PayPal cancels subscription, downgrade happens at endDate

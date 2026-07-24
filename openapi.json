@@ -2571,6 +2571,79 @@
           }
         ]
       }
+    },
+    "/getSystemStatus": {
+      "post": {
+        "operationId": "getSystemStatus",
+        "summary": "Read kill-switch states, cron heartbeats and cache ages (admin — ADMIN-2)",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Current operational status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatusResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2895,6 +2968,9 @@
           },
           "legal": {
             "$ref": "#/components/schemas/Legal"
+          },
+          "features": {
+            "$ref": "#/components/schemas/FeatureFlags"
           }
         },
         "additionalProperties": false
@@ -3911,6 +3987,9 @@
                   },
                   "signupsEnabled": {
                     "type": "boolean"
+                  },
+                  "features": {
+                    "$ref": "#/components/schemas/FeatureFlags"
                   }
                 },
                 "additionalProperties": false
@@ -3939,6 +4018,16 @@
                 "nullable": true,
                 "minimum": 0,
                 "maximum": 1000000000000000
+              },
+              "sentry": {
+                "type": "object",
+                "properties": {
+                  "dsnSet": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false,
+                "description": "ADMIN-2. Only whether a DSN is stored — the value is never returned to a client."
               }
             },
             "additionalProperties": false
@@ -3951,7 +4040,7 @@
         "properties": {
           "data": {
             "type": "object",
-            "description": "A blank secret field (keys.coingecko, keys.paypalSecret, keys.anthropicKey, email.apiKey) KEEPS the currently-saved value.",
+            "description": "A blank secret field (keys.coingecko, keys.paypalSecret, keys.anthropicKey, keys.sentryDsn, email.apiKey) KEEPS the currently-saved value.",
             "properties": {
               "keys": {
                 "type": "object",
@@ -3978,6 +4067,12 @@
                     "type": "string",
                     "format": "password",
                     "maxLength": 512
+                  },
+                  "sentryDsn": {
+                    "type": "string",
+                    "format": "password",
+                    "maxLength": 512,
+                    "description": "ADMIN-2 Sentry DSN. keep()-guarded: blank KEEPS the stored value."
                   }
                 },
                 "additionalProperties": false
@@ -4022,9 +4117,13 @@
                   },
                   "signupsEnabled": {
                     "type": "boolean"
+                  },
+                  "features": {
+                    "$ref": "#/components/schemas/FeatureFlags"
                   }
                 },
-                "additionalProperties": false
+                "additionalProperties": false,
+                "description": "A switch omitted from `features` KEEPS its stored value (per-key merge) — it is never re-enabled by omission."
               },
               "analytics": {
                 "$ref": "#/components/schemas/Analytics"
@@ -4192,6 +4291,125 @@
             }
           }
         }
+      },
+      "FeatureFlags": {
+        "type": "object",
+        "description": "ADMIN-2 per-feature kill-switches. Each is TRUE unless explicitly false — a missing key or an unreadable config must never read as 'switched off'.",
+        "properties": {
+          "marketData": {
+            "type": "boolean",
+            "description": "CoinGecko prices/search/coinlist/trending/history. Off = serve cache, make zero upstream calls."
+          },
+          "checkout": {
+            "type": "boolean",
+            "description": "New PayPal subscriptions. Off = createSubscription refuses with failed-precondition."
+          },
+          "aiResearch": {
+            "type": "boolean",
+            "description": "Reserved for the Wave-B AI proxy. No runtime enforcement point exists yet."
+          }
+        },
+        "additionalProperties": false
+      },
+      "JobHealth": {
+        "type": "object",
+        "description": "One scheduled job's heartbeat. `at` is null when the job has NEVER completed — which is a distinct state from healthy, not an absence.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "everyMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The job's expected interval; the client flags it late past 2x this."
+          },
+          "at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Last run that COMPLETED (incl. a deliberate kill-switch skip). null = never."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200,
+            "description": "e.g. \"skipped — marketData off\", so unchanged data has a stated reason."
+          },
+          "errorAt": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Last run that threw. Newer than `at` = currently failing."
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          }
+        },
+        "additionalProperties": false
+      },
+      "SystemStatusResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "description": "Operational status for the admin Overview strip. Contains NO secrets — the Sentry DSN is reported only as a boolean.",
+            "properties": {
+              "features": {
+                "$ref": "#/components/schemas/FeatureFlags"
+              },
+              "maintenance": {
+                "type": "boolean"
+              },
+              "signupsEnabled": {
+                "type": "boolean"
+              },
+              "jobs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/JobHealth"
+                },
+                "maxItems": 32
+              },
+              "caches": {
+                "type": "object",
+                "properties": {
+                  "universeAt": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "trendingAt": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "sentryConfigured": {
+                "type": "boolean",
+                "description": "True only when a WELL-FORMED DSN is stored — 'configured but malformed' must not read as on."
+              },
+              "now": {
+                "type": "integer",
+                "description": "Server clock, so the client computes ages without trusting the browser's."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
       }
     }
   }

@@ -8,7 +8,7 @@
 # API & Key Security
 
 The single source of truth for **what the API is, how it's wired, and how the keys stay safe.**
-The machine-readable contract is [`openapi.json`](../../openapi.json) (OpenAPI 3.0.3, 35 operations).
+The machine-readable contract is [`openapi.json`](../../openapi.json) (OpenAPI 3.0.3, 36 operations).
 
 ---
 
@@ -57,7 +57,7 @@ Same as B **plus** a verified admin custom claim, in **two roles**: `owner` (`{a
 
 | Gate | Callables |
 |---|---|
-| `assertAdmin` (read-only) | `getStats` · `lookupUser` · `listUsers` · `listAudit` · `listWebhookEvents` (ADMIN-1: PayPal webhook ledger) · `listDailyStats` (ADMIN-4: growth series) |
+| `assertAdmin` (read-only) | `getStats` · `lookupUser` · `listUsers` · `listAudit` · `listWebhookEvents` (ADMIN-1: PayPal webhook ledger) · `listDailyStats` (ADMIN-4: growth series) · `getSystemStatus` (ADMIN-2: kill-switch states + cron heartbeats — no secrets; the Sentry DSN is reported as a boolean) |
 | `assertManager` | `setUserTier` · `setPremiumLimits` · `suspendUser` · `restoreUser` · `adminTrashUser` · `adminSignOutUser` |
 | `assertOwner` | `deleteUser` · `captureStatsSnapshot` (ADMIN-4 — writes an aggregate snapshot, not config, so no step-up) |
 | `assertFreshOwner` | `getAdminConfig` · `saveConfig` · `setManagerRole` |
@@ -69,6 +69,18 @@ Same as B **plus** a verified admin custom claim, in **two roles**: `owner` (`{a
 
 Same round closed a related integrity gap in the **`users` create rule**: `joined` (the signup date rendered in the admin Users list and the users CSV export) was in the closed-shape allowlist but its **value was never validated** — `validUserData` checks only `name` — and the field is immutable after create. A registering client therefore had exactly one chance to claim **any** signup date, permanently. The rule now pins `joined == request.time` when the field is present. Growth metrics still count signups from the **Auth record's `creationTime`** rather than from `joined`: one server-set, un-forgeable source beats two.
 
+#### Feature kill-switches & cron heartbeats (ADMIN-2, 2026-07-24)
+`config/app → flags.features` carries three switches (`marketData`, `checkout`, `aiResearch`), published non-secret on `/api/config` so the UI can be honest, and **enforced server-side** — hiding a control is never the boundary. Two design rules carry the security weight:
+
+- **Default-ON.** A switch is enabled unless config says *exactly* `false`. A missing key, a config doc that predates the feature, or a failed Firestore read must degrade to a working product, never to a self-inflicted outage. The same `!== false` idiom already used for `signupsEnabled`.
+- **One choke point.** Every CoinGecko call routes through `cgFetch()`, so `marketData` is enforced in a single place a new call site cannot miss — a unit test fails the build if a direct `` fetch(`${CG_BASE}…`) `` reappears. Off means **zero upstream calls**: the caches keep serving, so the switch is safe enough to actually use mid-incident. `getUniverse`/`getTrending` skip their lazy refresh too, because `refreshUniverse` treats a failed first page as *partial* and would still stamp `updatedAt: now` — marking the cache fresh while having fetched nothing.
+
+A `saveConfig` payload that omits `features` **keeps** the stored switches (`mergeFeatures`, per-key). Without that, the instant maintenance/signups toggles — which post `flags` with no `features` — would read every absent switch as ON and silently restart the spend an operator had just killed.
+
+`health/jobs` (the six cron heartbeats) is **server-only in `firestore.rules`**, and like `statsDaily` the reason is **integrity, not confidentiality**: the status strip exists to reveal a scheduler that silently stopped firing, so a client that could stamp a heartbeat could keep a dead cron looking alive forever — turning the one control that catches silent failure into the thing that hides it.
+
+**Sentry** (functions-only) reports to a DSN stored in `config/app.sentry.dsn` — never in the bundle, never in git, `keep()`-guarded like every other secret. Events carry the **minimum**: `scrubEvent` strips the user, breadcrumbs, request URL, headers, cookies and body before anything leaves the process, leaving the error plus a coarse `where` tag. With no DSN configured the module is a complete no-op and never even `require()`s the SDK. ⚠️ **Delivery is unverified** — there is no Sentry account or deployed project yet; what is proven locally is the no-op path, the DSN validation, and the scrubbing. Sending error data to a third party is a data-handling decision that must be **disclosed in the privacy policy before a DSN is set** (go-live).
+
 #### Audit-entry contents (ADMIN-3, 2026-07-24)
 Two fields were added to what `writeAudit` records, both with a security edge worth stating:
 
@@ -76,7 +88,7 @@ Two fields were added to what `writeAudit` records, both with a security edge wo
   - ⚠️ **Not yet evidence-grade — one open trust-boundary question.** `RL_TRUSTED_HOPS` (default 2) says how many entries the platform appends on the right, and that count is **per ingress path**. `/api/*` arrives via Firebase Hosting → Cloud Functions, but a **callable is invoked directly on `cloudfunctions.net`** — a potentially shorter chain. If the callable chain is shorter than the configured hop count, the token selected is the caller-supplied one, i.e. **forgeable**. This cannot be settled locally (the emulator sends no XFF at all). **Go-live action: read a real `X-Forwarded-For` from a prod log for BOTH paths and set `RL_TRUSTED_HOPS` accordingly — and if the two differ, split the constant.** Until then, treat a recorded IP as **advisory corroboration, not evidence**. Note this is *not* an authorization fail-open: nothing is authorized on the IP, so the blast radius is what the log attributes, plus rate-limit bucketing.
   - **Privacy:** an IP is personal data, and audit rows outlive the account they describe. The controls on it are (a) the collection is **server-only** in `firestore.rules` — no client can read it, the callable reads via the Admin SDK; (b) the **365-day** `purgeOldAudit` retention sweep; (c) admin-only export. If erasure scope is ever re-examined, the audit log is the store that holds email + IP after a user is deleted — see the erasure note in `secure-by-design`.
   - Same round fixed `isValidIp`, which **rejected IPv4-mapped IPv6** (`::ffff:x.x.x.x` — what a dual-stack Node/Express server reports in `req.ip`). `clientIp` then fell through to `"unknown"`, collapsing every such caller into a **single shared rate-limit bucket**. `normalizeIp` now folds the mapped form to its IPv4 so one client is one bucket regardless of which form the platform reports.
-- **`details` — a field-level config diff for `saveConfig`** (`functions/config-diff.js`). The config doc holds live secrets and the audit tab is readable by *every* admin, so **no secret value may reach it**: a field guarded by the `keep()` idiom (`coingecko`, `paypal.secret`, `email.apiKey`, `ai.anthropicKey`) records only `(changed)`. The rule is mechanical — *keep()-guarded ⇒ secret* — and unit-tested against every entry in `SECRET_PATHS`. The string is bounded to `DETAILS_MAX` (500), which **must** equal `AuditEntry.details.maxLength` in `openapi.json`.
+- **`details` — a field-level config diff for `saveConfig`** (`functions/config-diff.js`). The config doc holds live secrets and the audit tab is readable by *every* admin, so **no secret value may reach it**: a field guarded by the `keep()` idiom (`coingecko`, `paypal.secret`, `email.apiKey`, `ai.anthropicKey`, `sentry.dsn`) records only `(changed)`. The rule is mechanical — *keep()-guarded ⇒ secret* — and unit-tested against every entry in `SECRET_PATHS`, **plus a count check that a newly keep()-guarded field was actually registered** (the list is hand-maintained, so nothing else stopped it silently drifting). The string is bounded to `DETAILS_MAX` (500), which **must** equal `AuditEntry.details.maxLength` in `openapi.json`.
 
 **Both CSV exports** (Audit, Users) are built client-side from rows the admin can already see — no new server surface — but they carry emails and source IPs out of the platform's retention and erasure controls, which the UI states next to the buttons.
 

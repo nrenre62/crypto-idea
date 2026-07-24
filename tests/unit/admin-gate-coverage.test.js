@@ -28,6 +28,10 @@ const MATRIX = {
   listWebhookEvents: "assertAdmin",   // ADMIN-1
   listDailyStats: "assertAdmin",      // ADMIN-4 — same gate as getStats, which already
                                       // returns revenue to any admin
+  getSystemStatus: "assertAdmin",     // ADMIN-2 — kill-switch states (already public on
+                                      // /api/config) + cron heartbeats + cache ages. No
+                                      // secrets: the Sentry DSN is a boolean. A manager
+                                      // on support duty needs "is anything on fire".
   // owner only (no step-up: it writes an aggregate snapshot, not config)
   captureStatsSnapshot: "assertOwner",
   // account management — owner OR manager

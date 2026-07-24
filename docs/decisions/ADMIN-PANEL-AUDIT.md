@@ -70,8 +70,8 @@ Tags used below: `[tracked]` already on a go-live/backlog doc · `[new]` surface
 | **Subscription-status visibility** (PayPal `active`/`past_due`/`paused`/`canceled` per user) | `[new]` | You show a *derived* tier, not real PayPal state → blind to access-vs-billing mismatch. |
 | **Failed-payment / dunning visibility** | `[new]` | Most SaaS churn is involuntary (declined cards). No "who's past_due" = silent revenue leak. |
 | **Webhook delivery-failure view + manual replay** | `[new] [cheap]` | You already store `webhookEvents`; a missed webhook silently breaks entitlement/revenue with no detection. |
-| **Per-feature kill-switches** | `[new] [cheap]` | Two global toggles today; can't disable one feature/upstream (e.g. AI) without a deploy. Extends `config/app.flags`. (LaunchDarkly.) |
-| **Failure visibility + admin alerts** | `[new]` | No error/latency/upstream (CoinGecko, PayPal) visibility, no paging. Best solved with Sentry + an uptime monitor — *not* a hand-built dashboard. |
+| ~~**Per-feature kill-switches**~~ ✅ BUILT | `[new] [cheap]` | Two global toggles today; can't disable one feature/upstream (e.g. AI) without a deploy. Extends `config/app.flags`. (LaunchDarkly.) **Shipped 2026-07-24** — `marketData`/`checkout`/`aiResearch`, default-ON, server-enforced. |
+| **Failure visibility + admin alerts** ◑ PARTLY BUILT | `[new]` | No error/latency/upstream (CoinGecko, PayPal) visibility, no paging. Best solved with Sentry + an uptime monitor — *not* a hand-built dashboard. **2026-07-24:** Sentry wired (functions-only, DSN in Settings) + cron heartbeats + an Overview status strip. **The account, the uptime monitor and the alert rules remain go-live infra** — nothing pages you yet. |
 | **Hard server-side signups-off** (`beforeCreate`) | `[tracked]` | The toggle is a client gate; a scripted client bypasses it. |
 | **Audit-log filter / pagination / export** | `[new]` | Today view-only latest-100, unfilterable, non-exportable → near-useless mid-incident. (WorkOS.) |
 
@@ -101,7 +101,7 @@ retention / NRR / LTV (external tools first) · proration preview (N/A — manua
 |---|---|---|---|
 | **0 — Launch gate** | Don't expose real data/payments until done | MFA · App Check · `beforeCreate` hard signups · make `audit` append-only in rules | M (MFA is the weight) |
 | **1 — Billing-ops visibility** ⭐ | Highest *new* value the day you go live | Persist (if not already) + show PayPal **subscription id + status** on the user card · **past_due/canceled** filter · **webhook-health** list. Read-only; cancels/refunds stay in PayPal | M |
-| **2 — Operational safety net** | Stop flying blind | **Per-feature kill-switches** (extend `config/app.flags`) · wire **Sentry** + 1 uptime monitor + 2–3 alert rules (error spike / webhook fail / upstream) · tiny status strip in Overview | S–M |
+| **2 — Operational safety net** ✅ **BUILT 2026-07-24** | Stop flying blind | **Per-feature kill-switches** (`marketData`/`checkout`/`aiResearch`, enforced server-side at one `cgFetch()` choke point) · **cron heartbeats** (`health/jobs`) + a status strip in Overview · **Sentry wired functions-only** behind a DSN in Settings. ~~1 uptime monitor + 2–3 alert rules~~ — those need a deployed project + a Sentry account, so they stay **go-live infra** | S–M |
 | **3 — Audit & data hygiene** ✅ **BUILT 2026-07-24** | Make the log usable | Audit filter + pagination + **CSV export** + source-IP field · ~~retention TTL~~ (already shipped as `purgeOldAudit`, 365 d) · **user-list export** (CSV; JSON not built) · config **versioning/diff** (before→after, secrets redacted) | S–M |
 | **4 — Growth metrics** | See the business move | Daily scheduled snapshot `stats/daily/{date}` → Overview renders **MRR/subs/signup trend + churn** (reuses `getStats` math) | M |
 | **5 — Team-scale & support** | When a non-founder joins or it's needed | **RBAC roles** · impersonation (logged) · announcement banner · bulk actions · per-field filters · private notes | varies |

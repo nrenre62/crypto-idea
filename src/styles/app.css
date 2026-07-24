@@ -175,6 +175,9 @@ html[data-theme="dark"] .ci-app .trend-item { border-bottom-color:var(--edge); }
 .ci-app .apphead .title { font-family:var(--display); font-weight:500; font-size:28px; letter-spacing:-.025em; display:flex; align-items:center; gap:8px; }
 .ci-app .badge { font-family:var(--body); font-size:9.5px; font-weight:700; letter-spacing:.1em; padding:3px 8px; border-radius:6px; position:relative; top:-2px; }
 .ci-app .badge-live { color:#1a7a3c; background:rgba(26,122,60,.1); border:1px solid rgba(26,122,60,.2); }
+/* ADMIN-2: prices frozen by the marketData kill-switch. Amber, not red — this is a
+   deliberate operator action, not a fault, and it must not read as an app error. */
+.ci-app .badge-paused { color:var(--amber); background:rgba(184,132,31,.1); border:1px solid rgba(184,132,31,.2); cursor:help; }
 .ci-app .badge-plan { color:var(--amber); background:rgba(184,132,31,.1); border:1px solid rgba(184,132,31,.2); }
 .ci-app .badge-pro { color:var(--ai-2); background:rgba(63,125,240,.1); border:1px solid rgba(63,125,240,.2); }
 /* BETA badge — matches the Research tab's .beta exactly */

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser } from "../api/admin.js";
+import { getStats, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser } from "../api/admin.js";
 import { getAdminRole, reauthAdmin } from "../api/admin-auth.js";
 
 // ADMIN-SEC: how long one password confirmation keeps the sensitive areas unlocked.
@@ -111,14 +111,18 @@ export function useAdminDashboard() {
 
 
   // Settings forms (saved via the admin-only saveConfig Cloud Function).
-  const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "", anthropicKey: "" });
+  const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "", anthropicKey: "", sentryDsn: "" });
   const [mail, setMail] = useState({ provider: "none", apiKey: "", apiUrl: "", fromEmail: "", listId: "" });
   const [savedMsg, setSavedMsg] = useState("");
   // Which secrets are already saved (so the form shows "saved" without exposing them).
-  const [setFlags, setSetFlags] = useState({ coingecko: false, paypalSecret: false, apiKey: false, anthropicKey: false });
+  const [setFlags, setSetFlags] = useState({ coingecko: false, paypalSecret: false, apiKey: false, anthropicKey: false, sentryDsn: false });
   const [cfgAt, setCfgAt] = useState(null);
-  // Public app controls (maintenance mode, signups on/off).
-  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true });
+  // Public app controls (maintenance mode, signups on/off) + the ADMIN-2 per-feature
+  // kill-switches. `features` lives INSIDE controls because every saveConfig call sends
+  // `flags: controls` — keeping them together is what stops a maintenance toggle from
+  // posting a flags object with no switches in it. (The server also merges per-key, so
+  // both ends have to fail before a switch can silently flip back on.)
+  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true, features: { marketData: true, checkout: true, aiResearch: true } });
   // Analytics + legal IDs (public, non-secret).
   const [analytics, setAnalytics] = useState({ ga4: "", plausible: "" });
   const [legal, setLegal] = useState({ termlyUuid: "", termlyPrivacyId: "", termlyTermsId: "", cookieBanner: false });
@@ -137,10 +141,14 @@ export function useAdminDashboard() {
     try {
       const d = await withUnlock(() => getAdminConfig());
       if (!d || d === CANCELLED) return;
-      setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "", anthropicKey: "" });
+      setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "", anthropicKey: "", sentryDsn: "" });
       setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "" });
-      setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet), anthropicKey: !!(d.ai && d.ai.anthropicKeySet) });
-      setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false) });
+      setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet), anthropicKey: !!(d.ai && d.ai.anthropicKeySet), sentryDsn: !!(d.sentry && d.sentry.dsnSet) });
+      const ff = (d.flags && d.flags.features) || {};
+      setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false),
+        // ON unless the server says exactly false — same rule as functions/features.js,
+        // so a config that predates the switches doesn't render as "everything off".
+        features: { marketData: ff.marketData !== false, checkout: ff.checkout !== false, aiResearch: ff.aiResearch !== false } });
       setAnalytics({ ga4: d.analytics?.ga4 || "", plausible: d.analytics?.plausible || "" });
       setLegal({ termlyUuid: d.legal?.termlyUuid || "", termlyPrivacyId: d.legal?.termlyPrivacyId || "", termlyTermsId: d.legal?.termlyTermsId || "", cookieBanner: !!(d.legal && d.legal.cookieBanner) });
       if (d.plans) setPlans(d.plans);
@@ -219,6 +227,10 @@ export function useAdminDashboard() {
   const [dailyLoading, setDailyLoading] = useState(false);
   const [dailyMsg, setDailyMsg] = useState("");
   const [capturing, setCapturing] = useState(false);
+  // ADMIN-2: Overview status strip — kill-switches, cron heartbeats, cache ages.
+  const [status, setStatus] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState("");
 
   // Load combined usage on mount. ADMIN-SEC: the config is OWNER-only, so it's loaded
   // from the role effect below instead — asking for it as a manager would just produce
@@ -300,6 +312,37 @@ export function useAdminDashboard() {
     } catch (e) {
       setCapturing(false);
       return { ok: false, msg: (e && e.message) || "Could not capture a snapshot" };
+    }
+  };
+
+  // ADMIN-2: load the operational status the first time the Overview is shown. Same
+  // error-vs-empty rule as the growth card — on failure statusMsg is set and `status`
+  // stays null, so the strip shows the error instead of a reassuring all-green row it
+  // has no evidence for. "We couldn't check" must never render as "everything is fine".
+  const loadStatus = async () => {
+    setStatusLoading(true); setStatusMsg("");
+    try { setStatus(await getSystemStatus()); }
+    catch (e) { setStatusMsg((e && e.message) || "Could not load system status"); setStatus(null); }
+    setStatusLoading(false);
+  };
+  useEffect(() => { if (tab === "overview" && status === null && !statusLoading && !statusMsg) loadStatus(); }, [tab]);
+
+  // ADMIN-2: flip one kill-switch. Sends the WHOLE controls object (features included)
+  // so the save can't drop the other switches, then re-reads the status strip so the
+  // Overview reflects what the server actually stored — DI-1 verify-then-toast, and the
+  // reason this returns a result instead of optimistically declaring success.
+  const saveFeature = async (name, on) => {
+    const prev = controls;
+    const next = { ...controls, features: { ...controls.features, [name]: on } };
+    setControls(next);
+    try {
+      const r = await withUnlock(() => saveConfigFn({ keys, email: mail, flags: next }));
+      if (r === CANCELLED) { setControls(prev); return { ok: false, msg: "Cancelled — not saved" }; }
+      await loadStatus();
+      return { ok: true, msg: `${name} ${on ? "enabled" : "DISABLED"}` };
+    } catch (e) {
+      setControls(prev);
+      return { ok: false, msg: "Save failed: " + ((e && e.message) || "error") };
     }
   };
 
@@ -451,6 +494,8 @@ export function useAdminDashboard() {
     webhookEvents, webhookLoading, webhookMsg, loadWebhookEvents,
     // ADMIN-4 — the daily growth series + the owner-only manual capture.
     daily, dailyLoading, dailyMsg, loadDaily, capturing, captureSnapshot,
+    // ADMIN-2 — operational status strip + the per-feature kill-switches.
+    status, statusLoading, statusMsg, loadStatus, saveFeature,
     s,
     loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, changePremiumLimits, toggleSuspend, doDelete,
     restoreFromTrash, purgeFromTrash,

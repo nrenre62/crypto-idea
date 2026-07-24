@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import { diffConfig, formatConfigDiff, auditDetailsFor, SECRET_PATHS, DETAILS_MAX, REDACTED_DETAILS } from "../../functions/config-diff.js";
 
 // ADMIN-3 (2026-07-24): saveConfig used to log "updated app config", which made a bad
@@ -59,6 +62,23 @@ describe("config-diff.diffConfig", () => {
       expect(out).toEqual([path + ": (changed)"]);
       expect(out.join()).not.toContain("after-value");
     }
+  });
+
+  it("every keep()-guarded field in saveConfig is registered as a SECRET_PATH", () => {
+    /* SECRET_PATHS is hand-maintained against saveConfig's keep() call sites, and the
+       module header states the rule as mechanical ("keep()-guarded ⇒ secret") — but
+       nothing enforced it, so adding a keep()-guarded field and forgetting this list
+       would quietly start writing its VALUE into an audit log every admin can read.
+       (ADMIN-1's listWebhookEvents went unlisted in the gate matrix for three months
+       the same way.) This is a COUNT check: it catches the forgotten registration,
+       not a wrong path — the per-path redaction test above covers behaviour. */
+    const here = dirname(fileURLToPath(import.meta.url));
+    const src = readFileSync(resolve(here, "../../functions/index.js"), "utf8");
+    const save = src.slice(src.indexOf("exports.saveConfig = functions.https.onCall("));
+    const body = save.slice(0, save.indexOf("\n});"));
+    const guarded = [...body.matchAll(/[:=]\s*keep\(/g)].length;
+    expect(guarded, `${guarded} keep()-guarded field(s) vs ${SECRET_PATHS.size} SECRET_PATHS — register the new one`)
+      .toBe(SECRET_PATHS.size);
   });
 
   it("an UNCHANGED secret produces no entry at all (the keep() idiom re-saves it)", () => {

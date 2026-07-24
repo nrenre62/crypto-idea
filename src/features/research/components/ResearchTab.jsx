@@ -14,6 +14,10 @@ import { usePulse } from '../hooks/usePulse';
 import { useAsk } from '../hooks/useAsk';
 import { useSharePulse } from '../hooks/useSharePulse';
 
+// ADMIN-2: the one live/paused pill shared with the other tab headers, so a frozen
+// price cache can't read as "● LIVE" here while the other two admit it's paused.
+import { LivePill } from '../../../components/HeaderTags.jsx';
+
 import OverviewView from './OverviewView';
 import CoinsView from './CoinsView';
 import AskView from './AskView';
@@ -27,7 +31,7 @@ const TABS = [
 // Props:
 //   coins      — the active portfolio's coin objects (with their `entries`).
 //   livePrices — the app's live price map: { [id]: { usd, usd_24h_change, ... } }.
-export default function ResearchTab({ coins, livePrices, api, plan, onAccount, coinOrder, onReorder }) {
+export default function ResearchTab({ coins, livePrices, api, plan, onAccount, coinOrder, onReorder, pricesPaused = false }) {
   const [tab, setTab] = useState('overview');
   const [tf, setTf] = useState('30d');
 
@@ -50,7 +54,7 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount, c
       <div className="apphead">
         <div>
           <div className="title">Research <span className="beta">BETA</span>
-            {api === 'live' && <span className="badge badge-live">● LIVE</span>}
+            <LivePill api={api} paused={pricesPaused} />
             {plan && <span className="badge badge-plan" onClick={onAccount} style={{ cursor: 'pointer' }}>{plan}</span>}
           </div>
         </div>

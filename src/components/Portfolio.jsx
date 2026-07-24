@@ -3,6 +3,7 @@ import { fmtP, fmtPct } from "../utils/format.js";
 import { portfolio24hPct } from "../utils/pnl.js";
 import { CoinIcon } from "./CoinIcon.jsx";
 import { PortfolioBar } from "./PortfolioBar.jsx";
+import { LivePill, usePricesPaused } from "./HeaderTags.jsx";
 
 // Main logged-in screen: the value summary card, portfolio switcher, and the asset
 // CARD GRID (3-up @1040 / 2-up @720 / 1-up phone). A whole card taps through to
@@ -15,6 +16,7 @@ export function Portfolio() {
     lockedCoins, openLockInfo,
   } = useApp();
   const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
+  const pricesPaused = usePricesPaused();
   const cents = (tv % 1).toFixed(2).slice(2);
   const sorted = [...portfolio]
     .map((coin) => ({ coin, val: Math.max(0, coin.entries.reduce((s, e) => (e.type === "sell" ? s - e.amount : s + e.amount), 0)) * (prices[coin.id]?.usd || 0) }))
@@ -28,7 +30,7 @@ export function Portfolio() {
         <div>
           <div className="title">
             Crypto Idea <span className="beta">BETA</span>
-            {api === "live" && <span className="badge badge-live">● LIVE</span>}
+            <LivePill api={api} paused={pricesPaused} />
             <span className="badge badge-plan" onClick={() => setScreen("account")} style={{ cursor: "pointer" }}>{plan}</span>
           </div>
         </div>

@@ -32,6 +32,8 @@
 .research-root .badge{font-family:var(--body);font-size:9.5px;font-weight:700;letter-spacing:.1em;padding:3px 8px;border-radius:6px;position:relative;top:-2px}
 .research-root .badge-live{color:#1a7a3c;background:rgba(26,122,60,.1);border:1px solid rgba(26,122,60,.2)}
 .research-root .badge-plan{color:var(--amber);background:rgba(184,132,31,.1);border:1px solid rgba(184,132,31,.2)}
+/* ADMIN-2: mirrors .ci-app .badge-paused (this feature sits outside .ci-app). */
+.research-root .badge-paused{color:var(--amber);background:rgba(184,132,31,.1);border:1px solid rgba(184,132,31,.2);cursor:help}
 html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:var(--sg-s);border-color:color-mix(in srgb, var(--sg) 28%, transparent)}
 .research-root .apphead .sub{font-size:13px;color:var(--ink-faint);margin-top:3px;letter-spacing:0}
 .research-root .ai-gradient-text{background:linear-gradient(95deg,var(--ai-1),var(--ai-2));-webkit-background-clip:text;background-clip:text;color:transparent}

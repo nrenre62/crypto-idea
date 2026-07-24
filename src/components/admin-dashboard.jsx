@@ -9,6 +9,9 @@ import { CSV_BOM } from "../utils/csv.js";
 // sparkline geometry). Every one of these returns null when the history is too
 // short, which is what lets the card say "collecting" instead of a fake 0%.
 import { seriesOf, deltaOver, netChurn, pendingCancels, historyDays, sparkPath, latest } from "../utils/growth.js";
+// ADMIN-2: pure status derivations for the Overview strip. jobHealth is what turns a
+// heartbeat into "late"/"never"/"failing" — the states a dead cron never announces.
+import { agoLabel, jobHealth, worstHealth, featureSummary } from "../utils/status.js";
 
 /* ═══ ADMIN-D2 — the whole panel is on the .ci-app paper design ═══
    Overview · Users · Trash · Audit were reskinned from the old grey inline-styled
@@ -133,12 +136,14 @@ function NavRow({ icon, label, value, muted, onClick }) {
     </button>
   );
 }
-// A control row: label + an inline control (a pill switch).
-function CtrlRow({ icon, label, children }) {
+// A control row: label + an inline control (a pill switch). ADMIN-2 added the optional
+// `sub` line, because a kill-switch whose effect you have to guess is one you won't dare
+// to use — each switch states what actually happens when you turn it off.
+function CtrlRow({ icon, label, sub, children }) {
   return (
-    <div className="settings-row">
+    <div className={"settings-row" + (sub ? " has-sub" : "")}>
       <span className="sr-icon">{icon}</span>
-      <span className="sr-label">{label}</span>
+      <span className="sr-label">{label}{sub && <span className="sr-sub">{sub}</span>}</span>
       <span className="sr-ctrl">{children}</span>
     </div>
   );
@@ -272,6 +277,7 @@ export default function AdminDashboard() {
     grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound,
     grantMsg, setGrantWarn, grantWarn, grantLookup, setManager,
     daily, dailyLoading, dailyMsg, capturing, captureSnapshot,
+    status, statusLoading, statusMsg, loadStatus, saveFeature,
   } = useAdminDashboard();
 
   // ADMIN-D: which Settings screen is showing — "home" or a detail drill-in.
@@ -354,6 +360,57 @@ export default function AdminDashboard() {
                 <div className="l">{label}</div>
               </div>
             ))}
+          </div>
+
+          {/* ADMIN-2: operational status strip. Deliberately ABOVE the business
+              numbers — if a cron is dead or a feature is switched off, that changes
+              how you should read every figure below it. */}
+          <div className="adm-strip">
+            {statusMsg && <div className="adm-inline-err">{statusMsg} — status unknown (not "all clear"). Reload to retry.</div>}
+            {!statusMsg && statusLoading && !status && <div className="adm-loading">Checking…</div>}
+            {!statusMsg && status && (() => {
+              const now = status.now || Date.now();
+              const jobs = status.jobs || [];
+              const worst = worstHealth(jobs, now);
+              const feat = featureSummary(status.features);
+              const HEALTH_DOT = { ok: "ok", late: "warn", never: "warn", failing: "err" };
+              const HEALTH_TEXT = { ok: "ran on schedule", late: "OVERDUE — the schedule may have stopped", never: "never run", failing: "last run FAILED" };
+              return (<>
+                <div className="adm-strip-head">
+                  <span className={"dot " + HEALTH_DOT[worst]} />
+                  <span className="s-title">
+                    {worst === "ok" ? "All scheduled jobs healthy" : `Scheduled jobs: ${HEALTH_TEXT[worst]}`}
+                  </span>
+                  <span className={"s-feat" + (feat.off.length ? " off" : "")}>{feat.label}</span>
+                  <button className="adm-btn sm ghost" disabled={statusLoading} onClick={loadStatus}>
+                    {statusLoading ? "…" : "Refresh"}
+                  </button>
+                </div>
+                <div className="adm-jobs">
+                  {jobs.map((j) => {
+                    const h = jobHealth(j, now);
+                    return (
+                      /* Show the error ONLY while the job is actually failing. `error` is
+                         the last failure ever recorded, so once a later run succeeds,
+                         leading with it would label a recovered job with a stale fault. */
+                      <div key={j.name} className={"adm-job " + h} title={h === "failing" ? (j.error || HEALTH_TEXT[h]) : (j.note || HEALTH_TEXT[h])}>
+                        <span className={"dot " + HEALTH_DOT[h]} />
+                        <span className="j-name">{j.name}</span>
+                        {/* agoLabel returns null when nothing has ever completed — rendered
+                            as "never", never as a blank that could pass for fine. */}
+                        <span className="j-when">{agoLabel(j.at, now) || "never"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="adm-strip-foot">
+                  <span>Market cache: {agoLabel(status.caches && status.caches.universeAt, now) || "never written"}</span>
+                  <span> · Error reporting: {status.sentryConfigured ? "Sentry on" : "not configured"}</span>
+                  {status.maintenance && <span className="warn"> · MAINTENANCE MODE ON</span>}
+                  {status.signupsEnabled === false && <span className="warn"> · signups paused</span>}
+                </div>
+              </>);
+            })()}
           </div>
 
           {/* On desktop these three sit side-by-side; on mobile grid-auto collapses to one column. */}
@@ -829,6 +886,22 @@ export default function AdminDashboard() {
                   <CtrlRow icon={SI.signups} label="Allow new signups">
                     <Switch checked={controls.signupsEnabled !== false} onChange={() => saveControls({ ...controls, signupsEnabled: !(controls.signupsEnabled !== false) })} />
                   </CtrlRow>
+                  {/* ADMIN-2: per-feature kill-switches, alongside the two global ones
+                      because in an incident you want every "turn something off" control
+                      in the same place. Each is enforced SERVER-side — the switch is the
+                      control, this row is just how you reach it. */}
+                  <CtrlRow icon={SI.maintenance} label="Live market data" sub="CoinGecko prices, search & history. Off = serve the last cached prices, make no upstream calls.">
+                    <Switch checked={controls.features.marketData !== false}
+                            onChange={async () => { const r = await saveFeature("marketData", !(controls.features.marketData !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
+                  </CtrlRow>
+                  <CtrlRow icon={SI.plans} label="New subscriptions" sub="Off = the checkout callable refuses and the paid plan cards read “Temporarily unavailable”.">
+                    <Switch checked={controls.features.checkout !== false}
+                            onChange={async () => { const r = await saveFeature("checkout", !(controls.features.checkout !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
+                  </CtrlRow>
+                  <CtrlRow icon={SI.ai} label="AI research" sub="Reserved — the Wave-B AI proxy isn’t built yet, so this switch has nothing to gate today.">
+                    <Switch checked={controls.features.aiResearch !== false}
+                            onChange={async () => { const r = await saveFeature("aiResearch", !(controls.features.aiResearch !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
+                  </CtrlRow>
                   <NavRow icon={SI.keys} label="API keys" value={keysSet ? keysSet + " set" : "Not set"} onClick={() => setSettingsView("apiKeys")} />
                   <NavRow icon={SI.email} label="Email & integrations" value={providerLabel(mail.provider)} onClick={() => setSettingsView("email")} />
                   <NavRow icon={SI.plans} label="Plans & pricing" value="3 tiers" onClick={() => setSettingsView("plans")} />
@@ -858,6 +931,19 @@ export default function AdminDashboard() {
                         onChange={e => setKeys({ ...keys, [key]: e.target.value })} />
                     </div>
                   ))}
+                  {/* ADMIN-2: Sentry DSN. Functions-only reporting — nothing is added to
+                      the user bundle, and with this blank the whole integration is a
+                      no-op that never even loads the SDK. */}
+                  <div>
+                    <label className="acct-label">Sentry DSN <span className="adm-lbl-note">(server error reporting)</span></label>
+                    <input className="field-input" type="password" value={keys.sentryDsn}
+                      placeholder={setFlags.sentryDsn ? "•••••••• saved — leave blank to keep" : "https://…@…ingest.sentry.io/…"}
+                      onChange={e => setKeys({ ...keys, sentryDsn: e.target.value })} />
+                    <div className="adm-note-sm">
+                      Optional. Errors from the Cloud Functions (webhook, schedulers, price proxy) are sent
+                      to Sentry — with no uid, email, request body or headers attached. Leave blank for none.
+                    </div>
+                  </div>
                   <button className="acct-btn accent" onClick={saveConfig}>Save keys</button>
                 </div>
               )}

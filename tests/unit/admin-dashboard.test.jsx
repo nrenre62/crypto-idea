@@ -17,6 +17,21 @@ vi.mock("../../src/api/admin.js", () => ({
   listWebhookEvents: vi.fn(() => Promise.resolve([])),   // ADMIN-1: Overview billing card
   listDailyStats: vi.fn(() => Promise.resolve([])),      // ADMIN-4: Overview growth card
   captureStatsSnapshot: vi.fn(() => Promise.resolve({ date: "2026-07-24" })),
+  // ADMIN-2: Overview status strip. A missing mock here would leave the wrapper
+  // `undefined`, the call would throw inside loadStatus, and the strip would quietly
+  // render its ERROR path while the suite still went green — exactly how ADMIN-4's
+  // growth-card mock hid a broken card for a whole build.
+  getSystemStatus: vi.fn(() => Promise.resolve({
+    now: 1_700_000_000_000,
+    features: { marketData: true, checkout: true, aiResearch: true },
+    maintenance: false, signupsEnabled: true,
+    jobs: [
+      { name: "refreshPrices", everyMs: 300_000, at: 1_699_999_900_000, note: null, errorAt: null, error: null },
+      { name: "captureDailyStats", everyMs: 86_400_000, at: 1_699_990_000_000, note: null, errorAt: null, error: null },
+    ],
+    caches: { universeAt: 1_699_999_900_000, trendingAt: 1_699_999_000_000 },
+    sentryConfigured: false,
+  })),
   lookupUser: vi.fn(() => Promise.resolve(
     { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1, coinCount: 3, billingStatus: "none" },
   )),
@@ -40,7 +55,7 @@ vi.mock("../../src/api/admin-auth.js", () => ({
 }));
 
 import AdminDashboard from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig } from "../../src/api/admin.js";
 import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
 describe("admin-dashboard", () => {
@@ -574,5 +589,101 @@ describe("admin-dashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Capture now" }));
     await waitFor(() => expect(screen.getByText("permission-denied")).toBeInTheDocument());
     expect(screen.queryByText(/Snapshot captured/)).not.toBeInTheDocument();
+  });
+
+  /* ═══ ADMIN-2 — operational status strip + kill-switches ═══ */
+
+  it("ADMIN-2: the strip reports healthy jobs and all-features-on", async () => {
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getSystemStatus).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText("All scheduled jobs healthy")).toBeInTheDocument());
+    expect(screen.getByText("All features on")).toBeInTheDocument();
+    expect(screen.getByText("refreshPrices")).toBeInTheDocument();
+    // The Sentry state is reported honestly rather than omitted when it's off.
+    expect(document.querySelector(".adm-strip-foot").textContent).toContain("not configured");
+  });
+
+  it("ADMIN-2: a cron that has NEVER run reads 'never', not a healthy blank", async () => {
+    // The silent-death case: a schedule that was never deployed throws no errors and
+    // produces no data, so a blank here would be indistinguishable from working.
+    getSystemStatus.mockResolvedValueOnce({
+      now: 1_700_000_000_000,
+      features: { marketData: true, checkout: true, aiResearch: true },
+      maintenance: false, signupsEnabled: true,
+      jobs: [{ name: "captureDailyStats", everyMs: 86_400_000, at: null, errorAt: null }],
+      caches: {}, sentryConfigured: false,
+    });
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("never")).toBeInTheDocument());
+    expect(screen.getByText(/Scheduled jobs: never run/)).toBeInTheDocument();
+    // …and a cache that was never written says so rather than showing an age.
+    expect(document.querySelector(".adm-strip-foot").textContent).toContain("never written");
+  });
+
+  it("ADMIN-2: an overdue job is flagged, not quietly rendered as ok", async () => {
+    getSystemStatus.mockResolvedValueOnce({
+      now: 1_700_000_000_000,
+      features: { marketData: true, checkout: true, aiResearch: true },
+      maintenance: false, signupsEnabled: true,
+      // 5-minute job, last completed an hour ago → the schedule has stopped firing.
+      jobs: [{ name: "refreshPrices", everyMs: 300_000, at: 1_700_000_000_000 - 3_600_000, errorAt: null }],
+      caches: {}, sentryConfigured: true,
+    });
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText(/OVERDUE/)).toBeInTheDocument());
+    expect(document.querySelector(".adm-job.late")).toBeTruthy();
+  });
+
+  it("ADMIN-2: switched-off features are NAMED in the strip", async () => {
+    getSystemStatus.mockResolvedValueOnce({
+      now: 1_700_000_000_000,
+      features: { marketData: false, checkout: false, aiResearch: true },
+      maintenance: false, signupsEnabled: true,
+      jobs: [], caches: {}, sentryConfigured: false,
+    });
+    render(<AdminDashboard />);
+    // Mid-incident you need to see WHICH switch is down without opening Settings.
+    await waitFor(() => expect(screen.getByText("marketData, checkout OFF")).toBeInTheDocument());
+  });
+
+  it("ADMIN-2: a failed status load shows the error — never a false all-clear", async () => {
+    // BL-1e error-vs-empty: "we couldn't check" must not render as "everything is fine".
+    getSystemStatus.mockRejectedValueOnce(new Error("network down"));
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText(/status unknown/)).toBeInTheDocument());
+    expect(screen.queryByText("All scheduled jobs healthy")).not.toBeInTheDocument();
+  });
+
+  it("ADMIN-2: flipping a kill-switch saves ALL switches, then re-reads the status", async () => {
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
+    const row = await screen.findByText("Live market data");
+    const toggle = row.closest(".settings-row").querySelector('input[role="switch"]');
+    expect(toggle.checked).toBe(true);
+    fireEvent.click(toggle);
+    await waitFor(() => expect(saveConfig).toHaveBeenCalled());
+    // The payload must carry the WHOLE features map. Sending only the flipped switch
+    // would let the server's per-key merge be the only thing standing between a
+    // maintenance toggle and silently re-enabling everything else.
+    const flags = saveConfig.mock.calls[saveConfig.mock.calls.length - 1][0].flags;
+    expect(flags.features).toEqual({ marketData: false, checkout: true, aiResearch: true });
+    // DI-1 verify-then-toast: the strip is re-read before success is announced.
+    await waitFor(() => expect(getSystemStatus).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByText("marketData DISABLED")).toBeInTheDocument());
+  });
+
+  it("ADMIN-2: a failed switch save reverts the toggle and reports the error", async () => {
+    saveConfig.mockRejectedValueOnce(new Error("permission-denied"));
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
+    const row = await screen.findByText("New subscriptions");
+    const toggle = row.closest(".settings-row").querySelector('input[role="switch"]');
+    fireEvent.click(toggle);
+    await waitFor(() => expect(screen.getByText(/Save failed/)).toBeInTheDocument());
+    // The switch must snap back — a control that LOOKS off while checkout is still
+    // live is worse than no control at all.
+    await waitFor(() => expect(toggle.checked).toBe(true));
   });
 });

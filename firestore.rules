@@ -83,6 +83,11 @@ service cloud.firestore {
     //                           A client-writable series could be poisoned to fake
     //                           growth, and it is kept forever, so a bad write is
     //                           permanent.
+    //  · health/jobs          — ADMIN-2 cron heartbeats. Server-only for INTEGRITY:
+    //                           the strip's whole job is to say "this cron stopped",
+    //                           so a client that could stamp a heartbeat could hide
+    //                           a dead scheduler indefinitely. Read via the
+    //                           getSystemStatus callable, which re-checks the claim.
     match /rateLimits/{document=**} {
       allow read, write: if false;
     }
@@ -93,6 +98,9 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /statsDaily/{document=**} {
+      allow read, write: if false;
+    }
+    match /health/{document=**} {
       allow read, write: if false;
     }
 

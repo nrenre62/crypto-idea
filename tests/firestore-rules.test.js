@@ -90,6 +90,22 @@ test("statsDaily is unreadable and unwritable by clients — including admins", 
   await assertFails(setDoc(doc(adminDb(), "statsDaily", "2026-07-24"), { paidUsers: 999 }));
 });
 
+// ADMIN-2: the cron heartbeats are server-only, and the reason is INTEGRITY rather
+// than confidentiality. The status strip's entire job is to reveal a scheduler that
+// silently stopped firing; a client that could stamp a heartbeat could keep a dead
+// cron looking alive forever — turning the one control that catches silent failure
+// into the thing that hides it. Read via the getSystemStatus callable.
+test("health/jobs is unreadable and unwritable by clients — including admins", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "health", "jobs"), { captureDailyStats: { at: 1_700_000_000_000 } });
+  });
+  await assertFails(getDoc(doc(aliceDb(), "health", "jobs")));
+  await assertFails(setDoc(doc(aliceDb(), "health", "jobs"), { captureDailyStats: { at: 9_999_999_999_999 } }));
+  await assertFails(deleteDoc(doc(aliceDb(), "health", "jobs")));
+  await assertFails(getDoc(doc(adminDb(), "health", "jobs")));
+  await assertFails(setDoc(doc(adminDb(), "health", "jobs"), { captureDailyStats: { at: 9_999_999_999_999 } }));
+});
+
 // ADMIN-4: `joined` is the signup date shown in the admin Users list and the users
 // CSV export, and it is immutable after create — so an unvalidated create was a
 // one-shot chance to claim any signup date, permanently. (This is also why growth

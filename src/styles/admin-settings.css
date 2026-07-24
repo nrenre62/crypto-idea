@@ -265,3 +265,31 @@
 .ci-app .adm-growth-row .g-delta.flat,
 .ci-app .adm-growth-row .g-delta.none { color:var(--ink-faint); font-weight:500; }
 .ci-app .adm-growth-foot { margin-top:14px; padding-top:12px; border-top:1px solid var(--line-2); }
+
+/* ── ADMIN-2: Overview status strip + kill-switch rows ─────────────────────── */
+/* Sits ABOVE the business numbers: a dead cron or a switched-off feature changes
+   how every figure below should be read. */
+.ci-app .adm-strip { border:1px solid var(--line-2); border-radius:12px; background:var(--paper-2); padding:12px 14px; margin-bottom:14px; }
+.ci-app .adm-strip-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.ci-app .adm-strip-head .s-title { font-size:13px; font-weight:700; color:var(--ink); }
+.ci-app .adm-strip-head .s-feat { font-size:11px; font-weight:600; color:var(--ink-faint); background:var(--paper-3); border:1px solid var(--line-2); border-radius:999px; padding:3px 10px; }
+/* A switched-off feature is amber, not red — it is a deliberate operator action. */
+.ci-app .adm-strip-head .s-feat.off { color:var(--warn); border-color:var(--warn); font-weight:700; }
+.ci-app .adm-strip-head .adm-btn { margin-left:auto; }
+/* auto-fit so six jobs wrap cleanly from 3-up desktop to 1-up phone — no @media. */
+.ci-app .adm-jobs { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:4px 14px; margin-top:10px; }
+.ci-app .adm-job { display:flex; align-items:center; gap:7px; font-size:11.5px; padding:3px 0; cursor:help; }
+.ci-app .adm-job .j-name { color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ci-app .adm-job .j-when { margin-left:auto; color:var(--ink-faint); white-space:nowrap; flex:none; }
+/* "never" and "overdue" must not read as quiet grey like a healthy row does. */
+.ci-app .adm-job.never .j-when,
+.ci-app .adm-job.late .j-when { color:var(--warn); font-weight:700; }
+.ci-app .adm-job.failing .j-name,
+.ci-app .adm-job.failing .j-when { color:var(--err,#b3261e); font-weight:700; }
+.ci-app .adm-strip-foot { margin-top:10px; padding-top:9px; border-top:1px solid var(--line-2); font-size:11px; color:var(--ink-faint); }
+.ci-app .adm-strip-foot .warn { color:var(--warn); font-weight:700; }
+/* A settings row carrying an explanatory sub-line needs to breathe and top-align. */
+.ci-app .settings-row.has-sub { align-items:flex-start; }
+.ci-app .settings-row.has-sub .sr-icon { margin-top:2px; }
+.ci-app .sr-sub { display:block; font-size:11px; font-weight:400; line-height:1.45; color:var(--ink-faint); margin-top:3px; max-width:52ch; }
+.ci-app .adm-lbl-note { font-weight:400; color:var(--ink-faint); }

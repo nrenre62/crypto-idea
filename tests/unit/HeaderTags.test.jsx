@@ -39,4 +39,40 @@ describe("HeaderTags (R4-4)", () => {
     fireEvent.click(screen.getByText("STARTER"));
     expect(setScreen).toHaveBeenCalledWith("account");
   });
+
+  /* ADMIN-2 — the marketData kill-switch. Prices keep being SERVED from cache while
+     the switch is off, so without this the header would keep flashing "● LIVE" over
+     values that stopped updating. A stale number presented as live is worse than an
+     obviously stale one. */
+  describe("ADMIN-2: paused market data", () => {
+    const paused = { features: { marketData: false, checkout: true, aiResearch: true } };
+
+    it("shows ● PAUSED instead of ● LIVE when an admin switched market data off", () => {
+      provide({ api: "live", site: paused });
+      expect(screen.getByText(/● PAUSED/)).toBeInTheDocument();
+      expect(screen.queryByText(/● LIVE/)).toBeNull();
+    });
+
+    it("shows ● PAUSED even when prices were never live — the switch is the fact", () => {
+      // Otherwise the pill would vanish entirely and the user would just see prices
+      // silently frozen, with nothing on screen accounting for it.
+      provide({ api: "mock", site: paused });
+      expect(screen.getByText(/● PAUSED/)).toBeInTheDocument();
+    });
+
+    it("explains itself on hover rather than leaving a bare word", () => {
+      provide({ api: "live", site: paused });
+      expect(screen.getByText(/● PAUSED/).getAttribute("title")).toMatch(/last known values/i);
+    });
+
+    it("stays ● LIVE for every not-switched-off shape, incl. a failed config fetch", () => {
+      // The config fetch can fail or predate the feature; neither means "paused".
+      for (const site of [undefined, {}, { features: {} }, { features: { marketData: true } }]) {
+        const { unmount } = provide({ api: "live", site });
+        expect(screen.getByText(/● LIVE/), JSON.stringify(site)).toBeInTheDocument();
+        expect(screen.queryByText(/● PAUSED/)).toBeNull();
+        unmount();
+      }
+    });
+  });
 });

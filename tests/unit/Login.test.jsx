@@ -197,4 +197,42 @@ describe("Login screen (extracted, via AppContext)", () => {
     fireEvent.click(toggles[0]);
     expect(handleAuth).not.toHaveBeenCalled();
   });
+
+  /* ADMIN-2 — the checkout kill-switch in the plan picker. The server refuses
+     createSubscription regardless; this stops someone walking into a checkout that is
+     already going to fail. */
+  describe("ADMIN-2: checkout switched off", () => {
+    const off = { signupsEnabled: true, features: { marketData: true, checkout: false, aiResearch: true } };
+
+    it("marks the PAID cards unavailable and ignores clicks on them", () => {
+      const setUpgradeFlow = vi.fn(), setUpgradeStep = vi.fn();
+      provide({ showPlan: true, upgradeStep: "pickPlan", site: off, user: { name: "T", tier: "free" }, setUpgradeFlow, setUpgradeStep });
+      expect(screen.getAllByText("Temporarily unavailable").length).toBe(2);   // Pro + Premium
+      expect(screen.queryByText("Choose Pro")).toBeNull();
+      expect(screen.queryByText("Choose Premium")).toBeNull();
+      fireEvent.click(screen.getAllByText("Temporarily unavailable")[0].closest(".plan-card"));
+      expect(setUpgradeFlow).not.toHaveBeenCalled();
+    });
+
+    it("leaves STARTER selectable, so a forced first choice is never a dead end", () => {
+      // R31-2's forced picker has no skip link. If checkout-off locked all three cards,
+      // a brand-new user would be trapped on this screen with nothing clickable.
+      const markPlanChosen = vi.fn(), setShowWelcome = vi.fn(), setUpgradeStep = vi.fn();
+      provide({ showPlan: true, upgradeStep: "pickPlan", planChosen: false, site: off,
+                user: { name: "T", tier: "free" }, markPlanChosen, setShowWelcome, setUpgradeStep });
+      expect(screen.queryByText(/Continue with Starter/)).toBeNull();   // still forced
+      fireEvent.click(screen.getByText("Choose Starter").closest(".plan-card"));
+      expect(markPlanChosen).toHaveBeenCalled();
+      expect(setShowWelcome).toHaveBeenCalledWith("free");
+    });
+
+    it("leaves the cards alone for every not-switched-off shape", () => {
+      for (const site of [{ signupsEnabled: true }, { signupsEnabled: true, features: {} }]) {
+        const { unmount } = provide({ showPlan: true, upgradeStep: "pickPlan", site, user: { name: "T", tier: "free" } });
+        expect(screen.getByText("Choose Pro"), JSON.stringify(site)).toBeInTheDocument();
+        expect(screen.queryByText("Temporarily unavailable")).toBeNull();
+        unmount();
+      }
+    });
+  });
 });

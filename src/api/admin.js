@@ -35,6 +35,14 @@ export async function listWebhookEvents(limit = 50) {
   return (res.data && res.data.events) || [];
 }
 
+// ADMIN-2: operational status for the Overview strip — the kill-switch states, the
+// scheduled-job heartbeats, market-cache ages and whether Sentry is configured.
+// Read-only, no secrets (the Sentry DSN is reported only as a boolean).
+export async function getSystemStatus() {
+  const res = await httpsCallable(functions, "getSystemStatus")({});
+  return res.data;
+}
+
 // Look up one user by email (support/moderation). Returns the user detail object.
 export async function lookupUser(email) {
   const res = await httpsCallable(functions, "lookupUser")({ email });

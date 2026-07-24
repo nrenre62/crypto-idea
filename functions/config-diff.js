@@ -21,6 +21,11 @@ const SECRET_PATHS = new Set([
   "paypal.secret",      // PayPal REST secret
   "email.apiKey",       // transactional-email provider key
   "ai.anthropicKey",    // Anthropic key for the Wave-B AI proxy
+  // ADMIN-2. A Sentry DSN is a write-only ingest URL, not a credential — but the rule
+  // above is deliberately MECHANICAL (keep()-guarded ⇒ redacted), and keeping it that
+  // way is worth more than adjudicating each field. Leaking it also lets anyone burn
+  // the error quota, which is exactly when you need reporting to work.
+  "sentry.dsn",
 ]);
 
 // Bookkeeping fields that change on every save and say nothing about intent.

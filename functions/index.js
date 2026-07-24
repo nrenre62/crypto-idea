@@ -51,6 +51,11 @@ const { clientIp, auditIp } = require("./net-utils.js");
 const { diffConfig, formatConfigDiff, auditDetailsFor } = require("./config-diff.js");
 // ADMIN-4: pure shape + UTC-day id for the daily growth snapshot (statsDaily/{date}).
 const statsDaily = require("./stats-daily.js");
+// ADMIN-2: per-feature kill-switches (config/app → flags.features) and server-side
+// error reporting. `observability` is a no-op — and never loads its SDK — until a
+// Sentry DSN is configured in admin Settings.
+const featureFlags = require("./features.js");
+const observability = require("./observability.js");
 // How many trusted proxy hops the platform appends on the RIGHT of X-Forwarded-For.
 // Default 2 (common GCLB→Cloud Functions); confirm from a prod log + override if needed.
 const RL_TRUSTED_HOPS = Number(process.env.RL_TRUSTED_HOPS) || 2;
@@ -299,6 +304,13 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
   }
+  // ADMIN-2: the checkout kill-switch, enforced HERE rather than by hiding the
+  // button. Hiding a button stops honest users; this stops a scripted client too,
+  // which is the whole point when PayPal is misconfigured or misbehaving and every
+  // new subscription is a support ticket (or a refund) waiting to happen.
+  if (!(await featureOn("checkout"))) {
+    throw new functions.https.HttpsError("failed-precondition", "Checkout is temporarily unavailable. Please try again shortly.");
+  }
   const userId = context.auth.uid;                 // the caller — NOT from the body
   const email = context.auth.token.email || undefined;
   const requestedTier = data && data.plan === "premium" ? "premium" : "pro";
@@ -490,6 +502,10 @@ exports.paypalWebhook = functions
     // this event (all patches are idempotent set-merges, so a rare double-process is harmless).
     // Without this the marker permanently suppresses a paid-tier change that failed transiently.
     if (markedKey) { try { await db.doc(`webhookEvents/${markedKey}`).delete(); } catch (e) { console.error("paypalWebhook: marker rollback failed:", e && e.message); } }
+    // ADMIN-2: the single highest-value thing to be alerted about. A webhook that
+    // starts failing does not break the app visibly — people just quietly stop
+    // getting the tier they paid for, and the first signal is a support email.
+    try { observability.captureError(await getConfig(), "paypalWebhook", error); } catch (e) { /* never mask the real error */ }
     res.status(400).json({ error: "Webhook processing failed" });
   }
 });
@@ -1180,6 +1196,67 @@ exports.listWebhookEvents = functions.https.onCall(async (data, context) => {
   return { events };
 });
 
+// ─── ADMIN-2: operational status for the Overview strip (admins only) ───
+//
+// The expected schedule of every cron, declared HERE rather than inferred from
+// whatever happens to be in health/jobs. A job that has never run once would
+// otherwise simply be absent from the response, and the strip would render a clean
+// six-of-six — the same "missing looks like fine" trap ADMIN-4 hit with an empty
+// series. Enumerating from the registry makes "never ran" a visible state.
+// (tests/unit/features.test.js asserts this list matches the runJob call sites.)
+const SCHEDULED_JOBS = [
+  { name: "refreshPrices", everyMs: 5 * 60 * 1000 },
+  { name: "refreshUniverseDaily", everyMs: 24 * 3600 * 1000 },
+  { name: "purgeOldAudit", everyMs: 24 * 3600 * 1000 },
+  { name: "captureDailyStats", everyMs: 24 * 3600 * 1000 },
+  { name: "purgeExpiredTrash", everyMs: 24 * 3600 * 1000 },
+  { name: "enforceSubscriptionPeriods", everyMs: 24 * 3600 * 1000 },
+];
+
+// assertAdmin, not assertOwner: everything here is either already public on
+// /api/config (the switches) or operational timing. Deliberately NO secrets — the
+// Sentry DSN is reported only as a boolean. Settings stays owner-only; this is the
+// read-only "is anything on fire" view, which a manager on support duty needs.
+exports.getSystemStatus = functions.https.onCall(async (data, context) => {
+  assertAdmin(context);
+  // Read config FRESH rather than through getConfig()'s 5-minute cache. The strip's
+  // entire job is to report what is currently switched off, and enforcement runs on
+  // the 60-second featuresNow() clock — so a cached read here could show
+  // "All features on" for minutes after market data was actually killed. Observed
+  // live 2026-07-24. One extra read on an admin-only call is a fair price for a
+  // status view that cannot contradict the thing it is reporting on.
+  let cfg = {};
+  try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* defaults below */ }
+  let health = {};
+  try { const s = await db.doc(HEALTH_DOC).get(); health = (s.exists && s.data()) || {}; } catch (e) { /* ignore */ }
+  const docAge = async (path) => {
+    try { const s = await db.doc(path).get(); return (s.exists && s.data() && s.data().updatedAt) || null; }
+    catch (e) { return null; }
+  };
+  return {
+    features: featureFlags.readFeatures(cfg),
+    maintenance: !!(cfg.flags && cfg.flags.maintenance),
+    signupsEnabled: !(cfg.flags && cfg.flags.signupsEnabled === false),
+    // `at: null` is the honest reading for a job that has never completed — the
+    // client renders "never", never a reassuring blank.
+    jobs: SCHEDULED_JOBS.map(({ name, everyMs }) => {
+      const h = health[name] || {};
+      return {
+        name, everyMs,
+        at: typeof h.at === "number" ? h.at : null,
+        note: h.note || null,
+        errorAt: typeof h.errorAt === "number" ? h.errorAt : null,
+        error: h.error || null,
+      };
+    }),
+    caches: { universeAt: await docAge(UNIVERSE_DOC), trendingAt: await docAge(TRENDING_DOC) },
+    // Configured AND well-formed — dsnOf rejects a malformed paste, so "on" here
+    // means reporting can actually work, not merely that the field is non-empty.
+    sentryConfigured: !!observability.dsnOf(cfg),
+    now: Date.now(),
+  };
+});
+
 // ─── Admin: read current saved config to pre-fill the Settings form ───
 // Secrets are NOT returned in full — only whether each is set — so the admin can
 // see what's configured and replace it without the secret reaching the client.
@@ -1192,8 +1269,11 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     coingeckoSet: !!cfg.coingecko,
     paypal: { clientId: pp.clientId || "", secretSet: !!pp.secret, webhookId: pp.webhookId || "" },
     email: { provider: em.provider || "none", apiKeySet: !!em.apiKey, apiUrl: em.apiUrl || "", fromEmail: em.fromEmail || "", listId: em.listId || "" },
-    flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false },
+    flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false, features: featureFlags.readFeatures(cfg) },
     plans: mergePlans(cfg.plans),
+    // ADMIN-2: the DSN itself is a secret-ish endpoint URL, so it follows the same
+    // rule as every other key — the form learns only whether one is configured.
+    sentry: { dsnSet: !!observability.dsnOf(cfg) },
     analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
     legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
     // BL-2d (D10): the reserved AI section — the key itself never leaves the server.
@@ -1218,7 +1298,11 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   const keep = (incoming, current) => { const v = String(incoming || ""); return v ? v : String(current || ""); };
   // Public flags + non-secret analytics/legal IDs (exposed via /api/config).
   const f = (data && data.flags) || existing.flags || {};
-  const flags = { maintenance: !!f.maintenance, signupsEnabled: f.signupsEnabled !== false };
+  // ADMIN-2: mergeFeatures enumerates from the declared switch list (so an unknown
+  // key can never be stored) AND keeps any switch the payload doesn't mention — the
+  // instant maintenance/signups toggles post `flags` without `features`, and must not
+  // silently re-enable a feature someone just killed.
+  const flags = { maintenance: !!f.maintenance, signupsEnabled: f.signupsEnabled !== false, features: featureFlags.mergeFeatures(f.features, (existing.flags || {}).features) };
   const an = (data && data.analytics) || existing.analytics || {};
   const lg = (data && data.legal) || existing.legal || {};
   const cfg = {
@@ -1240,6 +1324,9 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
     // BL-2d (D10): Anthropic key for the Wave-B AI proxy — same keep() idiom as the
     // other secrets (a blank field keeps the saved value; the key is never echoed back).
     ai: { anthropicKey: keep(k.anthropicKey, (existing.ai || {}).anthropicKey) },
+    // ADMIN-2: the Sentry DSN — same keep() idiom as the secrets, so re-saving the
+    // form without re-typing it doesn't silently switch error reporting off.
+    sentry: { dsn: keep(k.sentryDsn, (existing.sentry || {}).dsn) },
     analytics: { ga4: String(an.ga4 || ""), plausible: String(an.plausible || "") },
     legal: {
       termlyUuid: String(lg.termlyUuid || ""),
@@ -1256,6 +1343,7 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   const changeSummary = formatConfigDiff(diffConfig(existing, cfg));
   await db.doc("config/app").set(cfg, { merge: true });
   _cfg = null; // invalidate cache so the new values are used immediately
+  _features = null; // ADMIN-2: ditto for the switches — a flip must not wait out its own TTL
   await writeAudit(context, "saveConfig", { details: changeSummary });
   return { success: true };
 });
@@ -1291,6 +1379,45 @@ async function cgHeaders() {
   const cfg = await getConfig();
   const key = (cfg && cfg.coingecko) || CG_KEY;
   return key ? { "x-cg-demo-api-key": key } : {};
+}
+
+// ─── ADMIN-2: per-feature kill-switches ───
+// Read on a SHORTER clock than getConfig()'s 5 minutes. A kill-switch you flip
+// during an incident and then wait five minutes for is not a kill-switch; 60s
+// matches the CDN cache on /api/config, so the server and the client stop within
+// the same window. saveConfig clears both caches for the instance that served it.
+const FEATURES_TTL = 60 * 1000;
+let _features = null, _featuresAt = 0;
+async function featuresNow() {
+  if (_features && (Date.now() - _featuresAt) < FEATURES_TTL) return _features;
+  let cfg = {};
+  try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; }
+  // A failed read must NOT read as "everything off" — featureFlags defaults every
+  // switch to ON precisely so a Firestore blip can't take the product down.
+  catch (e) { return _features || featureFlags.readFeatures({}); }
+  _features = featureFlags.readFeatures(cfg);
+  _featuresAt = Date.now();
+  return _features;
+}
+async function featureOn(name) { return (await featuresNow())[name] !== false; }
+
+// Thrown by cgFetch when market data is switched off. Every caller already treats
+// an upstream failure as "serve what we cached", so the switch reuses those paths
+// instead of adding a second set of branches to keep in step.
+class MarketDataOffError extends Error {
+  constructor() { super("market data is switched off (ADMIN-2 kill-switch)"); this.name = "MarketDataOffError"; }
+}
+
+// THE choke point for CoinGecko. Every upstream call goes through here — the
+// universe refresh, the on-demand price top-up, trending, and history — so the
+// marketData switch is enforced in ONE place that a new call site cannot miss.
+// (tests/unit/features.test.js fails the build if a direct `fetch(`${CG_BASE}…`)`
+// ever reappears.) Off means ZERO upstream calls: the cost stops immediately and
+// the caches keep serving, which is what makes the switch safe enough to actually
+// use during an incident.
+async function cgFetch(path) {
+  if (!(await featureOn("marketData"))) throw new MarketDataOffError();
+  return fetch(`${CG_BASE}${path}`, { headers: await cgHeaders() });
 }
 
 // ─── Bot/abuse protection: per-IP rate limit on the public API ───
@@ -1350,7 +1477,7 @@ async function refreshUniverse({ pages = UNIVERSE_PAGES, prune = false } = {}) {
   for (let page = 1; page <= pages; page++) {
     let r;
     try {
-      r = await fetch(`${CG_BASE}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&price_change_percentage=24h`, { headers: await cgHeaders() });
+      r = await cgFetch(`/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&price_change_percentage=24h`);
     } catch (e) { complete = false; break; }
     // First page failing with nothing collected = hard error (caller falls back
     // to cache). Any later failure: keep what we have, mark partial, stop.
@@ -1394,7 +1521,7 @@ async function coalescedSimplePrice(ids) {
   const fetchedAt = Date.now();
   const p = (async () => {
     try {
-      const r = await fetch(`${CG_BASE}/simple/price?ids=${encodeURIComponent(ids.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`, { headers: await cgHeaders() });
+      const r = await cgFetch(`/simple/price?ids=${encodeURIComponent(ids.join(","))}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`);
       return { data: r.ok ? await r.json() : null, fetchedAt };
     } finally { _inflightPrice.delete(key); }
   })();
@@ -1407,6 +1534,12 @@ async function coalescedSimplePrice(ids) {
 async function getUniverse() {
   let data = null;
   try { const snap = await db.doc(UNIVERSE_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
+  // ADMIN-2: with marketData switched off, serve the last-known cache and skip the
+  // lazy refresh entirely. cgFetch would refuse anyway, but refreshUniverse treats a
+  // failed first page as "partial" and still writes `updatedAt: now` — which would
+  // stamp the cache FRESH while having fetched nothing, hiding exactly the staleness
+  // the admin needs to see on the status strip.
+  if (!(await featureOn("marketData"))) return (data && data.coins) || {};
   if (!data || (Date.now() - (data.updatedAt || 0)) > UNIVERSE_TTL) {
     try { return await refreshUniverse({ pages: UNIVERSE_PAGES }); } catch (e) { if (data) return data.coins; throw e; }
   }
@@ -1418,7 +1551,7 @@ async function getUniverse() {
 // is the current snapshot, not an accumulating list. Returns a normalized array
 // [{id, symbol, name, thumb, rank}]; never throws here (caller handles failure).
 async function refreshTrending() {
-  const r = await fetch(`${CG_BASE}/search/trending`, { headers: await cgHeaders() });
+  const r = await cgFetch("/search/trending");
   if (!r.ok) throw new Error("trending " + r.status);
   const d = await r.json();
   const coins = (Array.isArray(d.coins) ? d.coins : [])
@@ -1436,6 +1569,8 @@ async function refreshTrending() {
 async function getTrending() {
   let data = null;
   try { const snap = await db.doc(TRENDING_DOC).get(); data = snap.exists ? snap.data() : null; } catch (e) { /* ignore */ }
+  // ADMIN-2: same as getUniverse — off means serve the cache, make no upstream call.
+  if (!(await featureOn("marketData"))) return (data && data.coins) || [];
   if (!data || (Date.now() - (data.updatedAt || 0)) > TRENDING_TTL) {
     try { return await refreshTrending(); } catch (e) { if (data) return data.coins; throw e; }
   }
@@ -1452,6 +1587,41 @@ async function getTrending() {
 // gen-1 default (60s) quietly prevented.
 const SCHEDULED = functions.runWith({ maxInstances: 5, timeoutSeconds: 540 });
 
+// ─── ADMIN-2: cron heartbeat ───
+// A scheduled job that FAILS is visible (it throws, the platform records an error).
+// A scheduled job that simply STOPS BEING CALLED is invisible — nothing errors,
+// there is just quietly no new data, and for captureDailyStats that means days of
+// history lost for good. So every run stamps a tiny record and the admin status
+// strip reads the age. Two timestamps answer the two different questions:
+//   at       — last run that COMPLETED (success, or a deliberate kill-switch skip).
+//              Old ⇒ the schedule itself is dead.
+//   errorAt  — last run that threw. Newer than `at` ⇒ it is running but failing.
+// Server-only (firestore.rules denies /health to everyone, admins included).
+const HEALTH_DOC = "health/jobs";
+async function stampJob(name, patch) {
+  // The heartbeat must never be able to fail the job it is recording.
+  try { await db.doc(HEALTH_DOC).set({ [name]: patch }, { merge: true }); }
+  catch (e) { console.error("stampJob:", name, e); }
+}
+
+// Run a scheduled job: record the heartbeat either way, report the failure, and
+// STILL rethrow so the invocation is marked FAILED (H3 — a swallowed error returns
+// success, so the platform's built-in alert never fires). `fn` may return a short
+// note (e.g. "skipped — marketData off") that is stored alongside the heartbeat,
+// so an unchanged data set has a stated reason instead of looking like a fault.
+async function runJob(name, fn) {
+  try {
+    const note = await fn();
+    await stampJob(name, { at: Date.now(), note: note || null });
+  } catch (e) {
+    console.error(name + ":", e);
+    await stampJob(name, { errorAt: Date.now(), error: String((e && e.message) || e).slice(0, 300) });
+    try { observability.captureError(await getConfig(), "scheduler:" + name, e); } catch (e2) { /* never mask the real error */ }
+    throw e;
+  }
+  return null;
+}
+
 // Keep the HOT set fresh (every 5 min) — top ~1,250 coins, always merged so the
 // long tail (refreshed daily) is preserved. The tail is priced on demand by /api/prices.
 // NOT on SCHEDULED: this runs every 5 min (300s), so it needs its own shorter
@@ -1461,24 +1631,32 @@ const SCHEDULED = functions.runWith({ maxInstances: 5, timeoutSeconds: 540 });
 // `updatedAt` falsely fresh, suppressing the lazy full refresh.
 exports.refreshPrices = functions
   .runWith({ maxInstances: 1, timeoutSeconds: 120 })
-  .pubsub.schedule("every 5 minutes").onRun(async () => {
-  // Log THEN rethrow: a swallowed error returns success, so the built-in
-  // "function errors" alert never fires and a broken refresh stays invisible.
-  try { await refreshUniverse({ pages: HOT_PAGES }); }
-  catch (e) { console.error("refreshPrices:", e); throw e; }
+  .pubsub.schedule("every 5 minutes").onRun(() => runJob("refreshPrices", async () => {
+  // ADMIN-2: a deliberately switched-off feature must not page you. Skipping here
+  // (rather than letting cgFetch throw) keeps the run GREEN and records why, so a
+  // frozen price cache reads as "you turned this off", not "the refresh is broken".
+  if (!(await featureOn("marketData"))) return "skipped — marketData off";
+  await refreshUniverse({ pages: HOT_PAGES });
   return null;
-});
+}));
 
 // Daily FULL refresh — guarantees the complete ~3,000-coin list and prunes coins
 // that dropped off the market-cap list. Cheap and reliable even on the free tier.
 // C-R2f: also prunes historyCache docs past HISTORY_TTL (they only re-fill on demand,
 // so expired ones are dead weight).
-exports.refreshUniverseDaily = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
+exports.refreshUniverseDaily = SCHEDULED.pubsub.schedule("every 24 hours").onRun(() => runJob("refreshUniverseDaily", async () => {
   // Both halves always run (a failed refresh shouldn't skip the prune), but the
   // first error is remembered and rethrown so the invocation is marked FAILED.
   let failure = null;
-  try { await refreshUniverse({ pages: UNIVERSE_PAGES, prune: true }); }
-  catch (e) { console.error("refreshUniverseDaily:", e); failure = e; }
+  let note = null;
+  // ADMIN-2: the refresh half is the upstream spend; the prune half is local
+  // housekeeping and keeps running regardless, so switching market data off does
+  // not quietly let expired history pile up.
+  if (!(await featureOn("marketData"))) note = "refresh skipped — marketData off";
+  else {
+    try { await refreshUniverse({ pages: UNIVERSE_PAGES, prune: true }); }
+    catch (e) { console.error("refreshUniverseDaily:", e); failure = e; }
+  }
   try {
     const cutoff = Date.now() - HISTORY_TTL;
     const stale = await db.collection("historyCache").where("updatedAt", "<", cutoff).get();
@@ -1486,39 +1664,41 @@ exports.refreshUniverseDaily = SCHEDULED.pubsub.schedule("every 24 hours").onRun
     if (stale.size) console.log("refreshUniverseDaily: pruned", stale.size, "expired historyCache docs");
   } catch (e) { console.error("historyCache prune:", e); failure = failure || e; }
   if (failure) throw failure;
-  return null;
-});
+  return note;
+}));
 
 // ─── C-R2c (C15): audit-log retention ───
 // Audit entries are kept on legitimate interest but AGE OUT after a fixed window,
 // regardless of account deletion (no per-account scrub). Disclosure: privacy.html.
 const AUDIT_RETENTION_MS = 365 * 24 * 3600 * 1000;   // 12 months
-exports.purgeOldAudit = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
-  try {
-    const cutoff = Date.now() - AUDIT_RETENTION_MS;
-    const old = await db.collection("audit").where("at", "<", cutoff).limit(500).get();
-    for (const d of old.docs) await d.ref.delete();
-    if (old.size) console.log("purgeOldAudit: removed", old.size, "expired audit entries");
-  } catch (e) { console.error("purgeOldAudit:", e); throw e; }
+exports.purgeOldAudit = SCHEDULED.pubsub.schedule("every 24 hours").onRun(() => runJob("purgeOldAudit", async () => {
+  const cutoff = Date.now() - AUDIT_RETENTION_MS;
+  const old = await db.collection("audit").where("at", "<", cutoff).limit(500).get();
+  for (const d of old.docs) await d.ref.delete();
+  if (old.size) console.log("purgeOldAudit: removed", old.size, "expired audit entries");
   return null;
-});
+}));
 
 // ─── ADMIN-4: the daily growth snapshot ───
 // Aggregate-only (no uid, no email), so the series is kept INDEFINITELY (founder,
 // 2026-07-24) — there is deliberately NO purge sweep paired with this, unlike
 // audit and trash. `writeDailySnapshot` is defined up with getStats, next to the
 // gatherStats() maths it shares with the live Overview.
-exports.captureDailyStats = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
+exports.captureDailyStats = SCHEDULED.pubsub.schedule("every 24 hours").onRun(() => runJob("captureDailyStats", async () => {
   // H3: this must fail LOUDLY. A silently-skipped run loses a day of history that
   // cannot be reconstructed later — the counts it would have recorded are gone.
+  // ADMIN-2: which is exactly why this job gets a heartbeat. A schedule that stops
+  // FIRING never throws, so nothing alerts — the only symptom is a gap in a series
+  // that can never be backfilled. The status strip makes that gap visible in hours
+  // instead of whenever someone next opens the growth card.
   const snapshot = await writeDailySnapshot(Date.now());
   console.log("captureDailyStats: wrote", snapshot.date, JSON.stringify(snapshot));
   return null;
-});
+}));
 
 // Daily: permanently erase accounts whose 30-day trash window has elapsed.
 // (Cloud Scheduler fires this in prod; trigger it from the emulator UI in dev.)
-exports.purgeExpiredTrash = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
+exports.purgeExpiredTrash = SCHEDULED.pubsub.schedule("every 24 hours").onRun(() => runJob("purgeExpiredTrash", async () => {
   // Per-user isolation: one undeletable account must not stop the sweep for
   // everyone else. Errors are remembered and rethrown after the loop so the
   // invocation still reports FAILED (see refreshPrices for why).
@@ -1536,14 +1716,14 @@ exports.purgeExpiredTrash = SCHEDULED.pubsub.schedule("every 24 hours").onRun(as
   }
   if (failure) throw failure;
   return null;
-});
+}));
 
 // ─── BL-1f (B8): the server-side at-period-end subscription flip ───
 // Cancelled subscriptions past their endDate drop to Starter (a "pro" target keeps
 // its marker so the app's R29 re-checkout popup decides the landing — an approved
 // Pro payment arrives as a fresh ACTIVATED webhook); payment failures drop after
 // the 7-day grace (U12). Pure decision per user in billing.subscriptionSweepPatch.
-exports.enforceSubscriptionPeriods = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
+exports.enforceSubscriptionPeriods = SCHEDULED.pubsub.schedule("every 24 hours").onRun(() => runJob("enforceSubscriptionPeriods", async () => {
   // This is the money one: if it silently fails, cancelled subscribers keep a
   // paid tier forever. Per-user isolation + rethrow so a real failure alerts.
   let failure = null;
@@ -1559,7 +1739,7 @@ exports.enforceSubscriptionPeriods = SCHEDULED.pubsub.schedule("every 24 hours")
   }
   if (failure) throw failure;
   return null;
-});
+}));
 
 // PUBLIC + unauthenticated + CORS-*, so this is the one endpoint a flood can
 // reach for free. maxInstances is the real spend ceiling (a billing budget only
@@ -1712,6 +1892,10 @@ exports.api = functions
       res.json({
         maintenance: !!fl.maintenance,
         signupsEnabled: fl.signupsEnabled !== false,
+        // ADMIN-2: the per-feature switches. Published so the UI can be HONEST about
+        // what is off (frozen prices say "paused", not a stale "● LIVE" badge) — the
+        // server enforces them regardless, so this is presentation, never the control.
+        features: featureFlags.readFeatures(d),
         plans: mergePlans(d.plans),
         analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
         legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
@@ -1742,9 +1926,9 @@ exports.api = functions
         // automatically daily for ranges > 90 days.)
         try {
           const days = CG_KEY ? "max" : "365";
-          let r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=${days}`, { headers: await cgHeaders() });
+          let r = await cgFetch(`/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=${days}`);
           if (!r.ok && days !== "365") {
-            r = await fetch(`${CG_BASE}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=365`, { headers: await cgHeaders() });
+            r = await cgFetch(`/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=365`);
           }
           if (r.ok) { const d = await r.json(); data = { updatedAt: Date.now(), prices: d.prices || [] }; await ref.set(data); }
           // API-SECURITY: negative-cache a real-but-failed lookup so repeats don't re-fetch for 1h.
@@ -1818,6 +2002,10 @@ exports.api = functions
     res.status(404).json({ error: "unknown action — use /api/prices, /api/search, /api/trending, /api/history, or /api/subscribe" });
   } catch (e) {
     console.error("api error:", e);
+    // ADMIN-2: report to Sentry when a DSN is configured. The label is the coarse
+    // action only — never the query, which can carry coin ids and, on /api/subscribe,
+    // an email address. No-op (and no SDK load) until a DSN exists.
+    try { observability.captureError(await getConfig(), "api:" + action, e); } catch (e2) { /* never mask the real error */ }
     res.status(500).json({ error: "server error" });
   }
 });

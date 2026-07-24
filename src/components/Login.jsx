@@ -134,8 +134,15 @@ export function Login({ popup }) {
     // (or on a paid tier) the R28 current-aware picker applies (locked current tier,
     // "Included" lower tiers, a Close link — reached from Account).
     const forced=!planChosen;
-    const cardState=(t)=>forced?"upgrade":t===currentTier?"current":TIER_RANK[t]>TIER_RANK[currentTier]?"upgrade":"included";
-    const ctaText=(t,label)=>cardState(t)==="current"?"Your current plan":cardState(t)==="included"?"Included":label;
+    // ADMIN-2: the checkout kill-switch. The PAID cards go unavailable (reusing the
+    // existing locked treatment), but Starter deliberately does NOT — otherwise a
+    // forced first choice, which has no skip link, would become a dead end with every
+    // card unclickable. The server refuses createSubscription regardless; this only
+    // stops people walking into a checkout that is going to fail.
+    const checkoutOff=!!(site&&site.features&&site.features.checkout===false);
+    const cardState=(t)=>checkoutOff&&t!=="free"?"paused"
+      :forced?"upgrade":t===currentTier?"current":TIER_RANK[t]>TIER_RANK[currentTier]?"upgrade":"included";
+    const ctaText=(t,label)=>cardState(t)==="paused"?"Temporarily unavailable":cardState(t)==="current"?"Your current plan":cardState(t)==="included"?"Included":label;
     const cardGo=(t,go)=>cardState(t)==="upgrade"?go:undefined;   // locked cards ignore clicks
     const lockCls=(t)=>cardState(t)==="upgrade"?"":" locked";
     return wrap(<>

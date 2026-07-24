@@ -213,6 +213,7 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | `listWebhookEvents` | Callable | Admin-only (read-only, ADMIN-1): recent PayPal `webhookEvents` ledger for the Overview billing/webhook-health card |
 | `listDailyStats` | Callable | Admin-only (read-only, ADMIN-4): the daily growth series from `statsDaily/{YYYY-MM-DD}`, oldest-first (clamp 1–400, default 90) |
 | `captureStatsSnapshot` | Callable | **Owner-only** (ADMIN-4): write today's growth snapshot on demand — for a missed nightly run. Audited; idempotent per UTC day |
+| `getSystemStatus` | Callable | Admin-only (read-only, ADMIN-2): the kill-switch states, the six cron heartbeats (`health/jobs`), market-cache ages, and whether Sentry is configured. No secrets — the DSN is a boolean |
 | `setUserTier` / `suspendUser` / `restoreUser` | Callable | Manager-or-owner: change tier / suspend / restore from trash (a manager may not act on an owner at all) |
 | `deleteUser` | Callable | **Owner-only**: delete-with-erasure (blocks self-target; owners can never be deleted) |
 | `setPremiumLimits` | Callable | Manager-or-owner: set a user's per-user custom limits (`premiumLimits`, clamped to the same hard ceilings) |
@@ -223,7 +224,27 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | `captureDailyStats` | Scheduled (every 24 h) | ADMIN-4: write one aggregate growth snapshot to `statsDaily/{YYYY-MM-DD}`. Aggregate-only (no personal data), so it is **kept indefinitely** — there is no paired purge |
 | `devSetMyTier` | Callable (dev-only) | Set the caller's own tier in the **emulator only** — hard-refuses in production (`FUNCTIONS_EMULATOR` gate), so tier stays server-only live |
 
-> The complete request/response contract for every function + `/api/*` endpoint is in [openapi.json](openapi.json) (35 operations); the full billing flow is in [BILLING.md](docs/decisions/BILLING.md).
+> Every scheduled job above stamps a heartbeat to the server-only `health/jobs` doc on each run
+> (ADMIN-2), because a cron that stops *firing* throws no error and alerts nobody — the admin
+> Overview strip reads the age and flags "never" / "overdue" / "failed".
+
+> The complete request/response contract for every function + `/api/*` endpoint is in [openapi.json](openapi.json) (36 operations); the full billing flow is in [BILLING.md](docs/decisions/BILLING.md).
+
+### Feature kill-switches (ADMIN-2)
+
+`config/app → flags.features` carries three switches, published (non-secret) on `/api/config` and
+**enforced server-side**:
+
+| Switch | Off means |
+|---|---|
+| `marketData` | Every CoinGecko call is refused at the single `cgFetch()` choke point, and the lazy refresh in `getUniverse`/`getTrending` is skipped. Endpoints keep serving the **last cached** prices, so spend stops immediately while the app stays usable; the app header swaps `● LIVE` for `● PAUSED`. |
+| `checkout` | `createSubscription` throws `failed-precondition`; the paid plan cards read "Temporarily unavailable" (Starter stays selectable, so a forced first choice is never a dead end). |
+| `aiResearch` | **Reserved** — the Wave-B AI proxy does not exist yet, so nothing enforces it today. A unit test fails the build if an Anthropic call is ever added without the gate. |
+
+Each switch is **ON unless config says exactly `false`**, so a missing key or an unreadable config
+can never take the product down. A `saveConfig` payload that omits `features` **keeps** the stored
+switches (per-key merge) — otherwise flipping maintenance mid-incident would silently re-enable the
+feature you had just killed.
 
 ## CoinGecko proxy (`api`)
 
