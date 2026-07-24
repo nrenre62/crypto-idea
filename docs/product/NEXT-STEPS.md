@@ -30,7 +30,7 @@ founder chose machine-local over a committed baseline).
 - Verified live: `npm run seed` exported all 6 accounts + firestore; a fresh `npm run start:all` logged
   `Importing accounts from …/emulator-data/auth_export/accounts.json` and came up with them present —
   persistence across restarts proven. 842/842 unit green (incl. the new test); docs swept (README,
-  CLAUDE.md, `emulator-dev-stack.svg` + diagrams index). Commit `<pending>`.
+  CLAUDE.md, `emulator-dev-stack.svg` + diagrams index). Commit `071b290`.
 
 ---
 
