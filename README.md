@@ -210,6 +210,7 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | `listUsers` / `lookupUser` | Callable | Any admin (owner or manager): full users list (Auth+profile merge, operational data only, capped 5000, each with a `role` field — `""` for plain users) / look up one user by email for support |
 | `getAdminConfig` / `saveConfig` | Callable | **Owner-only + step-up re-auth**: read config to pre-fill Settings (secrets returned as set-flags) / write API keys + settings to the locked `config/app` doc |
 | `listAudit` | Callable | Admin-only: recent admin-action audit log |
+| `listWebhookEvents` | Callable | Admin-only (read-only, ADMIN-1): recent PayPal `webhookEvents` ledger for the Overview billing/webhook-health card |
 | `setUserTier` / `suspendUser` / `restoreUser` | Callable | Manager-or-owner: change tier / suspend / restore from trash (a manager may not act on an owner at all) |
 | `deleteUser` | Callable | **Owner-only**: delete-with-erasure (blocks self-target; owners can never be deleted) |
 | `setPremiumLimits` | Callable | Manager-or-owner: set a user's per-user custom limits (`premiumLimits`, clamped to the same hard ceilings) |
@@ -219,7 +220,7 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | `purgeExpiredTrash` / `purgeOldAudit` | Scheduled (every 24 h) | Permanently erase soft-deleted accounts past the 30-day window / delete audit-log entries past retention |
 | `devSetMyTier` | Callable (dev-only) | Set the caller's own tier in the **emulator only** — hard-refuses in production (`FUNCTIONS_EMULATOR` gate), so tier stays server-only live |
 
-> The complete request/response contract for every function + `/api/*` endpoint is in [openapi.json](openapi.json) (32 operations); the full billing flow is in [BILLING.md](docs/decisions/BILLING.md).
+> The complete request/response contract for every function + `/api/*` endpoint is in [openapi.json](openapi.json) (33 operations); the full billing flow is in [BILLING.md](docs/decisions/BILLING.md).
 
 ## CoinGecko proxy (`api`)
 
