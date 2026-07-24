@@ -246,3 +246,22 @@
 .ci-app .adm-wh-row:last-child { border-bottom:0; }
 .ci-app .adm-wh-row .wh-t { font-size:12.5px; color:var(--ink); }
 .ci-app .adm-wh-row .wh-when { font-size:11px; color:var(--ink-faint); white-space:nowrap; flex:none; }
+
+/* ── ADMIN-4: Overview growth card (trend sparklines + deltas) ────────────── */
+/* auto-fit so the three metrics sit 3-up on desktop and stack on mobile — the
+   app's responsive standard, no @media query. */
+.ci-app .adm-growth { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; }
+.ci-app .adm-growth-row { border:1px solid var(--line-2); border-radius:12px; padding:10px 12px; background:var(--paper-2); }
+.ci-app .adm-growth-row .g-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:6px; }
+.ci-app .adm-growth-row .g-label { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); }
+.ci-app .adm-growth-row .g-now { font-family:var(--font-display,inherit); font-size:19px; font-weight:700; color:var(--ink); }
+/* The sparkline stretches to the row; height is fixed so a tall value can't push
+   the card around as the series grows. */
+.ci-app .adm-spark { display:block; width:100%; height:28px; overflow:visible; }
+.ci-app .adm-growth-row .g-deltas { display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:6px; }
+.ci-app .adm-growth-row .g-delta { font-size:11px; font-weight:600; white-space:nowrap; }
+.ci-app .adm-growth-row .g-delta.up { color:var(--accent-ink); }
+.ci-app .adm-growth-row .g-delta.down { color:var(--warn); }
+.ci-app .adm-growth-row .g-delta.flat,
+.ci-app .adm-growth-row .g-delta.none { color:var(--ink-faint); font-weight:500; }
+.ci-app .adm-growth-foot { margin-top:14px; padding-top:12px; border-top:1px solid var(--line-2); }

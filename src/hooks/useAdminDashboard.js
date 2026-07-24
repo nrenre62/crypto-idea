@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, listWebhookEvents, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser } from "../api/admin.js";
+import { getStats, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser } from "../api/admin.js";
 import { getAdminRole, reauthAdmin } from "../api/admin-auth.js";
 
 // ADMIN-SEC: how long one password confirmation keeps the sensitive areas unlocked.
@@ -15,6 +15,10 @@ const CANCELLED = Symbol("unlock-cancelled");
 // pretending there is more to load.
 const AUDIT_PAGE_LIMIT = 100;
 const AUDIT_MAX_LIMIT = 500;
+
+// ADMIN-4: how many daily snapshots the growth card asks for. 90 covers the 7- and
+// 30-day comparisons it draws with plenty of headroom; listDailyStats clamps at 400.
+const DAILY_LIMIT = 90;
 
 // Combined real usage shown on the Overview before getStats resolves (no fake data).
 const EMPTY_STATS = { totalUsers: 0, freeUsers: 0, proUsers: 0, premiumUsers: 0, totalPortfolios: 0, totalCoins: 0, estimatedRevenue: 0, grossRevenue: 0, paymentFees: 0, netRevenue: 0, proPrice: 9.99, premiumPrice: 49.99 };
@@ -210,6 +214,11 @@ export function useAdminDashboard() {
   const [webhookEvents, setWebhookEvents] = useState(null);
   const [webhookLoading, setWebhookLoading] = useState(false);
   const [webhookMsg, setWebhookMsg] = useState("");
+  // ADMIN-4: Overview growth card — the daily snapshot series, oldest-first.
+  const [daily, setDaily] = useState(null);
+  const [dailyLoading, setDailyLoading] = useState(false);
+  const [dailyMsg, setDailyMsg] = useState("");
+  const [capturing, setCapturing] = useState(false);
 
   // Load combined usage on mount. ADMIN-SEC: the config is OWNER-only, so it's loaded
   // from the role effect below instead — asking for it as a manager would just produce
@@ -265,6 +274,34 @@ export function useAdminDashboard() {
     setWebhookLoading(false);
   };
   useEffect(() => { if (tab === "overview" && webhookEvents === null && !webhookLoading) loadWebhookEvents(); }, [tab]);
+
+  // ADMIN-4: load the daily growth series the first time the Overview is shown.
+  // On failure the series is set to [] AND dailyMsg is set — the card renders the
+  // error and suppresses its "still collecting" hint, so a failed load can never
+  // read as "you have no history yet" (the ADMIN-1/ADMIN-3 error-vs-empty rule).
+  const loadDaily = async () => {
+    setDailyLoading(true); setDailyMsg("");
+    try { setDaily(await listDailyStats(DAILY_LIMIT)); }
+    catch (e) { setDailyMsg((e && e.message) || "Could not load growth history"); setDaily([]); }
+    setDailyLoading(false);
+  };
+  useEffect(() => { if (tab === "overview" && daily === null && !dailyLoading) loadDaily(); }, [tab]);
+
+  // ADMIN-4 (owners only): capture today's snapshot now, then re-read the series so
+  // the card reflects the write. DI-1 verify-then-toast — the caller only reports
+  // success after both the write AND the re-read have actually succeeded.
+  const captureSnapshot = async () => {
+    setCapturing(true);
+    try {
+      const snap = await captureStatsSnapshot();
+      await loadDaily();
+      setCapturing(false);
+      return { ok: true, msg: `Snapshot captured for ${(snap && snap.date) || "today"}` };
+    } catch (e) {
+      setCapturing(false);
+      return { ok: false, msg: (e && e.message) || "Could not capture a snapshot" };
+    }
+  };
 
   const resetConfirms = () => { setConfirmDelete(false); setConfirmTrash(false); setDelText(""); setPurgeUid(null); };
   const lookup = async () => {
@@ -412,6 +449,8 @@ export function useAdminDashboard() {
     auditQ, setAuditQ, auditAction, setAuditAction, auditPage, setAuditPage,
     auditLimit, AUDIT_MAX_LIMIT,
     webhookEvents, webhookLoading, webhookMsg, loadWebhookEvents,
+    // ADMIN-4 — the daily growth series + the owner-only manual capture.
+    daily, dailyLoading, dailyMsg, loadDaily, capturing, captureSnapshot,
     s,
     loadConfig, saveConfig, saveControls, loadUserList, loadAudit, lookup, openUser, changeTier, changePremiumLimits, toggleSuspend, doDelete,
     restoreFromTrash, purgeFromTrash,

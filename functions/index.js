@@ -49,6 +49,8 @@ const { trimUniverse } = require("./universe-utils.js");
 const { clientIp, auditIp } = require("./net-utils.js");
 // ADMIN-3: pure before/after config diff for the saveConfig audit entry (secrets redacted).
 const { diffConfig, formatConfigDiff, auditDetailsFor } = require("./config-diff.js");
+// ADMIN-4: pure shape + UTC-day id for the daily growth snapshot (statsDaily/{date}).
+const statsDaily = require("./stats-daily.js");
 // How many trusted proxy hops the platform appends on the RIGHT of X-Forwarded-For.
 // Default 2 (common GCLB→Cloud Functions); confirm from a prod log + override if needed.
 const RL_TRUSTED_HOPS = Number(process.env.RL_TRUSTED_HOPS) || 2;
@@ -501,11 +503,21 @@ exports.paypalWebhook = functions
 const PAYMENT_FEE_RATE = 0.029;
 const PAYMENT_FEE_FIXED = 0.30;
 
-// ─── Admin Stats (admins only) ───
-exports.getStats = functions.https.onCall(async (data, context) => {
-  assertAdmin(context);
+// ─── Combined stats maths — ONE implementation (ADMIN-4) ───
+// Extracted from getStats so the live Overview and the permanent daily growth
+// snapshot read from the same code. A second copy would drift, and because the
+// snapshot series is kept forever, drift would be baked into history and
+// impossible to correct after the fact.
+//
+// Returns aggregate figures only — no uid, no email, nothing personal — which is
+// what makes the stored snapshot safe to keep indefinitely with no erasure path.
+async function gatherStats() {
   const usersSnap = await db.collection("users").get();
   let proUsers = 0, premiumUsers = 0, freeUsers = 0, totalPortfolios = 0, activeUsers = 0;
+  // ADMIN-4: the forward-looking churn signal — subscriptions already cancelled or
+  // failing that still HOLD a paid tier. They are what is *about* to churn, so they
+  // are counted separately from the paid totals, never subtracted from them.
+  let canceledSubs = 0, pastDueSubs = 0;
   const payerList = [];   // BL-1b (D6): [{tier, cycle}] so annual payers are priced by cycle
   usersSnap.forEach((doc) => {
     const d = doc.data();
@@ -517,6 +529,11 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     if (d.tier === "pro" || d.tier === "premium") {
       payerList.push({ tier: d.tier, cycle: d.billingCycle === "yearly" ? "yearly" : "monthly" });
     }
+    // Reuses the ADMIN-1 derivation — no new storage, and no extra read since the
+    // document is already in hand.
+    const status = billing.billingStatusOf(d);
+    if (status === "canceled") canceledSubs++;
+    else if (status === "past_due") pastDueSubs++;
     totalPortfolios += d.portfolioCount || 0;
   });
   // Total coins tracked across everyone — a cheap collection-group COUNT
@@ -537,6 +554,8 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     proUsers,
     premiumUsers,
     freeUsers,
+    canceledSubs,
+    pastDueSubs,
     totalPortfolios,
     totalCoins,
     proPrice: plans.pro.price,
@@ -545,11 +564,86 @@ exports.getStats = functions.https.onCall(async (data, context) => {
     paymentFees,
     netRevenue,
     estimatedRevenue: grossRevenue,   // kept (= gross) for backward compatibility
+  };
+}
+
+// ─── Admin Stats (admins only) ───
+exports.getStats = functions.https.onCall(async (data, context) => {
+  assertAdmin(context);
+  return {
+    ...(await gatherStats()),
     // ADMIN-SEC: owner health. Owners can only be minted by scripts/set-admin.js, so
     // dropping to 1 (or 0) is a silent single-point-of-failure the panel should warn
     // about while it's still fixable. Counts only owners who can actually sign in.
+    // Live-only: it is admin health, not a growth metric, so it stays out of the
+    // snapshot (and off the daily job's critical path).
     activeOwners: await countActiveOwners(),
   };
+});
+
+// ─── ADMIN-4 · Growth metrics — the daily snapshot ───
+// Signups are counted from the Auth record's creationTime, which is the ONLY
+// server-set signup date. `users/{uid}.joined` is written by the client at
+// registration and firestore.rules validates only `name` on that document, so
+// until the create rule pins `joined == request.time` a registering user can
+// claim any signup date. An aggregate a user can move is not a metric.
+const SIGNUP_WINDOW_MS = 24 * 3600 * 1000;
+async function countSignupsSince(cutoffMs) {
+  const CAP = 5000;                  // same ceiling as listUsers
+  let signups = 0, seen = 0, pageToken;
+  do {
+    const res = await admin.auth().listUsers(1000, pageToken);
+    for (const u of res.users) {
+      seen++;
+      const created = Date.parse((u.metadata && u.metadata.creationTime) || "");
+      if (Number.isFinite(created) && created >= cutoffMs) signups++;
+    }
+    pageToken = res.pageToken;
+  } while (pageToken && seen < CAP);
+  return signups;
+}
+
+async function writeDailySnapshot(nowMs) {
+  const stats = await gatherStats();
+  const signups24h = await countSignupsSince(nowMs - SIGNUP_WINDOW_MS);
+  const snapshot = statsDaily.buildSnapshot(stats, { atMs: nowMs, signups24h });
+  // buildSnapshot returns null only for an unusable clock. Writing anyway would
+  // file the reading under 1970-01-01 and permanently skew every later delta.
+  if (!snapshot) throw new Error("writeDailySnapshot: unusable clock — refusing to write a snapshot");
+  // REPLACE, not merge: re-running on the same UTC day corrects that day rather
+  // than appending a second reading, which is what makes the manual "Capture now"
+  // button safe to press after a missed scheduled run.
+  await db.doc(`statsDaily/${snapshot.date}`).set(snapshot);
+  return snapshot;
+}
+
+// (The nightly `captureDailyStats` job itself lives with the other schedulers
+// below — it needs the SCHEDULED runtime config, which is declared down there.)
+
+// ─── ADMIN-4: read the daily growth series (admins only) ───
+// Same gate as getStats — which already returns revenue to any admin — so making
+// the trend owner-only would be theatre, not a boundary.
+exports.listDailyStats = functions.https.onCall(async (data, context) => {
+  assertAdmin(context);
+  const DEFAULT_DAYS = 90, MAX_DAYS = 400;
+  const raw = Number(data && data.limit);
+  const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), MAX_DAYS) : DEFAULT_DAYS;
+  const snap = await db.collection("statsDaily").orderBy("date", "desc").limit(limit).get();
+  // Returned OLDEST-FIRST: that is chart order, and it lets the pure maths in
+  // src/utils/growth.js walk forwards without reversing anything.
+  const series = snap.docs.map((d) => d.data()).reverse();
+  return { series, capped: series.length >= limit };
+});
+
+// ─── ADMIN-4: capture today's snapshot on demand (owners only) ───
+// Cloud Scheduler fires captureDailyStats nightly in production; this is the
+// manual path for a missed run (and the only way to exercise the whole thing
+// under the emulator, which never fires pubsub on a cron). Idempotent per UTC day.
+exports.captureStatsSnapshot = functions.https.onCall(async (data, context) => {
+  assertOwner(context);
+  const snapshot = await writeDailySnapshot(Date.now());
+  await writeAudit(context, "captureStatsSnapshot", { details: `captured ${snapshot.date}` });
+  return { snapshot };
 });
 
 // ─── Grant / revoke MANAGER (owners only, step-up re-auth) — ADMIN-SEC ───
@@ -1406,6 +1500,19 @@ exports.purgeOldAudit = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async 
     for (const d of old.docs) await d.ref.delete();
     if (old.size) console.log("purgeOldAudit: removed", old.size, "expired audit entries");
   } catch (e) { console.error("purgeOldAudit:", e); throw e; }
+  return null;
+});
+
+// ─── ADMIN-4: the daily growth snapshot ───
+// Aggregate-only (no uid, no email), so the series is kept INDEFINITELY (founder,
+// 2026-07-24) — there is deliberately NO purge sweep paired with this, unlike
+// audit and trash. `writeDailySnapshot` is defined up with getStats, next to the
+// gatherStats() maths it shares with the live Overview.
+exports.captureDailyStats = SCHEDULED.pubsub.schedule("every 24 hours").onRun(async () => {
+  // H3: this must fail LOUDLY. A silently-skipped run loses a day of history that
+  // cannot be reconstructed later — the counts it would have recorded are gone.
+  const snapshot = await writeDailySnapshot(Date.now());
+  console.log("captureDailyStats: wrote", snapshot.date, JSON.stringify(snapshot));
   return null;
 });
 

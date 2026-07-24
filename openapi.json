@@ -2439,6 +2439,138 @@
           }
         ]
       }
+    },
+    "/listDailyStats": {
+      "post": {
+        "operationId": "listDailyStats",
+        "summary": "Read the daily growth-metric snapshots, oldest first (admin — ADMIN-4)",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListDailyStatsEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The daily snapshot series, OLDEST FIRST (chart order).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDailyStatsResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
+    "/captureStatsSnapshot": {
+      "post": {
+        "operationId": "captureStatsSnapshot",
+        "summary": "Write today's growth snapshot on demand; idempotent per UTC day (OWNER only — ADMIN-4)",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The snapshot that was stored for the current UTC day.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptureStatsSnapshotResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — owners only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3947,6 +4079,119 @@
           "received"
         ],
         "additionalProperties": false
+      },
+      "DailyStat": {
+        "type": "object",
+        "description": "One UTC day of aggregate growth metrics (statsDaily/{YYYY-MM-DD}). Aggregate only — contains no uid, email or other personal data, which is why the series is retained indefinitely with no erasure path.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "UTC calendar day, YYYY-MM-DD. Also the document id, so ids sort chronologically.",
+            "maxLength": 10
+          },
+          "at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Capture time (epoch ms)."
+          },
+          "totalUsers": {
+            "type": "integer",
+            "description": "Active (non-trashed) accounts."
+          },
+          "freeUsers": {
+            "type": "integer"
+          },
+          "proUsers": {
+            "type": "integer"
+          },
+          "premiumUsers": {
+            "type": "integer"
+          },
+          "paidUsers": {
+            "type": "integer",
+            "description": "pro + premium. Stored explicitly, not derived at read time: it is the churn denominator and a historical snapshot must keep meaning what it meant that day."
+          },
+          "canceledSubs": {
+            "type": "integer",
+            "description": "Subscriptions cancelled but still holding a paid tier until endDate (forward-looking churn signal)."
+          },
+          "pastDueSubs": {
+            "type": "integer",
+            "description": "Subscriptions with a failed payment, inside the 7-day grace."
+          },
+          "signups24h": {
+            "type": "integer",
+            "description": "Accounts created in the 24h before this capture, counted from the Auth record creationTime (server-set). A missed scheduled run leaves that window uncounted — the window is fixed, not cumulative."
+          },
+          "grossRevenue": {
+            "type": "number",
+            "description": "Monthly-equivalent gross, cycle-true (annual payers at priceYear/12). Rounded to cents."
+          },
+          "paymentFees": {
+            "type": "number"
+          },
+          "netRevenue": {
+            "type": "number",
+            "description": "gross - fees. The MRR figure the Overview trends."
+          },
+          "totalPortfolios": {
+            "type": "integer"
+          },
+          "totalCoins": {
+            "type": "integer"
+          }
+        }
+      },
+      "ListDailyStatsEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 400,
+                "default": 90,
+                "description": "How many of the most recent days to return. Clamped server-side to 1..400."
+              }
+            }
+          }
+        }
+      },
+      "ListDailyStatsResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "series": {
+                "type": "array",
+                "description": "OLDEST FIRST — chart order.",
+                "items": {
+                  "$ref": "#/components/schemas/DailyStat"
+                }
+              },
+              "capped": {
+                "type": "boolean",
+                "description": "True when the result filled the requested limit, so older snapshots may exist."
+              }
+            }
+          }
+        }
+      },
+      "CaptureStatsSnapshotResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "snapshot": {
+                "$ref": "#/components/schemas/DailyStat"
+              }
+            }
+          }
+        }
       }
     }
   }

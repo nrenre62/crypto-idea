@@ -159,9 +159,67 @@ trend snapshots). Phases (KISS-first, most valuable first):
       **Accepted with reason (not fixed):** `diffConfig` logs nothing for an object→scalar change —
       `saveConfig` builds a fixed shape, so that transition cannot occur; fixing it would add branching
       for an unreachable case.
-- [ ] **ADMIN-4 · Growth metrics** (🟡 med) — a daily scheduled snapshot `stats/daily/{date}` (counts +
-      per-tier revenue, reusing `getStats` math) → Overview renders **MRR/subs/signup trend + churn**.
-      GA4/Plausible already cover engagement; this fills the revenue/churn gap they can't see.
+- [x] **ADMIN-4 · Growth metrics** (🟡 med · **✅ BUILT 2026-07-24**) — a daily scheduled snapshot
+      (counts + per-tier revenue, reusing `getStats` math) → Overview renders **MRR/subs/signup trend +
+      churn**. GA4/Plausible already cover engagement; this fills the revenue/churn gap they can't see.
+      **Founder decisions (2026-07-24):** churn = **count drop + pending cancels**; snapshots kept
+      **forever** (aggregate-only, no PII, so no erasure path); Overview shows **sparklines + deltas**
+      (hand-rolled inline SVG — a charting dependency for three 120×28 lines fails KISS); an
+      **owner-only "Capture now"** button for a missed run (and the only way to exercise it under the
+      emulator, which never fires pubsub on a cron).
+      **Spec correction:** the backlog said `stats/daily/{date}`, which is a 3-segment path = a
+      *collection*, not a document. Shipped as **`statsDaily/{YYYY-MM-DD}`** — the date IS the doc id,
+      so ids sort lexicographically in true chronological order (no index, no sort field).
+      **What shipped:**
+      - New pure `functions/stats-daily.js` (`snapshotId`/`buildSnapshot`) + pure `src/utils/growth.js`
+        (`entryDaysAgo`/`deltaOver`/`netChurn`/`sparkPath`/`historyDays`). Split deliberately: the SERVER
+        stores raw readings, the CLIENT derives every presented figure — so history stays a record of
+        what was true, not of what we wanted to show.
+      - `getStats`'s body extracted to a shared **`gatherStats()`**, used by both the live Overview and
+        the snapshot. One implementation, because the series is permanent and drift would be baked in.
+        It also now counts `canceledSubs`/`pastDueSubs` via the ADMIN-1 `billingStatusOf` derivation
+        (no new storage, no extra read).
+      - Nightly **`captureDailyStats`** (fails LOUDLY per H3 — a skipped run loses a day that cannot be
+        reconstructed) + **`listDailyStats`** (`assertAdmin`, clamp 1–400/default 90, returns
+        oldest-first) + **`captureStatsSnapshot`** (`assertOwner`, audited, idempotent per UTC day —
+        `set()` replaces, so a re-run corrects the day instead of appending).
+      - Signups counted from the **Auth record's `creationTime`**, not `users/{uid}.joined` — see the
+        security fix below.
+      **🔴 Pre-existing security gap found and fixed:** `users/{uid}.joined` — the signup date shown in
+      the admin Users list and the users CSV — was in the create allowlist but its **value was never
+      validated** (`validUserData` only checks `name`), and it is immutable after create. So a
+      registering client had a one-shot chance to claim **any** signup date, permanently. Now pinned to
+      `request.time` when present (exactly what `registerUser`'s `serverTimestamp()` resolves to).
+      Checked only when present, so an unrelated future create path can't fail on a field it doesn't
+      set — an omitted `joined` renders blank (honest-unknown) rather than forged.
+      **🟡 Test-guard gap found and fixed:** `admin-gate-coverage.test.js` promises that "adding a new
+      admin callable without a gate fails the suite instead of shipping", but its MATRIX was
+      hand-maintained — ADMIN-1's `listWebhookEvents` was correctly gated yet never listed. Added a
+      **completeness check**: every callable must appear in MATRIX (gated) or `UNGATED_BY_DESIGN`
+      (justified), and the gated set must equal MATRIX exactly, so drift fails in either direction.
+      **Honesty rules encoded (the point of the card):** every helper returns **null**, not 0, when the
+      history is too short — so "collecting" and "0% churn" can never look alike; the churn figure is
+      labelled **net** because a month that lost 3 and won 3 reads as 0% and gross churn is
+      unrecoverable from counts alone; deltas match on **date not array index**, so a missed run can't
+      silently make "30d" mean 34, and each delta's tooltip names its real baseline date; the foot
+      reports "N snapshots — a scheduled run was missed" when the count and the span disagree; a failed
+      load shows the error and **suppresses** the "no snapshots yet" reassurance.
+      Files: new `functions/stats-daily.js` · `functions/index.js` · `firestore.rules` (server-only
+      `statsDaily` + the `joined` pin) · new `src/utils/growth.js` · `src/api/admin.js` ·
+      `src/hooks/useAdminDashboard.js` · `src/components/admin-dashboard.jsx` (`Spark`/`Delta` +
+      the Growth card) · `src/styles/admin-settings.css` (`adm-growth*`/`adm-spark`) · `openapi.json`
+      (35 paths) · new `tests/unit/{stats-daily,growth}.test.js` + `admin-dashboard.test.jsx` +
+      `admin-gate-coverage.test.js` + `tests/firestore-rules.test.js`.
+      **Verified:** 693/693 unit (65 files, +51 tests) · **40/40 rules** (+2) · build clean (name-guard) · growth code
+      **and** CSS confirmed out of the user bundle · **browser-checked live as owner** (empty state →
+      "Capture now" wrote a real snapshot: $9 MRR / 1 paid / 6 users / 6 signups, everything else
+      "collecting"; then 35 seeded backdated days rendered 3 sparklines with tooltips proving the
+      baselines are exactly 7 and 30 days back, churn `80.0% — 4 lost from 5`; deleting 3 days produced
+      "36 days of history (33 snapshots — a scheduled run was missed)"; 3 labelled audit entries; 0
+      console errors) · **server gates probed with real ID tokens**: manager→`captureStatsSnapshot`
+      **403 "Owners only"**, plain user→`listDailyStats` **403 "Admins only"**, owner→200, manager→
+      `listDailyStats` 200 (intended — `getStats` already returns revenue to any admin, so restricting
+      the trend would be theatre).
 - [ ] **ADMIN-5 · Team-scale & support** (🟡 med / ⚪ low; build when a non-founder joins or it's needed)
       — *(RBAC owner/manager roles are split out to **ADMIN-SEC** above)* impersonation (logged +
       time-boxed + bannered), announcement banner (config string → app banner), bulk user actions,

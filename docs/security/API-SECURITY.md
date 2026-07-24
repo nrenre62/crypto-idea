@@ -8,7 +8,7 @@
 # API & Key Security
 
 The single source of truth for **what the API is, how it's wired, and how the keys stay safe.**
-The machine-readable contract is [`openapi.json`](../../openapi.json) (OpenAPI 3.0.3, 32 operations).
+The machine-readable contract is [`openapi.json`](../../openapi.json) (OpenAPI 3.0.3, 35 operations).
 
 ---
 
@@ -57,12 +57,17 @@ Same as B **plus** a verified admin custom claim, in **two roles**: `owner` (`{a
 
 | Gate | Callables |
 |---|---|
-| `assertAdmin` (read-only) | `getStats` · `lookupUser` · `listUsers` · `listAudit` · `listWebhookEvents` (ADMIN-1: PayPal webhook ledger) |
+| `assertAdmin` (read-only) | `getStats` · `lookupUser` · `listUsers` · `listAudit` · `listWebhookEvents` (ADMIN-1: PayPal webhook ledger) · `listDailyStats` (ADMIN-4: growth series) |
 | `assertManager` | `setUserTier` · `setPremiumLimits` · `suspendUser` · `restoreUser` · `adminTrashUser` · `adminSignOutUser` |
-| `assertOwner` | `deleteUser` |
+| `assertOwner` | `deleteUser` · `captureStatsSnapshot` (ADMIN-4 — writes an aggregate snapshot, not config, so no step-up) |
 | `assertFreshOwner` | `getAdminConfig` · `saveConfig` · `setManagerRole` |
 
 **Owner protection is by identity:** an owner can never be deleted, trashed, demoted or self-deleted, and a **manager may not act on an owner at all** (suspend / sign-out / tier / limits / trash / delete all refuse). `MIN_ADMINS` remains only as a secondary floor. `setAdminClaim` is **removed** — the old export now always throws `permission-denied`; use `setManagerRole({email, grant})`.
+
+#### Growth snapshots (ADMIN-4, 2026-07-24)
+`statsDaily/{YYYY-MM-DD}` is **server-only in `firestore.rules`** — no client read, no client write, *including* an admin claim (the panel goes through `listDailyStats`). It holds aggregate counts and revenue only: **no uid, no email, nothing personal**, which is what makes it safe to retain **indefinitely** with no erasure path (contrast audit at 365 days). The deny is not about confidentiality — it is **integrity**: the series is presented as the record of what actually happened and is kept forever, so a client-writable snapshot could be used to fake growth or erase a bad month, permanently.
+
+Same round closed a related integrity gap in the **`users` create rule**: `joined` (the signup date rendered in the admin Users list and the users CSV export) was in the closed-shape allowlist but its **value was never validated** — `validUserData` checks only `name` — and the field is immutable after create. A registering client therefore had exactly one chance to claim **any** signup date, permanently. The rule now pins `joined == request.time` when the field is present. Growth metrics still count signups from the **Auth record's `creationTime`** rather than from `joined`: one server-set, un-forgeable source beats two.
 
 #### Audit-entry contents (ADMIN-3, 2026-07-24)
 Two fields were added to what `writeAudit` records, both with a security edge worth stating:

@@ -5,6 +5,10 @@ import { trashDaysLeft, partitionUsers } from "../utils/trash.js";
 // plumbing is the saveCsv helper below).
 import { buildAuditCsv, buildUsersCsv } from "../utils/export-admin-csv.js";
 import { CSV_BOM } from "../utils/csv.js";
+// ADMIN-4: pure growth maths for the Overview trend card (deltas, net churn,
+// sparkline geometry). Every one of these returns null when the history is too
+// short, which is what lets the card say "collecting" instead of a fake 0%.
+import { seriesOf, deltaOver, netChurn, pendingCancels, historyDays, sparkPath, latest } from "../utils/growth.js";
 
 /* ═══ ADMIN-D2 — the whole panel is on the .ci-app paper design ═══
    Overview · Users · Trash · Audit were reskinned from the old grey inline-styled
@@ -39,7 +43,9 @@ export const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "S
   createSubscription: "Started subscription checkout", cancelSubscription: "Cancelled subscription",
   // DI/R29 self-service repair + billing recovery
   reconcileMyCounters: "User repaired their counters", resolveRecheckout: "User resolved a re-checkout",
-  reactivateSubscription: "User reactivated subscription" };
+  reactivateSubscription: "User reactivated subscription",
+  // ADMIN-4 growth metrics
+  captureStatsSnapshot: "Captured a stats snapshot" };
 
 /* ═══ ADMIN-3 — CSV export ═══
    Both exports are built from the rows already on screen, so a download always
@@ -58,6 +64,46 @@ function saveCsv(filename, text) {
 }
 // UTC date stamp for export filenames (YYYY-MM-DD).
 const stamp = () => new Date().toISOString().slice(0, 10);
+
+/* ═══ ADMIN-4 — growth trend ═══ */
+
+// The three metrics the Overview trends. `fmt` takes an absolute value — the row
+// renders the sign itself, so a negative never prints as "$-12".
+const GROWTH_METRICS = [
+  { key: "netRevenue", label: "MRR (net)",   fmt: (v) => "$" + Math.round(v) },
+  { key: "paidUsers",  label: "Paid subs",   fmt: (v) => String(Math.round(v)) },
+  { key: "totalUsers", label: "Total users", fmt: (v) => String(Math.round(v)) },
+];
+
+// A hand-rolled sparkline: ~10 lines of SVG instead of a charting dependency for
+// three 120x28 curves. aria-hidden because the delta text beside it carries the
+// same information in words — the picture is decoration for a screen reader.
+function Spark({ values }) {
+  const d = sparkPath(values, 120, 28);
+  if (!d) return null;
+  return (
+    <svg className="adm-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <path d={d} fill="none" stroke="var(--accent-ink)" strokeWidth="1.5"
+            strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+// One "vs N days ago" figure. Renders "collecting" — never a 0 — when the history
+// doesn't reach back that far, so "no change" and "we don't know yet" can never be
+// read as the same thing. The tooltip names the REAL baseline date, because a gap
+// from a missed run means "30d" can quietly be measured from 34 days back.
+function Delta({ d, days, fmt }) {
+  if (!d) return <span className="g-delta none">{days}d collecting</span>;
+  const flat = d.diff === 0;
+  const up = d.diff > 0;
+  const pct = d.pct != null && !flat ? ` (${up ? "+" : "-"}${Math.abs(d.pct).toFixed(0)}%)` : "";
+  return (
+    <span className={"g-delta " + (flat ? "flat" : up ? "up" : "down")} title={`${days} days: ${d.fromDate} → ${d.toDate}`}>
+      {days}d {flat ? "no change" : (up ? "+" : "-") + fmt(Math.abs(d.diff)) + pct}
+    </span>
+  );
+}
 
 /* ═══ ADMIN-D + ADMIN-D3 — Settings paper drill-in primitives ═══
    Mirror Account.jsx's NavRow / CtrlRow / Switch; the inline SVGs come 1:1 from
@@ -225,6 +271,7 @@ export default function AdminDashboard() {
     unlockPrompt, unlockPass, setUnlockPass, unlockErr, submitUnlock, cancelUnlock,
     grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound,
     grantMsg, setGrantWarn, grantWarn, grantLookup, setManager,
+    daily, dailyLoading, dailyMsg, capturing, captureSnapshot,
   } = useAdminDashboard();
 
   // ADMIN-D: which Settings screen is showing — "home" or a detail drill-in.
@@ -360,6 +407,76 @@ export default function AdminDashboard() {
             </div>
 
           </div>{/* end overview grid — Plan Limits spans full width below */}
+
+          {/* ADMIN-4: Growth — trend over the daily statsDaily snapshots. The
+              series starts EMPTY (nothing is backfilled: there is no record of
+              what was true before the first capture) and fills one row per day,
+              so every figure here degrades to "collecting" until the history is
+              genuinely long enough to answer the question asked. */}
+          <div className="card">
+            <div className="adm-card-head">
+              <div className="card-title" style={{ marginBottom:0 }}>Growth</div>
+              {isOwner && (
+                <button className="adm-btn sm" disabled={capturing}
+                        onClick={async () => { const r = await captureSnapshot(); pushToast(r.msg, r.ok ? "ok" : "err"); }}>
+                  {capturing ? "…" : "Capture now"}
+                </button>
+              )}
+            </div>
+            {dailyMsg && <div className="adm-inline-err" style={{ marginTop:10 }}>{dailyMsg}</div>}
+            {(() => {
+              if (dailyLoading && !daily) return <div className="adm-loading">Loading…</div>;
+              const list = daily || [];
+              // A failed load already rendered the red banner above; don't ALSO tell the
+              // operator that an empty series is the normal pre-launch state (the same
+              // error-vs-empty contradiction fixed for the ADMIN-1 webhook card).
+              if (list.length === 0) return dailyMsg ? null : (
+                <div className="adm-hint" style={{ marginTop:8 }}>
+                  No snapshots recorded yet. One is captured automatically every 24 hours;
+                  trends appear as days accumulate. Nothing is backfilled — history starts
+                  at the first capture.
+                </div>
+              );
+              const now = latest(list);
+              const days = historyDays(list);
+              const churn = netChurn(list, 30);
+              const pending = pendingCancels(list);
+              return (<>
+                <div className="adm-growth">
+                  {GROWTH_METRICS.map((m) => (
+                    <div key={m.key} className="adm-growth-row">
+                      <div className="g-head">
+                        <span className="g-label">{m.label}</span>
+                        <span className="g-now">{m.fmt(now[m.key] || 0)}</span>
+                      </div>
+                      <Spark values={seriesOf(list, m.key)} />
+                      <div className="g-deltas">
+                        <Delta d={deltaOver(list, m.key, 7)} days={7} fmt={m.fmt} />
+                        <Delta d={deltaOver(list, m.key, 30)} days={30} fmt={m.fmt} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="adm-growth-foot">
+                  <div className="adm-kv">
+                    <span className="k">Net paid churn · 30d</span>
+                    <span className="v">{churn ? (churn.pct == null ? "—" : churn.pct.toFixed(1) + "%") : "collecting"}</span>
+                  </div>
+                  {/* Saying "net" in the label is not pedantry: a month that lost 3
+                      subscribers and won 3 reads as 0%. Gross churn needs per-event
+                      tracking, which is deliberately not built (founder, 2026-07-24). */}
+                  <div className="adm-note-sm">
+                    Net of new subscribers — {churn ? `${churn.lost} lost from ${churn.start}` : "needs 30 days of history"}
+                    {pending > 0 && <> · <b>{pending}</b> cancelled or past-due {pending === 1 ? "subscription has" : "subscriptions have"} not dropped yet</>}
+                  </div>
+                  <div className="adm-note-sm">
+                    Signups yesterday: <b>{(now.signups24h || 0)}</b> · {days} {days === 1 ? "day" : "days"} of history
+                    {list.length < days && <> ({list.length} snapshots — a scheduled run was missed)</>}
+                  </div>
+                </div>
+              </>);
+            })()}
+          </div>
 
           {/* Tier Limits Reference */}
           <div className="card">

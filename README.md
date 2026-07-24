@@ -211,6 +211,8 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | `getAdminConfig` / `saveConfig` | Callable | **Owner-only + step-up re-auth**: read config to pre-fill Settings (secrets returned as set-flags) / write API keys + settings to the locked `config/app` doc |
 | `listAudit` | Callable | Admin-only: recent admin-action audit log |
 | `listWebhookEvents` | Callable | Admin-only (read-only, ADMIN-1): recent PayPal `webhookEvents` ledger for the Overview billing/webhook-health card |
+| `listDailyStats` | Callable | Admin-only (read-only, ADMIN-4): the daily growth series from `statsDaily/{YYYY-MM-DD}`, oldest-first (clamp 1–400, default 90) |
+| `captureStatsSnapshot` | Callable | **Owner-only** (ADMIN-4): write today's growth snapshot on demand — for a missed nightly run. Audited; idempotent per UTC day |
 | `setUserTier` / `suspendUser` / `restoreUser` | Callable | Manager-or-owner: change tier / suspend / restore from trash (a manager may not act on an owner at all) |
 | `deleteUser` | Callable | **Owner-only**: delete-with-erasure (blocks self-target; owners can never be deleted) |
 | `setPremiumLimits` | Callable | Manager-or-owner: set a user's per-user custom limits (`premiumLimits`, clamped to the same hard ceilings) |
@@ -218,9 +220,10 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | `deleteMyAccount` / `restoreMyAccount` / `exportMyData` | Callable | Self-service GDPR/CCPA: a user soft-deletes (30-day trash), restores, or exports **their own** data |
 | `signOutEverywhere` / `reconcileMyCounters` | Callable (self) | Sign out all of the caller's own devices / recompute the caller's own portfolio/coin/tx counters from actual data (daily-budgeted) |
 | `purgeExpiredTrash` / `purgeOldAudit` | Scheduled (every 24 h) | Permanently erase soft-deleted accounts past the 30-day window / delete audit-log entries past retention |
+| `captureDailyStats` | Scheduled (every 24 h) | ADMIN-4: write one aggregate growth snapshot to `statsDaily/{YYYY-MM-DD}`. Aggregate-only (no personal data), so it is **kept indefinitely** — there is no paired purge |
 | `devSetMyTier` | Callable (dev-only) | Set the caller's own tier in the **emulator only** — hard-refuses in production (`FUNCTIONS_EMULATOR` gate), so tier stays server-only live |
 
-> The complete request/response contract for every function + `/api/*` endpoint is in [openapi.json](openapi.json) (33 operations); the full billing flow is in [BILLING.md](docs/decisions/BILLING.md).
+> The complete request/response contract for every function + `/api/*` endpoint is in [openapi.json](openapi.json) (35 operations); the full billing flow is in [BILLING.md](docs/decisions/BILLING.md).
 
 ## CoinGecko proxy (`api`)
 

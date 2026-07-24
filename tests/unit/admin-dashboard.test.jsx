@@ -15,6 +15,8 @@ vi.mock("../../src/api/admin.js", () => ({
   ])),
   listAudit: vi.fn(() => Promise.resolve([])),
   listWebhookEvents: vi.fn(() => Promise.resolve([])),   // ADMIN-1: Overview billing card
+  listDailyStats: vi.fn(() => Promise.resolve([])),      // ADMIN-4: Overview growth card
+  captureStatsSnapshot: vi.fn(() => Promise.resolve({ date: "2026-07-24" })),
   lookupUser: vi.fn(() => Promise.resolve(
     { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1, coinCount: 3, billingStatus: "none" },
   )),
@@ -38,7 +40,7 @@ vi.mock("../../src/api/admin-auth.js", () => ({
 }));
 
 import AdminDashboard from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig } from "../../src/api/admin.js";
 import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
 describe("admin-dashboard", () => {
@@ -465,5 +467,112 @@ describe("admin-dashboard", () => {
     // The <select> must still show the active filter rather than rendering blank.
     expect(screen.getByLabelText("Filter by action")).toHaveValue("saveConfig");
     expect(screen.getByText("No entries match this filter.")).toBeInTheDocument();
+  });
+
+  /* ═══ ADMIN-4 — Overview growth card ═══
+     The through-line of these tests: a short history must never be dressed up as
+     a real reading. "collecting" and "0%" mean different things and must look
+     different on screen. */
+
+  // Oldest-first daily snapshots ending today, `n` days long.
+  const growthSeries = (rows) => rows.map((r, i) => ({
+    date: new Date(Date.now() - (rows.length - 1 - i) * 86400000).toISOString().slice(0, 10),
+    ...r,
+  }));
+
+  it("ADMIN-4: renders the growth trend with 7d/30d deltas once there is history", async () => {
+    const series = growthSeries(Array.from({ length: 31 }, (_, i) => ({
+      netRevenue: 100 + i, paidUsers: 10 + Math.floor(i / 10), totalUsers: 50 + i, signups24h: 2,
+      canceledSubs: 0, pastDueSubs: 0,
+    })));
+    listDailyStats.mockResolvedValueOnce(series);
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("Growth")).toBeInTheDocument());
+    // Latest values.
+    await waitFor(() => expect(screen.getByText("$130")).toBeInTheDocument());   // netRevenue 130
+    expect(screen.getByText("MRR (net)")).toBeInTheDocument();
+    // 30 days back netRevenue was 100 → +30 (+30%).
+    expect(screen.getByText("30d +$30 (+30%)")).toBeInTheDocument();
+    // 7 days back it was 123, so +7 is +5.7% → displayed as +6%. The percentage is
+    // computed off the REAL baseline, not off the 30-day one.
+    expect(screen.getByText("7d +$7 (+6%)")).toBeInTheDocument();
+    // 31 consecutive snapshots → 31 days of history, no missed-run note.
+    const foot = screen.getByText(/Signups yesterday/);
+    expect(foot.textContent).toContain("31 days of history");
+    expect(foot.textContent).not.toContain("was missed");
+  });
+
+  it("ADMIN-4: says 'collecting' — never 0% — while the history is too short", async () => {
+    // Three days cannot answer a 7- or 30-day question.
+    listDailyStats.mockResolvedValueOnce(growthSeries([
+      { netRevenue: 10, paidUsers: 1, totalUsers: 4, signups24h: 1 },
+      { netRevenue: 20, paidUsers: 2, totalUsers: 5, signups24h: 1 },
+      { netRevenue: 30, paidUsers: 3, totalUsers: 6, signups24h: 1 },
+    ]));
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("Growth")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText("30d collecting").length).toBe(3));
+    // Churn must read "collecting", NOT "0.0%" — the whole point of the card.
+    const churnValue = screen.getByText("Net paid churn · 30d").parentElement.querySelector(".v");
+    expect(churnValue.textContent).toBe("collecting");
+    expect(screen.getByText(/needs 30 days of history/)).toBeInTheDocument();
+  });
+
+  it("ADMIN-4: surfaces pending cancels that have not dropped a tier yet", async () => {
+    listDailyStats.mockResolvedValueOnce(growthSeries([
+      { netRevenue: 10, paidUsers: 3, totalUsers: 5, canceledSubs: 2, pastDueSubs: 1 },
+      { netRevenue: 10, paidUsers: 3, totalUsers: 5, canceledSubs: 2, pastDueSubs: 1 },
+    ]));
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("Growth")).toBeInTheDocument());
+    // Scoped to the growth foot — a bare "3" also matches the headline stat tiles.
+    const foot = await screen.findByText(/cancelled or past-due/);
+    expect(foot.textContent).toContain("3 cancelled or past-due");   // 2 cancelled + 1 past due
+    expect(foot.textContent).toContain("have not dropped yet");
+  });
+
+  it("ADMIN-4: an empty series reads as 'not started yet', not as an error", async () => {
+    listDailyStats.mockResolvedValueOnce([]);
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("Growth")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/No snapshots recorded yet/)).toBeInTheDocument());
+    expect(screen.getByText(/Nothing is backfilled/)).toBeInTheDocument();
+  });
+
+  it("ADMIN-4: a FAILED load shows the error and does not also claim there is no history", async () => {
+    listDailyStats.mockRejectedValueOnce(new Error("permission-denied"));
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("permission-denied")).toBeInTheDocument());
+    // The "no snapshots yet" reassurance must be suppressed — a failure is not a
+    // normal empty state (same contradiction fixed for ADMIN-1 and ADMIN-3).
+    expect(screen.queryByText(/No snapshots recorded yet/)).not.toBeInTheDocument();
+  });
+
+  it("ADMIN-4: 'Capture now' writes a snapshot, re-reads the series, then toasts", async () => {
+    listDailyStats.mockResolvedValue([]);
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("Growth")).toBeInTheDocument());
+    await waitFor(() => expect(listDailyStats).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Capture now" }));
+    await waitFor(() => expect(captureStatsSnapshot).toHaveBeenCalled());
+    // DI-1 verify-then-toast: the series is re-read BEFORE success is claimed.
+    await waitFor(() => expect(listDailyStats).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByText("Snapshot captured for 2026-07-24")).toBeInTheDocument());
+  });
+
+  it("ADMIN-4: 'Capture now' is owner-only — a manager never sees it", async () => {
+    getAdminRole.mockResolvedValueOnce("manager");
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("Growth")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Capture now" })).not.toBeInTheDocument();
+  });
+
+  it("ADMIN-4: a failed capture reports the error instead of a false success", async () => {
+    captureStatsSnapshot.mockRejectedValueOnce(new Error("permission-denied"));
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("Growth")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Capture now" }));
+    await waitFor(() => expect(screen.getByText("permission-denied")).toBeInTheDocument());
+    expect(screen.queryByText(/Snapshot captured/)).not.toBeInTheDocument();
   });
 });

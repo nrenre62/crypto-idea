@@ -277,7 +277,7 @@ in the new design language. Only **three** things are genuinely new, all cosmeti
 Everything else maps to work already planned: the Settings drill-in + Configuration status card → **ADMIN-D**
 (the mockup answers "optional; drop if unwanted" — it's in, with a live amber/green Email dot); view-only
 Audit → **ADMIN-3** owns filter/pagination/export/IP; no billing state on the user card → **ADMIN-1**;
-point-in-time-only Overview → **ADMIN-4** owns MRR/churn trend.
+point-in-time-only Overview → **ADMIN-4** owns MRR/churn trend (**✅ BUILT 2026-07-24** — a **Growth** card of hand-rolled inline-SVG sparklines + 7/30-day deltas + **net** paid churn, fed by one aggregate snapshot per UTC day in `statsDaily/{date}`; every figure reads "collecting" rather than a fake 0 until the history genuinely reaches back that far. Full log: `NEXT-STEPS.md` §ADMIN-4).
 
 ### ⚠️ Three areas SUPERSEDED by §ADMIN-SEC (do not build as drawn)
 

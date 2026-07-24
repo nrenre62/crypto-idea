@@ -12,7 +12,7 @@ import {
   assertFails,
   assertSucceeds,
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc, getDoc, getDocs, collection, updateDoc, deleteDoc, writeBatch, increment } from "firebase/firestore";
+import { doc, setDoc, getDoc, getDocs, collection, updateDoc, deleteDoc, writeBatch, increment, serverTimestamp } from "firebase/firestore";
 
 const PROJECT_ID = "demo-crypto-idea";
 // Follow whatever port the emulator actually bound. `firebase emulators:exec` sets
@@ -70,6 +70,40 @@ test("rateLimits and webhookEvents are unreadable and unwritable by clients", as
   await assertFails(setDoc(doc(aliceDb(), "rateLimits", "alice__createSub__cooldown"), { lastAt: 0 }));
   await assertFails(getDoc(doc(aliceDb(), "webhookEvents", "WH-1")));
   await assertFails(setDoc(doc(aliceDb(), "webhookEvents", "WH-2"), { at: 2 }));
+});
+
+// ADMIN-4: the daily growth series is server-only. It is aggregate data with no
+// personal content, but it is kept FOREVER and the panel presents it as the record
+// of what actually happened — a client-writable series could be poisoned to fake
+// growth (or to erase a bad month), permanently. Even an admin claim gets nothing
+// here: the panel reads it through the listDailyStats callable.
+test("statsDaily is unreadable and unwritable by clients — including admins", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "statsDaily", "2026-07-24"), { date: "2026-07-24", paidUsers: 3, netRevenue: 30 });
+  });
+  await assertFails(getDoc(doc(aliceDb(), "statsDaily", "2026-07-24")));
+  await assertFails(setDoc(doc(aliceDb(), "statsDaily", "2026-07-24"), { paidUsers: 999 }));
+  await assertFails(setDoc(doc(aliceDb(), "statsDaily", "2026-07-25"), { paidUsers: 999 }));
+  await assertFails(deleteDoc(doc(aliceDb(), "statsDaily", "2026-07-24")));
+  // The blanket admin-owner write over user docs must NOT reach this collection.
+  await assertFails(getDoc(doc(adminDb(), "statsDaily", "2026-07-24")));
+  await assertFails(setDoc(doc(adminDb(), "statsDaily", "2026-07-24"), { paidUsers: 999 }));
+});
+
+// ADMIN-4: `joined` is the signup date shown in the admin Users list and the users
+// CSV export, and it is immutable after create — so an unvalidated create was a
+// one-shot chance to claim any signup date, permanently. (This is also why growth
+// metrics count signups from the Auth record's creationTime instead.)
+test("a user cannot forge their own 'joined' signup date at create", async () => {
+  const backdated = new Date("2020-01-01T00:00:00Z");
+  await assertFails(setDoc(doc(aliceDb(), "users", "alice"),
+    { name: "Alice", tier: "free", portfolioCount: 0, joined: backdated }));
+  // A future date is refused too — not just a backdated one.
+  await assertFails(setDoc(doc(bobDb(), "users", "bob"),
+    { name: "Bob", tier: "free", portfolioCount: 0, joined: new Date(Date.now() + 86400000) }));
+  // What registerUser actually sends (serverTimestamp() === request.time) succeeds.
+  await assertSucceeds(setDoc(doc(carolDb(), "users", "carol"),
+    { name: "Carol", tier: "free", portfolioCount: 0, joined: serverTimestamp() }));
 });
 
 // BL-1 review fix: the billing fields the SERVER now trusts are owner-immutable.

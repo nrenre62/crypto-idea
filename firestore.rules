@@ -77,6 +77,12 @@ service cloud.firestore {
     //  · webhookEvents/{id}   — PayPal webhook idempotency ledger
     //  · cache/**             — shared PUBLIC market data (universe/trending), written
     //                           only by the proxy; no per-user data lives here.
+    //  · statsDaily/{date}    — ADMIN-4 daily growth snapshots. Aggregate-only, but
+    //                           still server-only: the admin panel reads them through
+    //                           the listDailyStats callable, which re-checks the claim.
+    //                           A client-writable series could be poisoned to fake
+    //                           growth, and it is kept forever, so a bad write is
+    //                           permanent.
     match /rateLimits/{document=**} {
       allow read, write: if false;
     }
@@ -84,6 +90,9 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /cache/{document=**} {
+      allow read, write: if false;
+    }
+    match /statsDaily/{document=**} {
       allow read, write: if false;
     }
 
@@ -156,6 +165,18 @@ service cloud.firestore {
                     // recovery + period-end sweep and must never be client-seeded).
                     && request.resource.data.keys().hasOnly(['email', 'name', 'tier', 'joined', 'lastLogin', 'portfolioCount', 'settings', 'consent'])
                     && !request.resource.data.keys().hasAny(['subscription', 'billingCycle', 'tierBeforeFailure', 'paypalSubscriptionId', 'premiumLimits', 'deleted', 'deletedAt'])
+                    // ADMIN-4: 'joined' is the displayed signup date (admin Users list,
+                    // users CSV export) and is IMMUTABLE after create — but nothing ever
+                    // checked its VALUE, so a registering client could claim any date,
+                    // permanently. Pinned to request.time, which is exactly what the
+                    // serverTimestamp() in registerUser resolves to.
+                    // Checked only WHEN PRESENT, deliberately: omitting it yields a blank
+                    // "joined" in the panel, which is honest-unknown rather than forged,
+                    // and keeping it optional avoids making an unrelated future create
+                    // path fail on a field it doesn't set.
+                    // (Growth metrics still count signups from the Auth record's
+                    // creationTime — one un-forgeable source, not two.)
+                    && (!('joined' in request.resource.data) || request.resource.data.joined == request.time)
                     && validUserData(request.resource.data)
                     && (!('consent'  in request.resource.data) || validConsent(request.resource.data.consent))
                     && (!('settings' in request.resource.data) || validSettings(request.resource.data.settings));

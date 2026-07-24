@@ -89,6 +89,21 @@ export async function adminSignOutUser(uid) {
   await httpsCallable(functions, "adminSignOutUser")({ uid });
 }
 
+// ADMIN-4: the daily growth series for the Overview trend card, OLDEST-FIRST.
+// Aggregate-only (counts + revenue, no personal data). Returns an array.
+export async function listDailyStats(limit = 90) {
+  const res = await httpsCallable(functions, "listDailyStats")({ limit });
+  return (res.data && res.data.series) || [];
+}
+
+// ADMIN-4 (owners only): write today's snapshot on demand — for a missed nightly
+// run, and the only way to exercise this under the emulator (which never fires
+// pubsub on a cron). Idempotent per UTC day. Returns the stored snapshot.
+export async function captureStatsSnapshot() {
+  const res = await httpsCallable(functions, "captureStatsSnapshot")({});
+  return (res.data && res.data.snapshot) || null;
+}
+
 // Saved admin config (secrets returned as set-flags only, never values). Returns the config object.
 export async function getAdminConfig() {
   const res = await httpsCallable(functions, "getAdminConfig")();
