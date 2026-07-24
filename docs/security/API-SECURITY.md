@@ -57,9 +57,9 @@ Same as B **plus** a verified admin custom claim, in **two roles**: `owner` (`{a
 
 | Gate | Callables |
 |---|---|
-| `assertAdmin` (read-only) | `getStats` · `lookupUser` · `listUsers` · `listAudit` · `listWebhookEvents` (ADMIN-1: PayPal webhook ledger) · `listDailyStats` (ADMIN-4: growth series) · `getSystemStatus` (ADMIN-2: kill-switch states + cron heartbeats — no secrets; the Sentry DSN is reported as a boolean) |
-| `assertManager` | `setUserTier` · `setPremiumLimits` · `suspendUser` · `restoreUser` · `adminTrashUser` · `adminSignOutUser` |
-| `assertOwner` | `deleteUser` · `captureStatsSnapshot` (ADMIN-4 — writes an aggregate snapshot, not config, so no step-up) |
+| `assertAdmin` (read-only) | `getStats` · `lookupUser` · `listUsers` · `listAudit` · `listWebhookEvents` (ADMIN-1: PayPal webhook ledger) · `listDailyStats` (ADMIN-4: growth series) · `getSystemStatus` (ADMIN-2: kill-switch states + cron heartbeats — no secrets; the Sentry DSN is reported as a boolean) · `getUserNote` (ADMIN-5: read a user's private note) |
+| `assertManager` | `setUserTier` · `setPremiumLimits` · `suspendUser` · `restoreUser` · `adminTrashUser` · `adminSignOutUser` · `saveUserNote` (ADMIN-5: write a user's private note; content never audited) |
+| `assertOwner` | `deleteUser` · `captureStatsSnapshot` (ADMIN-4 — writes an aggregate snapshot, not config, so no step-up) · **`viewUserAsAdmin`** (ADMIN-5: READ-ONLY "view as" — reads a user's private data incl. journal theses; a reason is REQUIRED + audited; **never mints a token / never acts as the user**, so no purchase/mutation/lockout surface — the highest gate because it reads the most-private content) |
 | `assertFreshOwner` | `getAdminConfig` · `saveConfig` · `setManagerRole` |
 
 **Owner protection is by identity:** an owner can never be deleted, trashed, demoted or self-deleted, and a **manager may not act on an owner at all** (suspend / sign-out / tier / limits / trash / delete all refuse). `MIN_ADMINS` remains only as a secondary floor. `setAdminClaim` is **removed** — the old export now always throws `permission-denied`; use `setManagerRole({email, grant})`.

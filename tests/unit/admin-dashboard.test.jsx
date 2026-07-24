@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 
 // Mock the API layer so the dashboard mounts without touching Firebase. The
 // wrappers return the payloads the component expects (see src/api/admin.js).
@@ -44,6 +44,20 @@ vi.mock("../../src/api/admin.js", () => ({
   setManagerRole: vi.fn(() => Promise.resolve({ success: true })),
   adminTrashUser: vi.fn(() => Promise.resolve()),
   adminSignOutUser: vi.fn(() => Promise.resolve()),
+  // ADMIN-5: view-as + private notes. A missing mock would make the wrapper undefined
+  // and crash the loadNote effect the moment a user detail opens (the ADMIN-2/ADMIN-4
+  // mock-gap lesson) — so they're mocked even for tests that don't assert on them.
+  viewUserAsAdmin: vi.fn(() => Promise.resolve({
+    uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, role: "",
+    deleted: false, billingStatus: "none",
+    portfolios: [{ id: "p1", name: "Main", coinCount: 1, coins: [
+      { id: "c1", symbol: "btc", name: "Bitcoin", txCount: 1, journal: { thesis: "long-term store of value", changeMyMind: "regulatory ban", status: "intact" }, txTruncated: false, transactions: [{ type: "buy", amount: 0.5, priceAtBuy: 30000, date: "2026-01-01" }] },
+    ] }],
+    learn: { xp: 120, streak: 3, completedLessons: 4, lastActivity: "" },
+    truncated: { portfolios: false, coins: false },
+  })),
+  getUserNote: vi.fn(() => Promise.resolve({ note: "", updatedAt: null, updatedByEmail: "" })),
+  saveUserNote: vi.fn(() => Promise.resolve()),
 }));
 
 // ADMIN-SEC: the dashboard now resolves its own role from the verified custom claims.
@@ -55,7 +69,7 @@ vi.mock("../../src/api/admin-auth.js", () => ({
 }));
 
 import AdminDashboard from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser } from "../../src/api/admin.js";
 import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
 describe("admin-dashboard", () => {
@@ -754,5 +768,102 @@ describe("admin-dashboard", () => {
     const flags = saveConfig.mock.calls.at(-1)[0].flags;
     expect(flags.maintenance).toBe(true);
     expect(flags.requireAdminMfa).toBe(true);   // not silently dropped by a maintenance toggle
+  });
+
+  // ── ADMIN-5: team-scale & support ──
+
+  it("ADMIN-5: the Users tier filter narrows the list", async () => {
+    listUsers.mockResolvedValueOnce([
+      { uid: "u1", email: "free@test.com", name: "Freebie", tier: "free", disabled: false, portfolioCount: 1, billingStatus: "none" },
+      { uid: "u2", email: "pro@test.com", name: "ProUser", tier: "pro", disabled: false, portfolioCount: 2, billingStatus: "none" },
+    ]);
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    await screen.findByText("Freebie");
+    expect(screen.getByText("ProUser")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pro" }));   // Tier chip
+    await waitFor(() => expect(screen.queryByText("Freebie")).toBeNull());
+    expect(screen.getByText("ProUser")).toBeInTheDocument();
+  });
+
+  it("ADMIN-5: selecting a page shows the bulk bar and bulk-set-tier calls the callable per row", async () => {
+    listUsers.mockResolvedValueOnce([
+      { uid: "u1", email: "a@test.com", name: "Aaa", tier: "free", disabled: false, portfolioCount: 1, billingStatus: "none" },
+      { uid: "u2", email: "b@test.com", name: "Bbb", tier: "free", disabled: false, portfolioCount: 1, billingStatus: "none" },
+    ]);
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    await screen.findByText("Aaa");
+    fireEvent.click(screen.getByLabelText("Select all users on this page"));
+    const bulkBar = (await screen.findByText("2 selected")).closest(".adm-bulk-bar");
+    fireEvent.click(within(bulkBar).getByRole("button", { name: "Pro" }));
+    await waitFor(() => expect(setUserTier).toHaveBeenCalledTimes(2));
+    expect(setUserTier).toHaveBeenCalledWith("u1", "pro");
+    expect(setUserTier).toHaveBeenCalledWith("u2", "pro");
+  });
+
+  it("ADMIN-5: saving a view stores the current filters and shows a chip to re-apply it", async () => {
+    localStorage.clear();   // saved views persist across renders — start clean
+    listUsers.mockResolvedValueOnce([{ uid: "u1", email: "pro@test.com", name: "ProOne", tier: "pro", disabled: false, portfolioCount: 1, billingStatus: "none" }]);
+    const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("My Pros");
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    await screen.findByText("ProOne");
+    fireEvent.click(screen.getByRole("button", { name: "Pro" }));          // tier → pro
+    fireEvent.click(screen.getByRole("button", { name: "+ Save view" }));
+    expect(await screen.findByRole("button", { name: "My Pros" })).toBeInTheDocument();
+    promptSpy.mockRestore();
+    localStorage.clear();
+  });
+
+  it("ADMIN-5: an owner opens a read-only view-as — a reason is required, and the thesis is shown", async () => {
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    fireEvent.click(await screen.findByText("Alice"));
+    await screen.findByText("CHANGE TIER");
+    fireEvent.click(screen.getByRole("button", { name: "View as — read-only" }));
+    const openBtn = screen.getByRole("button", { name: "Open read-only view" });
+    expect(openBtn).toBeDisabled();   // no reason yet
+    fireEvent.change(screen.getByPlaceholderText(/Reason/i), { target: { value: "missing portfolio report" } });
+    fireEvent.click(screen.getByRole("button", { name: "Open read-only view" }));
+    await waitFor(() => expect(viewUserAsAdmin).toHaveBeenCalledWith("u1", "missing portfolio report"));
+    expect(await screen.findByText("READ-ONLY")).toBeInTheDocument();
+    expect(screen.getByText(/long-term store of value/)).toBeInTheDocument();   // the mock thesis
+  });
+
+  it("ADMIN-5: a manager does NOT see the owner-only view-as control", async () => {
+    getAdminRole.mockResolvedValueOnce("manager");
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    fireEvent.click(await screen.findByText("Alice"));
+    await screen.findByText("CHANGE TIER");
+    expect(screen.queryByRole("button", { name: "View as — read-only" })).toBeNull();
+  });
+
+  it("ADMIN-5: opening a user loads their private note; saving it calls saveUserNote", async () => {
+    getUserNote.mockResolvedValueOnce({ note: "VIP customer", updatedAt: 123, updatedByEmail: "admin@test.com" });
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    fireEvent.click(await screen.findByText("Alice"));
+    await screen.findByText("CHANGE TIER");
+    const ta = await screen.findByPlaceholderText(/Support context/i);
+    await waitFor(() => expect(ta.value).toBe("VIP customer"));
+    fireEvent.change(ta, { target: { value: "VIP customer — call back" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save note" }));
+    await waitFor(() => expect(saveUserNote).toHaveBeenCalledWith("u1", "VIP customer — call back"));
+  });
+
+  it("ADMIN-5: the announcement editor saves an active notice in the config payload", async () => {
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
+    fireEvent.click(await screen.findByText("Announcement banner"));
+    fireEvent.change(await screen.findByPlaceholderText(/Scheduled maintenance/i), { target: { value: "Heads up: maintenance tonight" } });
+    fireEvent.click(screen.getByText("Show the banner").closest(".ctrl-line").querySelector('input[role="switch"]'));
+    fireEvent.click(screen.getByRole("button", { name: "Save announcement" }));
+    await waitFor(() => expect(saveConfig).toHaveBeenCalled());
+    const payload = saveConfig.mock.calls.at(-1)[0];
+    expect(payload.announcement.text).toBe("Heads up: maintenance tonight");
+    expect(payload.announcement.active).toBe(true);
   });
 });

@@ -1963,6 +1963,154 @@
         ]
       }
     },
+    "/viewUserAsAdmin": {
+      "post": {
+        "operationId": "viewUserAsAdmin",
+        "summary": "Read-only 'view as' snapshot of a user (owner)",
+        "description": "ADMIN-5. Owner-only. Returns a READ-ONLY snapshot of the target user's data (profile, billing status, portfolios → coins → journal theses → capped transactions, and learn counts) for support. A non-empty `reason` is REQUIRED and is stored in the audit log; the server NEVER mints a token or acts as the user. Reads are bounded (portfolios/coins/transactions each capped) and the response flags when it truncated.",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["data"],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": ["uid", "reason"],
+                    "properties": {
+                      "uid": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9_-]*$" },
+                      "reason": { "type": "string", "maxLength": 300, "description": "Why the data is being viewed — logged in the audit trail." }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The read-only user snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "result": { "$ref": "#/components/schemas/UserSnapshot" } },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": { "description": "invalid-argument — uid and a reason are both required.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "401": { "description": "Unauthenticated — missing, invalid, or expired ID token.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "403": { "description": "permission-denied — owners only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "404": { "description": "not-found — no such user.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "default": { "description": "Unexpected error — see the error body.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        },
+        "security": [ { "FirebaseAuth": [] } ]
+      }
+    },
+    "/getUserNote": {
+      "post": {
+        "operationId": "getUserNote",
+        "summary": "Read a user's private admin note (admin)",
+        "description": "ADMIN-5. Any admin may read the server-only `adminNotes/{uid}` note for a user. Never exposed to the user or the client bundle.",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UidEnvelope" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The note (empty strings when none is set).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "note": { "type": "string" },
+                        "updatedAt": { "type": "integer", "format": "int64", "nullable": true },
+                        "updatedByEmail": { "type": "string" }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": { "description": "invalid-argument — uid required.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "401": { "description": "Unauthenticated — missing, invalid, or expired ID token.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "403": { "description": "permission-denied — admins only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "default": { "description": "Unexpected error — see the error body.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        },
+        "security": [ { "FirebaseAuth": [] } ]
+      }
+    },
+    "/saveUserNote": {
+      "post": {
+        "operationId": "saveUserNote",
+        "summary": "Save a user's private admin note (manager/owner)",
+        "description": "ADMIN-5. A manager or owner writes the server-only `adminNotes/{uid}` note (≤4000 chars). The note CONTENT never enters the audit log — only that a note changed, so it can hold sensitive support context.",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["data"],
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": ["uid"],
+                    "properties": {
+                      "uid": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9_-]*$" },
+                      "note": { "type": "string", "maxLength": 4000 }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UidResultEnvelope" }
+              }
+            }
+          },
+          "400": { "description": "invalid-argument — uid required.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "401": { "description": "Unauthenticated — missing, invalid, or expired ID token.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "403": { "description": "permission-denied — manager or owner only.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } },
+          "default": { "description": "Unexpected error — see the error body.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallableError" } } } }
+        },
+        "security": [ { "FirebaseAuth": [] } ]
+      }
+    },
     "/setManagerRole": {
       "post": {
         "operationId": "setManagerRole",
@@ -2971,9 +3119,93 @@
           },
           "features": {
             "$ref": "#/components/schemas/FeatureFlags"
+          },
+          "announcement": {
+            "description": "ADMIN-5: the site announcement banner, present (with text + level) ONLY while active, otherwise null. A drafted-but-inactive banner is never published here.",
+            "nullable": true,
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "properties": {
+                  "text": { "type": "string", "maxLength": 300 },
+                  "level": { "type": "string", "enum": ["info", "warning", "critical"] }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "additionalProperties": false
+      },
+      "Announcement": {
+        "type": "object",
+        "description": "ADMIN-5: the site announcement banner draft, as returned by getAdminConfig and accepted by saveConfig. `active` is forced false when text is empty.",
+        "properties": {
+          "text": { "type": "string", "maxLength": 300 },
+          "level": { "type": "string", "enum": ["info", "warning", "critical"] },
+          "active": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      },
+      "UserSnapshot": {
+        "type": "object",
+        "description": "ADMIN-5: the READ-ONLY 'view as' snapshot returned by viewUserAsAdmin. Bounded (portfolios/coins/transactions capped) — the `truncated` flags say when there is more.",
+        "properties": {
+          "uid": { "type": "string" },
+          "email": { "type": "string" },
+          "name": { "type": "string" },
+          "tier": { "$ref": "#/components/schemas/Tier" },
+          "disabled": { "type": "boolean" },
+          "deleted": { "type": "boolean" },
+          "role": { "type": "string" },
+          "billingStatus": { "type": "string" },
+          "paypalSubscriptionId": { "type": "string" },
+          "billingCycle": { "type": "string" },
+          "portfolios": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "coinCount": { "type": "integer" },
+                "coins": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "symbol": { "type": "string" },
+                      "name": { "type": "string" },
+                      "txCount": { "type": "integer" },
+                      "journal": { "type": "object", "nullable": true, "additionalProperties": true },
+                      "txTruncated": { "type": "boolean" },
+                      "transactions": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "learn": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "xp": { "type": "integer" },
+              "streak": { "type": "integer" },
+              "completedLessons": { "type": "integer" },
+              "lastActivity": { "type": "string" }
+            }
+          },
+          "truncated": {
+            "type": "object",
+            "properties": {
+              "portfolios": { "type": "boolean" },
+              "coins": { "type": "boolean" }
+            }
+          }
+        }
       },
       "SubscribeRequest": {
         "type": "object",
@@ -4032,6 +4264,9 @@
                 },
                 "additionalProperties": false,
                 "description": "ADMIN-2. Only whether a DSN is stored — the value is never returned to a client."
+              },
+              "announcement": {
+                "$ref": "#/components/schemas/Announcement"
               }
             },
             "additionalProperties": false
@@ -4141,6 +4376,9 @@
               },
               "plans": {
                 "$ref": "#/components/schemas/Plans"
+              },
+              "announcement": {
+                "$ref": "#/components/schemas/Announcement"
               }
             },
             "additionalProperties": false

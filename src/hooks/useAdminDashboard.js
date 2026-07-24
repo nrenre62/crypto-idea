@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser } from "../api/admin.js";
+import { getStats, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser, viewUserAsAdmin, getUserNote, saveUserNote } from "../api/admin.js";
 import { getAdminRole, reauthAdmin } from "../api/admin-auth.js";
+// ADMIN-5: per-operator saved Users-tab filter presets (localStorage, pure util).
+import { loadViews, persistViews, addView, removeView } from "../utils/admin-views.js";
 
 // ADMIN-SEC: how long one password confirmation keeps the sensitive areas unlocked.
 // UX only — the server independently rejects a stale auth_time on every call.
@@ -142,6 +144,10 @@ export function useAdminDashboard() {
     premium: { price: 49.99, priceYear: 499.99, aiMonthlyCents: 2500, portfolios: 15, coins: 1000, transactions: 5000 },
   };
   const [plans, setPlans] = useState(DEFAULT_PLANS);
+  // ADMIN-5: the site announcement banner draft (text + level + active). Posted with
+  // the full Settings save; the instant toggles (saveControls/saveFeature) omit it, so
+  // the server KEEPS the stored banner (announcement.js cleanAnnouncement).
+  const [announcement, setAnnouncement] = useState({ text: "", level: "info", active: false });
 
   // Pre-fill the Settings form from the saved config (secrets are never returned —
   // only whether they're set), so you can SEE what's configured and persisted.
@@ -163,6 +169,8 @@ export function useAdminDashboard() {
       setAnalytics({ ga4: d.analytics?.ga4 || "", plausible: d.analytics?.plausible || "" });
       setLegal({ termlyUuid: d.legal?.termlyUuid || "", termlyPrivacyId: d.legal?.termlyPrivacyId || "", termlyTermsId: d.legal?.termlyTermsId || "", cookieBanner: !!(d.legal && d.legal.cookieBanner) });
       if (d.plans) setPlans(d.plans);
+      // ADMIN-5: the announcement draft (getAdminConfig returns it even when inactive).
+      setAnnouncement({ text: (d.announcement && d.announcement.text) || "", level: (d.announcement && d.announcement.level) || "info", active: !!(d.announcement && d.announcement.active) });
       setCfgAt(d.updatedAt || null);
     } catch (e) { /* function not deployed yet (dev): leave the form empty */ }
   };
@@ -171,7 +179,7 @@ export function useAdminDashboard() {
     try {
       // ADMIN-SEC: owner + fresh password. withUnlock re-prompts and retries once if
       // the ~10-min window lapsed mid-session, so a long Settings edit is never lost.
-      const r = await withUnlock(() => saveConfigFn({ keys, email: mail, flags: controls, analytics, legal, plans }));
+      const r = await withUnlock(() => saveConfigFn({ keys, email: mail, flags: controls, analytics, legal, plans, announcement }));
       if (r === CANCELLED) { setSavedMsg("Cancelled — not saved"); setTimeout(() => setSavedMsg(""), 4000); return; }
       await loadConfig();             // re-read so the saved state is visible immediately
       setSavedMsg("Saved ✓");
@@ -217,6 +225,58 @@ export function useAdminDashboard() {
   // ADMIN-1: Users-tab billing filter — "all" | "past_due" | "canceled". Filters
   // the loaded list client-side by each user's derived billingStatus.
   const [billingFilter, setBillingFilter] = useState("all");
+  // ADMIN-5: Users-tab per-field TIER filter — "all" | "free" | "pro" | "premium".
+  const [tierFilter, setTierFilter] = useState("all");
+  // ADMIN-5: multi-select + bulk actions. `selected` is a Set of uids; the bulk bar
+  // shows when it's non-empty. Bulk reuses the SAME individually-gated + audited
+  // callables (setUserTier/suspendUser) in a client loop — no new bulk endpoint and
+  // no new attack surface, and owners are still refused per-row (assertTargetAllowed).
+  const [selected, setSelected] = useState(() => new Set());
+  const toggleSelect = (uid) => setSelected((s) => { const n = new Set(s); n.has(uid) ? n.delete(uid) : n.add(uid); return n; });
+  const clearSelect = () => setSelected(new Set());
+  // Select/deselect a whole page of rows (the header checkbox).
+  const setSelectMany = (uids, on) => setSelected((s) => { const n = new Set(s); uids.forEach((u) => on ? n.add(u) : n.delete(u)); return n; });
+  // ADMIN-5: per-operator saved filter presets (localStorage). A view stores the
+  // {search, tier, billing} combo; applying it restores all three.
+  const [views, setViews] = useState(() => (typeof localStorage !== "undefined" ? loadViews(localStorage) : []));
+  const saveView = (name, filters) => {
+    const next = addView(views, name, filters);
+    setViews(next); if (typeof localStorage !== "undefined") persistViews(next, localStorage);
+  };
+  const deleteView = (name) => {
+    const next = removeView(views, name);
+    setViews(next); if (typeof localStorage !== "undefined") persistViews(next, localStorage);
+  };
+  const applyView = (v) => {
+    const f = (v && v.filters) || {};
+    setQ(f.q || ""); setTierFilter(f.tier || "all"); setBillingFilter(f.billing || "all"); setPage(1);
+  };
+  // ADMIN-5: read-only "view as" — the snapshot the viewer renders, its load state,
+  // and any error. Never mints a token; the server returns bounded, audited data.
+  const [viewAs, setViewAs] = useState(null);
+  const [viewAsLoading, setViewAsLoading] = useState(false);
+  const [viewAsErr, setViewAsErr] = useState("");
+  const openViewAs = async (uid, reason) => {
+    setViewAsLoading(true); setViewAsErr(""); setViewAs(null);
+    try { setViewAs(await viewUserAsAdmin(uid, reason)); }
+    catch (e) { setViewAsErr((e && e.message) || "Could not load the user's data"); }
+    setViewAsLoading(false);
+  };
+  const closeViewAs = () => { setViewAs(null); setViewAsErr(""); };
+  // ADMIN-5: private per-user admin note (server-only). Loaded when a user detail
+  // opens (the effect below), saved from the detail card.
+  const [note, setNote] = useState({ text: "", updatedAt: null, updatedByEmail: "", loaded: false });
+  const loadNote = async (uid) => {
+    setNote({ text: "", updatedAt: null, updatedByEmail: "", loaded: false });
+    try { const n = await getUserNote(uid); setNote({ text: n.note || "", updatedAt: n.updatedAt || null, updatedByEmail: n.updatedByEmail || "", loaded: true }); }
+    catch (e) { setNote({ text: "", updatedAt: null, updatedByEmail: "", loaded: true }); }
+  };
+  const saveNote = async (uid, text) => {
+    setBusy(true); setActionMsg("");
+    try { await saveUserNote(uid, text); setNote((n) => ({ ...n, text, updatedAt: Date.now(), loaded: true })); setActionMsg("Note saved ✓"); }
+    catch (e) { setActionMsg((e && e.message) || "Note save failed"); }
+    setBusy(false);
+  };
   // Audit tab.
   const [audit, setAudit] = useState(null);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -482,10 +542,42 @@ export function useAdminDashboard() {
     setBusy(false);
   };
 
+  // ADMIN-5: load the private note whenever a DIFFERENT user's detail opens (covers
+  // both openUser and the by-email lookup). Keyed on found.uid so it doesn't re-fetch
+  // on every unrelated re-render.
+  useEffect(() => { if (found && found.uid) loadNote(found.uid); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [found && found.uid]);
+
+  // ADMIN-5: bulk (non-destructive only). Each row goes through the individually-gated,
+  // individually-audited callable — an owner target is refused server-side and counted
+  // as "skipped", never a silent no-op that looks like success.
+  const bulkSetTier = async (uids, tier) => {
+    setBusy(true); setActionMsg("");
+    let ok = 0, failed = 0;
+    for (const uid of uids) {
+      try { await setUserTier(uid, tier); ok++; setUserList((l) => l && l.map((x) => x.uid === uid ? { ...x, tier } : x)); }
+      catch (e) { failed++; }
+    }
+    setActionMsg(failed ? `Set ${ok} to ${tier} — ${failed} skipped (owners are protected)` : `Set ${ok} user${ok === 1 ? "" : "s"} to ${tier} ✓`);
+    clearSelect(); setBusy(false);
+  };
+  const bulkSuspend = async (uids, disabled) => {
+    setBusy(true); setActionMsg("");
+    let ok = 0, failed = 0;
+    for (const uid of uids) {
+      try { await suspendUser(uid, disabled); ok++; setUserList((l) => l && l.map((x) => x.uid === uid ? { ...x, disabled } : x)); }
+      catch (e) { failed++; }
+    }
+    const verb = disabled ? "Suspended" : "Un-suspended";
+    setActionMsg(failed ? `${verb} ${ok} — ${failed} skipped (owners are protected)` : `${verb} ${ok} ✓`);
+    clearSelect(); setBusy(false);
+  };
+
   return {
     stats, setStats, statsErr, setStatsErr, tab, setTab,
     keys, setKeys, mail, setMail, savedMsg, setSavedMsg, setFlags, setSetFlags, cfgAt, setCfgAt,
     controls, setControls, analytics, setAnalytics, legal, setLegal, plans, setPlans,
+    // ADMIN-5 — announcement banner draft.
+    announcement, setAnnouncement,
     lookupEmail, setLookupEmail, found, setFound, lookupMsg, setLookupMsg, actionMsg, setActionMsg,
     confirmDelete, setConfirmDelete, busy, setBusy,
     confirmTrash, setConfirmTrash, confirmEmpty, setConfirmEmpty,
@@ -499,6 +591,12 @@ export function useAdminDashboard() {
     mfaWarn, setMfaWarn,
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
     billingFilter, setBillingFilter,
+    // ADMIN-5 — tier filter, multi-select + bulk, saved views, view-as, private notes.
+    tierFilter, setTierFilter,
+    selected, toggleSelect, clearSelect, setSelectMany, bulkSetTier, bulkSuspend,
+    views, saveView, deleteView, applyView,
+    viewAs, viewAsLoading, viewAsErr, openViewAs, closeViewAs,
+    note, saveNote,
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,
     // ADMIN-3 — audit search / action filter / pager / fetch depth.
     auditQ, setAuditQ, auditAction, setAuditAction, auditPage, setAuditPage,

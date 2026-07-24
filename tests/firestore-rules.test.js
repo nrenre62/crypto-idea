@@ -106,6 +106,25 @@ test("health/jobs is unreadable and unwritable by clients — including admins",
   await assertFails(setDoc(doc(adminDb(), "health", "jobs"), { captureDailyStats: { at: 9_999_999_999_999 } }));
 });
 
+// ADMIN-5: private admin notes are server-only. A note is written ABOUT a user, by
+// staff, and can hold sensitive support context — so no client may read or write it,
+// not even the subject (Alice reading her own note) and not even an admin from the
+// browser (that path must go through the getUserNote/saveUserNote callables, which
+// re-check the claim). Mirrors audit/statsDaily/health.
+test("adminNotes is unreadable and unwritable by clients — including admins and the subject", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "adminNotes", "alice"), { note: "VIP", updatedAt: 1_700_000_000_000 });
+  });
+  // the subject can't read the note about themselves, nor write one
+  await assertFails(getDoc(doc(aliceDb(), "adminNotes", "alice")));
+  await assertFails(setDoc(doc(aliceDb(), "adminNotes", "alice"), { note: "haxx" }));
+  await assertFails(setDoc(doc(aliceDb(), "adminNotes", "bob"), { note: "haxx" }));
+  await assertFails(deleteDoc(doc(aliceDb(), "adminNotes", "alice")));
+  // an admin's browser token can't touch it directly either
+  await assertFails(getDoc(doc(adminDb(), "adminNotes", "alice")));
+  await assertFails(setDoc(doc(adminDb(), "adminNotes", "alice"), { note: "via devtools" }));
+});
+
 // ADMIN-4: `joined` is the signup date shown in the admin Users list and the users
 // CSV export, and it is immutable after create — so an unvalidated create was a
 // one-shot chance to claim any signup date, permanently. (This is also why growth

@@ -41,9 +41,14 @@ enforced server-side, not by the client.** 23 live cross-tenant probes against t
 - **Backend access is guard-first.** All 21 `onCall` callables + the `/api` proxy were probed: every
   one checks `context.auth.uid` (self) or a **role-tiered admin gate** — `assertAdmin` (read-only:
   `getStats`/`lookupUser`/`listUsers`/`listAudit`) · `assertManager` (user actions: `setUserTier`,
-  `setPremiumLimits`, `suspendUser`, `restoreUser`, `adminTrashUser`, `adminSignOutUser`) · `assertOwner`
-  (`deleteUser`) · `assertFreshOwner` (owner + password re-auth within ~600s: `getAdminConfig`,
-  `saveConfig`, `setManagerRole`) — **before** touching data. The gates are pure helpers in
+  `setPremiumLimits`, `suspendUser`, `restoreUser`, `adminTrashUser`, `adminSignOutUser`, `saveUserNote`) ·
+  `assertOwner` (`deleteUser`, **`viewUserAsAdmin`**) · `assertFreshOwner` (owner + password re-auth within
+  ~600s: `getAdminConfig`, `saveConfig`, `setManagerRole`) — **before** touching data. ADMIN-5's
+  **`viewUserAsAdmin`** is the one deliberate cross-tenant READ beyond the existing admin read surface: it
+  returns a bounded READ-ONLY snapshot of another user's data (incl. journal theses) for support, but it is
+  **owner-only, requires a logged reason, and never mints a token or writes** — so it widens no write path
+  and adds no lockout surface. Private admin notes live in the server-only `adminNotes/{uid}` (rules deny
+  every client, incl. the subject; reached only via `getUserNote`/`saveUserNote`). The gates are pure helpers in
   `functions/guards.js` (`roleOf`/`isOwner`/`requireAdmin`/`requireManager`/`requireOwner`/
   `requireFreshAuth`); step-up re-auth is server-flagged by `config/app.flags.stepUpReauth` (default ON). No IDOR —
   no callable acts on a uid/id from the request body without an ownership/admin check. A non-admin

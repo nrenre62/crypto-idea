@@ -97,6 +97,26 @@ export async function adminSignOutUser(uid) {
   await httpsCallable(functions, "adminSignOutUser")({ uid });
 }
 
+// ADMIN-5: read-only "view as" (support). OWNER-only + a required reason (logged).
+// Returns a bounded snapshot of the user's data (portfolios/coins/theses/learn) —
+// the server never mints a token or acts as the user. Returns the snapshot object.
+export async function viewUserAsAdmin(uid, reason) {
+  const res = await httpsCallable(functions, "viewUserAsAdmin")({ uid, reason });
+  return res.data;
+}
+
+// ADMIN-5: private per-user admin note (server-only adminNotes/{uid}). Any admin
+// may read; a manager/owner may write. Returns { note, updatedAt, updatedByEmail }.
+export async function getUserNote(uid) {
+  const res = await httpsCallable(functions, "getUserNote")({ uid });
+  return res.data || { note: "", updatedAt: null, updatedByEmail: "" };
+}
+
+// ADMIN-5: save a user's private admin note (content never enters the audit log).
+export async function saveUserNote(uid, note) {
+  await httpsCallable(functions, "saveUserNote")({ uid, note });
+}
+
 // ADMIN-4: the daily growth series for the Overview trend card, OLDEST-FIRST.
 // Aggregate-only (counts + revenue, no personal data). Returns an array.
 export async function listDailyStats(limit = 90) {

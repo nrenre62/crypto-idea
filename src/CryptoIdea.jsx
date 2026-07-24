@@ -38,6 +38,7 @@ import {
   watchUserDoc as dbWatchUserDoc,
 } from "./api/firebase-database.js";
 import { fetchSiteConfig } from "./api/config.js";
+import AnnouncementBanner from "./components/AnnouncementBanner.jsx";
 import { useCoinSearch } from "./hooks/useCoinSearch.js";
 import { useTrending } from "./hooks/useTrending.js";
 import { useLivePrices } from "./hooks/useLivePrices.js";
@@ -86,7 +87,7 @@ export default function CryptoIdea(){
   // Public config from /api/config. ADMIN-2: `features` defaults to all-ON for the same
   // reason the server does — if the config fetch fails we must degrade to a WORKING app,
   // never to one that looks deliberately switched off.
-  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,plans:null,features:{marketData:true,checkout:true,aiResearch:true}});
+  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,plans:null,announcement:null,features:{marketData:true,checkout:true,aiResearch:true}});
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
   const[authPass,setAuthPass]=useState("");
@@ -171,6 +172,8 @@ export default function CryptoIdea(){
   // admin — read once on load. Each switch is ON unless the server says exactly false,
   // matching functions/features.js so client and server can't disagree about a missing key.
   useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,plans:d.plans||null,
+    // ADMIN-5: the server sends `announcement` only when it's active (else null).
+    announcement:d.announcement||null,
     features:{marketData:(d.features||{}).marketData!==false,checkout:(d.features||{}).checkout!==false,aiResearch:(d.features||{}).aiResearch!==false}})})},[]);
 
   // Auth watch + profile auto-save now live in useAuthSession (above).
@@ -946,6 +949,8 @@ export default function CryptoIdea(){
     {err&&<div role="alert" className="ci-toast">{err}</div>}
     {/* DI-6 (G39): offline banner — writes are blocked while it shows. */}
     {offline&&<div role="status" style={{position:"fixed",top:0,left:0,right:0,zIndex:10001,background:"#92400E",color:"#fff",textAlign:"center",fontSize:12,fontWeight:600,padding:"6px 12px"}}>You're offline — changes can't be saved right now.</div>}
+    {/* ADMIN-5: site announcement banner — logged-in app only, dismissible per-message. */}
+    {user&&screen!=="login"&&<AnnouncementBanner announcement={site.announcement} />}
     {showPlan&&screen!=="login"&&(()=>{
       // R27-3: on DESKTOP the plan/billing flow renders inside the shared <Modal>
       // (title + X; no scrim-dismiss so a mis-click doesn't abandon a mid-flow

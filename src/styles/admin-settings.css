@@ -293,3 +293,89 @@
 .ci-app .settings-row.has-sub .sr-icon { margin-top:2px; }
 .ci-app .sr-sub { display:block; font-size:11px; font-weight:400; line-height:1.45; color:var(--ink-faint); margin-top:3px; max-width:52ch; }
 .ci-app .adm-lbl-note { font-weight:400; color:var(--ink-faint); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ADMIN-5 — team-scale & support (admin-only, .ci-app light paper, out of the
+ * user bundle). Tier filter + saved views, multi-select + bulk bar, read-only
+ * "view as" viewer, private per-user note, and the announcement-banner editor.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Extra adm-btn variants used by the new surfaces. */
+.ci-app .adm-btn.accent { background:var(--accent, #0a6b4d); border-color:var(--accent, #0a6b4d); color:#fff; }
+.ci-app .adm-btn.accent:hover { filter:brightness(.96); }
+.ci-app .adm-btn.accent:disabled { background:var(--ink-faint); border-color:var(--ink-faint); }
+.ci-app .adm-btn.ghost { background:none; border-color:var(--line-strong); color:var(--ink-soft); }
+
+/* A label in front of a filter-chip row (Billing / Tier). */
+.ci-app .adm-filter-label { align-self:center; font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); margin-right:2px; }
+
+/* Saved views — a Save button + deletable view chips. */
+.ci-app .adm-views { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:12px; }
+.ci-app .adm-view-chip { display:inline-flex; align-items:center; border:1px solid var(--line-strong); border-radius:999px; overflow:hidden; background:var(--paper-2); }
+.ci-app .adm-view-chip .vc-apply { border:0; background:none; padding:5px 4px 5px 11px; font-family:var(--body); font-size:12px; font-weight:600; color:var(--ink); cursor:pointer; }
+.ci-app .adm-view-chip .vc-del { border:0; background:none; padding:5px 9px 5px 5px; font-size:14px; line-height:1; color:var(--ink-faint); cursor:pointer; }
+.ci-app .adm-view-chip .vc-del:hover { color:var(--warn); }
+
+/* Count-row actions (select-page + export) + the select-page label. */
+.ci-app .adm-count-actions { display:flex; align-items:center; gap:12px; }
+.ci-app .adm-selall { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; }
+
+/* Bulk-action bar (shown while ≥1 user is selected). */
+.ci-app .adm-bulk-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 12px; margin-bottom:12px; border:1px solid var(--accent, #0a6b4d); border-radius:var(--radius-sm); background:color-mix(in srgb, var(--accent, #0a6b4d) 7%, var(--paper-2)); }
+.ci-app .adm-bulk-count { font-size:12.5px; font-weight:700; color:var(--accent-ink, #0a6b4d); }
+.ci-app .adm-bulk-label { font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-faint); margin-left:4px; }
+
+/* Multi-select row wrapper (checkbox + the existing clickable row). */
+.ci-app .adm-row-wrap { display:flex; align-items:center; border-top:1px solid var(--line-2); }
+.ci-app .adm-row-wrap:first-child { border-top:0; }
+.ci-app .adm-row-wrap.sel { background:color-mix(in srgb, var(--accent, #0a6b4d) 6%, transparent); }
+.ci-app .adm-row-wrap .adm-row-check { margin:0 2px 0 13px; flex:none; width:15px; height:15px; accent-color:var(--accent, #0a6b4d); cursor:pointer; }
+.ci-app .adm-row-wrap .adm-row { border-top:0; }
+
+/* View-as launcher (in the user-detail card) + inline reason form. */
+.ci-app .adm-viewas-launch { margin-top:2px; }
+.ci-app .adm-viewas-form { margin-top:10px; padding:12px; border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--paper-2); }
+
+/* Private admin note (renamed from adm-note to avoid the role-notice class). */
+.ci-app .adm-usernote { margin-top:16px; padding-top:14px; border-top:1px solid var(--line-2); }
+.ci-app .adm-usernote textarea { width:100%; box-sizing:border-box; resize:vertical; margin-bottom:8px; }
+.ci-app .adm-usernote-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.ci-app .adm-usernote-foot .adm-hint { margin-top:0; }
+
+/* Announcement banner — Settings preview (mirrors the app banner's three levels). */
+.ci-app .adm-ann-preview { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:var(--radius-sm); margin:2px 0 14px; font-size:12.5px; line-height:1.45; border:1px solid; }
+.ci-app .adm-ann-preview .adm-ann-txt { flex:1; min-width:0; }
+.ci-app .adm-ann-preview .adm-ann-tag { flex:none; font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; opacity:.7; }
+.ci-app .adm-ann-preview.lvl-info { background:color-mix(in srgb, var(--accent, #0a6b4d) 9%, var(--paper-2)); border-color:color-mix(in srgb, var(--accent, #0a6b4d) 35%, transparent); color:var(--accent-ink, #0a6b4d); }
+.ci-app .adm-ann-preview.lvl-warning { background:color-mix(in srgb, var(--amber) 12%, var(--paper-2)); border-color:color-mix(in srgb, var(--amber) 42%, transparent); color:#8a6414; }
+.ci-app .adm-ann-preview.lvl-critical { background:color-mix(in srgb, var(--warn) 9%, var(--paper-2)); border-color:color-mix(in srgb, var(--warn) 40%, transparent); color:var(--warn); }
+
+/* Read-only "view as" viewer modal. */
+.ci-app .adm-viewas-modal { width:100%; max-width:560px; max-height:86vh; display:flex; flex-direction:column; background:var(--paper); border-radius:var(--radius); box-shadow:var(--sh-lg); overflow:hidden; }
+.ci-app .adm-viewas-bar { display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--line-2); background:var(--paper-2); }
+.ci-app .adm-viewas-flag { flex:none; font-size:10px; font-weight:800; letter-spacing:.08em; color:#fff; background:var(--ink); border-radius:999px; padding:4px 10px; }
+.ci-app .adm-viewas-who { flex:1; min-width:0; font-size:13.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ci-app .adm-viewas-body { padding:16px; overflow-y:auto; }
+.ci-app .adm-viewas-note { font-size:11.5px; color:var(--ink-soft); line-height:1.5; background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:9px 12px; margin-bottom:14px; }
+.ci-app .adm-vsec { border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:4px 12px; margin-bottom:14px; }
+.ci-app .adm-vrow { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid var(--line-2); font-size:12.5px; }
+.ci-app .adm-vrow:first-child { border-top:0; }
+.ci-app .adm-vrow .k { color:var(--ink-faint); font-weight:600; }
+.ci-app .adm-vrow .v { color:var(--ink); text-align:right; }
+.ci-app .adm-vport { border:1px solid var(--line-2); border-radius:var(--radius-sm); padding:12px; margin-bottom:12px; }
+.ci-app .adm-vport-head { font-size:13.5px; font-weight:700; color:var(--ink); margin-bottom:8px; }
+.ci-app .adm-vport-head .ct { font-size:11px; font-weight:500; color:var(--ink-faint); margin-left:6px; }
+.ci-app .adm-vcoin { border-top:1px solid var(--line-2); padding:10px 0; }
+.ci-app .adm-vcoin-head { font-size:12.5px; color:var(--ink); }
+.ci-app .adm-vcoin-head .nm { color:var(--ink-faint); margin-left:6px; }
+.ci-app .adm-vcoin-head .tx { float:right; font-size:11px; color:var(--ink-faint); }
+.ci-app .adm-vthesis { margin-top:8px; padding:10px 12px; border-radius:10px; background:var(--paper-2); border:1px solid var(--line-2); }
+.ci-app .adm-vthesis .lbl { font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:3px; }
+.ci-app .adm-vthesis .txt { font-size:12.5px; color:var(--ink); line-height:1.5; margin-bottom:8px; white-space:pre-wrap; }
+.ci-app .adm-vtx { margin-top:8px; }
+.ci-app .adm-vtx-row { display:flex; align-items:center; gap:10px; font-size:11.5px; color:var(--ink-soft); padding:3px 0; font-variant-numeric:tabular-nums; }
+.ci-app .adm-vtx-row .ty { flex:none; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; }
+.ci-app .adm-vtx-row .ty.buy { color:var(--accent-ink, #0a6b4d); background:color-mix(in srgb, var(--accent, #0a6b4d) 12%, transparent); }
+.ci-app .adm-vtx-row .ty.sell { color:var(--warn); background:color-mix(in srgb, var(--warn) 12%, transparent); }
+.ci-app .adm-vtx-row .am { flex:1; }
+.ci-app .adm-vtx-row .dt { flex:none; color:var(--ink-faint); }

@@ -141,3 +141,73 @@ test("suspendUser: un-suspending a free user with no subscription still clears s
   assert.strictEqual(after.subscription, undefined, "no subscription should be invented");
   assert.strictEqual((await auth.getUser(uid)).disabled, false);
 });
+
+// ── ADMIN-5: read-only view-as + private notes ──
+
+test("viewUserAsAdmin: owner gets a read-only snapshot incl. the journal thesis; a reason is required", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+  const managerUid = await makeUser(`mgr5_${stamp}@example.com`, { admin: true, role: "manager" });
+  const managerToken = await idTokenFor(`mgr5_${stamp}@example.com`);
+  const targetUid = await makeUser(`viewee_${stamp}@example.com`, null);
+
+  // Seed a portfolio → coin (with a thesis) → transaction for the target, Admin-SDK
+  // (bypasses rules, exactly like the app's server writes).
+  await db.collection("users").doc(targetUid).set({ tier: "pro", name: "Vee" }, { merge: true });
+  const pRef = db.collection("users").doc(targetUid).collection("portfolios").doc("p1");
+  await pRef.set({ name: "Main", coinCount: 1 });
+  const cRef = pRef.collection("coins").doc("bitcoin");
+  await cRef.set({ symbol: "btc", name: "Bitcoin", txCount: 1, journal: { thesis: "digital gold", changeMyMind: "a better chain", status: "intact", priceAtAdd: 30000, createdAt: "2026-01-01" } });
+  await cRef.collection("transactions").doc("t1").set({ type: "buy", amount: 0.5, priceAtBuy: 30000, date: "2026-01-01" });
+
+  // Missing reason → 400 (the accountability control is the point, not a nicety).
+  const noReason = await callAs("viewUserAsAdmin", ownerToken, { uid: targetUid, reason: "  " });
+  assert.strictEqual(noReason.status, 400, `expected 400 for empty reason, got ${JSON.stringify(noReason.body)}`);
+
+  // A manager is refused (owner-only gate) even WITH a reason.
+  const asManager = await callAs("viewUserAsAdmin", managerToken, { uid: targetUid, reason: "support" });
+  assert.strictEqual(asManager.status, 403, `manager should be refused, got ${JSON.stringify(asManager.body)}`);
+  void managerUid;
+
+  // Owner + reason → the snapshot, including the thesis.
+  const ok = await callAs("viewUserAsAdmin", ownerToken, { uid: targetUid, reason: "user reported missing coin" });
+  assert.strictEqual(ok.status, 200, `owner view-as failed: ${JSON.stringify(ok.body)}`);
+  const snap = ok.body.result;
+  assert.strictEqual(snap.tier, "pro");
+  assert.strictEqual(snap.portfolios.length, 1);
+  assert.strictEqual(snap.portfolios[0].coins[0].journal.thesis, "digital gold");
+  assert.strictEqual(snap.portfolios[0].coins[0].transactions.length, 1);
+
+  // The view is audited WITH the reason.
+  const audits = await db.collection("audit").where("action", "==", "viewUserAsAdmin").where("targetUid", "==", targetUid).get();
+  assert.ok(audits.size >= 1, "the view-as must be audited");
+  assert.ok(audits.docs.some((d) => String(d.data().details || "").includes("user reported missing coin")), "the reason must be in the audit details");
+});
+
+test("saveUserNote/getUserNote: a note round-trips; its CONTENT never enters the audit log; a plain user is refused", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+  const managerToken = await idTokenFor(`mgr5_${stamp}@example.com`);
+  const noteTargetUid = await makeUser(`notee_${stamp}@example.com`, null);
+  const plainUid = await makeUser(`plain5_${stamp}@example.com`, null);
+  const plainToken = await idTokenFor(`plain5_${stamp}@example.com`);
+
+  const SECRET_NOTE = "called about a refund — SENSITIVE-CONTEXT-XYZ";
+
+  // A plain user cannot write a note about anyone.
+  const denied = await callAs("saveUserNote", plainToken, { uid: noteTargetUid, note: "haxx" });
+  assert.strictEqual(denied.status, 403, `plain user should be refused, got ${JSON.stringify(denied.body)}`);
+
+  // A manager writes it; any admin (owner) reads it back.
+  const saved = await callAs("saveUserNote", managerToken, { uid: noteTargetUid, note: SECRET_NOTE });
+  assert.strictEqual(saved.status, 200, `saveUserNote failed: ${JSON.stringify(saved.body)}`);
+  const read = await callAs("getUserNote", ownerToken, { uid: noteTargetUid });
+  assert.strictEqual(read.status, 200);
+  assert.strictEqual(read.body.result.note, SECRET_NOTE);
+
+  // The audit records THAT a note changed, never the content.
+  const audits = await db.collection("audit").where("action", "==", "saveUserNote").where("targetUid", "==", noteTargetUid).get();
+  assert.ok(audits.size >= 1, "a note save must be audited");
+  for (const d of audits.docs) {
+    assert.ok(!String(d.data().details || "").includes("SENSITIVE-CONTEXT-XYZ"), "the note CONTENT must never reach the audit log");
+  }
+  void plainUid;
+});

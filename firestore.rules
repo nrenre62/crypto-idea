@@ -114,6 +114,14 @@ service cloud.firestore {
     match /health/{document=**} {
       allow read, write: if false;
     }
+    // ADMIN-5: private per-user admin notes (adminNotes/{uid}). Server-only, exactly
+    // like `audit`/`config`: the panel reads/writes them ONLY through the getUserNote/
+    // saveUserNote callables (which re-check the admin claim). A note can hold sensitive
+    // support context AND is written on OTHER users' behalf, so no client — not even
+    // the subject — may read or write it directly.
+    match /adminNotes/{document=**} {
+      allow read, write: if false;
+    }
 
     // ─── Tier limits ───
     function tierOf(userId) {

@@ -48,7 +48,9 @@ export const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "S
   reconcileMyCounters: "User repaired their counters", resolveRecheckout: "User resolved a re-checkout",
   reactivateSubscription: "User reactivated subscription",
   // ADMIN-4 growth metrics
-  captureStatsSnapshot: "Captured a stats snapshot" };
+  captureStatsSnapshot: "Captured a stats snapshot",
+  // ADMIN-5 team-scale & support
+  viewUserAsAdmin: "Viewed a user's data", saveUserNote: "Edited a private note" };
 
 /* ═══ ADMIN-3 — CSV export ═══
    Both exports are built from the rows already on screen, so a download always
@@ -124,6 +126,7 @@ const SI = {
   ai:          <SVG strokeWidth="1.8"><path d="M12 3.5l1.7 4.4 4.4 1.7-4.4 1.7L12 15.7l-1.7-4.4L5.9 9.6l4.4-1.7z" /><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" /></SVG>,
   analytics:   <SVG strokeWidth="1.8"><path d="M4 19h16" /><path d="M6 19v-6M11 19V6M16 19v-9" /></SVG>,
   access:      <SVG strokeWidth="1.8"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z" /><path d="M9 12l2 2 4-4" /></SVG>,
+  announce:    <SVG strokeWidth="1.8"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z" /><path d="M15.5 8.5a4 4 0 0 1 0 7" /></SVG>,
 };
 // A tappable category row (drills into a detail view).
 function NavRow({ icon, label, value, muted, onClick }) {
@@ -263,6 +266,11 @@ export default function AdminDashboard() {
     confirmDelete, setConfirmDelete, busy,
     userList, listMsg, listLoading, q, setQ, page, setPage, PAGE_SIZE,
     billingFilter, setBillingFilter,
+    tierFilter, setTierFilter,
+    selected, toggleSelect, clearSelect, setSelectMany, bulkSetTier, bulkSuspend,
+    views, saveView, deleteView, applyView,
+    viewAs, viewAsLoading, viewAsErr, openViewAs, closeViewAs,
+    note, saveNote, announcement, setAnnouncement,
     audit, auditLoading, auditMsg,
     auditQ, setAuditQ, auditAction, setAuditAction, auditPage, setAuditPage, auditLimit, AUDIT_MAX_LIMIT,
     webhookEvents, webhookLoading, webhookMsg, loadWebhookEvents,
@@ -284,6 +292,19 @@ export default function AdminDashboard() {
   // ADMIN-D: which Settings screen is showing — "home" or a detail drill-in.
   // Local to the component (no router), exactly like Account.jsx's `view`.
   const [settingsView, setSettingsView] = useState("home");
+
+  // ADMIN-5 — local UI state for the Users tab.
+  // The view-as reason prompt (inline; a reason is required server-side).
+  const [askView, setAskView] = useState(false);
+  const [viewReason, setViewReason] = useState("");
+  // The editable private-note draft, synced FROM the hook's loaded note (and after a
+  // save) but NOT while the operator is typing (note.text only changes on load/save).
+  const [noteDraft, setNoteDraft] = useState("");
+  useEffect(() => { setNoteDraft(note.loaded ? (note.text || "") : ""); /* eslint-disable-next-line */ }, [note.loaded, note.updatedAt, found && found.uid]);
+  // Reset the view-as prompt whenever the open user changes.
+  useEffect(() => { setAskView(false); setViewReason(""); }, [found && found.uid]);
+  // Close the reason form once the snapshot has loaded (the overlay takes over).
+  useEffect(() => { if (viewAs) { setAskView(false); setViewReason(""); } }, [viewAs]);
 
   /* ADMIN-D2 — one shared toast for every mutating action. It mirrors the hook's
      savedMsg (Settings saves) + actionMsg (Users/Trash actions) so those two
@@ -684,6 +705,41 @@ export default function AdminDashboard() {
                   <button className="adm-btn" disabled={busy} onClick={signOutUser}>Sign out all devices</button>
                 </div>
 
+                {/* ADMIN-5: read-only "view as" (OWNER-only). A reason is required and is
+                    stored in the audit entry — the server refuses without one. Opens a
+                    read-only snapshot; it never authenticates as, or acts as, the user. */}
+                {isOwner && (
+                  <div className="adm-viewas-launch">
+                    {askView ? (
+                      <div className="adm-viewas-form">
+                        <div className="adm-label">VIEW AS — READ ONLY</div>
+                        <div className="adm-hint" style={{ marginBottom:6 }}>Opens a read-only copy of this user's data — portfolios, coins, journal theses and learn progress. Every view is logged with your reason. You can look, not act.</div>
+                        <input className="field-input" value={viewReason} onChange={e => setViewReason(e.target.value)} placeholder="Reason (e.g. user reported a missing portfolio)" autoFocus style={{ marginBottom:8 }} />
+                        <div className="adm-actions">
+                          <button className="adm-btn" disabled={viewAsLoading} onClick={() => { setAskView(false); setViewReason(""); }}>Cancel</button>
+                          <button className="adm-btn accent" disabled={viewAsLoading || !viewReason.trim()} onClick={() => openViewAs(found.uid, viewReason.trim())}>{viewAsLoading ? "Opening…" : "Open read-only view"}</button>
+                        </div>
+                        {viewAsErr && <div className="adm-inline-err" style={{ marginTop:6 }}>{viewAsErr}</div>}
+                      </div>
+                    ) : (
+                      <button className="adm-btn" style={{ width:"100%", marginTop:10 }} disabled={busy} onClick={() => { setAskView(true); setViewReason(""); }}>View as — read-only</button>
+                    )}
+                  </div>
+                )}
+
+                {/* ADMIN-5: private admin note (server-only adminNotes/{uid}; the note
+                    CONTENT never enters the audit log). Any admin may read; a manager/owner
+                    may edit — the server enforces it. Not visible to the user. */}
+                <div className="adm-usernote">
+                  <div className="adm-label">PRIVATE ADMIN NOTE</div>
+                  <textarea className="field-input" rows={3} maxLength={4000} value={noteDraft}
+                    onChange={e => setNoteDraft(e.target.value)} placeholder="Support context — visible to admins only, never to the user…" />
+                  <div className="adm-usernote-foot">
+                    <span className="adm-hint">{note.updatedByEmail ? `Last edited by ${note.updatedByEmail}` : "Kept server-side. Not shown to the user."}</span>
+                    <button className="adm-btn sm accent" disabled={busy || noteDraft === note.text} onClick={() => saveNote(found.uid, noteDraft)}>Save note</button>
+                  </div>
+                </div>
+
                 {/* R31-5: ONE delete path — Delete → type DELETE → move to the 30-day trash.
                     Hard (permanent) deletion lives ONLY in the Trash tab. ADMIN-D2: an owner
                     target is pre-empted with a toast instead of opening the confirm (the
@@ -733,8 +789,30 @@ export default function AdminDashboard() {
           {/* ADMIN-1: billing filter — narrow the list to the accounts that need
               attention (a failed payment or a pending cancellation). */}
           <div className="adm-billing-filter">
+            <span className="adm-filter-label">Billing</span>
             {[["all","All"],["past_due","Past due"],["canceled","Canceled"]].map(([v,l]) => (
               <button key={v} type="button" className={"adm-chip" + (billingFilter===v ? " on" : "")} onClick={() => { setBillingFilter(v); setPage(1); }}>{l}</button>
+            ))}
+          </div>
+          {/* ADMIN-5: per-field TIER filter (alongside billing). */}
+          <div className="adm-billing-filter">
+            <span className="adm-filter-label">Tier</span>
+            {[["all","All"],["free","Starter"],["pro","Pro"],["premium","Premium"]].map(([v,l]) => (
+              <button key={v} type="button" className={"adm-chip" + (tierFilter===v ? " on" : "")} onClick={() => { setTierFilter(v); setPage(1); }}>{l}</button>
+            ))}
+          </div>
+          {/* ADMIN-5: saved views — store the current {search, tier, billing} combo as a
+              named preset (per-operator, in this browser). Click a chip to apply it. */}
+          <div className="adm-views">
+            <button className="adm-btn sm" onClick={() => {
+              const name = typeof window !== "undefined" && window.prompt ? window.prompt("Name this view (saves the current search + tier + billing filters):") : "";
+              if (name && name.trim()) saveView(name, { q, tier: tierFilter, billing: billingFilter });
+            }}>+ Save view</button>
+            {views.map(v => (
+              <span key={v.name} className="adm-view-chip">
+                <button type="button" className="vc-apply" onClick={() => applyView(v)}>{v.name}</button>
+                <button type="button" className="vc-del" aria-label={`Delete view ${v.name}`} title="Delete view" onClick={() => deleteView(v.name)}>×</button>
+              </span>
             ))}
           </div>
 
@@ -749,31 +827,62 @@ export default function AdminDashboard() {
             const { active } = partitionUsers(userList); // trashed accounts live in the Trash tab
             const searched = needle ? active.filter(u => (u.email||"").toLowerCase().includes(needle) || (u.name||"").toLowerCase().includes(needle)) : active;
             // ADMIN-1: apply the billing filter (past_due / canceled) on top of the search.
-            const filtered = billingFilter === "all" ? searched : searched.filter(u => u.billingStatus === billingFilter);
+            const billed = billingFilter === "all" ? searched : searched.filter(u => u.billingStatus === billingFilter);
+            // ADMIN-5: then the tier filter. `filtered` keeps its name so the pager /
+            // export / count below are unchanged.
+            const filtered = tierFilter === "all" ? billed : billed.filter(u => (u.tier || "free") === tierFilter);
             const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
             const pg = Math.min(page, pages);
             const rows = filtered.slice((pg-1)*PAGE_SIZE, pg*PAGE_SIZE);
+            // ADMIN-5: page-scoped select-all + the bulk-action bar.
+            const pageUids = rows.map(u => u.uid);
+            const allSel = pageUids.length > 0 && pageUids.every(id => selected.has(id));
             return (<>
               {/* ADMIN-3: export exactly the rows this filter is showing. */}
               <div className="adm-count-row">
                 <span className="adm-count">{filtered.length.toLocaleString()} user{filtered.length===1?"":"s"}{needle?` matching “${q.trim()}”`:""}{userList.length>=5000?" · showing first 5,000":""}</span>
-                <button className="adm-btn sm" disabled={filtered.length === 0}
-                  onClick={() => saveCsv(`crypto-idea-users-${stamp()}.csv`, buildUsersCsv(filtered))}>Export CSV</button>
+                <div className="adm-count-actions">
+                  {/* ADMIN-5: select every row on this page (bulk). */}
+                  <label className="adm-selall">
+                    <input type="checkbox" checked={allSel} onChange={() => setSelectMany(pageUids, !allSel)} aria-label="Select all users on this page" />
+                    Select page
+                  </label>
+                  <button className="adm-btn sm" disabled={filtered.length === 0}
+                    onClick={() => saveCsv(`crypto-idea-users-${stamp()}.csv`, buildUsersCsv(filtered))}>Export CSV</button>
+                </div>
               </div>
+              {/* ADMIN-5: bulk-action bar — NON-DESTRUCTIVE only (set-tier / suspend /
+                  un-suspend). Each selected uid runs through the same individually-gated,
+                  individually-audited callable; an owner target is refused per-row. */}
+              {selected.size > 0 && (
+                <div className="adm-bulk-bar">
+                  <span className="adm-bulk-count">{selected.size} selected</span>
+                  <span className="adm-bulk-label">Set tier</span>
+                  {["free","pro","premium"].map(t => (
+                    <button key={t} className="adm-btn sm" disabled={busy} onClick={() => bulkSetTier([...selected], t)}>{TIERS[t].label}</button>
+                  ))}
+                  <button className="adm-btn sm danger" disabled={busy} onClick={() => bulkSuspend([...selected], true)}>Suspend</button>
+                  <button className="adm-btn sm" disabled={busy} onClick={() => bulkSuspend([...selected], false)}>Un-suspend</button>
+                  <button className="adm-btn sm ghost" disabled={busy} onClick={clearSelect}>Clear</button>
+                </div>
+              )}
               <div className="adm-list">
                 {rows.length === 0 && <div className="adm-empty">No users found.</div>}
                 {rows.map(u => (
-                  <button key={u.uid} type="button" className="adm-row" onClick={() => openUser(u.email)}>
-                    <div className="who">
-                      <div className="nm">{u.name || u.email}</div>
-                      <div className="em">{u.email}</div>
-                    </div>
-                    <div className="cnt" title="Portfolios">{u.portfolioCount}</div>
-                    {u.billingStatus && u.billingStatus !== "none" && <BillDot status={u.billingStatus} />}
-                    <TierPill tier={u.tier} />
-                    {u.disabled && <span className="adm-pill susp">SUSP</span>}
-                    {u.isAdmin && <span className="adm-pill admin">ADMIN</span>}
-                  </button>
+                  <div key={u.uid} className={"adm-row-wrap" + (selected.has(u.uid) ? " sel" : "")}>
+                    <input type="checkbox" className="adm-row-check" checked={selected.has(u.uid)} onChange={() => toggleSelect(u.uid)} aria-label={`Select ${u.email}`} />
+                    <button type="button" className="adm-row" onClick={() => openUser(u.email)}>
+                      <div className="who">
+                        <div className="nm">{u.name || u.email}</div>
+                        <div className="em">{u.email}</div>
+                      </div>
+                      <div className="cnt" title="Portfolios">{u.portfolioCount}</div>
+                      {u.billingStatus && u.billingStatus !== "none" && <BillDot status={u.billingStatus} />}
+                      <TierPill tier={u.tier} />
+                      {u.disabled && <span className="adm-pill susp">SUSP</span>}
+                      {u.isAdmin && <span className="adm-pill admin">ADMIN</span>}
+                    </button>
+                  </div>
                 ))}
               </div>
               {pages > 1 && (
@@ -855,7 +964,7 @@ export default function AdminDashboard() {
           const anaSummary = [analytics.ga4 && "GA4", analytics.plausible && "Plausible", legal.termlyUuid && "Termly"].filter(Boolean).join(" · ");
           const keysSet = [setFlags.coingecko, !!keys.paypalClientId, setFlags.paypalSecret, !!keys.paypalWebhookId].filter(Boolean).length;
           const back = () => setSettingsView("home");
-          const titles = { apiKeys:"API keys", email:"Email & integrations", plans:"Plans & pricing", ai:"AI", analytics:"Analytics & legal", access:"Admin access" };
+          const titles = { apiKeys:"API keys", email:"Email & integrations", plans:"Plans & pricing", ai:"AI", analytics:"Analytics & legal", access:"Admin access", announcement:"Announcement banner" };
           return (
           <div>
             {settingsView !== "home" && <DHead title={titles[settingsView]} onBack={back} />}
@@ -908,6 +1017,7 @@ export default function AdminDashboard() {
                   <NavRow icon={SI.plans} label="Plans & pricing" value="3 tiers" onClick={() => setSettingsView("plans")} />
                   <NavRow icon={SI.ai} label="AI" value={setFlags.anthropicKey ? "Key saved" : "Reserved"} muted={!setFlags.anthropicKey} onClick={() => setSettingsView("ai")} />
                   <NavRow icon={SI.analytics} label="Analytics & legal" value={anaSummary || "Off"} onClick={() => setSettingsView("analytics")} />
+                  <NavRow icon={SI.announce} label="Announcement banner" value={announcement.active ? "On · " + announcement.level : (announcement.text ? "Draft" : "Off")} muted={!announcement.active} onClick={() => setSettingsView("announcement")} />
                   <NavRow icon={SI.access} label="Admin access" onClick={() => setSettingsView("access")} />
                 </div>
 
@@ -1042,6 +1152,44 @@ export default function AdminDashboard() {
                     <Switch checked={legal.cookieBanner} onChange={() => setLegal({ ...legal, cookieBanner: !legal.cookieBanner })} />
                   </div>
                   <button className="acct-btn accent" onClick={saveConfig}>Save analytics &amp; legal</button>
+                </div>
+              )}
+
+              {/* ── ANNOUNCEMENT BANNER (ADMIN-5) — a config string → an app banner ── */}
+              {settingsView === "announcement" && (
+                <div className="card">
+                  <div className="card-title">Announcement banner</div>
+                  <div className="card-sub">A short notice shown at the top of the app for signed-in users. They can dismiss it; it reappears only if you change the wording. Off (or empty) shows nothing. Applies within ~1&nbsp;min.</div>
+                  {announcement.text.trim() && (
+                    <div className={"adm-ann-preview lvl-" + announcement.level}>
+                      <span className="adm-ann-txt">{announcement.text}</span>
+                      <span className="adm-ann-tag">{announcement.active ? "PREVIEW · live" : "PREVIEW · off"}</span>
+                    </div>
+                  )}
+                  <label className="acct-label">Message</label>
+                  <textarea className="field-input" rows={3} maxLength={300} value={announcement.text}
+                    placeholder="e.g. Scheduled maintenance Sunday 02:00–03:00 UTC — the app may be briefly unavailable."
+                    onChange={e => setAnnouncement({ ...announcement, text: e.target.value })} />
+                  <div className="adm-hint" style={{ textAlign:"right", marginTop:2 }}>{announcement.text.length}/300</div>
+                  <label className="acct-label">Level</label>
+                  <div className="adm-seg" style={{ marginBottom:14 }}>
+                    {[["info","Info"],["warning","Warning"],["critical","Critical"]].map(([v,l]) => (
+                      <button key={v} type="button" className={"opt" + (announcement.level===v ? " on" : "")}
+                        onClick={() => setAnnouncement({ ...announcement, level: v })}>{l}</button>
+                    ))}
+                  </div>
+                  <div className="ctrl-line">
+                    <div>
+                      <div className="cl-label">Show the banner</div>
+                      <div className="cl-hint">{announcement.text.trim() ? "Live for all signed-in users." : "Add a message first — an empty banner can’t be turned on."}</div>
+                    </div>
+                    {/* Guard the toggle: with no text there is nothing to show, and the
+                        server forces active:false anyway (announcement.js) — mirror it here
+                        so the switch can never look "on" over an empty message. */}
+                    <Switch checked={announcement.active} onChange={() => { if (!announcement.text.trim()) return; setAnnouncement({ ...announcement, active: !announcement.active }); }} />
+                  </div>
+                  <button className="acct-btn accent" onClick={saveConfig}>Save announcement</button>
+                  <div className="set-foot">The message is <b>public</b> once active. Turning it off (or clearing the text) removes it for everyone.</div>
                 </div>
               )}
 
@@ -1267,6 +1415,63 @@ export default function AdminDashboard() {
               <button type="submit" className="adm-btn" style={{ background:"var(--ink)", borderColor:"var(--ink)", color:"var(--paper)" }} disabled={busy || !unlockPass}>{busy ? "Checking…" : "Unlock"}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ADMIN-5: read-only "view as" viewer. A support snapshot the server assembled —
+          the panel never authenticated as the user, and NOTHING here can mutate data.
+          The prominent READ-ONLY banner + the audit-trail note keep it honest. */}
+      {viewAs && (
+        <div className="adm-scrim" onClick={closeViewAs}>
+          <div className="adm-viewas-modal" onClick={e => e.stopPropagation()}>
+            <div className="adm-viewas-bar">
+              <span className="adm-viewas-flag">READ-ONLY</span>
+              <span className="adm-viewas-who">Viewing {viewAs.name || viewAs.email}</span>
+              <button className="icon-btn" aria-label="Close read-only view" onClick={closeViewAs}>{SI.back}</button>
+            </div>
+            <div className="adm-viewas-body">
+              <div className="adm-viewas-note">A read-only copy of this user's data — you can look, not change. This view was recorded in the audit log with your reason.</div>
+              <div className="adm-vsec">
+                <div className="adm-vrow"><span className="k">Email</span><span className="v">{viewAs.email}</span></div>
+                <div className="adm-vrow"><span className="k">Tier</span><span className="v"><TierPill tier={viewAs.tier} /></span></div>
+                {viewAs.disabled && <div className="adm-vrow"><span className="k">Account</span><span className="v">Suspended</span></div>}
+                {viewAs.deleted && <div className="adm-vrow"><span className="k">Account</span><span className="v">In trash</span></div>}
+                {viewAs.billingStatus && viewAs.billingStatus !== "none" && <div className="adm-vrow"><span className="k">Billing</span><span className="v"><BillPill status={viewAs.billingStatus} /></span></div>}
+                {viewAs.learn && <div className="adm-vrow"><span className="k">Learn</span><span className="v">{viewAs.learn.xp} XP · {viewAs.learn.completedLessons} lesson{viewAs.learn.completedLessons===1?"":"s"} · {viewAs.learn.streak}-day streak</span></div>}
+              </div>
+              {viewAs.portfolios.length === 0 && <div className="adm-empty">No portfolios.</div>}
+              {viewAs.portfolios.map(p => (
+                <div key={p.id} className="adm-vport">
+                  <div className="adm-vport-head">{p.name || "Untitled portfolio"} <span className="ct">{p.coinCount} coin{p.coinCount===1?"":"s"}</span></div>
+                  {p.coins.length === 0 && <div className="adm-hint">No coins.</div>}
+                  {p.coins.map(c => (
+                    <div key={c.id} className="adm-vcoin">
+                      <div className="adm-vcoin-head"><b>{c.symbol ? c.symbol.toUpperCase() : (c.name || "—")}</b> <span className="nm">{c.name}</span> <span className="tx">{c.txCount} tx</span></div>
+                      {c.journal && c.journal.thesis && (
+                        <div className="adm-vthesis">
+                          <div className="lbl">Thesis</div>
+                          <div className="txt">{c.journal.thesis}</div>
+                          {c.journal.changeMyMind && (<><div className="lbl">What would change my mind</div><div className="txt">{c.journal.changeMyMind}</div></>)}
+                          {c.journal.status && <div className="adm-hint" style={{ marginTop:4 }}>Status: {c.journal.status}</div>}
+                        </div>
+                      )}
+                      {c.transactions && c.transactions.length > 0 && (
+                        <div className="adm-vtx">
+                          {c.transactions.map((t, i) => (
+                            <div key={i} className="adm-vtx-row"><span className={"ty " + (t.type === "sell" ? "sell" : "buy")}>{t.type}</span><span className="am">{t.amount} @ ${t.priceAtBuy}</span><span className="dt">{t.date}</span></div>
+                          ))}
+                          {c.txTruncated && <div className="adm-hint">Showing the first {c.transactions.length} transactions.</div>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {viewAs.truncated && (viewAs.truncated.portfolios || viewAs.truncated.coins) && (
+                <div className="adm-hint" style={{ marginTop:10 }}>Partial view — this user has more {viewAs.truncated.portfolios ? "portfolios" : "coins"} than shown here.</div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

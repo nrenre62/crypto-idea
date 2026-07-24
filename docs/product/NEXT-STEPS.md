@@ -302,10 +302,53 @@ trend snapshots). Phases (KISS-first, most valuable first):
       **403 "Owners only"**, plain user→`listDailyStats` **403 "Admins only"**, owner→200, manager→
       `listDailyStats` 200 (intended — `getStats` already returns revenue to any admin, so restricting
       the trend would be theatre).
-- [ ] **ADMIN-5 · Team-scale & support** (🟡 med / ⚪ low; build when a non-founder joins or it's needed)
-      — *(RBAC owner/manager roles are split out to **ADMIN-SEC** above)* impersonation (logged +
-      time-boxed + bannered), announcement banner (config string → app banner), bulk user actions,
-      per-field filters + saved views, private admin notes, before/after diff in audit.
+- [x] **ADMIN-5 · Team-scale & support** (🟡 med / ⚪ low · **✅ BUILT 2026-07-25** — founder chose
+      "everything now", KISS concern noted) — *(RBAC owner/manager roles were split out to **ADMIN-SEC**)*
+      **Six pieces:**
+      1. **Impersonation = READ-ONLY "view as"** (founder pick over token-based): the owner-only
+         `viewUserAsAdmin({uid, reason})` returns a bounded snapshot (profile/billing + portfolios →
+         coins → **journal theses** → capped transactions + learn counts) into a read-only viewer with a
+         prominent **READ-ONLY** banner. It **never mints a token** and can't act as the user — no
+         purchase/mutation/lockout surface. A **reason is REQUIRED** and stored in the audit entry (the
+         founder chose accountability over time-boxing — there is no session to expire on a read). Reads
+         are capped (20 portfolios / 150 coins / 50 tx-per-coin) and the response flags truncation.
+      2. **Announcement banner** (`config/app.announcement = {text, level, active}`): app-only,
+         dismissible (localStorage keyed to the message text → re-shows when the wording changes), three
+         levels (info/warning/critical). `/api/config` publishes `{text, level}` **only when active** (a
+         draft is never broadcast). Editor is a new Settings drill-in row; `<AnnouncementBanner/>` renders
+         at the top of the logged-in app.
+      3. **Bulk user actions** — non-destructive only (bulk set-tier + suspend/un-suspend); each selected
+         uid runs through the SAME individually-gated + individually-audited callable in a client loop
+         (no new bulk endpoint, no new surface), and an owner target is refused per-row.
+      4. **Per-field tier filter + saved views** — a tier chip row alongside the ADMIN-1 billing filter;
+         saved views store the `{search, tier, billing}` combo **per-operator in localStorage** (no new
+         Firestore collection).
+      5. **Private admin notes** — server-only `adminNotes/{uid}` (rules deny every client, incl. the
+         subject), read by any admin / written by a manager+owner via `getUserNote`/`saveUserNote`; the
+         note **content never enters the audit log** (only that it changed).
+      6. **Before/after diff in audit** — extended the ADMIN-3 config diff to every user mutation
+         (setUserTier/setPremiumLimits/suspend/restore/setManagerRole/adminTrashUser now log
+         `field: old→new`, e.g. `tier: free→premium`), via the pure `functions/audit-diff.js`.
+      **Gate matrix:** view-as = **`assertOwner`** (reads private data); getUserNote = `assertAdmin`;
+      saveUserNote = `assertManager`. All three added to `admin-gate-coverage.test.js` MATRIX + the
+      ACTION_LABELS/audit-labels coverage.
+      Files: new `functions/announcement.js` · new `functions/audit-diff.js` · `functions/index.js`
+      (3 callables + diffs + config wiring) · `firestore.rules` (`adminNotes` deny) · `src/api/admin.js` ·
+      `src/hooks/useAdminDashboard.js` · `src/components/admin-dashboard.jsx` · `src/styles/admin-settings.css`
+      (`adm-viewas*`/`adm-bulk*`/`adm-ann*`/`adm-usernote*`) · new `src/utils/admin-views.js` ·
+      new `src/utils/announcement.js` · new `src/components/AnnouncementBanner.jsx` · `src/CryptoIdea.jsx` ·
+      `src/styles/app.css` (`ann-banner` + dark) · `openapi.json` (39 paths) · new
+      `tests/unit/{announcement,audit-diff,admin-views,announcement-dismiss,AnnouncementBanner}.test.js(x)`
+      + `admin-dashboard.test.jsx` (+7) + `admin-gate-coverage.test.js` + `tests/firestore-rules.test.js`
+      + `tests/functions-callable.test.js`.
+      **Verified:** 839/839 unit (75 files, +43) · **43/43 rules** (+1 adminNotes deny) · **21/21
+      integration** (+2 — the real view-as + notes callable bodies) · build clean (name-guard) · the
+      admin-only `adm-*`/view-as/notes code confirmed **out of the user bundle** (only the user-facing
+      `ann-banner` + `AnnouncementBanner` ship in it). **Browser-checked live as owner:** the tier
+      filter + saved views + multi-select bulk bar render; **view-as opened a real read-only snapshot**
+      of a user's two portfolios/10 coins (reason required); a private note saved; and end-to-end the
+      **announcement banner** rendered at the top of the logged-in user app off `/api/config` and
+      **dismissed** cleanly — 0 console errors on either app.
 - [x] **ADMIN-D · Settings redesign — paper design system** (🎨 design-only; founder 2026-07-18 ·
       **✅ BUILT 2026-07-23** — with **ADMIN-D3** folded in) —
       reskin the admin **Settings** tab to match the app's user-settings (**Account**) screen: adopt

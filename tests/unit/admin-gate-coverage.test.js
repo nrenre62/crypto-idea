@@ -34,6 +34,13 @@ const MATRIX = {
                                       // on support duty needs "is anything on fire".
   // owner only (no step-up: it writes an aggregate snapshot, not config)
   captureStatsSnapshot: "assertOwner",
+  // ADMIN-5: read-only "view as" reads another person's PRIVATE data (incl. journal
+  // theses), so it sits at the OWNER gate — the highest, above the account-management
+  // manager surface.
+  viewUserAsAdmin: "assertOwner",
+  // ADMIN-5: private admin notes — any admin may read, a manager/owner may write.
+  getUserNote: "assertAdmin",
+  saveUserNote: "assertManager",
   // account management — owner OR manager
   setUserTier: "assertManager",
   setPremiumLimits: "assertManager",

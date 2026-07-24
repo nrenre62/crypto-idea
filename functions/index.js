@@ -58,6 +58,10 @@ const featureFlags = require("./features.js");
 const observability = require("./observability.js");
 // ADMIN-0: the pure signups decision behind the Auth beforeCreate blocking function.
 const signupGate = require("./signup-gate.js");
+// ADMIN-5: the site announcement banner (sanitise/merge/publish) + the pure
+// before/after formatter for per-user admin-action audit entries.
+const announce = require("./announcement.js");
+const { changeDetail } = require("./audit-diff.js");
 // How many trusted proxy hops the platform appends on the RIGHT of X-Forwarded-For.
 // Default 2 (common GCLB→Cloud Functions); confirm from a prod log + override if needed.
 const RL_TRUSTED_HOPS = Number(process.env.RL_TRUSTED_HOPS) || 2;
@@ -747,6 +751,9 @@ exports.setManagerRole = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("failed-precondition", "You can't change your own admin role.");
   }
 
+  // ADMIN-5: the prior role (off the claims we already have — no extra read) so the
+  // audit shows "role: (none)→manager" / "role: manager→(none)".
+  const beforeRole = guards.roleOf(userRecord.customClaims || null);
   // setCustomUserClaims replaces the object wholesale — write the complete shape.
   // Revoking clears it entirely so the token carries no admin key at all, which is
   // what firestore.rules' .get('admin', false) default already assumes.
@@ -754,7 +761,7 @@ exports.setManagerRole = functions.https.onCall(async (data, context) => {
   // Without this the change wouldn't take effect until the target's ID token expired
   // (~1h) — unacceptable when REVOKING someone's access.
   await admin.auth().revokeRefreshTokens(userRecord.uid);
-  await writeAudit(context, grant ? "grantManager" : "revokeManager", { targetUid: userRecord.uid, targetEmail: email });
+  await writeAudit(context, grant ? "grantManager" : "revokeManager", { targetUid: userRecord.uid, targetEmail: email, details: changeDetail("role", beforeRole, grant ? guards.ROLE_MANAGER : "") });
   return { success: true, uid: userRecord.uid, role: grant ? guards.ROLE_MANAGER : null };
 });
 
@@ -822,8 +829,11 @@ exports.setUserTier = functions.https.onCall(async (data, context) => {
   }
   // ADMIN-SEC: owners are protected — a manager may not act on one at all.
   await assertTargetAllowed(uid, callerRole, "manage");
+  // ADMIN-5: read the prior tier so the audit records old→new (reversible by hand).
+  const beforeSnap = await db.collection("users").doc(uid).get();
+  const beforeTier = (beforeSnap.exists && beforeSnap.data().tier) || "free";
   await db.collection("users").doc(uid).update({ tier });
-  await writeAudit(context, "setUserTier", { targetUid: uid, details: "tier=" + tier });
+  await writeAudit(context, "setUserTier", { targetUid: uid, details: changeDetail("tier", beforeTier, tier) });
   return { success: true, uid, tier };
 });
 
@@ -873,8 +883,12 @@ exports.setPremiumLimits = functions.https.onCall(async (data, context) => {
     const v = num(raw[k]);
     if (v !== null) out[k] = Math.min(v, caps[k]);
   }
+  // ADMIN-5: capture the prior overrides so the audit shows old→new (an empty {}
+  // means "no override / back to tier defaults" — see fmtVal's "(none)").
+  const limSnap = await db.collection("users").doc(uid).get();
+  const beforeLimits = (limSnap.exists && limSnap.data().premiumLimits) || {};
   await db.collection("users").doc(uid).set({ premiumLimits: out }, { merge: true });
-  await writeAudit(context, "setPremiumLimits", { targetUid: uid, details: JSON.stringify(out) });
+  await writeAudit(context, "setPremiumLimits", { targetUid: uid, details: changeDetail("limits", beforeLimits, out) });
   return { success: true, uid, premiumLimits: out };
 });
 
@@ -892,6 +906,10 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
   // this a manager could lock both owners out of the panel while the admin count
   // still looked healthy — the un-deletable guarantee by another route.
   await assertTargetAllowed(uid, callerRole, "manage");
+  // ADMIN-5: record the true prior state so a redundant (double-)suspend logs
+  // "disabled: true→true", not a fabricated transition.
+  let beforeDisabled = false;
+  try { beforeDisabled = !!(await admin.auth().getUser(uid)).disabled; } catch (e) { /* ignore */ }
   await admin.auth().updateUser(uid, { disabled });
   const uref = db.collection("users").doc(uid);
   if (disabled) {
@@ -913,7 +931,7 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
     if (d.suspendedAt && d.subscription) patch.subscription = billing.extendForSuspension(d.subscription, d.suspendedAt, Date.now());
     await uref.set(patch, { merge: true });
   }
-  await writeAudit(context, disabled ? "suspendUser" : "unsuspendUser", { targetUid: uid });
+  await writeAudit(context, disabled ? "suspendUser" : "unsuspendUser", { targetUid: uid, details: changeDetail("disabled", beforeDisabled, disabled) });
   return { success: true, uid, disabled };
 });
 
@@ -948,8 +966,11 @@ exports.restoreUser = functions.https.onCall(async (data, context) => {
   const callerRole = await assertManager(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  // ADMIN-5: record the prior trashed state (restore is normally true→false).
+  const rSnap = await db.collection("users").doc(uid).get();
+  const wasDeleted = !!(rSnap.exists && rSnap.data().deleted);
   await db.collection("users").doc(uid).set({ deleted: false, deletedAt: null }, { merge: true });
-  await writeAudit(context, "restoreUser", { targetUid: uid });
+  await writeAudit(context, "restoreUser", { targetUid: uid, details: changeDetail("deleted", wasDeleted, false) });
   return { success: true, uid };
 });
 
@@ -971,13 +992,15 @@ exports.adminTrashUser = functions.https.onCall(async (data, context) => {
   }
   const uref = db.collection("users").doc(uid);
   const usnap = await uref.get();
+  // ADMIN-5: prior trashed state (usnap is already read for the billing patch below).
+  const wasTrashed = !!(usnap.exists && usnap.data().deleted);
   const patch = { deleted: true, deletedAt: Date.now() };
   // R31-6 (D4): trashing cancels billing immediately — mark the sub cancelled (go-live also
   // calls PayPal cancel). Also fixes the gap that hard-deleting a payer never cancelled billing.
   const sub = usnap.exists && usnap.data().subscription;
   if (sub && !sub.cancelled) patch.subscription = { ...sub, cancelled: true, cancelledAt: Date.now() };
   await uref.set(patch, { merge: true });
-  await writeAudit(context, "adminTrashUser", { targetUid: uid, targetEmail: (rec && rec.email) || "" });
+  await writeAudit(context, "adminTrashUser", { targetUid: uid, targetEmail: (rec && rec.email) || "", details: changeDetail("deleted", wasTrashed, true) });
   return { success: true, uid };
 });
 
@@ -992,6 +1015,125 @@ exports.adminSignOutUser = functions.https.onCall(async (data, context) => {
   await assertTargetAllowed(uid, callerRole, "manage");
   await admin.auth().revokeRefreshTokens(uid);
   await writeAudit(context, "adminSignOutUser", { targetUid: uid });
+  return { success: true, uid };
+});
+
+/* ═══ ADMIN-5: read-only "view as" (impersonation, support) ═══════════════════
+ * The founder's choice was READ-ONLY view-as, NOT a token-based session: this
+ * assembles a snapshot of the target's data server-side and returns it for display.
+ * It NEVER mints a custom token and NEVER acts on the user's behalf — so there is no
+ * "act as them" surface, no way to trigger a payment/mutation, and no lockout risk.
+ *
+ * OWNER-ONLY on purpose: it reads another person's PRIVATE data (including their
+ * journal theses, which are private-by-default), so it sits at the highest gate. A
+ * REASON is required and stored in the audit entry — the accountability control the
+ * founder chose over time-boxing (there is no session to expire on a read).
+ *
+ * Bounded reads: a rare owner action must never fan out into tens of thousands of
+ * reads on a whale portfolio, so portfolios/coins/transactions are each capped and
+ * the response says when it truncated (an honest "first N", never a silent cut).
+ */
+const VIEW_MAX_PORTFOLIOS = 20;
+const VIEW_MAX_COINS = 150;        // total across all portfolios
+const VIEW_MAX_TX_PER_COIN = 50;
+exports.viewUserAsAdmin = functions.https.onCall(async (data, context) => {
+  await assertOwner(context);
+  const uid = String((data && data.uid) || "").trim();
+  const reason = String((data && data.reason) || "").trim().slice(0, 300);
+  if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  // A reason is REQUIRED — this is a read of someone's private data; the audit trail
+  // is the control. Refusing without one is deliberate, not a validation nicety.
+  if (!reason) throw new functions.https.HttpsError("invalid-argument", "A reason is required to view a user's data.");
+
+  let rec = null;
+  try { rec = await admin.auth().getUser(uid); } catch (e) { /* the auth record may be gone (trashed) */ }
+  const uref = db.collection("users").doc(uid);
+  const usnap = await uref.get();
+  if (!usnap.exists && !rec) throw new functions.https.HttpsError("not-found", "No such user.");
+  const d = usnap.exists ? usnap.data() : {};
+
+  const portfolios = [];
+  let coinsSeen = 0;
+  const psnap = await uref.collection("portfolios").limit(VIEW_MAX_PORTFOLIOS).get();
+  const portTruncated = psnap.size >= VIEW_MAX_PORTFOLIOS;
+  for (const pdoc of psnap.docs) {
+    const p = pdoc.data();
+    const coins = [];
+    if (coinsSeen < VIEW_MAX_COINS) {
+      const csnap = await pdoc.ref.collection("coins").limit(VIEW_MAX_COINS - coinsSeen).get();
+      for (const cdoc of csnap.docs) {
+        coinsSeen++;
+        const c = cdoc.data();
+        const txSnap = await cdoc.ref.collection("transactions").limit(VIEW_MAX_TX_PER_COIN).get();
+        coins.push({
+          id: cdoc.id, symbol: c.symbol || "", name: c.name || "", txCount: c.txCount || 0,
+          // The journal thesis is the point of support for a conviction tool — the
+          // founder chose to include it (fully audited above/below).
+          journal: c.journal || null,
+          txTruncated: txSnap.size >= VIEW_MAX_TX_PER_COIN,
+          transactions: txSnap.docs.map((t) => { const x = t.data(); return { type: x.type, amount: x.amount, priceAtBuy: x.priceAtBuy, date: x.date }; }),
+        });
+      }
+    }
+    portfolios.push({ id: pdoc.id, name: p.name || "", coinCount: p.coinCount || 0, coins });
+  }
+
+  // Learn = COUNTS only (xp/streak/completed), never the lesson list — minimal.
+  let learn = null;
+  try {
+    const lsnap = await uref.collection("learn").doc("progress").get();
+    if (lsnap.exists) { const l = lsnap.data(); learn = { xp: l.xp || 0, streak: l.streak || 0, completedLessons: ((l.completedLessons || []).length) || 0, lastActivity: l.lastActivity || "" }; }
+  } catch (e) { /* ignore */ }
+
+  await writeAudit(context, "viewUserAsAdmin", { targetUid: uid, targetEmail: (rec && rec.email) || d.email || "", details: "reason: " + reason });
+
+  return {
+    uid,
+    email: (rec && rec.email) || d.email || "",
+    name: d.name || (rec && rec.displayName) || "",
+    tier: d.tier || "free",
+    disabled: !!(rec && rec.disabled),
+    role: guards.roleOf((rec && rec.customClaims) || null),
+    deleted: !!d.deleted,
+    billingStatus: billing.billingStatusOf(d),
+    paypalSubscriptionId: d.paypalSubscriptionId || "",
+    billingCycle: d.billingCycle || "",
+    portfolios,
+    learn,
+    truncated: { portfolios: portTruncated, coins: coinsSeen >= VIEW_MAX_COINS },
+  };
+});
+
+/* ═══ ADMIN-5: private admin notes (per-user) ═════════════════════════════════
+ * A support-context note pinned to a user, in the server-only adminNotes/{uid} doc
+ * (firestore.rules denies every client). Read by any admin; written by a manager or
+ * owner. The note CONTENT never enters the audit log (it can hold sensitive support
+ * context — the same "log that it changed, not the value" rule as the config diff's
+ * secrets). */
+const NOTE_MAX = 4000;
+exports.getUserNote = functions.https.onCall(async (data, context) => {
+  await assertAdmin(context);
+  const uid = String((data && data.uid) || "").trim();
+  if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  let out = { note: "", updatedAt: null, updatedByEmail: "" };
+  try {
+    const s = await db.collection("adminNotes").doc(uid).get();
+    if (s.exists) { const n = s.data(); out = { note: n.note || "", updatedAt: n.updatedAt || null, updatedByEmail: n.updatedByEmail || "" }; }
+  } catch (e) { /* ignore */ }
+  return out;
+});
+exports.saveUserNote = functions.https.onCall(async (data, context) => {
+  await assertManager(context);
+  const uid = String((data && data.uid) || "").trim();
+  if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
+  const note = String((data && data.note) || "").slice(0, NOTE_MAX);
+  await db.collection("adminNotes").doc(uid).set({
+    note,
+    updatedAt: Date.now(),
+    updatedBy: context.auth.uid,
+    updatedByEmail: (context.auth.token && context.auth.token.email) || "",
+  }, { merge: true });
+  await writeAudit(context, "saveUserNote", { targetUid: uid, details: note ? "note updated" : "note cleared" });
   return { success: true, uid };
 });
 
@@ -1340,6 +1482,9 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
     // BL-2d (D10): the reserved AI section — the key itself never leaves the server.
     ai: { anthropicKeySet: !!(cfg.ai && cfg.ai.anthropicKey) },
+    // ADMIN-5: the announcement-banner draft so the Settings form pre-fills. Unlike
+    // /api/config (which hides an inactive one), the owner form always sees it.
+    announcement: announce.sanitize(cfg.announcement),
     updatedAt: cfg.updatedAt || null,
   };
 });
@@ -1402,6 +1547,10 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
       termlyTermsId: String(lg.termlyTermsId || ""),
       cookieBanner: !!lg.cookieBanner,
     },
+    // ADMIN-5: the announcement banner. Same per-key-KEEP rule as flags.features —
+    // the instant maintenance/signups toggles post `flags` WITHOUT `announcement`,
+    // so an omitted value must preserve the stored banner, not blank it out.
+    announcement: announce.cleanAnnouncement(data && data.announcement, existing.announcement),
     updatedAt: Date.now(),
   };
   // ADMIN-3: record WHAT changed, not just that a save happened, so a bad edit can be
@@ -1967,6 +2116,9 @@ exports.api = functions
         plans: mergePlans(d.plans),
         analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
         legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
+        // ADMIN-5: the site announcement — {text, level} only while ACTIVE, else null.
+        // A drafted-but-off banner is never broadcast (publicAnnouncement hides it).
+        announcement: announce.publicAnnouncement(d),
       });
       return;
     }
