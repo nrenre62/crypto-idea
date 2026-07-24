@@ -209,6 +209,32 @@
   (clear the plan overlay on session death + `showPlan && user` render guard). The "don't test logins with
   /admin open" gotcha no longer applies.
 
+### A6 · A blocked signup read as "Something went wrong. Try again." — and the SDK rewrites the error ✅ (medium)
+- **Where:** `src/api/firebase-auth.js` (`registerUser` catch) + `src/utils/errors.js`
+  (`isSignupBlockedError`). Found 2026-07-24 while building ADMIN-0.
+- **Symptom/cause:** when the new `beforeCreate` gate refuses a signup, Firebase Auth returns **no
+  dedicated error code** — just `auth/internal-error` with the server's text buried in a wrapper. The
+  code map therefore fell through to the generic *"Something went wrong. Try again."*, telling
+  someone to retry a thing that is deliberately switched off, forever. Same class as **A1** (a plan
+  limit read as a connection error) and the R31-6 suspended-account message: a KNOWN state rendered
+  as a mystery.
+- **Fix:** detect the refusal and show the same sentence the server used.
+- **⚠️ The gotcha worth remembering — the two layers word it DIFFERENTLY.** The raw Identity Toolkit
+  REST response leads with `BLOCKING_FUNCTION_ERROR_RESPONSE : ((HTTP request to …))`, but the
+  **Firebase JS SDK strips that prefix** before the app sees it. Writing the detector from the
+  server's response (the obvious move) produced a check that was **silently dead in the browser** —
+  unit tests passed, the real path never fired. Only a live browser run caught it. Both shapes are now
+  pinned as regression anchors in `tests/unit/errors.test.js`.
+- **⚠️ Second gotcha — a too-broad marker lied confidently.** `PERMISSION_DENIED` was briefly used as
+  one of the match strings. **Every Firestore rules denial message begins with it**
+  (`"PERMISSION_DENIED: \nfalse for 'create' @ L80"`), so any rules rejection during signup was
+  reported as *"signups are paused"* — which would have sent someone hunting a kill-switch that was
+  never off. Markers must be strings only THAT failure can produce; the primary one is now our own
+  message text. Proven live and locked in with a test.
+- **Still open:** the markers were measured against the **emulator**. Production may word the wrapper
+  differently again, in which case detection silently stops firing (degraded, not dangerous).
+  Confirming the real string is GO-LIVE-AUDIT Phase 7 step 29.
+
 ---
 
 ## B. Robustness / hardening (recommended, not blocking)

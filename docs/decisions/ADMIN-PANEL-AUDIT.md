@@ -61,7 +61,7 @@ Tags used below: `[tracked]` already on a go-live/backlog doc · `[new]` surface
 ### 🔴 Critical — close before real users + live payments
 | Capability | Tag | Why |
 |---|---|---|
-| Admin **MFA / 2FA** | `[tracked]` | A stolen admin password alone must not unlock real user data. Biggest admin-security gap. (OWASP MFA.) |
+| Admin **MFA / 2FA** ◑ **GATE BUILT 2026-07-24** | `[tracked]` | A stolen admin password alone must not unlock real user data. Biggest admin-security gap. (OWASP MFA.) **The server-side gate now exists** — `guards.requireMfa` on the shared `assertRole`, so it covers every admin callable at once — behind `config/app.flags.requireAdminMfa`, **default OFF**. **Enrolment (Identity Platform) is still infra**, so nothing is enforced yet; go-live is a flag flip, not new auth code. |
 | **App Check** enforcement | `[tracked]` | Without client attestation the metered `/api` proxy is open to **denial-of-wallet** (flat-cost economics depend on it) and callables lack attestation. Per-IP limiter only partially covers it. |
 
 ### 🟠 High — needed at / soon after launch
@@ -72,7 +72,7 @@ Tags used below: `[tracked]` already on a go-live/backlog doc · `[new]` surface
 | **Webhook delivery-failure view + manual replay** | `[new] [cheap]` | You already store `webhookEvents`; a missed webhook silently breaks entitlement/revenue with no detection. |
 | ~~**Per-feature kill-switches**~~ ✅ BUILT | `[new] [cheap]` | Two global toggles today; can't disable one feature/upstream (e.g. AI) without a deploy. Extends `config/app.flags`. (LaunchDarkly.) **Shipped 2026-07-24** — `marketData`/`checkout`/`aiResearch`, default-ON, server-enforced. |
 | **Failure visibility + admin alerts** ◑ PARTLY BUILT | `[new]` | No error/latency/upstream (CoinGecko, PayPal) visibility, no paging. Best solved with Sentry + an uptime monitor — *not* a hand-built dashboard. **2026-07-24:** Sentry wired (functions-only, DSN in Settings) + cron heartbeats + an Overview status strip. **The account, the uptime monitor and the alert rules remain go-live infra** — nothing pages you yet. |
-| **Hard server-side signups-off** (`beforeCreate`) | `[tracked]` | The toggle is a client gate; a scripted client bypasses it. |
+| ~~**Hard server-side signups-off** (`beforeCreate`)~~ ✅ BUILT | `[tracked]` | The toggle is a client gate; a scripted client bypasses it. **Shipped 2026-07-24** — `exports.beforeCreateUser` refuses inside account creation; verified live that a paused signup creates **no Auth account**. Fail-OPEN on an unreadable config (founder decision). ⚠️ Deploying needs Identity Platform. |
 | **Audit-log filter / pagination / export** | `[new]` | Today view-only latest-100, unfilterable, non-exportable → near-useless mid-incident. (WorkOS.) |
 
 ### 🟡 Medium — real value, workable without at first
@@ -82,7 +82,14 @@ Tags used below: `[tracked]` already on a go-live/backlog doc · `[new]` surface
   needs a daily snapshot source. (GA4/Plausible cover engagement but can't see PayPal revenue/churn.)
 - **User-list CSV/JSON export** `[new] [cheap]` — quick reporting/backup win. (React-Admin/Refine treat export as table-stakes.)
 - **Config change versioning / diff / revert** `[new] [cheap]` — a save is logged but values aren't versioned; a bad edit can't be inspected or rolled back.
-- **Audit immutability (append-only rules) + retention policy** `[tracked: C15] [cheap]` — client-denied but not tamper-evident; no retention TTL.
+- ~~**Audit immutability (append-only rules) + retention policy**~~ ✅ **RESOLVED 2026-07-24 — and the
+  original framing was wrong.** "Append-only rules" cannot be built: the rules already `deny read, write`
+  for every client (*stronger* than append-only), and the **Admin SDK bypasses rules entirely**, so no
+  rule can constrain the only writer there is. Loosening to `allow create` would hand clients a write
+  path and buy nothing. What shipped instead is the real control — a **single-writer choke point**
+  (`audit` reached in exactly three places: add in `writeAudit`, read in `listAudit`, expire in
+  `purgeOldAudit`) pinned by a source-scan test, plus a rules test covering client **writes** (only
+  reads were covered before). Retention TTL was already shipped as `purgeOldAudit` (365 d).
 - **RBAC admin roles (least-privilege)** `[new]` — all admins are equal; fine for 2 founders, **required before any non-founder gets access**.
 - **User impersonation / "view-as"** `[new]` — powerful support tool; build carefully (logged, time-boxed, bannered). (Harness model.)
 - **In-app announcement banner / broadcast** `[new] [cheap]` — reuse the config surface + the reserved email integration.
@@ -99,7 +106,7 @@ retention / NRR / LTV (external tools first) · proration preview (N/A — manua
 
 | Phase | Focus | Items | Effort |
 |---|---|---|---|
-| **0 — Launch gate** | Don't expose real data/payments until done | MFA · App Check · `beforeCreate` hard signups · make `audit` append-only in rules | M (MFA is the weight) |
+| **0 — Launch gate** ✅ **BUILT 2026-07-24** | Don't expose real data/payments until done | **`beforeCreate` hard signups-off** (built + emulator-verified; fail-OPEN on an unreadable config; deploying needs Identity Platform) · **admin MFA gate** (server-side, `guards.requireMfa` on the shared `assertRole`, flag-gated **default OFF**; enrolment stays infra) · ~~make `audit` append-only in rules~~ — **already satisfied and the ask was wrong**: a total client deny is *stronger* than append-only, and rules can't bind the Admin SDK, so the real control is a **single-writer choke point** + a source-scan test · ~~App Check~~ — **no code by H1** (console-only) | M (MFA is the weight) |
 | **1 — Billing-ops visibility** ⭐ | Highest *new* value the day you go live | Persist (if not already) + show PayPal **subscription id + status** on the user card · **past_due/canceled** filter · **webhook-health** list. Read-only; cancels/refunds stay in PayPal | M |
 | **2 — Operational safety net** ✅ **BUILT 2026-07-24** | Stop flying blind | **Per-feature kill-switches** (`marketData`/`checkout`/`aiResearch`, enforced server-side at one `cgFetch()` choke point) · **cron heartbeats** (`health/jobs`) + a status strip in Overview · **Sentry wired functions-only** behind a DSN in Settings. ~~1 uptime monitor + 2–3 alert rules~~ — those need a deployed project + a Sentry account, so they stay **go-live infra** | S–M |
 | **3 — Audit & data hygiene** ✅ **BUILT 2026-07-24** | Make the log usable | Audit filter + pagination + **CSV export** + source-IP field · ~~retention TTL~~ (already shipped as `purgeOldAudit`, 365 d) · **user-list export** (CSV; JSON not built) · config **versioning/diff** (before→after, secrets redacted) | S–M |

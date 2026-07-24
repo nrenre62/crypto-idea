@@ -303,7 +303,7 @@ Starter."* Ensure no code ever checks `'starter'`.
 6. ✓ **Tier surface** — server-authoritative AI meter; configured-cap usage bars;
    downgrade-trim fix; `premiumLimits` end-to-end (admin + rules + display); PayPal
    update link; `tierBeforeFailure`.
-7. **Go-live** — MFA, App Check (shared with USER-CREATION §6).
+7. **Go-live** — MFA enrolment (the enforcement gate is built: ADMIN-0 `flags.requireAdminMfa`, default OFF), App Check (console-only) — shared with USER-CREATION §6.
 
 **DoD per increment:** KISS + secure, `test:unit`/`test:rules` green, re-auth on every
 sensitive op, no secret shipped, rules verified in the emulator, committed, this doc

@@ -53,10 +53,48 @@ trend snapshots). Phases (KISS-first, most valuable first):
       design items** — it overrides three areas of the ADMIN-D2 mockup and adds the unlock gate to
       Settings, so reskinning first means drawing those screens twice. Local-first / emulator-
       verifiable; runs the §PROCESS interview+sweep (Admin map row) when built.
-- [ ] **ADMIN-0 · Launch gate** (🔴 critical) — admin **MFA/2FA** + **App Check** enforcement +
+- [x] **ADMIN-0 · Launch gate** (🔴 critical · **✅ BUILT 2026-07-24** — everything that can be built
+      before a real Firebase project exists) — admin **MFA/2FA** + **App Check** enforcement +
       `beforeCreate` **hard signups-off** + make the `audit` collection **append-only** in rules.
-      *(MFA/App Check/signups already tracked in §BL-4/§4/§U; listed here for completeness — MFA needs
-      Blaze + Identity Platform, so partly infra.)*
+      **✅ BUILT 2026-07-24 (this session), item by item — two of the four turned out to be different
+      jobs than the backlog line described:**
+      1. **`beforeCreate` hard signups-off — BUILT and emulator-verified.** `exports.beforeCreateUser`
+         (v1 `functions.auth.user().beforeCreate`) runs inside account creation, the only place the
+         answer is authoritative: the toggle was a client gate, and
+         `createUserWithEmailAndPassword` talks straight to Firebase Auth. The verdict is a pure,
+         unit-tested `signupDecision()` (`functions/signup-gate.js`), reading `config/app` **FRESH**
+         (not `getConfig()`'s 5-min cache — an enforcement point must not lag its own switch).
+         **FAIL OPEN by founder decision:** an unreadable config ⇒ ALLOW, mirroring ADMIN-2's
+         default-ON rule; a Firestore blip must never silently kill the signup funnel. ⚠️ **Deploying
+         it needs Identity Platform on the project** — see §4 go-live.
+      2. **`audit` append-only in rules — ALREADY SATISFIED; the backlog line was wrong.**
+         `firestore.rules` already has `allow read, write: if false`, which is *strictly stronger*
+         than append-only. Rules can never make it append-only against the only writer that matters
+         (**the Admin SDK bypasses rules entirely**), and loosening to `allow create` would be a pure
+         downgrade. Real tamper-evidence is the **single-writer choke point**: `audit` is touched in
+         exactly three places (add/read/expire), now pinned by a source-scan test. A rules test was
+         added for client WRITES (previously only reads were covered).
+      3. **Admin MFA — the server-side gate is BUILT (default OFF); enrolment stays infra.**
+         `guards.requireMfa` reads `firebase.sign_in_second_factor` off the verified token and hangs
+         off the shared `assertRole`, so it covers **every** admin callable rather than being
+         sprinkled per-endpoint. Flag `config/app.flags.requireAdminMfa`, surfaced as an **armed**
+         (two-step) switch in Settings → Admin access. Go-live becomes a flag flip, not new auth code
+         written under launch pressure. ⚠️ Turning it on with nobody enrolled locks every admin out of
+         the panel *including this switch* — recovery is editing the flag in the Firebase console,
+         stated in the UI warning itself.
+      4. **App Check — NO CODE, by the standing GO-LIVE-AUDIT H1 decision** (console-only; wiring
+         `appCheckOk` into callables duplicates a platform control and adds a second lockout surface).
+         Re-confirmed with the founder this session rather than quietly re-litigated.
+      **Structural change:** `assertAdmin`/`assertManager`/`assertOwner` are now **async** (the MFA
+      flag is a Firestore read) and all 15 call sites `await` them. A missing `await` returns a truthy
+      Promise and never throws — an open endpoint that still *looks* gated — so
+      `tests/unit/admin-0-guards.test.js` fails the build on any un-awaited gate (negative-tested).
+      Verified: **796/796 unit** (70 files, +36) · **42/42 rules** (+1) · **19/19 integration** · build clean ·
+      admin-only code out of the user bundle. Probed live on the emulator: with signups paused a
+      registration returned 400 and **no Auth account was created**, the Admin SDK (seed script) was
+      **not** blocked, and signup still worked with `config/app` deleted entirely. Admin 2FA enforced
+      live → every admin callable refused a password-only owner with an honest reason, and the console
+      escape hatch restored the panel.
 - [x] **ADMIN-1 · Billing-ops visibility** ⭐ (🟠 high · **✅ BUILT 2026-07-24**) — persist (if not already)
       + show the PayPal **subscription id + status** (`active`/`past_due`/`paused`/`canceled`) on the user
       card; a **past_due / canceled** filter; a **webhook-health** list (recent `webhookEvents` +

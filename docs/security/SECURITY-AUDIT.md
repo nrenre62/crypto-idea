@@ -284,7 +284,7 @@ The adversarial verification pass rejected these — in each case a server-side 
 
 Beyond M2 and L4 (promoted above), the critic flagged two Info-level items worth tracking:
 
-- **`signupsEnabled` is client-gated only.** There is no Auth `beforeCreate` blocking function, so `createUserWithEmailAndPassword` still succeeds server-side when the admin "Allow new signups" toggle is off. The toggle provides no real server enforcement today. → `functions/index.js` (no blocking function); `src/api/firebase-auth.js:45`.
+- ~~**`signupsEnabled` is client-gated only.**~~ **FIXED 2026-07-24 (ADMIN-0).** `exports.beforeCreateUser` (`functions/index.js`) refuses inside account creation, so `createUserWithEmailAndPassword` no longer succeeds when the toggle is off — verified on the emulator that **no Auth account is created**. Decision logic is pure + unit-tested (`functions/signup-gate.js`) and **fails OPEN** on an unreadable config, so the gate can only ever fire because a human flipped it. Deploying it requires Identity Platform (go-live).
 - **`lookupUser` is an email→account oracle**, but it's admin-claim-gated (`functions/index.js:390-416`), so not attacker-reachable. Confirm `src/api/admin.js` only invokes it from the admin app.
 
 ---

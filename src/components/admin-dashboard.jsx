@@ -276,6 +276,7 @@ export default function AdminDashboard() {
     unlockPrompt, unlockPass, setUnlockPass, unlockErr, submitUnlock, cancelUnlock,
     grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound,
     grantMsg, setGrantWarn, grantWarn, grantLookup, setManager,
+    mfaWarn, setMfaWarn,
     daily, dailyLoading, dailyMsg, capturing, captureSnapshot,
     status, statusLoading, statusMsg, loadStatus, saveFeature,
   } = useAdminDashboard();
@@ -1050,6 +1051,46 @@ export default function AdminDashboard() {
                    The server still enforces owner + fresh auth_time on setManagerRole, and
                    Settings itself is owner-gated, so this stays owner-only. ── */}
               {settingsView === "access" && (<>
+                {/* ADMIN-0: admin 2FA. It lives HERE, not with the App Controls
+                    kill-switches, because those are "turn something off in an
+                    incident" and this is the opposite — turning it on is what's
+                    dangerous. Off is one tap; on is armed first. */}
+                <div className="card">
+                  <CtrlRow icon={SI.access} label="Require two-factor sign-in"
+                           sub="Applies to every admin callable, not just this screen — a stolen admin password alone stops being enough.">
+                    <Switch checked={controls.requireAdminMfa === true}
+                            onChange={() => {
+                              if (controls.requireAdminMfa === true) {
+                                setMfaWarn(false);
+                                saveControls({ ...controls, requireAdminMfa: false });
+                              } else setMfaWarn(true);
+                            }} />
+                  </CtrlRow>
+                  {!controls.requireAdminMfa && !mfaWarn && (
+                    <div className="cl-hint" style={{ marginTop:10 }}>
+                      Needs <b>Identity Platform MFA</b> enabled on the Firebase project and at least one
+                      enrolled admin. Until then nothing can satisfy this gate — leave it off.
+                    </div>
+                  )}
+                  {mfaWarn && (
+                    <div style={{ border:"1px solid var(--sr)", background:"var(--sr-s)", borderRadius:12, padding:14, marginTop:12 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:"var(--sr)", marginBottom:6 }}>⚠ This can lock you out</div>
+                      <div style={{ fontSize:12, color:"var(--ink-soft)", lineHeight:1.55, marginBottom:12 }}>
+                        Every admin callable will refuse any admin who did <b>not</b> sign in with a second
+                        factor — including this Settings screen, which is the only place to switch it back off.
+                        If nobody is enrolled yet, the panel becomes unreachable and the <b>only</b> way back is
+                        editing <code>config/app → flags.requireAdminMfa</code> in the Firebase console.
+                        Enrol first, then turn this on.
+                      </div>
+                      <div className="adm-actions">
+                        <button className="acct-btn ghost" style={{ flex:1, marginTop:0 }} disabled={busy} onClick={() => setMfaWarn(false)}>Cancel</button>
+                        <button className="acct-btn accent" style={{ flex:1, marginTop:0 }} disabled={busy}
+                                onClick={() => { setMfaWarn(false); saveControls({ ...controls, requireAdminMfa: true }); }}>I'm enrolled — require 2FA</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="card">
                   <div className="card-sub" style={{ marginBottom:14 }}>
                     Grant or remove <b>manager</b> access. Managers can manage accounts (tier, suspend, sign-out, custom limits, trash) but never see Settings or permanent deletion. <b>Owners</b> can only be created by running <code>functions/scripts/set-admin.js --role=owner</code> with a service-account key — never from here, which is what makes owner accounts impossible to remove from inside the panel.

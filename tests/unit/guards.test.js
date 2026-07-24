@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk,
-  roleOf, requireAdmin, requireManager, requireOwner, requireFreshAuth,
+  roleOf, requireAdmin, requireManager, requireOwner, requireFreshAuth, requireMfa,
 } from "../../functions/guards.js";
 
 // BL-1a (D4/D5/C16): the shared per-uid limiter + App Check gate are pure and
@@ -204,5 +204,51 @@ describe("guards.requireFreshAuth (ADMIN-SEC: step-up re-auth on sensitive calls
   it("respects a custom window", () => {
     expect(requireFreshAuth(at(120), { maxAgeSec: 30, skewSec: 0, now }).ok).toBe(false);
     expect(requireFreshAuth(at(20), { maxAgeSec: 30, skewSec: 0, now }).ok).toBe(true);
+  });
+});
+
+/* ADMIN-0 — admin MFA/2FA gate.
+ *
+ * The mirror image of requireFreshAuth: that one defaults ON because a password
+ * re-prompt can always be satisfied. This one defaults OFF, because until Identity
+ * Platform MFA is enabled NOBODY can satisfy it — an on-by-default second factor
+ * would wall every admin out of the panel the moment this code deploys.
+ */
+describe("guards.requireMfa (ADMIN-0: default OFF, factor read from the token)", () => {
+  const mfaToken = (factor) => ctx({ ...OWNER, firebase: { sign_in_second_factor: factor } });
+
+  it("is a no-op unless enforcement is on — including with no options at all", () => {
+    expect(requireMfa(ctx(OWNER))).toMatchObject({ ok: true, enforced: false });
+    expect(requireMfa(ctx(OWNER), {})).toMatchObject({ ok: true, enforced: false });
+    expect(requireMfa(ctx(null), { enforce: false })).toMatchObject({ ok: true, enforced: false });
+    expect(requireMfa(undefined)).toMatchObject({ ok: true, enforced: false });
+  });
+
+  it("admits a token carrying ANY second factor", () => {
+    // Deliberately not an allowlist of factor types — enumerating them would silently
+    // deny a type Identity Platform adds later, locking admins out over an upgrade
+    // they never made.
+    for (const factor of ["phone", "totp", "something-new"]) {
+      expect(requireMfa(mfaToken(factor), { enforce: true }), factor).toMatchObject({ ok: true, enforced: true, factor });
+    }
+  });
+
+  it("denies a password-only admin when enforcing — the whole point of the gate", () => {
+    expect(requireMfa(ctx(OWNER), { enforce: true })).toMatchObject({ ok: false, reason: "mfa-required" });
+    expect(requireMfa(ctx(MANAGER), { enforce: true })).toMatchObject({ ok: false, reason: "mfa-required" });
+    expect(requireMfa(ctx(LEGACY), { enforce: true })).toMatchObject({ ok: false, reason: "mfa-required" });
+  });
+
+  it("fails CLOSED on a malformed or absent token rather than throwing", () => {
+    for (const bad of [ctx(null), {}, { auth: {} }, { auth: { token: {} } }, { auth: { token: { firebase: {} } } }]) {
+      expect(requireMfa(bad, { enforce: true })).toMatchObject({ ok: false, reason: "mfa-required" });
+    }
+    expect(requireMfa(undefined, { enforce: true })).toMatchObject({ ok: false, reason: "mfa-required" });
+  });
+
+  it("treats an empty / falsy factor as NO factor", () => {
+    for (const empty of ["", null, undefined, false, 0]) {
+      expect(requireMfa(mfaToken(empty), { enforce: true }), String(empty)).toMatchObject({ ok: false, reason: "mfa-required" });
+    }
   });
 });

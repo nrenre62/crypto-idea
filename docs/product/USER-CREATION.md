@@ -22,7 +22,7 @@ the reusable framework is the **`user-creation`** skill.
 | C3 | **Password policy** | Fix the error message now (`6`→`8`); enforce server-side via **Identity Platform require-mode** at go-live | Client checks are bypassable; backend policy is the real boundary, but staging it keeps this increment small. |
 | C4 | **Atomic onboarding write** | **Sequenced two-write create**: profile (`portfolioCount:0`), then a batch (default portfolio + counter→1) | A literal single batch is impossible: the counter rule needs the parent user doc to pre-exist (`getAfter==get+1`) and Firestore forbids two writes to one doc per batch. This is the rules-compatible equivalent; a failed 2nd step leaves a user with no portfolio (recoverable), never a corrupt half-state. |
 | C5 | **Plan picker** | Add **"Skip for now / Explore Starter"** | Starter is already the default; don't force a choice before value is shown. |
-| C6 | **Abuse prevention** | App Check enforcement + `beforeCreate` blocking function = **go-live checklist**, documented as such until then | Needs Blaze + console config; today the app is demo-grade against bot signups. |
+| C6 | **Abuse prevention** ◑ | ~~App Check enforcement + `beforeCreate` blocking function = go-live checklist~~ — **`beforeCreate` BUILT 2026-07-24** (ADMIN-0); App Check remains console-only go-live config | The signups switch is now a real server gate (no Auth account is created when it is off). App Check still needs Blaze + console config, so the app stays demo-grade against bot signups while signups are legitimately open. |
 | C7 | **Server-side input validation** | Trim + bounds-check name/email in `registerUser`, backed by a `validUserData()` **rules** create constraint | Client validation alone is bypassable via a crafted request. |
 
 ---
@@ -171,16 +171,24 @@ Cover every branch with `npm run test:rules`.
 
 ## 6. Abuse prevention (C6 — go-live)
 
-`signupsEnabled` / `maintenance` are **client-only gates today** (`Login.jsx`,
-`CryptoIdea.jsx`). A bot can call Firebase Auth directly. Before public launch:
+`maintenance` is still a **client-only gate** (`CryptoIdea.jsx`). **`signupsEnabled` is no longer**
+— see item 2. Remaining before public launch:
 
 1. **App Check** — set `VITE_RECAPTCHA_SITE_KEY` at build; enable enforcement in the
    Firebase console for Auth + Firestore (web = reCAPTCHA v3). Init already exists in
-   `firebase.config.js`.
-2. **`beforeCreate` blocking function** (`functions/index.js`) — enforce `signupsEnabled`
-   **server-side**, rate-limit by `context.ipAddress`, optionally block disposable domains.
-   This is the real signups-off switch.
-3. Until both ship, **document the app as demo-grade** against mass registration.
+   `firebase.config.js`. **Console-only — do not wire `guards.appCheckOk` into the callables**
+   (GO-LIVE-AUDIT H1: callable App Check is enforced platform-side, so a code check duplicates it
+   and adds a second lockout surface).
+2. ✅ **`beforeCreate` blocking function — BUILT 2026-07-24 (ADMIN-0).** `exports.beforeCreateUser`
+   enforces `signupsEnabled` **server-side**; verified on the emulator that a paused signup creates
+   **no Auth account**. It **fails open** on an unreadable config (a Firestore blip must not kill the
+   funnel) and the Admin SDK is exempt, so seeding/admin-created users still work. ⚠️ **Deploying it
+   requires Identity Platform.** *Not* built into it, deliberately: per-IP rate limiting and a
+   disposable-domain blocklist — each would be a second refusal reason, and Firebase gives the client
+   no way to tell refusals apart, so the honest client message would need reworking first
+   (a tripwire test fails the build if a second refusal path is added; see `ERRORS.md` §A6).
+3. Until App Check ships, **the app is still demo-grade against mass registration** — a bot can
+   create accounts freely whenever signups are legitimately open.
 
 ---
 
@@ -208,7 +216,7 @@ launch checklist · **Deferred** = backlog.
 | No server-side name/email validation | Med | §4 `registerUser` + `validUserData` | **Now** |
 | No profile-shape rules (any name length, any settings) | Med | §4 `validUserData`/`validConsent`/`validSettings` | **Now** |
 | Plan picker forces a choice | Low | §1 C5 "Skip for now" | **Now** |
-| No App Check / `beforeCreate` / server signups gate | High | §6 | **Go-live** |
+| No App Check (`beforeCreate` + server signups gate ✅ BUILT 2026-07-24) | High | §6 | **Go-live** |
 | No 2FA/MFA (users or admins) | Med | Identity Platform TOTP enrollment | **Go-live** |
 | Disposable-email / domain policy | Low | `beforeCreate` allow/deny list | **Deferred** |
 

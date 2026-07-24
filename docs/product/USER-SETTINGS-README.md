@@ -130,7 +130,7 @@ npx firebase emulators:exec --only auth,firestore --config <iso>.json "node --te
   `setPremiumLimits` callables and the webhook `tierBeforeFailure` path are wired,
   rules/UI/wrapper-tested, and syntax-checked, but exercising the actual Admin-SDK / webhook
   **writes** needs `start:all` restarted (the emulator hot-reloads edits, not new triggers).
-- **Wave B is go-live only:** MFA/TOTP, App Check enforcement + `beforeCreate`, and the
+- **Wave B is go-live only:** MFA/TOTP enrolment and App Check enforcement (`beforeCreate` ✅ BUILT 2026-07-24 — ADMIN-0; the admin-MFA *gate* is built too, default OFF), and the
   server-side Identity-Platform password policy need Blaze + console config (code sketches in
   USER-CREATION.md §6).
 

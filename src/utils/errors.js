@@ -37,3 +37,59 @@ export function apiErrorMessage(res, fallback, limitMsg) {
   // Genuine connection / unknown error.
   return fallback;
 }
+
+/**
+ * ADMIN-0 — the server-side signups gate, translated for a human.
+ *
+ * When the `beforeCreate` blocking function refuses, Firebase Auth does NOT surface a
+ * dedicated error code: the client gets `auth/internal-error` with the server's text
+ * buried inside a `BLOCKING_FUNCTION_ERROR_RESPONSE : ((HTTP request to … returned
+ * HTTP error 403: {…}))` wrapper. Left alone, the code map in firebase-auth.js falls
+ * through to "Something went wrong. Try again." — telling someone to retry a thing
+ * that is deliberately switched off, forever. That is the exact bug class R31-6 fixed
+ * for suspended accounts and B-PORT fixed for plan limits.
+ *
+ * We show OUR OWN copy rather than echoing the extracted server string: there is
+ * exactly one blocking rule today, and not parsing upstream text into the UI keeps
+ * the surface at zero. tests/unit/admin-0-guards.test.js fails the build if a SECOND
+ * blocking reason is added to functions/index.js without revisiting this.
+ */
+export const SIGNUPS_PAUSED_MSG = "New signups are currently paused. Please check back soon.";
+
+/* The shape is NOT contractual, and the two layers disagree — which is why this
+ * matches several markers instead of one. Measured against the emulator 2026-07-24:
+ *
+ *   raw REST : "BLOCKING_FUNCTION_ERROR_RESPONSE : ((HTTP request to …403: {…}))"
+ *   JS SDK   : "Firebase: ((HTTP request to …/beforeCreateUser returned HTTP error
+ *               403: {\"error\":{…,\"status\":\"PERMISSION_DENIED\"}})) (auth/internal-error)."
+ *
+ * The SDK STRIPS the BLOCKING_FUNCTION_ERROR_RESPONSE prefix, so matching only that
+ * (the obvious choice from reading the server's response) silently never fires in the
+ * app — which is exactly what the first version of this did, and only a real browser
+ * caught it.
+ *
+ * The FIRST marker is our own sentence, echoed back inside the error body by both
+ * layers — the most specific and the most portable, since it's a string we control.
+ *
+ * ⚠️ `PERMISSION_DENIED` was tried as a marker and REMOVED. Every Firestore rules
+ * denial message begins with it ("PERMISSION_DENIED: \nfalse for 'create' @ L80"), so
+ * ANY rules rejection during signup got reported as "signups are paused" — a confident
+ * lie about a completely unrelated failure. Measured live 2026-07-24. Markers must be
+ * strings only THIS failure can produce.
+ *
+ * ⚠️ Verified against the EMULATOR only. A deployed project may word the wrapper
+ * differently, and the function-name marker relies on the URL appearing in the
+ * message. Failure is safe but degraded: an unmatched error falls through to
+ * "Something went wrong. Try again." — misleading, not dangerous. Confirming the real
+ * production string is a go-live item (GO-LIVE-AUDIT.md Phase 7).
+ */
+const BLOCKED_MARKERS = [
+  SIGNUPS_PAUSED_MSG,                   // our own sentence, echoed back inside the error body
+  "BLOCKING_FUNCTION_ERROR_RESPONSE",   // raw Identity Toolkit REST
+  "beforeCreateUser",                   // our function name, carried in the SDK's URL echo
+];
+
+export function isSignupBlockedError(error) {
+  const msg = String((error && error.message) || "");
+  return BLOCKED_MARKERS.some((marker) => msg.includes(marker));
+}

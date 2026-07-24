@@ -654,6 +654,23 @@ test("ISO-2: clients (and an admin's browser) can't read config / audit / cache"
   await assertFails(getDoc(doc(adminDb(), "cache", "universe")));
 });
 
+test("ADMIN-0: the audit log is closed to clients for WRITES too, not just reads", async () => {
+  // ISO-2 above proves nobody can READ the log. This is the other half: nobody can
+  // forge, alter or erase an entry either. It matters because the log is what an
+  // incident is reconstructed from — a reader-only wall would still let anyone with
+  // a browser token write a plausible entry, or delete the one that incriminates them.
+  //
+  // Note what this does NOT prove: rules never apply to the Admin SDK, so this says
+  // nothing about server code. That side is held by the single-writer choke point in
+  // tests/unit/admin-0-guards.test.js. See the comment on /audit in firestore.rules.
+  await seed(async (db) => { await setDoc(doc(db, "audit", "a1"), { action: "setUserTier", actorUid: "admin1" }); });
+  for (const db of [aliceDb(), adminDb(), managerDb()]) {
+    await assertFails(setDoc(doc(db, "audit", "forged"), { action: "nothing happened" }));
+    await assertFails(updateDoc(doc(db, "audit", "a1"), { action: "sanitised" }));
+    await assertFails(deleteDoc(doc(db, "audit", "a1")));
+  }
+});
+
 /* ===========================================================================
  * ADMIN-SEC — the manager wall at the RULES layer
  * ===========================================================================

@@ -19,6 +19,8 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
 import { auth, db } from "./firebase.config.js";
+// ADMIN-0: recognising a beforeCreate refusal (which carries no dedicated auth/* code).
+import { isSignupBlockedError, SIGNUPS_PAUSED_MSG } from "../utils/errors.js";
 
 // Version stamp stored on the consent record (USER-CREATION.md C1). Bump this when the
 // Terms/Privacy documents change so a re-acceptance can be required.
@@ -103,6 +105,10 @@ export async function registerUser(email, password, name, consent = null) {
 
     return { success: true, user };
   } catch (error) {
+    // ADMIN-0: the beforeCreate gate refused. It has no dedicated error code, so
+    // without this it falls through to "Something went wrong. Try again." — telling
+    // someone to retry something that is deliberately off.
+    if (isSignupBlockedError(error)) return { success: false, error: SIGNUPS_PAUSED_MSG };
     return { success: false, error: getErrorMessage(error.code) };
   }
 }

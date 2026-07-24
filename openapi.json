@@ -3988,6 +3988,10 @@
                   "signupsEnabled": {
                     "type": "boolean"
                   },
+                  "requireAdminMfa": {
+                    "type": "boolean",
+                    "description": "ADMIN-0. Require a second sign-in factor on EVERY admin callable. Defaults false and is only true when config says exactly true — nothing can satisfy the gate until Identity Platform MFA is enabled. Admin-only: deliberately NOT exposed on the public /api/config. On a save, an omitted key KEEPS the stored value."
+                  },
                   "features": {
                     "$ref": "#/components/schemas/FeatureFlags"
                   }
@@ -4117,6 +4121,10 @@
                   },
                   "signupsEnabled": {
                     "type": "boolean"
+                  },
+                  "requireAdminMfa": {
+                    "type": "boolean",
+                    "description": "ADMIN-0. Require a second sign-in factor on EVERY admin callable. Defaults false and is only true when config says exactly true — nothing can satisfy the gate until Identity Platform MFA is enabled. Admin-only: deliberately NOT exposed on the public /api/config. On a save, an omitted key KEEPS the stored value."
                   },
                   "features": {
                     "$ref": "#/components/schemas/FeatureFlags"

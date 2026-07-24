@@ -224,9 +224,14 @@ the new `.githooks/pre-push` hook uses.
 - Do not set the GA4 ID unless `termlyUuid` is set **and** the cookie banner is on — the auto-blocker
   only exists if the banner loaded. Better: Plausible (cookieless, already supported, already
   decision D18).
-- `signupsEnabled` is a client gate only; no `beforeCreate` blocking function exists. Uids are free
-  and every abuse budget is per-uid. Low urgency until the paid AI proxy ships — then it is a cost
-  lever. Requires Identity Platform.
+- ~~`signupsEnabled` is a client gate only; no `beforeCreate` blocking function exists.~~ **FIXED
+  2026-07-24 (ADMIN-0):** `exports.beforeCreateUser` enforces it inside account creation — verified on
+  the emulator that a paused signup creates **no Auth account**, and that the Admin SDK (seed/admin
+  user creation) is deliberately unaffected. It fails **OPEN** on an unreadable config, so a Firestore
+  blip cannot take the signup funnel down. ⚠️ **Deploy blocker:** blocking functions **require Identity
+  Platform** on the project — `firebase deploy` fails without it. Enable Identity Platform (it is the
+  same prerequisite as admin MFA) **before the first `--only functions` deploy**, or temporarily drop
+  this export. Uids remain free until then, and every abuse budget is per-uid.
 - Secrets sit as plaintext Firestore fields (fine today — rules deny all client access), but before
   enabling scheduled exports, lock the export bucket down.
 - `deploy.sh` is a second, divergent deploy path that hardcodes a `crypto-idea.web.app` URL. Delete
@@ -346,6 +351,21 @@ script can. So:
 27. Create the Cloud Logging alert (§3).
 28. Register a throwaway account end-to-end: verification email, password reset, portfolio save,
     DCA calculator returning >365 days of history.
+29. **ADMIN-0 — confirm the real `beforeCreate` refusal string.** Turn "Allow new signups" **off**,
+    attempt a registration, and read what the browser shows. It must say *"New signups are currently
+    paused"*, not *"Something went wrong. Try again."* Firebase gives a blocking-function refusal **no
+    dedicated error code**, so `src/utils/errors.js` matches marker strings inside the message — and
+    those were measured against the **emulator**, whose wording the JS SDK already rewrites once (it
+    strips the `BLOCKING_FUNCTION_ERROR_RESPONSE` prefix the REST layer sends). If production words it
+    differently again the detection silently stops firing: degraded, not dangerous, but a user is then
+    told to retry something deliberately switched off. Update `BLOCKED_MARKERS` with the real string.
+    **Turn signups back on afterwards.**
+30. **ADMIN-0 — enable Identity Platform MFA, enrol BOTH owners, and only then flip
+    `flags.requireAdminMfa` on** (Settings → Admin access; the switch is deliberately two-step).
+    Order matters exactly as it does for App Check: flipping it before anyone is enrolled locks every
+    admin out of the panel *including out of that switch*, and the only way back is editing
+    `config/app → flags.requireAdminMfa` in the Firebase console. Verify by signing out and back in
+    with a second factor, then confirm the Users tab still loads.
 
 ---
 

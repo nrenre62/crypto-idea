@@ -122,7 +122,15 @@ export function useAdminDashboard() {
   // `flags: controls` — keeping them together is what stops a maintenance toggle from
   // posting a flags object with no switches in it. (The server also merges per-key, so
   // both ends have to fail before a switch can silently flip back on.)
-  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true, features: { marketData: true, checkout: true, aiResearch: true } });
+  // ADMIN-0's requireAdminMfa lives here too, for the same reason: every save posts
+  // `flags: controls`, so a flag kept outside this object would be absent from every
+  // payload. Default FALSE (the strict default) — nothing can satisfy the gate until
+  // Identity Platform MFA is enabled, so an optimistic `true` would render the panel
+  // as already-protected when it isn't.
+  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true, requireAdminMfa: false, features: { marketData: true, checkout: true, aiResearch: true } });
+  // Arming step for the 2FA switch. Turning it ON can lock every admin out of the
+  // panel (including out of this switch), so it is deliberately NOT one tap.
+  const [mfaWarn, setMfaWarn] = useState(false);
   // Analytics + legal IDs (public, non-secret).
   const [analytics, setAnalytics] = useState({ ga4: "", plausible: "" });
   const [legal, setLegal] = useState({ termlyUuid: "", termlyPrivacyId: "", termlyTermsId: "", cookieBanner: false });
@@ -146,6 +154,9 @@ export function useAdminDashboard() {
       setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet), anthropicKey: !!(d.ai && d.ai.anthropicKeySet), sentryDsn: !!(d.sentry && d.sentry.dsnSet) });
       const ff = (d.flags && d.flags.features) || {};
       setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false),
+        // ADMIN-0: OFF unless the server says exactly true — mirrors guards.requireMfa,
+        // so the switch can never show "protected" for a config that isn't.
+        requireAdminMfa: !!(d.flags && d.flags.requireAdminMfa === true),
         // ON unless the server says exactly false — same rule as functions/features.js,
         // so a config that predates the switches doesn't render as "everything off".
         features: { marketData: ff.marketData !== false, checkout: ff.checkout !== false, aiResearch: ff.aiResearch !== false } });
@@ -485,6 +496,7 @@ export function useAdminDashboard() {
     unlockPrompt, unlockPass, setUnlockPass, unlockErr, submitUnlock, cancelUnlock,
     grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound, setGrantFound,
     grantMsg, setGrantMsg, grantWarn, setGrantWarn, grantLookup, setManager,
+    mfaWarn, setMfaWarn,
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
     billingFilter, setBillingFilter,
     audit, setAudit, auditLoading, setAuditLoading, auditMsg, setAuditMsg,

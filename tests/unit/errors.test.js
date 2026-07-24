@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { apiErrorMessage } from "../../src/utils/errors.js";
+import { apiErrorMessage, isSignupBlockedError, SIGNUPS_PAUSED_MSG } from "../../src/utils/errors.js";
 
 // apiErrorMessage (DI-1 "verify-then-toast", ERRORS.md §A4): a failed data-layer result
 // carries an error `code` (Firestore) AND — for the three write paths — a classified
@@ -54,5 +54,69 @@ describe("apiErrorMessage", () => {
   it("is null-safe (treats a missing result as a connection failure)", () => {
     expect(apiErrorMessage(null, CONN, LIMIT)).toBe(CONN);
     expect(apiErrorMessage(undefined, CONN)).toBe(CONN);
+  });
+});
+
+/* ADMIN-0 — the beforeCreate refusal has no dedicated auth/* code, so without this it
+   falls through firebase-auth's code map to "Something went wrong. Try again." and a
+   user retries a thing that is deliberately switched off. Same bug class as R31-6
+   (suspended accounts) and B-PORT (plan limits): a KNOWN state rendered as a mystery. */
+describe("isSignupBlockedError (ADMIN-0)", () => {
+  /* BOTH real shapes, captured from a live emulator on 2026-07-24 — they DIFFER, and
+     that difference is the bug this test exists to prevent from coming back. The JS
+     SDK (what the app actually catches) strips the BLOCKING_FUNCTION_ERROR_RESPONSE
+     prefix that the REST layer sends, so a detector written from the server's response
+     alone never fires in the browser. */
+  const REST_SHAPE = new Error(
+    'BLOCKING_FUNCTION_ERROR_RESPONSE : ((HTTP request to http://127.0.0.1:5001/demo-crypto-idea/us-central1/beforeCreateUser returned HTTP error 403: {"error":{"message":"New signups are currently paused. Please check back soon.","status":"PERMISSION_DENIED"}}))'
+  );
+  const SDK_SHAPE = new Error(
+    'Firebase: ((HTTP request to http://127.0.0.1:5001/demo-crypto-idea/us-central1/beforeCreateUser returned HTTP error 403: {"error":{"message":"New signups are currently paused. Please check back soon.","status":"PERMISSION_DENIED"}})) (auth/internal-error).'
+  );
+
+  it("recognises the REST shape", () => {
+    expect(isSignupBlockedError(REST_SHAPE)).toBe(true);
+  });
+
+  it("recognises the SDK shape — the one the app actually catches", () => {
+    // Regression anchor: the first version of this matched only the REST prefix and
+    // was silently dead in the browser.
+    expect(isSignupBlockedError(SDK_SHAPE)).toBe(true);
+    expect(SDK_SHAPE.message).not.toContain("BLOCKING_FUNCTION_ERROR_RESPONSE");
+  });
+
+  it("does NOT fire on a Firestore rules denial — the false positive that got shipped and caught", () => {
+    /* `PERMISSION_DENIED` was briefly used as a marker. EVERY Firestore rules rejection
+       message starts with it, so a denied profile/portfolio write mid-signup was
+       reported as "signups are paused" — confidently wrong about an unrelated failure,
+       and it would have sent the founder hunting a kill-switch that was never off.
+       Exact string measured from the emulator 2026-07-24. */
+    const RULES_DENIAL = new Error("PERMISSION_DENIED: \nfalse for 'create' @ L80, false for 'update' @ L80");
+    expect(isSignupBlockedError(RULES_DENIAL)).toBe(false);
+  });
+
+  it("does NOT swallow ordinary signup failures", () => {
+    // If this ever returned true for these, a duplicate email or a weak password would
+    // read as "signups are paused" — a different lie, not a fix.
+    for (const msg of [
+      "Firebase: Error (auth/email-already-in-use).",
+      "Firebase: Error (auth/weak-password).",
+      "Firebase: Error (auth/network-request-failed).",
+      "Firebase: Error (auth/internal-error).",   // internal-error WITHOUT the blocking marker
+    ]) {
+      expect(isSignupBlockedError(new Error(msg)), msg).toBe(false);
+    }
+  });
+
+  it("is null-safe and never throws on a malformed error", () => {
+    for (const bad of [null, undefined, {}, { message: null }, "a string", 42]) {
+      expect(isSignupBlockedError(bad), String(bad)).toBe(false);
+    }
+  });
+
+  it("shows our own copy, matching the server's message verbatim", () => {
+    // Kept in step with functions/signup-gate.js BLOCKED_MESSAGE so the same sentence
+    // reaches the user whichever end refused first (the client pre-check or the server).
+    expect(SIGNUPS_PAUSED_MSG).toBe("New signups are currently paused. Please check back soon.");
   });
 });

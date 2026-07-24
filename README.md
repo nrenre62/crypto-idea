@@ -214,6 +214,7 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 | `listDailyStats` | Callable | Admin-only (read-only, ADMIN-4): the daily growth series from `statsDaily/{YYYY-MM-DD}`, oldest-first (clamp 1–400, default 90) |
 | `captureStatsSnapshot` | Callable | **Owner-only** (ADMIN-4): write today's growth snapshot on demand — for a missed nightly run. Audited; idempotent per UTC day |
 | `getSystemStatus` | Callable | Admin-only (read-only, ADMIN-2): the kill-switch states, the six cron heartbeats (`health/jobs`), market-cache ages, and whether Sentry is configured. No secrets — the DSN is a boolean |
+| `beforeCreateUser` | **Auth blocking function** (ADMIN-0) | Not callable — Firebase runs it *inside* account creation. Refuses the signup when `flags.signupsEnabled === false`, so the admin toggle is a real server gate and not just a greyed-out button. Fails **open** on an unreadable config; the Admin SDK is exempt. ⚠️ Needs Identity Platform to deploy |
 | `setUserTier` / `suspendUser` / `restoreUser` | Callable | Manager-or-owner: change tier / suspend / restore from trash (a manager may not act on an owner at all) |
 | `deleteUser` | Callable | **Owner-only**: delete-with-erasure (blocks self-target; owners can never be deleted) |
 | `setPremiumLimits` | Callable | Manager-or-owner: set a user's per-user custom limits (`premiumLimits`, clamped to the same hard ceilings) |
@@ -245,6 +246,36 @@ Each switch is **ON unless config says exactly `false`**, so a missing key or an
 can never take the product down. A `saveConfig` payload that omits `features` **keeps** the stored
 switches (per-key merge) — otherwise flipping maintenance mid-incident would silently re-enable the
 feature you had just killed.
+
+### Launch gate (ADMIN-0)
+
+**Signups-off is enforced inside account creation, not just in the UI.** `exports.beforeCreateUser`
+(an Auth `beforeCreate` blocking function) refuses when `flags.signupsEnabled === false`, so a
+scripted client — or an honest one holding a stale `/api/config` — creates **no account**. The
+decision is pure and unit-tested (`functions/signup-gate.js`); it reads `config/app` **fresh**, and it
+**fails open**: an unreadable config means *allow*, because a Firestore blip must never silently kill
+the signup funnel. The Admin SDK is deliberately unaffected, so `seed-emulator.js` and admin-created
+accounts still work. ⚠️ **Deploying this function requires Identity Platform on the project.**
+
+**Admin 2FA has a server gate, off by default.** `flags.requireAdminMfa` makes every admin callable
+require a token that carries a second sign-in factor (`guards.requireMfa`, checked once in the shared
+`assertRole` rather than per-endpoint). It is **off unless config says exactly `true`** — nothing can
+satisfy it until Identity Platform MFA is enabled — and the Settings switch is deliberately two-step,
+because turning it on with nobody enrolled locks every admin out of the panel *including out of that
+switch*. Recovery is editing `config/app → flags.requireAdminMfa` in the Firebase console.
+
+> **`assertAdmin`/`assertManager`/`assertOwner` are `async`.** Every call site must `await` them — a
+> missing `await` returns a truthy Promise and never throws, leaving an endpoint open that still looks
+> gated. `tests/unit/admin-0-guards.test.js` fails the build if one is missed.
+
+**The `audit` log has exactly one writer.** Firestore rules already deny every client read *and*
+write, which is stronger than "append-only" — but rules never apply to the Admin SDK, the only writer
+there is. So the real control is code: `audit` is touched in three places (add in `writeAudit`, read
+in `listAudit`, expire in `purgeOldAudit`), pinned by a source-scan test.
+
+**App Check is console-only, no code.** Callable App Check is enforced platform-side before the
+handler runs, so `guards.appCheckOk` has zero call sites on purpose. Enable it in the console at
+go-live, in the documented order (key → build → deploy → watch → enforce).
 
 ## CoinGecko proxy (`api`)
 

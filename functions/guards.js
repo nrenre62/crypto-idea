@@ -132,7 +132,34 @@ function requireFreshAuth(context, { enforce = true, maxAgeSec = 600, skewSec = 
   return { ok: true, enforced: true, ageSec };
 }
 
+// ADMIN-0: admin MFA/2FA. A stolen admin password alone must not unlock real user
+// data — the biggest remaining admin-security gap (OWASP MFA). Identity Platform
+// stamps `firebase.sign_in_second_factor` on the ID token when a second factor was
+// actually used to sign in; it is set by the platform, so a client cannot forge it,
+// which is why this and not an app-side "did they enrol?" lookup is the control.
+//
+// `enforce` DEFAULTS OFF — the opposite of requireFreshAuth's default, and
+// deliberately so. Enrolment needs Identity Platform (Blaze), so until that is
+// switched on NOBODY can satisfy this gate: defaulting it on would wall every admin
+// out of the panel the moment this code deploys. The gate ships now so that go-live
+// is a flag flip rather than new auth code written under launch pressure.
+//
+// ⚠️ It is also the one gate that can lock an owner out of the switch that unlocks
+// them (the flag lives in owner-only Settings). Recovery is editing
+// `config/app.flags.requireAdminMfa` in the Firebase console — same escape hatch as
+// stepUpReauth, and the reason both flags are console-editable at all.
+function requireMfa(context, { enforce = false } = {}) {
+  if (!enforce) return { ok: true, enforced: false };
+  const token = context && context.auth && context.auth.token;
+  const factor = token && token.firebase && token.firebase.sign_in_second_factor;
+  // Any non-empty factor counts ("phone", "totp", …). Enumerating accepted factor
+  // types here would silently deny a type Identity Platform adds later.
+  if (!factor) return { ok: false, reason: "mfa-required" };
+  return { ok: true, enforced: true, factor };
+}
+
 module.exports = {
   utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk,
   ROLE_OWNER, ROLE_MANAGER, roleOf, isOwner, requireAdmin, requireManager, requireOwner, requireFreshAuth,
+  requireMfa,
 };

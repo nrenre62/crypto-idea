@@ -686,4 +686,73 @@ describe("admin-dashboard", () => {
     // live is worse than no control at all.
     await waitFor(() => expect(toggle.checked).toBe(true));
   });
+
+  /* ── ADMIN-0 · admin 2FA switch ─────────────────────────────────────────────
+     This is the one toggle in the panel that can lock every admin out of the panel
+     — including out of itself, since it lives behind owner-only Settings. So it is
+     armed, not tapped, and turning it OFF stays instant. */
+  const openMfaRow = async () => {
+    render(<AdminDashboard />);
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Admin access" }));
+    const row = await screen.findByText("Require two-factor sign-in");
+    return row.closest(".settings-row").querySelector('input[role="switch"]');
+  };
+
+  it("ADMIN-0: the 2FA switch reads OFF for a config that doesn't set it", async () => {
+    // Absent must never render as "protected" — nothing can satisfy the gate until
+    // Identity Platform MFA exists, so an optimistic ON would be a lie.
+    getAdminConfig.mockResolvedValueOnce({ flags: { maintenance: false, signupsEnabled: true } });
+    const toggle = await openMfaRow();
+    expect(toggle.checked).toBe(false);
+    expect(screen.getByText(/Identity Platform MFA/)).toBeInTheDocument();
+  });
+
+  it("ADMIN-0: turning 2FA ON is armed — nothing saves until the lockout warning is confirmed", async () => {
+    const toggle = await openMfaRow();
+    fireEvent.click(toggle);
+    // The warning must name the ONLY recovery path, because by then the panel is gone.
+    await screen.findByText(/This can lock you out/);
+    expect(screen.getByText(/flags.requireAdminMfa/)).toBeInTheDocument();
+    expect(saveConfig).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /I'm enrolled — require 2FA/ }));
+    await waitFor(() => expect(saveConfig).toHaveBeenCalled());
+    expect(saveConfig.mock.calls.at(-1)[0].flags.requireAdminMfa).toBe(true);
+  });
+
+  it("ADMIN-0: cancelling the warning leaves 2FA off and saves nothing", async () => {
+    const toggle = await openMfaRow();
+    fireEvent.click(toggle);
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText(/This can lock you out/)).toBeNull());
+    expect(saveConfig).not.toHaveBeenCalled();
+    expect(toggle.checked).toBe(false);
+  });
+
+  it("ADMIN-0: turning 2FA OFF is instant — the escape hatch must never be armed", async () => {
+    // Recovery has to be one tap. Making "off" a two-step is how you stay locked out.
+    getAdminConfig.mockResolvedValueOnce({ flags: { maintenance: false, signupsEnabled: true, requireAdminMfa: true } });
+    const toggle = await openMfaRow();
+    expect(toggle.checked).toBe(true);
+    fireEvent.click(toggle);
+    await waitFor(() => expect(saveConfig).toHaveBeenCalled());
+    expect(saveConfig.mock.calls.at(-1)[0].flags.requireAdminMfa).toBe(false);
+    expect(screen.queryByText(/This can lock you out/)).toBeNull();
+  });
+
+  it("ADMIN-0: the 2FA flag rides along with every other flags save", async () => {
+    // It lives inside `controls` for the ADMIN-2 reason — a flag kept outside that
+    // object is absent from every payload, and the server would keep the old value.
+    getAdminConfig.mockResolvedValueOnce({ flags: { maintenance: false, signupsEnabled: true, requireAdminMfa: true } });
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
+    const row = await screen.findByText("Maintenance mode");
+    fireEvent.click(row.closest(".settings-row").querySelector('input[role="switch"]'));
+    await waitFor(() => expect(saveConfig).toHaveBeenCalled());
+    const flags = saveConfig.mock.calls.at(-1)[0].flags;
+    expect(flags.maintenance).toBe(true);
+    expect(flags.requireAdminMfa).toBe(true);   // not silently dropped by a maintenance toggle
+  });
 });

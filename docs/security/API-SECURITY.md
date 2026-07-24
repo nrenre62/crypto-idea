@@ -189,10 +189,11 @@ Ran the 42Crunch `42c-ast` static audit on [`openapi.json`](../../openapi.json) 
 
 These are **intended** deferrals to the go-live/Blaze phase, documented so they're not mistaken for oversights:
 
-- **App Check enforcement** — the gate exists (`guards.appCheckOk`, enforced by a config flag); flip it on + set `VITE_RECAPTCHA_SITE_KEY` at go-live.
+- **App Check enforcement** — **console-only, no code.** `guards.appCheckOk` exists and is unit-tested but has **zero call sites, deliberately**: for v1 callables Firebase enforces App Check platform-side *before* the handler runs, so wiring the helper duplicates a platform control and adds a second way to lock everyone out. Set `VITE_RECAPTCHA_SITE_KEY` → build → deploy → watch "unverified" fall to ~0 → *then* enable enforcement (GO-LIVE-AUDIT H1; re-confirmed by the founder 2026-07-24 during ADMIN-0). Reversing that order locks out 100% of users.
 - **Live PayPal** — signature verification + idempotency are built; the live client/secret/webhook + a real e2e run happen at go-live.
 - **CoinGecko paid key** — the proxy works on the free tier (degrades gracefully); a Demo/paid key is needed for the full 5-min refresh at scale.
-- **Admin 2FA** — needs Identity Platform MFA (Blaze).
+- **Admin 2FA** — needs Identity Platform MFA (Blaze) for **enrolment**. The **enforcement gate is built** (ADMIN-0, 2026-07-24): `guards.requireMfa` reads `firebase.sign_in_second_factor` off the verified token and runs inside the shared `assertRole`, so it covers **every** admin callable rather than being repeated per-endpoint. Flag `config/app.flags.requireAdminMfa`, **default OFF** — the opposite default from `stepUpReauth`, because until Identity Platform is on *nobody* can satisfy it and an on-by-default gate would wall the panel off the moment it deployed. Verified live: with the flag on, an owner who signed in with a password only is refused `mfa-required` on every admin callable.
+- **Auth `beforeCreate` blocking function** — **built** and enforced (`exports.beforeCreateUser`), but **deploying it requires Identity Platform**, the same prerequisite as MFA. Enable Identity Platform before the first functions deploy or the deploy fails.
 - **Distributed rate limiting** — the current per-IP limiter is in-memory per instance (see §4 for the confirmed implications and the chosen mitigation).
 - **Strict request-body input validation** — `openapi.json` now declares request bodies `additionalProperties:false`, but the callables currently **ignore** unknown fields. Harden them to reject unknown request keys (deny-by-default input) so the documented contract is actually enforced; a live `42crunch-scan` will flag the gap until then. (Added 2026-07-18 with the 42Crunch audit hardening.)
 

@@ -65,6 +65,17 @@ service cloud.firestore {
 
     // ─── Server-only audit log (admin actions) ───
     // Written by Cloud Functions via the Admin SDK; no client can read or write it.
+    //
+    // ADMIN-0 asked for these rules to be made "append-only". They already are —
+    // and then some: a total deny is STRICTLY STRONGER than append-only for every
+    // client. What rules cannot do is constrain the only writer that matters. The
+    // Admin SDK bypasses rules entirely, so no rule written here can stop server
+    // code from rewriting or erasing history. Loosening this to an append-only
+    // `allow create` would therefore be a pure downgrade: it would hand clients a
+    // write path they don't have today and buy no tamper-evidence in return.
+    // The real control lives in code — `audit` is touched in exactly three places
+    // (add in writeAudit, read in listAudit, expire in purgeOldAudit), pinned by
+    // tests/unit/admin-0-guards.test.js.
     match /audit/{document=**} {
       allow read, write: if false;
     }

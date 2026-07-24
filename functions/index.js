@@ -56,6 +56,8 @@ const statsDaily = require("./stats-daily.js");
 // Sentry DSN is configured in admin Settings.
 const featureFlags = require("./features.js");
 const observability = require("./observability.js");
+// ADMIN-0: the pure signups decision behind the Auth beforeCreate blocking function.
+const signupGate = require("./signup-gate.js");
 // How many trusted proxy hops the platform appends on the RIGHT of X-Forwarded-For.
 // Default 2 (common GCLB→Cloud Functions); confirm from a prod log + override if needed.
 const RL_TRUSTED_HOPS = Number(process.env.RL_TRUSTED_HOPS) || 2;
@@ -105,29 +107,48 @@ function denied(reason) {
     // The client watches for this exact code to re-prompt for the password.
     return new functions.https.HttpsError("failed-precondition", "reauth-required: confirm your password to continue.");
   }
+  if (reason === "mfa-required") {
+    // ADMIN-0. Distinct from reauth-required: a password re-prompt cannot satisfy
+    // this one, so the client must NOT offer the unlock modal — say what's actually
+    // wrong instead of looping them through a control that can never succeed.
+    return new functions.https.HttpsError("failed-precondition", "mfa-required: this admin account must sign in with two-factor authentication.");
+  }
   return new functions.https.HttpsError("permission-denied", "Admins only.");
 }
 
-function assertAdmin(context) {
-  const d = guards.requireAdmin(context);
+// ADMIN-0: two-factor gate for the WHOLE admin surface. It hangs off assertRole
+// rather than each callable for the ADMIN-2 choke-point reason — a check repeated
+// at 18 call sites is one a 19th call site forgets. Off unless config says exactly
+// true (see guards.requireMfa for why the default is the strict one here).
+async function assertMfa(context) {
+  const cfg = await getConfig();
+  const enforce = !!(cfg && cfg.flags && cfg.flags.requireAdminMfa === true);
+  const d = guards.requireMfa(context, { enforce });
   if (!d.ok) throw denied(d.reason);
+}
+
+// The one place a role decision becomes an HttpsError. Every gate below is this
+// function with a different pure decider, so MFA (and anything added later) can
+// never be wired into two of the three and missed on the third.
+//
+// ⚠️ These are ASYNC as of ADMIN-0. A call site that forgets `await` gets a
+// (truthy) Promise and NO throw — an open endpoint that still looks walled. That
+// failure is invisible in review, so tests/unit/admin-0-guards.test.js fails the
+// build if any assert* call site is missing its await.
+async function assertRole(context, decide) {
+  const d = decide(context);
+  if (!d.ok) throw denied(d.reason);
+  await assertMfa(context);
   return d.role;
 }
-function assertManager(context) {
-  const d = guards.requireManager(context);
-  if (!d.ok) throw denied(d.reason);
-  return d.role;
-}
-function assertOwner(context) {
-  const d = guards.requireOwner(context);
-  if (!d.ok) throw denied(d.reason);
-  return d.role;
-}
+async function assertAdmin(context) { return assertRole(context, guards.requireAdmin); }
+async function assertManager(context) { return assertRole(context, guards.requireManager); }
+async function assertOwner(context) { return assertRole(context, guards.requireOwner); }
 // Step-up gate. `enforce` is read from config so it can be turned off from the
 // Firebase console if it ever misfires — Settings is where the flag lives, so a
 // self-locking gate would otherwise have no recovery path that doesn't need a deploy.
 async function assertFreshOwner(context) {
-  const role = assertOwner(context);
+  const role = await assertOwner(context);
   const cfg = await getConfig();
   const enforce = !(cfg && cfg.flags && cfg.flags.stepUpReauth === false);
   const d = guards.requireFreshAuth(context, { enforce });
@@ -225,6 +246,44 @@ async function writeAudit(context, action, info) {
     });
   } catch (e) { console.error("writeAudit failed:", e && e.message); }
 }
+
+/* ═══ ADMIN-0: hard server-side signups-off (Auth beforeCreate) ═════════════════
+ * The "Allow new signups" toggle was a CLIENT gate only. Register greys out in the
+ * UI, but createUserWithEmailAndPassword talks straight to Firebase Auth, so a
+ * scripted client — or an honest one holding a stale ~60s /api/config — creates the
+ * account anyway. This blocking function runs INSIDE account creation, which is the
+ * only place the answer is authoritative.
+ *
+ * ⚠️ DEPLOY NOTE: blocking functions require **Identity Platform** on the project.
+ * `firebase deploy` fails on a project without it — see the go-live runbook. The
+ * Auth EMULATOR supports them, so this is verifiable locally today.
+ *
+ * Reads config/app FRESH rather than through getConfig()'s 5-minute cache: this is
+ * an enforcement point, and ADMIN-2's lesson was that enforcement must not lag the
+ * switch that drives it. Signups are low-volume, so the extra read is free.
+ *
+ * The whole body is defensive on purpose. If a blocking function throws for ANY
+ * reason the signup fails, so an unrelated bug here becomes a total registration
+ * outage. Only the deliberate "signups are paused" verdict is allowed to throw;
+ * the decision itself is pure and unit-tested in functions/signup-gate.js.
+ */
+exports.beforeCreateUser = functions.auth.user().beforeCreate(async (user, context) => {
+  let cfg = null;   // null = "could not read" ⇒ ALLOW (founder decision, see signup-gate.js)
+  try {
+    const snap = await db.doc("config/app").get();
+    cfg = (snap.exists && snap.data()) || {};
+  } catch (e) {
+    console.error("beforeCreate: config read failed, allowing signup —", (e && e.message) || e);
+  }
+  const decision = signupGate.signupDecision(cfg);
+  if (decision.allow) {
+    // Log only the degraded path; a healthy allow is the common case and would be noise.
+    if (decision.reason === "config-unavailable") console.warn("beforeCreate: allowed without a config read");
+    return;
+  }
+  console.log("beforeCreate: blocked a signup — signups are paused");
+  throw new functions.auth.HttpsError("permission-denied", signupGate.BLOCKED_MESSAGE);
+});
 
 // Default plan prices + tier limits. Editable from admin Settings (stored in
 // config/app.plans); these are the fallback when nothing is configured and MUST
@@ -585,7 +644,7 @@ async function gatherStats() {
 
 // ─── Admin Stats (admins only) ───
 exports.getStats = functions.https.onCall(async (data, context) => {
-  assertAdmin(context);
+  await assertAdmin(context);
   return {
     ...(await gatherStats()),
     // ADMIN-SEC: owner health. Owners can only be minted by scripts/set-admin.js, so
@@ -640,7 +699,7 @@ async function writeDailySnapshot(nowMs) {
 // Same gate as getStats — which already returns revenue to any admin — so making
 // the trend owner-only would be theatre, not a boundary.
 exports.listDailyStats = functions.https.onCall(async (data, context) => {
-  assertAdmin(context);
+  await assertAdmin(context);
   const DEFAULT_DAYS = 90, MAX_DAYS = 400;
   const raw = Number(data && data.limit);
   const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), MAX_DAYS) : DEFAULT_DAYS;
@@ -656,7 +715,7 @@ exports.listDailyStats = functions.https.onCall(async (data, context) => {
 // manual path for a missed run (and the only way to exercise the whole thing
 // under the emulator, which never fires pubsub on a cron). Idempotent per UTC day.
 exports.captureStatsSnapshot = functions.https.onCall(async (data, context) => {
-  assertOwner(context);
+  await assertOwner(context);
   const snapshot = await writeDailySnapshot(Date.now());
   await writeAudit(context, "captureStatsSnapshot", { details: `captured ${snapshot.date}` });
   return { snapshot };
@@ -709,7 +768,7 @@ exports.setAdminClaim = functions.https.onCall(async () => {
 // ─── Admin: look up ONE user for support / moderation (admins only) ───
 // Returns operational data only (tier, status, usage counts) — NOT holdings.
 exports.lookupUser = functions.https.onCall(async (data, context) => {
-  assertAdmin(context);
+  await assertAdmin(context);
   const email = String((data && data.email) || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
     throw new functions.https.HttpsError("invalid-argument", "Enter a valid email.");
@@ -755,7 +814,7 @@ exports.lookupUser = functions.https.onCall(async (data, context) => {
 
 // ─── Admin: change a user's tier (admins only) ───
 exports.setUserTier = functions.https.onCall(async (data, context) => {
-  const callerRole = assertManager(context);
+  const callerRole = await assertManager(context);
   const uid = data && data.uid;
   const tier = data && data.tier;
   if (!uid || !["free", "pro", "premium"].includes(tier)) {
@@ -801,7 +860,7 @@ exports.devSetMyTier = functions.https.onCall(async (data, context) => {
 // can't write this field (rules blocklist); only admins, here. An empty object clears
 // the override (back to tier defaults).
 exports.setPremiumLimits = functions.https.onCall(async (data, context) => {
-  const callerRole = assertManager(context);
+  const callerRole = await assertManager(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   const raw = (data && data.limits) || {};
@@ -822,7 +881,7 @@ exports.setPremiumLimits = functions.https.onCall(async (data, context) => {
 // ─── Admin: suspend / un-suspend a user (admins only) — reversible ───
 // Disables the Auth account so they can't sign in.
 exports.suspendUser = functions.https.onCall(async (data, context) => {
-  const callerRole = assertManager(context);
+  const callerRole = await assertManager(context);
   const uid = data && data.uid;
   const disabled = !!(data && data.disabled);
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
@@ -860,7 +919,7 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
 
 // ─── Admin: delete a user + ALL their data (admins only) — GDPR/CCPA erasure ───
 exports.deleteUser = functions.https.onCall(async (data, context) => {
-  const callerRole = assertOwner(context);
+  const callerRole = await assertOwner(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   if (uid === context.auth.uid) {
@@ -886,7 +945,7 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
 
 // ─── Admin: restore a soft-deleted user from the Trash (admins only) ───
 exports.restoreUser = functions.https.onCall(async (data, context) => {
-  const callerRole = assertManager(context);
+  const callerRole = await assertManager(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   await db.collection("users").doc(uid).set({ deleted: false, deletedAt: null }, { merge: true });
@@ -900,7 +959,7 @@ exports.restoreUser = functions.https.onCall(async (data, context) => {
 // admin would be hard-purged in 30 days and could drop the app below
 // MIN_ADMINS) — demote them first via setAdminClaim.
 exports.adminTrashUser = functions.https.onCall(async (data, context) => {
-  const callerRole = assertManager(context);
+  const callerRole = await assertManager(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   // ADMIN-SEC: owners can never be trashed, by anyone (identity, not count).
@@ -926,7 +985,7 @@ exports.adminTrashUser = functions.https.onCall(async (data, context) => {
 // Revokes the target's refresh tokens (each device must re-authenticate) —
 // the moderation counterpart of the self-service signOutEverywhere (U6).
 exports.adminSignOutUser = functions.https.onCall(async (data, context) => {
-  const callerRole = assertManager(context);
+  const callerRole = await assertManager(context);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   // ADMIN-SEC: repeated force-sign-out is a denial-of-access vector against an owner.
@@ -1108,7 +1167,7 @@ exports.reactivateSubscription = functions.https.onCall(async (data, context) =>
 // profile (tier, portfolioCount, joined). NEVER returns holdings. Capped; the
 // dashboard paginates + searches client-side.
 exports.listUsers = functions.https.onCall(async (data, context) => {
-  assertAdmin(context);
+  await assertAdmin(context);
   const CAP = 5000;
   const prof = {};
   try { const snap = await db.collection("users").get(); snap.forEach((d) => { prof[d.id] = d.data(); }); } catch (e) { /* ignore */ }
@@ -1152,7 +1211,7 @@ exports.listAudit = functions.https.onCall(async (data, context) => {
   // id — and Settings is owner-only behind a step-up re-auth (assertFreshOwner). Handing
   // those values to a manager through the Audit tab would route around that boundary, so
   // a non-owner sees that a config save happened, never what it changed.
-  const callerIsOwner = assertAdmin(context) === "owner";
+  const callerIsOwner = (await assertAdmin(context)) === "owner";
   const limit = Math.min(Math.max(parseInt((data && data.limit) || 100, 10) || 100, 1), 500);
   let snap;
   try { snap = await db.collection("audit").orderBy("at", "desc").limit(limit).get(); }
@@ -1180,7 +1239,7 @@ exports.listAudit = functions.https.onCall(async (data, context) => {
 // staleness, and the recent event mix — without any new storage. webhookEvents is
 // server-only in firestore.rules; this callable reads it via the Admin SDK.
 exports.listWebhookEvents = functions.https.onCall(async (data, context) => {
-  assertAdmin(context);
+  await assertAdmin(context);
   const limit = Math.min(Math.max(parseInt((data && data.limit) || 50, 10) || 50, 1), 200);
   let snap;
   try { snap = await db.collection("webhookEvents").orderBy("at", "desc").limit(limit).get(); }
@@ -1218,7 +1277,7 @@ const SCHEDULED_JOBS = [
 // Sentry DSN is reported only as a boolean. Settings stays owner-only; this is the
 // read-only "is anything on fire" view, which a manager on support duty needs.
 exports.getSystemStatus = functions.https.onCall(async (data, context) => {
-  assertAdmin(context);
+  await assertAdmin(context);
   // Read config FRESH rather than through getConfig()'s 5-minute cache. The strip's
   // entire job is to report what is currently switched off, and enforcement runs on
   // the 60-second featuresNow() clock — so a cached read here could show
@@ -1269,7 +1328,10 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     coingeckoSet: !!cfg.coingecko,
     paypal: { clientId: pp.clientId || "", secretSet: !!pp.secret, webhookId: pp.webhookId || "" },
     email: { provider: em.provider || "none", apiKeySet: !!em.apiKey, apiUrl: em.apiUrl || "", fromEmail: em.fromEmail || "", listId: em.listId || "" },
-    flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false, features: featureFlags.readFeatures(cfg) },
+    // ADMIN-0: requireAdminMfa is OFF unless config says exactly true — nothing can
+    // satisfy the gate until Identity Platform MFA is enabled, so an absent flag
+    // must not read as "on".
+    flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false, requireAdminMfa: fl.requireAdminMfa === true, features: featureFlags.readFeatures(cfg) },
     plans: mergePlans(cfg.plans),
     // ADMIN-2: the DSN itself is a secret-ish endpoint URL, so it follows the same
     // rule as every other key — the form learns only whether one is configured.
@@ -1302,7 +1364,13 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   // key can never be stored) AND keeps any switch the payload doesn't mention — the
   // instant maintenance/signups toggles post `flags` without `features`, and must not
   // silently re-enable a feature someone just killed.
-  const flags = { maintenance: !!f.maintenance, signupsEnabled: f.signupsEnabled !== false, features: featureFlags.mergeFeatures(f.features, (existing.flags || {}).features) };
+  // ADMIN-0: same per-key rule as `features`, for the same reason — the instant
+  // maintenance/signups toggles post `flags` WITHOUT this key, and re-defaulting an
+  // omitted field would silently switch admin 2FA back off. Absent ⇒ KEEP the stored
+  // value; stored-absent ⇒ false.
+  const exFlags = existing.flags || {};
+  const requireAdminMfa = "requireAdminMfa" in f ? f.requireAdminMfa === true : exFlags.requireAdminMfa === true;
+  const flags = { maintenance: !!f.maintenance, signupsEnabled: f.signupsEnabled !== false, requireAdminMfa, features: featureFlags.mergeFeatures(f.features, exFlags.features) };
   const an = (data && data.analytics) || existing.analytics || {};
   const lg = (data && data.legal) || existing.legal || {};
   const cfg = {
