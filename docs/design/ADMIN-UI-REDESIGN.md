@@ -297,3 +297,126 @@ browser-verified **owner + manager**, **desktop 1280 + mobile**: logo 30px from 
 | [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | `.adm-bar-inner` full-bleed (drop max-width); new `.ci-app.adm-root .adm-ov { align-items:stretch }`. |
 | [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) | `adm-ov` class on the overview grid row; tier legend colours driven from the per-tier bar colour; `TIERS.pro.bar → --accent-ink`. **No logic change.** |
 | [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Assert the Pro legend + Pro bar segment resolve to the same colour; overview row carries the equal-height class. |
+
+---
+
+## 10) ADMIN-UI-4 — visible back button + bordered header on every second-screen (📋 PLAN — 2026-07-25)
+
+Founder pass over the shipped panel (ADMIN-UI-1/2/3). On every admin **second-screen** (drill-in / popup)
+the `‹` back control is technically present (accessible name "Back") but renders as a **bare, borderless
+chevron** floating above the card — `app.css` styles the shared `.icon-btn` as `background:none; border:0;
+padding:0`, so in the admin panel it reads as **no visible back button**. And the screen **title has no
+bordered header**: it sits as a lone centered line above a separate card whose first line **repeats** the
+same title (the API-keys screen shows "API keys" twice, no border, no visible back).
+
+This is the real fix behind **ADMIN-UI-3 items 4/5**, which only verified the `‹` **existed in the DOM** —
+not that it was **visible** or matched the mockup's bordered header.
+
+**Target (founder chose, 2026-07-25 — "attached to the card, like the screenshot"):** the `‹` back button
+(a **34×34 bordered rounded box**) + the **centered title** sit in a **white header row at the top of the
+screen's card, with a divider line under it**, then the body — exactly the
+[`docs/mockups/admin-panel`](../mockups/admin-panel/index.html) look. The redundant in-card title is
+dropped so the title shows **once**. Main tabs (Overview / Users / Trash / Settings / Audit) are untouched —
+**second screens only**.
+
+**Scope — every second-screen:** the **7 Settings sub-screens** (API keys · Email · Plans · AI · Analytics ·
+Announcement · Admin access) + the **Users → user-detail** drill-in + the read-only **view-as** popup. (The
+step-up unlock modal + Trash confirmations already carry their own close/cancel controls — sweep to confirm.)
+
+### 10.1 How to build it (KISS · admin-scoped · design-only · no new hex)
+
+- New tiny **`DScreen({title, onBack, children})`** primitive in `admin-dashboard.jsx` (beside `DHead`):
+  one `.card` (`.adm-scr`) whose top is `.adm-scr-head` (the bordered `‹` box + centered `.dh-title` +
+  a 34px spacer, with a `border-bottom` divider) over an `.adm-scr-body`.
+- CSS in `admin-settings.css`, **scoped under `.ci-app.adm-root`** (so the shared `.icon-btn`/`.detail-head`
+  the *user app* uses are left byte-for-byte unchanged): `.adm-scr { padding:0; overflow:hidden }` ·
+  `.adm-scr-head { display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid
+  var(--line-strong) }` · `.adm-scr-head .dh-title { … flex:1; text-align:center }` · `.adm-scr .icon-btn {
+  width:34px; height:34px; border-radius:11px; background:var(--paper-2); border:1px solid var(--line-strong);
+  color:var(--ink-soft) }` · `.adm-scr-body { padding:16px 18px }`. Existing tokens only — **no new hex**.
+- Convert the **6 single-card settings screens** + the **user-detail** card to `DScreen` (drop the duplicate
+  `.card-title`, keep `.card-sub`); remove the shared `<DHead>` at the settings switch and the user-detail
+  `<DHead>`.
+- **Admin access** (multi-card) → wrap in `DScreen` and demote its inner `.card`s to divider-separated
+  **sections** so there's no card-in-card.
+- Give the **view-as** modal header the same bordered `‹`.
+
+### 10.2 Acceptance criteria
+
+- [ ] Every second-screen shows a **bordered `‹` box** + a **bordered/divided header** carrying the title
+      **once**; **no bare chevron** anywhere in the admin.
+- [ ] Main tabs (Overview / Users / Trash / Settings / Audit) unchanged; the **user app's** back chevrons
+      unchanged (shared `.icon-btn` untouched).
+- [ ] `test:unit` green — the existing "Back" / "Save keys" / "CHANGE TIER" assertions still pass, plus a new
+      case asserting the bordered header on a drill-in.
+- [ ] `build` clean (no-names guard) · browser-verified **owner + manager**, **desktop + mobile**;
+      light-paper only; **no new hex, no new dependency**.
+
+### 10.3 Files
+
+| File | Change |
+|---|---|
+| [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) | New `DScreen` primitive; wrap the 8 second-screens; drop the duplicate titles + the shared `<DHead>`; view-as `‹`. **No logic change.** |
+| [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | New `.adm-scr / .adm-scr-head / .adm-scr-body / .adm-scr .icon-btn` block, scoped under `.ci-app.adm-root`. |
+| [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Assert a drill-in renders the bordered header (`.adm-scr-head`) with the visible `‹` box. |
+
+## 11) ADMIN-UI-5 — match the mockup's card + text SIZE (Overview bigger, Settings smaller) (📋 PLAN — 2026-07-25)
+
+**Founder report:** the mockup's cards and text are *bigger* than the live panel; apply the mockup's sizing —
+**except Settings, where the cards should be smaller.** Verified true: ADMIN-UI-2 (§8) matched the card
+*chrome* (22px radius, .8px border, 2-layer shadow) but kept the pre-mockup **padding (22px)** and the smaller
+**type scale**. Values below are measured from the bundled mockup files (inline styles).
+
+### 11.1 Locked decisions (founder interview, 2026-07-25)
+1. **Scope = Overview only.** The big numbers exist only on Overview (stat tiles + revenue/usage/tier cards).
+   **Users / Trash / Audit keep today's dense list sizing** — they're row lists (`.adm-list`/`.adm-row`), not
+   stat cards, so there is nothing there to "enlarge."
+2. **Match the mockup exactly** (no toning down).
+3. **Settings cards shrink to the settings mockup's ~18px padding** (text already ~13/11.5px).
+
+### 11.2 Target values — Overview (grow to [`admin-panel`](../mockups/admin-panel/index.html))
+
+| Element (CSS in `admin-settings.css`) | Live now | Target | Overview-only? |
+|---|---|---|---|
+| `.adm-stat .n` (TOTAL/STARTER/PRO/PREMIUM number) | 30px | **38px** | ✅ `.adm-stat` is Overview-only → bump the class directly |
+| `.adm-stat .l` (stat label) | 9.5px | **11px** | ✅ same |
+| `.adm-kv .v` (revenue "$9" value) | 22px | **30px** | ✅ `.adm-kv` is Overview-only |
+| `.adm-mini .n` (usage minis 4 / 15) | 22px | **26px** | ✅ `.adm-mini` is Overview-only |
+| Overview card padding | 22px | **30px** | ⚠️ `.card` is SHARED (see 11.4) |
+| Card radius | 22px | 22px | already match — no change |
+
+### 11.3 Target values — Settings (shrink to [`admin-settings`](../mockups/admin-settings/index.html))
+
+| Element | Live now | Target |
+|---|---|---|
+| Settings drill-in card padding | 22px (shared `.card`) | **~18px** |
+| Settings card text (`.card-title` / `.card-sub`) | 13px / 11.5px | unchanged (already matches) |
+
+### 11.4 How to build it (KISS · admin-scoped · design-only · no new hex/dep)
+- **The three Overview *text* bumps are safe to apply on their own classes** — `.adm-stat`, `.adm-kv`, and
+  `.adm-mini` render **only** on Overview, so raising their font-sizes touches nothing else.
+- **Card *padding* is the one shared lever** — `.ci-app.adm-root .card { padding:var(--adm-card-pad) }`
+  (`--adm-card-pad:22px`) is used by Overview cards **and** the user-detail drill-in **and** the Settings
+  screens. So **do NOT move the shared token**; instead give each surface its own pad:
+  - **Overview** cards → **30px** (via an Overview-screen scope, e.g. a wrapper class on the Overview view).
+  - **Settings** drill-in cards → **~18px**. Because [[ADMIN-UI-4]] already restructures every Settings
+    second-screen into a `DScreen` card, **fold the 18px Settings padding into `DScreen`'s `.adm-scr-body`**
+    (`.adm-stat`/`.adm-kv`/`.adm-mini` don't exist in Settings, so only padding differs there).
+  - Leave the **user-detail** drill-in and the **data-tab list containers** at today's sizing.
+- **Sequence: build ADMIN-UI-4 first, then UI-5** (UI-4 owns the Settings-card restructure; UI-5 just sets its
+  padding + the Overview text sizes). They can also ship together.
+
+### 11.5 Acceptance criteria (DoD)
+- Overview stat tiles read **38/11px**, revenue **30px**, usage minis **26px**, Overview cards **30px** pad —
+  pixel-matching the admin-panel mockup.
+- Settings drill-in cards visibly smaller (**~18px** pad); Users / Trash / Audit **unchanged**; the user app is
+  untouched (all overrides scoped under `.ci-app.adm-root`).
+- `test:unit` green · `build` clean · browser-verified owner & manager, desktop + mobile · light-paper only ·
+  **no new hex, no new dependency.**
+
+### 11.6 Files
+| File | Change |
+|---|---|
+| [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | Bump `.adm-stat .n/.l`, `.adm-kv .v`, `.adm-mini .n`; Overview-scoped 30px card pad; Settings/`DScreen` 18px pad. |
+| [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) | Only if an Overview-screen wrapper class is needed to scope the 30px pad. No logic change. |
+| [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Assert a stat number carries the enlarged size (or the Overview wrapper class), so the scale can't silently regress. |
