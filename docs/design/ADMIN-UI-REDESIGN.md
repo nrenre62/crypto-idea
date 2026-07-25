@@ -22,6 +22,10 @@
 > **§1–§7 = the *chrome* (header/H1/back-nav/login); §8 = the *card/tab/sizing* fidelity.** Both halves
 > shipped in the same build (they touch the same two files + the same mockup). The plan text below is kept
 > as the as-built spec.
+>
+> **§9 = ADMIN-UI-3 — a second founder pass (2026-07-25), 📋 PLAN / not yet built:** full-bleed header,
+> equal-size Overview cards, tier bar/legend colours connected, and a border+`‹` consistency sweep. Same
+> two files, still design-only + no new hex.
 
 ## 1. Problem — why (the overlap the founder reported)
 
@@ -228,3 +232,55 @@ state consistent with the user app's accent).
 > (`admin-settings.css`, `admin-dashboard.jsx`) and target the **same mockup**, so they are naturally **one
 > build** when the founder says go — §8 is the "make the cards/tabs/sizes match" half, §1–§7 the "fix the
 > header/H1/back-nav/login" half. Either can ship first; doing them together avoids re-touching the CSS twice.
+
+## 9. ADMIN-UI-3 — mockup-match refinements (📋 PLAN — 2026-07-25, not yet built)
+
+A second founder pass over the **shipped** panel (§1–§8) against the same mockup
+(`docs/mockups/admin-panel/index.html`), captured **plan-only**. Five items, all **design-only** (no
+callable/rule/handler/logic change), **light-paper only**, **no new dependency**, and **no new hex** —
+every colour is an existing token. Backlog row: [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §ADMIN-UI ·
+ADMIN-UI-3.
+
+### 9.1 As-found deltas (measured against the running build + the mockup)
+
+| # | Item | As-found (current build) | Mockup / founder target | Change |
+|---|---|---|---|---|
+| 1 | **Full-bleed header** | `.adm-bar-inner` is `max-width:1140px; margin:0 auto` → on desktop the logo + Log-out sit **inset** at the 1140-band edges. | Mockup header is full-bleed (`padding:13px 28px`, **no** max-width): logo hugs the **left edge**, Log out the **right edge**; body stays 1140-centered. | Drop the inner max-width/centering; keep the side padding (`clamp(14px,4vw,30px)`). `.adm-shell` (H1 · tabs · cards) unchanged at 1140. Mobile already full-width → unchanged. |
+| 2 | **Overview cards equal size** | The 3 cards use the shared `.grid-auto` (`repeat(auto-fit,minmax(280px,1fr)); align-items:start`) → equal **width**, **unequal height** (revenue card has 2 note lines). | All three the **same size**. (Note: the mockup itself uses `1.15fr 1fr 1fr`; founder wants them **equal**, not that.) | Add an **admin-only class** on that one row (`admin-dashboard.jsx` L462) + `.ci-app.adm-root .<cls> { align-items:stretch }`. **Leave shared `.grid-auto` untouched** — the user app's Research grid uses it. Keep the mobile 1-col collapse. |
+| 3 | **Tier-breakdown colours connect** | Bar fills come from `TIERS[key].bar`; the legend spans use **separate literals**. **Pro** drifts: bar `#0a6b4d` (`--accent`) vs legend `#07503a` (`--accent-ink`). Starter `#b8841f` + Premium `#7d4bbf` already match. | Each tier's **bar segment and legend label = one colour** (as the mockup: Starter `#b8841f`, Pro `#07503a`, Premium `#7d4bbf`). | Drive the legend from the **same per-tier colour** as the bar (single source), and set Pro to `--accent-ink #07503a`. White "N" on the Pro segment stays legible on the darker green. Premium(0) draws no segment (the `n>0` guard) — legend still shows it. |
+| 4 | **Border + `‹` on every settings sub-screen** | Every settings drill-in already renders `<DHead>` (the `‹`) inside a `.card` (bordered since ADMIN-UI-2). API-keys is the reference. | Same bordered-card + `‹` on **all 7** (apiKeys · email · plans · ai · analytics · announcement · access). | **Verification sweep** — structurally already satisfied; browser-check each and fix any screen that renders content outside a bordered card or is missing the `‹`. |
+| 5 | **Border + `‹` on the user detail + all second screens** | User detail uses `<DHead>` + `.card`; the two modals got their close controls in ADMIN-UI-1. | Same on the Users drill-in and every other "second" screen. | **Verification sweep** — browser-check the user detail · Trash confirmations · unlock & view-as modals; fix any outlier. |
+
+### 9.2 How to build it (KISS · admin-scoped · zero new hex)
+
+- **Item 1** — one CSS edit to `.adm-bar-inner`: remove `max-width:1140px; margin:0 auto`. The full-width
+  `.adm-bar` background/border already exist. **Trade-off to accept** (it is the mockup's intent): on
+  ultra-wide screens the logo/Log-out sit well outside the 1140 content band — a deliberate full-bleed bar
+  over centered content, not a bug.
+- **Item 2** — add class `adm-ov` to the overview `grid-auto` row; `.ci-app.adm-root .adm-ov {
+  align-items:stretch }`. Equal widths already hold; this only equalises height. No breakpoint change.
+- **Item 3** — in `admin-dashboard.jsx`: point the three legend `<span>`s at the same colour used for the
+  bar (e.g. `TIERS[key].bar`) instead of the separate `var(--amber)`/`var(--accent-ink)`/`#7d4bbf`
+  literals, and change `TIERS.pro.bar` from `#0a6b4d` to `var(--accent-ink)` (`#07503a`). One colour per
+  tier, guaranteed no drift.
+- **Items 4 & 5** — no new structure expected; a browser sweep of every drill-in/second screen as
+  owner + manager, correcting any surface that lacks the bordered card or the `‹`.
+
+### 9.3 Acceptance criteria (on BUILD)
+
+- [ ] Desktop: the logo is at the **left edge** and Log out at the **right edge** of the header; body still
+      1140-centered; mobile unchanged.
+- [ ] The three Overview cards render **equal height** side-by-side; collapse to one column on mobile.
+- [ ] In Tier Breakdown, **each tier's bar segment and legend label are the same colour** (Pro included).
+- [ ] **Every** settings sub-screen **and** the user detail / second screens show a **bordered card + `‹`
+      back** (reference: API keys).
+- [ ] `test:unit` green · `build` clean (no-names guard) · browser-verified **owner + manager**, **mobile +
+      desktop**; light-paper only; **no new hex, no new dependency**.
+
+### 9.4 Files (same two + tests — as §5/§8.5)
+
+| File | Change |
+|---|---|
+| [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | `.adm-bar-inner` full-bleed (drop max-width); new `.ci-app.adm-root .adm-ov { align-items:stretch }`. |
+| [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) | `adm-ov` class on the overview grid row; tier legend colours driven from the per-tier bar colour; `TIERS.pro.bar → --accent-ink`. **No logic change.** |
+| [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Assert the Pro legend + Pro bar segment resolve to the same colour; overview row carries the equal-height class. |

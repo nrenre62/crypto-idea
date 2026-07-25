@@ -80,6 +80,43 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       light-paper only; `test:unit` green + `build` clean + browser-verified owner & manager, mobile &
       desktop.
 
+- [ ] **ADMIN-UI-3 · Mockup-match refinements** (🟡 design · founder 2026-07-25 · **📋 PLAN — not yet built**) —
+      A second founder pass over the shipped panel against [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html),
+      five items. Spec + as-found deltas: [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §9.
+      **Design-only** (no callable/rule/handler/logic change); light-paper only; **no new dependency**;
+      **no new hex** (reuses `--amber #b8841f`, `--accent-ink #07503a`, existing premium `#7d4bbf`); keep
+      the current responsive breakpoints (mockup is desktop-only — restyle only). Files:
+      `src/styles/admin-settings.css` (bulk) · `src/components/admin-dashboard.jsx` (one grid class + the
+      tier legend colours) · `tests/unit/admin-dashboard.test.jsx`.
+    - **1 · Full-bleed header bar.** The bar is capped at `max-width:1140px` centered (`admin-settings.css`
+      `.adm-bar-inner`), so on desktop the logo + Log-out sit *inset*. Match the mockup's full-bleed header
+      (`padding:13px 28px`, no max-width): drop the inner cap so the **logo hugs the left edge and Log out
+      the right edge**, while the `.adm-shell` body (H1 · tabs · cards) stays 1140-centered. Mobile
+      unchanged.
+    - **2 · Overview cards equal size.** "Est. Monthly Revenue" / "Combined Usage" / "Tier Breakdown" are
+      equal *width* (auto-fit `1fr`) but unequal *height* — the shared `.grid-auto` uses `align-items:start`
+      and the revenue card is taller. Give this one row an **admin-only class** (leave shared `.grid-auto`
+      untouched — the user app's Research grid uses it) with `align-items:stretch` so all three match the
+      tallest. Founder wants them **equal** (not the mockup's `1.15fr 1fr 1fr`). Keep the mobile 1-column
+      collapse.
+    - **3 · Tier-breakdown colours connect.** Each tier's **bar segment fill and its legend label must be
+      one colour**. Today the legend spans use separate literals from `TIERS[key].bar`, and **Pro** drifts:
+      bar `#0a6b4d` (`--accent`) vs legend `#07503a` (`--accent-ink`). Drive the legend from the same
+      per-tier colour as the bar and set Pro to `--accent-ink #07503a` (the mockup's legend green). Starter
+      `#b8841f` + Premium `#7d4bbf` already match. Zero new hex.
+    - **4 · Border + `‹` back on every settings sub-screen.** The API-keys screen's bordered card + `‹`
+      back is the reference. **Verification sweep** — code review shows every settings drill-in already
+      renders `<DHead>` (the `‹`) inside a `.card` (bordered since ADMIN-UI-2); the build browser-checks all
+      7 sub-screens (apiKeys · email · plans · ai · analytics · announcement · access) and fixes any that
+      render content outside a bordered card or lack the `‹`.
+    - **5 · Border + `‹` back on the user detail + all second screens.** Same reference on the Users
+      drill-in and every other "second" screen. Also already structural (`<DHead>` + `.card` on the user
+      detail; the two modals got their close controls in ADMIN-UI-1). Build sweeps the user detail · Trash
+      confirmations · unlock & view-as modals and corrects any outlier.
+    - **DoD:** logo/Log-out at the desktop edges; the three Overview cards equal height; each tier's bar +
+      legend one colour; a bordered card + `‹` on **every** drill-in/second screen; `test:unit` green +
+      `build` clean + browser-verified owner & manager, mobile & desktop; light-paper only.
+
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
 Canonical: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) (scored gap-audit vs. external
