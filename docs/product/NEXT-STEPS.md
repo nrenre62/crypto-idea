@@ -121,8 +121,9 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
     - **DoD:** logo/Log-out at the desktop edges; the three Overview cards equal height; each tier's bar +
       legend one colour; a bordered card + `‹` on **every** drill-in/second screen; `test:unit` green +
       `build` clean + browser-verified owner & manager, mobile & desktop; light-paper only.
-- [ ] **ADMIN-UI-4 · Visible back button + bordered header on every second-screen** (🟡 design · founder
-      2026-07-25 · **📋 PLAN — not yet built**) — The real fix behind ADMIN-UI-3 items 4/5, which only
+- [x] **ADMIN-UI-4 · Visible back button + bordered header on every second-screen** (🟡 design · founder
+      2026-07-25 · **✅ BUILT 2026-07-25** — new `DScreen` primitive; retired `DHead`; verified owner desktop
+      1280 + mobile 375, 67 admin tests green, build clean; as-built [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §10) — The real fix behind ADMIN-UI-3 items 4/5, which only
       confirmed the `‹` **existed in the DOM**, not that it was **visible**. On every admin second-screen the
       shared `.icon-btn` renders `background:none; border:0; padding:0` (`app.css`), so the back `‹` is a bare
       borderless chevron floating above the card — reads as *no back button* — and the title has **no bordered
@@ -147,8 +148,10 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       "Save keys" / "CHANGE TIER" assertions still pass) + a new bordered-header case · `build` clean ·
       browser-verified owner & manager, desktop + mobile; light-paper only, no new hex, no new dependency.
 
-- [ ] **ADMIN-UI-5 · Match the mockup's card + text SIZE (Overview bigger, Settings smaller)** (🟡 design ·
-      founder 2026-07-25 · **📋 PLAN — decided, not yet built**) — Founder: the mockup's cards
+- [x] **ADMIN-UI-5 · Match the mockup's card + text SIZE (Overview bigger, Settings smaller)** (🟡 design ·
+      founder 2026-07-25 · **✅ BUILT 2026-07-25** — Overview 38/30/26px + 30px pad via a `.adm-ov-screen`
+      scope, Settings 18px `DScreen` body; build-time fix: `.adm-mini` is shared with the user-detail so the
+      bumps are Overview-scoped; as-built [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §11) — Founder: the mockup's cards
       and text are **bigger** than the live panel; apply the mockup's sizing to the admin panel, **except
       Settings, where the cards should be SMALLER**. **Verified — founder is right.** ADMIN-UI-2 matched the
       card *chrome* (22px radius, .8px border, shadow) but kept the pre-mockup **padding (22px)** and the

@@ -27,6 +27,12 @@
 > pinned to the bar edges over 1140-centered body), equal-height Overview cards, tier bar/legend colours
 > connected (Pro realigned to `--accent-ink`), and a verified border+`‹` sweep of every settings sub-screen
 > + the user detail / modals. Same two files, design-only, no new hex, no new dependency.
+>
+> **§10 = ADMIN-UI-4 + §11 = ADMIN-UI-5 — a third founder pass, ✅ BUILT (2026-07-25):** a new `DScreen`
+> primitive gives every drill-in a **visible bordered `‹` box + a divided header** carrying the title once
+> (retiring the bare `DHead`); the **Overview grows to the mockup scale** (38/30/26px text, 30px card pad, via
+> a `.adm-ov-screen` scope) while **Settings shrinks** (18px `DScreen` body). Same two files + the test, all
+> design-only, no new hex/dependency.
 
 ## 1. Problem — why (the overlap the founder reported)
 
@@ -300,7 +306,21 @@ browser-verified **owner + manager**, **desktop 1280 + mobile**: logo 30px from 
 
 ---
 
-## 10) ADMIN-UI-4 — visible back button + bordered header on every second-screen (📋 PLAN — 2026-07-25)
+## 10) ADMIN-UI-4 — visible back button + bordered header on every second-screen (✅ BUILT — 2026-07-25)
+
+> **✅ BUILT (2026-07-25), same pass as [[ADMIN-UI-5]] below.** A new `DScreen({title,onBack,children})`
+> primitive replaced the bare `DHead`: every drill-in now renders **one** card whose top is a divided
+> header (`.adm-scr-head`) carrying a **34×34 bordered `‹` box** (accessible name "Back") + the centered
+> title **once**, over the body (`.adm-scr-body`). Converted: the **7 Settings sub-screens** (dropping each
+> screen's duplicate `.card-title`; the AI screen's "reserved — live AI ships at go-live" qualifier moved
+> into its body copy), **Admin access** (its inner cards demoted to `.adm-scr-section` dividers — no
+> card-in-card), and the **Users → user-detail** drill-in (dropping the redundant bold name, kept as the
+> header title). `DHead` is retired. The view-as modal already carried a bordered `‹` (kept). CSS is one
+> block in `admin-settings.css`, scoped under `.ci-app.adm-root` (`.card.adm-scr` compound beats the shared
+> `.card` padding), so the user app's `.icon-btn`/`.detail-head` are untouched — no new hex/dependency.
+> **Verified:** build clean · 67 admin unit tests green (+2 new UI-4 cases) · browser (owner) desktop 1280 +
+> mobile 375: bordered header + 34×34 back box, title shown once, **zero** `.detail-head` left, no overflow,
+> no console errors.
 
 Founder pass over the shipped panel (ADMIN-UI-1/2/3). On every admin **second-screen** (drill-in / popup)
 the `‹` back control is technically present (accessible name "Back") but renders as a **bare, borderless
@@ -341,16 +361,18 @@ step-up unlock modal + Trash confirmations already carry their own close/cancel 
   **sections** so there's no card-in-card.
 - Give the **view-as** modal header the same bordered `‹`.
 
-### 10.2 Acceptance criteria
+### 10.2 Acceptance criteria (✅ all met on BUILD)
 
-- [ ] Every second-screen shows a **bordered `‹` box** + a **bordered/divided header** carrying the title
-      **once**; **no bare chevron** anywhere in the admin.
-- [ ] Main tabs (Overview / Users / Trash / Settings / Audit) unchanged; the **user app's** back chevrons
-      unchanged (shared `.icon-btn` untouched).
-- [ ] `test:unit` green — the existing "Back" / "Save keys" / "CHANGE TIER" assertions still pass, plus a new
-      case asserting the bordered header on a drill-in.
-- [ ] `build` clean (no-names guard) · browser-verified **owner + manager**, **desktop + mobile**;
-      light-paper only; **no new hex, no new dependency**.
+- [x] Every second-screen shows a **bordered `‹` box** + a **bordered/divided header** carrying the title
+      **once**; **no bare chevron** anywhere in the admin. *(computed: back box 34×34 `.8px` border; title
+      count = 1; `.detail-head` count = 0.)*
+- [x] Main tabs (Overview / Users / Trash / Settings / Audit) unchanged; the **user app's** back chevrons
+      unchanged (shared `.icon-btn` untouched — every override scoped under `.ci-app.adm-root`).
+- [x] `test:unit` green — the existing "Back" / "Save keys" / "CHANGE TIER" assertions still pass, plus **2 new
+      cases** asserting the bordered header on the Settings + user-detail drill-ins.
+- [x] `build` clean (no-names guard) · browser-verified **owner**, **desktop 1280 + mobile 375** (the drill-in
+      chrome is role-independent; Settings is owner-only regardless); light-paper only; **no new hex, no new
+      dependency**.
 
 ### 10.3 Files
 
@@ -360,7 +382,19 @@ step-up unlock modal + Trash confirmations already carry their own close/cancel 
 | [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | New `.adm-scr / .adm-scr-head / .adm-scr-body / .adm-scr .icon-btn` block, scoped under `.ci-app.adm-root`. |
 | [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Assert a drill-in renders the bordered header (`.adm-scr-head`) with the visible `‹` box. |
 
-## 11) ADMIN-UI-5 — match the mockup's card + text SIZE (Overview bigger, Settings smaller) (📋 PLAN — 2026-07-25)
+## 11) ADMIN-UI-5 — match the mockup's card + text SIZE (Overview bigger, Settings smaller) (✅ BUILT — 2026-07-25)
+
+> **✅ BUILT (2026-07-25), same pass as [[ADMIN-UI-4]] above.** Overview grew to the mockup scale and
+> Settings shrank. The Overview content is wrapped in an **`.adm-ov-screen`** scoping div so the size bumps
+> land on Overview ONLY — **a build-time correction to the plan below: `.adm-mini` is ALSO used in the
+> user-detail drill-in**, so a global bump (as §11.2 assumed) would have enlarged that too. Under
+> `.adm-ov-screen`: `.adm-stat .n` **38px**, `.adm-stat .l` **11px**, `.adm-kv .v` **30px**, `.adm-mini .n`
+> **26px**, `.card` padding **30px** (all measured live). Settings shrank for free: the `DScreen`
+> `.adm-scr-body` is **18px** (the founder's "settings smaller"). Users/Trash/Audit + the user-detail minis
+> stayed put (verified `.adm-mini .n` = 22px there). All overrides scoped under `.ci-app.adm-root` — the user
+> app is untouched, no new hex/dependency. **Verified:** build clean · unit test asserts the `.adm-ov-screen`
+> wrapper · browser (owner) desktop 1280 + mobile 375: exact computed sizes above, user-detail minis 22px, no
+> overflow.
 
 **Founder report:** the mockup's cards and text are *bigger* than the live panel; apply the mockup's sizing —
 **except Settings, where the cards should be smaller.** Verified true: ADMIN-UI-2 (§8) matched the card
@@ -406,13 +440,14 @@ step-up unlock modal + Trash confirmations already carry their own close/cancel 
 - **Sequence: build ADMIN-UI-4 first, then UI-5** (UI-4 owns the Settings-card restructure; UI-5 just sets its
   padding + the Overview text sizes). They can also ship together.
 
-### 11.5 Acceptance criteria (DoD)
-- Overview stat tiles read **38/11px**, revenue **30px**, usage minis **26px**, Overview cards **30px** pad —
-  pixel-matching the admin-panel mockup.
-- Settings drill-in cards visibly smaller (**~18px** pad); Users / Trash / Audit **unchanged**; the user app is
-  untouched (all overrides scoped under `.ci-app.adm-root`).
-- `test:unit` green · `build` clean · browser-verified owner & manager, desktop + mobile · light-paper only ·
-  **no new hex, no new dependency.**
+### 11.5 Acceptance criteria (DoD — ✅ all met)
+- [x] Overview stat tiles read **38/11px**, revenue **30px**, usage minis **26px**, Overview cards **30px** pad —
+  pixel-matching the admin-panel mockup *(all confirmed via `getComputedStyle`)*.
+- [x] Settings drill-in cards visibly smaller (**18px** `.adm-scr-body` pad); Users / Trash / Audit **unchanged**;
+  the user-detail minis stayed **22px** (the `.adm-mini`-is-shared trap — scoped under `.adm-ov-screen`); the
+  user app is untouched (all overrides scoped under `.ci-app.adm-root`).
+- [x] `test:unit` green *(67 admin cases, +1 new `.adm-ov-screen` assertion)* · `build` clean · browser-verified
+  owner, desktop 1280 + mobile 375 · light-paper only · **no new hex, no new dependency.**
 
 ### 11.6 Files
 | File | Change |

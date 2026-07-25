@@ -112,8 +112,8 @@ function Delta({ d, days, fmt }) {
 
 /* ═══ ADMIN-D + ADMIN-D3 — Settings paper drill-in primitives ═══
    Mirror Account.jsx's NavRow / CtrlRow / Switch; the inline SVGs come 1:1 from
-   docs/mockups/admin-settings/index.html. Reused by the Settings tab (and DHead
-   by the Users drill-in). Design-only: every handler is the hook's, unchanged. */
+   docs/mockups/admin-settings/index.html. Reused by the Settings tab (and DScreen
+   by every drill-in). Design-only: every handler is the hook's, unchanged. */
 const SVG = (props) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" {...props} />;
 const SI = {
   back:        <SVG strokeWidth="2"><path d="M15 18l-6-6 6-6" /></SVG>,
@@ -160,13 +160,20 @@ function Switch({ checked, warn, onChange }) {
     </label>
   );
 }
-// Detail-view header: back chevron + centered title (matches Account's detail-head).
-function DHead({ title, onBack }) {
+// ADMIN-UI-4: a second-screen shell. The bordered ‹ back BOX + the centered title sit
+// in a divided header at the top of ONE card, then the body — matching the admin-panel
+// mockup. Replaces the old DHead (a bare borderless chevron floating above a separate
+// card whose first line repeated the title). Used by every drill-in (Settings + the
+// user detail). Design-only: onBack is the caller's existing handler.
+function DScreen({ title, onBack, children }) {
   return (
-    <div className="detail-head">
-      <button className="icon-btn" aria-label="Back" onClick={onBack}>{SI.back}</button>
-      <span className="dh-title">{title}</span>
-      <span style={{ width: 34 }} />
+    <div className="card adm-scr">
+      <div className="adm-scr-head">
+        <button className="icon-btn" aria-label="Back" onClick={onBack}>{SI.back}</button>
+        <span className="dh-title">{title}</span>
+        <span className="adm-scr-spacer" />
+      </div>
+      <div className="adm-scr-body">{children}</div>
     </div>
   );
 }
@@ -396,7 +403,11 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
             <div className="p">{statsErr} — the dashboard numbers are unavailable (not zero). Reload the page to retry.</div>
           </div>
         )}
-        {tab === "overview" && !(statsErr && !stats) && (<>
+        {/* ADMIN-UI-5: the Overview grows to the mockup scale (bigger stat numbers +
+            roomier 30px card padding). The .adm-ov-screen wrapper scopes those size
+            bumps to Overview ONLY — .adm-mini is also used in the user-detail drill-in,
+            which must stay at today's size. */}
+        {tab === "overview" && !(statsErr && !stats) && (<div className="adm-ov-screen">
           {/* Headline user counts */}
           <div className="adm-stats">
             {[[s.totalUsers,"Total","var(--ink)"],[s.freeUsers,"Starter","var(--amber)"],[s.proUsers,"Pro","var(--accent-ink)"],[s.premiumUsers,"Premium","#7d4bbf"]].map(([val,label,color]) => (
@@ -649,20 +660,17 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
               </>);
             })()}
           </div>
-        </>)}
+        </div>)}
 
         {/* ═══ USERS — full list + a per-user drill-in for support / moderation ═══ */}
         {tab === "users" && (found ? (
           /* ── Drill-in: one user's detail (ADMIN-D2 a11y — replaces the old inline
                clickable-div card; the list is hidden while a user is open). ── */
-          <div>
-            <DHead title={found.name || found.email} onBack={closeUser} />
-            <div className="pad">
-              <div className="card">
+          <DScreen title={found.name || found.email} onBack={closeUser}>
+                {/* The name is the header title now; keep the email + status badges. */}
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10, marginBottom:14 }}>
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:15, fontWeight:700 }}>{found.name || found.email}</div>
-                    <div style={{ fontSize:12, color:"var(--ink-faint)" }}>{found.email}</div>
+                    <div style={{ fontSize:12.5, color:"var(--ink-faint)" }}>{found.email}</div>
                   </div>
                   <div className="adm-detail-badges">
                     <TierPill tier={found.tier} />
@@ -802,9 +810,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     🔒 This is an <b>owner</b> account — protected. It can't be suspended, trashed, deleted or demoted from the panel.
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
+          </DScreen>
         ) : (<>
           <div style={{ fontSize:11.5, color:"var(--ink-faint)", lineHeight:1.5, margin:"2px 2px 12px" }}>
             All users — search by email or name, click a row to manage. Operational data only (tier, status, usage) — never holdings.
@@ -995,11 +1001,12 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
           const titles = { apiKeys:"API keys", email:"Email & integrations", plans:"Plans & pricing", ai:"AI", analytics:"Analytics & legal", access:"Admin access", announcement:"Announcement banner" };
           return (
           <div>
-            {settingsView !== "home" && <DHead title={titles[settingsView]} onBack={back} />}
+            {/* Home = the Configuration summary + the global switches + a row per
+                category, in .pad. Each detail view drills in via a DScreen below. */}
+            {settingsView === "home" && (
             <div className="pad">
-
               {/* ── HOME ── */}
-              {settingsView === "home" && (<>
+              <>
                 <div className="card">
                   <div className="card-title" style={{ marginBottom:12 }}>Configuration</div>
                   {[
@@ -1050,12 +1057,19 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                 </div>
 
                 <div className="set-foot">Saved to the locked <code>config/app</code> document — clients can never read it; the price proxy + PayPal functions read it server-side. Toggles go live within about a minute.</div>
-              </>)}
+              </>
+            </div>
+            )}
+
+            {/* Every detail view is a DScreen (ADMIN-UI-4): a bordered ‹ back box + the
+                title ONCE in a divided header, over a body at the tighter Settings
+                padding (ADMIN-UI-5). The per-view .card wrapper + duplicate .card-title
+                are dropped — DScreen owns the card + the title now. */}
+            {settingsView !== "home" && (
+            <DScreen title={titles[settingsView]} onBack={back}>
 
               {/* ── API KEYS ── */}
-              {settingsView === "apiKeys" && (
-                <div className="card">
-                  <div className="card-title">API keys</div>
+              {settingsView === "apiKeys" && (<>
                   <div className="card-sub">For the price / DCA calculator (CoinGecko) and payments (PayPal). Stored server-side — never sent to users.</div>
                   {[
                     ["CoinGecko Demo key","coingecko","cg-demo-…"],
@@ -1084,13 +1098,10 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     </div>
                   </div>
                   <button className="acct-btn accent" onClick={saveConfig}>Save keys</button>
-                </div>
-              )}
+              </>)}
 
               {/* ── EMAIL & INTEGRATIONS ── */}
-              {settingsView === "email" && (
-                <div className="card">
-                  <div className="card-title">Email &amp; integrations</div>
+              {settingsView === "email" && (<>
                   <div className="card-sub">Connect an email service for the landing-page subscribe form and transactional emails.</div>
                   <label className="acct-label">Provider</label>
                   <select className="field-input" value={mail.provider} onChange={e => setMail({ ...mail, provider:e.target.value })}>
@@ -1112,13 +1123,10 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     </div>
                   ))}
                   <button className="acct-btn accent" onClick={saveConfig}>Save email settings</button>
-                </div>
-              )}
+              </>)}
 
               {/* ── PLANS & PRICING ── */}
-              {settingsView === "plans" && (
-                <div className="card">
-                  <div className="card-title">Plans &amp; pricing</div>
+              {settingsView === "plans" && (<>
                   <div className="card-sub">Prices drive the revenue estimate + what users see; limits are enforced server-side by Firestore rules. Mo $ = monthly · Yr $ = annual (2 months free) · AI ¢/mo = live-AI cost ceiling in cents.</div>
                   {["free","pro","premium"].map(t => (
                     <div key={t} className="plan-block">
@@ -1135,14 +1143,11 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     </div>
                   ))}
                   <button className="acct-btn accent" onClick={saveConfig}>Save plans</button>
-                </div>
-              )}
+              </>)}
 
               {/* ── AI (reserved — live AI ships at go-live) ── */}
-              {settingsView === "ai" && (
-                <div className="card">
-                  <div className="card-title">AI (reserved — live AI ships at go-live)</div>
-                  <div className="card-sub">The Anthropic API key powers the server-side <code>researchAsk</code> proxy (Claude only, validator-first — never called from the browser). Saving it now is safe: it stays in the locked config doc until the proxy ships.</div>
+              {settingsView === "ai" && (<>
+                  <div className="card-sub">Reserved — live AI ships at go-live. The Anthropic API key powers the server-side <code>researchAsk</code> proxy (Claude only, validator-first — never called from the browser). Saving it now is safe: it stays in the locked config doc until the proxy ships.</div>
                   <label className="acct-label">Anthropic API key{setFlags.anthropicKey ? " · saved ✓" : ""}</label>
                   <input className="field-input" type="password" value={keys.anthropicKey}
                     placeholder={setFlags.anthropicKey ? "•••••••• (saved — type to replace)" : "sk-ant-…"}
@@ -1152,13 +1157,10 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     <button disabled className="acct-btn ghost" style={{ marginTop:0, opacity:0.6 }} title="Available once the conviction engine ships (Wave B · B5)">Invalidate conviction cache</button>
                     <button disabled className="acct-btn ghost" style={{ marginTop:0, opacity:0.6 }} title="Available once the conviction engine ships (Wave B · B5)">Force-refresh a coin</button>
                   </div>
-                </div>
-              )}
+              </>)}
 
               {/* ── ANALYTICS & LEGAL ── */}
-              {settingsView === "analytics" && (
-                <div className="card">
-                  <div className="card-title">Analytics &amp; legal</div>
+              {settingsView === "analytics" && (<>
                   <div className="card-sub">Public IDs injected on the landing + app. Leave blank to disable. Changes apply within ~1 min.</div>
                   {[
                     ["Google Analytics 4 ID","ga4","G-XXXXXXXXXX",analytics,setAnalytics],
@@ -1180,13 +1182,10 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     <Switch checked={legal.cookieBanner} onChange={() => setLegal({ ...legal, cookieBanner: !legal.cookieBanner })} />
                   </div>
                   <button className="acct-btn accent" onClick={saveConfig}>Save analytics &amp; legal</button>
-                </div>
-              )}
+              </>)}
 
               {/* ── ANNOUNCEMENT BANNER (ADMIN-5) — a config string → an app banner ── */}
-              {settingsView === "announcement" && (
-                <div className="card">
-                  <div className="card-title">Announcement banner</div>
+              {settingsView === "announcement" && (<>
                   <div className="card-sub">A short notice shown at the top of the app for signed-in users. They can dismiss it; it reappears only if you change the wording. Off (or empty) shows nothing. Applies within ~1&nbsp;min.</div>
                   {announcement.text.trim() && (
                     <div className={"adm-ann-preview lvl-" + announcement.level}>
@@ -1218,8 +1217,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   </div>
                   <button className="acct-btn accent" onClick={saveConfig}>Save announcement</button>
                   <div className="set-foot">The message is <b>public</b> once active. Turning it off (or clearing the text) removes it for everyone.</div>
-                </div>
-              )}
+              </>)}
 
               {/* ── ADMIN ACCESS (ADMIN-D3, owner-only) — folded in from the old top-level
                    tab. The grant flow (search → type email twice → warning → confirm) and
@@ -1231,7 +1229,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     kill-switches, because those are "turn something off in an
                     incident" and this is the opposite — turning it on is what's
                     dangerous. Off is one tap; on is armed first. */}
-                <div className="card">
+                <div className="adm-scr-section">
                   <CtrlRow icon={SI.access} label="Require two-factor sign-in"
                            sub="Applies to every admin callable, not just this screen — a stolen admin password alone stops being enough.">
                     <Switch checked={controls.requireAdminMfa === true}
@@ -1267,7 +1265,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   )}
                 </div>
 
-                <div className="card">
+                <div className="adm-scr-section">
                   <div className="card-sub" style={{ marginBottom:14 }}>
                     Grant or remove <b>manager</b> access. Managers can manage accounts (tier, suspend, sign-out, custom limits, trash) but never see Settings or permanent deletion. <b>Owners</b> can only be created by running <code>functions/scripts/set-admin.js --role=owner</code> with a service-account key — never from here, which is what makes owner accounts impossible to remove from inside the panel.
                   </div>
@@ -1325,7 +1323,8 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                 )}
               </>)}
 
-            </div>
+            </DScreen>
+            )}
           </div>
           );
         })()}

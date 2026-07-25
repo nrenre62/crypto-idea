@@ -237,7 +237,9 @@ describe("admin-dashboard", () => {
     render(<AdminDashboard />);
     fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByText("AI", { selector: ".sr-label" }));   // ADMIN-D: drill into the AI detail
-    expect(screen.getByText(/AI \(reserved/)).toBeInTheDocument();
+    // ADMIN-UI-4: the drill-in title is now the DScreen header ("AI"); the "reserved"
+    // qualifier moved into the body copy (the duplicate in-card title was dropped).
+    expect(screen.getByText(/Reserved.*live AI ships at go-live/)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/sk-ant/)).toBeInTheDocument();
     // the future cache controls are visibly reserved, not clickable
     expect(screen.getByRole("button", { name: /Invalidate conviction cache/ })).toBeDisabled();
@@ -923,5 +925,48 @@ describe("admin-dashboard", () => {
     const row = document.querySelector(".grid-auto.adm-ov");
     expect(row).toBeTruthy();
     expect(row.querySelectorAll(":scope > .card")).toHaveLength(3);   // revenue · usage · tiers
+  });
+
+  /* ═══ ADMIN-UI-4 — visible bordered back box + divided header on every second-screen ═══
+     The ‹ back control was already in the DOM but rendered as a bare borderless chevron
+     (app.css styles .icon-btn as background:none;border:0;padding:0). Every drill-in is
+     now a DScreen: one card whose divided header (.adm-scr-head) carries a bordered ‹ box
+     + the title ONCE. The old bare DHead (.detail-head) is retired. */
+
+  it("ADMIN-UI-4: a Settings drill-in is a DScreen — bordered header, back box, title once, no bare DHead", async () => {
+    render(<AdminDashboard />);
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByText("API keys", { selector: ".sr-label" }));
+    const head = document.querySelector(".adm-scr-head");
+    expect(head).toBeTruthy();
+    expect(within(head).getByRole("button", { name: "Back" })).toBeInTheDocument();   // the ‹ box
+    expect(within(head).getByText("API keys")).toBeInTheDocument();                   // title, in the header
+    expect(document.querySelectorAll(".detail-head")).toHaveLength(0);                // old bare DHead retired
+  });
+
+  it("ADMIN-UI-4: the user-detail drill-in is also a DScreen with the bordered header", async () => {
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    fireEvent.click(await screen.findByText("Alice"));
+    await screen.findByText("CHANGE TIER");
+    const head = document.querySelector(".adm-scr-head");
+    expect(head).toBeTruthy();
+    expect(within(head).getByRole("button", { name: "Back" })).toBeInTheDocument();
+    expect(document.querySelectorAll(".detail-head")).toHaveLength(0);
+  });
+
+  /* ═══ ADMIN-UI-5 — match the mockup's SIZE (Overview bigger, Settings smaller) ═══
+     The Overview grows to the mockup scale via a .adm-ov-screen wrapper that scopes the
+     size bumps to Overview only — .adm-mini is also used in the user-detail drill-in, so
+     a global bump would have enlarged that too. */
+
+  it("ADMIN-UI-5: the Overview content is wrapped in the size-scoping .adm-ov-screen", async () => {
+    render(<AdminDashboard />);
+    await screen.findByText("Tier Breakdown");
+    const scope = document.querySelector(".adm-ov-screen");
+    expect(scope).toBeTruthy();
+    // the stat tiles + the equal-height card row live inside it, so the CSS size bumps apply
+    expect(scope.querySelector(".adm-stat")).toBeTruthy();
+    expect(scope.querySelector(".grid-auto.adm-ov")).toBeTruthy();
   });
 });

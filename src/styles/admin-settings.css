@@ -150,12 +150,52 @@
    as-is (they read as labels, not titles). */
 .ci-app.adm-root .card-title { font-size:13px; font-weight:700; text-transform:none; letter-spacing:normal; }
 
-/* Back / close controls — the mockup's white rounded button. Admin-scoped so the
-   user app's .icon-btn stays untouched. Covers the drill-in DHead + the view-as bar. */
-.ci-app.adm-root .detail-head .icon-btn,
+/* Back / close control on the view-as modal bar — the mockup's white rounded button.
+   Admin-scoped so the user app's .icon-btn stays untouched. (Drill-in back buttons are
+   the DScreen .adm-scr-head .icon-btn below, ADMIN-UI-4.) */
 .ci-app.adm-root .adm-viewas-bar .icon-btn { background:#fff; border:1px solid var(--line-strong); border-radius:12px; }
-.ci-app.adm-root .detail-head .icon-btn:hover,
 .ci-app.adm-root .adm-viewas-bar .icon-btn:hover { background:var(--paper-3); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ADMIN-UI-4 (2026-07-25) — second-screen shell (DScreen). Every drill-in gets a
+ * VISIBLE bordered ‹ back box + a divided header carrying the title ONCE, then the
+ * body — the mockup look. It replaces the bare borderless chevron (app.css styles
+ * the shared .icon-btn as background:none;border:0;padding:0, so it read as no
+ * button) floating above a card whose first line repeated the title. Admin-only,
+ * scoped under .ci-app.adm-root so the user app's shared .icon-btn / .detail-head
+ * stay byte-for-byte untouched. Existing tokens only — no new hex.
+ * The compound .card.adm-scr (4 classes) beats the .card padding rule (3) so the
+ * shell's padding zeroes regardless of source order. ═══════════════════════════ */
+.ci-app.adm-root .card.adm-scr { padding:0; overflow:hidden; }
+.ci-app.adm-root .adm-scr-head { display:flex; align-items:center; gap:10px; padding:12px 15px; border-bottom:1px solid var(--line-2); }
+.ci-app.adm-root .adm-scr-head .dh-title { flex:1; text-align:center; font-family:var(--display); font-weight:600; font-size:16px; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ci-app.adm-root .adm-scr-head .adm-scr-spacer { flex:none; width:34px; }
+.ci-app.adm-root .adm-scr-head .icon-btn { flex:none; width:34px; height:34px; border-radius:11px; background:var(--paper-2); border:1px solid var(--line-strong); color:var(--ink-soft); }
+.ci-app.adm-root .adm-scr-head .icon-btn:hover { background:var(--paper-3); }
+.ci-app.adm-root .adm-scr-head .icon-btn svg { width:18px; height:18px; }
+/* Body — the mockup's tighter Settings padding (ADMIN-UI-5: Settings cards smaller,
+   ~18px vs the 22px shared card). Shared by every second-screen (Settings + user
+   detail) so second screens read denser than the roomier Overview. */
+.ci-app.adm-root .adm-scr-body { padding:18px; }
+/* Admin access folds several cards into one DScreen — its inner cards become
+   divider-separated sections instead of card-in-card. */
+.ci-app.adm-root .adm-scr-section { padding:16px 0; border-top:1px solid var(--line-2); }
+.ci-app.adm-root .adm-scr-section:first-child { padding-top:2px; border-top:0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ADMIN-UI-5 (2026-07-25) — match the mockup's SIZE. Overview grows: ADMIN-UI-2
+ * matched the card CHROME (22px radius, .8px border, 2-layer shadow) but kept the
+ * pre-mockup 22px padding + the smaller type scale, so the founder read the mockup
+ * as "bigger". Values measured from docs/mockups/admin-panel/index.html.
+ * Scoped under an Overview-only wrapper (.adm-ov-screen) NOT the bare classes,
+ * because .adm-mini is ALSO used in the user-detail drill-in — a global bump would
+ * enlarge that too. Settings shrink for free via the 18px .adm-scr-body above.
+ * No new hex, no new dependency. ═══════════════════════════════════════════════ */
+.ci-app.adm-root .adm-ov-screen .card { padding:30px; }
+.ci-app.adm-root .adm-ov-screen .adm-stat .n { font-size:38px; }
+.ci-app.adm-root .adm-ov-screen .adm-stat .l { font-size:11px; }
+.ci-app.adm-root .adm-ov-screen .adm-kv .v { font-size:30px; }
+.ci-app.adm-root .adm-ov-screen .adm-mini .n { font-size:26px; }
 
 /* Role / status notice banners. */
 .ci-app .adm-note { margin-bottom:12px; padding:10px 14px; border-radius:var(--radius-sm); font-size:12px; line-height:1.5; border:1px solid var(--line-2); background:var(--paper-2); color:var(--ink-soft); }
