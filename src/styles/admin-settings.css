@@ -76,6 +76,13 @@
 }
 .ci-app .adm-shell { max-width:1140px; margin:0 auto; padding:6px clamp(14px,4vw,30px) 40px; }
 
+/* ADMIN-UI-3: the three Overview cards (Est. Monthly Revenue · Combined Usage · Tier
+   Breakdown) share the user app's .grid-auto but must render EQUAL HEIGHT. Override
+   height alignment on this admin-only class ONLY — the shared .grid-auto keeps
+   align-items:start so the user app's Research grid is untouched. Widths already
+   equalise; the mobile 1-column collapse is unaffected. */
+.ci-app.adm-root .adm-ov { align-items:stretch; }
+
 /* ═══ ADMIN-UI-1 (2026-07-25) — ONE sticky bar (kills the double-header overlap) ═══
    The old .adm-head (inner brand) and the admin-main.jsx outer <header> were BOTH
    position:sticky top:0 and collided. Now a single full-width bar is the only
@@ -83,7 +90,12 @@
    scrolls UNDER its blurred/opaque background, so the H1 can never render on top of
    the bar (structural, not a z-index race). */
 .ci-app.adm-root .adm-bar { position:sticky; top:0; z-index:30; background:var(--bar-bg); backdrop-filter:saturate(1.6) blur(12px); -webkit-backdrop-filter:saturate(1.6) blur(12px); border-bottom:1px solid var(--line-2); }
-.ci-app .adm-bar-inner { max-width:1140px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px clamp(14px,4vw,30px); }
+/* ADMIN-UI-3: full-bleed header — the logo hugs the LEFT edge and Log out the RIGHT
+   edge (matching the mockup). No max-width/centering here; the side padding stays.
+   The .adm-shell body (H1 · tabs · cards) is still 1140-centered, so this is a
+   deliberate full-width bar over centered content — on ultra-wide screens the
+   logo/Log-out sit outside the 1140 band by design, not a bug. */
+.ci-app .adm-bar-inner { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px clamp(14px,4vw,30px); }
 .ci-app .adm-brand { display:flex; align-items:center; gap:10px; min-width:0; }
 /* Green rounded-square logo tile with a serif "C" (the mockup's mark). Shared by
    the bar (30px) and the sign-in screens (.lg, 46px). */

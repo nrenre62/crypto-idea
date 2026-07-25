@@ -895,4 +895,33 @@ describe("admin-dashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Log out" }));
     expect(onSignOut).toHaveBeenCalled();
   });
+
+  /* ═══ ADMIN-UI-3 — mockup-match refinements (2026-07-25) ═══
+     A second founder pass: equal-height Overview cards + the Tier Breakdown bar
+     segment and its legend label sharing ONE colour per tier (Pro used to drift —
+     bar #0a6b4d vs legend --accent-ink). Both now read TIERS[key].bar. */
+
+  it("ADMIN-UI-3: the Pro tier's bar segment and its legend label are one colour (no drift)", async () => {
+    // getStats mock: free 3 / pro 1 / premium 1 → all three segments render.
+    render(<AdminDashboard />);
+    await screen.findByText("Tier Breakdown");
+    // Segments AND legend spans both render in tier order: free, pro, premium.
+    const proSeg = document.querySelectorAll(".adm-tierbar .seg")[1];
+    const proLegend = within(document.querySelector(".adm-legend")).getByText(/^Pro \(/);
+    // Both are driven from TIERS.pro.bar, so the fill and the label can never diverge.
+    // Pro was realigned to the existing --accent-ink token (no new hex).
+    expect(proSeg.style.background).toBe("var(--accent-ink)");
+    expect(proLegend.style.color).toBe("var(--accent-ink)");
+    expect(proSeg.style.background).toBe(proLegend.style.color);
+  });
+
+  it("ADMIN-UI-3: the three Overview cards share the equal-height row class", async () => {
+    render(<AdminDashboard />);
+    await screen.findByText("Tier Breakdown");
+    // `.adm-ov` (admin-only) stretches the shared .grid-auto row to equal height —
+    // the shared class itself stays align-items:start for the user app's grid.
+    const row = document.querySelector(".grid-auto.adm-ov");
+    expect(row).toBeTruthy();
+    expect(row.querySelectorAll(":scope > .card")).toHaveLength(3);   // revenue · usage · tiers
+  });
 });

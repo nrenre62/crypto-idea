@@ -23,9 +23,10 @@
 > shipped in the same build (they touch the same two files + the same mockup). The plan text below is kept
 > as the as-built spec.
 >
-> **§9 = ADMIN-UI-3 — a second founder pass (2026-07-25), 📋 PLAN / not yet built:** full-bleed header,
-> equal-size Overview cards, tier bar/legend colours connected, and a border+`‹` consistency sweep. Same
-> two files, still design-only + no new hex.
+> **§9 = ADMIN-UI-3 — a second founder pass, ✅ BUILT (2026-07-25):** full-bleed header (logo/Log-out
+> pinned to the bar edges over 1140-centered body), equal-height Overview cards, tier bar/legend colours
+> connected (Pro realigned to `--accent-ink`), and a verified border+`‹` sweep of every settings sub-screen
+> + the user detail / modals. Same two files, design-only, no new hex, no new dependency.
 
 ## 1. Problem — why (the overlap the founder reported)
 
@@ -233,13 +234,23 @@ state consistent with the user app's accent).
 > build** when the founder says go — §8 is the "make the cards/tabs/sizes match" half, §1–§7 the "fix the
 > header/H1/back-nav/login" half. Either can ship first; doing them together avoids re-touching the CSS twice.
 
-## 9. ADMIN-UI-3 — mockup-match refinements (📋 PLAN — 2026-07-25, not yet built)
+## 9. ADMIN-UI-3 — mockup-match refinements (✅ BUILT — 2026-07-25)
 
 A second founder pass over the **shipped** panel (§1–§8) against the same mockup
-(`docs/mockups/admin-panel/index.html`), captured **plan-only**. Five items, all **design-only** (no
+(`docs/mockups/admin-panel/index.html`). Five items, all **design-only** (no
 callable/rule/handler/logic change), **light-paper only**, **no new dependency**, and **no new hex** —
 every colour is an existing token. Backlog row: [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §ADMIN-UI ·
 ADMIN-UI-3.
+
+**As built:** items 1–3 were real gaps (fixed below); items 4–5 were already structurally satisfied and
+were confirmed by a live browser sweep — **all 7 settings sub-screens** (API keys · Email · Plans · AI ·
+Analytics · Announcement · Admin access) and the **user detail + view-as modal** each render the `‹` back
+control (accessible name "Back") inside a `.8px`-bordered card. **Verified:** `test:unit` (66 in the admin
+suite, +2 new ADMIN-UI-3 cases) · `npm run build` clean (no-names guard; admin CSS still its own chunk) ·
+browser-verified **owner + manager**, **desktop 1280 + mobile**: logo 30px from the left edge / Log out
+45px from the right with the body still 1140-centered, the three Overview cards equal at 160px side-by-side
+(and stacking on mobile), and the Tier Breakdown bar segment + legend colour resolving identically per tier
+(Pro `rgb(7,80,58)` = `--accent-ink`; free amber; premium purple).
 
 ### 9.1 As-found deltas (measured against the running build + the mockup)
 
@@ -266,15 +277,17 @@ ADMIN-UI-3.
 - **Items 4 & 5** — no new structure expected; a browser sweep of every drill-in/second screen as
   owner + manager, correcting any surface that lacks the bordered card or the `‹`.
 
-### 9.3 Acceptance criteria (on BUILD)
+### 9.3 Acceptance criteria (✅ all met on BUILD)
 
-- [ ] Desktop: the logo is at the **left edge** and Log out at the **right edge** of the header; body still
-      1140-centered; mobile unchanged.
-- [ ] The three Overview cards render **equal height** side-by-side; collapse to one column on mobile.
-- [ ] In Tier Breakdown, **each tier's bar segment and legend label are the same colour** (Pro included).
-- [ ] **Every** settings sub-screen **and** the user detail / second screens show a **bordered card + `‹`
-      back** (reference: API keys).
-- [ ] `test:unit` green · `build` clean (no-names guard) · browser-verified **owner + manager**, **mobile +
+- [x] Desktop: the logo is at the **left edge** and Log out at the **right edge** of the header; body still
+      1140-centered; mobile unchanged. *(1280: logo 30px in, Log out 45px in, `logoOutsideShell:true`, shell 1140.)*
+- [x] The three Overview cards render **equal height** side-by-side; collapse to one column on mobile.
+      *(1280: 160/160/160, same row; 408: stacked, natural heights.)*
+- [x] In Tier Breakdown, **each tier's bar segment and legend label are the same colour** (Pro included).
+      *(Pro `rgb(7,80,58)`=`--accent-ink`; free amber; premium purple — seg==legend per tier in-browser + unit test.)*
+- [x] **Every** settings sub-screen **and** the user detail / second screens show a **bordered card + `‹`
+      back** (reference: API keys). *(All 7 sub-screens + user detail + view-as modal swept live.)*
+- [x] `test:unit` green · `build` clean (no-names guard) · browser-verified **owner + manager**, **mobile +
       desktop**; light-paper only; **no new hex, no new dependency**.
 
 ### 9.4 Files (same two + tests — as §5/§8.5)

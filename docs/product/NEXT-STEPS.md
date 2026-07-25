@@ -80,9 +80,14 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       light-paper only; `test:unit` green + `build` clean + browser-verified owner & manager, mobile &
       desktop.
 
-- [ ] **ADMIN-UI-3 · Mockup-match refinements** (🟡 design · founder 2026-07-25 · **📋 PLAN — not yet built**) —
+- [x] **ADMIN-UI-3 · Mockup-match refinements** (🟡 design · founder 2026-07-25 · **✅ BUILT 2026-07-25**) —
       A second founder pass over the shipped panel against [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html),
-      five items. Spec + as-found deltas: [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §9.
+      five items. Spec + as-built notes: [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §9.
+      Items 1–3 were real gaps (fixed); 4–5 already structural (confirmed by a live owner+manager sweep).
+      Verified: admin `test:unit` 66 (+2) green · `build` clean (no-names guard) · browser owner+manager,
+      desktop 1280 + mobile — logo/Log-out at the bar edges over a 1140-centered body, Overview cards
+      160/160/160 equal (stack on mobile), tier seg==legend per tier, bordered card + `‹` on every
+      drill-in/second screen.
       **Design-only** (no callable/rule/handler/logic change); light-paper only; **no new dependency**;
       **no new hex** (reuses `--amber #b8841f`, `--accent-ink #07503a`, existing premium `#7d4bbf`); keep
       the current responsive breakpoints (mockup is desktop-only — restyle only). Files:

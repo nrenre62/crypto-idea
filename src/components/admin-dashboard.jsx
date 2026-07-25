@@ -27,7 +27,7 @@ import { agoLabel, jobHealth, worstHealth, featureSummary } from "../utils/statu
 // breakdown bar; `ink`/`soft` colour the compact tier pill.
 const TIERS = {
   free:    { label:"Starter", ink:"var(--amber)",      soft:"color-mix(in srgb, var(--amber) 14%, transparent)", bar:"#b8841f", limits:{ portfolios:1,  coins:10,   transactions:50 },   storage:"5 MB",   price:"$0" },
-  pro:     { label:"Pro",     ink:"var(--accent-ink)", soft:"var(--accent-soft)",                                bar:"#0a6b4d", limits:{ portfolios:3,  coins:50,   transactions:2000 }, storage:"500 MB", price:"$9.99/mo" },
+  pro:     { label:"Pro",     ink:"var(--accent-ink)", soft:"var(--accent-soft)",                                bar:"var(--accent-ink)", limits:{ portfolios:3,  coins:50,   transactions:2000 }, storage:"500 MB", price:"$9.99/mo" },
   premium: { label:"Premium", ink:"#7d4bbf",           soft:"#f3ecfb",                                           bar:"#7d4bbf", limits:{ portfolios:15, coins:1000, transactions:5000 }, storage:"15 GB",  price:"$49.99/mo" },
 };
 
@@ -458,8 +458,10 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
             })()}
           </div>
 
-          {/* On desktop these three sit side-by-side; on mobile grid-auto collapses to one column. */}
-          <div className="grid-auto" style={{ marginBottom: 4 }}>
+          {/* On desktop these three sit side-by-side; on mobile grid-auto collapses to one
+              column. `adm-ov` stretches them to EQUAL HEIGHT (admin-only; shared .grid-auto
+              stays align-items:start for the user app's Research grid) — ADMIN-UI-3. */}
+          <div className="grid-auto adm-ov" style={{ marginBottom: 4 }}>
 
             {/* Revenue — shown NET of payment-processor fees (gross − fees). Falls
                 back to client-side fee math if getStats predates the net fields. */}
@@ -501,10 +503,13 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   <div key={key} className="seg" style={{ width:`${s.totalUsers > 0 ? n/s.totalUsers*100 : 0}%`, background:TIERS[key].bar }}>{n}</div>
                 ))}
               </div>
+              {/* Legend colours are driven from the SAME per-tier `bar` colour as the
+                  stacked-bar segments above — one source per tier, so a segment and its
+                  label can never drift (ADMIN-UI-3). */}
               <div className="adm-legend">
-                <span style={{ color:"var(--amber)" }}>Starter ({s.freeUsers})</span>
-                <span style={{ color:"var(--accent-ink)" }}>Pro ({s.proUsers})</span>
-                <span style={{ color:"#7d4bbf" }}>Premium ({s.premiumUsers})</span>
+                {[["free",s.freeUsers],["pro",s.proUsers],["premium",s.premiumUsers]].map(([key,n]) => (
+                  <span key={key} style={{ color:TIERS[key].bar }}>{TIERS[key].label} ({n})</span>
+                ))}
               </div>
             </div>
 
