@@ -23,10 +23,10 @@ import "./styles/admin-settings.css";
 import { onAdminAuthChange, adminLogin, adminLogout, adminAuth } from "./api/admin-auth.js";
 import AdminDashboard from "./components/admin-dashboard.jsx";
 
-const wrap = { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 };
-const card = { width: "100%", maxWidth: 360, display: "flex", flexDirection: "column", gap: 12, background: "#fff", border: "1px solid #E8E8ED", borderRadius: 16, padding: 24, boxShadow: "0 6px 30px #0000000d" };
-const input = { padding: "12px 14px", borderRadius: 10, border: "1px solid #D8D8DE", fontSize: 15 };
-const btn = { padding: "12px", borderRadius: 12, border: "none", background: "#6C5CE7", color: "#fff", fontSize: 15, fontWeight: 600, cursor: "pointer" };
+// ADMIN-UI-1 (2026-07-25): the sign-in / denied / loading screens are now on the
+// .ci-app paper design (green logo tile), replacing the off-brand purple (#6C5CE7)
+// inline styles. The classes live in src/styles/admin-settings.css (.adm-auth-*),
+// imported above and out of the user bundle.
 
 function AdminApp() {
   const [phase, setPhase] = useState("loading"); // loading | login | denied | ok
@@ -59,28 +59,20 @@ function AdminApp() {
 
   const signOut = async () => { setErr(""); await adminLogout(); setPhase("login"); };
 
-  if (phase === "loading") return <div style={{ ...wrap, color: "#999", fontSize: 14 }}>Loading…</div>;
+  if (phase === "loading") return <div className="ci-app adm-auth-wrap"><div className="adm-auth-loading">Loading…</div></div>;
 
   if (phase === "ok") {
-    return (
-      <div style={{ minHeight: "100vh" }}>
-        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 20px", borderBottom: "1px solid #E8E8ED", background: "#fff", position: "sticky", top: 0, zIndex: 10 }}>
-          <strong style={{ fontSize: 15 }}>Crypto Idea · Admin</strong>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: "#666" }}>
-            <span>{adminAuth.currentUser?.email}</span>
-            <button onClick={signOut} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8E8ED", background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Log out</button>
-          </div>
-        </header>
-        {/* AdminDashboard centers itself (maxWidth ~1040); no extra cap here. */}
-        <AdminDashboard />
-      </div>
-    );
+    // ADMIN-UI-1: the whole persistent chrome (bar → H1 → tabs) lives inside
+    // AdminDashboard as ONE .ci-app paper layout — no more colliding outer <header>.
+    // We just hand it the signed-in email + the sign-out handler.
+    return <AdminDashboard email={adminAuth.currentUser?.email} onSignOut={signOut} />;
   }
 
+  // Shared sign-in lockup: the green logo tile + the CryptoIdea · Admin brand.
   const logo = (
-    <div style={{ textAlign: "center" }}>
-      <div style={{ fontSize: 22, fontWeight: 200, letterSpacing: "-0.5px" }}>Crypto <strong style={{ fontWeight: 700 }}>Idea</strong></div>
-      <div style={{ fontSize: 11, color: "#999", marginTop: 4, letterSpacing: 1, textTransform: "uppercase" }}>Admin</div>
+    <div className="adm-auth-logo">
+      <span className="adm-logo lg" aria-hidden="true">C</span>
+      <div className="adm-auth-brand">Crypto<b>Idea</b><span className="adm-auth-sub">Admin</span></div>
     </div>
   );
 
@@ -89,13 +81,13 @@ function AdminApp() {
   // the admin session can't reach the user app's session).
   if (phase === "denied") {
     return (
-      <div style={wrap}>
-        <div style={card}>
+      <div className="ci-app adm-auth-wrap">
+        <div className="adm-auth-card">
           {logo}
-          <div style={{ padding: 10, background: "#FFF7E6", border: "1px solid #FFE0A3", color: "#8A5A00", borderRadius: 10, fontSize: 12, textAlign: "center", lineHeight: 1.5 }}>
+          <div className="adm-auth-denied">
             This account isn't an admin. If you have an admin account, sign out and sign back in with it.
           </div>
-          <button onClick={signOut} style={btn}>Sign out</button>
+          <button onClick={signOut} className="adm-auth-btn">Sign out</button>
         </div>
       </div>
     );
@@ -103,13 +95,13 @@ function AdminApp() {
 
   // login
   return (
-    <div style={wrap}>
-      <form onSubmit={submit} style={card}>
+    <div className="ci-app adm-auth-wrap">
+      <form onSubmit={submit} className="adm-auth-card">
         {logo}
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@email.com" autoComplete="email" inputMode="email" style={input} />
-        <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Password" autoComplete="current-password" style={input} />
-        {err && <div style={{ padding: 10, background: "#FFF0F0", color: "#C0392B", borderRadius: 10, fontSize: 12, textAlign: "center" }}>{err}</div>}
-        <button type="submit" disabled={busy} style={{ ...btn, opacity: busy ? 0.6 : 1 }}>{busy ? "Signing in…" : "Sign in"}</button>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@email.com" autoComplete="email" inputMode="email" className="field-input" />
+        <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Password" autoComplete="current-password" className="field-input" />
+        {err && <div className="adm-auth-err">{err}</div>}
+        <button type="submit" disabled={busy} className="adm-auth-btn">{busy ? "Signing in…" : "Sign in"}</button>
       </form>
     </div>
   );

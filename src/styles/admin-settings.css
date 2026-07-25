@@ -60,15 +60,48 @@
  * drill-in and the user app.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Outer shell — desktop-first, centred, never breaks narrow (§R auto-fit). */
-.ci-app.adm-root { background:var(--paper); min-height:100vh; }
-.ci-app .adm-shell { max-width:1040px; margin:0 auto; padding:6px clamp(14px,4vw,30px) 40px; }
+/* Outer shell — desktop-first, centred, never breaks narrow (§R auto-fit).
+   ADMIN-UI-2 (2026-07-25): the card look is now ONE shared admin token set
+   (radius / border / shadow / bg), measured from docs/mockups/admin-panel/
+   index.html, so every card surface points at a single source of truth — no
+   ad-hoc per-card radii left. The green is the app's EXISTING --accent (no new
+   hex). Shell widened 1040 → 1140 to match the mockup's two ~680px columns. */
+.ci-app.adm-root {
+  background:var(--paper); min-height:100vh;
+  --adm-card-bg:#fff;
+  --adm-card-radius:22px;
+  --adm-card-border:.8px solid rgba(21,20,15,.06);
+  --adm-card-shadow:0 1px 1px rgba(21,20,15,.03), 0 4px 12px -6px rgba(21,20,15,.07);
+  --adm-card-pad:22px;
+}
+.ci-app .adm-shell { max-width:1140px; margin:0 auto; padding:6px clamp(14px,4vw,30px) 40px; }
 
-/* Sticky translucent header + brand lockup + Live-Data badge. */
-.ci-app .adm-head { position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 2px 12px; margin-bottom:10px; background:var(--bar-bg); backdrop-filter:saturate(1.6) blur(12px); -webkit-backdrop-filter:saturate(1.6) blur(12px); }
-.ci-app .adm-brand { font-family:var(--display); font-weight:500; font-size:24px; letter-spacing:-.025em; display:flex; align-items:baseline; gap:8px; line-height:1; }
-.ci-app .adm-brand b { font-weight:600; }
-.ci-app .adm-brand .adm-sub { font-family:var(--body); font-size:12px; font-weight:600; letter-spacing:.02em; color:var(--ink-faint); }
+/* ═══ ADMIN-UI-1 (2026-07-25) — ONE sticky bar (kills the double-header overlap) ═══
+   The old .adm-head (inner brand) and the admin-main.jsx outer <header> were BOTH
+   position:sticky top:0 and collided. Now a single full-width bar is the only
+   pinned element; the "Admin dashboard" H1 + the tabs are normal-flow content that
+   scrolls UNDER its blurred/opaque background, so the H1 can never render on top of
+   the bar (structural, not a z-index race). */
+.ci-app.adm-root .adm-bar { position:sticky; top:0; z-index:30; background:var(--bar-bg); backdrop-filter:saturate(1.6) blur(12px); -webkit-backdrop-filter:saturate(1.6) blur(12px); border-bottom:1px solid var(--line-2); }
+.ci-app .adm-bar-inner { max-width:1140px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px clamp(14px,4vw,30px); }
+.ci-app .adm-brand { display:flex; align-items:center; gap:10px; min-width:0; }
+/* Green rounded-square logo tile with a serif "C" (the mockup's mark). Shared by
+   the bar (30px) and the sign-in screens (.lg, 46px). */
+.ci-app .adm-logo { flex:none; width:30px; height:30px; border-radius:9px; background:var(--accent,#0a6b4d); color:#fff; font-family:var(--display); font-weight:600; font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center; }
+.ci-app .adm-logo.lg { width:46px; height:46px; border-radius:14px; font-size:27px; }
+.ci-app .adm-brand-txt { font-family:var(--display); font-weight:500; font-size:17px; letter-spacing:-.02em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ci-app .adm-brand-txt b { font-weight:600; }
+.ci-app .adm-brand-txt .adm-sub { font-family:var(--body); font-size:12px; font-weight:600; letter-spacing:.02em; color:var(--ink-faint); }
+.ci-app .adm-bar-right { display:flex; align-items:center; gap:12px; min-width:0; }
+.ci-app .adm-email { font-size:12.5px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:min(40vw,240px); }
+.ci-app .adm-logout { flex:none; padding:7px 14px; border-radius:999px; border:1px solid var(--line-strong); background:#fff; color:var(--ink); font-family:var(--body); font-size:12.5px; font-weight:600; cursor:pointer; }
+.ci-app .adm-logout:hover { background:var(--paper-3); }
+
+/* Persistent "Admin dashboard" H1 + the relocated Live-Data pill (moved out of the
+   retired .adm-head). H1 uses clamp() so it hits the mockup's 34px on desktop and
+   shrinks on phones without a new breakpoint. */
+.ci-app .adm-title-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 2px 14px; }
+.ci-app .adm-h1 { font-family:var(--display); font-weight:600; font-size:clamp(25px,6vw,34px); letter-spacing:-.025em; line-height:1.05; color:var(--ink); }
 .ci-app .adm-live { display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:700; letter-spacing:.03em; color:var(--ink-faint); padding:5px 12px; border-radius:999px; background:var(--paper-2); border:1px solid var(--line-2); box-shadow:var(--sh-sm); white-space:nowrap; }
 .ci-app .adm-live .lv-dot { width:7px; height:7px; border-radius:50%; background:var(--sa); flex:none; }
 .ci-app .adm-live.ok { color:var(--accent-ink); }
@@ -77,11 +110,40 @@
 .ci-app .adm-live.err .lv-dot { background:var(--sr); }
 @keyframes adm-pulse { 0%{box-shadow:0 0 0 0 rgba(31,157,85,.4)} 70%{box-shadow:0 0 0 6px rgba(31,157,85,0)} 100%{box-shadow:0 0 0 0 rgba(31,157,85,0)} }
 
-/* Segmented pill tab bar. */
-.ci-app .adm-tabs { display:flex; gap:4px; padding:4px; margin-bottom:14px; background:var(--paper-2); border:1px solid var(--line-2); border-radius:999px; box-shadow:var(--sh-sm); }
-.ci-app .adm-tab { flex:1; padding:9px 6px; border:0; border-radius:999px; background:none; color:var(--ink-faint); font-family:var(--body); font-size:13px; font-weight:600; cursor:pointer; transition:background .15s var(--ease), color .15s var(--ease); }
+/* Segmented pill tab bar (ADMIN-UI-2 — mockup match: white bg + soft shadow, gap 3,
+   14px tabs; the ACTIVE tab is the house green --accent, not near-black --ink). */
+.ci-app .adm-tabs { display:flex; gap:3px; padding:4px; margin-bottom:16px; background:var(--adm-card-bg,#fff); border:1px solid var(--line-2); border-radius:999px; box-shadow:var(--adm-card-shadow,var(--sh-sm)); }
+.ci-app .adm-tab { flex:1; padding:11px 6px; border:0; border-radius:999px; background:none; color:var(--ink-faint); font-family:var(--body); font-size:14px; font-weight:600; cursor:pointer; transition:background .15s var(--ease), color .15s var(--ease); }
 .ci-app .adm-tab:hover { color:var(--ink-soft); }
-.ci-app .adm-tab.active { background:var(--ink); color:var(--paper); }
+.ci-app .adm-tab.active { background:var(--accent,#0a6b4d); color:#fff; }
+
+/* ═══ ADMIN-UI-2 — pill-card fidelity (values measured from the admin-panel mockup) ═══
+   Every top-level card surface shares ONE token set (white bg, 22px radius, a faint
+   0.8px border, a soft 2-layer shadow). Scoped under .adm-root so the user app's
+   .card is untouched. Nested tiles (mini / plan / growth-row) keep their smaller
+   radii — they read as sub-elements, not cards. */
+.ci-app.adm-root .card,
+.ci-app.adm-root .adm-stat,
+.ci-app.adm-root .adm-list,
+.ci-app.adm-root .adm-strip {
+  background:var(--adm-card-bg); border:var(--adm-card-border);
+  border-radius:var(--adm-card-radius); box-shadow:var(--adm-card-shadow);
+}
+.ci-app.adm-root .card { padding:var(--adm-card-pad); }
+.ci-app.adm-root .adm-stat { padding:18px 14px; }
+/* Modals adopt the same white 22px card language but keep their lift (--sh-lg) above the scrim. */
+.ci-app.adm-root .adm-modal,
+.ci-app.adm-root .adm-viewas-modal { background:var(--adm-card-bg); border-radius:var(--adm-card-radius); }
+/* Card titles → sentence case, 13/700. The small UPPERCASE stat/section LABELS stay
+   as-is (they read as labels, not titles). */
+.ci-app.adm-root .card-title { font-size:13px; font-weight:700; text-transform:none; letter-spacing:normal; }
+
+/* Back / close controls — the mockup's white rounded button. Admin-scoped so the
+   user app's .icon-btn stays untouched. Covers the drill-in DHead + the view-as bar. */
+.ci-app.adm-root .detail-head .icon-btn,
+.ci-app.adm-root .adm-viewas-bar .icon-btn { background:#fff; border:1px solid var(--line-strong); border-radius:12px; }
+.ci-app.adm-root .detail-head .icon-btn:hover,
+.ci-app.adm-root .adm-viewas-bar .icon-btn:hover { background:var(--paper-3); }
 
 /* Role / status notice banners. */
 .ci-app .adm-note { margin-bottom:12px; padding:10px 14px; border-radius:var(--radius-sm); font-size:12px; line-height:1.5; border:1px solid var(--line-2); background:var(--paper-2); color:var(--ink-soft); }
@@ -201,6 +263,12 @@
 .ci-app .adm-modal { width:100%; max-width:360px; background:var(--paper-2); border-radius:var(--radius); padding:22px; box-shadow:var(--sh-lg); }
 .ci-app .adm-modal .mh { font-size:15px; font-weight:700; margin-bottom:6px; }
 .ci-app .adm-modal .mp { font-size:11.5px; color:var(--ink-faint); line-height:1.55; margin-bottom:14px; }
+/* ADMIN-UI-1: a consistent close control on the modal header (matches the drill-in
+   back button). The Cancel button in the actions row stays too. */
+.ci-app .adm-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.ci-app .adm-modal-head .mh { flex:1; }
+.ci-app .adm-modal-x { flex:none; width:30px; height:30px; margin:-4px -4px 0 0; border:0; background:none; border-radius:999px; font-size:22px; line-height:1; color:var(--ink-faint); cursor:pointer; }
+.ci-app .adm-modal-x:hover { background:var(--paper-3); color:var(--ink); }
 
 /* Overview stats-error card + footer. */
 .ci-app .adm-err-card { background:#fdecea; border:1px solid #f0c4bd; border-radius:var(--radius-sm); padding:16px; margin-bottom:12px; }
@@ -379,3 +447,21 @@
 .ci-app .adm-vtx-row .ty.sell { color:var(--warn); background:color-mix(in srgb, var(--warn) 12%, transparent); }
 .ci-app .adm-vtx-row .am { flex:1; }
 .ci-app .adm-vtx-row .dt { flex:none; color:var(--ink-faint); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ADMIN-UI-1 — sign-in / denied / loading reskin (admin-main.jsx). Paper card +
+ * the green logo tile, replacing the off-brand purple (#6C5CE7) inline styles, so
+ * the whole /admin experience is consistent end-to-end. Same rules: admin-only,
+ * .ci-app light paper. Reuses .adm-logo (with .lg) from the bar above.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.ci-app.adm-auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:var(--paper); }
+.ci-app .adm-auth-card { width:100%; max-width:360px; display:flex; flex-direction:column; gap:12px; background:var(--adm-card-bg,#fff); border:.8px solid rgba(21,20,15,.06); border-radius:22px; padding:26px; box-shadow:0 1px 1px rgba(21,20,15,.03), 0 10px 30px -12px rgba(21,20,15,.14); }
+.ci-app .adm-auth-logo { display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:6px; }
+.ci-app .adm-auth-brand { font-family:var(--display); font-weight:500; font-size:20px; letter-spacing:-.02em; color:var(--ink); text-align:center; }
+.ci-app .adm-auth-brand b { font-weight:600; }
+.ci-app .adm-auth-sub { display:block; font-family:var(--body); font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-top:4px; }
+.ci-app .adm-auth-btn { padding:12px; border-radius:12px; border:1px solid var(--accent,#0a6b4d); background:var(--accent,#0a6b4d); color:#fff; font-family:var(--body); font-size:15px; font-weight:600; cursor:pointer; }
+.ci-app .adm-auth-btn:disabled { opacity:.6; cursor:default; }
+.ci-app .adm-auth-err { padding:10px; background:var(--sr-s); color:var(--sr); border-radius:10px; font-size:12px; text-align:center; }
+.ci-app .adm-auth-denied { padding:10px; background:color-mix(in srgb,var(--amber) 12%,#fff); border:1px solid color-mix(in srgb,var(--amber) 40%,transparent); color:#8a6414; border-radius:10px; font-size:12px; text-align:center; line-height:1.5; }
+.ci-app .adm-auth-loading { color:var(--ink-faint); font-size:14px; }

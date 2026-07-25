@@ -34,20 +34,21 @@ founder chose machine-local over a committed baseline).
 
 ---
 
-## ADMIN-UI. Admin panel mockup match — unified chrome (UI-1) + card/tab/sizing fidelity (UI-2)  (📋 PLAN — 2026-07-25; not scheduled)
+## ADMIN-UI. Admin panel mockup match — unified chrome (UI-1) + card/tab/sizing fidelity (UI-2)  (✅ BUILT — 2026-07-25)
 
 Canonical: [`docs/design/ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) (mockup→code spec + file
 map + acceptance criteria). Reference mockup: [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html).
-**Design-only, nothing built** — founder interview 2026-07-25 locked: (1) **plan/doc only** for now,
-build on go; (2) back button on **every drill-in AND every popup/modal**; (3) **reskin** the sign-in /
-denied / loading screens too. Distinct from §ADMIN (that is *capabilities* ADMIN-0…5, all built) — this
-is the *visual chrome*.
+**✅ BUILT 2026-07-25** (design-only) — founder interview 2026-07-25 locked: back button on **every
+drill-in AND every popup/modal**; **reskin** the sign-in / denied / loading screens too; card/tab/sizing
+fidelity across the **whole panel** while **keeping the current responsive breakpoints**. Shipped as one
+CSS pass (UI-1 + UI-2 together). Distinct from §ADMIN (that is *capabilities* ADMIN-0…5, all built) —
+this is the *visual chrome*.
 
 **Root cause of the reported overlap:** two brand headers both `position:sticky; top:0` collide — the
 outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and the inner paper
 `.adm-head` (`admin-dashboard.jsx`, z-index 20). Fix = collapse to **one** sticky bar.
 
-- [ ] **ADMIN-UI-1 · Unified chrome** (🟡 design · founder 2026-07-25 · **📋 PLAN**) — Merge the two
+- [x] **ADMIN-UI-1 · Unified chrome** (🟡 design · founder 2026-07-25 · **✅ BUILT 2026-07-25**) — Merge the two
       headers into **one** sticky bar (green logo tile + `CryptoIdea · Admin` left; email + Log out
       right), styled paper with an opaque/blur bg so it's the **only** pinned element. Add a **persistent
       `Admin dashboard` `<h1>`** below the bar (same on every tab + drill-in) with the **Live Data pill
@@ -62,7 +63,7 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       view, back-nav everywhere, no purple; `test:unit` green + `build` clean + browser-verified owner &
       manager, mobile & desktop.
 
-- [ ] **ADMIN-UI-2 · Card / tab / sizing fidelity** (🟡 design · founder 2026-07-25 · **📋 PLAN**) — Make
+- [x] **ADMIN-UI-2 · Card / tab / sizing fidelity** (🟡 design · founder 2026-07-25 · **✅ BUILT 2026-07-25**) — Make
       the panel's **cards, category (tab) bar and sizing** match the mockup pixel-for-pixel. Interview
       (2026-07-25) locked **all** of it: match spacing/density **+** typography **+** content width;
       **pill-card look on ALL card surfaces** (stat tiles, content panels, Users/Audit rows, Settings

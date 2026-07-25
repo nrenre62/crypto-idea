@@ -1,10 +1,16 @@
 # Admin Panel UI Redesign — unified chrome
 
-> **Status: 📋 PLAN (2026-07-25). Nothing built.** This is the mockup→code spec for reskinning the
-> `/admin` panel *chrome* (header, page title, back-navigation, sign-in screens) to match the founder
-> mockup. It is **design-only** — no callable, handler, rule or data change. Building it runs the full
-> [interview & consistency SOP](../interview.md): interview (done, below) → sweep every file in the map
-> → verify in the browser (owner + manager, mobile + desktop) → commit.
+> **Status: ✅ BUILT (2026-07-25).** ADMIN-UI-1 (chrome) **and** ADMIN-UI-2 (card/tab/sizing fidelity)
+> shipped together in one CSS pass. The `/admin` panel now renders **one** sticky bar (green logo tile +
+> `CryptoIdea · Admin` left, email + Log out right), a persistent `Admin dashboard` H1 (34px desktop) with
+> the Live-Data pill beside it, the segmented tab bar with the **active tab in the house green `--accent`**
+> (was near-black), 22px white pill-cards from one shared `--adm-card-*` token set, a **1140px** shell, and
+> the sign-in / denied / loading screens on paper + the green logo tile (no purple). Design-only — no
+> callable, handler, rule or data change; light-paper only; no new dependency; the green is the existing
+> `--accent`, no new hex. **Verified:** `npm run test:unit` (845 green, +3 new ADMIN-UI cases) · `npm run
+> build` clean (no-names guard) · browser-verified **owner + manager**, **desktop 1280 + mobile 375** (one
+> sticky element, H1 34/25px via `clamp()`, active tab `rgb(10,107,77)`, no horizontal overflow, no console
+> errors). Files below (§5 + §8.5).
 >
 > Backlog: [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §ADMIN-UI. Reference mockup:
 > [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) (self-unpacking bundle —
@@ -13,9 +19,9 @@
 > overlap it. Precedent for the paper design system: [`DESIGN-REVAMP.md`](DESIGN-REVAMP.md) /
 > [`DESIGN-PASS.md`](DESIGN-PASS.md) (the user app) and the ADMIN-D/D2/D3 reskin already shipped.
 >
-> **Addendum (2026-07-25):** §8 below extends this plan to **visual fidelity** — making the panel's
-> **cards, category (tab) bar, and sizing** match the mockup pixel-for-pixel (still design-only, still
-> PLAN). §1–§7 = the *chrome* (header/H1/back-nav/login); §8 = the *card/tab/sizing* match.
+> **§1–§7 = the *chrome* (header/H1/back-nav/login); §8 = the *card/tab/sizing* fidelity.** Both halves
+> shipped in the same build (they touch the same two files + the same mockup). The plan text below is kept
+> as the as-built spec.
 
 ## 1. Problem — why (the overlap the founder reported)
 
@@ -144,14 +150,15 @@ using purple `#6C5CE7` + grey borders — off-brand.
   stay exactly as they are.
 - No new charting/UI dependency (the header is plain CSS; the logo tile is a styled `<div>`/inline SVG).
 
-## 8. Visual fidelity — cards · category bar · sizing (added 2026-07-25)
+## 8. Visual fidelity — cards · category bar · sizing (✅ BUILT 2026-07-25)
 
 > **Second founder request (2026-07-25):** make the panel's **cards ("pill cards"), the category (tab)
 > bar, and the overall sizing** match [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html)
 > precisely, while **keeping the current responsive behaviour** (the mockup is desktop-only — it has no
-> phone/tablet layout). Still **PLAN / DOC ONLY** — nothing built. Values below were **measured from the
-> mockup** (rendered in-browser + read from its embedded CSS) on 2026-07-25, so they are targets, not
-> guesses.
+> phone/tablet layout). **✅ BUILT** in the same pass as §1–§7. Values below were **measured from the
+> mockup** (rendered in-browser + read from its embedded CSS) on 2026-07-25 and are the as-built targets —
+> all verified live (active tab `rgb(10,107,77)`, shell 1140px, cards/stat 22px, tab bar white + gap 3,
+> H1 34px desktop / 25px mobile via `clamp()`).
 
 ### 8.1 Interview — locked decisions (2026-07-25)
 1. **"Size match" = all three axes:** **spacing/density** (padding, radius, gaps) **+** **typography scale**

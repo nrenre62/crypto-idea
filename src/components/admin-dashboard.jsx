@@ -257,7 +257,10 @@ function PremiumLimitsEditor({ found, busy, onSave }) {
 }
 
 // Presentation only — all state, data-loading and admin actions live in the hook.
-export default function AdminDashboard() {
+// ADMIN-UI-1: `email`/`onSignOut` come from admin-main.jsx so the whole persistent
+// chrome (bar → H1 → tabs) lives in ONE component under one .ci-app paper wrapper —
+// the old colliding outer <header> in admin-main is gone.
+export default function AdminDashboard({ email, onSignOut } = {}) {
   const {
     stats, statsErr, tab, setTab,
     keys, setKeys, mail, setMail, savedMsg, setFlags,
@@ -330,11 +333,31 @@ export default function AdminDashboard() {
 
   return (
     <div className="ci-app adm-root">
+      {/* ADMIN-UI-1: the ONE sticky bar — the only pinned element. Logo tile + brand
+          (left), email + Log out (right). It replaces both the old inner .adm-head
+          and the colliding outer <header> that admin-main.jsx used to render. */}
+      <header className="adm-bar">
+        <div className="adm-bar-inner">
+          <div className="adm-brand">
+            <span className="adm-logo" aria-hidden="true">C</span>
+            <span className="adm-brand-txt">Crypto<b>Idea</b> <span className="adm-sub">· Admin</span></span>
+          </div>
+          <div className="adm-bar-right">
+            {email && <span className="adm-email" title={email}>{email}</span>}
+            <button type="button" className="adm-logout" onClick={onSignOut}>Log out</button>
+          </div>
+        </div>
+      </header>
+
       <div className="adm-shell">
 
-        {/* Header — brand lockup + a pulsing Live-Data badge. */}
-        <div className="adm-head">
-          <div className="adm-brand">Crypto <b>Idea</b> <span className="adm-sub">· Admin</span></div>
+        {/* ADMIN-UI-1: persistent page title — CONSTANT across every tab AND every
+            drill-in (it does not change to the section name) — with the relocated
+            Live-Data pill (moved out of the retired .adm-head). Because the H1 is
+            normal-flow content below a blurred/opaque bar, it can never render on
+            top of the bar. */}
+        <div className="adm-title-row">
+          <h1 className="adm-h1">Admin dashboard</h1>
           <div className={"adm-live " + (statsErr ? "err" : stats ? "ok" : "")}>
             <span className="lv-dot" />{statsErr ? "Error" : stats ? "Live Data" : "Loading…"}
           </div>
@@ -1405,7 +1428,10 @@ export default function AdminDashboard() {
       {unlockPrompt && (
         <div className="adm-scrim">
           <form className="adm-modal" onSubmit={e => { e.preventDefault(); submitUnlock(); }}>
-            <div className="mh">Confirm your password</div>
+            <div className="adm-modal-head">
+              <div className="mh">Confirm your password</div>
+              <button type="button" className="adm-modal-x" aria-label="Close" onClick={cancelUnlock}>×</button>
+            </div>
             <div className="mp">Settings, API keys, plans and admin access need a recent password confirmation. This keeps them unlocked for about 10 minutes.</div>
             <input className="field-input" type="password" value={unlockPass} onChange={e => setUnlockPass(e.target.value)} autoFocus
               placeholder="Owner password" autoComplete="current-password" style={unlockErr ? { borderColor:"var(--sr)" } : undefined} />
@@ -1424,10 +1450,11 @@ export default function AdminDashboard() {
       {viewAs && (
         <div className="adm-scrim" onClick={closeViewAs}>
           <div className="adm-viewas-modal" onClick={e => e.stopPropagation()}>
+            {/* ADMIN-UI-1: the back/close ‹ sits on the LEFT, matching the drill-in pattern. */}
             <div className="adm-viewas-bar">
+              <button className="icon-btn" aria-label="Close read-only view" onClick={closeViewAs}>{SI.back}</button>
               <span className="adm-viewas-flag">READ-ONLY</span>
               <span className="adm-viewas-who">Viewing {viewAs.name || viewAs.email}</span>
-              <button className="icon-btn" aria-label="Close read-only view" onClick={closeViewAs}>{SI.back}</button>
             </div>
             <div className="adm-viewas-body">
               <div className="adm-viewas-note">A read-only copy of this user's data — you can look, not change. This view was recorded in the audit log with your reason.</div>

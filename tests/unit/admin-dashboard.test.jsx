@@ -866,4 +866,33 @@ describe("admin-dashboard", () => {
     expect(payload.announcement.text).toBe("Heads up: maintenance tonight");
     expect(payload.announcement.active).toBe(true);
   });
+
+  /* ═══ ADMIN-UI-1/2 — unified chrome (single sticky bar + a persistent H1) ═══
+     The founder reported the two brand headers overlapping. There must now be
+     exactly ONE bar; the "Admin dashboard" H1 is constant across tabs and drill-ins;
+     and the signed-in email + Log out live in the bar (passed from admin-main.jsx). */
+
+  it("ADMIN-UI: renders exactly one sticky top bar with the brand, email + a persistent H1", async () => {
+    render(<AdminDashboard email="admin@test.com" onSignOut={() => {}} />);
+    expect(document.querySelectorAll(".adm-bar")).toHaveLength(1);            // the overlap is gone
+    expect(screen.getByText("admin@test.com")).toBeInTheDocument();          // email in the bar
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Admin dashboard" })).toBeInTheDocument();
+  });
+
+  it("ADMIN-UI: the 'Admin dashboard' H1 persists on a drill-in, alongside a back button", async () => {
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    fireEvent.click(await screen.findByText("Alice"));
+    await screen.findByText("CHANGE TIER");                                  // inside the user drill-in
+    expect(screen.getByRole("heading", { name: "Admin dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
+  });
+
+  it("ADMIN-UI: Log out calls the handler passed down from the admin shell", async () => {
+    const onSignOut = vi.fn();
+    render(<AdminDashboard email="admin@test.com" onSignOut={onSignOut} />);
+    fireEvent.click(screen.getByRole("button", { name: "Log out" }));
+    expect(onSignOut).toHaveBeenCalled();
+  });
 });
