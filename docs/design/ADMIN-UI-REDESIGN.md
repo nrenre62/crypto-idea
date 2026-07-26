@@ -33,6 +33,14 @@
 > (retiring the bare `DHead`); the **Overview grows to the mockup scale** (38/30/26px text, 30px card pad, via
 > a `.adm-ov-screen` scope) while **Settings shrinks** (18px `DScreen` body). Same two files + the test, all
 > design-only, no new hex/dependency.
+>
+> **§12 = ADMIN-UI-6 — a fourth founder pass, 📋 PLAN ONLY (2026-07-26, NOT built):** header **typography**
+> fidelity. The `CryptoIdea` wordmark is smaller than the mockup **and in the wrong font** — it was built in
+> Fraunces *serif* (`--display`), but the mockup renders it in Hanken Grotesk *sans* (`--body`); the `· Admin`
+> sub is too small; the **Log out** button is too small and **too round** (a 999px pill vs the mockup's 12px
+> radius); and the email is too small. Every target was **measured from the mockup** and maps to an existing
+> token — **no new hex, no new dependency, one CSS file**. Founder asked to **add to the plan only** (no build
+> yet). Spec: §12.
 
 ## 1. Problem — why (the overlap the founder reported)
 
@@ -455,3 +463,92 @@ step-up unlock modal + Trash confirmations already carry their own close/cancel 
 | [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | Bump `.adm-stat .n/.l`, `.adm-kv .v`, `.adm-mini .n`; Overview-scoped 30px card pad; Settings/`DScreen` 18px pad. |
 | [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) | Only if an Overview-screen wrapper class is needed to scope the 30px pad. No logic change. |
 | [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Assert a stat number carries the enlarged size (or the Overview wrapper class), so the scale can't silently regress. |
+
+## 12) ADMIN-UI-6 — header typography fidelity (wordmark font/size · `· Admin` · Log out · email) (📋 PLAN ONLY — 2026-07-26)
+
+> **📋 PLAN ONLY (2026-07-26) — NOT built.** Founder asked to **"add to plan only."** Fourth founder pass over
+> the shipped header bar (ADMIN-UI-1/2/3). **Design-only**, **light-paper only**, **no new hex** (every target
+> maps to an existing token), **no new dependency**. Touches **one file** —
+> [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) — plus its test. No JSX/markup change:
+> the header elements already exist from ADMIN-UI-1; this only restyles them.
+
+**Founder report (2026-07-26):** in the top bar, the **`CryptoIdea` wordmark** is smaller than the mockup
+**and in a different font**; the **`· Admin`** label is too small; the **`Log out`** button is too small, its
+text too small, and it's **too round**; and the **`admin@test.com`** email is too small. *"Make it the same as
+the mockup for the size, font and style."*
+
+**Verified against the mockup** ([`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) —
+values read straight from the decoded header block's inline styles, no browser estimate) — founder is right on
+every point. **Key finding:** the wordmark was built in **Fraunces `--display` (serif)** at 17px, but the
+**mockup renders it in Hanken Grotesk `--body` (sans)** at 18px/600. That serif↔sans mismatch is the "different
+font." The green tile's `C` stays serif in both.
+
+### 12.1 Measured deltas — mockup vs. current build
+Line refs are into [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) as it stands today.
+Mockup source: the sticky header `<div>` at the top of the decoded template (`padding:13px 28px`, brand lockup
+`font-size:18px; font-weight:600` on the container, no `font-family` override → inherits the sans body font).
+
+| # | Element (selector) | Current build | Mockup target (measured) | Change |
+|---|---|---|---|---|
+| **1** | **Wordmark `CryptoIdea`** (`.adm-brand-txt`, L104) | `--display` **serif** · 17px · wt 500 · tracking −.02em | **`--body` sans** · **18px** · **wt 600** · tracking −.01em | **serif → sans** · 17→18 · 500→600 · −.02→−.01em |
+| **2** | **`· Admin` sub** (`.adm-sub`, L106) | `--body` · **12px** · wt 600 · tracking .02em · `--ink-faint` | inherits **18px** · **wt 500** · `--ink-faint` · no extra tracking | 12→18px · 600→500 · drop .02em (colour already right) |
+| **3** | **`Log out` button** (`.adm-logout`, L109) | pad 7×14 · radius **999px** (pill) · 12.5px/600 · border `--line-strong` | pad **9×16** · radius **12px** · **13px/700** · border `--line-strong` · bg white | bigger pad · **less round (pill→12px)** · 12.5/600→13/700 |
+| **4** | **Email** (`.adm-email`, L108) | 12.5px · `--ink-faint` | **13px** · **`--ink-soft`** | 12.5→13px · faint→soft (bigger + a touch darker) |
+| 5 | **Right-group gap** (`.adm-bar-right`, L107) | gap 12px | gap 14px | 12→14 *(minor)* |
+| — | **Bar padding** (`.adm-bar-inner`, L98) | 11px clamp(14,4vw,30) | 13px 28px | vertical 11→13; **keep the responsive clamp** (28 = its max) |
+| — | **Logo tile `C`** (`.adm-logo`, L102) | 30×30 · radius 9 · serif 18/600 | 28×28 · radius 8 · serif 16/600 | *(optional, NOT reported)* mockup tile is slightly **smaller** |
+| — | **Bar border** (`.adm-bar`, L92) | 1px `--line-2` | 1px `--line` | *(optional)* a hair more visible |
+
+**All targets are existing tokens — no new hex:** `#15140f`=`--ink` · `#55534b`=`--ink-soft` ·
+`#928f85`=`--ink-faint` · `#0a6b4d`=`--accent` · `#ece9e1`=`--line` · `#ddd9cf`=`--line-strong` · Fraunces =
+`--display` · Hanken Grotesk = `--body`. **The founder's four reported items are #1–#4;** #5 and the two "—"
+rows are small fidelity touch-ups measured alongside — apply or skip.
+
+> ⚠️ **Note the direction on the tile:** the founder asked for the *text* to be **bigger**, but the mockup's
+> green **tile** is actually a hair **smaller** (28 vs 30). The tile wasn't part of the report — recommend
+> **leaving it at 30/9/18**, or align it to 28/8/16 for strict fidelity. Bumping the text to 18px already
+> restores the mockup's text-to-tile proportion without shrinking the tile.
+
+### 12.2 One open decision (founder confirm before build)
+**The wordmark font — serif → sans.** ADMIN-UI-1 deliberately set the wordmark in the Fraunces serif
+(`--display`) to echo the app's display type; the mockup uses the Hanken sans (`--body`). "Match the mockup" =
+**switch the wordmark to sans** — the single most visible change (it changes the brand lockup's character), so
+it's flagged explicitly rather than buried. **This plan recommends: sans, per the mockup.** If you'd rather
+keep the serif wordmark and only bump its size/weight, say so and item #1 drops the font swap (keep
+`--display`, just 17→18px / 500→600).
+
+### 12.3 How to build it (KISS · admin-scoped · design-only · no new hex/dep)
+- **One file:** every edit is in [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) — the
+  admin-only sheet (already verified out of the user bundle). **No JSX/markup change** — the header structure
+  (`.adm-brand` / `.adm-brand-txt` / `.adm-sub` / `.adm-email` / `.adm-logout`) already exists from ADMIN-UI-1.
+- **Wordmark (#1):** on `.adm-brand-txt` swap `font-family:var(--display)` → `var(--body)`, 17→18px, wt
+  500→600, tracking −.02→−.01em. `.adm-brand-txt b` may stay 600 (now equal to the base) or be collapsed.
+- **`· Admin` sub (#2):** on `.adm-sub` **remove** `font-size:12px` and `letter-spacing:.02em` (so it inherits
+  the 18px lockup), set `font-weight:500`; keep `color:var(--ink-faint)`.
+- **Log out (#3):** on `.adm-logout` radius 999px→**12px**, pad 7×14→**9×16**, font 12.5→**13px**, wt
+  600→**700**. Border / bg / hover unchanged (already `--line-strong` / white / `--paper-3`).
+- **Email (#4):** on `.adm-email` 12.5→13px, colour `--ink-faint`→`--ink-soft`; keep the ellipsis + max-width.
+- **Touch-ups (optional):** `.adm-bar-right` gap 12→14; `.adm-bar-inner` vertical 11→13 (**leave the horizontal
+  `clamp`** — do NOT hard-code 28px or you lose the phone padding); `.adm-logo` 30/9/18→28/8/16 (the sign-in
+  `.adm-logo.lg` sets its own size, so it's unaffected); `.adm-bar` border `--line-2`→`--line`.
+- **Responsive:** the wordmark already `white-space:nowrap; text-overflow:ellipsis`; at 18px re-check 375px so
+  `CryptoIdea · Admin` + email + `Log out` don't overflow — the email truncates first (`max-width:min(40vw,240px)`).
+  No breakpoint change expected.
+
+### 12.4 Acceptance criteria (DoD — when built)
+- [ ] Wordmark renders in **Hanken sans 18px/600** (or the founder-confirmed choice), not Fraunces serif.
+- [ ] `· Admin` renders at the lockup size (**18px/500**, grey), not 12px.
+- [ ] `Log out` is a **12px-radius** button (not a pill), pad 9×16, text **13px/700**.
+- [ ] Email is **13px** in `--ink-soft`.
+- [ ] **No new hex, no new dependency;** admin stays **light-paper only**; **one file**
+      (`admin-settings.css`) + its test changed (no JSX / logic / rule / callable change).
+- [ ] `npm run test:unit` green · `npm run build` clean (no-names guard) · browser-verified **owner**,
+      **desktop 1280 + mobile 375** (no header overflow at 375; computed sizes match the table via
+      `getComputedStyle` — the real guard for CSS-file values).
+
+### 12.5 Files
+| File | Change |
+|---|---|
+| [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | Restyle `.adm-brand-txt` (sans/18/600), `.adm-sub` (18/500, drop 12px+tracking), `.adm-logout` (radius 12 + pad 9×16 + 13/700), `.adm-email` (13 + `--ink-soft`); optional `.adm-bar-right` / `.adm-bar-inner` / `.adm-logo` / `.adm-bar` touch-ups. **No new hex.** |
+| [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) | **No change expected** (header structure already present). Only touched if `.adm-brand-txt b` is collapsed into the base span. |
+| [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Keep the existing header-render assertions (wordmark text present, `Log out` button present). **Note:** jsdom won't resolve a CSS-file font stack or px, so the font/size targets are verified **in-browser** (`getComputedStyle`), not by unit test — mirror the ADMIN-UI-5 approach of asserting structure, not computed CSS. |

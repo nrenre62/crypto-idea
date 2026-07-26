@@ -183,6 +183,23 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       cards visibly smaller (~18px pad); Users/Trash/Audit unchanged; `test:unit` green · `build` clean ·
       browser-verified owner & manager, desktop + mobile; light-paper only, no new hex, no new dependency.
 
+- [ ] **ADMIN-UI-6 · Header typography fidelity** (🟡 design · founder 2026-07-26 · **📋 PLAN ONLY — not built**;
+      spec [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §12) — Founder: in the top bar the
+      **`CryptoIdea` wordmark** is smaller than the mockup **and in the wrong font**, the **`· Admin`** sub is
+      too small, the **`Log out`** button is too small + too round, and the **email** is too small. Measured
+      vs. [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) (founder is right on all):
+      **key finding — the wordmark was built in Fraunces *serif* (`--display`) but the mockup uses Hanken
+      *sans* (`--body`).** Targets (mockup, measured): wordmark **sans 18px/600** (was serif 17/500); `· Admin`
+      **18px/500** (was 12/600); `Log out` **radius 12px, pad 9×16, 13px/700** (was pill 999px, 7×14, 12.5/600);
+      email **13px `--ink-soft`** (was 12.5 `--ink-faint`). **One open decision:** the serif→sans wordmark swap
+      is the most visible change — plan recommends sans (mockup); founder can keep serif + only resize. **How
+      (KISS · one file · no new hex/dep):** restyle `.adm-brand-txt` / `.adm-sub` / `.adm-logout` / `.adm-email`
+      in `src/styles/admin-settings.css` (every target maps to an existing token); no JSX/logic change; keep the
+      responsive `clamp` on the bar padding. **DoD:** wordmark sans 18/600 (or confirmed choice), `· Admin`
+      18/500, `Log out` 12px-radius 13/700, email 13px `--ink-soft`; `test:unit` green · `build` clean ·
+      browser-verified owner, desktop 1280 + mobile 375 (no overflow); light-paper only, no new hex, no new
+      dependency.
+
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
 Canonical: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) (scored gap-audit vs. external
