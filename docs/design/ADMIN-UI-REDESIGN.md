@@ -41,6 +41,14 @@
 > radius); and the email is too small. Every target was **measured from the mockup** and maps to an existing
 > token — **no new hex, no new dependency, one CSS file**. Founder asked to **add to the plan only** (no build
 > yet). Spec: §12.
+>
+> **§13 = ADMIN-UI-7 — a fifth founder pass, 📋 PLAN ONLY (2026-07-26, NOT built):** Overview **card fidelity**.
+> The stat/usage cards carry **too much padding** — ADMIN-UI-5 shipped `30px`, but the mockup is **`20px`** (Plan
+> limits `20px 24px`), so the content sits too far from the card edge (the founder's "use more of the card
+> space / no extra space between the text and the borders"). And the **Tier-breakdown bar** is drawn as an `8px`
+> rounded-rectangle where the mockup is a **`999px` pill** — its segment **colours already match the mockup
+> exactly**, so making the bar a full pill is the whole fix for making the tiers read as one **connected** colour
+> band. Design-only, **one file** (`admin-settings.css`), **no new hex, no new dependency**. Spec: §13.
 
 ## 1. Problem — why (the overlap the founder reported)
 
@@ -552,3 +560,118 @@ keep the serif wordmark and only bump its size/weight, say so and item #1 drops 
 | [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | Restyle `.adm-brand-txt` (sans/18/600), `.adm-sub` (18/500, drop 12px+tracking), `.adm-logout` (radius 12 + pad 9×16 + 13/700), `.adm-email` (13 + `--ink-soft`); optional `.adm-bar-right` / `.adm-bar-inner` / `.adm-logo` / `.adm-bar` touch-ups. **No new hex.** |
 | [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) | **No change expected** (header structure already present). Only touched if `.adm-brand-txt b` is collapsed into the base span. |
 | [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Keep the existing header-render assertions (wordmark text present, `Log out` button present). **Note:** jsdom won't resolve a CSS-file font stack or px, so the font/size targets are verified **in-browser** (`getComputedStyle`), not by unit test — mirror the ADMIN-UI-5 approach of asserting structure, not computed CSS. |
+
+## 13) ADMIN-UI-7 — Overview card fidelity (card padding + Tier-breakdown pill) (📋 PLAN ONLY — 2026-07-26)
+
+> **📋 PLAN ONLY (2026-07-26) — NOT built.** Founder asked to **"add to plan for the design of admin panel."**
+> Fifth founder pass, this one over the **Overview** cards (not the header). **Design-only**, **light-paper
+> only**, **no new hex** (every target maps to an existing token), **no new dependency**. Touches **one file** —
+> [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) — plus its test. **No JSX/markup change:**
+> the Overview cards, mini-tiles, tier bar and legend all already exist; this only restyles them.
+
+**Founder report (2026-07-26):** two things on the Overview screen (Est. monthly revenue / Combined usage / Tier
+breakdown / Plan limits):
+1. *"each card pill [is] using more of the card space and there's no extra space between the text and the borders
+   of the card pill. make the design match this card pills of the mockup."*
+2. *"the tier breakdown card pill … the colours of each connect to each other. Starter, Pro, Premium have colour
+   connection, I want it to be same design for the admin panel."*
+
+**Verified against the mockup** ([`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) —
+values read straight from the decoded Overview block's inline styles, no browser estimate) — founder is right on
+both. **Two key findings:**
+- **(#1 padding.)** The current Overview cards are padded **`30px`** (`.adm-ov-screen .card`, set by ADMIN-UI-5),
+  but the **mockup cards are `20px`** (Plan limits `20px 24px`). ADMIN-UI-5 shipped a *roomier-than-mockup* pad;
+  this pass tightens it back to the true mockup value, so the content "uses more of the card." (The big Overview
+  text — 38/30/26px — is set independently and does **not** shrink; only the inset does.)
+- **(#2 tier bar.)** The bar's segment **colours already match the mockup exactly** (`TIERS[key].bar`: Starter
+  `#b8841f` = `--amber`, Pro `--accent-ink` = `#07503a`, Premium `#7d4bbf` — identical to the mockup legend). The
+  *only* reason the tiers don't "connect" is the **bar shape**: current `border-radius:8px` (a rounded rectangle)
+  vs the mockup's **`999px` full pill**. Making the bar a pill is the entire fix — **no colour change at all.**
+
+### 13.1 Ask #1 — card padding + usage mini-tiles (measured deltas)
+Line refs into [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) as it stands today.
+
+| # | Element (selector) | Current build | Mockup target (measured) | Change |
+|---|---|---|---|---|
+| **A1** | **Overview card padding** (`.adm-ov-screen .card`, L194) | **30px** (all Overview cards) | **20px** (revenue / usage / tier / growth); **Plan limits `20px 24px`** | **30 → 20** — the main "extra space" fix |
+| **A2** | Usage mini-tiles row (`.adm-minis`, L213) | `flex; gap:8px` | `grid 1fr 1fr; gap:10px` | gap **8 → 10** (flex vs grid is cosmetic — both = two equal tiles) |
+| **A3** | Mini-tile (`.adm-mini`, L214) — ⚠️ **shared** | radius `--radius-xs` (**11px**) · pad **12×10** | radius **14px** (`--radius-sm`) · pad **14×10** | rounder + a hair taller |
+| **A4** | Mini-tile label (`.adm-mini .l`, L216) | **9px** · tracking .05em | **10px** · tracking .08em | slightly bigger |
+| — | Mini-tile number (`.adm-mini .n`, L198) | **26px** (already bumped by `.adm-ov-screen`) | 26px | ✓ already matches |
+
+> ⚠️ **`.adm-mini` / `.adm-minis` are SHARED** — they also render the **user-detail drill-in** tiles
+> (admin-dashboard.jsx L685–687), which must stay at today's size. So A2–A4 must be scoped under
+> **`.adm-ov-screen`**, NOT the bare class (exactly the trap ADMIN-UI-5 already flagged at L190/408 — grep a
+> class's usages before bumping it globally). A1 is already Overview-scoped (`.adm-ov-screen .card`).
+
+### 13.2 Ask #2 — Tier-breakdown bar → full pill (measured deltas)
+
+| # | Element (selector) | Current build | Mockup target (measured) | Change |
+|---|---|---|---|---|
+| **B1** | **Tier bar** (`.adm-tierbar`, L224) — Overview-only | radius **8px** · h26 · bg `--paper-3` · no top gap | radius **999px** · h26 · bg `#fcfbf8` (=`--paper-3`) · **margin-top 16px** | **8px → 999px pill** — the "connected" look |
+| **B2** | Bar segment (`.adm-tierbar .seg`, L225) | min-width **22px** · **10px**/700 · `#fff` | min-width **26px** · **11.5px**/700 · `#fff` | bigger label + min-width |
+| **B3** | Legend (`.adm-legend`, L226) — Overview-only | margin-top 8px · **10px**/700 | margin-top **12px** · **11.5px**/700 | bigger + more gap |
+| — | **Segment & legend colours** | `TIERS[key].bar` → Starter `#b8841f` · Pro `--accent-ink` · Prem `#7d4bbf` | Starter `#b8841f` · Pro `#07503a` · Prem `#7d4bbf` | ✓ **already identical — NO colour change** |
+
+> `.adm-tierbar` / `.adm-legend` are **Overview-only** (single use each — verified), so B1–B3 are safe to edit on
+> the **bare class** (unlike the shared `.adm-mini`).
+
+### 13.3 Related fidelity, measured alongside (optional — NOT reported)
+| Element | Current | Mockup | Note |
+|---|---|---|---|
+| Revenue value (`.adm-kv .v`, L222) | 22→**30px** (adm-ov) · `--accent-ink` | 30px · `--accent` (`#0a6b4d`) | value hue `--accent-ink` → `--accent` |
+| Revenue title (`.adm-kv .k`, L221) | 14px/600 | 13px/700 | minor |
+| Revenue notes (`.adm-note-sm`, L223) | 11px · `--ink-faint` | line1 12.5px `--ink-soft` · line2 12px `--ink-faint` | first line a touch bigger/darker |
+| Card titles (`.card-title`) | shared user-app size | 13px/700 | **DO NOT touch the shared class — scope under `.adm-ov-screen` if matching** |
+
+**All targets are existing tokens — no new hex:** `#fcfbf8`=`--paper-3` · `#b8841f`=`--amber` ·
+`#07503a`=`--accent-ink` · `#0a6b4d`=`--accent` · `#55534b`=`--ink-soft` · `#928f85`=`--ink-faint` · radius
+**14px**=`--radius-sm` · card radius 22px=`--radius`/`--adm-card-radius`. `999px` is the literal pill value already
+used across this sheet. **The founder's two reported items are A1 and B1;** everything else is small fidelity
+measured alongside — apply or skip.
+
+### 13.4 One judgement call (founder confirm before build)
+**The card-padding value — 20px (exact mockup) vs ADMIN-UI-5's roomier 30px.** "Match the mockup" = **20px**, and
+that is what delivers the founder's "use more of the card space." **This plan recommends: 20px** (Plan limits
+`20px 24px`). If 20 reads too tight once on screen, **24px** is a sensible middle ground. Either way the big
+Overview numbers are unaffected (padding is independent of font-size) — only the inset changes.
+
+### 13.5 How to build it (KISS · admin-scoped · design-only · no new hex/dep)
+- **One file:** every edit is in [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) (admin-only
+  sheet, already verified out of the user bundle). **No JSX/markup change** — the cards, `.adm-minis`/`.adm-mini`,
+  `.adm-tierbar`, `.adm-legend` all already exist.
+- **A1 padding:** `.adm-ov-screen .card { padding:30px }` → **`20px`**. For the Plan-limits `20px 24px`, give that
+  card a hook class (e.g. `adm-plan-limits`) and add `.adm-ov-screen .card.adm-plan-limits { padding:20px 24px }`
+  — the *one* allowed JSX touch (a className), or keep it uniform at 20px for strict KISS.
+- **A2–A4 mini-tiles (SCOPED):** add `.ci-app.adm-root .adm-ov-screen .adm-minis { gap:10px }` and
+  `.ci-app.adm-root .adm-ov-screen .adm-mini { border-radius:var(--radius-sm); padding:14px 10px }` +
+  `.ci-app.adm-root .adm-ov-screen .adm-mini .l { font-size:10px; letter-spacing:.08em }`. **Scoped under
+  `.adm-ov-screen`** so the user-detail drill-in tiles stay put.
+- **B1–B3 tier bar (bare class OK):** `.adm-tierbar` radius `8px`→**`999px`**, add `margin-top:16px`; `.seg`
+  min-width `22px`→**`26px`**, font `10px`→**`11.5px`**; `.adm-legend` margin-top `8px`→**`12px`**, font
+  `10px`→**`11.5px`**. **No colour edits** (segments/legend already read `TIERS[key].bar`, which already matches).
+- **Optional (§13.3):** revenue value hue `--accent-ink`→`--accent`; note-line sizing; card-title 13/700 **scoped**
+  under `.adm-ov-screen` (never the bare shared `.card-title`).
+- **Responsive:** unchanged — the Overview grid already collapses to one column on mobile; a 20px pad + 999px pill
+  bar carry down fine. Re-check 375px only to confirm the tighter pad didn't crowd the two mini-tiles.
+
+### 13.6 Acceptance criteria (DoD — when built)
+- [ ] Overview cards render at **20px** padding (Plan limits `20px 24px` if chosen), not 30px — content visibly
+      closer to the card edge.
+- [ ] The big Overview text is **unchanged** (38 / 30 / 26px) — only the inset shrank.
+- [ ] Tier-breakdown bar is a **full 999px pill** (the tiers read as one connected colour band with rounded ends),
+      not an 8px rounded rectangle; segment labels 11.5px, legend 11.5px; **colours unchanged**.
+- [ ] Usage mini-tiles: radius 14px, gap 10px, label 10px — **and the user-detail drill-in tiles are UNCHANGED**
+      (edits scoped under `.adm-ov-screen`).
+- [ ] **No new hex, no new dependency;** admin stays **light-paper only**; **one file** (`admin-settings.css`) + its
+      test changed (JSX touched only if a Plan-limits hook class is added).
+- [ ] `npm run test:unit` green · `npm run build` clean (no-names guard) · browser-verified **owner**, **desktop
+      1280 + mobile 375** (computed padding/radius via `getComputedStyle` — the real guard for CSS-file values; the
+      pill-vs-rectangle bar is the visual check).
+
+### 13.7 Files
+| File | Change |
+|---|---|
+| [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) | `.adm-ov-screen .card` pad 30→20 (+ optional Plan-limits `20px 24px`); **scoped** `.adm-ov-screen .adm-minis` gap 8→10 + `.adm-ov-screen .adm-mini` radius→`--radius-sm` / pad 14×10 / label 9→10; `.adm-tierbar` radius 8→999 + margin-top 16; `.seg` 22/10→26/11.5; `.adm-legend` mt8/10→mt12/11.5. **No new hex, no colour change on the bar.** |
+| [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) | **No change expected.** Only touched if a Plan-limits hook class (`adm-plan-limits`) is added for the `20px 24px` variant. |
+| [`tests/unit/admin-dashboard.test.jsx`](../../tests/unit/admin-dashboard.test.jsx) | Keep the existing Overview-render assertions (cards / mini-tiles / tier segments present). **Note:** jsdom won't compute CSS-file px/radius, so padding + the 999px pill are verified **in-browser** (`getComputedStyle`), not by unit test — the ADMIN-UI-5 approach (assert structure, not computed CSS). |

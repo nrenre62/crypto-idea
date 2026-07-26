@@ -199,6 +199,24 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       18/500, `Log out` 12px-radius 13/700, email 13px `--ink-soft`; `test:unit` green · `build` clean ·
       browser-verified owner, desktop 1280 + mobile 375 (no overflow); light-paper only, no new hex, no new
       dependency.
+- [ ] **ADMIN-UI-7 · Overview card fidelity (padding + Tier-breakdown pill)** (🟡 design · founder 2026-07-26 ·
+      **📋 PLAN ONLY — not built**; spec [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §13) — Founder,
+      on the Overview screen: (1) the **cards have too much empty space** — content should "use more of the card,"
+      and (2) the **Tier-breakdown bar** colours should **connect** like the mockup. Measured vs.
+      [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) (founder is right on both).
+      **Two key findings:** (a) the Overview cards are padded **`30px`** (ADMIN-UI-5) but the **mockup is `20px`**
+      (Plan limits `20px 24px`) — tighten to 20px so content fills the card (the big 38/30/26px text is
+      unaffected); (b) the tier bar's segment **colours already match the mockup exactly** — the only difference
+      is the **shape**: current `border-radius:8px` (rectangle) vs the mockup's **`999px` pill**, so making the bar
+      a full pill is the entire "connect" fix (**no colour change**). Also: usage mini-tiles → radius `14px`
+      (`--radius-sm`), gap 10, label 10px — **scoped under `.adm-ov-screen`** because `.adm-mini` is **shared with
+      the user-detail drill-in** (grep-before-bump, the ADMIN-UI-5 trap). **How (KISS · one file · no new hex/dep):**
+      edit `.adm-ov-screen .card` / `.adm-tierbar` / `.seg` / `.adm-legend` + scoped `.adm-mini` in
+      `src/styles/admin-settings.css`; no JSX change (unless a Plan-limits hook class is added). **One judgement
+      call:** card padding 20px (exact mockup, recommended) vs a 24px middle ground. **DoD:** cards 20px (content
+      closer to edge, big text unchanged), tier bar a 999px pill (tiers read as one connected band), drill-in tiles
+      unchanged; `test:unit` green · `build` clean · browser-verified owner desktop 1280 + mobile 375
+      (`getComputedStyle` padding/radius); light-paper only, no new hex, no new dependency.
 
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
