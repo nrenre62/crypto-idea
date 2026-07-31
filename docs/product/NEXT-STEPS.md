@@ -440,6 +440,43 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       pill `background`); `test:unit` green · `build` clean · browser-verified owner desktop 1280 + mobile 375;
       light-paper only, no new hex, no new dependency.
 
+- [ ] **ADMIN-UI-10 · Interactive logo (hover animation + click to Overview)** (🟡 design · founder 2026-08-01 ·
+      **📋 PLAN ONLY — not built**) — Founder: the landing/mockup brand mark animates on hover, but the admin
+      bar logo is a static, non-clickable tile. Make it match — the "C" tile animates on hover, **and** (founder
+      decision) the logo is clickable, returning to the Overview (admin home) like a normal brand mark.
+      **Reference (landing, [`index.html`](../../index.html) L63–67):** `.brand .mark { transition:transform .3s
+      var(--ease) }` + `.brand:hover .mark { transform: rotate(-6deg) scale(1.06) }` — a slight rotate + scale-up.
+      `--ease` is `cubic-bezier(.22,.61,.36,1)` ([`app.css`](../../src/styles/app.css) L21) and is in the admin's
+      `.ci-app` token scope, so the motion is **byte-identical** to the landing.
+      **Current admin (static):** [`admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) L348–350 —
+      `<div className="adm-brand"><span className="adm-logo" aria-hidden="true">C</span><span
+      className="adm-brand-txt">…</span></div>`; `.adm-logo` ([`admin-settings.css`](../../src/styles/admin-settings.css)
+      L102) has no transition and no `:hover`.
+      **Founder decision (AskUserQuestion 2026-08-01):** hover animation **AND** click → Overview (a real
+      brand-mark home link), not hover-only.
+      **How (KISS · admin-only · design-only · one small JS change):**
+      - **Markup:** turn `.adm-brand` into a real `<button type="button" className="adm-brand" aria-label="Go to
+      Overview">` (keep both inner spans; keep the "C" span `aria-hidden` — decorative, the button carries the
+      label). `onClick` returns to a clean home: **`setTab("overview"); setSettingsView("home"); closeUser();`** —
+      all three already exist ([admin-dashboard.jsx](../../src/components/admin-dashboard.jsx) L272/L304/L339); this
+      mirrors the tab buttons (L380) **plus** clears an open user drill-in so "home" is truly clean.
+      - **CSS ([`admin-settings.css`](../../src/styles/admin-settings.css)):** (a) reset button chrome on
+      `.adm-brand` (`background:none; border:0; padding:0; font:inherit; color:inherit; text-align:left;
+      cursor:pointer`) so it looks **identical** to today; (b) add `transition:transform .3s var(--ease)` to
+      `.adm-logo`; (c) `.ci-app .adm-brand:hover .adm-logo, .ci-app .adm-brand:focus-visible .adm-logo { transform:
+      rotate(-6deg) scale(1.06) }` (hover **and** keyboard focus); (d) a visible `:focus-visible` ring on
+      `.adm-brand` (reuse the existing admin focus treatment) for keyboard a11y.
+      - **Reduced motion (production-ready a11y):** `@media (prefers-reduced-motion: reduce)` → drop the
+      `.adm-logo` transition and the hover/focus `transform` (no animation, click still works).
+      **Scope / keep-same:** the hover rule keys off **`.adm-brand`**, and the sign-in screen's larger logo
+      (`.adm-logo.lg`) is **not** inside `.adm-brand`, so it stays static — verify it's untouched. `.adm-logo` /
+      `.adm-brand` are admin-only classes. Light-paper only; **no new hex, no new dependency.**
+      **DoD:** hovering **or** keyboard-focusing the admin logo animates the "C" tile identically to the landing
+      (rotate −6° + scale 1.06, .3s `--ease`); clicking it returns to a clean Overview (user drill-in + settings
+      sub-view cleared); the brand is a focusable `<button>` with a visible ring + `aria-label`; reduced-motion
+      disables the animation; the sign-in `.adm-logo.lg` is unchanged; visual chrome otherwise identical to today;
+      `test:unit` green · `build` clean · browser-verified owner desktop 1280 + mobile 375.
+
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
 Canonical: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) (scored gap-audit vs. external
