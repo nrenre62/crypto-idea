@@ -271,6 +271,37 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       closer to edge, big text unchanged), tier bar a 999px pill (tiers read as one connected band), drill-in tiles
       unchanged; `test:unit` green · `build` clean · browser-verified owner desktop 1280 + mobile 375
       (`getComputedStyle` padding/radius); light-paper only, no new hex, no new dependency.
+- [ ] **ADMIN-UI-8 · Settings screens match the mockup (width + header size + cream headline)** (🟡 design ·
+      founder 2026-08-01 · **📋 PLAN ONLY — not built**) — Founder, comparing the live Settings drill-ins to the
+      mockup: Settings should be the **mockup's size**, and each drill-in **headline** (e.g. "API keys") should
+      sit on the **mockup's cream/paper background**, not white. *(Note: the founder referenced
+      [`docs/mockups/admin-panel`](../mockups/admin-panel/index.html), but the Settings **detail** screens with
+      "API keys" live in [`docs/mockups/admin-settings/index.html`](../mockups/admin-settings/index.html) — the
+      documented 1:1 source these were built from — so that is the fidelity target.)*
+      **Founder decisions (AskUserQuestion 2026-08-01):** (1) **size = BOTH** — contain the width AND bump the
+      header title; (2) **headline background = cream/paper** (`--paper` #f8f7f3); (3) **keep the current
+      single-card `DScreen` structure** ([[ADMIN-UI-4]]) — restyle only, no revert to the mockup's
+      floating-header layout.
+      **Measured gaps (live vs mockup):** drill-in header title **16px → 19px/500** (mockup `.dh-title`); header
+      band **white → cream `--paper`** (the mockup floats the headline on the paper frame); the drill-in
+      **stretches to the 1140 shell** on desktop → **contain it** (the mockup is a tidy column). Body card padding
+      already matches (both 18px).
+      **How (KISS · admin-only · design-only · no new hex/dep):** in
+      [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) — (a) add a **Settings-tab wrapper**
+      `.adm-settings-screen { max-width:560px; margin:0 auto }` (560px = the app's existing form/detail shell
+      width, so it's a mockup-tidy column, not a new magic number), applied to the Settings tab container in
+      [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx); (b)
+      `.adm-settings-screen .adm-scr-head { background:var(--paper) }` (keep the `border-bottom` divider);
+      (c) `.adm-settings-screen .adm-scr-head .dh-title { font-size:19px; font-weight:500 }`.
+      **⚠️ Scope every rule under `.adm-settings-screen`, NOT the bare `.adm-scr-head` / `.dh-title`** — those are
+      **shared with the user-detail drill-in** in the Users tab (the same grep-before-bump trap as
+      [[ADMIN-UI-5]]'s `.adm-mini`); Overview/Users/Trash/Audit and the user-detail header must stay
+      byte-for-byte.
+      **One judgment call:** contained width **560px** (app form width, recommended) vs a roomier 600–640px.
+      **DoD:** Settings drill-ins render contained (~560px, centered) with a **19px cream headline band**, body
+      stays white; **other tabs + the user-detail drill-in unchanged** (`getComputedStyle` on `.dh-title` size +
+      `.adm-scr-head` background in BOTH a Settings screen and the user-detail); `test:unit` green · `build` clean ·
+      browser-verified owner desktop 1280 + mobile 375; light-paper only, no new hex, no new dependency.
 
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
