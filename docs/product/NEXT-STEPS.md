@@ -570,6 +570,44 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       disables the animation; the sign-in `.adm-logo.lg` is unchanged; visual chrome otherwise identical to today;
       `test:unit` green · `build` clean · browser-verified owner desktop 1280 + mobile 375.
 
+- [ ] **ADMIN-UI-11 · User-detail drill-in matches the mockup (separate pill-cards + cream header + sizes)**
+      (🟡 design · founder 2026-08-01 · **📋 PLAN ONLY — not built**) — Founder, on the Users → user-detail
+      drill-in ("pro" screen): it's currently **one big card**; the mockup breaks it into **separate pill-cards**,
+      the **header band (where the name sits) uses the mockup's cream colour**, and each card matches the mockup's
+      size.
+      **Current (one card):** the whole drill-in is a single `<DScreen>` (`.card.adm-scr`, header + one padded
+      body) — [`admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) L669-813; every section
+      (email+badges, `.adm-minis` stats, Billing, Change tier, Moderation, View-as, Note, Delete) is stacked
+      inside that one body.
+      **Mockup (measured, [`admin-panel/index.html`](../mockups/admin-panel/index.html) L382):** each section is
+      its **own white card** — `background:#fff; border:1px solid rgba(21,20,15,.06); border-radius:22px; soft
+      shadow; padding:20px` with a **14px gap** (i.e. the standard admin `.card`); the detail lives in the
+      full-width Users screen (NOT a narrow column). Stat tiles = `#fcfbf8`, radius 14, padding 14×10, **24px**
+      serif number; section labels = 11px/700/.08em/`#928f85`/mb 10.
+      **Founder decisions (AskUserQuestion 2026-08-01):** (1) **EVERY section becomes its own pill** (consistent —
+      identity+stats, Billing, Change tier, Moderation, View-as, Admin note, Delete), not only the 3 the mockup
+      predates; (2) **header band = cream `--paper`** (#f8f7f3), the same tone [[ADMIN-UI-8]] gives the Settings
+      drill-in header.
+      **How (KISS · admin-only · design-only):**
+      - Restructure the user-detail body into a **cream header band** (‹ back + centered name) **+ a stack of
+      `.card` pills** (one per section, 14px gaps). The pills reuse the shared `.card` (already #fff / radius 22 /
+      shadow), so little new CSS. Avoid **card-in-card double borders**: for the user-detail, drop the outer
+      `.adm-scr` card border/padding (a user-detail modifier) so the header band + pills float on the paper.
+      - Header band gets `background:var(--paper)` (cream), reusing the `.adm-scr-head` ‹+title markup.
+      - Stat tiles: match the mockup **scoped to the user-detail** (`.adm-user-detail .adm-mini { … }`) — **⚠️
+      `.adm-mini` is SHARED with the Overview** (grep-before-bump, the [[ADMIN-UI-5]] trap), so never bump the bare
+      class.
+      **⚠️ Shared-surface guards:** `DScreen` / `.adm-scr-head` / `.dh-title` are **shared with the Settings
+      drill-in**, and this **overlaps [[ADMIN-UI-8]]** (which also creams the drill-in header) — **build UI-8 +
+      UI-11 together**; since BOTH drill-in headers now want cream, apply cream to the shared header rather than
+      two scoped copies. `.adm-mini` shared with Overview (above). Map the mockup's `#fcfbf8` / `rgba(21,20,15,.06)`
+      / shadow to **existing tokens** (`--paper*` / `--line*` / the card shadow) — **no new hex**.
+      **DoD:** the user-detail renders as a **cream header band + separate white `.card` pills** (14px gaps), every
+      section its own pill, no double-border; stat tiles match the mockup (Overview unchanged); **Settings drill-in,
+      Overview and the Users list are unchanged** (`getComputedStyle` on `.adm-mini` + `.adm-scr-head` in the
+      user-detail vs Settings vs Overview); `test:unit` green · `build` clean · browser-verified owner desktop 1280
+      + mobile 375; light-paper only, no new hex, no new dependency.
+
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
 Canonical: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) (scored gap-audit vs. external
