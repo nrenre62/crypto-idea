@@ -3123,17 +3123,12 @@
           "announcement": {
             "description": "ADMIN-5: the site announcement banner, present (with text + level) ONLY while active, otherwise null. A drafted-but-inactive banner is never published here.",
             "nullable": true,
-            "oneOf": [
-              { "type": "null" },
-              {
-                "type": "object",
-                "properties": {
-                  "text": { "type": "string", "maxLength": 300 },
-                  "level": { "type": "string", "enum": ["info", "warning", "critical"] }
-                },
-                "additionalProperties": false
-              }
-            ]
+            "type": "object",
+            "properties": {
+              "text": { "type": "string", "maxLength": 300 },
+              "level": { "type": "string", "enum": ["info", "warning", "critical"] }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
