@@ -109,6 +109,95 @@ are locked; awaiting the go-ahead to build.
 
 ---
 
+## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (📋 PLAN — 2026-08-01; NOT built)
+
+Founder ask (2026-08-01): add a **dedicated password for the admin Settings area** — a second lock,
+separate from the admin login password. The "Confirm your password" popup that guards Settings should
+ask for THIS settings password.
+
+**Scope decisions (AskUserQuestion 2026-08-01):**
+1. **Managers stay fully OUT of Settings** — the server wall is unchanged (owner-only). The new
+   password is an **extra lock for owners**, NOT a way to let a manager in. *(So the "give the password
+   to a manager" idea in the original message is intentionally dropped — the founder chose the safest
+   option; managers never reach API keys / secrets / pricing / kill-switches / admin-grant controls.)*
+2. **Owners open Settings with the NEW settings password**, not their login password — the
+   login-password step-up is replaced *for the Settings area* by this settings-password unlock.
+3. **Emailed-link reset is IN v1** — owner-only "forgot settings password" → one-time emailed link.
+
+**What exists today (so the change is clear):** Settings is owner-only at the server (`assertFreshOwner`
+= owner claim + a fresh Firebase login-password re-auth; [`functions/index.js`](../../functions/index.js)
+~L150-160). The current popup ([`admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) ~L1432-1446)
+calls `reauthAdmin(loginPassword)`, refreshing the Firebase token's `auth_time`. Managers don't see the
+Settings tab (L338) and the server refuses them ("owner-required").
+
+**Security model (non-negotiable — this gates real secrets):**
+- The **owner claim stays required** for every Settings callable — identity is still per-person (the 2
+  owners are individually identified in the audit). The settings password is a **second factor, never the
+  identity**; so even though the 2 owners share it, accountability is preserved.
+- The password is **server-verified, hashed at rest** with `node:crypto` **scrypt** (built into Node 22 —
+  no new dependency; never roll our own hashing). Store `{ salt, hash, algo, updatedAt, updatedBy }`;
+  **never** store plaintext, **never** return the hash to any client.
+- A correct password grants a **short-lived, server-tracked unlock** (~10 min) for that owner's uid;
+  Settings callables check the unlock **server-side**. A client-only check would be a downgrade
+  (bypassable) — this MUST be enforced on the server.
+- **Rate-limit** unlock + reset attempts (reuse the per-uid/IP limiter in `functions/guards.js` from BL-1)
+  to stop brute force; generic failure text.
+- **Audit** every set/change, failed unlock, reset request and reset completion — **never** the password.
+
+**Pieces to build (functions + rules + client + email + tests):**
+1. **Storage:** `config/app.settingsAuth = { salt, hash, algo:'scrypt', updatedAt, updatedBy }`
+   (`config/app` is already server-only, [`firestore.rules`](../../firestore.rules) L62). A partial
+   `saveConfig` must **per-key-KEEP** this field (the keep-omitted-field discipline — the 4th field to
+   learn it, after `features`/`requireAdminMfa`/`announcement`).
+2. **`setSettingsPassword({ current?, next })`** callable — owner-only; if one already exists, require the
+   current password (or a valid unlock); enforce a length/strength floor; scrypt-hash `next`; write
+   `settingsAuth`; audit (no secret).
+3. **`unlockSettings({ password })`** callable — owner-only; scrypt-verify; on success write a server-only
+   `settingsUnlock/{uid} = { until }` (~10 min); rate-limited; failure audited.
+4. **Gate Settings callables on the unlock:** `saveConfig` (+ the Settings-only config reads) change from
+   `assertFreshOwner` → **`assertOwner` + `assertSettingsUnlocked`**. This replaces the login-password
+   step-up **for Settings only**; non-Settings owner ops (grant/revoke manager, permanent erasure) keep
+   their existing gate.
+5. **Client:** repurpose the existing unlock popup to call `unlockSettings(settingsPassword)` instead of
+   `reauthAdmin(loginPassword)`; change copy "Owner password" → "Settings password" + sub-text; drive the
+   same ~10-min `unlockedUntil` UX from `settingsUnlock`. Add a **"Settings password" section** inside
+   Settings (owner-only) to set/change it.
+6. **Emailed-link reset (owner-only):** `requestSettingsPwReset()` → single-use, expiring token
+   (`crypto.randomBytes`, stored **hashed** in server-only `settingsPwReset/{tokenHash} = { uid, expires,
+   used }`), emailed as a special link to the owner's on-file email via the existing mail provider
+   (Settings → Email & integrations). The link opens an admin reset page → `completeSettingsPwReset({
+   token, next })` verifies (unused + unexpired), sets the new hash, marks the token used. ~30-60 min
+   expiry; rate-limited; audited.
+7. **Rules:** add server-only denies `match /settingsUnlock/{uid} { allow read,write: if false }` and
+   `match /settingsPwReset/{doc} { allow read,write: if false }` (like `rateLimits`/`webhookEvents`).
+
+**Bootstrap (chicken-and-egg) + lockout safety (secure-by-design):**
+- **Not-yet-set:** when `config/app.settingsAuth` is absent, Settings falls back to **today's** gate
+  (owner login-password step-up) so an owner can get in and set the first settings password. Once set, the
+  settings-password unlock takes over.
+- **Lockout fallback:** if both owners forget it AND email is down, an owner with the service-account key
+  clears `config/app.settingsAuth` via a small script (like `set-admin.js`), reverting to the
+  login-password bootstrap. Document it. (Never lock the last owner out — secure-by-design.)
+
+**⚠️ Notes / gotchas:**
+- **Larger, security-critical** item (functions + rules + client + email + tests) — NOT a small tweak.
+  Build **TDD-first**: pure scrypt hash/verify + token helpers unit-tested; callable auth tests; a rules
+  test for the two new server-only paths; a regression test that a **manager still cannot reach Settings**.
+- Keep the `stepUpReauth` flag path working for the non-Settings owner ops that still use it.
+- Emulator has no real email — test the reset via the mail provider's dev path / logged link.
+
+**DoD:** an owner opening Settings is prompted for the **settings password** (not their login password) and
+unlocked ~10 min **server-side**; a wrong password is rate-limited + audited; set/change is owner-only and
+stored scrypt-hashed (never plaintext, never sent to client); **managers still cannot reach Settings** at
+all (server + UI, regression-tested); the emailed-link reset works end-to-end (single-use, expiring) for
+owners only; bootstrap + script fallback documented; `test:unit` + rules tests green · `build` clean ·
+browser-verified owner desktop 1280 + mobile 375; light-paper only, no new dependency.
+
+**Status: PLAN ONLY — not built.** Architecture + the 3 founder decisions are locked; awaiting the
+go-ahead to build.
+
+---
+
 ## ADMIN-JOBS. Human-readable scheduled-job labels  (📋 PLAN — 2026-08-01; display-only, NOT built)
 
 Founder ask (2026-08-01): the admin **Overview → System status strip** lists each scheduled job by
