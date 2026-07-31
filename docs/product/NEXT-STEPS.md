@@ -120,6 +120,10 @@ ask for THIS settings password.
    password is an **extra lock for owners**, NOT a way to let a manager in. *(So the "give the password
    to a manager" idea in the original message is intentionally dropped — the founder chose the safest
    option; managers never reach API keys / secrets / pricing / kill-switches / admin-grant controls.)*
+   **Founder reconfirmed 2026-08-01:** managers must not even **SEE** a Settings tab — it is **hidden
+   entirely** (as today, `isOwner ? ["settings"] : []`), NOT a locked/greyed tab, so a manager can't tell
+   Settings exists; the settings-password prompt therefore never appears for a manager. Hard requirement,
+   regression-tested (a manager session shows no Settings tab AND every Settings callable refuses them).
 2. **Owners open Settings with the NEW settings password**, not their login password — the
    login-password step-up is replaced *for the Settings area* by this settings-password unlock.
 3. **Emailed-link reset is IN v1** — owner-only "forgot settings password" → one-time emailed link.
