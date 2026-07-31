@@ -61,7 +61,8 @@
             "description": "Comma-separated CoinGecko coin ids (e.g. `bitcoin,ethereum`). Capped at 500; blank ids are dropped.",
             "schema": {
               "type": "string",
-              "maxLength": 8000
+              "maxLength": 8000,
+              "pattern": "^[A-Za-z0-9,_ -]*$"
             },
             "example": "bitcoin,ethereum"
           }
@@ -137,7 +138,8 @@
             "description": "Search term (lower-cased, capped at 100 chars). Empty returns an empty list.",
             "schema": {
               "type": "string",
-              "maxLength": 100
+              "maxLength": 100,
+              "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
             },
             "example": "bitc"
           }
@@ -1984,7 +1986,7 @@
                     "required": ["uid", "reason"],
                     "properties": {
                       "uid": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9_-]*$" },
-                      "reason": { "type": "string", "maxLength": 300, "description": "Why the data is being viewed — logged in the audit trail." }
+                      "reason": { "type": "string", "maxLength": 300, "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$", "description": "Why the data is being viewed — logged in the audit trail." }
                     },
                     "additionalProperties": false
                   }
@@ -2043,9 +2045,9 @@
                     "result": {
                       "type": "object",
                       "properties": {
-                        "note": { "type": "string" },
+                        "note": { "type": "string", "maxLength": 4000, "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$" },
                         "updatedAt": { "type": "integer", "format": "int64", "nullable": true },
-                        "updatedByEmail": { "type": "string" }
+                        "updatedByEmail": { "type": "string", "maxLength": 254, "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" }
                       },
                       "additionalProperties": false
                     }
@@ -2084,7 +2086,7 @@
                     "required": ["uid"],
                     "properties": {
                       "uid": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9_-]*$" },
-                      "note": { "type": "string", "maxLength": 4000 }
+                      "note": { "type": "string", "maxLength": 4000, "pattern": "^[^\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]*$" }
                     },
                     "additionalProperties": false
                   }
@@ -2489,7 +2491,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "maxLength": 128
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9]*$"
             }
           },
           {
@@ -2498,7 +2501,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "maxLength": 2048
+              "maxLength": 2048,
+              "pattern": "^$|^https?://\\S+$"
             }
           },
           {
@@ -2507,7 +2511,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "maxLength": 256
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9_.\\-]*$"
             }
           },
           {
@@ -2516,7 +2521,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "maxLength": 512
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9+/=]*$"
             }
           },
           {
@@ -2525,7 +2531,8 @@
             "required": true,
             "schema": {
               "type": "string",
-              "maxLength": 64
+              "maxLength": 64,
+              "pattern": "^[0-9A-Za-z:.\\-+ ]*$"
             }
           }
         ],
@@ -2816,7 +2823,8 @@
           "error": {
             "type": "string",
             "description": "Human-readable error message (no internal details).",
-            "maxLength": 500
+            "maxLength": 500,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
           }
         },
         "required": [
@@ -2833,7 +2841,8 @@
             "properties": {
               "message": {
                 "type": "string",
-                "maxLength": 500
+                "maxLength": 500,
+                "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
               },
               "status": {
                 "type": "string",
@@ -2909,7 +2918,8 @@
             "minimum": 1,
             "maximum": 100000000
           }
-        }
+        },
+        "additionalProperties": false
       },
       "PricesResponse": {
         "type": "object",
@@ -2938,15 +2948,18 @@
           },
           "symbol": {
             "type": "string",
-            "maxLength": 32
+            "maxLength": 32,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
           },
           "name": {
             "type": "string",
-            "maxLength": 128
+            "maxLength": 128,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
           },
           "thumb": {
             "type": "string",
-            "maxLength": 2048
+            "maxLength": 2048,
+            "pattern": "^$|^https?://\\S+$"
           },
           "rank": {
             "type": "integer",
@@ -3069,11 +3082,13 @@
         "properties": {
           "ga4": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9.\\-]*$"
           },
           "plausible": {
             "type": "string",
-            "maxLength": 128
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9.\\-]*$"
           }
         },
         "additionalProperties": false
@@ -3083,15 +3098,18 @@
         "properties": {
           "termlyUuid": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9.\\-]*$"
           },
           "termlyPrivacyId": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9.\\-]*$"
           },
           "termlyTermsId": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9.\\-]*$"
           },
           "cookieBanner": {
             "type": "boolean"
@@ -3125,7 +3143,7 @@
             "nullable": true,
             "type": "object",
             "properties": {
-              "text": { "type": "string", "maxLength": 300 },
+              "text": { "type": "string", "maxLength": 300, "pattern": "^[^\\u0000-\\u001F\\u007F]*$" },
               "level": { "type": "string", "enum": ["info", "warning", "critical"] }
             },
             "additionalProperties": false
@@ -3137,7 +3155,7 @@
         "type": "object",
         "description": "ADMIN-5: the site announcement banner draft, as returned by getAdminConfig and accepted by saveConfig. `active` is forced false when text is empty.",
         "properties": {
-          "text": { "type": "string", "maxLength": 300 },
+          "text": { "type": "string", "maxLength": 300, "pattern": "^[^\\u0000-\\u001F\\u007F]*$" },
           "level": { "type": "string", "enum": ["info", "warning", "critical"] },
           "active": { "type": "boolean" }
         },
@@ -3145,62 +3163,69 @@
       },
       "UserSnapshot": {
         "type": "object",
-        "description": "ADMIN-5: the READ-ONLY 'view as' snapshot returned by viewUserAsAdmin. Bounded (portfolios/coins/transactions capped) — the `truncated` flags say when there is more.",
+        "description": "ADMIN-5: the READ-ONLY 'view as' snapshot returned by viewUserAsAdmin. Bounded (portfolios/coins/transactions capped) — the `truncated` flags say when there is more. Caps match functions/index.js: VIEW_MAX_PORTFOLIOS=20, VIEW_MAX_COINS=150 (total across portfolios), VIEW_MAX_TX_PER_COIN=50.",
         "properties": {
-          "uid": { "type": "string" },
-          "email": { "type": "string" },
-          "name": { "type": "string" },
+          "uid": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9_-]*$" },
+          "email": { "type": "string", "maxLength": 254, "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" },
+          "name": { "type": "string", "maxLength": 128, "pattern": "^[^\\u0000-\\u001F\\u007F]*$" },
           "tier": { "$ref": "#/components/schemas/Tier" },
           "disabled": { "type": "boolean" },
           "deleted": { "type": "boolean" },
-          "role": { "type": "string" },
-          "billingStatus": { "type": "string" },
-          "paypalSubscriptionId": { "type": "string" },
-          "billingCycle": { "type": "string" },
+          "role": { "type": "string", "maxLength": 16, "pattern": "^[a-z_]*$" },
+          "billingStatus": { "type": "string", "maxLength": 20, "pattern": "^[a-z_]*$" },
+          "paypalSubscriptionId": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9_-]*$" },
+          "billingCycle": { "type": "string", "maxLength": 20, "pattern": "^[a-z_]*$" },
           "portfolios": {
             "type": "array",
+            "maxItems": 20,
             "items": {
               "type": "object",
               "properties": {
-                "id": { "type": "string" },
-                "name": { "type": "string" },
-                "coinCount": { "type": "integer" },
+                "id": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9_-]*$" },
+                "name": { "type": "string", "maxLength": 128, "pattern": "^[^\\u0000-\\u001F\\u007F]*$" },
+                "coinCount": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
                 "coins": {
                   "type": "array",
+                  "maxItems": 150,
                   "items": {
                     "type": "object",
                     "properties": {
-                      "id": { "type": "string" },
-                      "symbol": { "type": "string" },
-                      "name": { "type": "string" },
-                      "txCount": { "type": "integer" },
+                      "id": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9_-]*$" },
+                      "symbol": { "type": "string", "maxLength": 32, "pattern": "^[^\\u0000-\\u001F\\u007F]*$" },
+                      "name": { "type": "string", "maxLength": 128, "pattern": "^[^\\u0000-\\u001F\\u007F]*$" },
+                      "txCount": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
                       "journal": { "type": "object", "nullable": true, "additionalProperties": true },
                       "txTruncated": { "type": "boolean" },
-                      "transactions": { "type": "array", "items": { "type": "object", "additionalProperties": true } }
-                    }
+                      "transactions": { "type": "array", "maxItems": 50, "items": { "type": "object", "additionalProperties": true } }
+                    },
+                    "additionalProperties": false
                   }
                 }
-              }
+              },
+              "additionalProperties": false
             }
           },
           "learn": {
             "type": "object",
             "nullable": true,
             "properties": {
-              "xp": { "type": "integer" },
-              "streak": { "type": "integer" },
-              "completedLessons": { "type": "integer" },
-              "lastActivity": { "type": "string" }
-            }
+              "xp": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
+              "streak": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
+              "completedLessons": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
+              "lastActivity": { "type": "string", "maxLength": 40, "pattern": "^[0-9A-Za-z:.\\-+ ]*$" }
+            },
+            "additionalProperties": false
           },
           "truncated": {
             "type": "object",
             "properties": {
               "portfolios": { "type": "boolean" },
               "coins": { "type": "boolean" }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SubscribeRequest": {
         "type": "object",
@@ -3208,12 +3233,14 @@
           "email": {
             "type": "string",
             "format": "email",
-            "maxLength": 200
+            "maxLength": 200,
+            "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
           },
           "hp": {
             "type": "string",
             "description": "Honeypot field — must be empty. Any value is silently dropped.",
-            "maxLength": 256
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
           }
         },
         "required": [
@@ -3257,7 +3284,8 @@
         "properties": {
           "data": {
             "type": "object",
-            "nullable": true
+            "nullable": true,
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -3323,7 +3351,8 @@
               "email": {
                 "type": "string",
                 "format": "email",
-                "maxLength": 200
+                "maxLength": 200,
+                "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
               }
             },
             "required": [
@@ -3376,7 +3405,8 @@
               "approvalUrl": {
                 "type": "string",
                 "nullable": true,
-                "maxLength": 2048
+                "maxLength": 2048,
+                "pattern": "^$|^https?://\\S+$"
               },
               "subscriptionId": {
                 "type": "string",
@@ -3422,12 +3452,14 @@
               },
               "downgradeTo": {
                 "type": "string",
-                "maxLength": 32
+                "maxLength": 32,
+                "pattern": "^[a-z_]*$"
               },
               "endDate": {
                 "type": "string",
                 "nullable": true,
-                "maxLength": 40
+                "maxLength": 40,
+                "pattern": "^[0-9A-Za-z:.\\-+ ]*$"
               }
             },
             "additionalProperties": false
@@ -3506,9 +3538,11 @@
                   },
                   "email": {
                     "type": "string",
-                    "maxLength": 254
+                    "maxLength": 254,
+                    "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
                   }
-                }
+                },
+                "additionalProperties": false
               },
               "profile": {
                 "type": "object",
@@ -3522,9 +3556,11 @@
                   "additionalProperties": true
                 }
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ReconcileResultEnvelope": {
         "type": "object",
@@ -3672,11 +3708,13 @@
           },
           "email": {
             "type": "string",
-            "maxLength": 254
+            "maxLength": 254,
+            "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
           },
           "name": {
             "type": "string",
-            "maxLength": 128
+            "maxLength": 128,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
           },
           "tier": {
             "$ref": "#/components/schemas/Tier"
@@ -3761,11 +3799,13 @@
               },
               "email": {
                 "type": "string",
-                "maxLength": 254
+                "maxLength": 254,
+                "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
               },
               "name": {
                 "type": "string",
-                "maxLength": 128
+                "maxLength": 128,
+                "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
               },
               "tier": {
                 "$ref": "#/components/schemas/Tier"
@@ -3797,7 +3837,8 @@
               },
               "tierBeforeFailure": {
                 "type": "string",
-                "maxLength": 32
+                "maxLength": 32,
+                "pattern": "^[a-z_]*$"
               },
               "premiumLimits": {
                 "$ref": "#/components/schemas/PremiumLimits"
@@ -3807,7 +3848,8 @@
               },
               "billingCycle": {
                 "type": "string",
-                "maxLength": 32
+                "maxLength": 32,
+                "pattern": "^[a-z_]*$"
               }
             },
             "additionalProperties": false
@@ -3972,7 +4014,8 @@
               "email": {
                 "type": "string",
                 "format": "email",
-                "maxLength": 254
+                "maxLength": 254,
+                "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
               },
               "grant": {
                 "type": "boolean"
@@ -4045,7 +4088,8 @@
           },
           "actorEmail": {
             "type": "string",
-            "maxLength": 254
+            "maxLength": 254,
+            "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
           },
           "action": {
             "type": "string",
@@ -4059,17 +4103,20 @@
           },
           "targetEmail": {
             "type": "string",
-            "maxLength": 254
+            "maxLength": 254,
+            "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
           },
           "details": {
             "type": "string",
             "description": "Free-text summary of the action. For saveConfig this is a field-level diff (old → new); secret values are never included, only '(changed)'. Bounded server-side to this maxLength (functions/config-diff.js DETAILS_MAX). ROLE-DEPENDENT: Settings is owner-only behind a step-up re-auth, so for a saveConfig entry a non-owner caller receives 'settings changed — details are visible to owners only' instead of the diff (functions/config-diff.js auditDetailsFor).",
-            "maxLength": 500
+            "maxLength": 500,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
           },
           "ip": {
             "type": "string",
             "description": "ADMIN-3: source IP the action came from, derived spoof-resistantly from X-Forwarded-For (functions/net-utils.js auditIp). Empty string when no origin is available — e.g. entries written before this field shipped, or under the functions emulator, whose synthetic request carries no address.",
-            "maxLength": 45
+            "maxLength": 45,
+            "pattern": "^[0-9A-Fa-f:.]*$"
           },
           "atMs": {
             "type": "integer",
@@ -4105,11 +4152,13 @@
         "properties": {
           "id": {
             "type": "string",
-            "maxLength": 200
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9_-]*$"
           },
           "type": {
             "type": "string",
-            "maxLength": 128
+            "maxLength": 128,
+            "pattern": "^[A-Z0-9_.]*$"
           },
           "atMs": {
             "type": "integer",
@@ -4169,14 +4218,16 @@
                 "properties": {
                   "clientId": {
                     "type": "string",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   },
                   "secretSet": {
                     "type": "boolean"
                   },
                   "webhookId": {
                     "type": "string",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   }
                 },
                 "additionalProperties": false
@@ -4186,22 +4237,26 @@
                 "properties": {
                   "provider": {
                     "type": "string",
-                    "maxLength": 32
+                    "maxLength": 32,
+                    "pattern": "^[a-z]*$"
                   },
                   "apiKeySet": {
                     "type": "boolean"
                   },
                   "apiUrl": {
                     "type": "string",
-                    "maxLength": 2048
+                    "maxLength": 2048,
+                    "pattern": "^$|^https?://\\S+$"
                   },
                   "fromEmail": {
                     "type": "string",
-                    "maxLength": 254
+                    "maxLength": 254,
+                    "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
                   },
                   "listId": {
                     "type": "string",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   }
                 },
                 "additionalProperties": false
@@ -4282,30 +4337,36 @@
                   "coingecko": {
                     "type": "string",
                     "format": "password",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   },
                   "paypalClientId": {
                     "type": "string",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   },
                   "paypalSecret": {
                     "type": "string",
                     "format": "password",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   },
                   "paypalWebhookId": {
                     "type": "string",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   },
                   "anthropicKey": {
                     "type": "string",
                     "format": "password",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   },
                   "sentryDsn": {
                     "type": "string",
                     "format": "password",
                     "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$",
                     "description": "ADMIN-2 Sentry DSN. keep()-guarded: blank KEEPS the stored value."
                   }
                 },
@@ -4326,19 +4387,23 @@
                   "apiKey": {
                     "type": "string",
                     "format": "password",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   },
                   "apiUrl": {
                     "type": "string",
-                    "maxLength": 2048
+                    "maxLength": 2048,
+                    "pattern": "^$|^https?://\\S+$"
                   },
                   "fromEmail": {
                     "type": "string",
-                    "maxLength": 254
+                    "maxLength": 254,
+                    "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
                   },
                   "listId": {
                     "type": "string",
-                    "maxLength": 512
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$"
                   }
                 },
                 "additionalProperties": false
@@ -4396,7 +4461,8 @@
           "event_type": {
             "type": "string",
             "description": "e.g. BILLING.SUBSCRIPTION.ACTIVATED / CANCELLED / SUSPENDED, PAYMENT.SALE.COMPLETED.",
-            "maxLength": 64
+            "maxLength": 64,
+            "pattern": "^[A-Z0-9_.]*$"
           },
           "resource": {
             "type": "object",
@@ -4427,7 +4493,8 @@
           "date": {
             "type": "string",
             "description": "UTC calendar day, YYYY-MM-DD. Also the document id, so ids sort chronologically.",
-            "maxLength": 10
+            "maxLength": 10,
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "at": {
             "type": "integer",
@@ -4480,7 +4547,8 @@
           "totalCoins": {
             "type": "integer"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ListDailyStatsEnvelope": {
         "type": "object",
@@ -4495,9 +4563,11 @@
                 "default": 90,
                 "description": "How many of the most recent days to return. Clamped server-side to 1..400."
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ListDailyStatsResultEnvelope": {
         "type": "object",
@@ -4508,6 +4578,7 @@
               "series": {
                 "type": "array",
                 "description": "OLDEST FIRST — chart order.",
+                "maxItems": 400,
                 "items": {
                   "$ref": "#/components/schemas/DailyStat"
                 }
@@ -4516,9 +4587,11 @@
                 "type": "boolean",
                 "description": "True when the result filled the requested limit, so older snapshots may exist."
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CaptureStatsSnapshotResultEnvelope": {
         "type": "object",
@@ -4529,9 +4602,11 @@
               "snapshot": {
                 "$ref": "#/components/schemas/DailyStat"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       },
       "FeatureFlags": {
         "type": "object",
@@ -4558,7 +4633,8 @@
         "properties": {
           "name": {
             "type": "string",
-            "maxLength": 64
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_-]*$"
           },
           "everyMs": {
             "type": "integer",
@@ -4574,6 +4650,7 @@
             "type": "string",
             "nullable": true,
             "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]*$",
             "description": "e.g. \"skipped — marketData off\", so unchanged data has a stated reason."
           },
           "errorAt": {
@@ -4584,7 +4661,8 @@
           "error": {
             "type": "string",
             "nullable": true,
-            "maxLength": 300
+            "maxLength": 300,
+            "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
           }
         },
         "additionalProperties": false
