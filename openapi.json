@@ -4571,32 +4571,24 @@
             "description": "The job's expected interval; the client flags it late past 2x this."
           },
           "at": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": "integer",
+            "nullable": true,
             "description": "Last run that COMPLETED (incl. a deliberate kill-switch skip). null = never."
           },
           "note": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": "string",
+            "nullable": true,
             "maxLength": 200,
             "description": "e.g. \"skipped — marketData off\", so unchanged data has a stated reason."
           },
           "errorAt": {
-            "type": [
-              "integer",
-              "null"
-            ],
+            "type": "integer",
+            "nullable": true,
             "description": "Last run that threw. Newer than `at` = currently failing."
           },
           "error": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": "string",
+            "nullable": true,
             "maxLength": 300
           }
         },
@@ -4629,16 +4621,12 @@
                 "type": "object",
                 "properties": {
                   "universeAt": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
+                    "type": "integer",
+                    "nullable": true
                   },
                   "trendingAt": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ]
+                    "type": "integer",
+                    "nullable": true
                   }
                 },
                 "additionalProperties": false
