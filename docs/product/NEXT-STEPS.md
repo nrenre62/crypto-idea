@@ -12,6 +12,46 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## ADMIN-JOBS. Human-readable scheduled-job labels  (📋 PLAN — 2026-08-01; display-only, NOT built)
+
+Founder ask (2026-08-01): the admin **Overview → System status strip** lists each scheduled job by
+its raw JavaScript name (`refreshPrices`, `purgeOldAudit`, …). Show clear 1–2-word English labels
+instead. Display-only; the jobs themselves don't change.
+
+**Key constraint (why this is add-a-label, not rename):** a job's `name` is *also* its heartbeat
+storage key — `runJob("refreshPrices", …)` stamps `health/jobs`, and `SCHEDULED_JOBS`
+([`functions/index.js`](../../functions/index.js) ~L1409) is keyed by it. Renaming the key would
+orphan the existing heartbeat docs, break the `getSystemStatus` mapping, and touch every `runJob()`
+call site. So we **add a friendly display label and keep `name` as the stable internal key.**
+
+**Approach (KISS, recommended):** a client-side label map in
+[`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) rendered at the
+`j-name` span (~L454): `LABELS[j.name] || j.name`. Purely presentational, lives only in the
+admin bundle, **zero backend change, no data migration.** (Alt considered: add a `label` field to the
+server `SCHEDULED_JOBS` and return it via `getSystemStatus` — one server-side source of truth, but it
+changes the callable's response shape. Deferred unless the founder prefers it — a pretty name is
+presentation, which belongs client-side.)
+
+**Proposed labels — ⏳ PENDING founder confirmation** (one word / max two):
+
+| Internal name (heartbeat key — unchanged) | Proposed label | Alternative |
+|---|---|---|
+| `refreshPrices` | **Prices** | Price sync |
+| `refreshUniverseDaily` | **Coin list** | Catalog refresh |
+| `purgeOldAudit` | **Audit cleanup** | Log cleanup |
+| `captureDailyStats` | **Daily stats** | Stats snapshot |
+| `purgeExpiredTrash` | **Trash cleanup** | Empty trash |
+| `enforceSubscriptionPeriods` | **Billing sync** | Plan renewals |
+
+**Acceptance:** the strip shows the friendly labels; internal `name`/heartbeat keys untouched; a unit
+test **enumerates the labels from `SCHEDULED_JOBS`** (not a hand-kept list) so adding a 7th job with no
+label fails the test — same "enumerate from source" guard used elsewhere. Admin renders light-paper
+only, so no dark-mode work.
+
+**Status: PLAN ONLY — not built.** Awaiting the founder's final label picks + go-ahead to build.
+
+---
+
 ## DEVEX. Persistent emulator seed accounts  (✅ BUILT 2026-07-25)
 
 Dev-only quality-of-life: the seeded emulator accounts used to die on every restart (in-memory
