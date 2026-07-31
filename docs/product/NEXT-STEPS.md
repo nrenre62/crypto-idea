@@ -24,31 +24,45 @@ storage key — `runJob("refreshPrices", …)` stamps `health/jobs`, and `SCHEDU
 orphan the existing heartbeat docs, break the `getSystemStatus` mapping, and touch every `runJob()`
 call site. So we **add a friendly display label and keep `name` as the stable internal key.**
 
-**Approach (KISS, recommended):** a client-side label map in
-[`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) rendered at the
-`j-name` span (~L454): `LABELS[j.name] || j.name`. Purely presentational, lives only in the
-admin bundle, **zero backend change, no data migration.** (Alt considered: add a `label` field to the
-server `SCHEDULED_JOBS` and return it via `getSystemStatus` — one server-side source of truth, but it
-changes the callable's response shape. Deferred unless the founder prefers it — a pretty name is
-presentation, which belongs client-side.)
+**Approach (KISS, recommended):** a single client-side source map in
+[`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) —
+`JOB_META[name] = { label, description }` — rendered at the `j-name` span (~L454) as
+`JOB_META[j.name]?.label || j.name`, with `description` driving the hover tooltip (below). Purely
+presentational, lives only in the admin bundle, **zero backend change, no data migration.** (Alt
+considered: add `label`/`description` to the server `SCHEDULED_JOBS` and return via `getSystemStatus`
+— one server source of truth, but it changes the callable's response shape. Deferred — presentation
+belongs client-side.)
 
-**Proposed labels — ⏳ PENDING founder confirmation** (one word / max two):
+**Confirmed labels + hover descriptions** (founder-approved 2026-08-01 — the "Suggested" set):
 
-| Internal name (heartbeat key — unchanged) | Proposed label | Alternative |
+| Internal name (heartbeat key — unchanged) | Label | Hover description ("what it actually does") |
 |---|---|---|
-| `refreshPrices` | **Prices** | Price sync |
-| `refreshUniverseDaily` | **Coin list** | Catalog refresh |
-| `purgeOldAudit` | **Audit cleanup** | Log cleanup |
-| `captureDailyStats` | **Daily stats** | Stats snapshot |
-| `purgeExpiredTrash` | **Trash cleanup** | Empty trash |
-| `enforceSubscriptionPeriods` | **Billing sync** | Plan renewals |
+| `refreshPrices` | **Prices** | Refreshes market prices for the top ~1,300 coins. Runs every 5 minutes. |
+| `refreshUniverseDaily` | **Coin list** | Refreshes the full ~3,000-coin catalog and removes delisted coins. Runs once a day. |
+| `purgeOldAudit` | **Audit cleanup** | Deletes admin audit-log entries older than 365 days. Runs once a day. |
+| `captureDailyStats` | **Daily stats** | Saves a daily snapshot of user and growth numbers. Runs once a day. |
+| `purgeExpiredTrash` | **Trash cleanup** | Permanently deletes accounts left in trash past the 30-day window. Runs once a day. |
+| `enforceSubscriptionPeriods` | **Billing sync** | Downgrades a user's tier when their paid subscription period ends. Runs once a day. |
 
-**Acceptance:** the strip shows the friendly labels; internal `name`/heartbeat keys untouched; a unit
-test **enumerates the labels from `SCHEDULED_JOBS`** (not a hand-kept list) so adding a 7th job with no
-label fails the test — same "enumerate from source" guard used elsewhere. Admin renders light-paper
-only, so no dark-mode work.
+**Hover tooltip behavior (founder spec 2026-08-01):**
+- **Trigger:** hovering a job **name**. A `mouseenter` starts a **2-second** timer; the description
+  box appears only after the pointer rests on the name for 2s.
+- **Cancel:** if the pointer leaves before 2s, the timer is cleared and nothing shows.
+- **Dismiss:** on `mouseleave` the box hides immediately. Only the hovered name's box shows (one at a time).
+- **Why custom, not the native `title`:** the browser controls the native `title` delay (not reliably
+  2s) and it can't be styled, so this needs a small **custom tooltip** (a JS timer + a positioned box).
+  This increment therefore also **removes the existing native `title` on the job row** (~L452) so the two
+  don't both pop; any failing/late/error detail folds into the same custom box, so no status info is lost.
+- **Positioning:** the box sits just above/below the name and must not clip at the strip's edges.
+- **Accessibility (production-ready):** also reveal on **keyboard focus** of the name (hide on blur /
+  `Esc`); under `prefers-reduced-motion` show it without a fade. Admin is light-paper only — no dark-mode work.
 
-**Status: PLAN ONLY — not built.** Awaiting the founder's final label picks + go-ahead to build.
+**Acceptance:** both `label` and `description` are **enumerated from `SCHEDULED_JOBS`** in a unit test
+(not a hand-kept list), so adding a 7th job with no label/description fails the build — the same
+"enumerate from source" guard used elsewhere; the tooltip appears ~2s after hover and hides on leave;
+keyboard-focus reveal works; no double-tooltip.
+
+**Status: PLAN ONLY — not built.** Labels + tooltip spec are locked; awaiting the founder's go-ahead to build.
 
 ---
 
