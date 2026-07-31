@@ -400,6 +400,46 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       `.adm-scr-head` background in BOTH a Settings screen and the user-detail); `test:unit` green · `build` clean ·
       browser-verified owner desktop 1280 + mobile 375; light-paper only, no new hex, no new dependency.
 
+- [ ] **ADMIN-UI-9 · Admin text sizing — headline descriptions to mockup 13.5px + soft-green Billing/Tier pills**
+      (🟡 design · founder 2026-08-01 · **📋 PLAN ONLY — not built**) — Founder, on the Users tab: the muted
+      headline-description line reads too small vs the mockup. Make **every tab's headline description** the
+      mockup's size, make the **"N users" count** the same size, and give the **Billing / Tier** filter labels
+      that same size **plus a soft-green pill** so they stand out. **Wording, text style and colours stay
+      unchanged — size only, plus the pill background; the labels keep their uppercase/bold style.**
+      **Measured (live vs mockup):** headline description **11.5px → 13.5px** (mockup
+      [`admin-panel/index.html`](../mockups/admin-panel/index.html) ~L382: `font-size:13.5px`); `.adm-count`
+      ("N users") **11px → 13.5px**; `.adm-filter-label` ("Billing"/"Tier") **10px → 13.5px** (keep
+      `font-weight:700` + `letter-spacing:.06em` + `text-transform:uppercase`).
+      **Founder decisions (AskUserQuestion 2026-08-01):** (1) **PLAN ONLY**; (2) **soft-green tint** pill for the
+      Billing/Tier labels (not the solid accent) — reuse the **existing PRO-pill palette**:
+      `background:var(--accent-soft)` (#e9f2ed) + `color:var(--accent-ink)` (#07503a). **No new hex.**
+      **How (KISS · admin-only · design-only · no new hex/dep):**
+      (a) The 3 headline descriptions are **identical inline styles** in
+      [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) — **L815 (Users), L936
+      (Trash), L1363 (Audit)** (`fontSize:11.5, color:var(--ink-faint), lineHeight:1.5, margin:"2px 2px 12px"`).
+      Replace all three with **one shared class** `.ci-app .adm-tab-desc { font-size:13.5px; color:var(--ink-faint);
+      line-height:1.5; margin:2px 2px 12px }` in
+      [`src/styles/admin-settings.css`](../../src/styles/admin-settings.css) — so all headline descriptions share
+      ONE source and can't drift (the "all of them" ask, done structurally). **Sweep Overview/Settings-home for any
+      other tab-level description** and apply the same class if one exists.
+      (b) `.ci-app .adm-count { font-size:13.5px }` (was 11px) — **note this class is shared by BOTH the Users and
+      Audit count rows**, so both move together (desired consistency; called out so it's intentional).
+      (c) `.ci-app .adm-filter-label` → **`font-size:13.5px`** + `background:var(--accent-soft);
+      color:var(--accent-ink); padding:2px 10px; border-radius:999px;` while **keeping** `align-self:center;
+      font-weight:700; letter-spacing:.06em; text-transform:uppercase;`. The pill affects only the two Users-tab
+      labels; verify vertical alignment against the adjacent `.adm-chip` filter buttons.
+      **⚠️ Keep-color / grep-before-bump:** keep the description **colour** as `var(--ink-faint)` (do NOT adopt the
+      mockup's `#55534b` — founder said size only, and no new hex); `.adm-count` / `.adm-filter-label` are
+      admin-only classes (safe to bump within `.ci-app` admin), but confirm no non-admin surface reuses them
+      before changing (the ADMIN-UI-5 `.adm-mini` / `.grid-auto` trap).
+      **One judgment call (deferred):** whether to also match the mockup's `line-height:1.55` + `max-width:78ch`
+      on the description for fuller fidelity — the founder asked for **size only**, so not doing it unless asked.
+      **DoD:** all headline descriptions render at 13.5px from one `.adm-tab-desc` class; "N users" + the Audit
+      count at 13.5px; Billing/Tier labels at 13.5px on a soft-green pill (uppercase/bold kept); wording + other
+      colours unchanged (`getComputedStyle` on `.adm-tab-desc`, `.adm-count`, `.adm-filter-label` font-size + the
+      pill `background`); `test:unit` green · `build` clean · browser-verified owner desktop 1280 + mobile 375;
+      light-paper only, no new hex, no new dependency.
+
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
 Canonical: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) (scored gap-audit vs. external
