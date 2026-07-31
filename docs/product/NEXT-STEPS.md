@@ -12,6 +12,103 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## AUTH-DUP. Prevent duplicate-signup double-submit + admin dedupe detector  (📋 PLAN — 2026-08-01; NOT built)
+
+Founder report (2026-08-01, with a screenshot showing **two `mark@test.com` rows** in the admin
+Users list): pressing **Create Account / Log in** twice within 1–2 seconds — because the button
+didn't respond fast enough — created **duplicate accounts for the same email**. Fix the double-submit
+and give the owner a way to see any duplicates that already exist.
+
+**Root cause (verified in code):** `handleAuth` ([`src/CryptoIdea.jsx`](../../src/CryptoIdea.jsx) ~L282)
+is `async` and `await`s `registerUser` / `loginUser`, but the submit button
+([`src/components/Login.jsx`](../../src/components/Login.jsx) ~L214) is a plain `type="submit"` that
+is **never disabled while the request is in flight**, and there's **no re-entry lock**. A second
+click (or Enter) before the first `await` resolves fires a **second `registerUser` concurrently**.
+The seed script creates admin/admin2/manager/legacy/free/pro only — never `mark` — so the two `mark`
+rows came from the real flow firing twice.
+
+**Prod vs development — important, and the reason this is lower-blast-radius than it looks:**
+- **Production** (real Firebase Auth / Identity Platform) enforces email uniqueness **transactionally**
+  — the second concurrent `createUserWithEmailAndPassword` is rejected with `auth/email-already-in-use`,
+  so **two accounts with the same email cannot both be created**. The double-click just produces an
+  ugly error.
+- **Development** (the Auth **emulator**) is a lightweight single-process check with no concurrency
+  constraint, so two near-simultaneous creates can **both** slip past the "email exists?" test → two
+  accounts. **This is what produced the duplicate `mark` rows** — an emulator artifact, not a
+  production outcome.
+- The double-submit itself is a real bug in **both** environments; production merely hides the worst
+  symptom.
+
+**Firestore-rules clarification (answers "check rules / I need enforcement rules"):** Firestore
+security rules **cannot** enforce email uniqueness — a rule only sees the one document being written
+and can't query "does any *other* user doc already use this email?" ([`firestore.rules`](../../firestore.rules)
+validates each user doc's *shape* only). The email-uniqueness "rule" already exists — it lives in
+**Firebase Auth**, not in firestore.rules. So the real defenses are the client in-flight lock (below)
+plus Auth's native constraint; a Firestore rule is the wrong tool here.
+
+### Part A — Client in-flight lock (the fix; founder chose "client lock only", KISS)
+
+The single always-correct fix — stop the button from firing twice at the source. No new backend
+(founder declined the server-callable pre-check; Auth's native uniqueness is the server guarantee in
+prod).
+
+- **Hard re-entry lock:** a `useRef` `authBusyRef` in `handleAuth`. At the top: `if (authBusyRef.current) return;`.
+  Keep the existing **synchronous** validation early-returns *before* taking the lock (so a validation
+  bail-out never leaves it stuck), then set `authBusyRef.current = true` immediately before the async
+  auth call and reset it in a **`finally`**. A ref (not state) is the reliable lock because a state
+  update is async and wouldn't block a same-tick second call.
+- **Visual disable:** a companion `authBusy` **state** (set/cleared alongside the ref) exposed via
+  context, driving the button in Login.jsx: `disabled={authBusy}` with a busy label
+  (`"Creating account…"` / `"Logging in…"`). This also disables the Enter-key resubmit, since the form's
+  `onSubmit` runs the same guarded `handleAuth`.
+- **Both flows:** applies to **login and register** (founder said "login or register button"). Login
+  double-submit can't duplicate an account, but the same lock removes the double request + error flash.
+
+### Part B — Admin duplicate-email detector (founder chose "also add a detector")
+
+A **read-only** owner-facing check that flags any two accounts sharing an email — also catches the one
+*production* path that can still surface a same-email pair: someone soft-deletes (trash) then
+re-registers the same email before the 30-day purge.
+
+- **New read-only callable** `findDuplicateEmails` in [`functions/index.js`](../../functions/index.js),
+  modeled on the existing `listUsers` (L1311) — **admin-claim-gated**, iterates `admin.auth().listUsers`
+  pages up to the same 5000 cap, groups by **lowercased** email, and returns only emails with **≥2
+  accounts**, each with minimal fields (`uid`, `email`, `tier`/`disabled`/`creationTime`). Auth is the
+  source of truth for "how many accounts exist" (hard-deleted users are already gone; a soft-deleted one
+  is still an Auth user, shown with `disabled: true` so the owner can tell which to remove). Read-only —
+  no new write path.
+- **Pure grouping helper** (unit-testable, e.g. `src/utils/…` or a functions helper): given a list of
+  `{uid,email,…}`, return a map of `lowercased-email → [accounts]` filtered to `length ≥ 2`. This is the
+  bit the test pins.
+- **Admin UI:** a small read-only section/card (Overview or Users tab) — **"Duplicate emails: N"**,
+  expandable to list each email and its accounts (uid, tier, created, disabled). The owner resolves via
+  the **existing** delete/trash flow; the detector only *reads*. Admin is **light-paper only** — no
+  dark-mode work. Scope any new CSS class under the admin root (grep before reusing a class name — the
+  `.adm-note` / `.grid-auto` collision trap).
+
+### Existing `mark` dupes (cleanup)
+
+They're a local-emulator artifact. Clear them by resetting the emulator data — delete `./emulator-data`
+(start empty) or delete it then `npm run seed` (reset to the 6-account baseline). No production concern;
+no code needed for cleanup.
+
+**Acceptance:**
+- **A:** invoking `handleAuth` twice in the same tick calls `registerUser` **exactly once** (unit test
+  with a mocked, slow-resolving `registerUser`); the button is `disabled` with a busy label during the
+  await; same guard proven for login. Manual: rapid double-click Create Account in the emulator produces
+  **one** account, not two.
+- **B:** the pure grouping helper returns only emails with ≥2 accounts, **case-insensitively**, and
+  excludes single-account emails (unit test); the `findDuplicateEmails` callable re-checks the admin
+  claim and returns minimal read-only fields; the UI shows the count and the offending accounts.
+
+**Security note (secure-by-design):** no new write surface — Part A is client-only UX + the existing
+Auth constraint; Part B is one admin-gated read-only callable returning minimal fields. Both fit KISS.
+
+**Status: PLAN ONLY — not built.** Approach + both founder decisions (client-lock-only, add detector)
+are locked; awaiting the go-ahead to build.
+
+---
+
 ## ADMIN-JOBS. Human-readable scheduled-job labels  (📋 PLAN — 2026-08-01; display-only, NOT built)
 
 Founder ask (2026-08-01): the admin **Overview → System status strip** lists each scheduled job by
