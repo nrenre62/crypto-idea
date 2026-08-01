@@ -3277,6 +3277,89 @@ verified live on the emulator). Original spec below.
 
 ---
 
+## AI-CHAT-SWITCH. Owner switch to hide + disable the Research "Ask" chat (client-side)  (📋 STAGED 2026-08-01 — NOT queued to the BUILD-LOOP)
+
+> **Staged, not queued.** This spec is finished and approved (2026-08-01 interview) but is
+> **deliberately NOT in the [`BUILD-LOOP.md`](BUILD-LOOP.md) ledger** — add a ledger row to build it.
+> Gate: 🟩 GREEN (all decisions locked). Blast radius: moderate — Research feature components + admin
+> bundle + one `functions/features.js` string. **No `firestore.rules` change, no new callable, no
+> data-model change** (the switch already exists in `config/app.flags.features.aiResearch` and is
+> already published on `/api/config`).
+
+### Why
+`functions/features.js` already declares an **`aiResearch`** kill-switch and there's already an owner
+toggle for it in admin App Controls — but **nothing on the client reads it**, so flipping it does
+nothing a user can see (the admin sub-text even admits "nothing to gate today"). The Research **"Ask"
+chat** (`AskView` + `useAsk`) is a fully client-side feature (offline canned answers about the caller's
+already-loaded holdings — no server call, no key, no cost). This increment gives the existing switch
+its first real effect: **OFF ⇒ the Ask chat is hidden and unreachable on the client; ON ⇒ it's visible
+and working.** Default ON (a kill-switch only fires when deliberately flipped).
+
+### Decisions (locked — 2026-08-01 interview)
+1. **What OFF hides:** ONLY the Ask chat. The Overview daily-brief/Pulse and the Coins list stay.
+2. **Which switch:** reuse the existing `aiResearch` flag (no new flag — KISS).
+3. **Off-state UX:** the "Ask" tab simply disappears (2 tabs remain: Overview, Coins). No message.
+4. **Toggle location:** MOVE the toggle out of App Controls onto the admin **AI settings screen** (with
+   the Anthropic key). Still owner-only behind step-up re-auth (same `saveFeature`/`saveConfig` path).
+
+### Honesty / security note ("cannot be accessed any way")
+- **Today** the chat is 100% client-side, so hiding the two entry buttons + forcing the tab away removes
+  *every* way to reach it — there is no server surface to bypass, and no URL route to the chat (it's
+  internal tab state), so client hiding IS the whole boundary today.
+- **Forward requirement (recorded, NOT built now):** when the Wave-B `researchAsk` server proxy ships,
+  client hiding stops being sufficient. That proxy MUST call `featureEnabled(cfg,'aiResearch')` and
+  refuse (deny-by-default) when OFF, so the switch becomes a real server boundary. Same flag — no new
+  switch. (Noted here so it can't be forgotten when the proxy is built.)
+
+### Scope / consistency sweep (change in EVERY file below — no drift)
+- **[`src/features/research/Research.jsx`](../../src/features/research/Research.jsx)** — derive
+  `chatEnabled = !(site?.features?.aiResearch === false)` (mirror the existing `pricesPaused` line for
+  `marketData`) and pass `chatEnabled` to `ResearchTab`.
+- **[`src/features/research/components/ResearchTab.jsx`](../../src/features/research/components/ResearchTab.jsx)** — accept `chatEnabled = true`:
+  - Build `TABS` without the `{id:'ask'}` entry when `!chatEnabled`.
+  - Keep `const ask = useAsk(...)` called **unconditionally** (rules-of-hooks) — only gate rendering.
+  - Never render `<AskView>` when `!chatEnabled`; if `tab === 'ask'` while `!chatEnabled` (flag flips
+    live), fall back to `'overview'` so a stale tab can't show a hidden view.
+  - Pass `onAsk={chatEnabled ? askAboutCoin : undefined}` to `CoinsView`.
+- **[`src/features/research/components/CoinsView.jsx`](../../src/features/research/components/CoinsView.jsx)** — forward `onAsk` (already a prop) unchanged; it's `undefined` when the chat is off.
+- **[`src/features/research/components/CoinCard.jsx`](../../src/features/research/components/CoinCard.jsx)** — render the `.cc-ask` "Ask AI about {name}" button only when `onAsk` is a function (`{onAsk && <button …>}`).
+- **[`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx)** —
+  - REMOVE the `aiResearch` `<CtrlRow>` from the App Controls list (currently ~L1162–1165).
+  - ADD the toggle to the **AI** settings screen block (`settingsView === "ai"`, ~L1264–1276): a
+    `<CtrlRow icon={SI.ai} label="AI research chat" sub="…">` with a `<Switch checked={controls.features.aiResearch !== false}
+    onChange={… saveFeature("aiResearch", …)} />`. Sub-text states the real effect: "Off = hides the
+    Research → Ask chat for all users now; when live AI ships it also stops the server AI proxy."
+  - Fix the AI screen `card-sub` so it no longer implies the switch does nothing.
+- **[`functions/features.js`](../../functions/features.js)** — update the `aiResearch` description string
+  (L18) to reflect it now also gates the client Ask chat (single source of truth stays honest). Logic
+  unchanged.
+- **[`src/CryptoIdea.jsx`](../../src/CryptoIdea.jsx)** — NO change (already reads `site.features.aiResearch`
+  and exposes `site` via context).
+- **`/api/config` / [`openapi.json`](../../openapi.json) / [`API-SECURITY.md`](../security/API-SECURITY.md)** —
+  NO schema change (`aiResearch` already in the published `features` map). Add the forward
+  server-enforcement note to API-SECURITY when the proxy ships (not now).
+
+### Acceptance (write RED first, then make green — never weaken a test)
+- **`tests/unit/` ResearchTab (new or extend the existing research test):**
+  - ON (flag unset or `aiResearch !== false`): the **"Ask" tab** button renders; a coin card renders its
+    **"Ask AI about …"** button.
+  - OFF (`site.features.aiResearch === false`): **no** "Ask" tab button; `AskView` never in the tree;
+    **no** "Ask AI about …" button on cards; forcing `tab='ask'` renders Overview (fallback), not chat.
+- **`tests/unit/admin-dashboard.test.jsx`:** the `aiResearch` toggle now renders on the **AI** screen (and
+  is absent from App Controls) and still calls `saveFeature("aiResearch", …)`.
+- **`functions/features.js`** unit tests already green (string-only change; assert the key still exists).
+
+### Definition of Done
+- `npm run test:unit` (standalone) + `npm run build` (no-names guard) green/clean.
+- Browser-verify (emulator stack runs on Java 21): as owner, flip the AI-chat switch OFF on the AI screen
+  → reload a user session → Research tab shows only Overview + Coins, no Ask tab, no "Ask AI about"
+  button; flip ON → the Ask tab + button return and the chat answers. (~60s cache.)
+- No `firestore.rules` change ⇒ no `test:rules` requirement. No new dependency, no new hex.
+- Docs: CLAUDE.md Research-tab + ADMIN-2 notes updated; this Status line flipped to ✅ BUILT; commit.
+- Forward requirement (proxy server-enforcement) recorded, explicitly deferred to Wave-B.
+
+---
+
 ## Commands
 
 | Command | What |
