@@ -109,7 +109,7 @@ are locked; awaiting the go-ahead to build.
 
 ---
 
-## TX-SAFE. Buy/Sell numeric-input hardening + one-tap-deletes-only-one-transaction  (📋 PLAN — 2026-08-01; NOT built)
+## TX-SAFE. Buy/Sell numeric-input hardening + one-tap-deletes-only-one-transaction  (✅ BUILT 2026-08-01 · client-only)
 
 Founder report (2026-08-01, client-side user app, account `mark@test.com`, coin **HYPE**; two
 screenshots):
@@ -206,8 +206,24 @@ irreversible financial data; the user removes any unwanted rows manually.
 existing server bounds; Part B removes a local-state duplication bug and reuses the existing
 per-doc delete. Pure helpers are unit-tested; no new dependency.
 
-**Status: PLAN ONLY — not built.** Cap (15, both fields), keep-spinners + keep-`.`, and
-fix-root-cause+symptom are locked; awaiting the go-ahead to build.
+**Status: ✅ BUILT 2026-08-01 (client-only; no backend/rules).**
+- **Part A** — three pure helpers in [`src/utils/format.js`](../../src/utils/format.js):
+  `sanitizeDecimal` (keep digits + at most one dot, cap 15 digit chars, strip `e`/`E`/`+`/`-`/
+  extra dots), `blockDecimalKey` (keydown guard, **badInput-aware** so a 2nd dot can't slip
+  through the number input's own `.value` sanitization), `normalizeLeadingDot` (`.5`→`0.5` on
+  blur). Both fields in [`AddEntry.jsx`](../../src/components/AddEntry.jsx) wired through
+  onChange + onKeyDown + onPaste + onBlur; `type="number"`, spinners, and the single `.` all
+  stay (locked decisions). The server bound (`_amt>1e15`/`_prc>1e9`) stays the source of truth
+  and is now commented against the 15-digit client cap so they can't drift.
+- **Part B** — `appendUnique` (idempotent optimistic append in `addEntry`, mirrors `addCoin`) +
+  `dedupeById` (defensive render dedupe in [`Detail.jsx`](../../src/components/Detail.jsx)) +
+  a `useRef` re-entry lock + `addingTx` busy state that disables the submit button while a
+  write is in flight. With unique ids restored, the existing single `confirmTxId` arms exactly
+  one row and `remEntry` deletes exactly one doc, at any list size.
+- **Verify:** 24 new tests (RED first, then green) — full suite **900/900**, build clean
+  (dist name-guard passed). Part A also confirmed in a **real browser** via an inlined replica
+  of the handlers (keydown blocks `e`/`E`/`+`/`-`/2nd-dot/16th-digit; input caps at 15; paste
+  sanitizes; blur normalizes) — the live Buy/Sell form is behind auth, so it wasn't logged into.
 
 ---
 

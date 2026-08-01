@@ -54,6 +54,7 @@ import { cleanFunnel } from "./utils/journal.js";
 import { apiErrorMessage } from "./utils/errors.js";
 import { getHistoricalPrice } from "./utils/coins.js";
 import { fmtPriceInput } from "./utils/format.js";
+import { appendUnique } from "./utils/tx.js";
 import { Loading } from "./components/Loading.jsx";
 import { AppContext } from "./hooks/app-context.js";
 import { ForgotPass } from "./components/ForgotPass.jsx";
@@ -158,6 +159,12 @@ export default function CryptoIdea(){
   const[editEntry,setEditEntry]=useState(null);
   const[infoCoin,setInfoCoin]=useState(null);
   const[eTxType,setETxType]=useState("buy");
+  // TX-SAFE (Part B): submit re-entry guard + busy state — a double-click (or a 2nd call
+  // in the same tick, before addingTx re-renders) must not fire two writes / create two
+  // duplicate transaction docs. The ref blocks the same-tick re-entry; addingTx disables
+  // the button (AddEntry) while the write awaits. Same pattern as AUTH-DUP Part A.
+  const addingRef=useRef(false);
+  const[addingTx,setAddingTx]=useState(false);
 
 
   useEffect(()=>{
@@ -709,6 +716,7 @@ export default function CryptoIdea(){
     setScreen("addEntry");
   };
   const addEntry=async()=>{if(!eAmt||!ePrice)return;
+    if(addingRef.current)return;   // TX-SAFE: ignore a re-entrant call while a write is in flight
     if(blockedOffline())return;
     // R10-2b: only positive numbers (rules enforce amount>0 / priceAtBuy>=0). Catch it
     // here with a clear message BEFORE any write, so a negative/zero never reaches the
@@ -717,7 +725,10 @@ export default function CryptoIdea(){
     if(!(_amt>0)){showErr("Amount must be a positive number.");return}
     if(!(_prc>0)){showErr("Price must be a positive number.");return}
     // DI-1: mirror the rules' upper bounds so an out-of-range value gets a clear message
-    // BEFORE the write (never mislabelled as the "transaction limit").
+    // BEFORE the write (never mislabelled as the "transaction limit"). TX-SAFE: the input
+    // fields cap typing at 15 digit chars (sanitizeDecimal), which keeps a typed amount
+    // under 1e15 and a price well under 1e9 — this server-side bound is the source of truth
+    // and the two must stay consistent (raise them together if the cap ever changes).
     if(_amt>1e15){showErr("That amount is too large.");return}
     if(_prc>1e9){showErr("That price is too large.");return}
     if(sel){
@@ -742,6 +753,10 @@ export default function CryptoIdea(){
       }
     }
     if(!user?.uid){showErr("Please sign in again");return}
+    // TX-SAFE: take the in-flight lock right before the write; try/finally releases it on
+    // every exit (success, an early return on a failed write, or a throw).
+    addingRef.current=true;setAddingTx(true);
+    try{
     if(editEntry){
       const txData={type:eTxType,amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate};
       const res=await dbUpdateTransaction(user.uid,activePortId,sel.id,editEntry.id,txData);
@@ -757,10 +772,14 @@ export default function CryptoIdea(){
         if(res.reason==="limit"){reconcileCounters("You've reached this coin's transaction limit — upgrade for more.");return}
         failToast(res,"Couldn't add transaction. Check your connection.","You've reached this coin's transaction limit — upgrade for more.");return}
       const en={id:res.id,...txData,createdAt:Date.now()};
-      setPortfolio(p=>p.map(c=>c.id===sel.id?{...c,entries:[...c.entries,en]}:c));
-      setSel(p=>({...p,entries:[...p.entries,en]}));
+      // TX-SAFE: idempotent optimistic append — the live watcher (dbWatchCoins) has often
+      // already delivered this same doc id, so guard the append (mirror addCoin's guard) or
+      // it lands twice → duplicate React key → one delete removes both rows.
+      setPortfolio(p=>p.map(c=>c.id===sel.id?{...c,entries:appendUnique(c.entries,en)}:c));
+      setSel(p=>({...p,entries:appendUnique(p.entries,en)}));
     }
-    setEAmt("");setEPrice("");setEditEntry(null);setScreen("detail")};
+    setEAmt("");setEPrice("");setEditEntry(null);setScreen("detail");
+    }finally{addingRef.current=false;setAddingTx(false);}};
   const remEntry=async(cid,eid)=>{
     const coin=portfolio.find(c=>c.id===cid);if(!coin)return;
     const remaining=coin.entries.filter(e=>e.id!==eid).sort((a,b)=>new Date(a.date)-new Date(b.date));
@@ -915,7 +934,7 @@ export default function CryptoIdea(){
   const ctx={api,setScreen,fpEmail,setFpEmail,fpErr,setFpErr,resetSent,setResetSent,handleReset,showErr,
     user,contactMsg,setContactMsg,contactSent,setContactSent,
     sq,setSq,searchResults,trending,portfolio,addCoin,reviewThesis,saveFunnel,addThesis,editThesis,deleteThesis,
-    sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,
+    sel,setSel,eAmt,setEAmt,ePrice,setEPrice,eDate,setEDate,eTxType,setETxType,editEntry,setEditEntry,addEntry,addingTx,
     startAddTx,isDesktop,
     infoCoin,setInfoCoin,openCoinInfo,prices,
     remCoin,remEntry,

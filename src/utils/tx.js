@@ -28,6 +28,28 @@ export function sortTx(entries) {
   });
 }
 
+// TX-SAFE (Part B): append a row only if its id isn't already present. The live watcher
+// (dbWatchCoins) has often already delivered the same Firestore doc id that the optimistic
+// path is about to add, so an unconditional append would land it TWICE — a duplicate React
+// key, which let a single delete arm/remove both rows. Mirrors addCoin's existing guard
+// (CryptoIdea.jsx). Pure; returns the SAME array reference when it's a no-op.
+export function appendUnique(entries, row) {
+  const arr = entries || [];
+  return arr.some(x => x.id === row.id) ? arr : [...arr, row];
+}
+
+// TX-SAFE (Part B): drop any duplicate-id rows, keeping the first occurrence — a
+// belt-and-suspenders render guard so a duplicate id can never produce two rows / a
+// duplicate key even if one slips into local state. Pure.
+export function dedupeById(entries) {
+  const seen = new Set();
+  return (entries || []).filter(e => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+}
+
 // R19-4: windowed page numbers for the transaction pager — always the first + last page
 // plus a small window around the current one, with "…" for the gaps.
 // e.g. pageWindow(6, 20) → [1, "…", 5, 6, 7, "…", 20].

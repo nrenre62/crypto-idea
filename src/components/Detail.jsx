@@ -6,7 +6,7 @@ import { c } from "../utils/theme.js";
 import { Ic } from "./ui.jsx";
 import { CoinIcon } from "./CoinIcon.jsx";
 import { Modal } from "./Modal.jsx";
-import { sortTx, pageWindow } from "../utils/tx.js";
+import { sortTx, pageWindow, dedupeById } from "../utils/tx.js";
 // (Round 15: shared centered-card popup)
 
 // Coin detail: live price, holdings + P/L summary, and the transaction list (each
@@ -47,8 +47,10 @@ export function Detail() {
   const coin=selCoin;
   const p=prices[coin.id];const pr=p?.usd;const ch=p?.usd_24h_change;const mc=p?.usd_market_cap;
   const { holding:h, value:v, buysCost, sellsGain, pnl:totalPnl, pnlPct:totalPnlPct } = coinPnl(coin.entries, pr);
-  // R19-5 newest-first order (date desc, createdAt tie-break) + R19-4 slice to the page.
-  const sorted = sortTx(coin.entries);
+  // R19-5 newest-first order (date desc, createdAt tie-break) + TX-SAFE dedupe-by-id
+  // (belt-and-suspenders: a duplicate id can never render two rows / collide a React key,
+  // which is what let one delete arm+remove two rows) + R19-4 slice to the page.
+  const sorted = dedupeById(sortTx(coin.entries));
   const PAGE_SIZE = 50;
   const pages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const pg = Math.min(txPage, pages);

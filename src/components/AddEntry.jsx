@@ -1,6 +1,6 @@
 import { useApp } from "../hooks/app-context.js";
 import { useCoinHistory } from "../hooks/useCoinHistory.js";
-import { fmtP, fmtPriceInput } from "../utils/format.js";
+import { fmtP, fmtPriceInput, sanitizeDecimal, blockDecimalKey, normalizeLeadingDot } from "../utils/format.js";
 import { TOP_COINS, getHistoricalPrice, priceAtDate } from "../utils/coins.js";
 import { Ic, CI } from "./ui.jsx";
 
@@ -12,8 +12,21 @@ import { Ic, CI } from "./ui.jsx";
 export function AddEntry() {
   const {
     sel, eAmt, setEAmt, ePrice, setEPrice, eDate, setEDate,
-    eTxType, setETxType, editEntry, setEditEntry, addEntry, setScreen, isDesktop,
+    eTxType, setETxType, editEntry, setEditEntry, addEntry, setScreen, isDesktop, addingTx,
   } = useApp();
+  // TX-SAFE (Part A): keydown guard for the number fields — preventDefault the keys that
+  // would push an <input type=number> into the "badInput" state (e/E/+/-, a 2nd dot, a
+  // 16th digit). Skipped while a modifier is held so Ctrl/Cmd shortcuts (copy/paste/
+  // select-all) are never touched; paste + spinner are backstopped by sanitizeDecimal.
+  // A number input sanitizes a trailing-dot value ("1.") to "" and flags validity.badInput,
+  // hiding the dot from .value — so treat badInput as "a dot is already present" to keep a
+  // second dot from slipping through.
+  const onDecimalKeyDown = (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const el = e.target;
+    const raw = el.value || (el.validity && el.validity.badInput ? "." : "");
+    if (blockDecimalKey(e.key, raw)) e.preventDefault();
+  };
   const coinData = sel ? TOP_COINS.find(x => x.id === sel.id) : null;
   const launchDate = coinData?.launch || "2013-04-28";
   const launchDateTime = launchDate + "T00:00";
@@ -65,15 +78,26 @@ export function AddEntry() {
         </div>
         <div>
           <label className="field-label">Amount ({sel?.symbol})</label>
-          {/* R10-2a: only positive numbers — strip any "-" on input + min/inputMode so
-              a negative can't be typed/pasted/spun (server rejects amount>0; addEntry
-              also validates before the write). */}
-          <input type="number" step="any" min="0" inputMode="decimal" value={eAmt} onChange={e=>setEAmt(e.target.value.replace(/-/g,""))} placeholder="0.00" className="field-input"/>
+          {/* R10-2a + TX-SAFE: only positive decimals. sanitizeDecimal (onChange + paste)
+              strips e/E/+/-/extra dots and caps at 15 digit chars; onDecimalKeyDown stops
+              those keys before the field can enter the badInput state; the single "." + the
+              spinners stay. Server still bounds magnitude before the write (defense in depth). */}
+          <input type="number" step="any" min="0" inputMode="decimal" value={eAmt}
+            onChange={e=>setEAmt(sanitizeDecimal(e.target.value))}
+            onKeyDown={onDecimalKeyDown}
+            onPaste={e=>{e.preventDefault();setEAmt(sanitizeDecimal((e.clipboardData||window.clipboardData).getData("text")))}}
+            onBlur={()=>setEAmt(normalizeLeadingDot(eAmt))}
+            placeholder="0.00" className="field-input"/>
         </div>
         <div>
           <label className="field-label">Price per coin (USD)</label>
           <div className="price-wrap">
-            <input type="number" step="any" min="0" inputMode="decimal" value={ePrice} onChange={e=>setEPrice(e.target.value.replace(/-/g,""))} placeholder="0.00" className="field-input"/>
+            <input type="number" step="any" min="0" inputMode="decimal" value={ePrice}
+              onChange={e=>setEPrice(sanitizeDecimal(e.target.value))}
+              onKeyDown={onDecimalKeyDown}
+              onPaste={e=>{e.preventDefault();setEPrice(sanitizeDecimal((e.clipboardData||window.clipboardData).getData("text")))}}
+              onBlur={()=>setEPrice(normalizeLeadingDot(ePrice))}
+              placeholder="0.00" className="field-input"/>
             {/* R4-5: AUTO is always shown when a market price exists for this coin+date,
                 and is clickable to (re)apply it — so after editing the price, or switching
                 coins, you can always snap back to the market price. `.on` = price matches. */}
@@ -92,7 +116,9 @@ export function AddEntry() {
             <span className="tx-total-amt">${(parseFloat(eAmt||0)*parseFloat(ePrice||0)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
           </div>
         )}
-        <button onClick={addEntry} disabled={!eAmt||!ePrice} className={"submit-buy"+(eTxType==="sell"?" submit-sell":"")}>{editEntry?"Save Changes":eTxType==="sell"?"Add Sell":"Add Buy"}</button>
+        {/* TX-SAFE (Part B): disabled + busy label while a write is in flight, so a
+            double-click can't fire two writes (two duplicate transaction docs). */}
+        <button onClick={addEntry} disabled={!eAmt||!ePrice||addingTx} className={"submit-buy"+(eTxType==="sell"?" submit-sell":"")}>{addingTx?"Saving…":editEntry?"Save Changes":eTxType==="sell"?"Add Sell":"Add Buy"}</button>
       </div>
     </div>
   );

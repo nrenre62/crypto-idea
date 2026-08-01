@@ -80,16 +80,17 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     expect(price.value).toBe("25.5");
   });
 
-  // TX-SAFE (Part A): onChange runs sanitizeDecimal — the "field full of e" garbage the
-  // founder reported can no longer be entered, and the value is capped at 15 digits.
-  it("TX-SAFE: onChange sanitizes garbage (e/+/second dot) out of Amount and Price", () => {
+  // TX-SAFE (Part A): pasting a formatted/garbage number is sanitized into the field.
+  // (Paste is the case sanitizeDecimal uniquely handles — a number input already strips
+  // invalid TYPED chars to ""; the garbage-string detail is covered by format.test.js.)
+  it("TX-SAFE: pasting a formatted/garbage number is sanitized into Amount and Price", () => {
     const { container } = render(<Harness />);
     const inputs = container.querySelectorAll(".field-input");
     const amount = inputs[0], price = inputs[1];
-    fireEvent.change(amount, { target: { value: "12.3.4e5+" } });
-    expect(amount.value).toBe("12.345");        // single dot kept, e/+/2nd-dot dropped
-    fireEvent.change(price, { target: { value: "1e9" } });
-    expect(price.value).toBe("19");
+    fireEvent.paste(amount, { clipboardData: { getData: () => "$12.3.4e5+" } });
+    expect(amount.value).toBe("12.345");        // $ , e, + and the 2nd dot stripped; one dot kept
+    fireEvent.paste(price, { clipboardData: { getData: () => "1,234.56" } });
+    expect(price.value).toBe("1234.56");
   });
   it("TX-SAFE: onChange caps Amount at 15 digit chars", () => {
     const { container } = render(<Harness />);
@@ -98,13 +99,17 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     expect(amount.value).toBe("123456789012345"); // 15
   });
   it("TX-SAFE: onKeyDown blocks e/E/+/- and a 2nd dot, but allows digits and the 1st dot", () => {
-    const { container } = render(<Harness amt="1." />);
+    // "1.2" is a valid number the input preserves; the dot logic is also unit-tested purely.
+    const { container } = render(<Harness amt="1.2" />);
     const amount = container.querySelectorAll(".field-input")[0];
     // fireEvent.keyDown returns false when the handler called preventDefault()
     expect(fireEvent.keyDown(amount, { key: "e" })).toBe(false);
     expect(fireEvent.keyDown(amount, { key: "+" })).toBe(false);
-    expect(fireEvent.keyDown(amount, { key: "." })).toBe(false); // "1." already has a dot
+    expect(fireEvent.keyDown(amount, { key: "." })).toBe(false); // "1.2" already has a dot
     expect(fireEvent.keyDown(amount, { key: "5" })).toBe(true);  // a digit is allowed
+    // a FIRST dot is allowed when none is present yet
+    const { container: c2 } = render(<Harness amt="12" />);
+    expect(fireEvent.keyDown(c2.querySelectorAll(".field-input")[0], { key: "." })).toBe(true);
   });
 
   // TX-SAFE (Part B): the submit button is disabled + shows a busy label while a write
