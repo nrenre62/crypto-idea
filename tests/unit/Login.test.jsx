@@ -14,6 +14,8 @@ const base = {
   authMode: "login", setAuthMode: vi.fn(), authErr: "", setAuthErr: vi.fn(),
   authName: "", setAuthName: vi.fn(), authEmail: "", setAuthEmail: vi.fn(),
   authPass: "", setAuthPass: vi.fn(), handleAuth: vi.fn(), site: { signupsEnabled: true },
+  // AUTH-DUP (Part A): the in-flight busy flag that disables the submit button.
+  authBusy: false,
   authAgreeTerms: false, setAuthAgreeTerms: vi.fn(),
   authAgreePrivacy: false, setAuthAgreePrivacy: vi.fn(),
   authAgreeMarketing: false, setAuthAgreeMarketing: vi.fn(),
@@ -197,6 +199,29 @@ describe("Login screen (extracted, via AppContext)", () => {
     expect(form).toBeTruthy();
     fireEvent.submit(form);
     expect(handleAuth).toHaveBeenCalledTimes(1);
+  });
+
+  // ── AUTH-DUP (Part A): the submit button reflects the in-flight lock — disabled with a
+  //    busy label while authBusy, so a rapid second click / Enter can't fire again. ──
+  describe("AUTH-DUP Part A — in-flight submit button", () => {
+    it("register: enabled 'Create Account' when idle, disabled 'Creating account…' when busy", () => {
+      const { rerender } = render(
+        <AppContext.Provider value={{ ...base, authMode: "register", authBusy: false }}><Login /></AppContext.Provider>
+      );
+      let btn = screen.getByRole("button", { name: "Create Account" });
+      expect(btn).not.toBeDisabled();
+      rerender(<AppContext.Provider value={{ ...base, authMode: "register", authBusy: true }}><Login /></AppContext.Provider>);
+      btn = screen.getByRole("button", { name: "Creating account…" });
+      expect(btn).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Create Account" })).toBeNull();
+    });
+
+    it("login: disabled 'Logging in…' while busy", () => {
+      provide({ authMode: "login", authBusy: true });
+      const btn = screen.getByRole("button", { name: "Logging in…" });
+      expect(btn).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Log in" })).toBeNull();
+    });
   });
 
   it("the mode-toggle buttons are type=button so they don't submit the form", () => {

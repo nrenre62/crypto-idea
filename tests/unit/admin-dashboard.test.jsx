@@ -18,6 +18,11 @@ vi.mock("../../src/api/admin.js", () => ({
   ])),
   listAudit: vi.fn(() => Promise.resolve([])),
   listWebhookEvents: vi.fn(() => Promise.resolve([])),   // ADMIN-1: Overview billing card
+  // AUTH-DUP (Part B): Overview duplicate-email detector. A missing mock would make the
+  // wrapper undefined, loadDupEmails would throw, and the card would render its error
+  // path while the suite still went green — the ADMIN-2/ADMIN-4 mock-gap trap. Default
+  // to the clean pre-launch state (no duplicates).
+  findDuplicateEmails: vi.fn(() => Promise.resolve({ groups: [], duplicateEmails: 0, capped: false })),
   listDailyStats: vi.fn(() => Promise.resolve([])),      // ADMIN-4: Overview growth card
   captureStatsSnapshot: vi.fn(() => Promise.resolve({ date: "2026-07-24" })),
   // ADMIN-2: Overview status strip. A missing mock here would leave the wrapper
@@ -72,7 +77,7 @@ vi.mock("../../src/api/admin-auth.js", () => ({
 }));
 
 import AdminDashboard, { JOB_META } from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser } from "../../src/api/admin.js";
 import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
 describe("admin-dashboard", () => {
@@ -412,6 +417,39 @@ describe("admin-dashboard", () => {
     await waitFor(() => expect(listWebhookEvents).toHaveBeenCalled());
     expect(await screen.findByText("Billing & webhooks")).toBeInTheDocument();
     expect(await screen.findByText(/empty list is expected before launch/i)).toBeInTheDocument();
+  });
+
+  /* ═══ AUTH-DUP (Part B) — Overview duplicate-email detector ═══ */
+
+  it("AUTH-DUP: the Overview shows the all-clear when there are no duplicate emails", async () => {
+    // Default findDuplicateEmails mock returns { duplicateEmails: 0 }.
+    render(<AdminDashboard />);
+    await waitFor(() => expect(findDuplicateEmails).toHaveBeenCalled());   // loads on the Overview tab
+    expect(await screen.findByText("Duplicate emails")).toBeInTheDocument();
+    expect(await screen.findByText(/No duplicate emails/i)).toBeInTheDocument();
+  });
+
+  it("AUTH-DUP: the Overview headlines the count and expands to list the offending accounts", async () => {
+    findDuplicateEmails.mockResolvedValueOnce({
+      groups: [
+        { email: "mark@test.com", count: 2, accounts: [
+          { uid: "u1", email: "mark@test.com", tier: "free", disabled: false, creationTime: "2026-08-01T10:00:00Z" },
+          { uid: "u2", email: "mark@test.com", tier: "pro", disabled: true, creationTime: "2026-08-01T10:00:01Z" },
+        ] },
+      ],
+      duplicateEmails: 1,
+      capped: false,
+    });
+    render(<AdminDashboard />);
+    await waitFor(() => expect(findDuplicateEmails).toHaveBeenCalled());
+    // The card headlines the count.
+    expect(await screen.findByText("Duplicate emails")).toBeInTheDocument();
+    expect(await screen.findByText(/1 email shared by 2\+ accounts/i)).toBeInTheDocument();
+    // Expand → the offending email + both account uids appear.
+    fireEvent.click(screen.getByRole("button", { name: /Show accounts/i }));
+    expect(await screen.findByText("mark@test.com")).toBeInTheDocument();
+    expect(await screen.findByText(/u1/)).toBeInTheDocument();
+    expect(await screen.findByText(/u2/)).toBeInTheDocument();
   });
 
   /* ═══ ADMIN-3 — audit filter / pagination / export + source IP ═══ */
