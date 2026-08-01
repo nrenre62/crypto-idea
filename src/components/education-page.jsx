@@ -169,7 +169,7 @@ export default function EduDesign3() {
         </div>
 
         <div style={{ textAlign: "center", padding: "16px 24px", fontSize: 12, color: c.sub, borderTop: `1px solid ${c.border}` }}>
-          <a href="/" style={{ color: c.sub, textDecoration: "none" }}>Crypto Idea</a> · © 2026
+          <a href="/" style={{ color: c.sub, textDecoration: "none" }}>CryptoIdea</a> · © 2026
         </div>
       </footer>
     </div>

@@ -1,13 +1,13 @@
 #!/bin/bash
 # ═══════════════════════════════════════════
-# Crypto Idea — Deploy Script
+# CryptoIdea — Deploy Script
 # ═══════════════════════════════════════════
 # Usage: chmod +x deploy.sh && ./deploy.sh
 # ═══════════════════════════════════════════
 
 set -e
 
-echo "🚀 Crypto Idea — Deploy v4.0.0"
+echo "🚀 CryptoIdea — Deploy v4.0.0"
 echo "═══════════════════════════════"
 
 # Check prerequisites

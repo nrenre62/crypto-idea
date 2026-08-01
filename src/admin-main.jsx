@@ -1,5 +1,5 @@
 /**
- * Crypto Idea — Admin app (separate entry)
+ * CryptoIdea — Admin app (separate entry)
  * =========================================
  * A SEPARATE app from the user-facing one (app.html / main.jsx). The admin
  * dashboard code is not bundled into the user app, so regular users never

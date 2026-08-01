@@ -182,6 +182,18 @@ html[data-theme="dark"] .ci-app .trend-item { border-bottom-color:var(--edge); }
 .ci-app .badge-pro { color:var(--ai-2); background:rgba(63,125,240,.1); border:1px solid rgba(63,125,240,.2); }
 /* BETA badge — matches the Research tab's .beta exactly */
 .ci-app .beta { font-family:var(--body); font-size:9.5px; font-weight:700; letter-spacing:.1em; color:var(--ai-2); background:rgba(63,125,240,.09); padding:3px 7px; border-radius:6px; position:relative; top:-2px; }
+
+/* ── Brand logo (LOGO, 2026-08-01) — shared <Logo>: green "C" tile + "CryptoIdea".
+   Mirrors the landing .brand/.mark + admin .adm-logo using the app's OWN --accent
+   (a solid fill with a white letter is dark-safe on its own — no border, so it needs
+   no R18 --edge lift) + the --ink wordmark (flips light/dark). No image asset. Header
+   size is the default; .lg is the larger auth-screen variant. */
+.ci-app .ci-logo { display:inline-flex; align-items:center; gap:9px; font-family:var(--display); font-weight:600; letter-spacing:-.02em; color:var(--ink); line-height:1; }
+.ci-app .ci-logo-mark { flex:none; width:30px; height:30px; border-radius:9px; background:var(--accent); color:#fff; font-family:var(--display); font-weight:600; font-size:18px; display:grid; place-items:center; }
+.ci-app .ci-logo-word { font-size:26px; }
+.ci-app .ci-logo.lg { gap:12px; }
+.ci-app .ci-logo.lg .ci-logo-mark { width:46px; height:46px; border-radius:14px; font-size:27px; }
+.ci-app .ci-logo.lg .ci-logo-word { font-size:32px; }
 .ci-app .avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(155deg,#26241d,#15140f); color:var(--paper); display:grid; place-items:center; font-weight:700; font-size:13px; flex:none; }
 /* Persistent account avatar — top-right of every tab screen (opens Account) */
 .ci-app .screen-wrap { position:relative; }
@@ -516,8 +528,10 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 /* R27-3: the plan/billing flow BODY inside the desktop <Modal> — same centered column
    as auth-wrap, minus the full-height stretch (the Modal frames it). Token-based → dark-safe. */
 .ci-app .plan-pop { display:flex; flex-direction:column; align-items:center; text-align:center; padding:8px 0 4px; }
-.ci-app .auth-logo { font-family:var(--display); font-size:32px; font-weight:500; letter-spacing:-.02em; margin-bottom:4px; }
-.ci-app .auth-logo span { font-weight:700; }
+/* LOGO (2026-08-01): the auth screens now render the shared <Logo size="lg"/> here
+   (was the .auth-logo text lockup — rule removed as dead). It centers as a flex item
+   in .auth-wrap; this only restores the 4px gap the old lockup left above the tagline. */
+.ci-app.auth-wrap .ci-logo { margin-bottom:4px; }
 .ci-app .auth-tagline { font-size:13px; color:var(--ink-soft); margin-bottom:34px; }
 .ci-app .auth-col { width:100%; max-width:340px; display:flex; flex-direction:column; gap:13px; text-align:left; }
 /* R9-1a: align to the .seg pattern — a paper-3 track with a WHITE active pill (matches

@@ -1,5 +1,5 @@
 /**
- * Crypto Idea — Vite Configuration
+ * CryptoIdea — Vite Configuration
  *
  * Multi-page setup:
  *   index.html  → static marketing landing ("/")

@@ -44,7 +44,7 @@ export default function ProSuccess() {
           padding: "14px 40px", borderRadius: 100,
           background: c.txt, color: "#fff", textDecoration: "none",
         }}>
-          Open Crypto Idea
+          Open CryptoIdea
         </a>
 
         <div style={{ marginTop: 20, fontSize: 12, color: c.dim }}>

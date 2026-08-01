@@ -1,5 +1,5 @@
 /**
- * Crypto Idea - Database Module
+ * CryptoIdea - Database Module
  * ==============================
  * Firestore CRUD for portfolios, coins, and transactions
  * 

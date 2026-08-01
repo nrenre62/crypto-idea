@@ -1,5 +1,5 @@
 /**
- * Crypto Idea — Cloud Functions (PayPal)
+ * CryptoIdea — Cloud Functions (PayPal)
  * ========================================
  *
  * SETUP:
@@ -421,7 +421,7 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
       subscriber: email ? { email_address: email } : undefined,
       custom_id: userId,
       application_context: {
-        brand_name: "Crypto Idea",
+        brand_name: "CryptoIdea",
         return_url: `${APP_URL}/pro-success`,
         cancel_url: `${APP_URL}/pricing`,
         user_action: "SUBSCRIBE_NOW",

@@ -31,6 +31,17 @@ describe("Login screen (extracted, via AppContext)", () => {
     expect(screen.getByPlaceholderText("you@email.com")).toBeInTheDocument();
   });
 
+  // LOGO (BUILD-LOOP item 4): the auth screen shows the large shared <Logo> (green
+  // tile + "CryptoIdea"), replacing the old .auth-logo "Crypto Idea" text.
+  it("shows the large unified <Logo>, tagline intact, and drops the old .auth-logo", () => {
+    const { container } = provide({});
+    const logo = container.querySelector(".ci-logo.lg");
+    expect(logo).toBeTruthy();
+    expect(logo.querySelector(".ci-logo-word").textContent).toBe("CryptoIdea");
+    expect(container.querySelector(".auth-logo")).toBeNull();
+    expect(screen.getByText(/Know why you own every coin/i)).toBeInTheDocument();
+  });
+
   it("toggles password visibility with the eye button", () => {
     const { container } = provide({ authPass: "secret123" });
     const pw = container.querySelector(".pw-wrap .field-input");

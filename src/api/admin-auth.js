@@ -1,5 +1,5 @@
 /**
- * Crypto Idea — Admin auth helpers (bound to the SEPARATE admin app)
+ * CryptoIdea — Admin auth helpers (bound to the SEPARATE admin app)
  * ==================================================================
  * Mirror the three auth helpers the admin app needs, but bound to `adminAuth`
  * (the named "admin" Firebase instance) instead of the shared default app. This

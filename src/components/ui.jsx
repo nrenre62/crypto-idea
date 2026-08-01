@@ -72,3 +72,17 @@ export const CI=({thumb,symbol,size=38})=>{
 
 // Screen header row: (left, title, right) -> JSX.
 export const hdr=(left,title,right)=>(<div style={{padding:"14px 18px 6px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>{left}<span style={{fontSize:17,fontWeight:600}}>{title}</span>{right||<div style={{width:24}}/>}</div>);
+
+// LOGO (2026-08-01): the shared brand lockup — a CSS-drawn green "C" tile + the
+// one-word "CryptoIdea" wordmark — matching the landing (.brand/.mark) + admin
+// (.adm-logo) treatment using the app's OWN --accent token (dark-safe solid fill,
+// white letter). No image asset. `size="lg"` for the auth screens. role="img" +
+// aria-label give the whole lockup ONE accessible name "CryptoIdea" (the decorative
+// "C" tile is aria-hidden), so getByText / getByLabelText / getByRole("img") all
+// resolve cleanly across the tile + wordmark. Styling lives in app.css (.ci-logo*).
+export const Logo=({size})=>(
+  <span className={"ci-logo"+(size==="lg"?" lg":"")} role="img" aria-label="CryptoIdea">
+    <span className="ci-logo-mark" aria-hidden="true">C</span>
+    <span className="ci-logo-word">CryptoIdea</span>
+  </span>
+);

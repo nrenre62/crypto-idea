@@ -1,5 +1,5 @@
 /**
- * Crypto Idea - Authentication Module
+ * CryptoIdea - Authentication Module
  * =====================================
  * Handles: Register, Login, Logout, Password Reset, Auth State
  */

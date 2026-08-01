@@ -1,5 +1,5 @@
 /**
- * Crypto Idea - Firebase setup
+ * CryptoIdea - Firebase setup
  * ================================
  * Production config is read from environment variables (see .env.example).
  * Copy .env.example to .env and fill in your values from:

@@ -96,6 +96,17 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   **never import the admin-only `.adm-*` into the user bundle.** ONE responsive design, **no `@media`,
   no `useIsDesktop`**: `max-width:560px` + `margin:auto` (centred desktop / full-width phones in the
   18px `.pad` gutters); dark-safe via token flip. Design-only (handlers/state/routing unchanged).
+- **Unified brand logo (LOGO, BUILT 2026-08-01):** ONE shared **`<Logo>`** primitive in
+  [`ui.jsx`](src/components/ui.jsx) — a CSS-drawn green "C" tile (`--accent`, dark-safe solid fill) + the
+  one-word **"CryptoIdea"** wordmark — matching the landing (`.brand/.mark`) + admin (`.adm-logo`) marks but
+  rebuilt from the app's OWN tokens (`.ci-logo*` in `app.css`; **never import admin `.adm-*`**; no image, no
+  new hex). `role="img"`+`aria-label` give it ONE accessible name; the tile is `aria-hidden`. Used on the
+  **Portfolio header** (badges intact) and the **auth screens** (`Login`/`ForgotPass`, `size="lg"`); the other
+  tab headers keep their tab-name titles. Same round **normalized every shipped "Crypto Idea" string + code
+  comment + PWA/HTML title → "CryptoIdea"** (incl. PayPal `brand_name`) and **deleted the dead `APP_NAME`
+  const** (it drove nothing — the real page title is each HTML entry's `<title>`). Docs prose (`docs/**`,
+  README, this file's bodies, `openapi.json`) still say "Crypto Idea" as the project name — deferred as an
+  optional docs pass.
 - **Design revamp (BUILT, 2026-06-26):** the whole app matches the founder-approved mockup — see
   [`DESIGN-REVAMP.md`](docs/design/DESIGN-REVAMP.md) (spec + §7 founder review; backlog §D). Shipped: Portfolio value →
   white summary card (`.value-card`, INVESTED/24H/ASSETS) + assets **row → 3-up card grid on the 1040 wide

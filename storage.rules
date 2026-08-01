@@ -1,4 +1,4 @@
-// Crypto Idea — Cloud Storage security rules (ISO-5)
+// CryptoIdea — Cloud Storage security rules (ISO-5)
 // ===================================================
 // Storage is UNUSED today, but we commit a deny-by-default ruleset so the tenancy
 // boundary already exists before the first upload feature ships — a new bucket

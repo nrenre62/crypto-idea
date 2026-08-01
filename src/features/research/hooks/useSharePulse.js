@@ -59,7 +59,7 @@ export function useSharePulse() {
       const file = new File([blob], 'crypto-idea-pulse.png', { type: 'image/png' });
       try {
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'My Portfolio Pulse', text: 'My portfolio pulse from Crypto Idea' });
+          await navigator.share({ files: [file], title: 'My Portfolio Pulse', text: 'My portfolio pulse from CryptoIdea' });
           return;
         }
       } catch (e) { if (e && e.name === 'AbortError') return; }

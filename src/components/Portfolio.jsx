@@ -4,6 +4,7 @@ import { portfolio24hPct } from "../utils/pnl.js";
 import { CoinIcon } from "./CoinIcon.jsx";
 import { PortfolioBar } from "./PortfolioBar.jsx";
 import { LivePill, usePricesPaused } from "./HeaderTags.jsx";
+import { Logo } from "./ui.jsx";
 
 // Main logged-in screen: the value summary card, portfolio switcher, and the asset
 // CARD GRID (3-up @1040 / 2-up @720 / 1-up phone). A whole card taps through to
@@ -29,7 +30,7 @@ export function Portfolio() {
       <div className="apphead">
         <div>
           <div className="title">
-            Crypto Idea <span className="beta">BETA</span>
+            <Logo /> <span className="beta">BETA</span>
             <LivePill api={api} paused={pricesPaused} />
             <span className="badge badge-plan" onClick={() => setScreen("account")} style={{ cursor: "pointer" }}>{plan}</span>
           </div>

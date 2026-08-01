@@ -37,7 +37,7 @@ export function buildPortfolioCsv(data) {
   const portfolios = (data && data.portfolios) || [];
   const out = [];
 
-  out.push(row(["Crypto Idea — portfolio export"]));
+  out.push(row(["CryptoIdea — portfolio export"]));
   if (data && data.exportedAt) out.push(row(["Exported", data.exportedAt]));
   if (data && data.account && data.account.email) out.push(row(["Account", data.account.email]));
   out.push("");

@@ -1,8 +1,8 @@
 /**
- * Crypto Idea - Crypto Portfolio & DCA Calculator
+ * CryptoIdea - Crypto Portfolio & DCA Calculator
  * Version: 1.6.0
  * Build: 2026-04-04
- * Author: Crypto Idea Team
+ * Author: CryptoIdea Team
  * License: Proprietary
  * 
  * Changelog:
@@ -74,7 +74,6 @@ import { Learn } from "./components/Learn.jsx";
 // at /admin — its code is intentionally NOT imported here, so the user bundle never
 // contains admin functionality.
 
-const APP_NAME = "Crypto Idea";
 const APP_VERSION = "4.1.0";
 
 // Admin is determined by a Firebase custom claim ({ admin: true }) set server-side
@@ -900,7 +899,7 @@ export default function CryptoIdea(){
   if(site.maintenance) return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
     <div style={{fontSize:40,marginBottom:14}}>🛠️</div>
     <div style={{fontSize:24,fontWeight:700,marginBottom:8}}>We'll be right back</div>
-    <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5}}>Crypto Idea is briefly down for maintenance. Your data is safe — please check back in a little while.</div>
+    <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5}}>CryptoIdea is briefly down for maintenance. Your data is safe — please check back in a little while.</div>
   </div>);
 
   // DI-2 (G13/G30): a persistent portfolio-load failure shows an honest Retry, never the

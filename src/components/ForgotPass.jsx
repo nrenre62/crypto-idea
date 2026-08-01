@@ -1,4 +1,5 @@
 import { useApp } from "../hooks/app-context.js";
+import { Logo } from "./ui.jsx";
 
 // Password reset screen — presentation only. State (fp* fields, resetSent) and the
 // handleReset handler come from context (handler defined in CryptoIdea.jsx).
@@ -17,7 +18,7 @@ export function ForgotPass() {
   );
   return (
     <div className="ci-app screen-bg auth-wrap">
-      <div className="auth-logo">Crypto <span>Idea</span></div>
+      <Logo size="lg" />
       <div className="auth-tagline">Reset your password</div>
       <form className="auth-col" onSubmit={(e) => { e.preventDefault(); handleReset(); }}>
         <div className="auth-note">Enter your email and we'll send you a link to reset your password.</div>

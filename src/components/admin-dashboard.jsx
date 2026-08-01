@@ -1490,7 +1490,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
         })()}
 
         <div className="adm-foot">
-          Crypto Idea Admin · v4.3.0
+          CryptoIdea Admin · v4.3.0
           {roleLoaded && role && <> · signed in as <b>{role}</b>{isOwner && unlocked ? " · unlocked" : ""}</>}
         </div>
       </div>

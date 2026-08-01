@@ -1,5 +1,5 @@
 /**
- * Crypto Idea - Service Worker
+ * CryptoIdea - Service Worker
  * =============================
  * Enables offline support for the PWA.
  * Caches the same-origin app shell, Google Fonts, and CoinGecko prices/images.

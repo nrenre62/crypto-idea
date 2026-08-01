@@ -1,4 +1,4 @@
-// Crypto Idea - Firestore Security Rules
+// CryptoIdea - Firestore Security Rules
 // =========================================
 // Deploy: firebase deploy --only firestore:rules
 //

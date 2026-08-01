@@ -1,5 +1,5 @@
 /**
- * Crypto Idea — Admin Firebase instance (SEPARATE named app)
+ * CryptoIdea — Admin Firebase instance (SEPARATE named app)
  * ==========================================================
  * The admin dashboard (admin.html / admin-main.jsx) is served on the SAME ORIGIN
  * as the user app. Firebase web Auth persists the signed-in user under a storage

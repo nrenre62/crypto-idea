@@ -1,8 +1,8 @@
 /**
- * Crypto Idea — React entry (served by app.html).
+ * CryptoIdea — React entry (served by app.html).
  * The marketing landing page at "/" is the static index.html.
  * This React bundle handles the app routes; which one renders is decided by the path:
- *   /app          → the Crypto Idea tracker
+ *   /app          → the CryptoIdea tracker
  *   /edge         → Education guide
  *   /pro-success  → PayPal return / upgrade confirmation
  * (In dev, Vite rewrites these paths to app.html; in prod, Firebase Hosting does.)
@@ -22,7 +22,7 @@ const ProSuccess = lazy(() => import("./components/pro-success.jsx"));
 function Loading() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, fontFamily: "system-ui, -apple-system, sans-serif", color: "#1A1A2E" }}>
-      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>Crypto Idea</div>
+      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>CryptoIdea</div>
       <div style={{ width: 26, height: 26, border: "3px solid #E8E8ED", borderTopColor: "#6C5CE7", borderRadius: "50%", animation: "ci-spin 0.7s linear infinite" }} />
       <style>{"@keyframes ci-spin{to{transform:rotate(360deg)}}"}</style>
     </div>

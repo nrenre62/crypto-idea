@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
-import { Ic } from "./ui.jsx";
+import { Ic, Logo } from "./ui.jsx";
 
 // R28-2: ONE source of truth for what each tier promises — consumed by BOTH the
 // plan-picker cards and the welcome/success screen, so they cannot drift. Honest
@@ -180,7 +180,7 @@ export function Login({ popup }) {
     </>);
   }
   return(<div className="ci-app screen-bg auth-wrap">
-    <div className="auth-logo">Crypto <span>Idea</span></div>
+    <Logo size="lg" />
     <div className="auth-tagline">Know why you own every coin.</div>
     <form className="auth-col" onSubmit={e=>{e.preventDefault();handleAuth();}}>
       <div className="auth-toggle">

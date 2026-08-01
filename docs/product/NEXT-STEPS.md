@@ -472,7 +472,7 @@ browser CSS/layout probe (HMR-applied): panel bounded 560/centred at 1280, full-
 
 ---
 
-## LOGO. Unify the app header + auth logo to the landing/admin green-tile "CryptoIdea" mark  (📋 PLAN — 2026-08-01; NOT built · design-only)
+## LOGO. Unify the app header + auth logo to the landing/admin green-tile "CryptoIdea" mark  (✅ BUILT 2026-08-01 · design-only)
 
 Founder ask (2026-08-01): use the **index (landing) page logo** inside the app — replace the app's current
 "Crypto Idea" logo — and put that same logo on the **login/register screen** instead of the current auth
@@ -528,7 +528,34 @@ Register, and Forgot-password show the same logo (larger); it visually matches t
 light + dark verified (the `--accent` tile is already dark-safe in admin); `npm run test:unit` green;
 `npm run build` clean.
 
-**Status: PLAN ONLY — not built.** Decision locked (adopt index logo exactly); awaiting go-ahead.
+**Founder sub-decisions (AskUserQuestion 2026-08-01):** (1) **normalize everything** — the logo lockup
+AND all visible "Crypto Idea" text AND code comments → "CryptoIdea"; (2) **Portfolio header + auth only**
+— Journal/Learn/Search keep their tab-name titles (correct "where am I" UX).
+
+**Status: ✅ BUILT 2026-08-01 (BUILD-LOOP item 4).** As built:
+- New shared **`<Logo>`** primitive in [ui.jsx](../../src/components/ui.jsx) (green CSS-drawn "C" tile +
+  "CryptoIdea" wordmark, `role="img"` + `aria-label` → one accessible name; tile `aria-hidden`; `size="lg"`
+  for auth). New `.ci-logo*` CSS in [app.css](../../src/styles/app.css) mirrors the admin `.adm-scr`/landing
+  `.mark` VALUES using the app's OWN `--accent` (dark-safe solid fill) — no admin `.adm-*` import, no image,
+  no new hex. Wired into [Portfolio.jsx](../../src/components/Portfolio.jsx) header (badges intact) and
+  [Login.jsx](../../src/components/Login.jsx) + [ForgotPass.jsx](../../src/components/ForgotPass.jsx) (`size="lg"`).
+  The dead `.auth-logo` CSS was removed.
+- **Text normalization sweep** (all shipped code + comments + HTML entry titles): `CryptoIdea.jsx`,
+  `main.jsx`, `admin-main.jsx`, the 5 `api/*` headers, `pro-success.jsx`, `export-csv.js`, `education-page.jsx`,
+  `admin-dashboard.jsx` footer, `useAsk.js` prompt, `useSharePulse.js` share text, `functions/index.js`
+  (comment + PayPal `brand_name`), `functions/.env.example`, `functions/package.json`, `public/manifest.json`
+  (`name`), `public/service-worker.js`, `firestore.rules`/`storage.rules`/`vite.config.js`/`deploy.sh` headers,
+  and `admin.html`/`app.html`/`terms.html`/`privacy.html` titles + meta.
+- **Correction to this spec:** `APP_NAME = "Crypto Idea"` did **NOT** drive `document.title` — it was **dead
+  code** (only its own definition referenced it; the real title source is each HTML entry's `<title>`). It was
+  **deleted** (KISS/Kaizen) rather than normalized.
+- **Scope deferred (flagged, not silently done):** the **documentation prose** corpus (`docs/**`, `README.md`,
+  `CLAUDE.md` bodies, `openapi.json` spec, diagrams/mockups) still says "Crypto Idea" as the project name — a
+  separate optional docs-normalization pass, since it's neither shipped nor user-visible.
+
+Verified: 6 new tests (`tests/unit/Logo.test.jsx` + Portfolio/Login header assertions) red→green; **876/876
+unit**; `npm run build` clean (name-guard passed); `test:rules:solo` 43/43 (comment-only rules edit); live
+browser probe of the auth screen — tile = `--accent` #0a6b4d 46×46, wordmark "CryptoIdea", light + dark.
 
 ---
 

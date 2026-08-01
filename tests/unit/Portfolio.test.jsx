@@ -101,6 +101,21 @@ describe("Portfolio screen (extracted, via AppContext)", () => {
     provide(Portfolio, { usagePct: 100, isPro: false });
     expect(screen.getByText(/reached your account limit/i)).toBeInTheDocument();
   });
+
+  // LOGO (BUILD-LOOP item 4): the header now carries the shared <Logo> (green "C"
+  // tile + "CryptoIdea") instead of the serif "Crypto Idea" text; the BETA + plan
+  // badges stay beside it.
+  it("renders the unified <Logo> in the header, badges intact, no old 'Crypto Idea' text", () => {
+    const { container } = provide(Portfolio, {});
+    const title = container.querySelector(".apphead .title");
+    expect(title).toBeTruthy();
+    expect(title.querySelector(".ci-logo")).toBeTruthy();
+    expect(title.querySelector(".ci-logo-word").textContent).toBe("CryptoIdea");
+    expect(title.querySelector(".beta").textContent).toBe("BETA");
+    expect(title.querySelector(".badge-plan")).toBeTruthy();
+    // the old two-word serif wordmark is gone (the mark reads "CryptoIdea")
+    expect(title.textContent).not.toContain("Crypto Idea");
+  });
 });
 
 describe("PortfolioBar (extracted, via AppContext)", () => {
