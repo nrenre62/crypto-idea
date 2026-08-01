@@ -10,7 +10,7 @@ import { AddEntry } from "../../src/components/AddEntry.jsx";
 
 // AddEntry is reached via Detail -> +Buy/+Sell (needs a held coin), so we test it
 // in isolation against the real AppContext — same value shape CryptoIdea.jsx supplies.
-function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), setScreen = vi.fn() }) {
+function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), setScreen = vi.fn(), addingTx = false }) {
   const [eAmt, setEAmt] = useState(amt);
   const [ePrice, setEPrice] = useState(price);
   const [eDate, setEDate] = useState("2024-01-01T00:00");
@@ -19,7 +19,7 @@ function Harness({ amt = "", price = "", editEntry = null, addEntry = vi.fn(), s
     <AppContext.Provider value={{
       sel: { id: "bitcoin", symbol: "BTC", name: "Bitcoin" },
       eAmt, setEAmt, ePrice, setEPrice, eDate, setEDate,
-      eTxType, setETxType, editEntry, setEditEntry: vi.fn(), addEntry, setScreen,
+      eTxType, setETxType, editEntry, setEditEntry: vi.fn(), addEntry, setScreen, addingTx,
     }}>
       <AddEntry />
     </AppContext.Provider>
@@ -78,6 +78,43 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     expect(amount.value).toBe("1");
     fireEvent.change(price, { target: { value: "-25.5" } });
     expect(price.value).toBe("25.5");
+  });
+
+  // TX-SAFE (Part A): onChange runs sanitizeDecimal — the "field full of e" garbage the
+  // founder reported can no longer be entered, and the value is capped at 15 digits.
+  it("TX-SAFE: onChange sanitizes garbage (e/+/second dot) out of Amount and Price", () => {
+    const { container } = render(<Harness />);
+    const inputs = container.querySelectorAll(".field-input");
+    const amount = inputs[0], price = inputs[1];
+    fireEvent.change(amount, { target: { value: "12.3.4e5+" } });
+    expect(amount.value).toBe("12.345");        // single dot kept, e/+/2nd-dot dropped
+    fireEvent.change(price, { target: { value: "1e9" } });
+    expect(price.value).toBe("19");
+  });
+  it("TX-SAFE: onChange caps Amount at 15 digit chars", () => {
+    const { container } = render(<Harness />);
+    const amount = container.querySelectorAll(".field-input")[0];
+    fireEvent.change(amount, { target: { value: "1234567890123456789" } }); // 19 digits
+    expect(amount.value).toBe("123456789012345"); // 15
+  });
+  it("TX-SAFE: onKeyDown blocks e/E/+/- and a 2nd dot, but allows digits and the 1st dot", () => {
+    const { container } = render(<Harness amt="1." />);
+    const amount = container.querySelectorAll(".field-input")[0];
+    // fireEvent.keyDown returns false when the handler called preventDefault()
+    expect(fireEvent.keyDown(amount, { key: "e" })).toBe(false);
+    expect(fireEvent.keyDown(amount, { key: "+" })).toBe(false);
+    expect(fireEvent.keyDown(amount, { key: "." })).toBe(false); // "1." already has a dot
+    expect(fireEvent.keyDown(amount, { key: "5" })).toBe(true);  // a digit is allowed
+  });
+
+  // TX-SAFE (Part B): the submit button is disabled + shows a busy label while a write
+  // is in flight, so a double-click can't fire two writes (two duplicate docs).
+  it("TX-SAFE: the submit button is disabled + busy while a transaction write is in flight", () => {
+    render(<Harness amt="0.5" price="40000" addingTx={true} />);
+    const btn = screen.getByText(/Saving/i);
+    expect(btn).toBeInTheDocument();
+    expect(btn).toBeDisabled();
+    expect(screen.queryByText("Add Buy")).toBeNull(); // action label replaced by the busy label
   });
 
   // R4-2: AddEntry is always reached from Detail, so back returns there.

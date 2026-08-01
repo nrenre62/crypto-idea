@@ -164,6 +164,57 @@ describe("Detail screen (extracted, via AppContext)", () => {
     }
   });
 
+  // ── TX-SAFE (Part B): one delete removes only the row you clicked ──
+  // Root cause was a duplicate id (optimistic append + watcher) => duplicate React key
+  // => the single confirmTxId armed BOTH rows and remEntry's filter removed both.
+  it("TX-SAFE: a duplicate-id transaction renders only ONE row (no duplicate key)", () => {
+    const dupCoin = {
+      id: "bitcoin", symbol: "BTC", name: "Bitcoin",
+      entries: [
+        { id: "dup", type: "buy", amount: 1, priceAtBuy: 20000, date: "2024-01-01T00:00", createdAt: 1 },
+        { id: "dup", type: "buy", amount: 1, priceAtBuy: 20000, date: "2024-01-01T00:00", createdAt: 2 },
+      ],
+    };
+    const { container } = provide({ sel: dupCoin, portfolio: [dupCoin] });
+    expect(container.querySelectorAll(".tx-list .tx-row").length).toBe(1); // deduped
+  });
+
+  it("TX-SAFE: arming delete on one of two identical-looking rows deletes ONLY that row", () => {
+    const remEntry = vi.fn();
+    const coin = {
+      id: "bitcoin", symbol: "BTC", name: "Bitcoin",
+      entries: [
+        { id: "x1", type: "buy", amount: 5, priceAtBuy: 100, date: "2024-01-01T00:00", createdAt: 2 },
+        { id: "x2", type: "buy", amount: 5, priceAtBuy: 100, date: "2024-01-01T00:00", createdAt: 1 },
+      ],
+    };
+    provide({ sel: coin, portfolio: [coin], remEntry });
+    const del = screen.getAllByRole("button", { name: "Delete transaction" });
+    expect(del.length).toBe(2);                     // two distinct rows despite identical display
+    fireEvent.click(del[0]);                        // arm the top row (x1: createdAt 2 sorts first)
+    expect(screen.getAllByText("Delete?").length).toBe(1); // only ONE row is armed
+    fireEvent.click(screen.getByText("Delete?"));
+    expect(remEntry).toHaveBeenCalledTimes(1);
+    expect(remEntry).toHaveBeenCalledWith("bitcoin", "x1"); // and NOT x2
+  });
+
+  it("TX-SAFE: in a 50+ list, arming one row deletes ONLY that row", () => {
+    const remEntry = vi.fn();
+    const many = Array.from({ length: 60 }, (_, i) => ({
+      id: "tx" + i, type: "buy", amount: 1, priceAtBuy: 100,
+      date: "2024-03-01T00:" + String(i).padStart(2, "0"), createdAt: i,
+    }));
+    const coin = { ...COIN, entries: many };
+    provide({ sel: coin, portfolio: [coin], remEntry });
+    const del = screen.getAllByRole("button", { name: "Delete transaction" });
+    expect(del.length).toBe(50);                    // page 1 shows 50 of 60
+    fireEvent.click(del[0]);                         // tx59 (00:59) sorts newest-on-top
+    expect(screen.getAllByText("Delete?").length).toBe(1);
+    fireEvent.click(screen.getByText("Delete?"));
+    expect(remEntry).toHaveBeenCalledTimes(1);
+    expect(remEntry).toHaveBeenCalledWith("bitcoin", "tx59");
+  });
+
   // ── R19-4: 50/page pagination with a windowed numbered pager ──
   it("R19-4: paginates the transaction list at 50/page", () => {
     const many = Array.from({ length: 120 }, (_, i) => ({

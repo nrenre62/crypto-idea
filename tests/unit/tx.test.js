@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sortTx, txCreatedMillis, pageWindow } from "../../src/utils/tx.js";
+import { sortTx, txCreatedMillis, pageWindow, appendUnique, dedupeById } from "../../src/utils/tx.js";
 
 describe("tx utils (R19-4/R19-5)", () => {
   describe("txCreatedMillis normalizes every createdAt shape", () => {
@@ -63,6 +63,37 @@ describe("tx utils (R19-4/R19-5)", () => {
       expect(pageWindow(6, 20)).toEqual([1, "…", 5, 6, 7, "…", 20]);
       expect(pageWindow(1, 20)).toEqual([1, 2, "…", 20]);
       expect(pageWindow(20, 20)).toEqual([1, "…", 19, 20]);
+    });
+  });
+
+  // TX-SAFE (Part B): the optimistic-append + render dedupe that stop one delete from
+  // removing two rows (a duplicate id => a duplicate React key).
+  describe("TX-SAFE appendUnique — idempotent optimistic append", () => {
+    it("TX-SAFE: appends a row whose id is new", () => {
+      expect(appendUnique([{ id: "a" }], { id: "b" }).map(e => e.id)).toEqual(["a", "b"]);
+    });
+    it("TX-SAFE: is a no-op when the id already exists (the watcher already delivered it)", () => {
+      const arr = [{ id: "a" }];
+      expect(appendUnique(arr, { id: "a" })).toBe(arr); // same reference, not doubled
+    });
+    it("TX-SAFE: tolerates a null/undefined list", () => {
+      expect(appendUnique(null, { id: "a" }).map(e => e.id)).toEqual(["a"]);
+      expect(appendUnique(undefined, { id: "a" }).map(e => e.id)).toEqual(["a"]);
+    });
+  });
+
+  describe("TX-SAFE dedupeById — defensive render dedupe", () => {
+    it("TX-SAFE: keeps the first occurrence of each id", () => {
+      const out = dedupeById([{ id: "a", n: 1 }, { id: "a", n: 2 }, { id: "b", n: 3 }]);
+      expect(out.map(e => e.id)).toEqual(["a", "b"]);
+      expect(out[0].n).toBe(1); // first wins
+    });
+    it("TX-SAFE: leaves an already-unique list unchanged", () => {
+      expect(dedupeById([{ id: "a" }, { id: "b" }]).map(e => e.id)).toEqual(["a", "b"]);
+    });
+    it("TX-SAFE: empty / null -> []", () => {
+      expect(dedupeById([])).toEqual([]);
+      expect(dedupeById(null)).toEqual([]);
     });
   });
 });
