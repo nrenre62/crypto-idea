@@ -265,6 +265,38 @@ async function writeAudit(context, action, info) {
   } catch (e) { console.error("writeAudit failed:", e && e.message); }
 }
 
+// ONBOARD-GATE: create the user's default portfolio if they have none yet. Registration
+// no longer writes it client-side — portfolio writes are now gated behind a RECORDED plan
+// choice (isChosen in firestore.rules), so a brand-new user's client write would be denied.
+// The first portfolio therefore appears exactly when a plan is recorded, created HERE via
+// the Admin SDK (which bypasses the isChosen + counter rules). Called at every such point:
+// the free choice (chooseFreePlan), a paid activation (webhook), and the dev upgrade
+// (devSetMyTier).
+//
+// TRANSACTIONAL, deliberately: the read + create-if-empty + counter write must be atomic.
+// The moment a plan is recorded, isChosen() flips true, so a custom client watching its own
+// user doc could immediately fire a portfolio create. A non-transactional read-then-write here
+// would decide "empty" against a stale snapshot and create a SECOND portfolio past the free
+// cap (+1) while leaving portfolioCount under-reporting — a paywall bypass. Inside a
+// transaction Firestore retries on a conflicting concurrent write, so portfolioCount reflects
+// the REAL doc count and the cap holds. Idempotent: the fixed "default" id + the empty check
+// mean repeat calls never duplicate it.
+async function ensureDefaultPortfolio(uid) {
+  const userRef = db.collection("users").doc(uid);
+  const portfolios = userRef.collection("portfolios");
+  await db.runTransaction(async (t) => {
+    const pSnap = await t.get(portfolios);
+    if (pSnap.empty) {
+      // Date.now() (ms), not admin.firestore.FieldValue.serverTimestamp() — FieldValue is
+      // undefined inside the emulator (see writeAudit/webhook), and portfolios sort by `order`.
+      t.set(portfolios.doc("default"), { name: "My Portfolio", created: Date.now(), order: 0, coinCount: 0 });
+      t.set(userRef, { portfolioCount: 1 }, { merge: true });
+    } else {
+      t.set(userRef, { portfolioCount: pSnap.size }, { merge: true });
+    }
+  });
+}
+
 /* ═══ ADMIN-0: hard server-side signups-off (Auth beforeCreate) ═════════════════
  * The "Allow new signups" toggle was a CLIENT gate only. Register greys out in the
  * UI, but createUserWithEmailAndPassword talks straight to Firebase Auth, so a
@@ -533,9 +565,16 @@ exports.paypalWebhook = functions
         // as premium (was hardcoded "pro"). Unknown plan → record the sub, keep tier.
         const userId = resource.custom_id;
         if (userId) {
-          const { patch, unknownPlan } = billing.activationPatch(resource, planIds, Date.now());
+          const { patch, tier, unknownPlan } = billing.activationPatch(resource, planIds, Date.now());
           if (unknownPlan) console.warn("paypalWebhook: unknown plan_id on ACTIVATED — tier left unchanged:", resource.plan_id);
+          // ONBOARD-GATE: a completed PAID choice also records the plan-choice flag, so a
+          // later lapse back to free (enforceSubscriptionPeriods) never RE-gates the user —
+          // they already chose once. Only when a real tier was set (known plan).
+          if (tier) patch.planChosen = true;
           await db.doc(`users/${userId}`).set(patch, { merge: true });
+          // ONBOARD-GATE: the first portfolio appears when the plan is recorded (registration
+          // no longer creates it client-side; portfolio writes are gated behind isChosen).
+          if (tier) await ensureDefaultPortfolio(userId);
         }
         break;
       }
@@ -882,7 +921,14 @@ exports.devSetMyTier = functions.https.onCall(async (data, context) => {
   if (!["free", "pro", "premium"].includes(tier)) {
     throw new functions.https.HttpsError("invalid-argument", "A valid tier is required.");
   }
-  await db.collection("users").doc(context.auth.uid).update({ tier });
+  const uid = context.auth.uid;
+  // ONBOARD-GATE: a dev "upgrade" to a paid tier is a completed plan choice — record the
+  // flag (parity with the prod webhook) so the local paid flow un-gates AND stays chosen.
+  const patch = tier !== "free" ? { tier, planChosen: true } : { tier };
+  await db.collection("users").doc(uid).update(patch);
+  // ONBOARD-GATE: give the dev paid user their first portfolio too (registration no longer
+  // creates it client-side once portfolio writes are gated behind a recorded choice).
+  if (tier !== "free") await ensureDefaultPortfolio(uid);
   return { success: true, tier };
 });
 
@@ -1310,6 +1356,36 @@ exports.reconcileMyCounters = functions.https.onCall(async (data, context) => {
   }
   await writeAudit(context, "reconcileMyCounters", { targetUid: uid, details: "fixed=" + updates.length });
   return { success: true, fixed: updates.length };
+});
+
+// ─── Onboard gate (ONBOARD-GATE): record the FREE plan choice, server-side ───
+// The mandatory plan gate's free path. Sets the server-only planChosen flag — clients can
+// NEVER write it (firestore.rules keeps it immutable, exactly like tier/role/deleted), so
+// the flag that GATES all app data can't be self-granted (secure-by-design). Keeps tier
+// "free", and creates the default portfolio if missing (registration no longer creates it
+// client-side). Idempotent — a second call after the choice is a harmless no-op. Acts only
+// on context.auth.uid (no IDOR). Per-uid rate-limited via guards.js and audited through the
+// single-writer choke point. App Check is enforced PLATFORM-SIDE (Firebase console) at go-live
+// — like every other callable, it is NOT wired in code (CLAUDE.md: appCheckOk has zero call
+// sites deliberately, to avoid a duplicate control + a second lockout surface). Paid choices go
+// through the existing PayPal path instead (the webhook records planChosen + a tier != "free").
+exports.chooseFreePlan = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  assertNoUnknownKeys(data, []);
+  const uid = context.auth.uid;
+  // Per-uid daily budget (reuse guards.js) — bounds a scripted loop. Generous: a real user
+  // chooses once, and the call is idempotent, so a legitimate retry never approaches this.
+  const budget = await consumeDailyBudget(db, { uid, key: "choosePlan", limit: 50 });
+  if (!budget.allowed) throw new functions.https.HttpsError("resource-exhausted", "Too many attempts today — please try again tomorrow.");
+  const userRef = db.collection("users").doc(uid);
+  const snap = await userRef.get();
+  if (!snap.exists) throw new functions.https.HttpsError("failed-precondition", "Finish creating your account first.");
+  const already = snap.data().planChosen === true;
+  await userRef.set({ planChosen: true }, { merge: true });
+  await ensureDefaultPortfolio(uid);
+  // Audit only a real first choice — a repeated no-op call shouldn't spam the log.
+  if (!already) await writeAudit(context, "chooseFreePlan", { targetUid: uid, details: "tier=free" });
+  return { success: true, planChosen: true };
 });
 
 // ─── Self-service (DI-4/G23): resolve a pending Premium→Pro re-checkout decision ───

@@ -47,6 +47,8 @@ export const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "S
   // DI/R29 self-service repair + billing recovery
   reconcileMyCounters: "User repaired their counters", resolveRecheckout: "User resolved a re-checkout",
   reactivateSubscription: "User reactivated subscription",
+  // ONBOARD-GATE: the free plan-choice callable (records planChosen + creates the default portfolio)
+  chooseFreePlan: "User chose the free plan",
   // ADMIN-4 growth metrics
   captureStatsSnapshot: "Captured a stats snapshot",
   // ADMIN-5 team-scale & support

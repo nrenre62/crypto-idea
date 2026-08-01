@@ -123,6 +123,24 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ─── Onboard gate (ONBOARD-GATE) ───
+    // Has this user RECORDED a plan choice? The server-only `planChosen` flag (set by the
+    // chooseFreePlan callable / the PayPal webhook via the Admin SDK — clients can NEVER
+    // write it; see the users create/update rules) OR any paid tier counts as chosen. A
+    // brand-new (or existing) FREE account with no recorded choice is NOT chosen, so its
+    // whole portfolio/coin/tx/journal/learn tree is denied until it passes the mandatory
+    // plan gate — a bot with the user's token gets permission-denied on every data path,
+    // exactly like an honest client that hasn't chosen. The user DOC itself stays
+    // readable/writable (for onboarding, logout, delete, and rendering the gate).
+    // The get() is safe: every call is inside users/{userId}/** where the parent user doc
+    // exists (created at signup), and it reads the SAME doc tierOf/maxPortfolios already
+    // read in one rule evaluation, so Firestore serves it from the per-eval cache (no
+    // extra billed read on the create/update paths).
+    function isChosen(userId) {
+      let d = get(/databases/$(database)/documents/users/$(userId)).data;
+      return d.get('planChosen', false) == true || d.get('tier', 'free') != 'free';
+    }
+
     // ─── Tier limits ───
     function tierOf(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data.tier;
@@ -191,7 +209,11 @@ service cloud.firestore {
                     // fields — paypalSubscriptionId/tierBeforeFailure/subscription drive the
                     // recovery + period-end sweep and must never be client-seeded).
                     && request.resource.data.keys().hasOnly(['email', 'name', 'tier', 'joined', 'lastLogin', 'portfolioCount', 'settings', 'consent'])
-                    && !request.resource.data.keys().hasAny(['subscription', 'billingCycle', 'tierBeforeFailure', 'paypalSubscriptionId', 'premiumLimits', 'deleted', 'deletedAt'])
+                    // ONBOARD-GATE: `planChosen` is server-only (it GATES all app data), so it
+                    // joins the never-client-seeded set alongside the billing/soft-delete fields.
+                    // It's already excluded by the hasOnly allowlist above; this makes the intent
+                    // explicit and fails loudly if the allowlist ever grows.
+                    && !request.resource.data.keys().hasAny(['subscription', 'billingCycle', 'tierBeforeFailure', 'paypalSubscriptionId', 'premiumLimits', 'deleted', 'deletedAt', 'planChosen'])
                     // ADMIN-4: 'joined' is the displayed signup date (admin Users list,
                     // users CSV export) and is IMMUTABLE after create — but nothing ever
                     // checked its VALUE, so a registering client could claim any date,
@@ -244,16 +266,22 @@ service cloud.firestore {
       allow delete: if isAdminOwner();
 
       // ─── Portfolios ───
+      // ONBOARD-GATE: every OWNER branch below also requires isChosen(userId) — a user (or a
+      // bot with their token) who hasn't recorded a plan choice is denied read AND write of
+      // their whole data tree. Admin branches (isAdmin read / isAdminOwner write) are NOT
+      // gated: staff manage any account regardless of its onboarding state. isChosen short-
+      // circuits after isOwner, so a stranger never triggers the extra get().
       match /portfolios/{portfolioId} {
         function userRef() {
           return /databases/$(database)/documents/users/$(userId);
         }
 
-        allow read: if isOwner(userId) || isAdmin();
+        allow read: if (isOwner(userId) && isChosen(userId)) || isAdmin();
 
-        // Create requires: valid data, zeroed coin counter, and the parent user's
-        // portfolioCount incremented by exactly 1 and still within the tier limit.
+        // Create requires: a recorded plan choice, valid data, zeroed coin counter, and the
+        // parent user's portfolioCount incremented by exactly 1 and still within the tier limit.
         allow create: if isOwner(userId)
+                      && isChosen(userId)
                       && validPortfolioData()
                       && request.resource.data.get('coinCount', 0) == 0
                       && getAfter(userRef()).data.portfolioCount == get(userRef()).data.get('portfolioCount', 0) + 1
@@ -266,10 +294,10 @@ service cloud.firestore {
         // token, so an isAdmin() branch here would let them destroy or forge any
         // customer's data straight from devtools — no callable check, no audit entry.
         // Reads stay open to any admin (the panel needs them).
-        allow update: if (isOwner(userId) && validPortfolioData() && counterNoForge('coinCount'))
+        allow update: if (isOwner(userId) && isChosen(userId) && validPortfolioData() && counterNoForge('coinCount'))
                       || isAdminOwner();
 
-        allow delete: if isOwner(userId) || isAdminOwner();
+        allow delete: if (isOwner(userId) && isChosen(userId)) || isAdminOwner();
 
         // ─── Coins ───
         match /coins/{coinId} {
@@ -277,9 +305,10 @@ service cloud.firestore {
             return /databases/$(database)/documents/users/$(userId)/portfolios/$(portfolioId);
           }
 
-          allow read: if isOwner(userId) || isAdmin();
+          allow read: if (isOwner(userId) && isChosen(userId)) || isAdmin();
 
           allow create: if isOwner(userId)
+                        && isChosen(userId)
                         && validCoinData()
                         && request.resource.data.get('txCount', 0) == 0
                         && getAfter(portfolioRef()).data.coinCount == get(portfolioRef()).data.get('coinCount', 0) + 1
@@ -288,9 +317,9 @@ service cloud.firestore {
           // Validate content (incl. the optional thesis journal) on update too, and let txCount
           // only stay or rise by 1 (never a client decrement; see counterNoForge) — so a coin's
           // journal can be written/reviewed but the counter can't be forged down past a limit.
-          allow update: if (isOwner(userId) && validCoinData() && counterNoForge('txCount')) || isAdminOwner();
+          allow update: if (isOwner(userId) && isChosen(userId) && validCoinData() && counterNoForge('txCount')) || isAdminOwner();
 
-          allow delete: if isOwner(userId) || isAdminOwner();
+          allow delete: if (isOwner(userId) && isChosen(userId)) || isAdminOwner();
 
           // ─── Transactions ───
           match /transactions/{txId} {
@@ -298,16 +327,17 @@ service cloud.firestore {
               return /databases/$(database)/documents/users/$(userId)/portfolios/$(portfolioId)/coins/$(coinId);
             }
 
-            allow read: if isOwner(userId) || isAdmin();
+            allow read: if (isOwner(userId) && isChosen(userId)) || isAdmin();
 
             allow create: if isOwner(userId)
+                          && isChosen(userId)
                           && validTransactionData()
                           && getAfter(coinRef()).data.txCount == get(coinRef()).data.get('txCount', 0) + 1
                           && getAfter(coinRef()).data.txCount <= maxTx(userId);
 
-            allow update: if (isOwner(userId) && validTransactionData()) || isAdminOwner();
+            allow update: if (isOwner(userId) && isChosen(userId) && validTransactionData()) || isAdminOwner();
 
-            allow delete: if isOwner(userId) || isAdminOwner();
+            allow delete: if (isOwner(userId) && isChosen(userId)) || isAdminOwner();
           }
         }
       }
@@ -318,9 +348,9 @@ service cloud.firestore {
       // shape. validLearnProgress caps sizes so it can't be abused as free storage;
       // note Firestore rules can't validate list ELEMENTS, only the list's size.
       match /learn/{docId} {
-        allow read: if isOwner(userId) || isAdmin();
-        allow create, update: if isOwner(userId) && validLearnProgress(request.resource.data);
-        allow delete: if isOwner(userId) || isAdminOwner();
+        allow read: if (isOwner(userId) && isChosen(userId)) || isAdmin();
+        allow create, update: if isOwner(userId) && isChosen(userId) && validLearnProgress(request.resource.data);
+        allow delete: if (isOwner(userId) && isChosen(userId)) || isAdminOwner();
       }
     }
 
@@ -352,14 +382,17 @@ service cloud.firestore {
     // Transactional email (security/payment) has no toggle — it always sends.
     function validSettings(s) {
       return s is map
-             && s.keys().hasOnly(['theme', 'currency', 'emailDigest', 'emailMarketing', 'consentAnalytics', 'planChosen', 'updatedAt'])
+             // ONBOARD-GATE: `planChosen` is NO LONGER a settings field. It was client-
+             // writable here (R31-2), which was gap G3 — the flag that gates all app data must
+             // not be self-settable. It is now a server-only TOP-LEVEL field (set only by the
+             // Admin SDK), so hasOnly below deliberately EXCLUDES it: a client trying to smuggle
+             // planChosen into settings is rejected as an unknown key.
+             && s.keys().hasOnly(['theme', 'currency', 'emailDigest', 'emailMarketing', 'consentAnalytics', 'updatedAt'])
              && (!('theme' in s)            || s.theme in ['light', 'dark', 'system'])
              && (!('currency' in s)         || (s.currency is string && s.currency.size() <= 8))
              && (!('emailDigest' in s)      || s.emailDigest is bool)
              && (!('emailMarketing' in s)   || s.emailMarketing is bool)
              && (!('consentAnalytics' in s) || s.consentAnalytics is bool)
-             // R31-2: the new user made an explicit plan choice (no system-chosen default).
-             && (!('planChosen' in s)       || s.planChosen is bool)
              && (!('updatedAt' in s)        || (s.updatedAt is string && s.updatedAt.size() <= 40));
     }
 

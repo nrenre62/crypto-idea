@@ -21,7 +21,8 @@ const base = {
   authAgreeMarketing: false, setAuthAgreeMarketing: vi.fn(),
   // R31-2: default to a user who HAS chosen a plan, so the existing picker tests exercise
   // the current-aware R28 picker; the forced-first-choice flow is tested with planChosen:false.
-  planChosen: true, markPlanChosen: vi.fn(),
+  // ONBOARD-GATE: the free choice now goes through the server (chooseFree), not markPlanChosen.
+  planChosen: true, chooseFree: vi.fn(), choosingPlan: false,
 };
 const provide = (value) =>
   render(<AppContext.Provider value={{ ...base, ...value }}><Login /></AppContext.Provider>);
@@ -111,8 +112,8 @@ describe("Login screen (extracted, via AppContext)", () => {
     });
 
     it("R31-2: a NEW user (planChosen:false) is FORCED to choose — no CURRENT, no skip, 'Choose Starter'", () => {
-      const setUpgradeStep = vi.fn(), setShowWelcome = vi.fn(), markPlanChosen = vi.fn();
-      provide({ showPlan: true, upgradeStep: "pickPlan", planChosen: false, user: { name: "T", tier: "free" }, setUpgradeStep, setShowWelcome, markPlanChosen });
+      const chooseFree = vi.fn();
+      provide({ showPlan: true, upgradeStep: "pickPlan", planChosen: false, user: { name: "T", tier: "free" }, chooseFree });
       // No pre-chosen CURRENT badge; all three cards actionable.
       expect(screen.queryByText("CURRENT")).toBeNull();
       expect(screen.getByText("Choose Starter")).toBeInTheDocument();
@@ -121,11 +122,21 @@ describe("Login screen (extracted, via AppContext)", () => {
       // No escape from the forced choice.
       expect(screen.queryByText(/Continue with Starter/)).toBeNull();
       expect(screen.queryByText("Close")).toBeNull();
-      // Choosing Starter persists the choice + goes to the welcome screen.
+      // ONBOARD-GATE: choosing Starter goes through the SERVER (chooseFree records the choice,
+      // creates the default portfolio, then shows the welcome). Login just invokes it.
       fireEvent.click(screen.getByText("Choose Starter").closest(".plan-card"));
-      expect(markPlanChosen).toHaveBeenCalled();
-      expect(setShowWelcome).toHaveBeenCalledWith("free");
-      expect(setUpgradeStep).toHaveBeenCalledWith("welcome");
+      expect(chooseFree).toHaveBeenCalled();
+    });
+
+    it("ONBOARD-GATE: the Starter card shows 'Setting up…' while the choice is in flight", () => {
+      const chooseFree = vi.fn();
+      provide({ showPlan: true, upgradeStep: "pickPlan", planChosen: false, choosingPlan: true,
+                user: { name: "T", tier: "free" }, chooseFree });
+      // The busy label replaces the CTA, and a re-click is a no-op while in flight.
+      expect(screen.getByText("Setting up…")).toBeInTheDocument();
+      expect(screen.queryByText("Choose Starter")).toBeNull();
+      fireEvent.click(screen.getByText("Setting up…").closest(".plan-card"));
+      expect(chooseFree).not.toHaveBeenCalled();
     });
 
     it("pro user: Pro is CURRENT + locked (can't be charged twice), Premium clickable, Starter 'Included'", () => {
@@ -254,13 +265,12 @@ describe("Login screen (extracted, via AppContext)", () => {
     it("leaves STARTER selectable, so a forced first choice is never a dead end", () => {
       // R31-2's forced picker has no skip link. If checkout-off locked all three cards,
       // a brand-new user would be trapped on this screen with nothing clickable.
-      const markPlanChosen = vi.fn(), setShowWelcome = vi.fn(), setUpgradeStep = vi.fn();
+      const chooseFree = vi.fn();
       provide({ showPlan: true, upgradeStep: "pickPlan", planChosen: false, site: off,
-                user: { name: "T", tier: "free" }, markPlanChosen, setShowWelcome, setUpgradeStep });
+                user: { name: "T", tier: "free" }, chooseFree });
       expect(screen.queryByText(/Continue with Starter/)).toBeNull();   // still forced
       fireEvent.click(screen.getByText("Choose Starter").closest(".plan-card"));
-      expect(markPlanChosen).toHaveBeenCalled();
-      expect(setShowWelcome).toHaveBeenCalledWith("free");
+      expect(chooseFree).toHaveBeenCalled();   // ONBOARD-GATE: Starter goes through the server
     });
 
     it("leaves the cards alone for every not-switched-off shape", () => {

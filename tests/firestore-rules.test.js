@@ -207,7 +207,7 @@ test("API-SECURITY (counter-forge): an owner cannot DECREMENT a tier counter (on
   // past the tier cap, then created again — unbounded. counterNoForge forbids ANY client
   // decrease; the count is brought down only by the trusted reconcileMyCounters callable.
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { name: "Alice", tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice"), { name: "Alice", tier: "free", portfolioCount: 1, planChosen: true });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P1", coinCount: 5 });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "c1"), { symbol: "BTC", name: "Bitcoin", txCount: 3 });
   });
@@ -281,12 +281,12 @@ test("user profile update: owner edits name/settings within shape, never premium
   // Auto-saving a valid settings change (e.g. toggling dark mode) is allowed.
   await assertSucceeds(updateDoc(doc(db, "users", "alice"),
     { settings: { ...goodSettings, theme: "dark", updatedAt: "2026-06-25T00:00:00.000Z" } }));
-  // R31-2: the explicit new-user plan choice persists in settings (bool planChosen).
-  await assertSucceeds(updateDoc(doc(db, "users", "alice"),
-    { settings: { ...goodSettings, planChosen: true, updatedAt: "2026-07-07T00:00:00.000Z" } }));
-  // A non-bool planChosen is rejected by validSettings.
+  // ONBOARD-GATE: planChosen is NO LONGER a settings field — it's a server-only TOP-LEVEL
+  // field that GATES all app data, so a client can't write it either in settings (unknown
+  // key → hasOnly rejects) OR at the top level (server-authoritative). Both are denied.
   await assertFails(updateDoc(doc(db, "users", "alice"),
-    { settings: { ...goodSettings, planChosen: "yes" } }));
+    { settings: { ...goodSettings, planChosen: true, updatedAt: "2026-07-07T00:00:00.000Z" } }));
+  await assertFails(updateDoc(doc(db, "users", "alice"), { planChosen: true }));
   // Editing the display name within bounds is allowed.
   await assertSucceeds(updateDoc(doc(db, "users", "alice"), { name: "Ada L." }));
   // Oversized name on update -> rejected.
@@ -308,7 +308,7 @@ test("an admin (custom claim) can read another user's profile", async () => {
 
 test("free tier allows exactly 1 portfolio (counter-enforced)", async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0, planChosen: true });
   });
   const db = aliceDb();
 
@@ -328,7 +328,7 @@ test("free tier allows exactly 1 portfolio (counter-enforced)", async () => {
 test("configured limits override the defaults (admin raises free to 2 portfolios)", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "config", "app"), { plans: { free: { portfolios: 2 } } });
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
   });
   const db = aliceDb();
   // 2nd portfolio: count 1 -> 2, within the CONFIGURED free limit of 2 -> allowed
@@ -381,7 +381,7 @@ test("owner can rename a portfolio; a >50-char name is rejected; a stranger is d
   // rule already allows it: validPortfolioData bounds name 1–50 and counterDeltaOk passes
   // on a 0 coinCount delta. This test proves that — R19-2 needs NO rules change.
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "One", coinCount: 0 });
   });
   const ref = doc(aliceDb(), "users", "alice", "portfolios", "p1");
@@ -395,7 +395,7 @@ test("owner can rename a portfolio; a >50-char name is rejected; a stranger is d
 
 test("creating a portfolio WITHOUT bumping the counter is rejected", async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0, planChosen: true });
   });
   // No counter increment -> getAfter(count) != get(count)+1 -> rejected
   await assertFails(
@@ -405,7 +405,7 @@ test("creating a portfolio WITHOUT bumping the counter is rejected", async () =>
 
 test("coin create enforces symbol/name length bounds", async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 0 });
   });
   const db = aliceDb();
@@ -502,7 +502,7 @@ test("premium premiumLimits override is still hard-clamped to 1,000 coins (U11/#
 
 test("coin journal: valid thesis accepted, owner can update status, bad data + strangers rejected", async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 0 });
   });
   const db = aliceDb();
@@ -535,7 +535,7 @@ test("coin journal: valid thesis accepted, owner can update status, bad data + s
 
 test("coin journal funnel (#27): valid funnel accepted, no-funnel still valid, oversized/unknown-key/non-string rejected", async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 0 });
   });
   const db = aliceDb();
@@ -569,7 +569,7 @@ test("coin journal funnel (#27): valid funnel accepted, no-funnel still valid, o
 
 test("transaction create enforces amount/price/date bounds", async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 1 });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0 });
   });
@@ -588,7 +588,7 @@ test("transaction create enforces amount/price/date bounds", async () => {
 
 test("learn progress: owner reads/writes a valid doc; strangers + malformed are rejected (#23)", async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0 });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0, planChosen: true });
     await setDoc(doc(db, "users", "bob"), { tier: "free", portfolioCount: 0 });
   });
   const good = { xp: 120, streak: 3, lastActivity: "2026-06-23", completedLessons: ["m1-l1", "m1-l2"], updatedAt: "2026-06-23T00:00:00.000Z" };
@@ -808,4 +808,88 @@ test("ADMIN-SEC: managers still cannot reach config, audit or cache", async () =
   await assertFails(getDoc(doc(managerDb(), "config", "app")));
   await assertFails(getDoc(doc(managerDb(), "audit", "a1")));
   await assertFails(setDoc(doc(managerDb(), "config", "app"), { coingecko: "mine" }));
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ONBOARD-GATE · the mandatory, server-enforced plan-selection gate
+ * A user — or a bot with their token — that has NOT recorded a plan choice is denied
+ * their whole portfolio/coin/tx/journal/learn tree. The server-only `planChosen` flag
+ * (set by chooseFreePlan / the PayPal webhook) OR a paid tier lifts it. The user DOC
+ * stays reachable so onboarding, logout and rendering the gate still work.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+test("ONBOARD-GATE: a not-chosen FREE user is denied ALL portfolio data — read AND write", async () => {
+  await seed(async (db) => {
+    // A free account with NO recorded choice: the state right after registration, and the
+    // state of an EXISTING free account before it passes the gate (decision #3 — gate all).
+    await setDoc(doc(db, "users", "alice"), { name: "Alice", tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P1", coinCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t1"),
+      { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
+    await setDoc(doc(db, "users", "alice", "learn", "progress"),
+      { xp: 5, streak: 1, lastActivity: "2026-01-01", completedLessons: [], updatedAt: "2026-01-01T00:00:00.000Z" });
+  });
+  const db = aliceDb();
+  // READ of every data path is denied for the owner until they choose (a bot with the
+  // user's token hits exactly this).
+  await assertFails(getDoc(doc(db, "users", "alice", "portfolios", "p1")));
+  await assertFails(getDocs(collection(db, "users", "alice", "portfolios")));
+  await assertFails(getDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc")));
+  await assertFails(getDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t1")));
+  await assertFails(getDoc(doc(db, "users", "alice", "learn", "progress")));
+  // WRITE of every data path is denied too.
+  await assertFails(updateDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "renamed" }));
+  await assertFails(setDoc(doc(db, "users", "alice", "learn", "progress"),
+    { xp: 9, streak: 1, lastActivity: "2026-01-02", completedLessons: [], updatedAt: "2026-01-02T00:00:00.000Z" }));
+  const b = writeBatch(db);
+  b.set(doc(db, "users", "alice", "portfolios", "p2"), { name: "New", coinCount: 0 });
+  b.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
+  await assertFails(b.commit());
+  // ...but the user DOC itself stays reachable — onboarding/logout/delete + the gate need it.
+  await assertSucceeds(getDoc(doc(db, "users", "alice")));
+});
+
+test("ONBOARD-GATE: recording the choice (planChosen=true) lifts the gate", async () => {
+  await seed(async (db) => {
+    // Same account, now WITH the server-set flag — exactly what chooseFreePlan writes.
+    await setDoc(doc(db, "users", "alice"), { name: "Alice", tier: "free", portfolioCount: 1, planChosen: true });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P1", coinCount: 0 });
+  });
+  const db = aliceDb();
+  await assertSucceeds(getDoc(doc(db, "users", "alice", "portfolios", "p1")));
+  await assertSucceeds(updateDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "renamed" }));
+});
+
+test("ONBOARD-GATE: a PAID user is never gated, even with no planChosen flag", async () => {
+  await seed(async (db) => {
+    // Existing paid users predate the flag; tier != free is enough, so they're never locked
+    // out (no backfill needed — the derived isChosen covers them).
+    await setDoc(doc(db, "users", "bob"), { name: "Bob", tier: "pro", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "bob", "portfolios", "p1"), { name: "P1", coinCount: 0 });
+  });
+  const db = bobDb();
+  await assertSucceeds(getDoc(doc(db, "users", "bob", "portfolios", "p1")));
+  await assertSucceeds(updateDoc(doc(db, "users", "bob", "portfolios", "p1"), { name: "renamed" }));
+});
+
+test("ONBOARD-GATE: an admin can still READ a not-chosen user's data (support/panel)", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { name: "Alice", tier: "free", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P1", coinCount: 0 });
+  });
+  // The plan gate must not blind staff to a user who hasn't onboarded yet.
+  await assertSucceeds(getDoc(doc(adminDb(), "users", "alice", "portfolios", "p1")));
+  await assertSucceeds(getDoc(doc(managerDb(), "users", "alice", "portfolios", "p1")));
+});
+
+test("ONBOARD-GATE: a client can NEVER set the server-only planChosen flag (create OR update)", async () => {
+  // On CREATE — the flag that gates all data must not be self-granted at signup (hasOnly +
+  // the explicit blocklist). On UPDATE — an owner can't flip their own gate open either.
+  await assertFails(setDoc(doc(aliceDb(), "users", "alice"),
+    { name: "Alice", tier: "free", portfolioCount: 0, planChosen: true }));
+  await seed(async (db) => { await setDoc(doc(db, "users", "bob"), { name: "Bob", tier: "free", portfolioCount: 0 }); });
+  await assertFails(updateDoc(doc(bobDb(), "users", "bob"), { planChosen: true }));
+  // A clean signup (no planChosen) still works — proves the block is only on the flag.
+  await assertSucceeds(setDoc(doc(carolDb(), "users", "carol"), { name: "Carol", tier: "free", portfolioCount: 0 }));
 });

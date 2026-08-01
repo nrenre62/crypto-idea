@@ -20,7 +20,7 @@ vi.mock("../../src/utils/storage.js", () => ({
 }));
 
 import { useAuthSession } from "../../src/hooks/useAuthSession.js";
-import { getUserProfile } from "../../src/api/firebase-database.js";
+import { getUserProfile, getPortfolios } from "../../src/api/firebase-database.js";
 import { db } from "../../src/utils/storage.js";
 
 function setup(overrides = {}) {
@@ -51,6 +51,27 @@ describe("useAuthSession", () => {
     expect(collab.setScreen).toHaveBeenCalledWith("portfolio");
     expect(view.result.current.user).toMatchObject({ uid: "u1", email: "a@b.com", name: "Ann", tier: "free" });
     expect(view.result.current.dataLoaded).toBe(true);
+  });
+
+  it("ONBOARD-GATE: a not-chosen free user does NOT load portfolios (no spurious load error)", async () => {
+    // A not-yet-chosen free user's data is denied by firestore.rules; the hook must SKIP the
+    // load + live listener so the EXPECTED denial doesn't trip the portfolios-error screen and
+    // mask the plan gate. The gate takes over; chooseFree loads the default after the choice.
+    getUserProfile.mockResolvedValueOnce({ success: true, tier: "free", planChosen: false });
+    const setPortfoliosError = vi.fn();
+    const { collab } = setup({ setPortfoliosError });
+    await act(async () => { await authCb({ uid: "u1", email: "new@b.com", displayName: "New" }); });
+    expect(getPortfolios).not.toHaveBeenCalled();
+    expect(setPortfoliosError).not.toHaveBeenCalledWith(true);
+    expect(collab.setScreen).toHaveBeenCalledWith("portfolio");  // the derived gate renders over it
+  });
+
+  it("ONBOARD-GATE: a CHOSEN free user (planChosen:true) still loads portfolios", async () => {
+    getUserProfile.mockResolvedValueOnce({ success: true, tier: "free", planChosen: true });
+    const { collab } = setup();
+    await act(async () => { await authCb({ uid: "u1", email: "ann@b.com", displayName: "Ann" }); });
+    expect(getPortfolios).toHaveBeenCalledWith("u1");
+    expect(collab.setPortfolios).toHaveBeenCalled();
   });
 
   it("adopts the server tier from Firestore (the authoritative source), not the local default", async () => {

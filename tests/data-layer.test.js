@@ -8,10 +8,13 @@
  */
 import test from "node:test";
 import assert from "node:assert";
-import { auth, db } from "../src/api/firebase.config.js";
+import { readFileSync } from "node:fs";
+import { auth, db, functions } from "../src/api/firebase.config.js";
 import { connectAuthEmulator } from "firebase/auth";
 import { connectFirestoreEmulator } from "firebase/firestore";
+import { connectFunctionsEmulator } from "firebase/functions";
 import { registerUser, updateUserSettings } from "../src/api/firebase-auth.js";
+import { chooseFreePlan } from "../src/api/account.js";
 import {
   getPortfolios, createPortfolio, getCoins,
   addCoin, addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
@@ -27,17 +30,43 @@ const [FS_HOST, FS_PORT] = (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:80
 connectAuthEmulator(auth, "http://" + AUTH_HOST, { disableWarnings: true });
 connectFirestoreEmulator(db, FS_HOST, Number(FS_PORT));
 
+// ONBOARD-GATE: onboarding now records the plan choice via the chooseFreePlan callable, so
+// the data layer needs the FUNCTIONS emulator too. Its port isn't exported, so ask the hub
+// (whose address IS exported) — this follows firebase.json (:5001) or firebase.solo.json
+// (:5002) automatically, matching functions-callable.test.js.
+async function resolveFunctionsPort() {
+  const hub = process.env.FIREBASE_EMULATOR_HUB;
+  if (hub) {
+    try {
+      const info = await fetch(`http://${hub}/emulators`).then((r) => r.json());
+      if (info.functions && info.functions.port) return info.functions.port;
+    } catch { /* fall through to the config file */ }
+  }
+  return JSON.parse(readFileSync(new URL("../firebase.json", import.meta.url), "utf8")).emulators.functions.port;
+}
+connectFunctionsEmulator(functions, "127.0.0.1", await resolveFunctionsPort());
+
 const email = `tester_${Date.now()}@example.com`;
 const pass = "Aa1!aaaa";
 let uid;
 
-test("register creates the user + default portfolio (counters seeded)", async () => {
+test("ONBOARD-GATE: register makes a gated account; chooseFreePlan records the choice + seeds the default portfolio", async () => {
   const res = await registerUser(email, pass, "Tester", { termsVersion: "2026-06-24", privacyVersion: "2026-06-24", marketing: true });
   assert.ok(res.success, "register should succeed: " + JSON.stringify(res));
   uid = res.user.uid;
 
+  // Registration no longer creates a portfolio — the whole data tree is gated until a plan
+  // is recorded. A brand-new account can't even read its (empty) portfolios collection.
+  const gated = await getPortfolios(uid);
+  assert.equal(gated.success, false, "a not-yet-chosen account is denied its data by the rules");
+
+  // Record the free choice (what the Starter card does). The server sets planChosen and
+  // creates the default portfolio via the Admin SDK — the first portfolio appears now.
+  const choose = await chooseFreePlan();
+  assert.ok(choose && choose.success && choose.planChosen, "chooseFreePlan records the choice: " + JSON.stringify(choose));
+
   const ports = await getPortfolios(uid);
-  assert.ok(ports.success);
+  assert.ok(ports.success, "portfolios are readable once the plan is chosen: " + JSON.stringify(ports));
   assert.equal(ports.portfolios.length, 1, "should have exactly the default portfolio");
   assert.equal(ports.portfolios[0].id, "default");
 });
@@ -281,6 +310,10 @@ test("DI-1: an over-2000 thesis is rejected as reason:'invalid-or-denied', not a
   const reg = await registerUser(email2, pass, "Tester Two", { termsVersion: "2026-06-24", privacyVersion: "2026-06-24" });
   assert.ok(reg.success, "second registration: " + JSON.stringify(reg));
   const uid2 = reg.user.uid;   // fresh account: coinCount 0, well below the free cap of 10
+  // ONBOARD-GATE: pass the plan gate first (registerUser re-authed the shared SDK as uid2),
+  // so the add below fails on the THESIS length — the reason under test — not on the gate.
+  const choose2 = await chooseFreePlan();
+  assert.ok(choose2 && choose2.success, "choose free for the 2nd account: " + JSON.stringify(choose2));
   const longThesis = { thesis: "x".repeat(2001), changeMyMind: "y", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" };
   const badAdd = await addCoin(uid2, "default", { id: "btc", symbol: "BTC", name: "Bitcoin" }, longThesis, 10);
   assert.equal(badAdd.success, false, "an over-2000 thesis is rejected by the rules");

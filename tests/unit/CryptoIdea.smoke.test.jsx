@@ -28,7 +28,9 @@ vi.mock("../../src/api/firebase-database.js", () => ({
   watchLearnProgress: vi.fn((uid, cb) => { cb({ success: false }); return () => {}; }),
   getPortfolios: vi.fn().mockResolvedValue({ success: true, portfolios: [] }),
   getCoins: vi.fn().mockResolvedValue({ success: true, coins: [] }),
-  getUserProfile: vi.fn().mockResolvedValue({ success: false }),
+  // ONBOARD-GATE: a logged-in user has passed the plan gate (planChosen:true), so these
+  // smoke tests exercise the app BEHIND the gate rather than the forced plan modal.
+  getUserProfile: vi.fn().mockResolvedValue({ success: true, tier: "free", planChosen: true, settings: {} }),
   createPortfolio: vi.fn(),
   deletePortfolio: vi.fn(),
   addCoin: vi.fn(),
@@ -47,6 +49,7 @@ vi.mock("../../src/api/coingecko.js", () => ({
 vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn().mockResolvedValue(null) }));
 
 import { onAuthChange } from "../../src/api/firebase-auth.js";
+import { getUserProfile } from "../../src/api/firebase-database.js";
 import CryptoIdea from "../../src/CryptoIdea.jsx";
 
 describe("CryptoIdea (smoke)", () => {
@@ -75,6 +78,22 @@ describe("CryptoIdea (smoke)", () => {
     });
     render(<CryptoIdea />);
     expect(await screen.findByText(/My Assets/i)).toBeInTheDocument();
+  });
+
+  it("ONBOARD-GATE: a not-chosen user sees the plan gate, NOT a portfolio load error", async () => {
+    // The critical regression the adversarial review caught: a not-yet-chosen user's data reads
+    // are denied by firestore.rules; loadPortfolios must NOT treat that expected denial as a load
+    // error, or the "Couldn't load / Retry" screen masks the plan gate and onboarding is impossible.
+    // useAuthSession skips the load for a not-chosen user + the gate render wins over portfoliosError.
+    getUserProfile.mockResolvedValueOnce({ success: true, tier: "free", planChosen: false, settings: {} });
+    onAuthChange.mockImplementation((cb) => {
+      cb({ uid: "u1", email: "new@test.com", displayName: "New" });
+      return () => {};
+    });
+    render(<CryptoIdea />);
+    // The forced picker renders (every card actionable); the load-error dead-end does not.
+    expect(await screen.findByText("Choose Starter")).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load your portfolios")).toBeNull();
   });
 
   it("navigates from portfolio to the Add-Coin search screen (Search via context)", async () => {

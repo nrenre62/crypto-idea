@@ -17,7 +17,7 @@ import {
   updatePassword,
   verifyBeforeUpdateEmail
 } from "firebase/auth";
-import { doc, setDoc, serverTimestamp, writeBatch, increment } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase.config.js";
 // ADMIN-0: recognising a beforeCreate refusal (which carries no dedicated auth/* code).
 import { isSignupBlockedError, SIGNUPS_PAUSED_MSG } from "../utils/errors.js";
@@ -34,16 +34,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ─── Register New User ───
 // Creates the Firebase Auth account + the Firestore profile (with a validated consent
-// record + closed settings map) + the default portfolio. `consent` (optional) is
-// { termsVersion, privacyVersion, marketing } captured at signup.
+// record + closed settings map). `consent` (optional) is { termsVersion, privacyVersion,
+// marketing } captured at signup.
 //
-// NOTE on atomicity: the counter rule for the first portfolio needs the parent user
-// doc to ALREADY exist (getAfter(portfolioCount) == get(portfolioCount)+1), and
-// Firestore forbids two writes to the same doc in one batch — so a single all-in-one
-// batch is impossible. The rules-compatible equivalent is a sequenced two-write create:
-// (1) profile with portfolioCount:0, then (2) a batch that creates the default
-// portfolio and increments the counter to 1. If (2) fails the user simply has no
-// portfolio yet (recoverable on next load), never a corrupt half-state.
+// ONBOARD-GATE: the profile is created on the FREE tier with portfolioCount:0 and NO
+// recorded plan choice, so the mandatory plan gate shows next. The default portfolio is
+// NOT created here anymore — portfolio writes are gated behind a recorded choice, so it is
+// created server-side when the user picks a plan (chooseFreePlan / the paid webhook). A
+// new account therefore has a profile but no portfolio until it passes the gate.
 export async function registerUser(email, password, name, consent = null) {
   const cleanName = (name || "").trim();
   const cleanEmail = (email || "").toLowerCase().trim();
@@ -80,7 +78,12 @@ export async function registerUser(email, password, name, consent = null) {
       privacyAcceptedAt: now,
     } : null;
 
-    // (1) Profile doc — must exist (portfolioCount:0) before the first portfolio create.
+    // Profile doc only (portfolioCount:0, NO planChosen — that's server-only, set when the
+    // user records a plan). ONBOARD-GATE: the default portfolio is NO LONGER created here.
+    // Portfolio writes are gated behind a recorded plan choice (isChosen in firestore.rules),
+    // so a brand-new user's client-side portfolio create would be denied. The first portfolio
+    // is instead created server-side the moment a plan is recorded — chooseFreePlan (free) or
+    // the PayPal webhook / devSetMyTier (paid). See functions/index.js ensureDefaultPortfolio.
     await setDoc(doc(db, "users", user.uid), {
       email: cleanEmail,
       name: cleanName,
@@ -91,17 +94,6 @@ export async function registerUser(email, password, name, consent = null) {
       settings,
       ...(consentRecord ? { consent: consentRecord } : {}),
     });
-
-    // (2) Default portfolio + counter bump to 1, satisfying the counter-based tier rule.
-    const batch = writeBatch(db);
-    batch.set(doc(db, "users", user.uid, "portfolios", "default"), {
-      name: "My Portfolio",
-      created: serverTimestamp(),
-      order: 0,
-      coinCount: 0
-    });
-    batch.update(doc(db, "users", user.uid), { portfolioCount: increment(1) });
-    await batch.commit();
 
     return { success: true, user };
   } catch (error) {

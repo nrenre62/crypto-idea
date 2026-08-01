@@ -243,7 +243,7 @@ per-doc delete. Pure helpers are unit-tested; no new dependency.
 
 ---
 
-## ONBOARD-GATE. Mandatory, server-enforced plan-selection gate for every un-chosen user  (📋 PLAN — 2026-08-01; NOT built · `launch-blocker`)
+## ONBOARD-GATE. Mandatory, server-enforced plan-selection gate for every un-chosen user  (✅ BUILT 2026-08-01 · server flag + rules gate + non-dismissible modal · App Check + rules-deploy are go-live steps)
 
 Founder ask (2026-08-01): a **new registration currently opens straight into the account** with no
 plan step the user can't get past. Add a **plan-selection gate** — a popup shown to a new user
@@ -349,8 +349,40 @@ server-only flag + one rate-limited, audited callable); the popup is UX. No new 
 `guards.js`, the audit choke point, and the PayPal webhook. This is a **go-live blocker** — monetization
 + access control.
 
-**Status: PLAN ONLY — not built.** All three founder decisions (mandatory choice / keep free Starter,
-full server enforcement, all un-chosen accounts) are locked; awaiting the go-ahead to build.
+**Status: ✅ BUILT 2026-08-01** (all three locked decisions honoured; founder greenlit "gate existing
+free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
+- **Part A (server):** `planChosen` is now a **server-only top-level** user field (removed from
+  `validSettings`, added to the users create blocklist — was gap G3). New `chooseFreePlan` callable
+  ([functions/index.js](../../functions/index.js)): auth + per-uid `consumeDailyBudget` + **idempotent**
+  + `ensureDefaultPortfolio` + audited. App Check is enforced **platform-side** at go-live (console),
+  NOT wired in code — consistent with every other callable (CLAUDE.md: `appCheckOk` stays zero-call-site
+  to avoid a duplicate control + second lockout surface). The PayPal webhook ACTIVATED case and
+  `devSetMyTier` also set `planChosen` + seed the default portfolio for paid tiers.
+  `ensureDefaultPortfolio` is the ONE server helper that creates `portfolios/default`.
+- **Part B (rules):** `isChosen(uid)` = `planChosen==true || tier!="free"`; every OWNER branch of
+  portfolios/coins/transactions/learn (read+create+update+delete) requires it; admin branches
+  untouched. Client can never write `planChosen` (create hasOnly + blocklist; update affectedKeys).
+- **Part C (client):** registration no longer creates the portfolio; the modal is **derived**
+  (`showPlan || forcedPlan`, re-appears every session — fixes G2); truly non-dismissible when forced
+  (no X, no scrim/Esc, focus-trap — fixes G1); Starter → `chooseFree` (server), paid via PayPal;
+  `useAuthSession` carries the server `planChosen` into the client user.
+- **Verified:** rules suite **48/48** (`test:rules:solo`), integration **24/24** (`test:integration:solo`
+  incl. chooseFreePlan idempotency + a not-chosen user denied end-to-end), unit **917/917**, build clean.
+- **Go-live (founder-only, can't be done locally):** ① `firebase deploy --only firestore:rules` (push the
+  new gate); ② enable **App Check** enforcement platform-side in the Firebase console for `chooseFreePlan`
+  / `createSubscription` (per-service, no code/flag). Until then "no bot" rests on the rules gate +
+  per-uid rate limit; App Check enforcement lands at launch.
+- **⚠️ Go-live blocker surfaced by the adversarial review (paid path + gate):** the client's PayPal
+  button ([Login.jsx](../../src/components/Login.jsx) billing step) is still the **pre-go-live
+  simulation** — it optimistically `setUser({tier})` and never calls `createSubscription`. Because the
+  gate derives `planChosen` from `tier!=="free"`, a *forced* (un-chosen) user who picks a PAID plan
+  clears the gate on the OPTIMISTIC tier. **In DEV this is correct** (`devSetMyTier` records
+  `planChosen`+tier server-side, so client and server agree). **In a real deploy the paid path MUST record
+  the choice server-side (the PayPal webhook already sets `planChosen`) AND the client must gate on the
+  server-confirmed choice, not an optimistic tier** — otherwise the gate clears while `firestore.rules`
+  still denies all data (a broken empty state; recovers on reload, but a transient profile-load failure
+  keeps the cached tier). This rides with the existing **real-PayPal go-live blocker** (BILLING.md) — the
+  free path is fully server-enforced today; the paid path is DEV-correct and completed by the PayPal work.
 
 ---
 

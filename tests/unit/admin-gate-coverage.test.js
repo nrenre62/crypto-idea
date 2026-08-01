@@ -72,6 +72,8 @@ const UNGATED_BY_DESIGN = new Set([
   "createSubscription", "cancelSubscription", "deleteMyAccount", "restoreMyAccount",
   "signOutEverywhere", "exportMyData", "reconcileMyCounters", "resolveRecheckout",
   "reactivateSubscription",
+  "chooseFreePlan",  // ONBOARD-GATE — free plan choice; per-uid rate-limited, acts on caller's uid (App Check platform-side)
+
   "devSetMyTier",    // emulator-gated dev helper (R17)
   "setAdminClaim",   // removed — the body throws permission-denied unconditionally
 ]);

@@ -30,7 +30,9 @@ vi.mock("../../src/api/firebase-database.js", () => ({
   watchLearnProgress: vi.fn((uid, cb) => { cb({ success: false }); return () => {}; }),
   getPortfolios: vi.fn().mockResolvedValue({ success: true, portfolios: [] }),
   getCoins: vi.fn().mockResolvedValue({ success: true, coins: [] }),
-  getUserProfile: vi.fn().mockResolvedValue({ success: false }),
+  // ONBOARD-GATE: the default logged-in user has passed the plan gate (planChosen:true), so
+  // the walkthrough exercises the app itself; paid-tier tests override this per-test below.
+  getUserProfile: vi.fn().mockResolvedValue({ success: true, tier: "free", planChosen: true, settings: {} }),
   createPortfolio: vi.fn(), deletePortfolio: vi.fn(),
   addCoin: vi.fn().mockResolvedValue({ success: true }),
   removeCoin: vi.fn().mockResolvedValue({ success: true }),

@@ -54,6 +54,15 @@ export async function reactivateSubscription() {
   return res.data;
 }
 
+// ONBOARD-GATE: record the caller's FREE plan choice server-side. Sets the server-only
+// planChosen flag (clients can never write it — the flag GATES all app data in
+// firestore.rules) and creates the default portfolio. Idempotent; acts on the caller's uid.
+// Paid choices go through createSubscription/PayPal instead. Returns { success, planChosen }.
+export async function chooseFreePlan() {
+  const res = await httpsCallable(functions, "chooseFreePlan")({});
+  return res.data;
+}
+
 // DEV / EMULATOR ONLY — set the CALLER's own tier so an in-app "upgrade" persists to
 // the DB locally (there's no PayPal webhook in the emulator, so the demo upgrade would
 // otherwise never reach Firestore and the portfolio cap would stay at free=1). The

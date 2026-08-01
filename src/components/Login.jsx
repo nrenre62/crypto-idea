@@ -36,17 +36,20 @@ export function Login({ popup }) {
   const {
     showPlan, showWelcome, upgradeStep, setUpgradeStep, upgradeFlow, setUpgradeFlow,
     setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user, setUser,
-    saveProfile, persistTierDev, calcEndDate, setScreen, authMode, setAuthMode, authErr, setAuthErr,
+    saveProfile, persistTierDev, calcEndDate, reloadPortfolios, setScreen, authMode, setAuthMode, authErr, setAuthErr,
     authName, setAuthName, authEmail, setAuthEmail, authPass, setAuthPass, handleAuth, authBusy, site,
     authAgreeTerms, setAuthAgreeTerms, authAgreePrivacy, setAuthAgreePrivacy,
-    authAgreeMarketing, setAuthAgreeMarketing, planChosen, markPlanChosen,
+    authAgreeMarketing, setAuthAgreeMarketing, planChosen, chooseFree, choosingPlan,
   } = useApp();
   const [showPass,setShowPass]=useState(false);
   // R31-1: only render the plan picker/upgrade flow for a LIVE session. If the
   // session died mid-flow (e.g. a token revoke), `showPlan` may still be true for a
   // tick before the overlay is cleared — without this guard the picker would paint
   // "Welcome, " with an empty name (ERRORS §A5). No user → fall through to the login form.
-  if(showPlan&&user){
+  // ONBOARD-GATE: also render the picker when the user is FORCED (!planChosen) even if showPlan
+  // is false — a re-login un-chosen user reaches the gate overlay (CryptoIdea derives it from
+  // forcedPlan, not just showPlan), so Login must match or it'd paint the login FORM in the gate.
+  if((showPlan||!planChosen)&&user){
     const tierLabel={free:"Starter",pro:"Pro",premium:"Premium"}[showWelcome||"free"];
     // R27-3: popup = centered body inside the Modal; full-screen wrapper otherwise.
     const wrap=(kids)=>popup
@@ -108,8 +111,13 @@ export function Login({ popup }) {
               await persistTierDev(newTier);
               // DI-4 (D3): no trim — an UPGRADE only raises caps (existing data already
               // fits and simply unlocks), and downgrades keep + grey-lock data, never delete it.
-              // R31-2: a completed paid choice also counts as an explicit plan choice.
-              if(markPlanChosen)markPlanChosen();
+              // ONBOARD-GATE: a completed paid choice records the choice server-side (the PayPal
+              // webhook sets planChosen; devSetMyTier does the same locally). The derived
+              // planChosen (tier != "free") clears the gate here immediately — no client write.
+              // Load the server-created default portfolio (devSetMyTier/webhook run
+              // ensureDefaultPortfolio), so a just-onboarded paid user isn't stranded on an empty
+              // list until reload (mirrors the free path's reloadPortfolios).
+              if(reloadPortfolios)await reloadPortfolios();
               setShowWelcome(newTier);
               setUpgradeStep("welcome");
             },2000);
@@ -151,12 +159,15 @@ export function Login({ popup }) {
           upgrade Modal already titles itself "Choose a plan", so it's dropped there (popup). */}
       {!popup&&<div className="auth-sub">Select a plan</div>}
       <div className="plan-col">
-        <div onClick={cardGo("free",()=>{if(markPlanChosen)markPlanChosen();setShowWelcome("free");setUpgradeStep("welcome")})} className={"plan-card starter"+lockCls("free")} aria-disabled={cardState("free")!=="upgrade"}>
+        {/* ONBOARD-GATE: Starter goes through the SERVER (chooseFree → chooseFreePlan callable),
+            which records the choice + creates the default portfolio, then shows the welcome. The
+            old client markPlanChosen is gone. Guarded against a double-click while in flight. */}
+        <div onClick={choosingPlan?undefined:cardGo("free",()=>{chooseFree&&chooseFree()})} className={"plan-card starter"+lockCls("free")} aria-disabled={cardState("free")!=="upgrade"||choosingPlan}>
           {cardState("free")==="current"&&<div className="plan-badge">CURRENT</div>}
           <div className="plan-top"><span className="plan-name">Starter</span><span className="plan-price">$0</span></div>
           <div className="plan-feats">{PLAN_BENEFITS.free.limits.join(" · ")}</div>
           <div className="plan-feats">{PLAN_BENEFITS.free.feature}</div>
-          <div className={"plan-cta neutral"+lockCls("free")}>{ctaText("free","Choose Starter")}</div>
+          <div className={"plan-cta neutral"+lockCls("free")}>{choosingPlan&&cardState("free")==="upgrade"?"Setting up…":ctaText("free","Choose Starter")}</div>
         </div>
         <div onClick={cardGo("pro",()=>{setUpgradeFlow("pro");setUpgradeStep("billing")})} className={"plan-card rec"+lockCls("pro")} aria-disabled={cardState("pro")!=="upgrade"}>
           {/* CURRENT replaces RECOMMENDED on the user's own card */}

@@ -240,3 +240,56 @@ test("callables reject unknown top-level data keys, but accept their allowed key
   const badNoArg = await callAs("getStats", ownerToken, { sneaky: 1 });
   assert.strictEqual(badNoArg.status, 400, `no-arg call with a key should be rejected: ${JSON.stringify(badNoArg.body)}`);
 });
+
+// ── ONBOARD-GATE: the free plan-choice callable ──
+
+test("chooseFreePlan: records the choice, creates the default portfolio, and is idempotent", async () => {
+  const email = `onboard_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  // A freshly-registered account: a profile doc, free tier, NO recorded choice, NO portfolio
+  // (registration no longer creates it client-side — ONBOARD-GATE).
+  await db.collection("users").doc(uid).set({ email, name: "New User", tier: "free", portfolioCount: 0 });
+  const token = await idTokenFor(email);
+
+  // Before: not chosen, no portfolios.
+  assert.strictEqual((await userDoc(uid)).planChosen, undefined, "should start with no recorded choice");
+  const before = await db.collection("users").doc(uid).collection("portfolios").get();
+  assert.strictEqual(before.size, 0, "a new account has no portfolio until it chooses");
+
+  // Choose free.
+  const res = await callAs("chooseFreePlan", token, {});
+  assert.strictEqual(res.status, 200, `chooseFreePlan failed: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body.result.planChosen, true);
+
+  const after = await userDoc(uid);
+  assert.strictEqual(after.planChosen, true, "planChosen must be set server-side");
+  assert.strictEqual(after.tier, "free", "the free choice keeps the free tier");
+  assert.strictEqual(after.portfolioCount, 1, "portfolioCount reflects the created default portfolio");
+  const ports = await db.collection("users").doc(uid).collection("portfolios").get();
+  assert.strictEqual(ports.size, 1, "exactly one default portfolio was created");
+  assert.strictEqual(ports.docs[0].id, "default", "the default portfolio uses the fixed 'default' id");
+
+  // Idempotent: a second call is a harmless no-op — no duplicate portfolio, still chosen.
+  const again = await callAs("chooseFreePlan", token, {});
+  assert.strictEqual(again.status, 200, `second chooseFreePlan failed: ${JSON.stringify(again.body)}`);
+  const ports2 = await db.collection("users").doc(uid).collection("portfolios").get();
+  assert.strictEqual(ports2.size, 1, "a repeat call must not create a second portfolio");
+  assert.strictEqual((await userDoc(uid)).planChosen, true);
+});
+
+test("chooseFreePlan: rejects an unknown field and requires auth", async () => {
+  const email = `onboard2_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set({ email, name: "N2", tier: "free", portfolioCount: 0 });
+  const token = await idTokenFor(email);
+  // Deny-by-default input shape (assertNoUnknownKeys([])).
+  const badKey = await callAs("chooseFreePlan", token, { sneaky: 1 });
+  assert.strictEqual(badKey.status, 400, `unknown key should be rejected: ${JSON.stringify(badKey.body)}`);
+  // Unauthenticated → 401.
+  const noAuth = await fetch(callableUrl("chooseFreePlan"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: {} }),
+  });
+  assert.strictEqual(noAuth.status, 401, "an unauthenticated call must be rejected");
+});

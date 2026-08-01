@@ -19,7 +19,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, updateUserSettings, CONSENT_VERSION } from "./api/firebase-auth.js";
-import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier, reconcileMyCounters as apiReconcileMyCounters, resolveRecheckout as apiResolveRecheckout, reactivateSubscription as apiReactivateSubscription } from "./api/account.js";
+import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier, reconcileMyCounters as apiReconcileMyCounters, resolveRecheckout as apiResolveRecheckout, reactivateSubscription as apiReactivateSubscription, chooseFreePlan as apiChooseFreePlan } from "./api/account.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import { CSV_BOM } from "./utils/csv.js";
 import {
@@ -402,17 +402,39 @@ export default function CryptoIdea(){
       showErr("Couldn't save that setting — check your connection.");
     }
   };
-  // R31-2: a brand-new free user has NOT made an explicit plan choice (no settings.planChosen
-  // and free tier) → the picker FORCES one (no pre-chosen CURRENT badge, no skip). A paid
-  // tier, or a persisted planChosen, means they've chosen.
-  const planChosen=!!(user&&(user.settings?.planChosen===true||(user.tier&&user.tier!=="free")));
-  // Persist the explicit choice when a plan is finalized (Starter success or a completed
-  // paid upgrade) so the forced picker never re-appears.
-  const markPlanChosen=async()=>{
-    if(!user?.uid||user.settings?.planChosen===true)return;
-    setUser(u=>u?{...u,settings:{...(u.settings||{}),planChosen:true}}:u);
-    try{await updateUserSettings(user.uid,{planChosen:true});}catch(_e){}
+  // ONBOARD-GATE: has this user RECORDED a plan choice? Read from the SERVER-only top-level
+  // `planChosen` flag (set by chooseFreePlan / the PayPal webhook — clients can't write it) OR
+  // any paid tier. A brand-new free account with no recorded choice is NOT chosen → the plan
+  // gate is forced (see forcedPlan + the gate render). Mirrors isChosen in firestore.rules, so
+  // client and server agree on who's gated. (Was settings.planChosen, which was client-writable
+  // — gap G3; the flag now lives at the top level and is server-authoritative.)
+  const planChosen=!!(user&&(user.planChosen===true||(user.tier&&user.tier!=="free")));
+  // ONBOARD-GATE: the FREE path — record the choice on the SERVER (chooseFreePlan sets
+  // planChosen + creates the default portfolio), then reload so the new portfolio appears and
+  // the gate clears from the server truth. The paid path goes through PayPal (Login.jsx) → the
+  // webhook records it. A re-entry ref stops a double-click firing two calls (idempotent anyway).
+  const choosingRef=useRef(false);
+  const [choosingPlan,setChoosingPlan]=useState(false);
+  const chooseFree=async()=>{
+    if(!user?.uid||choosingRef.current)return;
+    choosingRef.current=true;setChoosingPlan(true);
+    try{
+      const r=await apiChooseFreePlan();
+      if(r&&(r.success||r.planChosen)){
+        setUser(u=>u?{...u,planChosen:true}:u);   // optimistic: gate is no longer forced
+        await reloadPortfolios();                 // load the server-created default portfolio
+        setShowPlan(true);                        // keep the modal open for the Welcome step
+        setShowWelcome("free");setUpgradeStep("welcome");
+      }else{
+        showErr((r&&r.error)||"Couldn't set up your free plan — please try again.");
+      }
+    }catch(_e){
+      showErr("Couldn't set up your free plan — please try again.");
+    }finally{choosingRef.current=false;setChoosingPlan(false);}
   };
+  // ONBOARD-GATE: a signed-in user who hasn't recorded a plan choice is FORCED through the
+  // gate. Drives the non-dismissible modal (below) and Login's no-skip "forced" picker state.
+  const forcedPlan=!!(user&&!planChosen);
   // Email-verify nudge (USER-CREATION.md §5): dismissible banner + resend.
   const [verifyDismissed,setVerifyDismissed]=useState(false);
   const [verifyMsg,setVerifyMsg]=useState("");
@@ -945,7 +967,12 @@ export default function CryptoIdea(){
 
   // DI-2 (G13/G30): a persistent portfolio-load failure shows an honest Retry, never the
   // silent phantom "default" portfolio that every write would then fail against.
-  if(portfoliosError&&user&&screen!=="login"&&screen!=="loading") return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
+  // ONBOARD-GATE (defense-in-depth): the forced plan gate ALWAYS wins over the portfolio
+  // load-error screen. A not-chosen user's data reads are denied BY DESIGN — that expected
+  // denial must surface the plan gate (below), never the "Couldn't load / Retry" dead-end
+  // (whose Retry would just re-hit the same denial). useAuthSession already skips the load for
+  // a not-chosen user; this guard is the belt-and-suspenders so the gate can't be masked.
+  if(portfoliosError&&!forcedPlan&&user&&screen!=="login"&&screen!=="loading") return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
     <div style={{fontSize:40,marginBottom:14}}>📡</div>
     <div style={{fontSize:22,fontWeight:700,marginBottom:8}}>Couldn't load your portfolios</div>
     <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5,marginBottom:20}}>Your data is safe on the server — this looks like a connection hiccup. Let's try again.</div>
@@ -968,8 +995,8 @@ export default function CryptoIdea(){
     delPass,setDelPass,delType,setDelType,cancelDelete,
     pwCur,setPwCur,pwNew,setPwNew,pwMsg,changeMyPassword,signOutEverywhere,
     profName,setProfName,profMsg,saveDisplayName,emNew,setEmNew,emPass,setEmPass,emMsg,requestEmailChange,toggleSetting,
-    showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,planChosen,markPlanChosen,
-    upgradeBilling,setUpgradeBilling,setUser,saveProfile,persistTierDev,calcEndDate,
+    showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,planChosen,chooseFree,choosingPlan,
+    upgradeBilling,setUpgradeBilling,setUser,saveProfile,persistTierDev,calcEndDate,reloadPortfolios,
     authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,authBusy,site,
     authAgreeTerms,setAuthAgreeTerms,authAgreePrivacy,setAuthAgreePrivacy,authAgreeMarketing,setAuthAgreeMarketing};
   // Responsive shell: tab screens render inside a centered column (.app-shell) that
@@ -991,7 +1018,13 @@ export default function CryptoIdea(){
     {offline&&<div role="status" style={{position:"fixed",top:0,left:0,right:0,zIndex:10001,background:"#92400E",color:"#fff",textAlign:"center",fontSize:12,fontWeight:600,padding:"6px 12px"}}>You're offline — changes can't be saved right now.</div>}
     {/* ADMIN-5: site announcement banner — logged-in app only, dismissible per-message. */}
     {user&&screen!=="login"&&<AnnouncementBanner announcement={site.announcement} />}
-    {showPlan&&screen!=="login"&&(()=>{
+    {/* ONBOARD-GATE: the plan modal is DERIVED, not triggered once. It shows whenever the
+        upgrade flow was opened (showPlan) OR the user hasn't recorded a plan choice (forcedPlan)
+        — so a not-yet-chosen user sees it every session/reload until they choose (fixes G2), and
+        a bot never sees it but is denied data by the rules regardless. Suspension/offline states
+        render their own UI above (banner/recheckout) and a suspended Auth account can't sign in,
+        so `user` is null and this never shows for them — the gate ordering the spec asks for. */}
+    {(showPlan||forcedPlan)&&screen!=="login"&&screen!=="loading"&&(()=>{
       // R27-3: on DESKTOP the plan/billing flow renders inside the shared <Modal>
       // (title + X; no scrim-dismiss so a mis-click doesn't abandon a mid-flow
       // upgrade; the X is suppressed during the fake-PayPal "processing" step).
@@ -1003,7 +1036,10 @@ export default function CryptoIdea(){
           ?("Upgrade to "+(upgradeFlow==="premium"?"Premium":"Pro"))
           :(upgradeStep==="welcome"||upgradeStep==="processing")?"":"Choose a plan";
         const closePlanFlow=()=>{setShowPlan(false);setUpgradeFlow(null);setUpgradeStep("billing");setShowWelcome(null)};
-        return(<Modal size="md" title={planTitle} dismissOnScrim={false} hideClose={upgradeStep==="processing"} onClose={closePlanFlow}><Login popup/></Modal>);
+        // ONBOARD-GATE (fixes G1): when the choice is FORCED, the modal is truly non-dismissible
+        // — no X (hideClose), no scrim/Esc close (dismissOnScrim already off; Modal has no Esc),
+        // and a focus-trap so Tab can't reach the app behind it. Only the plan cards can act.
+        return(<Modal size="md" title={planTitle} dismissOnScrim={false} hideClose={upgradeStep==="processing"||forcedPlan} trapFocus={forcedPlan} onClose={closePlanFlow}><Login popup/></Modal>);
       }
       return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:c.bg,zIndex:9000,overflowY:"auto",display:"flex",justifyContent:"center"}}>
         <div style={{width:"100%",maxWidth:430}}><Login/></div>

@@ -87,6 +87,10 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
           // Timestamp object, and the Account screen renders it directly (would crash on an object).
           ...(server.success ? {
             tier: server.tier || "free",
+            // ONBOARD-GATE: the server-only plan-choice flag. Must be carried into the client
+            // user so the derived `planChosen` (CryptoIdea) clears the gate on reload/re-login
+            // for a FREE user who already chose — without it they'd be re-forced every session.
+            planChosen: server.planChosen === true,
             subscription: "subscription" in server ? server.subscription : (profile.subscription ?? null),
             // Soft-delete state is server-authoritative (numbers, safe to render). When
             // `deleted` is true the app shows the restore screen instead of the portfolio.
@@ -106,20 +110,38 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
           // "verify your email" nudge. Sensitive ops are gated server-side, not here.
           emailVerified: fbUser.emailVerified === true,
         };
-        await loadPortfolios(fbUser.uid);
-        // C-A3 (C12): keep the portfolio LIST live — a rename/add/delete made on a
-        // second device merges in without a reload. Coins are preserved from the
-        // current state (the active portfolio's coins have their own live watcher
-        // in CryptoIdea; a portfolio new to this device starts empty until opened).
-        unsubPorts = watchPortfolios(fbUser.uid, (metas) => {
-          if (!metas.length) return;   // never blank the UI on a transient empty snapshot
-          cb.current.setPortfolios((prev) => metas.map((m) => {
-            const ex = prev.find((p) => p.id === m.id);
-            // R32: the metas merge rebuilds {id,name,coins} — carry coinOrder through too, or
-            // every live snapshot would silently drop the saved order.
-            return { id: m.id, name: m.name, coins: ex ? ex.coins : [], ...(m.coinOrder ? { coinOrder: m.coinOrder } : {}) };
-          }));
-        }, () => { if (cb.current.onLiveSyncError) cb.current.onLiveSyncError(); });   // DI-5 (G33)
+        // ONBOARD-GATE: a user who hasn't RECORDED a plan choice has NO accessible data —
+        // firestore.rules (isChosen) denies every portfolio read. Attempting the load would hit
+        // that EXPECTED permission-denial and trip the portfoliosError "Couldn't load / Retry"
+        // screen, which renders ABOVE the plan gate — making onboarding impossible (the gate is
+        // the only way to record the choice). So skip the load + live listener for a
+        // definitely-not-chosen user; the gate renders, and chooseFree's reloadPortfolios loads
+        // the server-created default the moment they choose. Mirrors isChosen (paid tier OR the
+        // planChosen flag counts). If the server read FAILED we don't know, so we still attempt
+        // the load — a genuine transient failure keeps its existing Retry path.
+        const chosen = server.success
+          ? (server.planChosen === true || (server.tier || "free") !== "free")
+          : true;
+        if (chosen) {
+          await loadPortfolios(fbUser.uid);
+          // C-A3 (C12): keep the portfolio LIST live — a rename/add/delete made on a
+          // second device merges in without a reload. Coins are preserved from the
+          // current state (the active portfolio's coins have their own live watcher
+          // in CryptoIdea; a portfolio new to this device starts empty until opened).
+          unsubPorts = watchPortfolios(fbUser.uid, (metas) => {
+            if (!metas.length) return;   // never blank the UI on a transient empty snapshot
+            cb.current.setPortfolios((prev) => metas.map((m) => {
+              const ex = prev.find((p) => p.id === m.id);
+              // R32: the metas merge rebuilds {id,name,coins} — carry coinOrder through too, or
+              // every live snapshot would silently drop the saved order.
+              return { id: m.id, name: m.name, coins: ex ? ex.coins : [], ...(m.coinOrder ? { coinOrder: m.coinOrder } : {}) };
+            }));
+          }, () => { if (cb.current.onLiveSyncError) cb.current.onLiveSyncError(); });   // DI-5 (G33)
+        } else {
+          // Not chosen: nothing to load; the plan gate takes over. Clear any stale error so the
+          // gate (not the Retry screen) shows.
+          cb.current.setPortfoliosError && cb.current.setPortfoliosError(false);
+        }
         // Apply any subscription expiry / payment-failure downgrade before showing.
         const checked = await cb.current.checkSubscriptionStatus(baseUser);
         setUser(checked);

@@ -108,7 +108,6 @@ users/{uid}                       ← owner-only (admins can read/manage). Owner
 │   settings: {                    // closed, typed map (validSettings) — every key optional
 │       theme?: "light" | "dark" | "system",   currency?: string (≤8),
 │       emailDigest?: bool,   emailMarketing?: bool,   consentAnalytics?: bool,
-│       planChosen?: bool,         // R31-2: user made an explicit plan choice
 │       updatedAt?: string (≤40)
 │   }
 │   consent?: {                    // signup Terms/Privacy acceptance record (validConsent)
@@ -116,6 +115,7 @@ users/{uid}                       ← owner-only (admins can read/manage). Owner
 │       privacyVersion: string (≤20),  privacyAcceptedAt: string (≤40)
 │   }
 │   ── server-managed, Admin-SDK only (owner writes denied by the rules) ──
+│   planChosen?: bool              // ONBOARD-GATE: recorded plan choice — gates ALL app data until true (or a paid tier)
 │   subscription,  billingCycle,  paypalSubscriptionId,  tierBeforeFailure   // PayPal lifecycle
 │   premiumLimits?: { portfolios?, coins?, transactions? }                   // admin per-user override
 │   deleted?: bool,   deletedAt?                                             // 30-day soft-delete trash
