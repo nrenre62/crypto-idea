@@ -201,6 +201,8 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
    token (--ink-soft flips per theme, so it reads right in both; the dark override below
    is now redundant and was removed). */
 .ci-app .disclaimer { font-size:11px; color:var(--ink-soft); line-height:1.55; padding:14px 6px 0; text-align:center; }
+/* Portfolio footer disclaimer only — a touch larger than the shared 11px (grep-before-bump: .disclaimer is also used in Learn/Journal/Research). */
+.ci-app .disclaimer.disclaimer-lg { font-size:13px; }
 
 /* ── Empty state ──────────────────────────────────────── */
 .ci-app .empty-state { text-align:center; padding:48px 24px; }
