@@ -211,6 +211,117 @@ fix-root-cause+symptom are locked; awaiting the go-ahead to build.
 
 ---
 
+## ONBOARD-GATE. Mandatory, server-enforced plan-selection gate for every un-chosen user  (📋 PLAN — 2026-08-01; NOT built · `launch-blocker`)
+
+Founder ask (2026-08-01): a **new registration currently opens straight into the account** with no
+plan step the user can't get past. Add a **plan-selection gate** — a popup shown to a new user
+**before** they reach the account, offering **Starter / Pro / Premium**, that they **cannot click out
+of** until they select one. It **must be enforced so no user — and no bot — can break it.**
+
+**IMPORTANT — this partly exists (R31-2) but is breakable.** A picker with **Starter ($0) / Pro /
+Premium** cards *does* pop up after registration ([`src/components/Login.jsx`](../../src/components/Login.jsx)
+L154-174), with no skip link in the forced state. The gaps that let a user/bot past it (all verified in
+code):
+- **G1 — desktop has a working close (X).** The gate `<Modal>` only hides its X during payment
+  *processing* (`hideClose={upgradeStep==="processing"}`, [`src/CryptoIdea.jsx`](../../src/CryptoIdea.jsx)
+  L966), so during plan-pick the **X is clickable** → `closePlanFlow` drops the user into the account
+  with no plan chosen. (This is the "I just open the account" report.)
+- **G2 — one-shot, not a real gate.** `setShowPlan(true)` fires only at the *register* action
+  (L306). On reload / re-login while no plan was chosen, **nothing re-shows it** → free access. The
+  overlay isn't tied to the `planChosen` flag.
+- **G3 — client-only; bots aren't stopped.** The gate is pure client state. A bot with an auth token
+  calls Firestore/callables directly and never sees the popup. And `planChosen` is **client-writable**
+  today (`updateUserSettings`, L386) — a user could set it themselves.
+- **G4 — free satisfies it.** Picking Starter clears the gate with no payment (fine per the decision
+  below — Starter stays free — but the *choice* must still be mandatory + server-recorded).
+
+**Founder decisions (AskUserQuestion 2026-08-01):**
+1. **Mandatory choice, keep free Starter** — the gate forces one of **Starter ($0) / Pro / Premium**;
+   Starter is free, so it's a forced *choice*, not a paywall. (No paid-only wall; no removal of the free
+   tier.)
+2. **Full server-enforced gate** — a **server-set** flag gates all app data in Firestore rules, so a
+   direct-API caller is denied. The popup is only the UX layer.
+3. **Applies to all un-chosen accounts** — anyone whose account has no recorded plan choice is gated on
+   next login, not just brand-new signups (closes it for accounts already created, e.g. `mark@test.com`).
+
+### Part A — Server-authoritative gate flag (the "no bot" core)
+
+- **One canonical, server-only field** on the user doc — `planChosen` (bool) — that is the source of
+  truth. Rules add it to the **immutable-by-client** set (alongside `tier`/`role`/`deleted`/`deletedAt`
+  in [`firestore.rules`](../../firestore.rules)): the client can **never** write `planChosen`. (secure-by-design:
+  a field that gates access must not be self-settable — the same lesson as `tier`.)
+- **Set it only server-side, two paths:**
+  - **Free (Starter):** a **new callable `chooseFreePlan`** (Admin SDK) sets `planChosen=true`, keeps
+    `tier:"free"`, and creates the user's **default portfolio** if missing. **App-Check-gated,
+    per-uid rate-limited (reuse `guards.js`), idempotent, and audited** (reuse the single-writer audit
+    choke point).
+  - **Paid (Pro/Premium):** the existing **PayPal webhook** already sets `tier` server-side on a
+    completed payment — extend it to also set `planChosen=true`. (`createSubscription` stays callable
+    pre-choice, since it's the *path* to choosing a paid plan.)
+- **Derived "chosen" for existing paid users:** the effective test is `planChosen == true || tier !=
+  "free"`, so current Pro/Premium users are **never** gated (no lock-out, no backfill needed for them).
+  Free accounts with no recorded choice are the ones gated.
+
+### Part B — Firestore-rules enforcement (denies bots/API)
+
+- **Deny read/write of all app data until chosen.** Gate the portfolio data tree —
+  `users/{uid}/portfolios/**` (portfolios, coins, transactions, journal, learn) — behind
+  `isChosen(uid)` (`planChosen==true || tier!="free"`). A not-yet-chosen user (or a bot with their
+  token) gets **permission-denied** on every data path. The **user doc itself stays readable/writable**
+  for the minimal bits onboarding/logout/delete need + rendering the gate.
+- **Reconcile the "default" portfolio creation.** Registration currently writes the `default` portfolio
+  client-side; once portfolio writes are gated, that must move **server-side** into `chooseFreePlan` /
+  the paid-onboarding path (so the first portfolio appears exactly when a plan is recorded). Verify no
+  client path tries to create it pre-choice.
+- **Rules regression tests** (node:test rules suite): no-choice free user **denied** portfolio
+  read/write; after `planChosen=true` **allowed**; paid user always allowed; **client write of
+  `planChosen` denied**.
+
+### Part C — Client gate (unbreakable UX; fixes G1/G2)
+
+- **Derive the gate, don't trigger it once.** Render the mandatory plan modal whenever
+  `user && !isChosen && screen!=="login"` — so it re-appears every session/reload until a plan is
+  recorded (fixes G2). Retire the register-only `setShowPlan(true)` trigger as the sole entry.
+- **Truly non-dismissible when forced:** `hideClose` = **true whenever forced** (not just processing),
+  `dismissOnScrim={false}` (already), **Escape disabled**, and a **focus-trap** so tab/click can't reach
+  the app behind it. The forced state already hides the skip link (L179) — keep. Back from billing
+  returns to the plan list, never out (L121 — keep).
+- **Starter choice goes through the server:** the Starter card calls `chooseFreePlan` (not the old
+  client `markPlanChosen`), then refreshes the profile so `planChosen` flips from the server truth and
+  the gate clears. Pro/Premium go through the existing PayPal flow → webhook sets it.
+- **Escape hatch (avoid a dead-end):** the forced gate still offers **Log out** and links to
+  **Terms/Privacy** — a user who isn't ready can leave; they just can't reach the *account* without
+  choosing. Order gates so **suspension/offline** states show their own message *before* the plan gate.
+
+### Bot protection (honest scope)
+
+The rules gate means **no data access without a recorded choice**; **App Check** on `chooseFreePlan` /
+`createSubscription` stops non-app clients from scripting the choice. Note App Check is **console-only
+until go-live** (see [ADMIN-0] / GO-LIVE-AUDIT) — so "no bot" is fully realized only once App Check is
+enforced at launch; the rules gate + rate-limit hold regardless. A bot *can* legitimately pick free
+(that's an allowed choice by decision #1) but is bounded by the per-uid rate limit and only ever gets
+free-tier caps.
+
+**Acceptance:**
+- A no-choice free user (or a raw API call with their token) is **denied** every portfolio/coin/tx/
+  journal read+write by rules; a chosen user is allowed; a client attempt to set `planChosen` is denied
+  (rules tests).
+- `chooseFreePlan` sets `planChosen=true`, is **idempotent**, rate-limited, App-Check-gated, audited,
+  and creates the default portfolio (unit test).
+- The gate popup re-appears on reload/re-login until chosen; when forced it has **no X, no scrim/Esc
+  close**, and the app behind is unreachable; **Log out** works from it (interaction test). Existing
+  paid users are never gated.
+
+**Security / KISS note (secure-by-design):** the security control is the **server** (rules gate +
+server-only flag + one rate-limited, audited callable); the popup is UX. No new dependency; reuse
+`guards.js`, the audit choke point, and the PayPal webhook. This is a **go-live blocker** — monetization
++ access control.
+
+**Status: PLAN ONLY — not built.** All three founder decisions (mandatory choice / keep free Starter,
+full server enforcement, all un-chosen accounts) are locked; awaiting the go-ahead to build.
+
+---
+
 ## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (📋 PLAN — 2026-08-01; NOT built)
 
 Founder ask (2026-08-01): add a **dedicated password for the admin Settings area** — a second lock,
