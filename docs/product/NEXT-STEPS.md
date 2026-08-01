@@ -322,6 +322,64 @@ full server enforcement, all un-chosen accounts) are locked; awaiting the go-ahe
 
 ---
 
+## STORAGE-LIMIT. Remove the phantom per-tier "Storage" row from Plan Limits  (📋 PLAN — 2026-08-01; NOT built)
+
+Founder ask (2026-08-01), from the admin **Plan Limits** card screenshot (Starter 5 MB / Pro 500 MB /
+Premium 15 GB): *"What's with the storage size? Is it enforced? Is it useful — I can't go beyond the
+portfolios/coins/transactions limit anyway, so how much max storage would each account use if maxed out?"*
+
+**Investigation (verified in code, 2026-08-01):**
+- **The storage numbers are a display-only string in ONE place** — `src/components/admin-dashboard.jsx`
+  (the `TIERS` map `storage:"5 MB"/"500 MB"/"15 GB"` at ~L29-31, rendered at ~L613). Nothing measures
+  bytes, counts them, or checks them. Grep of `functions/**` for storage/bytes/quota finds only
+  `UNIVERSE_SOFT_LIMIT` (a guard on the SHARED `cache/universe` doc — unrelated to per-user plans) and
+  `"no new storage"` comments. **Storage is enforced nowhere.**
+- **It is admin-panel-only — NOT user-facing.** No match in `index.html` (landing), `Login.jsx`
+  (`PLAN_BENEFITS`), or `PRICING.md` (its tier table lists Portfolios / Coins / Tx / Live-AI only). So
+  today it's an internal inconsistency, not a broken customer promise — fix it before it leaks into
+  user-facing pricing.
+- **The real caps ARE server-enforced** — portfolios/coins/tx via maintained counters in
+  `firestore.rules` (`portfolioCount`/`coinCount`/`txCount`, each `<= max…`, with `counterNoForge`
+  fail-safe so a client can't forge the count down). Founder's belief is correct; a bot can't beat these.
+
+**Why storage is redundant AND inconsistent (the max-footprint analysis):** transactions dominate
+(`portfolios × coins × tx`); each tx doc bills ~0.3–1 KB effective (doc + auto-indexes replicating the
+long `users/…/transactions/{id}` path). Journals (≤~12 KB/coin) are minor at paid tiers.
+
+| Tier | Max transactions | Realistic max data | Displayed "limit" | Verdict |
+|---|---|---|---|---|
+| Starter | 1×10×50 = 500 | ~0.5 MB | 5 MB | ~10× too generous — unreachable |
+| Pro | 3×50×2,000 = 300,000 | ~150–500 MB | 500 MB | near max by coincidence |
+| Premium | 15×1,000×5,000 = 75,000,000 | ~11–75 GB | 15 GB | **too LOW — a maxed account exceeds it** |
+
+The caps already bound the byte footprint, so a storage limit measures nothing new; where the two
+disagree, Starter's is unreachable while **Premium's 15 GB is *below* what its own tx caps permit** — if
+storage were ever enforced it would contradict the caps and could lock a legitimately-maxed Premium user
+out of their own data. Storage also isn't part of the positioning (`PRICING.md` §6: *"our Premium's wedge
+isn't capacity"*).
+
+**Founder decision (AskUserQuestion 2026-08-01): REMOVE the storage row.** (Rejected: "keep but make
+honest" = a display-only number nobody enforces; "actually enforce storage" = extra moving parts against
+KISS that would fight the tx caps.)
+
+**Fix (trivial, single-file, display-only — `src/components/admin-dashboard.jsx`):**
+1. Delete the `storage:"…"` key from each of the three `TIERS` entries (`free`/`pro`/`premium`).
+2. Delete the render row `<div className="pk">Storage</div><div className="pv" …>{t.storage}</div>` from
+   the Plan Limits card. Card then shows Portfolios / Coins / Tx / Price only — matching the enforced +
+   priced dimensions exactly.
+3. Grep-sweep `storage`/`Storage`/`MB`/`GB` for any straggler before committing (none expected — it's
+   admin-only). No rules, functions, tests, or user-facing copy change.
+
+**Acceptance:** the admin Plan Limits card no longer shows a Storage line; `npm run build` clean; grep
+confirms no `5 MB`/`500 MB`/`15 GB` remains in `src/`. **Note (separate, optional):** if a "capacity
+story" is ever wanted for users, express it as the honest enforced caps (*"up to N transactions"*), never
+as megabytes — capture that as its own item, don't fold it here.
+
+**Status: PLAN ONLY — not built.** Decision locked (remove); awaiting go-ahead. This one is a trivial
+2-line display edit — buildable immediately on "go".
+
+---
+
 ## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (📋 PLAN — 2026-08-01; NOT built)
 
 Founder ask (2026-08-01): add a **dedicated password for the admin Settings area** — a second lock,
