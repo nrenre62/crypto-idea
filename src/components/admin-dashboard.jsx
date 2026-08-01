@@ -26,9 +26,9 @@ import { agoLabel, jobHealth, worstHealth, featureSummary } from "../utils/statu
 // Tier metadata (labels + paper colours). `bar` is the solid fill for the tier
 // breakdown bar; `ink`/`soft` colour the compact tier pill.
 const TIERS = {
-  free:    { label:"Starter", ink:"var(--amber)",      soft:"color-mix(in srgb, var(--amber) 14%, transparent)", bar:"#b8841f", limits:{ portfolios:1,  coins:10,   transactions:50 },   storage:"5 MB",   price:"$0" },
-  pro:     { label:"Pro",     ink:"var(--accent-ink)", soft:"var(--accent-soft)",                                bar:"var(--accent-ink)", limits:{ portfolios:3,  coins:50,   transactions:2000 }, storage:"500 MB", price:"$9.99/mo" },
-  premium: { label:"Premium", ink:"#7d4bbf",           soft:"#f3ecfb",                                           bar:"#7d4bbf", limits:{ portfolios:15, coins:1000, transactions:5000 }, storage:"15 GB",  price:"$49.99/mo" },
+  free:    { label:"Starter", ink:"var(--amber)",      soft:"color-mix(in srgb, var(--amber) 14%, transparent)", bar:"#b8841f", limits:{ portfolios:1,  coins:10,   transactions:50 },   price:"$0" },
+  pro:     { label:"Pro",     ink:"var(--accent-ink)", soft:"var(--accent-soft)",                                bar:"var(--accent-ink)", limits:{ portfolios:3,  coins:50,   transactions:2000 }, price:"$9.99/mo" },
+  premium: { label:"Premium", ink:"#7d4bbf",           soft:"#f3ecfb",                                           bar:"#7d4bbf", limits:{ portfolios:15, coins:1000, transactions:5000 }, price:"$49.99/mo" },
 };
 
 // Friendly labels for audit-log action codes. Exported so tests/unit/audit-labels.test.js
@@ -610,7 +610,6 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     <div className="pk">Portfolios</div><div className="pv">{p.portfolios}</div>
                     <div className="pk">Coins</div><div className="pv">{p.coins}</div>
                     <div className="pk">Tx/coin</div><div className="pv">{(p.transactions||0).toLocaleString()}</div>
-                    <div className="pk">Storage</div><div className="pv" style={{ fontSize:12 }}>{t.storage}</div>
                     <div className="pp">{price}</div>
                   </div>
                 );

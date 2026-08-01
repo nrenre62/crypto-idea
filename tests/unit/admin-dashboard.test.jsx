@@ -86,6 +86,19 @@ describe("admin-dashboard", () => {
     expect(screen.getByText("Plan Limits")).toBeInTheDocument();
   });
 
+  // STORAGE-LIMIT (2026-08-01): the phantom per-tier "Storage" row was removed from the
+  // Plan Limits card — it was display-only, enforced nowhere, and inconsistent with the
+  // real portfolio/coin/tx caps (Premium's 15 GB was actually BELOW its own tx-cap max).
+  // The card now shows only the enforced + priced dimensions.
+  it("Plan Limits card shows no Storage row (STORAGE-LIMIT)", async () => {
+    render(<AdminDashboard />);
+    await waitFor(() => expect(screen.getByText("Plan Limits")).toBeInTheDocument());
+    expect(screen.queryByText("Storage")).toBeNull();
+    expect(screen.queryByText("5 MB")).toBeNull();
+    expect(screen.queryByText("500 MB")).toBeNull();
+    expect(screen.queryByText("15 GB")).toBeNull();
+  });
+
   it("renders all four tabs without crashing (lazy-loads users + audit)", async () => {
     render(<AdminDashboard />);
 

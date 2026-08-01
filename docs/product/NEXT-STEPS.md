@@ -322,7 +322,7 @@ full server enforcement, all un-chosen accounts) are locked; awaiting the go-ahe
 
 ---
 
-## STORAGE-LIMIT. Remove the phantom per-tier "Storage" row from Plan Limits  (📋 PLAN — 2026-08-01; NOT built)
+## STORAGE-LIMIT. Remove the phantom per-tier "Storage" row from Plan Limits  (✅ BUILT 2026-08-01)
 
 Founder ask (2026-08-01), from the admin **Plan Limits** card screenshot (Starter 5 MB / Pro 500 MB /
 Premium 15 GB): *"What's with the storage size? Is it enforced? Is it useful — I can't go beyond the
@@ -375,8 +375,11 @@ confirms no `5 MB`/`500 MB`/`15 GB` remains in `src/`. **Note (separate, optiona
 story" is ever wanted for users, express it as the honest enforced caps (*"up to N transactions"*), never
 as megabytes — capture that as its own item, don't fold it here.
 
-**Status: PLAN ONLY — not built.** Decision locked (remove); awaiting go-ahead. This one is a trivial
-2-line display edit — buildable immediately on "go".
+**Status: ✅ BUILT 2026-08-01** (first item of the [BUILD-LOOP](BUILD-LOOP.md) campaign). Removed the
+`storage` key from all three `TIERS` entries and the Storage render row in `admin-dashboard.jsx`; the
+Plan Limits card now shows only the enforced + priced dimensions (Portfolios / Coins / Tx/coin / Price).
+Regression test `tests/unit/admin-dashboard.test.jsx` → "Plan Limits card shows no Storage row"; grep of
+`src/` confirms no `5 MB`/`500 MB`/`15 GB` remains. `test:unit` (856) green · `build` clean.
 
 ---
 
