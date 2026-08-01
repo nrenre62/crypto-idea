@@ -53,6 +53,20 @@ async function checkCooldown(db, { uid, key, cooldownMs, now = Date.now() }) {
   });
 }
 
+// Deny-by-default input shape: the TOP-LEVEL keys of a callable's `data` that are
+// NOT in the allow-list. Each callable reads a fixed set of fields, so anything
+// else is an unexpected/typo'd/injected key that should be a 400 — not silently
+// ignored (openapi.json documents these request schemas as
+// additionalProperties:false; this is that contract, enforced). Pure: returns the
+// offending keys, the caller throws. A no-arg call (data null/undefined/non-object)
+// has no keys → []. Top level only — nested shapes stay each handler's own concern
+// (e.g. saveConfig's merge + keep() sanitiser).
+function unknownKeys(data, allowed) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return [];
+  const ok = new Set(allowed || []);
+  return Object.keys(data).filter((k) => !ok.has(k));
+}
+
 // App Check gate (D4, v1 manual `context.app`). Enforcement is a prod flag the
 // caller resolves from config, so local/emulator keeps working without tokens —
 // build the gate once here, flip the flag at go-live.
@@ -159,7 +173,7 @@ function requireMfa(context, { enforce = false } = {}) {
 }
 
 module.exports = {
-  utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk,
+  utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk, unknownKeys,
   ROLE_OWNER, ROLE_MANAGER, roleOf, isOwner, requireAdmin, requireManager, requireOwner, requireFreshAuth,
   requireMfa,
 };

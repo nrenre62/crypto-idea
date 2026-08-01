@@ -160,6 +160,19 @@ async function assertFreshOwner(context) {
   return role;
 }
 
+// Deny-by-default input shape: reject a callable whose `data` carries any top-level
+// key the handler doesn't read. openapi.json documents every callable request as
+// additionalProperties:false, but the handlers previously IGNORED unknown keys — so
+// this enforces that contract (API-SECURITY §5 follow-up). Called AFTER the auth/role
+// gate so an unauthorized caller still gets 401/403 first. A no-arg call passes;
+// nested shapes stay each handler's own concern (e.g. saveConfig's merge + keep()).
+// The message is deliberately generic — it never echoes the caller's field names.
+function assertNoUnknownKeys(data, allowed) {
+  if (guards.unknownKeys(data, allowed).length) {
+    throw new functions.https.HttpsError("invalid-argument", "Unexpected field in the request.");
+  }
+}
+
 // Resolves a TARGET account's role from its custom claims (not from the caller's
 // token). Used for owner protection — owners are identified by identity, which is
 // the whole fix for the "promote sock-puppets, then delete the real owners" bypass.
@@ -367,6 +380,7 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
   }
+  assertNoUnknownKeys(data, ["plan", "billing"]);
   // ADMIN-2: the checkout kill-switch, enforced HERE rather than by hiding the
   // button. Hiding a button stops honest users; this stops a scripted client too,
   // which is the whole point when PayPal is misconfigured or misbehaving and every
@@ -424,6 +438,7 @@ exports.cancelSubscription = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
   }
+  assertNoUnknownKeys(data, ["downgradeTo"]);
   const userId = context.auth.uid;                 // caller's own uid — fixes the IDOR
   const userDoc = await db.doc(`users/${userId}`).get();
   const cur = userDoc.exists ? userDoc.data() : {};
@@ -649,6 +664,7 @@ async function gatherStats() {
 // ─── Admin Stats (admins only) ───
 exports.getStats = functions.https.onCall(async (data, context) => {
   await assertAdmin(context);
+  assertNoUnknownKeys(data, []);
   return {
     ...(await gatherStats()),
     // ADMIN-SEC: owner health. Owners can only be minted by scripts/set-admin.js, so
@@ -704,6 +720,7 @@ async function writeDailySnapshot(nowMs) {
 // the trend owner-only would be theatre, not a boundary.
 exports.listDailyStats = functions.https.onCall(async (data, context) => {
   await assertAdmin(context);
+  assertNoUnknownKeys(data, ["limit"]);
   const DEFAULT_DAYS = 90, MAX_DAYS = 400;
   const raw = Number(data && data.limit);
   const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), MAX_DAYS) : DEFAULT_DAYS;
@@ -720,6 +737,7 @@ exports.listDailyStats = functions.https.onCall(async (data, context) => {
 // under the emulator, which never fires pubsub on a cron). Idempotent per UTC day.
 exports.captureStatsSnapshot = functions.https.onCall(async (data, context) => {
   await assertOwner(context);
+  assertNoUnknownKeys(data, []);
   const snapshot = await writeDailySnapshot(Date.now());
   await writeAudit(context, "captureStatsSnapshot", { details: `captured ${snapshot.date}` });
   return { snapshot };
@@ -735,6 +753,7 @@ exports.captureStatsSnapshot = functions.https.onCall(async (data, context) => {
 // re-auth can do it. Owner targets are refused outright.
 exports.setManagerRole = functions.https.onCall(async (data, context) => {
   await assertFreshOwner(context);
+  assertNoUnknownKeys(data, ["email", "grant"]);
   const email = String((data && data.email) || "").trim().toLowerCase();
   const grant = !!(data && data.grant);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
@@ -776,6 +795,7 @@ exports.setAdminClaim = functions.https.onCall(async () => {
 // Returns operational data only (tier, status, usage counts) — NOT holdings.
 exports.lookupUser = functions.https.onCall(async (data, context) => {
   await assertAdmin(context);
+  assertNoUnknownKeys(data, ["email"]);
   const email = String((data && data.email) || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) {
     throw new functions.https.HttpsError("invalid-argument", "Enter a valid email.");
@@ -822,6 +842,7 @@ exports.lookupUser = functions.https.onCall(async (data, context) => {
 // ─── Admin: change a user's tier (admins only) ───
 exports.setUserTier = functions.https.onCall(async (data, context) => {
   const callerRole = await assertManager(context);
+  assertNoUnknownKeys(data, ["uid", "tier"]);
   const uid = data && data.uid;
   const tier = data && data.tier;
   if (!uid || !["free", "pro", "premium"].includes(tier)) {
@@ -855,6 +876,7 @@ exports.devSetMyTier = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
   }
+  assertNoUnknownKeys(data, ["tier"]);
   const tier = data && data.tier;
   if (!["free", "pro", "premium"].includes(tier)) {
     throw new functions.https.HttpsError("invalid-argument", "A valid tier is required.");
@@ -871,6 +893,7 @@ exports.devSetMyTier = functions.https.onCall(async (data, context) => {
 // the override (back to tier defaults).
 exports.setPremiumLimits = functions.https.onCall(async (data, context) => {
   const callerRole = await assertManager(context);
+  assertNoUnknownKeys(data, ["uid", "limits"]);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   const raw = (data && data.limits) || {};
@@ -896,6 +919,7 @@ exports.setPremiumLimits = functions.https.onCall(async (data, context) => {
 // Disables the Auth account so they can't sign in.
 exports.suspendUser = functions.https.onCall(async (data, context) => {
   const callerRole = await assertManager(context);
+  assertNoUnknownKeys(data, ["uid", "disabled"]);
   const uid = data && data.uid;
   const disabled = !!(data && data.disabled);
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
@@ -938,6 +962,7 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
 // ─── Admin: delete a user + ALL their data (admins only) — GDPR/CCPA erasure ───
 exports.deleteUser = functions.https.onCall(async (data, context) => {
   const callerRole = await assertOwner(context);
+  assertNoUnknownKeys(data, ["uid"]);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   if (uid === context.auth.uid) {
@@ -964,6 +989,7 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
 // ─── Admin: restore a soft-deleted user from the Trash (admins only) ───
 exports.restoreUser = functions.https.onCall(async (data, context) => {
   const callerRole = await assertManager(context);
+  assertNoUnknownKeys(data, ["uid"]);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   // ADMIN-5: record the prior trashed state (restore is normally true→false).
@@ -981,6 +1007,7 @@ exports.restoreUser = functions.https.onCall(async (data, context) => {
 // MIN_ADMINS) — demote them first via setAdminClaim.
 exports.adminTrashUser = functions.https.onCall(async (data, context) => {
   const callerRole = await assertManager(context);
+  assertNoUnknownKeys(data, ["uid"]);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   // ADMIN-SEC: owners can never be trashed, by anyone (identity, not count).
@@ -1009,6 +1036,7 @@ exports.adminTrashUser = functions.https.onCall(async (data, context) => {
 // the moderation counterpart of the self-service signOutEverywhere (U6).
 exports.adminSignOutUser = functions.https.onCall(async (data, context) => {
   const callerRole = await assertManager(context);
+  assertNoUnknownKeys(data, ["uid"]);
   const uid = data && data.uid;
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   // ADMIN-SEC: repeated force-sign-out is a denial-of-access vector against an owner.
@@ -1038,6 +1066,7 @@ const VIEW_MAX_COINS = 150;        // total across all portfolios
 const VIEW_MAX_TX_PER_COIN = 50;
 exports.viewUserAsAdmin = functions.https.onCall(async (data, context) => {
   await assertOwner(context);
+  assertNoUnknownKeys(data, ["uid", "reason"]);
   const uid = String((data && data.uid) || "").trim();
   const reason = String((data && data.reason) || "").trim().slice(0, 300);
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
@@ -1113,6 +1142,7 @@ exports.viewUserAsAdmin = functions.https.onCall(async (data, context) => {
 const NOTE_MAX = 4000;
 exports.getUserNote = functions.https.onCall(async (data, context) => {
   await assertAdmin(context);
+  assertNoUnknownKeys(data, ["uid"]);
   const uid = String((data && data.uid) || "").trim();
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   let out = { note: "", updatedAt: null, updatedByEmail: "" };
@@ -1124,6 +1154,7 @@ exports.getUserNote = functions.https.onCall(async (data, context) => {
 });
 exports.saveUserNote = functions.https.onCall(async (data, context) => {
   await assertManager(context);
+  assertNoUnknownKeys(data, ["uid", "note"]);
   const uid = String((data && data.uid) || "").trim();
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   const note = String((data && data.note) || "").slice(0, NOTE_MAX);
@@ -1143,6 +1174,7 @@ exports.deleteMyAccount = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
+  assertNoUnknownKeys(data, []);
   const uid = context.auth.uid;
   // ADMIN-SEC: an owner can't self-delete at all — owner accounts are the recovery
   // path for the whole panel, and there is no in-app way to mint a replacement.
@@ -1174,6 +1206,7 @@ exports.restoreMyAccount = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
+  assertNoUnknownKeys(data, []);
   const uid = context.auth.uid;
   const ref = db.collection("users").doc(uid);
   const snap = await ref.get();
@@ -1196,6 +1229,7 @@ exports.signOutEverywhere = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
+  assertNoUnknownKeys(data, []);
   await admin.auth().revokeRefreshTokens(context.auth.uid);
   await writeAudit(context, "signOutEverywhere", { targetUid: context.auth.uid });   // BL-1d (D11)
   return { success: true };
@@ -1206,6 +1240,7 @@ exports.exportMyData = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
+  assertNoUnknownKeys(data, []);
   const uid = context.auth.uid;
   // API-SECURITY (read amplification): each call re-reads the caller's ENTIRE holdings tree.
   // A short cooldown stops a scripted loop from driving unbounded billed reads — exports are a
@@ -1245,6 +1280,7 @@ exports.reconcileMyCounters = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
+  assertNoUnknownKeys(data, []);
   const uid = context.auth.uid;
   // API-SECURITY (read amplification): recomputing the whole tree is bounded per UTC-day so a
   // scripted loop can't drive unbounded reads/writes. Generous ceiling — the app calls this only
@@ -1282,6 +1318,7 @@ exports.reconcileMyCounters = functions.https.onCall(async (data, context) => {
 // the re-checkout prompt doesn't recur on every load and device. Acts on the caller's uid.
 exports.resolveRecheckout = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  assertNoUnknownKeys(data, []);
   await db.collection("users").doc(context.auth.uid).set({ subscription: null }, { merge: true });
   await writeAudit(context, "resolveRecheckout", { targetUid: context.auth.uid });
   return { success: true };
@@ -1293,6 +1330,7 @@ exports.resolveRecheckout = functions.https.onCall(async (data, context) => {
 // reactivates the PayPal subscription before the period end.
 exports.reactivateSubscription = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  assertNoUnknownKeys(data, []);
   const ref = db.collection("users").doc(context.auth.uid);
   const snap = await ref.get();
   const sub = (snap.exists && snap.data().subscription) || null;
@@ -1310,6 +1348,7 @@ exports.reactivateSubscription = functions.https.onCall(async (data, context) =>
 // dashboard paginates + searches client-side.
 exports.listUsers = functions.https.onCall(async (data, context) => {
   await assertAdmin(context);
+  assertNoUnknownKeys(data, []);
   const CAP = 5000;
   const prof = {};
   try { const snap = await db.collection("users").get(); snap.forEach((d) => { prof[d.id] = d.data(); }); } catch (e) { /* ignore */ }
@@ -1354,6 +1393,7 @@ exports.listAudit = functions.https.onCall(async (data, context) => {
   // those values to a manager through the Audit tab would route around that boundary, so
   // a non-owner sees that a config save happened, never what it changed.
   const callerIsOwner = (await assertAdmin(context)) === "owner";
+  assertNoUnknownKeys(data, ["limit"]);
   const limit = Math.min(Math.max(parseInt((data && data.limit) || 100, 10) || 100, 1), 500);
   let snap;
   try { snap = await db.collection("audit").orderBy("at", "desc").limit(limit).get(); }
@@ -1382,6 +1422,7 @@ exports.listAudit = functions.https.onCall(async (data, context) => {
 // server-only in firestore.rules; this callable reads it via the Admin SDK.
 exports.listWebhookEvents = functions.https.onCall(async (data, context) => {
   await assertAdmin(context);
+  assertNoUnknownKeys(data, ["limit"]);
   const limit = Math.min(Math.max(parseInt((data && data.limit) || 50, 10) || 50, 1), 200);
   let snap;
   try { snap = await db.collection("webhookEvents").orderBy("at", "desc").limit(limit).get(); }
@@ -1420,6 +1461,7 @@ const SCHEDULED_JOBS = [
 // read-only "is anything on fire" view, which a manager on support duty needs.
 exports.getSystemStatus = functions.https.onCall(async (data, context) => {
   await assertAdmin(context);
+  assertNoUnknownKeys(data, []);
   // Read config FRESH rather than through getConfig()'s 5-minute cache. The strip's
   // entire job is to report what is currently switched off, and enforcement runs on
   // the 60-second featuresNow() clock — so a cached read here could show
@@ -1463,6 +1505,7 @@ exports.getSystemStatus = functions.https.onCall(async (data, context) => {
 // see what's configured and replace it without the secret reaching the client.
 exports.getAdminConfig = functions.https.onCall(async (data, context) => {
   const callerRole = await assertFreshOwner(context);
+  assertNoUnknownKeys(data, []);
   let cfg = {};
   try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* ignore */ }
   const pp = cfg.paypal || {}, em = cfg.email || {}, fl = cfg.flags || {}, an = cfg.analytics || {}, lg = cfg.legal || {};
@@ -1495,6 +1538,7 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
 // Clients can never read this doc (firestore.rules deny all access to /config).
 exports.saveConfig = functions.https.onCall(async (data, context) => {
   const callerRole = await assertFreshOwner(context);
+  assertNoUnknownKeys(data, ["keys", "email", "flags", "analytics", "legal", "plans", "announcement"]);
   const k = (data && data.keys) || {};
   const m = (data && data.email) || {};
   // Read existing so a blank SECRET field means "keep the saved value" — the form

@@ -1098,11 +1098,14 @@ signature auth as a `PayPalWebhookSignature` apiKey scheme (reconciled the "unau
   emails/URLs): any pattern there could reject a REAL value, so we don't fake them. Also accepted by design:
   the 7 public `security:[]`, the webhook's honest `apiKey`-in-header scheme, and the free-form export /
   CoinGecko / PayPal passthrough objects (`PricesResponse` map, export `profile`/`portfolios`, `PayPalEvent`).
-- **📋 Follow-up (server hardening — security-forward, not yet built):** the request-body
-  `additionalProperties:false` now documents a STRICTER input contract than the callables enforce (they
-  currently ignore unknown fields). Harden the callables to **reject unknown request keys** (deny-by-default
-  input) so the contract is backed by real validation — until then a live `42crunch-scan` will (correctly)
-  flag it as a conformance gap.
+- **✅ Follow-up BUILT (2026-08-01) — strict request input:** every callable now rejects unknown **top-level
+  `data` keys** via `assertNoUnknownKeys(data, [...])` (pure, unit-tested `guards.unknownKeys`), run right
+  after the auth/role gate — so the request-body `additionalProperties:false` contract is enforced, not just
+  documented (`invalid-argument`; the message never echoes the offending key). Allow-lists = each handler's
+  real `data.*` reads, cross-checked against the client sends; no-arg callables reject any key. The PayPal
+  webhook (arbitrary signed payload) and **nested** config shapes (saveConfig's merge/`keep()`) are out of
+  scope by design. Unit-tested + a callable integration test (emulator tier needs JDK 21). `guards.js` +
+  `functions/index.js` (31 of 32 callables; `setAdminClaim` already throws).
 - Next 42Crunch step available: `42crunch-scan` (live conformance / BOLA / BFLA) against the running stack.
 
 ## SKILL. `tdd-testing` audit — top-up + research conformance  (✅ APPLIED 2026-07-20)

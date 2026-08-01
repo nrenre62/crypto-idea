@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk,
+  utcDayKey, rateDocPath, consumeDailyBudget, checkCooldown, appCheckOk, unknownKeys,
   roleOf, requireAdmin, requireManager, requireOwner, requireFreshAuth, requireMfa,
 } from "../../functions/guards.js";
 
@@ -89,6 +89,33 @@ describe("guards.appCheckOk (D4: v1 manual context.app, prod-flag gated)", () =>
     const denied = appCheckOk({}, { enforce: true });
     expect(denied.ok).toBe(false);
     expect(denied.reason).toBe("app-check-required");
+  });
+});
+
+describe("guards.unknownKeys (deny-by-default callable input shape)", () => {
+  it("returns [] for a no-arg call (null / undefined / empty / non-object)", () => {
+    expect(unknownKeys(null, ["uid"])).toEqual([]);
+    expect(unknownKeys(undefined, ["uid"])).toEqual([]);
+    expect(unknownKeys({}, ["uid"])).toEqual([]);
+    expect(unknownKeys("nope", ["uid"])).toEqual([]);
+    expect(unknownKeys([1, 2], ["uid"])).toEqual([]);
+  });
+  it("returns [] when every key is allowed (order/subset irrelevant)", () => {
+    expect(unknownKeys({ uid: "x", tier: "pro" }, ["uid", "tier"])).toEqual([]);
+    expect(unknownKeys({ uid: "x" }, ["uid", "tier"])).toEqual([]); // missing is fine
+  });
+  it("returns exactly the offending top-level keys", () => {
+    expect(unknownKeys({ uid: "x", admin: true }, ["uid"])).toEqual(["admin"]);
+    expect(unknownKeys({ a: 1, b: 2, c: 3 }, ["b"])).toEqual(["a", "c"]);
+  });
+  it("treats an empty allow-list as 'no keys permitted' (no-arg callables)", () => {
+    expect(unknownKeys({ x: 1 }, [])).toEqual(["x"]);
+    expect(unknownKeys({}, [])).toEqual([]);
+    expect(unknownKeys(undefined, [])).toEqual([]);
+  });
+  it("is TOP-LEVEL only — a nested unknown key does not leak up", () => {
+    // saveConfig-style: nested shapes are the handler's own concern.
+    expect(unknownKeys({ keys: { evil: 1 } }, ["keys", "email"])).toEqual([]);
   });
 });
 

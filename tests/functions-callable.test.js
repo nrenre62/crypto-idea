@@ -211,3 +211,32 @@ test("saveUserNote/getUserNote: a note round-trips; its CONTENT never enters the
   }
   void plainUid;
 });
+
+// ── API-SECURITY §5: callables reject unknown top-level `data` keys ──
+// openapi.json documents every callable request as additionalProperties:false; the
+// handlers used to silently IGNORE extra keys. assertNoUnknownKeys(data, [...]) now
+// enforces the contract as invalid-argument. Runs AFTER the auth/role gate, so this
+// exercises the guard on the callable BODY (the only tier that does).
+
+test("callables reject unknown top-level data keys, but accept their allowed keys (deny-by-default input)", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+
+  // A keyed callable accepts its allowed key...
+  const okKeyed = await callAs("listAudit", ownerToken, { limit: 5 });
+  assert.strictEqual(okKeyed.status, 200, `allowed key should pass: ${JSON.stringify(okKeyed.body)}`);
+
+  // ...and rejects an extra top-level key as invalid-argument (400) — the ignored-key gap.
+  const badKeyed = await callAs("listAudit", ownerToken, { limit: 5, isAdmin: true });
+  assert.strictEqual(badKeyed.status, 400, `unknown key should be rejected: ${JSON.stringify(badKeyed.body)}`);
+  assert.strictEqual(badKeyed.body.error && badKeyed.body.error.status, "INVALID_ARGUMENT");
+  // The message stays generic — it must NOT echo the caller's field name back.
+  assert.ok(!String(badKeyed.body.error.message || "").includes("isAdmin"), "the error must not reflect the offending key name");
+
+  // A no-arg callable (empty allow-list) accepts an empty payload...
+  const okNoArg = await callAs("getStats", ownerToken, {});
+  assert.strictEqual(okNoArg.status, 200, `no-arg empty call should pass: ${JSON.stringify(okNoArg.body)}`);
+
+  // ...and rejects ANY key.
+  const badNoArg = await callAs("getStats", ownerToken, { sneaky: 1 });
+  assert.strictEqual(badNoArg.status, 400, `no-arg call with a key should be rejected: ${JSON.stringify(badNoArg.body)}`);
+});
