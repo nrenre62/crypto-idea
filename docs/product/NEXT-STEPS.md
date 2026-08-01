@@ -380,18 +380,23 @@ as megabytes — capture that as its own item, don't fold it here.
 
 ---
 
-## USER-SET-UI. User account settings — admin-style framed panels (bordered back-box + divided header), desktop-only  (📋 PLAN — 2026-08-01; NOT built · design-only)
+## USER-SET-UI. User account settings — admin-style framed panels (bordered back-box + divided header), responsive (mobile + desktop)  (📋 PLAN — 2026-08-01; NOT built · design-only)
 
 Founder ask (2026-08-01, with Account/Portfolio/Profile screenshots): make the **user account
-settings** screens have **borders on desktop only**, with a **clear distinction for the size of
-settings** — apply it to the Account home **and** every individual settings screen (Profile, Plan &
-billing, Portfolios, Security, Privacy & data). Match the **admin settings** design I already applied +
-documented ("the same new design changes … Admin panel settings should apply for user settings for the
-design structure"). **Design-only.**
+settings** screens have **borders**, with a **clear distinction for the size of settings** — apply it to
+the Account home **and** every individual settings screen (Profile, Plan & billing, Portfolios, Security,
+Privacy & data). Match the **admin settings** design I already applied + documented ("the same new design
+changes … Admin panel settings should apply for user settings for the design structure"). **Design-only.**
+
+**UPDATE (founder, 2026-08-01, same day):** apply this **same framed design to MOBILE too — NOT
+desktop-only**. *"same design as for desktop, also for mobile, for user settings. It's much more clear …
+Verify it's responsive."* So it becomes **ONE responsive design** at every width (framed panel full-width
+on phones, bounded/centred on desktop). This **supersedes** the original "borders on desktop only" wording
+— every "desktop-only / mobile unchanged" note below is replaced by "all sizes".
 
 **Founder decisions (AskUserQuestion 2026-08-01):**
 - **Scope = the WHOLE settings area** — the Account home (avatar + plan-usage + settings list) AND every
-  drill-in, one consistent bounded "settings panel" look on desktop.
+  drill-in, one consistent framed "settings panel" look **at every screen size** (mobile + desktop).
 - **Desktop style = inline framed panel** — settings stay in the page flow, framed (border + divided
   header + bordered back-box + bounded width), exactly like the admin settings. **NOT** a centered popup
   (rejected — would diverge from the named admin reference, even though the app's *other* desktop
@@ -421,30 +426,94 @@ screen sits in a **720px** `.app-shell` column (account is in neither `WIDE_SCRE
    `.adm-scr*` values, using the existing user tokens (`--line-2`/`--line-strong`/`--paper-2`). ⚠️ **Do
    NOT import the admin `.adm-scr*`** — CLAUDE.md keeps admin CSS out of the user bundle
    (`.ci-app.adm-root`-scoped, admin-only). Mirror the values in the user sheet instead.
-3. **Desktop-only via `useIsDesktop`** (min-width 561px — the hook that already drives the app's other
-   desktop-only drill-ins): on desktop render the framed `SettingsScreen`/panel for the home AND each
-   drill-in; on **mobile render exactly today's markup** (`.detail-head` + `.pad`/`.card`) — "borders on
-   desktop only", mobile byte-for-byte unchanged.
-4. **Bounded size ("clear distinction"):** constrain the desktop settings panel to a settings-scoped width
-   (~560px) via a wrapper class — **NOT** by adding `account` to `NARROW_SCREENS` (that flips the
-   `baseScreen` popup path → would render Portfolio behind + treat account as a popup, the opposite of the
-   chosen inline-framed style).
+3. **ONE responsive design — applied at ALL sizes (no `useIsDesktop` branch, no desktop/mobile fork).**
+   Render the framed `SettingsScreen`/panel for the home AND each drill-in everywhere; the old floating
+   `.detail-head` + plain-card layout is fully replaced. Same markup at every width — it reflows the way
+   the rest of the app does (max-width + margin auto, no layout `@media`). This is actually SIMPLER than a
+   desktop-only branch.
+4. **Bounded size on desktop, full-width on mobile ("clear distinction"):** give the settings panel a
+   settings-scoped max-width (~560px) that centres on desktop and **goes edge-to-edge on phones** (the
+   app's existing max-width + margin-auto reflow, no `@media`). **NOT** by adding `account` to
+   `NARROW_SCREENS` (that flips the `baseScreen` popup path → would render Portfolio behind + treat account
+   as a popup, the opposite of the chosen inline-framed style).
 
-**Consistency sweep / files:** `Account.jsx` (primitive + per-view shell), `app.css` (`.set-scr*`
-desktop-only CSS + settings width), possibly `CryptoIdea.jsx` (settings-width wrapper if not pure CSS).
-Docs: add a short "user settings framing = mirror of admin DScreen" note to a design doc (e.g.
-DESIGN-PASS.md) + the CLAUDE.md design list. Tests: `tests/unit/Account.test.jsx` — jsdom defaults
-`useIsDesktop`→false so existing tests keep exercising the **mobile path unchanged** (low regression
-risk); add a matchMedia-mocked test asserting the framed `.set-scr` structure appears on desktop.
+**Consistency sweep / files:** `Account.jsx` (primitive + per-view shell), `app.css` (`.set-scr*` CSS +
+responsive settings width), possibly `CryptoIdea.jsx` (settings-width wrapper if not pure CSS). Docs: add a
+short "user settings framing = mirror of admin DScreen (responsive)" note to a design doc (e.g.
+DESIGN-PASS.md) + the CLAUDE.md design list. Tests: `tests/unit/Account.test.jsx` — the framed `.set-scr`
+structure is now the SINGLE design (renders at the jsdom default too), so update the existing assertions to
+the new markup; no desktop/mobile branch to mock.
 
 **Acceptance:**
-- Desktop (≥561px): Account home + every drill-in render as a **bounded, bordered framed panel** with a
-  divided header + bordered `‹` back box, title shown once — visually matching the admin settings.
-- Mobile (≤560px): **byte-for-byte the current look** (no new borders/frame).
+- **Every width** (mobile + desktop): Account home + every drill-in render as a **bordered framed panel**
+  with a divided header + bordered `‹` back box, title shown once — visually matching the admin settings.
+- **Responsive verified:** full-width framed panel on phones (no horizontal overflow / clipping at ~320px)
+  and bounded/centred on desktop; checked light + dark.
 - Design-only: all handlers/state/routing identical; no rules/functions/data change; **admin panel
   untouched** (it's the template). `npm run test:unit` green; `npm run build` clean.
 
-**Status: PLAN ONLY — not built.** Both decisions locked (whole area · inline framed); awaiting go-ahead.
+**Status: PLAN ONLY — not built.** Decisions locked (whole area · inline framed · **responsive: same
+design on mobile + desktop**); awaiting go-ahead.
+
+---
+
+## LOGO. Unify the app header + auth logo to the landing/admin green-tile "CryptoIdea" mark  (📋 PLAN — 2026-08-01; NOT built · design-only)
+
+Founder ask (2026-08-01): use the **index (landing) page logo** inside the app — replace the app's current
+"Crypto Idea" logo — and put that same logo on the **login/register screen** instead of the current auth
+logo. Goal: design consistency.
+
+**Founder decision (AskUserQuestion 2026-08-01): adopt the index logo EXACTLY** — the green rounded "C"
+tile + **"CryptoIdea"** (one word, sans), matching the landing page and admin panel. (Rejected the hybrid
+"green tile + keep the serif 'Crypto Idea' wordmark".)
+
+**Current state (verified):**
+- **Landing logo** (`index.html` `.brand`, L402/L789): a 28×28 green rounded-square **`.mark`** tile (white
+  "C", `background:var(--accent)`, `border-radius:8px`) + **"CryptoIdea"** wordmark (one word, 600, 18px).
+- **Admin ALREADY uses it:** `.adm-logo` green "C" tile + `Crypto<b>Idea</b>` in
+  [admin-dashboard.jsx](../../src/components/admin-dashboard.jsx) L349-350 (sticky bar) and
+  [admin-main.jsx](../../src/admin-main.jsx) L73-75 (sign-in). So the **user app + auth screens are the
+  only surfaces still on the old plain wordmark.**
+- **App brand = the Portfolio header ONLY:** [Portfolio.jsx](../../src/components/Portfolio.jsx) L32
+  `.apphead .title` = serif "Crypto Idea" + `BETA` + `<LivePill/>` + plan badge. The other tab headers show
+  their **tab name** ("Journal"/"Learn"/"Search" — Journal.jsx L306, Learn.jsx L129, Search.jsx L52), which
+  is correct UX (tells you where you are) and is **not** the logo → left as-is.
+- **Auth logo:** `.auth-logo` "Crypto Idea" in [Login.jsx](../../src/components/Login.jsx) L183 (login +
+  register, one component) and [ForgotPass.jsx](../../src/components/ForgotPass.jsx) L20.
+
+**Build approach (design-only — no logic/handlers change):**
+1. **New shared `<Logo>` component** (green "C" tile + "CryptoIdea" wordmark), mirroring the landing
+   `.brand` / admin `.adm-logo` treatment using the existing **`--accent`** token — **no new hex, no image
+   asset** (the tile is CSS-drawn, like the landing + admin). Small size for the header, larger for auth
+   (mirror admin's `.adm-logo` vs `.adm-logo lg`). Put it in `ui.jsx` or a new `Logo.jsx`; add one CSS
+   block to [app.css](../../src/styles/app.css). ⚠️ Can't import the landing markup/CSS (separate Vite
+   entry) or the admin `.adm-*` (admin-only bundle) — replicate the small treatment with app tokens.
+2. **App header** (`Portfolio.jsx`): swap the serif "Crypto Idea" text in `.apphead .title` for `<Logo/>`,
+   **keeping** the `BETA` + `<LivePill/>` + plan badge beside it. Only the wordmark changes.
+3. **Auth screens** (`Login.jsx` + `ForgotPass.jsx`): replace the `.auth-logo` text with `<Logo size="lg"/>`;
+   keep the tagline ("Know why you own every coin.").
+
+**Gaps / open sub-decisions (flagged, not silently done):**
+- **Brand-text copy vs the logo lockup.** The visible logo becomes "CryptoIdea" (one word). Separately,
+  `APP_NAME = "Crypto Idea"` ([CryptoIdea.jsx](../../src/CryptoIdea.jsx) L77) still drives the page
+  `document.title`, the maintenance-screen copy, and code comments. This item changes the **logo lockup
+  only**; normalizing every "Crypto Idea" **text** string → "CryptoIdea" is a separate optional cleanup —
+  confirm before touching copy (some may be intentional prose).
+- **Other tab headers.** Only the Portfolio header carries the brand; Journal/Learn/Search keep their
+  tab-name titles. If you want the tile on every tab header too, that's a separate call.
+
+**Consistency sweep / files:** `Portfolio.jsx` (header brand), `Login.jsx` + `ForgotPass.jsx` (auth logo),
+`app.css` (new `.logo*` CSS + `.auth-logo` restyle), new/updated `Logo` component. Docs: note the unified
+logo in a design doc + the CLAUDE.md design list. Tests: update any assertion on the "Crypto Idea"
+header/auth text — give the `<Logo>` an accessible name (`aria-label="CryptoIdea"`, tile `aria-hidden`) so
+`getByText`/`getByLabelText` still resolves cleanly across the tile + wordmark.
+
+**Acceptance:** the Portfolio header shows the green "C" tile + "CryptoIdea" (badges intact); Login,
+Register, and Forgot-password show the same logo (larger); it visually matches the landing + admin;
+light + dark verified (the `--accent` tile is already dark-safe in admin); `npm run test:unit` green;
+`npm run build` clean.
+
+**Status: PLAN ONLY — not built.** Decision locked (adopt index logo exactly); awaiting go-ahead.
 
 ---
 
