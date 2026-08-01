@@ -93,6 +93,14 @@ export default function CryptoIdea(){
   const[authPass,setAuthPass]=useState("");
   const[authName,setAuthName]=useState("");
   const[authErr,setAuthErr]=useState("");
+  // AUTH-DUP (Part A): in-flight re-entry guard + busy state for Log in / Create Account.
+  // A double-click (or Enter twice) before the async auth call resolves must not fire a
+  // second registerUser/loginUser — in the Auth emulator that second concurrent create is
+  // what produced the duplicate `mark@test.com` rows. The ref blocks the SAME-TICK re-entry
+  // (a state update is async and wouldn't apply in time); authBusy disables the submit
+  // button + the Enter-key resubmit (Login.jsx). Same pattern as TX-SAFE Part B's addingRef.
+  const authBusyRef=useRef(false);
+  const[authBusy,setAuthBusy]=useState(false);
   // Signup consent (USER-CREATION.md C1): Terms + Privacy required, marketing opt-in.
   const[authAgreeTerms,setAuthAgreeTerms]=useState(false);
   const[authAgreePrivacy,setAuthAgreePrivacy]=useState(false);
@@ -288,6 +296,9 @@ export default function CryptoIdea(){
   const handleAuth=async()=>{
     const emailRegex=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const nameRegex=/^[a-zA-Z\s]{2,30}$/;
+    // AUTH-DUP (Part A): ALL synchronous validation runs FIRST — every early-return here
+    // happens BEFORE the re-entry lock is taken, so a validation bail-out can never leave
+    // the button stuck disabled.
     if(!authEmail){setAuthErr("Enter your email");return}
     if(!emailRegex.test(authEmail)){setAuthErr("Enter a valid email (e.g. name@email.com)");return}
     if(!authPass){setAuthErr("Enter your password");return}
@@ -301,23 +312,34 @@ export default function CryptoIdea(){
       if(!authName){setAuthErr("Enter your name");return}
       if(!nameRegex.test(authName.trim())){setAuthErr("Name: letters only, 2-30 characters");return}
       if(!authAgreeTerms||!authAgreePrivacy){setAuthErr("Please accept the Terms and Privacy Policy to continue");return}
-      const em=authEmail.toLowerCase().trim();
-      // Create the account in Firebase Auth (password is stored securely by Firebase, never locally).
-      // Consent record (mandatory Terms/Privacy + the withdrawable marketing opt-in) is written atomically.
-      const res=await registerUser(em,authPass,authName.trim(),{termsVersion:CONSENT_VERSION,privacyVersion:CONSENT_VERSION,marketing:authAgreeMarketing});
-      if(!res.success){setAuthErr(res.error||"Could not create account");return}
-      const newUser={uid:res.user.uid,email:em,name:authName.trim()||em.split("@")[0],tier:"free",joined:new Date().toISOString().split("T")[0]};
-      setUser(newUser);
-      await saveProfile(newUser);
-      setAuthErr("");setShowPlan(true);setUpgradeStep("pickPlan");
-    }else{
-      // Login: verify credentials against Firebase Auth
-      const em=authEmail.toLowerCase().trim();
-      const res=await loginUser(em,authPass);
-      if(!res.success){setAuthErr(res.error||"Could not log in");return}
-      setAuthErr("");
-      // onAuthChange (above) loads the profile + portfolios and navigates to the portfolio.
-    }};
+    }
+    // AUTH-DUP (Part A): hard re-entry lock around the async auth call. The ref blocks a
+    // same-tick second call (a state update wouldn't apply in time); authBusy disables the
+    // submit button + the Enter-key resubmit. Reset in finally so a failed login/register
+    // (or any error) always re-enables the button.
+    if(authBusyRef.current)return;
+    authBusyRef.current=true;setAuthBusy(true);
+    try{
+      if(authMode==="register"){
+        const em=authEmail.toLowerCase().trim();
+        // Create the account in Firebase Auth (password is stored securely by Firebase, never locally).
+        // Consent record (mandatory Terms/Privacy + the withdrawable marketing opt-in) is written atomically.
+        const res=await registerUser(em,authPass,authName.trim(),{termsVersion:CONSENT_VERSION,privacyVersion:CONSENT_VERSION,marketing:authAgreeMarketing});
+        if(!res.success){setAuthErr(res.error||"Could not create account");return}
+        const newUser={uid:res.user.uid,email:em,name:authName.trim()||em.split("@")[0],tier:"free",joined:new Date().toISOString().split("T")[0]};
+        setUser(newUser);
+        await saveProfile(newUser);
+        setAuthErr("");setShowPlan(true);setUpgradeStep("pickPlan");
+      }else{
+        // Login: verify credentials against Firebase Auth
+        const em=authEmail.toLowerCase().trim();
+        const res=await loginUser(em,authPass);
+        if(!res.success){setAuthErr(res.error||"Could not log in");return}
+        setAuthErr("");
+        // onAuthChange (above) loads the profile + portfolios and navigates to the portfolio.
+      }
+    }finally{authBusyRef.current=false;setAuthBusy(false);}
+  };
 
   const logout=async()=>{
     // Sign out of Firebase; onAuthChange will clear the session. No credentials are kept on the device.
@@ -948,7 +970,7 @@ export default function CryptoIdea(){
     profName,setProfName,profMsg,saveDisplayName,emNew,setEmNew,emPass,setEmPass,emMsg,requestEmailChange,toggleSetting,
     showPlan,showWelcome,upgradeStep,setUpgradeStep,upgradeFlow,setUpgradeFlow,setShowPlan,setShowWelcome,planChosen,markPlanChosen,
     upgradeBilling,setUpgradeBilling,setUser,saveProfile,persistTierDev,calcEndDate,
-    authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,site,
+    authMode,setAuthMode,authErr,setAuthErr,authName,setAuthName,authEmail,setAuthEmail,authPass,setAuthPass,handleAuth,authBusy,site,
     authAgreeTerms,setAuthAgreeTerms,authAgreePrivacy,setAuthAgreePrivacy,authAgreeMarketing,setAuthAgreeMarketing};
   // Responsive shell: tab screens render inside a centered column (.app-shell) that
   // widens on desktop. Card-collection screens opt into the wider 1040px track as

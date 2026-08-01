@@ -37,7 +37,7 @@ export function Login({ popup }) {
     showPlan, showWelcome, upgradeStep, setUpgradeStep, upgradeFlow, setUpgradeFlow,
     setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user, setUser,
     saveProfile, persistTierDev, calcEndDate, setScreen, authMode, setAuthMode, authErr, setAuthErr,
-    authName, setAuthName, authEmail, setAuthEmail, authPass, setAuthPass, handleAuth, site,
+    authName, setAuthName, authEmail, setAuthEmail, authPass, setAuthPass, handleAuth, authBusy, site,
     authAgreeTerms, setAuthAgreeTerms, authAgreePrivacy, setAuthAgreePrivacy,
     authAgreeMarketing, setAuthAgreeMarketing, planChosen, markPlanChosen,
   } = useApp();
@@ -211,7 +211,9 @@ export function Login({ popup }) {
         </div>
       )}
       {authErr&&<div className="auth-err" style={{color:"#FF3B30"}}>{authErr}</div>}
-      <button type="submit" className="btn-primary">{authMode==="login"?"Log in":"Create Account"}</button>
+      {/* AUTH-DUP (Part A): disabled + a busy label while the auth call is in flight, so a
+          rapid second click / Enter can't fire a duplicate register/login. */}
+      <button type="submit" className="btn-primary" disabled={authBusy}>{authBusy?(authMode==="login"?"Logging in…":"Creating account…"):(authMode==="login"?"Log in":"Create Account")}</button>
       {authMode==="login"&&<div className="auth-link"><span onClick={()=>setScreen("forgotPass")}>Forgot password?</span></div>}
     </form>
   </div>);

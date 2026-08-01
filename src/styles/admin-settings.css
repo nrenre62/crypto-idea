@@ -367,6 +367,18 @@
 .ci-app .adm-wh-row .wh-t { font-size:12.5px; color:var(--ink); }
 .ci-app .adm-wh-row .wh-when { font-size:11px; color:var(--ink-faint); white-space:nowrap; flex:none; }
 
+/* AUTH-DUP (Part B): Overview duplicate-email detector card. */
+.ci-app .adm-dup-summary { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; margin-bottom:2px; }
+.ci-app .adm-dup-summary .lv-dot { width:8px; height:8px; border-radius:50%; flex:none; }
+.ci-app .adm-dup-list { margin-top:10px; border-top:1px solid var(--line-2); }
+.ci-app .adm-dup-group { padding:10px 0; border-bottom:1px solid var(--line-2); }
+.ci-app .adm-dup-group:last-child { border-bottom:0; }
+.ci-app .adm-dup-email { font-size:13px; font-weight:600; color:var(--ink); margin-bottom:6px; word-break:break-all; }
+.ci-app .adm-dup-count { font-size:11px; font-weight:600; color:var(--amber); }
+.ci-app .adm-dup-acct { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:3px 0; }
+.ci-app .adm-dup-acct .da-uid { font-size:11.5px; color:var(--ink-soft); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; word-break:break-all; }
+.ci-app .adm-dup-acct .da-meta { font-size:11px; color:var(--ink-faint); white-space:nowrap; flex:none; }
+
 /* ── ADMIN-4: Overview growth card (trend sparklines + deltas) ────────────── */
 /* auto-fit so the three metrics sit 3-up on desktop and stack on mobile — the
    app's responsive standard, no @media query. */

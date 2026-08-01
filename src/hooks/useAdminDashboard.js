@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser, viewUserAsAdmin, getUserNote, saveUserNote } from "../api/admin.js";
+import { getStats, listUsers, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser, viewUserAsAdmin, getUserNote, saveUserNote } from "../api/admin.js";
 import { getAdminRole, reauthAdmin } from "../api/admin-auth.js";
 // ADMIN-5: per-operator saved Users-tab filter presets (localStorage, pure util).
 import { loadViews, persistViews, addView, removeView } from "../utils/admin-views.js";
@@ -293,6 +293,10 @@ export function useAdminDashboard() {
   const [webhookEvents, setWebhookEvents] = useState(null);
   const [webhookLoading, setWebhookLoading] = useState(false);
   const [webhookMsg, setWebhookMsg] = useState("");
+  // AUTH-DUP (Part B): Overview duplicate-email detector — { groups, duplicateEmails, capped }.
+  const [dupEmails, setDupEmails] = useState(null);
+  const [dupLoading, setDupLoading] = useState(false);
+  const [dupMsg, setDupMsg] = useState("");
   // ADMIN-4: Overview growth card — the daily snapshot series, oldest-first.
   const [daily, setDaily] = useState(null);
   const [dailyLoading, setDailyLoading] = useState(false);
@@ -357,6 +361,18 @@ export function useAdminDashboard() {
     setWebhookLoading(false);
   };
   useEffect(() => { if (tab === "overview" && webhookEvents === null && !webhookLoading) loadWebhookEvents(); }, [tab]);
+
+  // AUTH-DUP (Part B): load the duplicate-email report the first time the Overview is
+  // shown. Same error-vs-empty rule as the other Overview cards — on failure dupMsg is
+  // set AND dupEmails is set to a zero result, so the card shows the error, never a
+  // false "no duplicates" all-clear it has no evidence for.
+  const loadDupEmails = async () => {
+    setDupLoading(true); setDupMsg("");
+    try { setDupEmails(await findDuplicateEmails()); }
+    catch (e) { setDupMsg((e && e.message) || "Could not check for duplicate emails"); setDupEmails({ groups: [], duplicateEmails: 0, capped: false }); }
+    setDupLoading(false);
+  };
+  useEffect(() => { if (tab === "overview" && dupEmails === null && !dupLoading) loadDupEmails(); }, [tab]);
 
   // ADMIN-4: load the daily growth series the first time the Overview is shown.
   // On failure the series is set to [] AND dailyMsg is set — the card renders the
@@ -602,6 +618,8 @@ export function useAdminDashboard() {
     auditQ, setAuditQ, auditAction, setAuditAction, auditPage, setAuditPage,
     auditLimit, AUDIT_MAX_LIMIT,
     webhookEvents, webhookLoading, webhookMsg, loadWebhookEvents,
+    // AUTH-DUP — the Overview duplicate-email detector.
+    dupEmails, dupLoading, dupMsg, loadDupEmails,
     // ADMIN-4 — the daily growth series + the owner-only manual capture.
     daily, dailyLoading, dailyMsg, loadDaily, capturing, captureSnapshot,
     // ADMIN-2 — operational status strip + the per-feature kill-switches.

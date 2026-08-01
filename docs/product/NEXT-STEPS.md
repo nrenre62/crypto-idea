@@ -12,7 +12,7 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
-## AUTH-DUP. Prevent duplicate-signup double-submit + admin dedupe detector  (📋 PLAN — 2026-08-01; NOT built)
+## AUTH-DUP. Prevent duplicate-signup double-submit + admin dedupe detector  (✅ BUILT 2026-08-01 · client lock + read-only admin callable)
 
 Founder report (2026-08-01, with a screenshot showing **two `mark@test.com` rows** in the admin
 Users list): pressing **Create Account / Log in** twice within 1–2 seconds — because the button
@@ -104,8 +104,24 @@ no code needed for cleanup.
 **Security note (secure-by-design):** no new write surface — Part A is client-only UX + the existing
 Auth constraint; Part B is one admin-gated read-only callable returning minimal fields. Both fit KISS.
 
-**Status: PLAN ONLY — not built.** Approach + both founder decisions (client-lock-only, add detector)
-are locked; awaiting the go-ahead to build.
+**Status: ✅ BUILT 2026-08-01 (BUILD-LOOP item 6).** As built:
+- **Part A** — `handleAuth` ([`src/CryptoIdea.jsx`](../../src/CryptoIdea.jsx)) now runs ALL synchronous
+  validation first, THEN takes a `useRef` re-entry lock (`authBusyRef`) + a companion `authBusy` state
+  around the async `registerUser`/`loginUser` call, reset in a `finally`. `authBusy` is exposed via
+  context and drives the [`Login.jsx`](../../src/components/Login.jsx) submit button
+  (`disabled={authBusy}` + "Creating account…" / "Logging in…"), which also blocks the Enter-key
+  resubmit. Mirrors TX-SAFE Part B's `addingRef` pattern.
+- **Part B** — new **read-only, `assertAdmin`-gated** `findDuplicateEmails` callable
+  ([`functions/index.js`](../../functions/index.js), modeled on `listUsers`) backed by the pure
+  [`functions/duplicates.js`](../../functions/duplicates.js) `groupDuplicateEmails` (lowercased+trimmed
+  grouping, ≥2 only, most-duplicated-first). Client wrapper in `src/api/admin.js`; loaded on the Overview
+  by `useAdminDashboard`; a read-only **"Duplicate emails"** Overview card (all-clear / count + expandable
+  account list) in `admin-dashboard.jsx` (`.adm-dup-*` scoped under the admin root). No new write path.
+- **Verification:** 16 new tests (RED first, commit `9995b59`) — `duplicates.test.js` (pure helper),
+  `CryptoIdea.authlock.test.jsx` (two same-tick submits → one auth call, both flows + bail-out-doesn't-stick),
+  `Login.test.jsx` (busy button), `admin-dashboard.test.jsx` (all-clear + count + expand). Full unit suite
+  **916/916**, build clean (dist name-guard). `firestore.rules` untouched (email uniqueness lives in Firebase
+  Auth, not in rules). Existing local-emulator `mark` dupes are cleared by resetting `./emulator-data` (no code).
 
 ---
 

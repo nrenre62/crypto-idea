@@ -35,6 +35,15 @@ export async function listWebhookEvents(limit = 50) {
   return (res.data && res.data.events) || [];
 }
 
+// AUTH-DUP (Part B): read-only duplicate-email detector for the Overview. Flags any
+// email shared by 2+ Auth accounts (a double-submit signup artifact, or a soft-delete +
+// re-register). Read-only — the owner resolves via the existing delete/trash flow.
+// Returns { groups:[{email,count,accounts}], duplicateEmails, capped }.
+export async function findDuplicateEmails() {
+  const res = await httpsCallable(functions, "findDuplicateEmails")({});
+  return res.data || { groups: [], duplicateEmails: 0, capped: false };
+}
+
 // ADMIN-2: operational status for the Overview strip — the kill-switch states, the
 // scheduled-job heartbeats, market-cache ages and whether Sentry is configured.
 // Read-only, no secrets (the Sentry DSN is reported only as a boolean).

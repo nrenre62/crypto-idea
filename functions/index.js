@@ -62,6 +62,7 @@ const signupGate = require("./signup-gate.js");
 // before/after formatter for per-user admin-action audit entries.
 const announce = require("./announcement.js");
 const { changeDetail } = require("./audit-diff.js");
+const duplicates = require("./duplicates.js");   // AUTH-DUP: pure duplicate-email grouping
 // How many trusted proxy hops the platform appends on the RIGHT of X-Forwarded-For.
 // Default 2 (common GCLB→Cloud Functions); confirm from a prod log + override if needed.
 const RL_TRUSTED_HOPS = Number(process.env.RL_TRUSTED_HOPS) || 2;
@@ -1383,6 +1384,45 @@ exports.listUsers = functions.https.onCall(async (data, context) => {
   } while (pageToken && users.length < CAP);
   users.sort((a, b) => (b.joinedMs || 0) - (a.joinedMs || 0)); // newest first
   return { users, total: users.length, capped: users.length >= CAP };
+});
+
+// ─── AUTH-DUP (Part B): read-only duplicate-email detector (admins only) ───
+// Flags any email shared by 2+ Auth accounts — the ugly aftermath of a double-submit
+// signup (the Auth emulator's non-transactional create, which produced the reported
+// `mark@test.com` pair) or, in production, a soft-delete-then-re-register of the same
+// email before the 30-day trash purge. Auth is the source of truth for "how many accounts
+// exist" (a hard-deleted user is already gone; a soft-deleted one is still an Auth user,
+// returned with disabled:true so the owner can tell which to remove). READ-ONLY — the
+// owner resolves duplicates through the EXISTING delete/trash flow; no new write path.
+// Firestore rules can't enforce email uniqueness (a rule sees one doc, not the collection);
+// this detector complements Firebase Auth's native constraint + the client in-flight lock.
+exports.findDuplicateEmails = functions.https.onCall(async (data, context) => {
+  await assertAdmin(context);
+  assertNoUnknownKeys(data, []);
+  const CAP = 5000;
+  // Merge the Firestore profile for `tier` only (same cheap pattern as listUsers) so the
+  // owner can see which duplicate is the paying account. Auth alone is enough to DETECT a
+  // duplicate; the profile just enriches the row.
+  const prof = {};
+  try { const snap = await db.collection("users").get(); snap.forEach((d) => { prof[d.id] = d.data(); }); } catch (e) { /* Auth is enough to detect a dup */ }
+  const all = [];
+  let pageToken;
+  do {
+    const res = await admin.auth().listUsers(1000, pageToken);
+    for (const u of res.users) {
+      const p = prof[u.uid] || {};
+      all.push({
+        uid: u.uid,
+        email: u.email || "",
+        tier: p.tier || "free",
+        disabled: !!u.disabled,
+        creationTime: (u.metadata && u.metadata.creationTime) || null,
+      });
+    }
+    pageToken = res.pageToken;
+  } while (pageToken && all.length < CAP);
+  const groups = duplicates.groupDuplicateEmails(all);
+  return { groups, duplicateEmails: groups.length, capped: all.length >= CAP };
 });
 
 // ─── Admin: read the recent audit log (admins only) ───

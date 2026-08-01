@@ -24,6 +24,7 @@ const MATRIX = {
   getStats: "assertAdmin",
   lookupUser: "assertAdmin",
   listUsers: "assertAdmin",
+  findDuplicateEmails: "assertAdmin",  // AUTH-DUP — read-only duplicate-email detector
   listAudit: "assertAdmin",
   listWebhookEvents: "assertAdmin",   // ADMIN-1
   listDailyStats: "assertAdmin",      // ADMIN-4 — same gate as getStats, which already

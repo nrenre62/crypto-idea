@@ -217,10 +217,11 @@ describe("Login screen (extracted, via AppContext)", () => {
     });
 
     it("login: disabled 'Logging in…' while busy", () => {
-      provide({ authMode: "login", authBusy: true });
+      const { container } = provide({ authMode: "login", authBusy: true });
       const btn = screen.getByRole("button", { name: "Logging in…" });
       expect(btn).toBeDisabled();
-      expect(screen.queryByRole("button", { name: "Log in" })).toBeNull();
+      // The submit button (not the mode-toggle) carries the busy label.
+      expect(container.querySelector(".btn-primary").textContent).toBe("Logging in…");
     });
   });
 

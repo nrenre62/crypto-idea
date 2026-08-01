@@ -353,6 +353,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
     audit, auditLoading, auditMsg,
     auditQ, setAuditQ, auditAction, setAuditAction, auditPage, setAuditPage, auditLimit, AUDIT_MAX_LIMIT,
     webhookEvents, webhookLoading, webhookMsg, loadWebhookEvents,
+    dupEmails, dupLoading, dupMsg, loadDupEmails,
     s,
     saveConfig, saveControls, loadUserList, loadAudit, openUser, changeTier, changePremiumLimits, toggleSuspend,
     restoreFromTrash, purgeFromTrash,
@@ -371,6 +372,8 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
   // ADMIN-D: which Settings screen is showing — "home" or a detail drill-in.
   // Local to the component (no router), exactly like Account.jsx's `view`.
   const [settingsView, setSettingsView] = useState("home");
+  // AUTH-DUP (Part B): whether the duplicate-email card's account list is expanded.
+  const [dupOpen, setDupOpen] = useState(false);
 
   // ADMIN-5 — local UI state for the Users tab.
   // The view-as reason prompt (inline; a reason is required server-side).
@@ -726,6 +729,50 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     </div>
                   ))}
                 </div>
+              </>);
+            })()}
+          </div>
+
+          {/* AUTH-DUP (Part B): read-only duplicate-email detector. Flags any email shared
+              by 2+ Auth accounts — a double-submit signup (dev), or a soft-delete +
+              re-register (prod, before the 30-day purge). The owner resolves through the
+              EXISTING Users-tab delete/trash flow; this card only READS. Admins only. */}
+          <div className="card">
+            <div className="adm-card-head">
+              <div className="card-title" style={{ marginBottom:0 }}>Duplicate emails</div>
+              <button className="adm-btn sm" onClick={() => { setDupOpen(false); loadDupEmails(); }} disabled={dupLoading}>{dupLoading ? "…" : "Refresh"}</button>
+            </div>
+            {dupMsg && <div className="adm-inline-err" style={{ marginTop:10 }}>{dupMsg}</div>}
+            {(() => {
+              if (dupLoading && !dupEmails) return <div className="adm-loading">Loading…</div>;
+              const groups = (dupEmails && dupEmails.groups) || [];
+              const n = (dupEmails && dupEmails.duplicateEmails) || 0;
+              // On a load failure the hook sets dupMsg AND a zero result; the red banner
+              // above already rendered, so don't also print a reassuring all-clear.
+              if (n === 0) return dupMsg ? null : <div className="adm-hint" style={{ marginTop:8 }}>No duplicate emails — every account has a unique address. ✓</div>;
+              return (<>
+                <div className="adm-dup-summary">
+                  <span className="lv-dot" style={{ background:"var(--amber)" }} />
+                  <span>{n} email{n === 1 ? "" : "s"} shared by 2+ accounts</span>
+                </div>
+                <div className="adm-hint" style={{ marginTop:2, marginBottom:10 }}>Resolve from the Users tab — open the account and delete or trash the extra one. This card is read-only.</div>
+                <button className="adm-btn sm" onClick={() => setDupOpen(o => !o)}>{dupOpen ? "Hide accounts" : "Show accounts"}</button>
+                {dupOpen && (
+                  <div className="adm-dup-list">
+                    {groups.map(g => (
+                      <div key={g.email} className="adm-dup-group">
+                        <div className="adm-dup-email">{g.email} <span className="adm-dup-count">×{g.count}</span></div>
+                        {g.accounts.map(a => (
+                          <div key={a.uid} className="adm-dup-acct">
+                            <span className="da-uid">{a.uid}</span>
+                            <span className="da-meta">{(a.tier || "free")}{a.disabled ? " · disabled" : ""}{a.creationTime ? " · " + new Date(a.creationTime).toLocaleDateString() : ""}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                    {dupEmails && dupEmails.capped && <div className="adm-hint" style={{ marginTop:8 }}>Showing the first 5,000 accounts — more may exist.</div>}
+                  </div>
+                )}
               </>);
             })()}
           </div>
