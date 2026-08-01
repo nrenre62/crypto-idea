@@ -380,6 +380,74 @@ as megabytes — capture that as its own item, don't fold it here.
 
 ---
 
+## USER-SET-UI. User account settings — admin-style framed panels (bordered back-box + divided header), desktop-only  (📋 PLAN — 2026-08-01; NOT built · design-only)
+
+Founder ask (2026-08-01, with Account/Portfolio/Profile screenshots): make the **user account
+settings** screens have **borders on desktop only**, with a **clear distinction for the size of
+settings** — apply it to the Account home **and** every individual settings screen (Profile, Plan &
+billing, Portfolios, Security, Privacy & data). Match the **admin settings** design I already applied +
+documented ("the same new design changes … Admin panel settings should apply for user settings for the
+design structure"). **Design-only.**
+
+**Founder decisions (AskUserQuestion 2026-08-01):**
+- **Scope = the WHOLE settings area** — the Account home (avatar + plan-usage + settings list) AND every
+  drill-in, one consistent bounded "settings panel" look on desktop.
+- **Desktop style = inline framed panel** — settings stay in the page flow, framed (border + divided
+  header + bordered back-box + bounded width), exactly like the admin settings. **NOT** a centered popup
+  (rejected — would diverge from the named admin reference, even though the app's *other* desktop
+  drill-ins are popups).
+
+**The admin reference (what to mirror):** the admin `DScreen` primitive
+([admin-dashboard.jsx](../../src/components/admin-dashboard.jsx) ~L168) — ONE framed `.card.adm-scr`
+(`padding:0; overflow:hidden`) whose **`.adm-scr-head`** carries a `border-bottom` divider, a **bordered
+`‹` back BOX** (`.icon-btn` 34×34, `border-radius:11px`, `border:1px solid var(--line-strong)`,
+`background:var(--paper-2)`), and the centered title **once**, then an **`.adm-scr-body`** (`padding:18px`)
+with **`.adm-scr-section`** inner dividers between sub-blocks. Documented in
+[ADMIN-UI-REDESIGN.md](../design/ADMIN-UI-REDESIGN.md) §10–§11.
+
+**Current user state (verified):** [Account.jsx](../../src/components/Account.jsx) is one screen with a
+local `view` state. It uses a *floating* `.detail-head` (a **bare** back chevron + centered title) sitting
+ABOVE plain `.card` blocks in `.pad` — the old "DHead" pattern the admin retired. On desktop the whole
+screen sits in a **720px** `.app-shell` column (account is in neither `WIDE_SCREENS` nor `NARROW_SCREENS`).
+`.ci-app .card` already carries a light border on all sizes — so the ask is the *framed DScreen structure
++ bounded size*, not merely "add a border to a card".
+
+**Build approach (design-only — content, fields, handlers, state, view-routing all unchanged):**
+1. **New user-scoped primitive** (mirror `DScreen`, do NOT reuse it): a small `SettingsScreen`/shell in
+   `Account.jsx` rendering `.set-scr` (framed card) → `.set-scr-head` (divider + bordered `‹` back box via
+   the existing `Ic.back` + title once + spacer) → `.set-scr-body`. Sub-blocks that today are separated by
+   `.acct-divider` (e.g. Profile's Display-name vs Change-email) become `.set-scr-section` dividers.
+2. **New user-scoped CSS** in [app.css](../../src/styles/app.css): `.ci-app .set-scr*` mirroring the
+   `.adm-scr*` values, using the existing user tokens (`--line-2`/`--line-strong`/`--paper-2`). ⚠️ **Do
+   NOT import the admin `.adm-scr*`** — CLAUDE.md keeps admin CSS out of the user bundle
+   (`.ci-app.adm-root`-scoped, admin-only). Mirror the values in the user sheet instead.
+3. **Desktop-only via `useIsDesktop`** (min-width 561px — the hook that already drives the app's other
+   desktop-only drill-ins): on desktop render the framed `SettingsScreen`/panel for the home AND each
+   drill-in; on **mobile render exactly today's markup** (`.detail-head` + `.pad`/`.card`) — "borders on
+   desktop only", mobile byte-for-byte unchanged.
+4. **Bounded size ("clear distinction"):** constrain the desktop settings panel to a settings-scoped width
+   (~560px) via a wrapper class — **NOT** by adding `account` to `NARROW_SCREENS` (that flips the
+   `baseScreen` popup path → would render Portfolio behind + treat account as a popup, the opposite of the
+   chosen inline-framed style).
+
+**Consistency sweep / files:** `Account.jsx` (primitive + per-view shell), `app.css` (`.set-scr*`
+desktop-only CSS + settings width), possibly `CryptoIdea.jsx` (settings-width wrapper if not pure CSS).
+Docs: add a short "user settings framing = mirror of admin DScreen" note to a design doc (e.g.
+DESIGN-PASS.md) + the CLAUDE.md design list. Tests: `tests/unit/Account.test.jsx` — jsdom defaults
+`useIsDesktop`→false so existing tests keep exercising the **mobile path unchanged** (low regression
+risk); add a matchMedia-mocked test asserting the framed `.set-scr` structure appears on desktop.
+
+**Acceptance:**
+- Desktop (≥561px): Account home + every drill-in render as a **bounded, bordered framed panel** with a
+  divided header + bordered `‹` back box, title shown once — visually matching the admin settings.
+- Mobile (≤560px): **byte-for-byte the current look** (no new borders/frame).
+- Design-only: all handlers/state/routing identical; no rules/functions/data change; **admin panel
+  untouched** (it's the template). `npm run test:unit` green; `npm run build` clean.
+
+**Status: PLAN ONLY — not built.** Both decisions locked (whole area · inline framed); awaiting go-ahead.
+
+---
+
 ## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (📋 PLAN — 2026-08-01; NOT built)
 
 Founder ask (2026-08-01): add a **dedicated password for the admin Settings area** — a second lock,
