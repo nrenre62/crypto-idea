@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAdminDashboard } from "../hooks/useAdminDashboard.js";
 import { trashDaysLeft, partitionUsers } from "../utils/trash.js";
 // ADMIN-3: CSV export of the audit log + the users list (pure builders; the download
@@ -51,6 +51,75 @@ export const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "S
   captureStatsSnapshot: "Captured a stats snapshot",
   // ADMIN-5 team-scale & support
   viewUserAsAdmin: "Viewed a user's data", saveUserNote: "Edited a private note" };
+
+/* ═══ ADMIN-JOBS — friendly labels + hover/focus tooltip for the Overview status strip ═══
+   Each scheduled job appears by a human label instead of its raw JS name, with a custom
+   tooltip describing what it does. A job's `name` is ALSO its health-doc heartbeat key
+   (runJob("refreshPrices", …) → health/jobs.refreshPrices) and the getSystemStatus map key,
+   so it is never renamed — JOB_META only ADDS a display layer, purely client-side (zero
+   backend change, no data migration). Exported so tests/unit/admin-dashboard.test.jsx can
+   assert it covers EVERY job in functions/index.js's SCHEDULED_JOBS: a 7th job added with no
+   entry fails the build (same enumerate-from-source guard as ACTION_LABELS / features). */
+export const JOB_META = {
+  refreshPrices:              { label: "Prices",        description: "Refreshes market prices for the top ~1,300 coins. Runs every 5 minutes." },
+  refreshUniverseDaily:       { label: "Coin list",     description: "Refreshes the full ~3,000-coin catalog and removes delisted coins. Runs once a day." },
+  purgeOldAudit:              { label: "Audit cleanup", description: "Deletes admin audit-log entries older than 365 days. Runs once a day." },
+  captureDailyStats:          { label: "Daily stats",   description: "Saves a daily snapshot of user and growth numbers. Runs once a day." },
+  purgeExpiredTrash:          { label: "Trash cleanup", description: "Permanently deletes accounts left in trash past the 30-day window. Runs once a day." },
+  enforceSubscriptionPeriods: { label: "Billing sync",  description: "Downgrades a user's tier when their paid subscription period ends. Runs once a day." },
+};
+
+// The browser's native `title` delay is not reliably ~2s and can't be styled, so the strip
+// uses a small custom tooltip: hovering the name arms a 2s timer; resting the full 2s shows
+// the box; leaving before then cancels it. Founder spec 2026-08-01.
+const JOB_TOOLTIP_DELAY_MS = 2000;
+
+/* One job row on the status strip. Owns its own hover timer + open state so each pill is
+   independent (only the hovered/focused one shows). Removing the native `title` loses no
+   info: the "what it does" description and the current status detail (a failure's last
+   error, a note, or an overdue/never warning) fold into the same custom box. Keyboard-
+   accessible: the name is focusable, reveals on focus, hides on blur/Esc. */
+function JobPill({ job, health, healthText, healthDot, now }) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef(null);
+  const meta = JOB_META[job.name];
+  const label = (meta && meta.label) || job.name;
+
+  const statusDetail =
+    health === "failing" ? (job.error || healthText) :
+    job.note ? job.note :
+    health !== "ok" ? healthText : null;
+  const description = [meta && meta.description, statusDetail].filter(Boolean).join(" — ") || healthText;
+
+  const clear = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
+  const armHover = () => { clear(); timer.current = setTimeout(() => setOpen(true), JOB_TOOLTIP_DELAY_MS); };
+  const hide = () => { clear(); setOpen(false); };
+  useEffect(() => clear, []);   // never leak a pending timer on unmount/re-render
+
+  return (
+    <div className={"adm-job " + health}>
+      <span className={"dot " + healthDot} />
+      <span
+        className="j-name"
+        tabIndex={0}
+        role="button"
+        aria-label={label + ": " + description}
+        aria-expanded={open}
+        onMouseEnter={armHover}
+        onMouseLeave={hide}
+        onFocus={() => setOpen(true)}
+        onBlur={hide}
+        onKeyDown={(e) => { if (e.key === "Escape") hide(); }}
+      >
+        {label}
+      </span>
+      {/* agoLabel returns null when nothing has ever completed — rendered as "never",
+          never as a blank that could pass for a healthy run. */}
+      <span className="j-when">{agoLabel(job.at, now) || "never"}</span>
+      {open && <div className="adm-job-tip" role="tooltip">{description}</div>}
+    </div>
+  );
+}
 
 /* ═══ ADMIN-3 — CSV export ═══
    Both exports are built from the rows already on screen, so a download always
@@ -443,19 +512,20 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   </button>
                 </div>
                 <div className="adm-jobs">
+                  {/* ADMIN-JOBS: each pill shows a friendly label + a custom hover/focus
+                      tooltip (JobPill). The failing-error-vs-note logic and "never" fallback
+                      moved into JobPill; the native `title` is gone so the two can't both pop. */}
                   {jobs.map((j) => {
                     const h = jobHealth(j, now);
                     return (
-                      /* Show the error ONLY while the job is actually failing. `error` is
-                         the last failure ever recorded, so once a later run succeeds,
-                         leading with it would label a recovered job with a stale fault. */
-                      <div key={j.name} className={"adm-job " + h} title={h === "failing" ? (j.error || HEALTH_TEXT[h]) : (j.note || HEALTH_TEXT[h])}>
-                        <span className={"dot " + HEALTH_DOT[h]} />
-                        <span className="j-name">{j.name}</span>
-                        {/* agoLabel returns null when nothing has ever completed — rendered
-                            as "never", never as a blank that could pass for fine. */}
-                        <span className="j-when">{agoLabel(j.at, now) || "never"}</span>
-                      </div>
+                      <JobPill
+                        key={j.name}
+                        job={j}
+                        health={h}
+                        healthText={HEALTH_TEXT[h]}
+                        healthDot={HEALTH_DOT[h]}
+                        now={now}
+                      />
                     );
                   })}
                 </div>

@@ -613,7 +613,7 @@ go-ahead to build.
 
 ---
 
-## ADMIN-JOBS. Human-readable scheduled-job labels  (📋 PLAN — 2026-08-01; display-only, NOT built)
+## ADMIN-JOBS. Human-readable scheduled-job labels  (✅ BUILT 2026-08-01)
 
 Founder ask (2026-08-01): the admin **Overview → System status strip** lists each scheduled job by
 its raw JavaScript name (`refreshPrices`, `purgeOldAudit`, …). Show clear 1–2-word English labels
@@ -663,7 +663,20 @@ belongs client-side.)
 "enumerate from source" guard used elsewhere; the tooltip appears ~2s after hover and hides on leave;
 keyboard-focus reveal works; no double-tooltip.
 
-**Status: PLAN ONLY — not built.** Labels + tooltip spec are locked; awaiting the founder's go-ahead to build.
+**Status: ✅ BUILT 2026-08-01 (BUILD-LOOP item 2).** Client-only, zero backend change. Added an
+exported `JOB_META[name] = {label, description}` map + a `JobPill` component in
+[`admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx): the Overview status strip now
+shows the friendly label (`refreshPrices` → **Prices**, etc.) and a **custom hover/focus tooltip**
+(2-second `mouseenter` timer, hides on `mouseleave`, reveals on keyboard focus, `Esc` to dismiss,
+`prefers-reduced-motion`-aware, admin light-paper only). The native `title` was removed so the two
+can't double-pop; any failing-error / note / overdue detail folds into the same custom box, so no
+status info is lost. Job `name` stays the stable heartbeat key (never renamed). Tooltip CSS added to
+the admin-only `admin-settings.css` (verified out of the user bundle). **Acceptance met:** a new unit
+test enumerates the job names from `SCHEDULED_JOBS` in `functions/index.js` and asserts `JOB_META`
+covers each (a 7th unlabelled job fails the build) — plus render/label, no-native-title, keyboard-focus
+reveal, and 2s-hover/early-cancel tests. Verified: **861/861 unit green** (5 new), `npm run build` clean
+(dist-name-guard passed). Browser check deferred (admin UI needs the emulator stack; Java 21 unavailable
+this session) — covered by the render-level tests instead.
 
 ---
 

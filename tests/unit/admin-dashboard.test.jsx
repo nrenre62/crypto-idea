@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within, act } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 
 // Mock the API layer so the dashboard mounts without touching Firebase. The
 // wrappers return the payloads the component expects (see src/api/admin.js).
@@ -68,7 +71,7 @@ vi.mock("../../src/api/admin-auth.js", () => ({
   reauthAdmin: vi.fn(() => Promise.resolve({ success: true })),
 }));
 
-import AdminDashboard from "../../src/components/admin-dashboard.jsx";
+import AdminDashboard, { JOB_META } from "../../src/components/admin-dashboard.jsx";
 import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser } from "../../src/api/admin.js";
 import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
@@ -97,6 +100,90 @@ describe("admin-dashboard", () => {
     expect(screen.queryByText("5 MB")).toBeNull();
     expect(screen.queryByText("500 MB")).toBeNull();
     expect(screen.queryByText("15 GB")).toBeNull();
+  });
+
+  // ADMIN-JOBS (2026-08-01): the Overview status strip lists each scheduled job by a
+  // friendly label with a custom hover/focus tooltip, instead of the raw JS name +
+  // the browser's un-styleable native `title`. The job's `name` stays the stable
+  // internal heartbeat key (never renamed) — JOB_META only ADDS a display label.
+  describe("ADMIN-JOBS — status strip job labels + tooltip", () => {
+    // The acceptance guard: labels+descriptions are enumerated from the REAL source
+    // (SCHEDULED_JOBS in functions/index.js), not a hand-kept list — so adding a 7th
+    // job with no JOB_META entry fails the build. Same tripwire as ACTION_LABELS and
+    // features.test.js's cron-registry check.
+    it("JOB_META covers every scheduled job in functions/index.js (enumerate from source)", () => {
+      const here = dirname(fileURLToPath(import.meta.url));
+      const SRC = readFileSync(resolve(here, "../../functions/index.js"), "utf8");
+      const block = SRC.slice(
+        SRC.indexOf("const SCHEDULED_JOBS = ["),
+        SRC.indexOf("];", SRC.indexOf("const SCHEDULED_JOBS = [")),
+      );
+      const names = [...block.matchAll(/name: "(\w+)"/g)].map((m) => m[1]);
+      expect(names.length, "expected to find the SCHEDULED_JOBS registry").toBeGreaterThanOrEqual(6);
+      for (const name of names) {
+        expect(JOB_META[name], `no JOB_META entry for scheduled job "${name}"`).toBeTruthy();
+        expect(typeof JOB_META[name].label, name).toBe("string");
+        expect(JOB_META[name].label.length, name).toBeGreaterThan(0);
+        expect(typeof JOB_META[name].description, name).toBe("string");
+        expect(JOB_META[name].description.length, name).toBeGreaterThan(10);
+      }
+    });
+
+    it("renders friendly job labels, never the raw job names", async () => {
+      render(<AdminDashboard />);
+      await waitFor(() => expect(screen.getByText("Prices")).toBeInTheDocument());
+      expect(screen.getByText("Daily stats")).toBeInTheDocument();
+      expect(screen.queryByText("refreshPrices")).toBeNull();
+      expect(screen.queryByText("captureDailyStats")).toBeNull();
+    });
+
+    it("job rows carry no native title attribute (custom tooltip only, no double pop)", async () => {
+      const { container } = render(<AdminDashboard />);
+      await screen.findByText("Prices");
+      const rows = container.querySelectorAll(".adm-job");
+      expect(rows.length).toBeGreaterThan(0);
+      rows.forEach((r) => {
+        expect(r.getAttribute("title")).toBeNull();
+        expect(r.querySelector(".j-name").getAttribute("title")).toBeNull();
+      });
+    });
+
+    it("keyboard focus reveals the description tooltip; blur hides it", async () => {
+      render(<AdminDashboard />);
+      const name = await screen.findByText("Prices");
+      expect(screen.queryByRole("tooltip")).toBeNull();
+      fireEvent.focus(name);
+      const tip = await screen.findByRole("tooltip");
+      expect(tip).toHaveTextContent(/Refreshes market prices/);
+      fireEvent.blur(name);
+      await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+    });
+
+    it("hover reveals the tooltip only after ~2s, and cancels if the pointer leaves early", async () => {
+      render(<AdminDashboard />);
+      const name = await screen.findByText("Prices");
+      vi.useFakeTimers();
+      try {
+        // Rests on the name for < 2s → nothing shows yet.
+        fireEvent.mouseEnter(name);
+        act(() => { vi.advanceTimersByTime(1999); });
+        expect(screen.queryByRole("tooltip")).toBeNull();
+        // Crossing 2s → the box appears.
+        act(() => { vi.advanceTimersByTime(1); });
+        expect(screen.getByRole("tooltip")).toHaveTextContent(/Refreshes market prices/);
+        // Leaving hides it immediately.
+        fireEvent.mouseLeave(name);
+        expect(screen.queryByRole("tooltip")).toBeNull();
+        // Leaving BEFORE 2s cancels the pending timer — no late pop.
+        fireEvent.mouseEnter(name);
+        act(() => { vi.advanceTimersByTime(1000); });
+        fireEvent.mouseLeave(name);
+        act(() => { vi.advanceTimersByTime(5000); });
+        expect(screen.queryByRole("tooltip")).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("renders all four tabs without crashing (lazy-loads users + audit)", async () => {
@@ -627,7 +714,9 @@ describe("admin-dashboard", () => {
     await waitFor(() => expect(getSystemStatus).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByText("All scheduled jobs healthy")).toBeInTheDocument());
     expect(screen.getByText("All features on")).toBeInTheDocument();
-    expect(screen.getByText("refreshPrices")).toBeInTheDocument();
+    // ADMIN-JOBS: the strip now shows the friendly label ("Prices"), not the raw job name.
+    expect(screen.getByText("Prices")).toBeInTheDocument();
+    expect(screen.queryByText("refreshPrices")).toBeNull();
     // The Sentry state is reported honestly rather than omitted when it's off.
     expect(document.querySelector(".adm-strip-foot").textContent).toContain("not configured");
   });
