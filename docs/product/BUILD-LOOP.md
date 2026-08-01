@@ -103,11 +103,15 @@ interviews, so they're out of an unattended build loop.
 
 ## Environment caveats (2026-08-01)
 
-- **Emulators need Java 21**, which isn't installed on this machine right now → `npm run start:all` and
-  the emulator-backed tiers (`test:rules`, `test:integration`, browser verification) can't run here.
-  Until Java 21 is installed, GREEN items verify via **`npm run test:unit` + `npm run build`** only, and
-  the two rules-touching CHECKPOINT items (ONBOARD-GATE, ADMIN-6) **cannot be fully verified locally** —
-  flag that at their gate. Installing Java 21 unblocks the full loop.
+- **Java 21 is installed and is now the active `java`** (fixed 2026-08-01) → `npm run start:all` and the
+  emulator-backed tiers (`test:rules`, `test:integration`, browser verification) **run here now.** Java 21
+  (Microsoft OpenJDK 21.0.11) was already on the machine, but an old Oracle **Java 8** sat ahead of it on
+  the machine `PATH`; the Firebase emulator runs bare `java`, so it picked up Java 8 and refused to start.
+  Fixed system-wide by moving JDK 21's `bin` to the front of the machine `PATH` (and pointing `JAVA_HOME`
+  at it). **Verified:** `java -version` reports 21 and `npm run test:rules:solo` boots the Firestore
+  emulator on Java 21 → **43/43 green**. So GREEN items get full verification, and the two rules-touching
+  CHECKPOINT items (ONBOARD-GATE, ADMIN-6) **can now be fully verified locally.** (If a shell ever shows
+  `java` = 8 again, it inherited a stale `PATH` — open a fresh terminal.)
 - **Never run `test:unit` while `start:all` is up** — the parallel jsdom run starves for CPU and a red
   result is *inconclusive, not a failure*. Run it standalone.
 
