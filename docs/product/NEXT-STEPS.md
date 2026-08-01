@@ -1501,11 +1501,26 @@ signature auth as a `PayPalWebhookSignature` apiKey scheme (reconciled the "unau
   status, action, ISO `exportedAt`); `additionalProperties:false` on every fixed response schema AND request
   wrapper. Score **9.24 → 32.56 → 48.35** (responses-only) **→ 65.06** (also closing request bodies).
   Security **24.61/30**, Data **40.45/70**.
-- **70 is NOT honestly reachable** — the wall is ~55 `pattern` findings on genuinely free-form /
-  provider-controlled strings (coin names, admin-entered analytics/Termly IDs, opaque secrets, nullable
-  emails/URLs): any pattern there could reject a REAL value, so we don't fake them. Also accepted by design:
-  the 7 public `security:[]`, the webhook's honest `apiKey`-in-header scheme, and the free-form export /
-  CoinGecko / PayPal passthrough objects (`PricesResponse` map, export `profile`/`portfolios`, `PayPalEvent`).
+- **⚠️ "70 is NOT honestly reachable" (the 2026-07-18 conclusion above) was WRONG — SUPERSEDED by the
+  2026-08-01 re-audit → 92.95/100.** On the newer `42c-ast` (v3.58.4) Data climbed **40.45 → 67.37/70** and
+  the total to **92.95** (Security **25.58/30**) with constraints that reject no REAL value: free text gets a
+  control-char-exclusion `pattern` (`^[^<ctrl>]*$` — 42Crunch ACCEPTS this; only a bare `^\S*$` is flagged
+  "too loose"), structured strings get real patterns (email / url / token / id / ISO-date), every response
+  array gets a `maxItems` matched to the REAL code cap (viewUserAsAdmin 20/150/50, listDailyStats 400), and
+  every closed-shape object gets `additionalProperties:false`. The heaviest gap was the ADMIN-5
+  `UserSnapshot`, which had shipped almost unenriched. Commits `bd57ed0`, `bc7fd47`, `ba8377b`.
+- **⚠️ OAS-3.1-nullable trap (the newer binary is STRICTER):** v3.58.4 first rejected the spec as
+  `structureInvalid` (score 0) because nullable was expressed the 3.1 way in a `"3.0.3"` doc —
+  `"type":["integer","null"]` (6 fields, `bd57ed0`) and a `oneOf` with a `{"type":"null"}` branch
+  (`bc7fd47`). The 3.0 form is `"type":"integer","nullable":true`. The audit itself is the authoritative
+  structural check — a green local JSON parse is not.
+- **Still accepted-by-design (won't-fix, per the `ba8377b` commit body):** the 7 public `security:[]`
+  `/api/*` endpoints (unauthenticated on purpose — cached market data + landing email capture), the
+  webhook's honest `apiKey`-in-header scheme, and the raw passthrough objects left OPEN (`PricesResponse`
+  map, `ExportMyData` `profile`/`portfolios`, the `UserSnapshot` raw Firestore-doc snapshot,
+  `PayPalEvent`/`.resource`, `CallableError.error.details`). The **SQG** ("default" gate) therefore still
+  reports FAILED — the auth-severity threshold, not a score problem (92.95 ≫ 70): the public endpoints
+  can't pass it without misrepresenting the contract.
 - **✅ Follow-up BUILT (2026-08-01) — strict request input:** every callable now rejects unknown **top-level
   `data` keys** via `assertNoUnknownKeys(data, [...])` (pure, unit-tested `guards.unknownKeys`), run right
   after the auth/role gate — so the request-body `additionalProperties:false` contract is enforced, not just
