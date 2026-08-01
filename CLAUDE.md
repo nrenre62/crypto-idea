@@ -88,6 +88,14 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   `.grid-auto`. Same markup mobile↔desktop, **no `@media`, no new deps, design unchanged** (rows/forms kept,
   nothing restyled). As-built: [`RESPONSIVE-DESIGN.md`](docs/design/RESPONSIVE-DESIGN.md) (+ backlog §R); method = `responsive-app` skill.
   Gotcha: shell classes are compound (`.ci-app.app-shell`) — same-element classes need a compound selector, not a descendant one.
+- **User settings framing (USER-SET-UI, BUILT 2026-08-01):** the Account **home AND every drill-in**
+  render in ONE framed panel via a user-scoped **`SettingsScreen`** primitive in `Account.jsx`
+  (`.set-scr` card → `.set-scr-head` divided header w/ bordered `‹` back BOX + title once →
+  `.set-scr-body`; sub-blocks are `.set-scr-section` dividers). It **mirrors the admin `DScreen`
+  (`.adm-scr*`)** but the `.ci-app .set-scr*` CSS lives in `app.css` using the app's OWN tokens —
+  **never import the admin-only `.adm-*` into the user bundle.** ONE responsive design, **no `@media`,
+  no `useIsDesktop`**: `max-width:560px` + `margin:auto` (centred desktop / full-width phones in the
+  18px `.pad` gutters); dark-safe via token flip. Design-only (handlers/state/routing unchanged).
 - **Design revamp (BUILT, 2026-06-26):** the whole app matches the founder-approved mockup — see
   [`DESIGN-REVAMP.md`](docs/design/DESIGN-REVAMP.md) (spec + §7 founder review; backlog §D). Shipped: Portfolio value →
   white summary card (`.value-card`, INVESTED/24H/ASSETS) + assets **row → 3-up card grid on the 1040 wide

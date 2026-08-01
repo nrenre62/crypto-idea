@@ -383,7 +383,7 @@ Regression test `tests/unit/admin-dashboard.test.jsx` → "Plan Limits card show
 
 ---
 
-## USER-SET-UI. User account settings — admin-style framed panels (bordered back-box + divided header), responsive (mobile + desktop)  (📋 PLAN — 2026-08-01; NOT built · design-only)
+## USER-SET-UI. User account settings — admin-style framed panels (bordered back-box + divided header), responsive (mobile + desktop)  (✅ BUILT 2026-08-01)
 
 Founder ask (2026-08-01, with Account/Portfolio/Profile screenshots): make the **user account
 settings** screens have **borders**, with a **clear distinction for the size of settings** — apply it to
@@ -455,8 +455,20 @@ the new markup; no desktop/mobile branch to mock.
 - Design-only: all handlers/state/routing identical; no rules/functions/data change; **admin panel
   untouched** (it's the template). `npm run test:unit` green; `npm run build` clean.
 
-**Status: PLAN ONLY — not built.** Decisions locked (whole area · inline framed · **responsive: same
-design on mobile + desktop**); awaiting go-ahead.
+**Status: ✅ BUILT 2026-08-01.** New user-scoped **`SettingsScreen`** primitive in
+[Account.jsx](../../src/components/Account.jsx) (framed `.set-scr` card → `.set-scr-head` divided
+header with a bordered `‹` back BOX + title once → `.set-scr-body`) now wraps the Account **home AND
+every drill-in** (Profile / Plan & billing / Portfolios / Security / Privacy & data). The old floating
+`.detail-head` + `.pad`>`.card` layout is gone from Account; the home's two cards fold into
+`.set-scr-section` dividers and Profile's `.acct-divider` became two sections. New `.ci-app .set-scr*`
+CSS in [app.css](../../src/styles/app.css) **mirrors the admin `.adm-scr*` values using the app's own
+tokens** (no admin `.adm-*` imported into the user bundle). **ONE responsive design, no `@media`,
+no `useIsDesktop` branch:** bounded to `max-width:560px` + `margin:auto` (centred on desktop) and
+full-width within the standard 18px gutters on phones. Dark-safe (all tokens flip). Verified: 9 new
+`Account.test.jsx` tests (framed panel + Back box + title-once + `.detail-head`/`.acct-divider` gone) +
+the 31 existing green (**870/870 unit**), `npm run build` clean (dist-name-guard passed), and a live
+browser CSS/layout probe (HMR-applied): panel bounded 560/centred at 1280, full-width no-overflow at
+320px, light + dark tokens correct. Admin panel untouched (it's the template).
 
 ---
 

@@ -146,7 +146,7 @@ html[data-theme="dark"] .ci-app .seg-btn { color:var(--ink-soft); }
 /* Soft off-white edges (--edge) so cards/popups/neutral pills + the Search separator read
    on the dark paper. Internal row-dividers (.kv-row/.tx-row/journal-Q) intentionally stay
    subtle (--line-2). .learn-hero/.value-card keep their gradient frames (not listed). */
-html[data-theme="dark"] .ci-app :is(.card,.j-entry,.nt-row,.module,.asset-card,.trend-card,.tx-list,.today-lesson) { border-color:var(--edge); }
+html[data-theme="dark"] .ci-app :is(.card,.j-entry,.nt-row,.module,.asset-card,.trend-card,.tx-list,.today-lesson,.set-scr) { border-color:var(--edge); }
 html[data-theme="dark"] .research-root :is(.card,.coin-card,.trend-card) { border-color:var(--edge); }
 html[data-theme="dark"] .ci-app .cm-card { border:1px solid var(--edge); }
 html[data-theme="dark"] .ci-app :is(.learn-chip,.port-pill,.port-pill-add,.port-pill-edit,.pill-ghost,.btn-ghost,.seg-btn,.add-pill:disabled,.tx-pg,.tx-pg-nav) { border-color:var(--edge); }
@@ -599,6 +599,30 @@ html[data-theme="dark"] .ci-app .cycle-card.on.prem { background:rgba(125,75,191
 .ci-app .proc-sub { font-size:13px; color:var(--ink-soft); } /* R28-3 */
 
 /* ── Account ──────────────────────────────────────────── */
+/* USER-SET-UI (2026-08-01): framed settings panels — the user mirror of the admin
+   DScreen (.adm-scr* in admin-settings.css), built from the app's OWN tokens/classes so
+   nothing admin-only leaks into the user bundle. ONE responsive design: bounded + centred
+   on desktop via max-width, full-width within the standard 18px gutters on phones — pure
+   margin-auto reflow, no @media, no desktop/mobile branch. Tokens flip per theme; the
+   OUTER frame border also gets the R18 --edge lift in dark (see the dark-mode block above,
+   with .card et al.) because --line-2 is near-invisible on dark paper — the internal
+   .set-scr-head / .set-scr-section dividers intentionally stay subtle (--line-2). */
+.ci-app .set-scr { max-width:560px; margin:0 auto 16px; background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); box-shadow:var(--sh-sm); overflow:hidden; }
+.ci-app .set-scr-head { display:flex; align-items:center; gap:10px; padding:12px 15px; border-bottom:1px solid var(--line-2); }
+.ci-app .set-scr-head .dh-title { flex:1; text-align:center; font-family:var(--display); font-weight:600; font-size:16px; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ci-app .set-scr-head .set-scr-spacer { flex:none; width:34px; }
+.ci-app .set-scr-head .icon-btn { flex:none; width:34px; height:34px; border-radius:11px; background:var(--paper-2); border:1px solid var(--line-strong); color:var(--ink-soft); }
+.ci-app .set-scr-head .icon-btn:hover { background:var(--paper-3); }
+.ci-app .set-scr-head .icon-btn svg { width:18px; height:18px; }
+.ci-app .set-scr-body { padding:18px; }
+.ci-app .set-scr-section { padding:16px 0; border-top:1px solid var(--line-2); }
+.ci-app .set-scr-section:first-child { padding-top:2px; border-top:0; }
+/* the home profile block sits inside the first section — drop its own padding (section +
+   body already pad) and keep it centred via the shared .acct-profile rule below. */
+.ci-app .set-scr .acct-profile { padding:8px 0 2px; }
+/* logout sits below the last section, inside the panel body */
+.ci-app .set-scr-logout { margin-top:12px; }
+
 .ci-app .acct-profile { padding:20px 18px; text-align:center; }
 .ci-app .acct-avatar { width:60px; height:60px; border-radius:50%; background:linear-gradient(155deg,#26241d,#15140f); color:var(--paper); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; margin:0 auto 10px; }
 .ci-app .acct-name { font-size:18px; font-weight:700; }
@@ -629,7 +653,6 @@ html[data-theme="dark"] .ci-app .cycle-card.on.prem { background:rgba(125,75,191
 /* Profile / Security card form bits (U6/U7) */
 .ci-app .acct-label { display:block; font-size:11px; font-weight:600; color:var(--ink-faint); margin:6px 0 5px; letter-spacing:.02em; }
 .ci-app .acct-current { font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
-.ci-app .acct-divider { height:1px; background:var(--line-2); margin:16px 0 4px; }
 /* Auto-saving preference toggles (Notifications / Privacy) — U8 */
 .ci-app .toggle-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--line-2); cursor:pointer; }
 .ci-app .toggle-row:last-of-type { border-bottom:0; }

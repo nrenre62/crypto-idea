@@ -314,3 +314,62 @@ describe("Account screen (drill-in, via AppContext)", () => {
     }
   });
 });
+
+// USER-SET-UI: every settings screen (the Account home AND every drill-in) is now ONE
+// framed panel that mirrors the admin DScreen — a bordered card whose divided header
+// carries a bordered ‹ back BOX and the title exactly once, then a body. ONE responsive
+// design at every width (no desktop/mobile branch to mock: jsdom's default renders it).
+describe("USER-SET-UI — framed settings panels (mirror admin DScreen, responsive)", () => {
+  it("home is ONE framed .set-scr panel: divided header + Back box + body, title 'Account' once", () => {
+    const { container } = provide({});
+    const panel = container.querySelector(".set-scr");
+    expect(panel).toBeInTheDocument();
+    const head = panel.querySelector(".set-scr-head");
+    expect(head).toBeInTheDocument();
+    // the bordered ‹ back BOX is an icon-btn inside the header, labelled for a11y
+    expect(head.querySelector("button.icon-btn")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
+    // title shown exactly once, in the header
+    expect(screen.getAllByText("Account")).toHaveLength(1);
+    expect(head.querySelector(".dh-title").textContent).toBe("Account");
+    expect(panel.querySelector(".set-scr-body")).toBeInTheDocument();
+  });
+
+  it("the old floating .detail-head + plain-card home layout is fully replaced", () => {
+    const { container } = provide({});
+    expect(container.querySelector(".detail-head")).toBeNull();       // no floating header
+    expect(container.querySelector(".card.acct-list")).toBeNull();    // list folded into a section
+  });
+
+  it.each([
+    ["Profile"],
+    ["Plan & billing"],
+    ["Portfolios"],
+    ["Security"],
+    ["Privacy & data"],
+  ])("drill-in %s renders a framed .set-scr panel titled once with a Back box", (title) => {
+    const { container } = provide({});
+    open(new RegExp(title)); // click the home nav row
+    const panel = container.querySelector(".set-scr");
+    expect(panel).toBeInTheDocument();
+    const head = panel.querySelector(".set-scr-head");
+    expect(head.querySelector("button.icon-btn")).toBeInTheDocument();
+    expect(head.querySelector(".dh-title").textContent).toBe(title);
+    expect(screen.getAllByText(title)).toHaveLength(1); // header only — never repeated in the body
+  });
+
+  it("the Back box returns from a drill-in to the home (title flips back to Account)", () => {
+    provide({});
+    open(/Profile/);
+    expect(screen.getByText("Profile")).toBeInTheDocument(); // drill-in header title
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByText("Account")).toBeInTheDocument(); // home header title
+  });
+
+  it("Profile's two sub-blocks split by .set-scr-section dividers (replacing .acct-divider)", () => {
+    const { container } = provide({});
+    open(/Profile/);
+    expect(container.querySelectorAll(".set-scr-section").length).toBeGreaterThanOrEqual(2);
+    expect(container.querySelector(".acct-divider")).toBeNull();
+  });
+});

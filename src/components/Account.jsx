@@ -51,6 +51,26 @@ function CtrlRow({ icon, label, children }) {
 
 const SECTION_TITLES = { profile: "Profile", billing: "Plan & billing", portfolios: "Portfolios", security: "Security", privacy: "Privacy & data" };
 
+// USER-SET-UI: the user-scoped settings-panel shell. A framed card whose divided header
+// carries a bordered ‹ back BOX + the title once, then a padded body — mirroring the
+// admin DScreen (admin-dashboard.jsx) but built from the app's OWN tokens/classes, so no
+// admin-only (.adm-*) CSS leaks into the user bundle. ONE responsive design: bounded +
+// centred on desktop, full-width on phones, purely via the .set-scr max-width + the app's
+// margin-auto reflow (no @media, no desktop/mobile branch). Design-only — onBack is the
+// caller's existing handler.
+function SettingsScreen({ title, onBack, children }) {
+  return (
+    <div className="set-scr">
+      <div className="set-scr-head">
+        <button className="icon-btn" aria-label="Back" onClick={onBack}>{Ic.back}</button>
+        <span className="dh-title">{title}</span>
+        <span className="set-scr-spacer" />
+      </div>
+      <div className="set-scr-body">{children}</div>
+    </div>
+  );
+}
+
 // R19-1/R19-2: one portfolio row. The delete confirm MIRRORS the coin (Detail): an
 // EMPTY portfolio → quick two-tap trash → "Remove" pill (auto-disarms ~3s); a portfolio
 // WITH coins → a blocking warning modal (Cancel / Delete anyway). Confirm state is LOCAL
@@ -119,87 +139,84 @@ export function Account() {
 
   return (
     <div className="ci-app screen-bg">
-      <div className="detail-head">
-        <button className="icon-btn" onClick={()=> view==="home" ? setScreen("portfolio") : setView("home")}>{Ic.back}</button>
-        <span className="dh-title">{view==="home" ? "Account" : SECTION_TITLES[view]}</span>
-        <span style={{width:22}}/>
-      </div>
+      <div className="pad">
+        <SettingsScreen
+          title={view==="home" ? "Account" : SECTION_TITLES[view]}
+          onBack={()=> view==="home" ? setScreen("portfolio") : setView("home")}>
 
-      {/* ── HOME: identity + plan-usage summary + settings list ── */}
-      {view==="home" && (<>
-        <div className="acct-profile">
-          <div className="acct-avatar">{(user?.name||"U").charAt(0).toUpperCase()}</div>
-          <div className="acct-name">{user?.name}</div>
-          <div className="acct-email">{user?.email}</div>
-          <div className={"tier-badge "+(isPremium?"prem":isPro?"pro":"free")}>{isPremium?"PREMIUM":isPro?"PRO":"STARTER"}</div>
-        </div>
-
-        <div className="pad">
-          <div className="card">
-            <div className="card-title">Plan usage</div>
-            <div className="usage-row">
-              <div className="usage-top"><span className="usage-k">Portfolios</span><span className="usage-v">{portfolios.length} / {maxPortfolios}</span></div>
-              <Bar pct={portPct}/>
-            </div>
-            <div className="usage-row" style={{borderBottom:"none"}}>
-              <div className="usage-top"><span className="usage-k">Coins in active portfolio</span><span className="usage-v">{portfolio.length} / {maxCoinsPerPort}</span></div>
-              <Bar pct={coinPct}/>
-            </div>
-          </div>
-
-          <div className="card acct-list">
-            <NavRow icon={Ic.user} label="Profile" onClick={()=>setView("profile")}/>
-            <NavRow icon={Ic.card} label="Plan & billing" value={isPremium?"Premium":isPro?"Pro":"Starter"} onClick={()=>setView("billing")}/>
-            <NavRow icon={Ic.folder} label="Portfolios" value={portfolios.length+"/"+maxPortfolios} onClick={()=>setView("portfolios")}/>
-            <NavRow icon={Ic.shield} label="Security" onClick={()=>setView("security")}/>
-            <CtrlRow icon={Ic.bell} label="Email digest"><Switch checked={settings.emailDigest} onChange={v=>toggleSetting("emailDigest",v)}/></CtrlRow>
-            <div className="settings-row settings-row-stack">
-              <div className="sr-head"><span className="sr-icon">{Ic.palette}</span><span className="sr-label">Appearance</span></div>
-              <div className="theme-seg" role="radiogroup" aria-label="Theme">
-                {[["light","Light"],["dark","Dark"],["system","System"]].map(([val,label])=>(
-                  <button key={val} type="button" role="radio" aria-checked={(settings.theme||"light")===val}
-                    className={"theme-opt"+((settings.theme||"light")===val?" on":"")} onClick={()=>toggleSetting("theme",val)}>{label}</button>
-                ))}
+          {/* ── HOME: identity + plan-usage summary + settings list ── */}
+          {view==="home" && (<>
+            <div className="set-scr-section">
+              <div className="acct-profile">
+                <div className="acct-avatar">{(user?.name||"U").charAt(0).toUpperCase()}</div>
+                <div className="acct-name">{user?.name}</div>
+                <div className="acct-email">{user?.email}</div>
+                <div className={"tier-badge "+(isPremium?"prem":isPro?"pro":"free")}>{isPremium?"PREMIUM":isPro?"PRO":"STARTER"}</div>
               </div>
             </div>
-            <NavRow icon={Ic.lock} label="Privacy & data" onClick={()=>setView("privacy")}/>
-          </div>
 
-          <button onClick={logout} className="logout-btn">Logout</button>
-        </div>
-      </>)}
+            <div className="set-scr-section">
+              <div className="card-title">Plan usage</div>
+              <div className="usage-row">
+                <div className="usage-top"><span className="usage-k">Portfolios</span><span className="usage-v">{portfolios.length} / {maxPortfolios}</span></div>
+                <Bar pct={portPct}/>
+              </div>
+              <div className="usage-row" style={{borderBottom:"none"}}>
+                <div className="usage-top"><span className="usage-k">Coins in active portfolio</span><span className="usage-v">{portfolio.length} / {maxCoinsPerPort}</span></div>
+                <Bar pct={coinPct}/>
+              </div>
+            </div>
 
-      {/* ── PROFILE: editable display name + change email (verify-before-update) ── */}
-      {view==="profile" && (
-        <div className="pad">
-          <div className="card">
-            <label className="acct-label">Display name</label>
-            <input type="text" value={profName||""} onChange={e=>setProfName(e.target.value.replace(/[^a-zA-Z\s]/g,""))} placeholder="Your name" autoComplete="name" className="field-input"/>
-            <button onClick={saveDisplayName} disabled={acctBusy||!profName||!profName.trim()||profName.trim()===user?.name} className="acct-btn accent">Save name</button>
-            {profMsg&&<div className="priv-msg">{profMsg}</div>}
-            <div className="acct-divider"/>
-            <label className="acct-label">Change email</label>
-            <div className="acct-current">Current: {user?.email}{user?.emailVerified===false?" · unverified":""}</div>
-            <input type="email" value={emNew||""} onChange={e=>setEmNew(e.target.value)} placeholder="New email address" autoComplete="email" inputMode="email" className="field-input"/>
-            <input type="password" value={emPass||""} onChange={e=>setEmPass(e.target.value)} placeholder="Current password (confirm)" autoComplete="current-password" className="field-input"/>
-            <button onClick={requestEmailChange} disabled={acctBusy||!emNew||!emPass} className="acct-btn">Send confirmation link</button>
-            {emMsg&&<div className="priv-msg">{emMsg}</div>}
-          </div>
-        </div>
-      )}
+            <div className="set-scr-section">
+              <div className="acct-list">
+                <NavRow icon={Ic.user} label="Profile" onClick={()=>setView("profile")}/>
+                <NavRow icon={Ic.card} label="Plan & billing" value={isPremium?"Premium":isPro?"Pro":"Starter"} onClick={()=>setView("billing")}/>
+                <NavRow icon={Ic.folder} label="Portfolios" value={portfolios.length+"/"+maxPortfolios} onClick={()=>setView("portfolios")}/>
+                <NavRow icon={Ic.shield} label="Security" onClick={()=>setView("security")}/>
+                <CtrlRow icon={Ic.bell} label="Email digest"><Switch checked={settings.emailDigest} onChange={v=>toggleSetting("emailDigest",v)}/></CtrlRow>
+                <div className="settings-row settings-row-stack">
+                  <div className="sr-head"><span className="sr-icon">{Ic.palette}</span><span className="sr-label">Appearance</span></div>
+                  <div className="theme-seg" role="radiogroup" aria-label="Theme">
+                    {[["light","Light"],["dark","Dark"],["system","System"]].map(([val,label])=>(
+                      <button key={val} type="button" role="radio" aria-checked={(settings.theme||"light")===val}
+                        className={"theme-opt"+((settings.theme||"light")===val?" on":"")} onClick={()=>toggleSetting("theme",val)}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+                <NavRow icon={Ic.lock} label="Privacy & data" onClick={()=>setView("privacy")}/>
+              </div>
+            </div>
 
-      {/* ── PLAN & BILLING: usage bars + subscription status + upgrade/billing ── */}
-      {view==="billing" && (
-        <div className="pad">
-          {(() => {
+            <button onClick={logout} className="logout-btn set-scr-logout">Logout</button>
+          </>)}
+
+          {/* ── PROFILE: editable display name + change email (verify-before-update) ── */}
+          {view==="profile" && (<>
+            <div className="set-scr-section">
+              <label className="acct-label">Display name</label>
+              <input type="text" value={profName||""} onChange={e=>setProfName(e.target.value.replace(/[^a-zA-Z\s]/g,""))} placeholder="Your name" autoComplete="name" className="field-input"/>
+              <button onClick={saveDisplayName} disabled={acctBusy||!profName||!profName.trim()||profName.trim()===user?.name} className="acct-btn accent">Save name</button>
+              {profMsg&&<div className="priv-msg">{profMsg}</div>}
+            </div>
+            <div className="set-scr-section">
+              <label className="acct-label">Change email</label>
+              <div className="acct-current">Current: {user?.email}{user?.emailVerified===false?" · unverified":""}</div>
+              <input type="email" value={emNew||""} onChange={e=>setEmNew(e.target.value)} placeholder="New email address" autoComplete="email" inputMode="email" className="field-input"/>
+              <input type="password" value={emPass||""} onChange={e=>setEmPass(e.target.value)} placeholder="Current password (confirm)" autoComplete="current-password" className="field-input"/>
+              <button onClick={requestEmailChange} disabled={acctBusy||!emNew||!emPass} className="acct-btn">Send confirmation link</button>
+              {emMsg&&<div className="priv-msg">{emMsg}</div>}
+            </div>
+          </>)}
+
+          {/* ── PLAN & BILLING: usage bars + subscription status + upgrade/billing ── */}
+          {view==="billing" && (() => {
             const totalTxAllPorts = portfolios.reduce((s,p) => s + p.coins.reduce((cs,c) => cs + (c.entries?.length || 0), 0), 0);
             const maxTotalTx = maxPortfolios * maxCoinsPerPort * maxTxPerCoin;
             // Per-user custom limits (premium overrides) — flag which caps are non-default.
             const custom = (isPremium && user?.premiumLimits) || {};
             const Cust = ({k}) => custom[k] != null ? <span className="custom-tag">custom</span> : null;
             const txPct = Math.min(100, (totalTxAllPorts / maxTotalTx) * 100);
-            return (
-          <div className="card">
+            return (<>
             <div className="card-title">Your Plan Usage</div>
 
             <div className="usage-row">
@@ -272,44 +289,31 @@ export function Account() {
             {isPro&&<div className="sub-sub" style={{textAlign:"center",marginTop:6}}>Cancel anytime · access continues until your paid period ends · no partial refunds.</div>}
             {/* Self-service billing (S9): deep-link to PayPal's hosted recurring-payments page */}
             {isPro&&<a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" className="acct-btn ghost pay-link">Update payment method ↗</a>}
-          </div>
-            );
+            </>);
           })()}
-        </div>
-      )}
 
-      {/* ── PORTFOLIOS: manage portfolios ── */}
-      {view==="portfolios" && (
-        <div className="pad">
-          <div className="card">
+          {/* ── PORTFOLIOS: manage portfolios ── */}
+          {view==="portfolios" && (<>
             <div className="card-title">Portfolios ({portfolios.length}/{maxPortfolios})</div>
             {portfolios.map(p=>(<PortRow key={p.id} p={p} />))}
             <div className="port-add">
               <input type="text" value={newPortName} maxLength={50} onChange={e=>setNewPortName(e.target.value)} placeholder="New portfolio name" className="field-input"/>
               <button onClick={addPortfolio} className="add-name">+ Add</button>
             </div>
-          </div>
-        </div>
-      )}
+          </>)}
 
-      {/* ── SECURITY: change password · sign out everywhere ── */}
-      {view==="security" && (
-        <div className="pad">
-          <div className="card">
+          {/* ── SECURITY: change password · sign out everywhere ── */}
+          {view==="security" && (<>
             <div className="priv-text">Change your password or sign out of every device. Changing your password also signs out other devices.</div>
             <input type="password" value={pwCur||""} onChange={e=>setPwCur(e.target.value)} placeholder="Current password" autoComplete="current-password" className="field-input"/>
             <input type="password" value={pwNew||""} onChange={e=>setPwNew(e.target.value)} placeholder="New password (min 8: Aa1 + special)" autoComplete="new-password" className="field-input"/>
             <button onClick={changeMyPassword} disabled={acctBusy||!pwCur||!pwNew} className="acct-btn accent">Save new password</button>
             {pwMsg&&<div className="priv-msg">{pwMsg}</div>}
             <button onClick={signOutEverywhere} disabled={acctBusy} className="acct-btn ghost">Sign out everywhere</button>
-          </div>
-        </div>
-      )}
+          </>)}
 
-      {/* ── PRIVACY & DATA: consent + marketing + GDPR export/delete ── */}
-      {view==="privacy" && (
-        <div className="pad">
-          <div className="card">
+          {/* ── PRIVACY & DATA: consent + marketing + GDPR export/delete ── */}
+          {view==="privacy" && (<>
             <ToggleRow label="Allow product analytics" hint="Helps us improve — withdraw anytime" checked={settings.consentAnalytics} onChange={v=>toggleSetting("consentAnalytics",v)}/>
             <ToggleRow label="Product updates & offers" checked={settings.emailMarketing} onChange={v=>toggleSetting("emailMarketing",v)}/>
             <div className="usage-note">Security &amp; payment emails are always sent — you can't opt out of those.</div>
@@ -331,9 +335,10 @@ export function Account() {
             <div className="priv-links">
               <a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms</a>
             </div>
-          </div>
-        </div>
-      )}
+          </>)}
+
+        </SettingsScreen>
+      </div>
     </div>
   );
 }
