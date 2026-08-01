@@ -109,6 +109,108 @@ are locked; awaiting the go-ahead to build.
 
 ---
 
+## TX-SAFE. Buy/Sell numeric-input hardening + one-tap-deletes-only-one-transaction  (📋 PLAN — 2026-08-01; NOT built)
+
+Founder report (2026-08-01, client-side user app, account `mark@test.com`, coin **HYPE**; two
+screenshots):
+1. **Garbage in the number fields.** In the Buy/Sell form the **Amount (HYPE)** field accepts an
+   *unlimited* run of `e`, unlimited `.`, and `+`. No cap on how many digits you can enter. (Same
+   applies to **Price per coin**.) Founder: "make it only for numbers … theres needs to be a cap on the
+   numbers. 15 digits?"
+2. **One delete removes two transactions.** Tapping the trash on **one** transaction arms the two-step
+   "Delete?" on **two** rows at once, and confirming deletes both. Founder: the two-step must work "only
+   on the one that i click … its cant work on any other on the list … if i have 50 transactions or more."
+
+### Part A — Numeric-input hardening (Amount + Price)
+
+**Root cause (verified in code):** both inputs in [`src/components/AddEntry.jsx`](../../src/components/AddEntry.jsx)
+are `<input type="number">` (Amount ~L71, Price ~L76) whose `onChange` only strips `-`
+(`e.target.value.replace(/-/g,"")`). A `type="number"` box natively accepts `e`/`E` (scientific
+notation) and `+`, and doesn't stop a second `.`; when the text is not a valid number the browser
+**keeps showing the raw garbage** while `.value` silently returns `""` (the "badInput" state — which is
+exactly why the field looks full of `e` but the submit button, `disabled={!eAmt||!ePrice}` at ~L95,
+stays disabled). There is **no digit cap** on input. The server *does* bound magnitude before the write
+(`_amt>1e15` / `_prc>1e9` → clear message, [`src/CryptoIdea.jsx`](../../src/CryptoIdea.jsx) ~L722-723)
+and the Firestore rules reject non-finite numbers — but only *after* submit; nothing constrains what
+can be typed.
+
+**Founder decisions (AskUserQuestion 2026-08-01):**
+- **Cap = 15 digit characters** total, **both** Amount and Price (the decimal point does **not** count
+  toward the 15). Aligns with JS float precision (~15–17 significant digits) and sits under the server's
+  amount bound.
+- **Keep `type="number"`** — the up/down **spinner arrows stay** (founder wants them).
+- **The decimal point `.` is essential and must stay** — crypto amounts/prices are fractional
+  (`0.5` BTC, `0.000006` BTC are legit). *This is the one non-negotiable:* the filter blocks garbage but
+  must never block a single `.`.
+
+**Fix (keeps spinners + `.`, blocks only garbage):**
+- A shared **pure** helper in [`src/utils/format.js`](../../src/utils/format.js) (next to `fmtPriceInput`),
+  unit-tested (TDD): `sanitizeDecimal(str, {maxDigits:15})` → allow digits and **at most one** `.`;
+  strip `e`, `E`, `+`, `-`, and any second `.`; enforce ≤15 digit chars (dot excluded); return the
+  cleaned string. Leading `.` is normalised (`.5`→`0.5` on blur, not mid-type).
+- Wire both fields through it: `onChange` runs `setEAmt(sanitizeDecimal(e.target.value))` (backstop for
+  paste/spinner/IME), plus an `onKeyDown` guard that `preventDefault`s `e`/`E`/`+`/`-`, a second `.`, and
+  a 16th digit — so the field never even enters the badInput state. `onPaste` goes through the same
+  sanitizer. `type="number"`, `min="0"`, `step="any"`, `inputMode="decimal"` all stay.
+- **Server stays the source of truth (defense in depth):** keep the existing pre-write bounds; the
+  client cap is UX. Make the client cap and the server bound *consistent + commented* so they can't drift.
+
+### Part B — Delete only the transaction you clicked (founder chose "fix root cause + symptom")
+
+**Root cause (verified in code):** the delete-confirm state and the React row `key` are both keyed on
+the transaction id `e.id` ([`src/components/Detail.jsx`](../../src/components/Detail.jsx) — `key={e.id}`
+~L108, `armed = confirmTxId===e.id` ~L124-126, single `confirmTxId` state ~L38). Two rows can end up
+with the **same `e.id`** because `addEntry` **optimistically appends** the new tx to local state
+**without a dedupe guard** ([`src/CryptoIdea.jsx`](../../src/CryptoIdea.jsx) ~L761-762), while the
+live-sync listener `dbWatchCoins` has **often already delivered that same doc** (same Firestore id) —
+so the entry lands **twice with an identical id**. (`addCoin` avoids exactly this by guarding its append
+with `p.some(x=>x.id===c.id)` ~L635; transactions were left unguarded.) Duplicate id → **duplicate React
+key** → the single `confirmTxId` arms **both** rows and `remEntry`'s `filter(e=>e.id!==eid)` removes
+**both**. A second way real duplicate docs get created: the **Add Buy / Save Changes** button
+(AddEntry ~L95) is **not disabled while the write is in flight**, so a double-click fires
+`dbAddTransaction` twice (two unique docs) — the same re-entry gap as [AUTH-DUP](#auth-dup-prevent-duplicate-signup-double-submit--admin-dedupe-detector).
+The DB layer itself is already correct: `addTransaction` uses a Firestore **auto-id** (unique per doc)
+and `deleteTransaction` deletes exactly one doc by `txId`
+([`src/api/firebase-database.js`](../../src/api/firebase-database.js) L367-369, L408-419).
+
+**Fix (source + symptom):**
+1. **Idempotent optimistic append** — guard `addEntry`'s `setPortfolio` / `setSel` appends with
+   `some(x=>x.id===en.id) ? entries : [...entries, en]` (mirror `addCoin` at L635). Kills the
+   listener-vs-optimistic double-insert at the source.
+2. **Defensive dedupe-by-id at render** — in `Detail.jsx`, dedupe the sorted rows by `id` before
+   `.map` (belt-and-suspenders: a duplicate id can never render two rows / collide a key again).
+3. **In-flight lock on submit** — a `useRef` re-entry guard in `addEntry` + a companion busy state that
+   disables the Add Buy / Save Changes button with a busy label while the write awaits (same pattern as
+   AUTH-DUP Part A). Stops double-click from creating real duplicate docs. (The `+ Buy` / `- Sell`
+   buttons in Detail only *open* the form — no lock needed there.)
+4. With unique ids restored, the existing `confirmTxId` (single value) arms **exactly one** row and
+   `remEntry` deletes **exactly one** doc — the two-step confirm is inherently scoped to the clicked
+   row, at any list size (the 50/page pager is unaffected).
+
+**Existing duplicates (no destructive migration):** real duplicate docs already created by past
+double-adds remain **individually deletable** once the fix lands (each has a unique id); phantom
+local-only duplicates disappear on reload. We will **not** auto-bulk-delete transactions — that's
+irreversible financial data; the user removes any unwanted rows manually.
+
+**Acceptance:**
+- **A:** typing `e`/`E`/`+`/`-`/a second `.` into Amount or Price is rejected; a single `.` and the
+  spinners still work; input is capped at 15 digit chars; `sanitizeDecimal` unit tests cover
+  garbage-strip, single-dot, `0.000006`-style fractions, the 15-digit boundary, and paste. Manual:
+  the HYPE Amount field can no longer be filled with `e`.
+- **B:** with a mocked slow `dbAddTransaction`, calling `addEntry` twice in one tick creates **one**
+  local entry (idempotent append) and the button is disabled+busy during the await; rendering a coin
+  whose entries contain a duplicate id shows **one** row; tapping delete on a row arms/deletes **only
+  that row** (unit/interaction test), proven with ≥2 identical-looking transactions and in a 50+ list.
+
+**Security / KISS note (secure-by-design):** no new backend surface. Part A is client UX over the
+existing server bounds; Part B removes a local-state duplication bug and reuses the existing
+per-doc delete. Pure helpers are unit-tested; no new dependency.
+
+**Status: PLAN ONLY — not built.** Cap (15, both fields), keep-spinners + keep-`.`, and
+fix-root-cause+symptom are locked; awaiting the go-ahead to build.
+
+---
+
 ## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (📋 PLAN — 2026-08-01; NOT built)
 
 Founder ask (2026-08-01): add a **dedicated password for the admin Settings area** — a second lock,
