@@ -714,6 +714,81 @@ full loading-screen lockup + purple-spinner fix). Queued in [BUILD-LOOP](BUILD-L
 
 ---
 
+## LAUNCH-FREE. "Starter-only launch mode" switch + maxed Starter limits  (📋 PLAN — 2026-08-02; NOT built)
+
+Founder ask (2026-08-02): a switch in **admin → Plans & Pricing** to launch the app **free (Starter-only)**
+while billing is still being developed/secured — plus a **more generous Starter tier**. Interviewed via
+AskUserQuestion; all decisions locked below. **Two parts.**
+
+### Part A — Maxed Starter limits (permanent; more generous, still < Pro) — 🔶 touches `firestore.rules`
+- New Starter limits: **2 portfolios / 30 coins per portfolio (60 total) / 100 transactions per coin**
+  (was 1/10/50). Even numbers, clearly below Pro (3/50/2000); max ~6,000 tx/user.
+- **Storage (why these numbers):** transactions dominate (each is its own subcollection doc). At **~0.7 KB/tx
+  with Firestore index exemptions** on the never-queried tx fields (`type`/`amount`/`priceAtBuy`; keep `date`
+  indexed for newest-first ordering) + ~0.5 MB non-tx → **~4.7 MB/user worst case**, ~470 MB at 100 users.
+  The exemptions are REQUIRED to hold the ~5 MB target (without them ~9 MB/user; storage cost is trivial
+  either way, but the founder set 5 MB as the cap).
+- **Consistency sweep — change the limit in EVERY place it lives (no drift):**
+  1. `firestore.rules` — `configuredLimit` free fallbacks: `maxPortfolios` defFree 1→**2**, `maxCoins` defFree
+     10→**30**, `maxTx` defFree 50→**100**. (Hard ceilings unchanged — 2/30/100 is well under them. These rule
+     defaults are the **hardcoded safe floor** so a missing/bad config still enforces the intended Starter.)
+  2. `functions/index.js` `DEFAULT_PLANS.free` (+ `mergePlans`) → 2/30/100.
+  3. ⚠️ **GAP caught:** the **stored `config/app.plans.free` doc currently overrides the rules default** (rules
+     read config first, fallback to defFree). So the stored doc must also be set to 2/30/100 — via the seed +
+     a one-time admin save / migration — or the old 1/10/50 wins. Bumping only the default is not enough.
+  4. Landing (`index.html` #pricing / `landing.js`) + app plan display (`PLAN_BENEFITS` / picker) → show the
+     new Starter capacity.
+  5. `firestore.indexes.json` — add single-field index **exemptions** for the `transactions` collection group
+     (`type`/`amount`/`priceAtBuy`). ⚠️ **Deploy-time:** `firebase deploy --only firestore:indexes`
+     (founder/go-live); the emulator doesn't bill storage, so the saving is deploy-side only.
+  6. Tests: `test:rules:solo` ("configured limits override defaults" + new-limit assertions); update any unit
+     test asserting the old 1/10/50.
+
+### Part B — "Starter-only launch mode" switch (admin Plans & Pricing) — billing gate
+- New server flag **`config/app.flags.paidPlansEnabled`** (default **true** = normal). When **false**
+  (launch-free mode):
+  - **New registrations → Starter automatically, NO plan choice.** The ONBOARD-GATE chooser is suppressed;
+    onboarding auto-resolves to Starter **server-side** (`chooseFreePlan` sets `planChosen` + `tier:'free'` +
+    `ensureDefaultPortfolio`). New users show the existing **Starter** tag (no new tag/design).
+  - **No new subscriptions for anyone** (subsumes the `checkout` kill-switch): the billing/upgrade/pricing UI
+    is **hidden AND server-gated** for every non-paid user — **`createSubscription` refuses server-side** when
+    `paidPlansEnabled=false` (the real gate; UI-hiding is secondary). "Inaccessible even in code" = the
+    callable refusal.
+  - **Existing paid users (Pro/Premium) fully unaffected:** keep tier, active PayPal subscription (keeps
+    running), and can still manage/cancel. Only *new* subs are blocked.
+  - **Existing data is never touched** — no downgrade, no grey-lock (the switch never demotes anyone).
+  - **Landing page** (`index.html`) hides its pricing section (reads the flag from `/api/config`).
+- **Reversible:** flip back to `true` → paid plans + billing UI return; tiers config-driven again; the
+  registration chooser reappears for new users. Nobody is auto-charged; users who registered as Starter stay
+  Starter (their `planChosen` is set) and can upgrade normally once billing is back.
+- **Publish:** `/api/config` exposes `paidPlansEnabled` (non-secret, CDN ~60s) so landing + app react ~60s.
+- **Admin UI:** a toggle in the Plans & Pricing card (light-paper), **audited** on change (`writeAudit` +
+  `ACTION_LABELS`), with a clear "OFF = free launch · Starter-only · no new subscriptions" explainer.
+- **Flag precedence (GAP documented):** when `paidPlansEnabled=false`, `checkout` is effectively off
+  regardless (the callable refuses); `signupsEnabled`/`maintenance` are orthogonal.
+
+**Security model (non-negotiable):** the billing block is **server-enforced** (`createSubscription` refuses
+when off) — hiding the UI is NOT the control. The flag is server-only in `config/app` (written by `saveConfig`
+with a **per-key-KEEP merge** so a partial save can't silently flip it), published read-only via `/api/config`.
+No client can create a subscription while off, even from devtools.
+
+**Acceptance:** with `paidPlansEnabled=false` — a new registration lands on Starter with no chooser and no
+billing anywhere; `createSubscription` returns an error (tested at the **callable** tier, the only one that
+runs the body); app + landing show no pricing; an existing Pro/Premium user is unchanged (tier + sub intact);
+flipping back on restores everything. Starter enforces **2/30/100** (`test:rules:solo`). `test:unit` green,
+`build` clean, browser-verified (new-user registration + an existing paid user, light + dark).
+
+**DoD:** the switch works end-to-end (server-gated, not just UI), existing users untouched, reversible,
+audited; Starter is 2/30/100 with index exemptions planned; docs + tests updated; no new dependency.
+Deploy-time (founder): `firebase deploy --only firestore:rules,firestore:indexes`.
+
+**Status: PLAN ONLY — not built.** Decisions locked 2026-08-02 (Starter **2/30/100**; **pause ALL new
+subscriptions**; existing users untouched; Starter tag; reversible). 🔶 **CHECKPOINT** (touches
+`firestore.rules` + billing) — but decisions are locked, so it's buildable on a "go" with `test:rules:solo`
+before commit. Queued in [BUILD-LOOP](BUILD-LOOP.md).
+
+---
+
 ## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (📋 PLAN — 2026-08-01; NOT built)
 
 Founder ask (2026-08-01): add a **dedicated password for the admin Settings area** — a second lock,

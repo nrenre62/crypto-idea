@@ -74,11 +74,14 @@ update it after every item. (Reorder if you'd rather do the `launch-blocker` fir
 | 7 | **ONBOARD-GATE** | 🔶 CHECKPOINT | **Touches `firestore.rules`** (security boundary) + server callable + client. `launch-blocker`, high blast radius. | ✅ built 2026-08-01 (App Check + rules-deploy = go-live) |
 | 8 | **ADMIN-6** | 🔶 CHECKPOINT | **Touches `firestore.rules`** + server + email + client. Largest, security-critical. | ⏸️ HELD 2026-08-02 (founder) — no mail transport exists; see NEXT-STEPS ADMIN-6 Status |
 | 9 | **LOGO-2** | 🟩 GREEN | Design-only: true landing-match logo (body-font wordmark, scaled) across app + admin + all 4 loading screens; fix leftover purple spinner. Client CSS/JSX + pre-bundle HTML shells. Moderate. | 📋 not built |
+| 10 | **LAUNCH-FREE** | 🔶 CHECKPOINT (decisions locked) | **Touches `firestore.rules`** (Starter limits → 2/30/100) + billing gate (`paidPlansEnabled` flag: new regs Starter-only, no new subs, existing users untouched) + config/indexes + admin toggle + client + landing. Security-critical. Decisions locked 2026-08-02. | 📋 not built |
 
 **Loop state (2026-08-02):** items 1–7 ✅ built; #8 ADMIN-6 is ⏸️ **HELD by founder** (no mail transport
-exists for the emailed-reset piece — see NEXT-STEPS ADMIN-6 Status). **#9 LOGO-2 is the next buildable item**
-— 🟩 GREEN (design-only, decisions locked 2026-08-02), added after a logo-consistency gap audit; awaiting the
-founder's go-ahead to build.
+exists for the emailed-reset piece — see NEXT-STEPS ADMIN-6 Status). Two new items are queued from
+2026-08-02 gap/interview sessions, both PLAN-ONLY awaiting a "go": **#9 LOGO-2** (🟩 GREEN, design-only,
+logo landing-match) and **#10 LAUNCH-FREE** (🔶 CHECKPOINT, decisions locked — Starter→2/30/100 + a
+Starter-only launch-mode billing switch). #9 is the lowest-risk next build; #10 is security-critical
+(rules + billing) and needs `test:rules:solo` before commit.
 
 **Priority override:** ONBOARD-GATE is the only `launch-blocker` here. If launch timing matters more
 than risk-ordering, move it to the front — but keep it a 🔶 CHECKPOINT (it rewrites the rules gate) and
