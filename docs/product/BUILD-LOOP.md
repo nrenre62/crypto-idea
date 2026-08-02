@@ -73,11 +73,12 @@ update it after every item. (Reorder if you'd rather do the `launch-blocker` fir
 | 6 | **AUTH-DUP** | 🟩 GREEN | Client in-flight lock + one read-only admin callable + admin UI. Moderate. | ✅ built 2026-08-01 |
 | 7 | **ONBOARD-GATE** | 🔶 CHECKPOINT | **Touches `firestore.rules`** (security boundary) + server callable + client. `launch-blocker`, high blast radius. | ✅ built 2026-08-01 (App Check + rules-deploy = go-live) |
 | 8 | **ADMIN-6** | 🔶 CHECKPOINT | **Touches `firestore.rules`** + server + email + client. Largest, security-critical. | ⏸️ HELD 2026-08-02 (founder) — no mail transport exists; see NEXT-STEPS ADMIN-6 Status |
+| 9 | **LOGO-2** | 🟩 GREEN | Design-only: true landing-match logo (body-font wordmark, scaled) across app + admin + all 4 loading screens; fix leftover purple spinner. Client CSS/JSX + pre-bundle HTML shells. Moderate. | 📋 not built |
 
-**Loop state (2026-08-02):** items 1–7 ✅ built; #8 ADMIN-6 is ⏸️ **HELD by founder** at its checkpoint
-(no mail transport exists for the emailed-reset piece). **No buildable items remain — the loop is paused.**
-It resumes only when the founder unblocks ADMIN-6 (pick a mail provider, or choose to defer the reset — see
-NEXT-STEPS ADMIN-6 Status).
+**Loop state (2026-08-02):** items 1–7 ✅ built; #8 ADMIN-6 is ⏸️ **HELD by founder** (no mail transport
+exists for the emailed-reset piece — see NEXT-STEPS ADMIN-6 Status). **#9 LOGO-2 is the next buildable item**
+— 🟩 GREEN (design-only, decisions locked 2026-08-02), added after a logo-consistency gap audit; awaiting the
+founder's go-ahead to build.
 
 **Priority override:** ONBOARD-GATE is the only `launch-blocker` here. If launch timing matters more
 than risk-ordering, move it to the front — but keep it a 🔶 CHECKPOINT (it rewrites the rules gate) and

@@ -623,6 +623,97 @@ browser probe of the auth screen — tile = `--accent` #0a6b4d 46×46, wordmark 
 
 ---
 
+## LOGO-2. True landing-match: the SAME logo (body-font wordmark) scaled across app + admin + all 4 loading screens  (📋 PLAN — 2026-08-02; NOT built)
+
+Founder ask (2026-08-02): the **index (landing) logo must MATCH everywhere it appears** — login, loading,
+admin panel, portfolio app. This is a **follow-up to LOGO** (2026-08-01): that item introduced the shared
+`<Logo>` primitive but **rebuilt it from the app's own tokens rather than the landing's exact VALUES**, so
+the marks still visibly diverge (bigger tile, a *different* wordmark font/size, and the loading screens were
+never touched). LOGO-2 makes every surface a true match to the landing.
+
+**Canonical spec = the landing `index.html` `.brand` / `.mark` (source of truth, verified L63-67/L402):**
+mark tile **28×28 / radius 8**, white "C" in the **display** font **16px** / `background:var(--accent)`;
+wordmark in the **body font, 18px, weight 600, letter-spacing −.01em**; gap **10px**; text **"CryptoIdea"**
+(one word); the mark **rotates on hover** (landing nav link only).
+
+**Gap map (found 2026-08-02 — every surface vs the canonical spec):**
+
+| Surface | Mark tile | Wordmark | Divergence |
+|---|---|---|---|
+| **Landing** `.brand`/`.mark` | 28 / r8 / glyph 16 (display) | **body font**, 18px, 600, −.01em, gap 10 | — source of truth |
+| **App `<Logo>`** `.ci-logo` (Portfolio header; Login/Forgot hero) | 30 / r9 / glyph 18 | **display font, 26px**, −.02em, gap 9, no hover | tile +2px & rounder; wrong font; +8px; tighter spacing |
+| **Admin** `.adm-logo` / `.adm-brand-txt` (bar + sign-in) | 30 / r9 / glyph 18 | display, 17px, weight **500**, "Crypto**Idea**" | tile +2px; splits "Crypto"+bold"Idea"; wrong font/weight |
+| **Loading — `app.html`** (pre-bundle, inline `<style>`) | none | `<h1>` weight 200 | **no tile**; thin; **"Crypto Idea" (two words)** |
+| **Loading — `src/main.jsx`** (Suspense fallback) | none | 20px/700 + spinner | **off-brand `#6C5CE7` purple spinner still ships** |
+| **Loading — `src/components/Loading.jsx`** (`screen==="loading"`) | none | weight 200 | **no tile**; thin; **"Crypto Idea" (two words)** |
+| **Loading — `admin.html` / `admin-main.jsx`** (`phase==="loading"`) | none | grey text | no logo at all |
+
+*(Note: LOGO's text-normalization sweep hit HTML `<title>`s + comments but **missed the visible loading
+`<h1>`** in `app.html`/`Loading.jsx`, and the "off-brand purple removal" only touched `admin-main.jsx` —
+`main.jsx`'s Suspense spinner is still `#6C5CE7`. LOGO-2 closes both.)*
+
+**Founder decisions (AskUserQuestion 2026-08-02):**
+1. **Same logo, scaled by surface** — ONE shared spec (identical mark geometry + wordmark), exposed as
+   sizes: **sm** = the landing base (28px tile / 18px word) for nav/headers, **lg** for auth heroes (scaled
+   *proportionally* from the same ratios). Unmistakably one logo; a hero may be larger than a header. **Not**
+   pixel-identical on every screen.
+2. **Match the landing — body-font wordmark** — "CryptoIdea" in the **body font (Hanken), 600, −.01em**,
+   scaled from the 18px base. The app's current **display-font 26px** wordmark is **replaced** (this reverses
+   LOGO's display-font choice); the admin's bold-only-"Idea" split is dropped for the uniform "CryptoIdea".
+3. **Full lockup on ALL loading screens + fix the purple spinner** — every loading state renders the green
+   tile + "CryptoIdea"; the leftover **`#6C5CE7`** spinner in `main.jsx` → **brand green**; kill every
+   two-word "Crypto Idea" / thin-weight loading string.
+
+**Pieces to build (design-only — no logic/handlers/backend/rules change):**
+1. **Codify the canonical spec** as the single source. KISS: keep the `<Logo>` primitive; rewrite `.ci-logo*`
+   to the landing VALUES (mark 28/r8/glyph 16 display; wordmark **body font** 18/600/−.01em; gap 10). `lg`
+   scales the *same ratios* (≈ tile 44 / r13 / glyph 25 / word ~30, still body font, gap 12). Derive the size
+   ratios from the 28px base so the two sizes can't drift.
+2. **App `<Logo>`** ([ui.jsx](../../src/components/ui.jsx) + [app.css](../../src/styles/app.css) `.ci-logo*`):
+   apply the rewrite above; keep `role="img"` + `aria-label="CryptoIdea"`, tile `aria-hidden`. Portfolio
+   header uses default (sm), Login/Forgot use `lg` (badges/tagline intact).
+3. **Admin** ([admin-settings.css](../../src/styles/admin-settings.css) `.adm-logo`/`.adm-brand-txt`; markup
+   in [admin-main.jsx](../../src/admin-main.jsx) + [admin-dashboard.jsx](../../src/components/admin-dashboard.jsx)):
+   tile → landing geometry (28/r8/glyph 16); brand text → uniform **"CryptoIdea"** in the body font
+   18/600/−.01em (drop the `<b>Idea</b>` split), keep the "· Admin" suffix; `.lg` scales like the app. **Stays
+   admin-only CSS** (never import `.adm-*` into the user bundle; never import `.ci-*` into admin); admin is
+   **light-paper only**.
+4. **All four loading screens → full green lockup:**
+   - **`src/components/Loading.jsx`** + **`admin-main.jsx` `phase==="loading"`**: inside `.ci-app` with
+     app.css/admin CSS loaded → render the real `<Logo>` / `.adm-logo` lockup (+ optional "Loading…" subtext),
+     so they're automatically consistent.
+   - **`src/main.jsx` Suspense fallback**: `app.css` is already imported here (L12), so wrap in `.ci-app` and
+     reuse `.ci-logo`; **replace the `#6C5CE7` spinner with brand green** (`--accent`).
+   - **`app.html` + `admin.html` pre-bundle shells**: these paint *before* the bundle, so replicate the tile +
+     "CryptoIdea" with **self-contained inline `<style>`** mirroring the canonical values (CSP allows inline
+     *style*, never inline *script* — keep it style-only). Fix the two-word "Crypto Idea".
+5. **Consistency sweep + guard:** grep shipped `src/` + HTML for any remaining two-word "Crypto Idea" UI
+   string and any `#6C5CE7`; add a small unit/repo guard test that **neither** appears in shipped client code
+   (same "enforce, don't document" pattern as the dist name-guard), plus a `<Logo>` structure/size test.
+
+**Acceptance:** a CSSOM/computed-style probe shows the app `<Logo>` mark = **28px / r8** and wordmark =
+**body font, 18px, 600, −.01em** at default (matching the landing), with `lg` scaled proportionally; the admin
+mark matches the same geometry and its text is the uniform "CryptoIdea · Admin"; **all four** loading screens
+render the green tile + one-word "CryptoIdea"; **no `#6C5CE7`** and **no two-word "Crypto Idea"** remain in
+shipped client code (guard test); `npm run test:unit` green; `npm run build` clean (name-guard); browser-
+verified light + dark, desktop 1280 + mobile 375; admin light-paper only.
+
+**DoD:** every logo instance — landing, Portfolio header, Login/Register/Forgot hero, admin bar + sign-in,
+and all four loading screens — renders the **same** mark + **body-font** "CryptoIdea" wordmark scaled to its
+context; the purple spinner is gone; no two-word wordmark anywhere; **no new hex, no image asset, no new
+dependency**; tests green + build clean + browser-verified.
+
+**⚠️ Notes / gotchas:** design-only, **GREEN** (decisions locked; no rules/backend) → the BUILD-LOOP can build
+it without a checkpoint. The `.ci-logo` CSS is scoped under `.ci-app`, so the `main.jsx` Suspense fallback
+must add that wrapper. Don't cross the bundle boundary (`.adm-*` ⟷ `.ci-*`). The pre-bundle HTML shells can't
+use React/app.css — inline style only. Give the `<Logo>` one accessible name so `getByText`/`getByLabelText`
+still resolve (as LOGO did).
+
+**Status: PLAN ONLY — not built.** Decisions locked 2026-08-02 (same-logo-scaled · body-font wordmark ·
+full loading-screen lockup + purple-spinner fix). Queued in [BUILD-LOOP](BUILD-LOOP.md) as a new GREEN item.
+
+---
+
 ## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (📋 PLAN — 2026-08-01; NOT built)
 
 Founder ask (2026-08-01): add a **dedicated password for the admin Settings area** — a second lock,
