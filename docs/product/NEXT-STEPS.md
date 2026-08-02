@@ -668,8 +668,9 @@ Settings tab (L338) and the server refuses them ("owner-required").
    `saveConfig` must **per-key-KEEP** this field (the keep-omitted-field discipline — the 4th field to
    learn it, after `features`/`requireAdminMfa`/`announcement`).
 2. **`setSettingsPassword({ current?, next })`** callable — owner-only; if one already exists, require the
-   current password (or a valid unlock); enforce a length/strength floor; scrypt-hash `next`; write
-   `settingsAuth`; audit (no secret).
+   current password (or a valid unlock); enforce the strength floor (**min 12 chars incl.
+   upper+lower+number** — founder decision 2026-08-02); scrypt-hash `next`; write `settingsAuth`;
+   audit (no secret).
 3. **`unlockSettings({ password })`** callable — owner-only; scrypt-verify; on success write a server-only
    `settingsUnlock/{uid} = { until }` (~10 min); rate-limited; failure audited.
 4. **Gate Settings callables on the unlock:** `saveConfig` (+ the Settings-only config reads) change from
@@ -680,7 +681,14 @@ Settings tab (L338) and the server refuses them ("owner-required").
    `reauthAdmin(loginPassword)`; change copy "Owner password" → "Settings password" + sub-text; drive the
    same ~10-min `unlockedUntil` UX from `settingsUnlock`. Add a **"Settings password" section** inside
    Settings (owner-only) to set/change it.
-6. **Emailed-link reset (owner-only):** `requestSettingsPwReset()` → single-use, expiring token
+6. **Emailed-link reset (owner-only):** ⚠️ **BLOCKING FINDING (2026-08-02): there is NO email-sending
+   code in the backend yet** — only a `config/app.email.apiKey` placeholder field; no provider
+   integration, no `sendMail`. The settings password is *our own* secret (not a Firebase Auth
+   credential), so Firebase's built-in reset email cannot carry it — a custom send is genuinely
+   required. So this piece needs EITHER a chosen mail provider (build a `sendMail()` seam that logs
+   the link in dev + is a one-file go-live swap, like `ai-client.js`) OR it is deferred to a follow-up
+   (build only pieces #1–#5 + #7 now). This is the fork the founder held the item on (see Status).
+   The token flow itself: `requestSettingsPwReset()` → single-use, expiring token
    (`crypto.randomBytes`, stored **hashed** in server-only `settingsPwReset/{tokenHash} = { uid, expires,
    used }`), emailed as a special link to the owner's on-file email via the existing mail provider
    (Settings → Email & integrations). The link opens an admin reset page → `completeSettingsPwReset({
@@ -711,8 +719,17 @@ all (server + UI, regression-tested); the emailed-link reset works end-to-end (s
 owners only; bootstrap + script fallback documented; `test:unit` + rules tests green · `build` clean ·
 browser-verified owner desktop 1280 + mobile 375; light-paper only, no new dependency.
 
-**Status: PLAN ONLY — not built.** Architecture + the 3 founder decisions are locked; awaiting the
-go-ahead to build.
+**Status: PLAN ONLY — HELD by founder 2026-08-02 (BUILD-LOOP #8 checkpoint).** Architecture + the
+original 3 founder decisions are locked. At the checkpoint the founder chose to **hold the whole item**
+rather than build it now, because the **emailed-link reset (#3) has no mail transport to build on** (the
+blocking finding above). One more founder decision was captured for when it IS built: the settings-password
+strength floor = **min 12 chars incl. upper+lower+number** (folded into piece #2).
+
+**To unblock:** decide the emailed reset — either (a) **pick a mail provider** → build the full flow with a
+`sendMail()` dev-log seam (real send = go-live swap), or (b) **defer the reset** → build only pieces
+#1–#5 + #7 now (settings password + server-enforced unlock + rules denies; managers stay out; the
+service-account script fallback covers lockout meanwhile), and ship #6 when a provider is chosen. Then give
+the go-ahead and this becomes buildable again.
 
 ---
 
