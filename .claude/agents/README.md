@@ -8,6 +8,7 @@ in).
 | Agent | What it does | Writes? | Invoke |
 |---|---|---|---|
 | **consistency-sweep** | Read-only gap-hunt for the Interview & Consistency process (`docs/interview.md`). Given a topic or a proposed change, loads every file in that topic's consistency-map row and reports where code / `firestore.rules` / `README.md` / `openapi.json` / MD docs **DISAGREE / are STALE / are MISSING**, with `file:line` evidence, plus the exact **sweep list** a change must touch. | No (read-only) | `/consistency-sweep <topic>` or the Agent tool with `subagent_type: "consistency-sweep"` |
+| **secure-by-design** | Read-only **adversarial** security review of the working diff (or a named target) against THIS repo's real invariants: awaited async admin gates, deny-by-default `firestore.rules` (`counterNoForge`, closed-shape allowlists, `isChosen`, `isAdminOwner` vs `isAdmin`), the `keep()` secret idiom, `context.auth.uid` IDOR, the `cgFetch` denial-of-wallet choke point, PayPal webhook idempotency, CSP no-`unsafe-inline`, right-anchored XFF, and regressions of the 8 fixed `API-SECURITY.md` §4 findings. Returns ranked findings (severity · `file:line` · exploit · fix). Complements the generic built-in `/security-review`. | No (read-only) | `/secure-by-design [target]` or the Agent tool with `subagent_type: "secure-by-design"` |
 
 ## Conventions for agents added here
 
