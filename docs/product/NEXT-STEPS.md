@@ -3740,8 +3740,13 @@ button that reproduces byte-identical text).
 ### Decisions (locked — 2026-08-03 interview)
 1. **AI is Wave-B "later," not "never."** Keep the `askClaude` seam; gate the AI *chrome* on the existing
    `aiResearch` flag (the same switch AI-CHAT-SWITCH uses). One switch governs the whole Research AI surface.
-2. **Remove the "AI is offline" apology entirely — unconditional.** The deterministic summary presents as the
-   feature; no user is told anything is "offline" or "basic," in any state.
+2. **Replace the "AI is offline" apology with a neutral AI-status pill (REVISED 2026-08-03).** Kill the old
+   apology copy ("showing a basic summary…" — it made a working feature look broken); in its place a small
+   status pill by the "Portfolio Pulse" label shows **"AI on"** when AI is genuinely live and **"AI off"**
+   otherwise, driven by `aiChrome` (= switch ON **and** `AI_PROXY_LIVE`) so it reflects REAL availability and
+   never lies (flip the switch on before Wave B ships → still "AI off," because AI can't actually answer yet).
+   **Both states are always visible** — the user can always see the AI on/off state. It is a *status*, not an
+   *apology*: no "basic summary"/"degraded" wording in either state.
 3. **Keep the name "Portfolio Pulse"** (a product name, not an AI claim); drop the AI-gradient styling + the
    "AI insights" copy when AI is off.
 4. **Hide "Regenerate" when AI is off** (a deterministic summary regenerates to identical text — a no-op).
@@ -3859,21 +3864,30 @@ Prop path: `useApp().site.features.aiResearch` → `Research.jsx` → `ResearchT
    `aiChrome` to `<Pulse>`; **line 13** empty-brief "start seeing **AI insights**" → "start seeing your
    insights" (neutral, unconditional, cosmetic).
 5. **[`Pulse.jsx`](../../src/features/research/components/Pulse.jsx)** —
-   - **remove the offline-note block entirely** (lines 44-46, decision 2); the `offline` prop then goes unused
-     in Pulse → drop it from the signature + the OverviewView pass-through;
+   - **replace the offline-note block** (lines 44-46) with an **AI-status pill** in the Pulse header next to the
+     "Portfolio Pulse" label (decision 2): `aiChrome ? "AI on" : "AI off"` + a status dot (accent/gradient dot
+     when on, muted grey when off) — mirror the existing `LivePill` markup pattern (`HeaderTags.jsx`) but as a
+     SEPARATE element (LivePill = price-feed freshness; this = AI availability). The `offline` prop is no longer
+     used for an apology → drop it from Pulse's signature + the OverviewView pass-through; the pill reads
+     `aiChrome` (already passed). Give the pill an `aria-label` ("AI on"/"AI off");
    - gate the `ai-gradient-text` class on `aiChrome` (plain label otherwise);
    - gate the **Regenerate** button on `aiChrome` (keep **Share** always, decision 4).
 6. **[`EmptyState.jsx`](../../src/features/research/components/EmptyState.jsx)** — line 4 "your **AI insights**,
    allocation and risk" → "your insights, allocation and risk" (neutral, unconditional, cosmetic).
 7. **[`research-tab.css`](../../src/features/research/styles/research-tab.css)** — keep `.ai-gradient-text`
-   (line 39, used when `aiChrome`); remove the now-dead "AI is offline" note-box rule (~line 286).
+   (line 39, used when `aiChrome`); **replace** the old amber "AI is offline" note-box rule (~line 286) with a
+   small **`.ai-status`** pill style (on = accent/gradient dot + `--accent` text; off = muted `--ink-soft` dot +
+   text), scoped under `.research-root`, dark-safe via tokens.
 8. **[`useAsk.js`](../../src/features/research/hooks/useAsk.js) / [`AskView.jsx`](../../src/features/research/components/AskView.jsx)** —
-   **out of scope here.** Ask is hidden by **AI-CHAT-SWITCH** when off; `AskView.jsx:29`'s "AI is offline"
-   line is only reachable when Ask is shown (= flag on), where it's honest. Cross-ref, don't touch.
+   Ask visibility stays **AI-CHAT-SWITCH's** job. For consistency with the new status pill, `AskView.jsx:29`'s
+   "AI is offline — showing a basic answer" apology should be reconciled to the same neutral *status* language
+   (an "AI off" indicator, no "basic answer" wording) when that plan is built — cross-ref, keep the two in sync.
 
 ### Acceptance (RED first; never weaken a test)
 - **Unit** (`tests/unit/`, Pulse/Research render test):
-  - Pulse renders **no** "AI is offline"/"basic summary" text in any state.
+  - Pulse renders **no** "AI is offline"/"basic summary" apology text in any state; instead the header shows an
+    **AI-status pill** = "AI off" when `aiChrome=false` and "AI on" when `aiChrome=true` (both states visible,
+    neutral, no "basic summary" copy, correct `aria-label`).
   - `aiChrome=false`: **no** `ai-gradient-text` class, **no** Regenerate button, Share present; Pulse text ==
     the deterministic `fallbackText` for the portfolio+tf; disclaimer omits "AI-generated".
   - `aiChrome=true`: gradient + Regenerate present.
@@ -3882,8 +3896,9 @@ Prop path: `useApp().site.features.aiResearch` → `Research.jsx` → `ResearchT
 
 ### Definition of Done
 - test:unit + build green; verified in the emulator (Research → Overview) as a Starter user: clean
-  deterministic summary, **no** "offline" note, **no** gradient, **no** Regenerate, disclaimer neutral, Ask
-  tab hidden (via AI-CHAT-SWITCH). (Flip `AI_PROXY_LIVE=true` + `aiResearch` ON in Wave B → chrome returns.)
+  deterministic summary, a neutral **"AI off"** status pill (no "offline/basic summary" apology), **no**
+  gradient, **no** Regenerate, disclaimer neutral, Ask tab hidden (via AI-CHAT-SWITCH). (Flip
+  `AI_PROXY_LIVE=true` + `aiResearch` ON in Wave B → the pill reads **"AI on"** + gradient + Regenerate return.)
 - **Docs synced in the same commit:** the CLAUDE.md "Research tab" line "Pulse shows an 'AI is offline' note"
   becomes stale → update it; note the launch behaviour.
 - **Go-live note:** AI chrome is off automatically (`AI_PROXY_LIVE=false`, belt) and the owner can force
