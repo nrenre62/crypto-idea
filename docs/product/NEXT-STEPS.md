@@ -3767,7 +3767,9 @@ risk {level,breakdown,megaAlloc}, holding count.
 - **R-C Concentration** (holdings ≥ 2): "Your top {1-2} — **{held coin name(s)}** — make up **N%** of the book."
 - **R-D Best/worst mover** — **RELOCATED to the Daily Brief** (below). The split-jobs decision (2026-08-03) puts
   today's movers in the Brief, so the Pulse no longer repeats them — no duplicated lines across the two cards.
-- **R-E Risk pointer** (ONE clause, not the full card): "…and your mix leans **{Low/Moderate/High}** risk."
+- **R-E Risk pointer** (ONE clause, not the full card): "…and your mix leans **{Low/Moderate/High}** risk." —
+  **superseded in the Pulse by the "This week" volatility+drawdown line** (RESEARCH-METRICS §5 below); the
+  market-cap-rank *structural* risk stays in the RiskMeter card.
 - **R-F Diversification nudge** (ONLY if top-2 > 60%): "With ~N% in your top two, spreading across more assets is
   one way to lower single-coin risk." — neutral education (locked: descriptive + neutral), **NEVER "buy/sell X".**
 - **Empty:** "Once you add coins, your portfolio summary appears here." (no AI mention.)
@@ -3787,6 +3789,63 @@ risk {level,breakdown,megaAlloc}, holding count.
 new `utils/pulse.js`) imported by `usePulse`'s `fallbackText`; `usePulse` returns the multi-line text, Pulse's
 `Rich` already renders `**bold**` + newlines. **Tests:** each rule fires/omits on its condition; P&L sign
 correct; no NaN on zero-history/zero-cost; empty-state text; held-only naming.
+
+### Pulse metrics — added calculations (RESEARCH-METRICS · locked 2026-08-03 interview; part of #13, or a fast-follow)
+Four deterministic calculations added to the no-AI Pulse, vetted by a 5-family metric research sweep + an
+**adversarial compliance audit** (the audit reframed 3 of them + produced the S1–S4 rules below). **All
+descriptive, no new data, no AI.** The base Pulse (R-A…R-F) ships fine without these — this is an insight
+expansion. The Pulse stays ~5-6 short lines by **merging, not stacking** (see "Integrated line set").
+
+**The four (formula → compliance-safe line):**
+- **P-1 Return attribution** — `contribᵢ = wᵢ × returnᵢ` (`wᵢ = valueᵢ/total`; `returnᵢ` = that coin's tf %
+  change). Contributions **sum exactly** to the portfolio's tf return (self-checking identity); rank by
+  `|contribᵢ|`. → "Over the {tf}, **{coin}** drove about **{share}%** of that move." *(no verb on the coin — S1.)*
+- **P-2 Effective number of holdings** — `Neff = 1 / Σwᵢ²`; report beside the raw count N. → **merged into the
+  concentration line:** "Your top two are **{N}%** of the book — by size, your {M} coins act like about
+  **{Neff}** equal-weight positions." *(an equivalence, never a "but/you-should" nudge — S2.)*
+- **P-3 Current drawdown (7-day)** — reconstruct portfolio value per sparkline day `Vₜ = Σ(amountᵢ × priceᵢ,ₜ)`;
+  `drawdown = (V_now − max Vₜ)/max Vₜ` (≤0). → "…now sits **{D}%** below its 7-day high" (or, at 0: "at a 7-day
+  high"). *(never "buy the dip"/"recover" — S2.)*
+- **P-4 7-day daily volatility** — 6 daily returns `rₜ = Vₜ/Vₜ₋₁ − 1`; `σ = stddev(rₜ)`, sample n=6. **Never
+  annualized.** → "This week your value had a **typical daily swing of about ±{v}%**." *(labelled 7-day; never
+  ×√365; "typical swing", not "average move" — S4.)*
+
+**Integrated line set (KISS — ~5-6 lines, ordered; merges, doesn't stack):**
+1. **Value + performance** (R-A) · 2. **Unrealized P&L vs cost** (R-B) · 3. **What drove it** (P-1 attribution) ·
+4. **Concentration** (R-C **+ P-2** effective-N merged; R-F nudge appended only if top-2 > 60%) · 5. **This week**
+(P-4 volatility + P-3 drawdown, one line). **§5 supersedes R-E's rank-risk pointer IN THE PULSE**; the
+market-cap-**rank** *structural* risk stays in the dedicated **RiskMeter card** (no triple-risk, no duplication).
+
+**Hard compliance rules — from the adversarial audit (bind ALL Pulse + Brief lines):**
+- **S1 · No verb on a named coin.** "{coin} drove the move" ✅ — never "cut/trim/add to {coin}", never render one
+  coin as the visual headline (a single-coin callout reads to a beginner as a call to act).
+- **S2 · No recovery/target/bounce/"should" language** near drawdown, break-even or concentration ("below its
+  high" must never gain "buy the dip / hold till it recovers"; effective-N states an equivalence, not "diversify").
+- **S3 · No roll-up.** Never fuse these into one badge, colour, emoji, or "portfolio-health" headline — an
+  aggregate = a prohibited score/grade. Keep separate factual sentences.
+- **S4 · Neutral labels + honest stats.** Section labels stay "Snapshot"/"This week" — never
+  "Signal/Alert/Opportunity" or red/green good-bad. Never annualize the 7-day vol.
+
+**Deferred to the Coins tab (interview):** per-position **"biggest gain/loss vs cost"** + **break-even distance**
+— computable + compliance-safe (reframed), but they're single-coin callouts (S1 risk); founder chose to keep
+per-coin P&L in the **Coins** list, not the Pulse.
+
+**Implementation:** all four are pure — extend the `pulseFacts` layer (`contrib[]`, `Neff`, `drawdown7d`,
+`vol7d`) from holdings + the 7-day sparkline (`priceAdapter` already derives each coin's 7d series; reconstruct
+portfolio value per day). Templates in the same builder. **Tests:** contributions sum to the portfolio tf return
+(identity); `Neff ∈ [1, N]`; drawdown ≤ 0 and = 0 at a 7-day high; vol never annualized; each line omits cleanly
+on <2 holdings / missing sparkline (no NaN); copy contains no S1–S4 violation (no coin+verb, no "buy the dip", no
+aggregate label).
+
+**Wave-B DATA roadmap (deterministic, needs data — recorded, NOT built):** surfacing more of the data the app
+already stores unlocks higher-value metrics:
+- **IRR / money-weighted return** + **realized-vs-unrealized split** — **near-term**: need only the **dated
+  transaction ledger** (already stored) surfaced to the Pulse layer + a small bisection solver. The true "what I
+  earned on my dollars, given *when* I added them" number DCA users want (unrealized P&L can't give it).
+- **True max drawdown (90d/all-time) + historical VaR** · **Sharpe / Sortino** · **beta vs BTC** · **pairwise
+  correlation** (false-diversification check) — need a **persisted daily portfolio-value series** (+ a stored BTC /
+  per-coin daily series). Meaningless on 6 sparkline points; strictly wait for real history; show as plain stats,
+  never grades (S3).
 
 ### Daily Brief rules — the "since you were away" card (this increment · locked 2026-08-03 interview)
 The **Daily Brief** is the greeting card at the top of the Overview ("Good day / here's what moved"), separate
