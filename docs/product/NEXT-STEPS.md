@@ -721,6 +721,12 @@ while billing is still being developed/secured — plus a **more generous Starte
 AskUserQuestion; all decisions locked below. **Two parts.**
 
 ### Part A — Maxed Starter limits (permanent; more generous, still < Pro) — 🔶 touches `firestore.rules`
+> ⚠️ **SUPERSEDED (2026-08-03) by PLAN-LIMITS-MAX (below).** That plan raises Starter to **3 portfolios /
+> 30 / 100** (not 2), also bumps Pro to 6/100/2000, and adds a lazy-load read optimization. **Build
+> coordination:** whichever of the two ships first does the shared work (rules `configuredLimit` free
+> fallbacks, `DEFAULT_PLANS`, the stored `config/app.plans` doc, index exemptions, landing/app copy); the
+> other becomes the delta and must not re-do it. **If LAUNCH-FREE builds first, use 3 portfolios, not 2.**
+> LAUNCH-FREE **Part B** (the `paidPlansEnabled` billing switch) is NOT superseded — it stands as written.
 - New Starter limits: **2 portfolios / 30 coins per portfolio (60 total) / 100 transactions per coin**
   (was 1/10/50). Even numbers, clearly below Pro (3/50/2000); max ~6,000 tx/user.
 - **Storage (why these numbers):** transactions dominate (each is its own subcollection doc). At **~0.7 KB/tx
@@ -3697,6 +3703,102 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 - No `firestore.rules` change ⇒ no `test:rules` requirement. No new dependency, no new hex.
 - Docs: CLAUDE.md Research-tab + ADMIN-2 notes updated; this Status line flipped to ✅ BUILT; commit.
 - Forward requirement (proxy server-enforcement) recorded, explicitly deferred to Wave-B.
+
+---
+
+## PLAN-LIMITS-MAX. Maximize plan benefits (Starter 3/30/100 · Pro 6/100/2000 · Premium unchanged) + lazy-load reads  (📋 STAGED 2026-08-03; queued in BUILD-LOOP #12 — NOT built)
+
+> Finished + approved (2026-08-03 founder interview; all decisions locked). Gate: 🔶 CHECKPOINT (touches
+> `firestore.rules` → `npm run test:rules:solo` before commit). **Prices UNCHANGED. No new dependency.**
+> Coordinates with **LAUNCH-FREE #10** (see its §A supersede note): the two overlap on the Starter limits +
+> stored `config/app.plans` + index exemptions — whichever builds first does that shared work, the other is
+> the delta.
+
+### Why (founder goal: maximize user benefit while holding healthy 75–90% margins)
+Grounded cost analysis (2026-08-03, 4-agent research + verified in source). CoinGecko cost is FLAT (one
+shared `cache/universe` doc serves everyone), so a user's coins/transactions add **zero** upstream API cost.
+The only per-user cost is Firestore: **storage + writes are pennies; READS on app-open are the sole real
+driver** — because `loadPortfolios` (useAuthSession.js:42) loops EVERY portfolio and `getCoins`
+(firebase-database.js:204-216) reads every coin + every transaction, read cost tracks **total transactions
+across all portfolios**. **Verdict:** every tier clears **>99% margin on realistic usage** — the generous
+limits are safe. The only risk is the **theoretical maximum**, a **denial-of-wallet/abuse** case (a script,
+not a human), closed by the Wave-B App Check + per-uid rate limiter + `addCoinGuarded`. So: raise limits,
+gate the ceilings on those controls, and add a lazy-load read optimization.
+
+### The limits (locked)
+| Tier | Now → New | Price (unchanged) |
+|---|---|---|
+| Starter (free) | 1/10/50 → **3 portfolios / 30 coins-per-portfolio / 100 tx-per-coin** | $0 |
+| Pro | 3/50/2000 → **6 / 100 / 2000** | $9.99/mo · $99.99/yr |
+| Premium | **unchanged** 15 / 1000 / 5000 | $49.99/mo · $499.99/yr |
+
+Semantics (verified in rules): **portfolios = total/account**, **coins = per-portfolio**, **tx = per-coin**.
+Starter 3/30/100 **supersedes LAUNCH-FREE §A's 2/30/100**.
+
+### Cost analysis recorded (Firestore Blaze est.: reads $0.06/100k, writes $0.18/100k, storage ~$0.18/GiB/mo; ~0.7 KB/tx w/ index exemptions; 30 cold-loads/mo)
+| Scenario | Total tx | Realistic $/user/mo | Realistic /100 | Theoretical-MAX $/user/mo | MAX /100 |
+|---|---|---|---|---|---|
+| Starter 3/30/100 | ≤9,000 | ~$0.002 | ~$0.23 | ~$0.16 | ~$16 |
+| Pro 6/100/2000 | ≤1.2M | ~$0.045 | ~$4.5 | ⚠️ ~$21.8 | ⚠️ ~$2,180 |
+| Premium 15/1000/5000 | ≤75M | ~$0.41 | ~$41 | ⚠️⚠️ ~$1,360 | ⚠️ ~$136,000 |
+
+Realistic-use margins: Pro ~99.5% (net $9.40), Premium ~99.1% (net $48.24) — clears 75–90% with huge headroom.
+Theoretical-max is unreachable by a human (Pro-max = 660 tx/day for 5 yrs); it's the abuse case → Part B + gate.
+
+### Part A — Limit bumps. Consistency sweep (change in EVERY file — no drift)
+1. **`functions/index.js`** `DEFAULT_PLANS` (~L348-350): free → `{portfolios:3, coins:30, transactions:100}`;
+   pro → `{portfolios:6, coins:100, transactions:2000}`; premium unchanged. Prices + `aiMonthlyCents` unchanged.
+2. **`firestore.rules`** `configuredLimit` fallbacks (L173-175): portfolios `free 1→3, pro 3→6, premium 15`;
+   coins `free 10→30, pro 50→100, premium 1000`; tx `free 50→100, pro 2000, premium 5000`. Hard ceilings unchanged.
+3. **STORED `config/app.plans` doc** — CRITICAL (same gap LAUNCH-FREE caught): rules read config FIRST, defaults
+   only as fallback, so a stored plans doc OVERRIDES the rule defaults. Update it too (seed baseline + admin
+   save / one-time migration) in dev AND at prod deploy, or the old limits silently win.
+4. **`src/hooks/useAdminDashboard.js`** `DEFAULT_PLANS` mirror (~L141) — same new values (admin editor fallback).
+5. **`src/components/Login.jsx`** `PLAN_BENEFITS` (L10-23): free → "3 portfolios · 30 coins per portfolio · 100
+   transactions per coin"; pro → "100 coins per portfolio" (from 50); premium unchanged. **Also fix** the free
+   copy that omits "per portfolio" now that Starter has >1 portfolio.
+6. **`index.html` #pricing + `public/landing.js`** — update per-tier LIMIT copy on the cards (prices unchanged).
+7. **`firestore.indexes.json`** — single-field index **exemptions** for the `transactions` collection group
+   (exempt `type`/`amount`/`priceAtBuy`; keep `date` indexed) so storage stays ~0.7 KB/tx (deploy-time).
+8. **`docs/decisions/PRICING.md`** — update plan-at-a-glance + margin math; add this storage/read cost model +
+   the denial-of-wallet note + the Wave-B gating dependency.
+9. **`docs/decisions/USER-BENEFITS.md`** — update user-facing limits (plain language).
+10. **`docs/decisions/PRODUCT-DECISIONS.md`** — update if it records the limit values (#20/#21).
+11. **LAUNCH-FREE §A** (above) — already carries the superseded note; keep the two in sync.
+
+### Part B — Lazy-load read optimization (companion; makes generous ceilings structurally cheap)
+12. **`src/hooks/useAuthSession.js`** `loadPortfolios` (L36-61): eager-load coins for all portfolios but
+    **transactions ONLY for the active portfolio**; lazy-load a portfolio's transactions on first activation
+    (switch), cached for the session. Cuts worst-case cold-load reads up to **6× (Pro) / 15× (Premium)**.
+    - **Design detail to resolve at build:** the Portfolio-list value/P&L summary needs transactions. Options:
+      (a) load-on-switch + a light "tap to load"/cached summary for unopened portfolios, or (b) persist a small
+      per-portfolio summary (invested/current). Pick the KISS option; **never show a wrong/zero P&L** for an
+      unloaded portfolio. Aligns the initial load with the existing active-only `watchCoins` live-sync model.
+
+### Gating (locked: gate generous ceilings on Wave-B abuse controls)
+Raised limits are safe to build + test locally now (emulator). **Do NOT deploy the raised limits to prod until
+the Wave-B denial-of-wallet controls are live** — App Check enforcement + per-uid rate limiter + `addCoinGuarded`
+(they make the theoretical max unreachable by a script). Record this as an explicit deploy-gate in PRICING.md
+Open items + the go-live checklist. Part B shrinks the read blast radius but does NOT replace the abuse controls
+(write/storage flooding still needs them).
+
+### Acceptance (RED first; never weaken a test)
+- **`npm run test:rules:solo`** — new ceilings enforced: Starter 3/30/100 (4th portfolio / 31st coin / 101st tx
+  denied), Pro 6/100/2000 (7th portfolio / 101st coin / 2001st tx denied), Premium unchanged; the "configured
+  limits override defaults" test updated to the new fallbacks.
+- **`npm run test:unit`** — any test asserting old limits (1/10/50, 3/50/2000) updated to the config/new values;
+  PLAN_BENEFITS copy test if present.
+- **Part B** — a data-layer test: `loadPortfolios` does NOT read a non-active portfolio's transactions on open,
+  and switching to a portfolio loads its transactions once.
+- **`npm run build`** — clean (no-names guard).
+
+### Definition of Done
+- test:rules:solo + test:unit + build green; rules verified before commit (CHECKPOINT).
+- PRICING.md + USER-BENEFITS.md updated **in the same commit** as the config/rules change (docs are the contract).
+- LAUNCH-FREE §A supersede note kept in sync; PRODUCT-DECISIONS updated if it carries the numbers.
+- Prod-deploy gate (limits ship only with Wave-B abuse controls) recorded in PRICING.md Open items + go-live.
+- Browser-verify (emulator on Java 21): Starter can create a 2nd + 3rd portfolio, 4th denied; 30 coins ok, 31st
+  denied; 100 tx ok, 101st denied. Confirm no wrong P&L on an unopened portfolio after Part B.
 
 ---
 
