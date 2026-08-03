@@ -3765,7 +3765,8 @@ risk {level,breakdown,megaAlloc}, holding count.
 - **R-B Unrealized P&L vs cost** (when invested > 0): "That's **up/down $P (Q%)** on the **$Z** you've put in."
   P&L = total − Σ(amount × avgCost) of current holdings; **honest sign** (a loss reads as a loss).
 - **R-C Concentration** (holdings ≥ 2): "Your top {1-2} — **{held coin name(s)}** — make up **N%** of the book."
-- **R-D Best/worst mover** (holdings ≥ 2, with dispersion): "Over the {tf}, **{best} +X%** led, **{worst} −Y%** lagged."
+- **R-D Best/worst mover** — **RELOCATED to the Daily Brief** (below). The split-jobs decision (2026-08-03) puts
+  today's movers in the Brief, so the Pulse no longer repeats them — no duplicated lines across the two cards.
 - **R-E Risk pointer** (ONE clause, not the full card): "…and your mix leans **{Low/Moderate/High}** risk."
 - **R-F Diversification nudge** (ONLY if top-2 > 60%): "With ~N% in your top two, spreading across more assets is
   one way to lower single-coin risk." — neutral education (locked: descriptive + neutral), **NEVER "buy/sell X".**
@@ -3786,6 +3787,40 @@ risk {level,breakdown,megaAlloc}, holding count.
 new `utils/pulse.js`) imported by `usePulse`'s `fallbackText`; `usePulse` returns the multi-line text, Pulse's
 `Rich` already renders `**bold**` + newlines. **Tests:** each rule fires/omits on its condition; P&L sign
 correct; no NaN on zero-history/zero-cost; empty-state text; held-only naming.
+
+### Daily Brief rules — the "since you were away" card (this increment · locked 2026-08-03 interview)
+The **Daily Brief** is the greeting card at the top of the Overview ("Good day / here's what moved"), separate
+from the Pulse. **Role (split-jobs decision):** the Brief is a glanceable **"what moved since you were away"**
+digest — it owns **today's movers**; the Pulse owns the **analysis** (value, P&L, concentration, risk,
+diversification). **No duplicated lines:** the Brief leads with the 24h *change*, Pulse R-A leads with the
+portfolio *value* over the selected timeframe, and movers live ONLY in the Brief (R-D relocated).
+
+**The three rows (all 24h, deterministic — from holdings' `c24`):**
+- **B-1 Portfolio 24h** (always): "Portfolio is **{up/down} $X ({+/−}Y%)** over the last 24 hours." Show **both**
+  the $ change and the % with a **matching sign**. **Near-zero rule:** when the % rounds to 0.0% but the $ change
+  ≠ 0, show **"≈0%"** (not a misleading exact "+0.0%") — the "up $6 (+0.0%)" artifact.
+- **B-2 Biggest gainer** ("Today's top mover" — only if a holding is **up**): "Today's top mover: **{coin} +X%**"
+  = the held coin with the **most positive** 24h change. Omit the row when nothing is up.
+- **B-3 Biggest decliner** ("Worth watching" — only if a holding is **down**): "Worth watching: **{coin} −X%**" =
+  the held coin with the **most negative** 24h change. **Replaces the old "{coin} volatility" line** — a single
+  day's move is not volatility, and the old `|c24|` rule kept surfacing the SAME coin as the top mover. Omit the
+  row when nothing is down.
+
+**Hard rules the Brief MUST obey:**
+1. **B-2 and B-3 are always different coins** — most-positive vs most-negative mover, so they can't collide (the
+   bug you spotted). With only **one** holding, show B-1 + at most one mover line — never the same coin twice.
+2. **No "volatility" claim** from a one-day move — the word is dropped; honest labels only (gainer / decliner).
+3. **Held-only naming**; **no advice/prediction**; **never NaN** (guard zero-history → 0%).
+4. **Don't duplicate the Pulse** — value / P&L / concentration / risk stay in the Pulse; the Brief is the 24h
+   change + movers only.
+5. **Empty state:** the Brief's "Add your first coin to start seeing AI insights" → neutral copy (already in
+   sweep item #4: "start seeing your insights").
+
+**Implementation (adds to the sweep):** move the inline `mover`/`watch` sort out of `OverviewView.jsx`'s `Brief`
+into the pure facts layer (`pulseFacts` / a `briefFacts` helper) — biggest gainer/decliner + the sign guards +
+the omit conditions + the near-zero-% display — so it is unit-tested; `Brief` renders from facts. **Tests:**
+gainer ≠ decliner; each mover row omits on an all-up / all-down / single-holding book; "≈0%" shows when $≠0 but
+%→0.0; the string "volatility" never renders; held-only naming.
 
 ### Pulse content rules — WITH AI (Wave B / "Plan B" ONLY — NOT built in this increment)
 > Recorded here so all Pulse rules live in one place. Built in **Wave B** (the `researchAsk` proxy + Blaze),
