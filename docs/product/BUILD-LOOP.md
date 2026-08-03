@@ -75,13 +75,19 @@ update it after every item. (Reorder if you'd rather do the `launch-blocker` fir
 | 8 | **ADMIN-6** | 🔶 CHECKPOINT | **Touches `firestore.rules`** + server + email + client. Largest, security-critical. | ⏸️ HELD 2026-08-02 (founder) — no mail transport exists; see NEXT-STEPS ADMIN-6 Status |
 | 9 | **LOGO-2** | 🟩 GREEN | Design-only: true landing-match logo (body-font wordmark, scaled) across app + admin + all 4 loading screens; fix leftover purple spinner. Client CSS/JSX + pre-bundle HTML shells. Moderate. | 📋 not built |
 | 10 | **LAUNCH-FREE** | 🔶 CHECKPOINT (decisions locked) | **Touches `firestore.rules`** (Starter limits → 2/30/100) + billing gate (`paidPlansEnabled` flag: new regs Starter-only, no new subs, existing users untouched) + config/indexes + admin toggle + client + landing. Security-critical. Decisions locked 2026-08-02. | 📋 not built |
+| 11 | **ADMIN-SEP** | 🔶 CHECKPOINT (decisions locked) | Admin/user separation: admins out of the Users list (+count/CSV/bulk), owner-only Admin-access **roster** (new `listAdmins` callable), eliminate the no-role admin state at the auth **choke point** (`guards.js`), hard-cap owners at 2 (`set-admin.js`). Server + admin-UI; **`firestore.rules` NOT touched** (no `test:rules`). Security-critical. Decisions locked 2026-08-03. | 📋 not built |
 
-**Loop state (2026-08-02):** items 1–7 ✅ built; #8 ADMIN-6 is ⏸️ **HELD by founder** (no mail transport
-exists for the emailed-reset piece — see NEXT-STEPS ADMIN-6 Status). Two new items are queued from
-2026-08-02 gap/interview sessions, both PLAN-ONLY awaiting a "go": **#9 LOGO-2** (🟩 GREEN, design-only,
-logo landing-match) and **#10 LAUNCH-FREE** (🔶 CHECKPOINT, decisions locked — Starter→2/30/100 + a
-Starter-only launch-mode billing switch). #9 is the lowest-risk next build; #10 is security-critical
-(rules + billing) and needs `test:rules:solo` before commit.
+**Loop state (2026-08-03):** items 1–7 ✅ built; #8 ADMIN-6 is ⏸️ **HELD by founder** (no mail transport
+exists for the emailed-reset piece — see NEXT-STEPS ADMIN-6 Status). Three items are queued from
+2026-08-02/03 gap/interview sessions, all PLAN-ONLY awaiting a "go": **#9 LOGO-2** (🟩 GREEN, design-only,
+logo landing-match), **#10 LAUNCH-FREE** (🔶 CHECKPOINT, decisions locked — Starter→2/30/100 + a
+Starter-only launch-mode billing switch), and **#11 ADMIN-SEP** (🔶 CHECKPOINT, decisions locked
+2026-08-03 — admin/user separation: admins out of the Users list, owner-only Admin-access roster, no-role
+admin state eliminated at the auth choke point, owners hard-capped at 2). #9 is the lowest-risk next build.
+**#10 touches `firestore.rules`** → `test:rules:solo` before commit; **#11 does NOT touch rules** (roster
+lives in Auth custom claims) → no `test:rules`, but it IS security-critical (auth `guards.js` choke point +
+a new owner-gated `listAdmins` callable, which trips the `admin-gate-coverage` + `audit-labels` source
+scans).
 
 **Priority override:** ONBOARD-GATE is the only `launch-blocker` here. If launch timing matters more
 than risk-ordering, move it to the front — but keep it a 🔶 CHECKPOINT (it rewrites the rules gate) and

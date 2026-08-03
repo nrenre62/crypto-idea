@@ -899,6 +899,131 @@ the go-ahead and this becomes buildable again.
 
 ---
 
+## ADMIN-SEP. Admin/user separation — admins out of the Users list, into an owner-only Admin-access roster  (📋 PLAN — 2026-08-03; NOT built)
+
+Founder ask (2026-08-03): keep admins **out of the Users section** of the admin panel — an admin account
+must never appear as a normal user. All admins (**managers AND owners**) belong in the **Admin access**
+area inside Settings, which **only an owner** can open. Exactly **two admin types** exist — **manager** and
+**owner** (there are **2 owners**); **no other admin type may exist**. Anyone granted admin power through
+the Admin access UI is a **manager only**; **only an owner** can promote a manager and grant access.
+
+Mapped read-only against the live code (multi-agent gap map, 2026-08-03) + interviewed via AskUserQuestion;
+all decisions locked below.
+
+**Big picture — this is a SERVER + admin-UI change; `firestore.rules` is NOT touched.** The entire admin
+roster lives in **Firebase custom claims** (`{admin:true, role:"owner"|"manager"}`), with **zero Firestore
+backing** — there is no admins/roles collection ([`firestore.rules`](../../firestore.rules) L62-193 has none).
+So identity/roster can only be read/written via Cloud Function callables + `set-admin.js`; rules already give
+the backstop that a manager token can't write arbitrary user docs (`isAdminOwner()` on user update/delete,
+L248/L266). ⇒ **no `test:rules` requirement**, but it IS security-critical (touches the auth choke point +
+adds an owner-gated callable).
+
+**Already MET today (3 of the 6 points — do NOT rebuild):**
+- **✅ Point 2** — "Admin access" is an **owner-only** Settings drill-in: the Settings tab is added to `TABS`
+  only when `isOwner` ([`admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) L412), `isOwner ===
+  role==='owner'` ([`useAdminDashboard.js`](../../src/hooks/useAdminDashboard.js) L333); managers get an
+  owner-only notice; the server enforces owner + step-up on `saveConfig`/`setManagerRole`.
+- **✅ Point 5** — the only UI grant path `setManagerRole` **hardcodes `role:ROLE_MANAGER`** on grant
+  ([`functions/index.js`](../../functions/index.js) L819), accepts only `{email,grant}` (no role param,
+  L796), refuses owner + self targets (L808-811). Owners are minted **out-of-band only** via `set-admin.js`.
+- **✅ Point 6** — grant is **owner-only + step-up re-auth** (`assertFreshOwner`, index.js L795 →
+  `guards.requireOwner`, [`guards.js`](../../functions/guards.js) L123-128). The old `setAdminClaim` is a
+  neutered throwing stub (index.js L830).
+
+**The real gaps (what this item builds):**
+
+### Part A — Hide admins from the Users section (Point 1) — 🔴 GAP (high)
+Today `listUsers` returns **every** Auth account incl. admins, each tagged `isAdmin`/`role` (index.js
+L1445-1448), and the client renders them as rows **badged "ADMIN"** (admin-dashboard.jsx L1035); the *same
+unfiltered array* also feeds the row count, the CSV export (`buildUsersCsv`) and the page-scoped bulk
+set-tier/suspend actions (L995-1019). No exclusion exists at any layer.
+- **Fix (server-primary):** in `listUsers` (index.js ~L1436-1458) **skip any account with
+  `customClaims.admin===true`** so admins are absent from the list, the count, the CSV and the bulk
+  surfaces in one place. **Filter key = the `isAdmin` claim, NOT `role`** — a no-role admin has `role===""`
+  (identical to a plain user) and a role-based filter would leak it back in.
+- **Client backstop:** the render/partition pipeline (admin-dashboard.jsx L978-1005, `partitionUsers` in
+  [`trash.js`](../../src/utils/trash.js)) also drops `u.isAdmin` rows, so a stale server can't surface one.
+- **Count scope (LOCKED — "exclude admins everywhere"):** the Overview **Total users** / tier counts
+  (`gatherStats`/`getStats`) **and** the duplicate-email detector (`findDuplicateEmails`, index.js ~L1475)
+  also **exclude admin accounts**, so the visible rows and the headline numbers agree (no "12 users but only
+  10 rows" mismatch).
+
+### Part B — Admin access lists ALL admins (Point 3) — 🔴 GAP (high)
+Today the Admin access area is a **search-by-email lookup** showing one account at a time (`grantLookup` →
+`lookupUser`, admin-dashboard.jsx L1390-1433) plus a numeric owner count (`s.activeOwners`, L1437-1441).
+There is **no roster** and **no `listAdmins` callable** — an owner can't see who the managers/owners are.
+- **New callable `listAdmins()`** in index.js — **owner-only** (`assertOwner`; step-up not required for a
+  read), enumerates Auth accounts with `customClaims.admin===true` (key off the **claim**, so a no-role
+  admin still appears until migrated), returns `{ uid, email, role, disabled, lastSignInTime }` per admin.
+  A **NEW callable trips two source-scan tests** — `admin-gate-coverage` (must be listed as gated) and
+  `audit-labels` — so wire it into both (a read needs no `ACTION_LABELS` entry; confirm the scan's
+  read-vs-write allowance).
+- **Client:** wrapper in [`src/api/admin.js`](../../src/api/admin.js); load in `useAdminDashboard.js`;
+  render a **roster at the top of the Admin access drill-in** (owners + managers, role pill, status) —
+  **KEEP the email search below it** (LOCKED: "roster + keep lookup") as the way to grant a *not-yet-admin*
+  account. Grant/revoke stays exactly as-is (`setManager` → `setManagerRole`, owner-only + step-up).
+- **Out of scope (deliberate):** per-admin *support* actions (private notes / view-as / tier) are NOT added
+  to the roster — admins aren't support subjects; the roster's only action is grant/revoke manager. (This is
+  the answer to "once admins leave the Users tab, how do you act on them" — you don't manage an admin *as a
+  user*; you grant/revoke via this roster or `set-admin.js`.)
+
+### Part C — Exactly two admin types (Point 4) — 🟠 PARTIAL
+Three deviations from "only manager + owner, 2 owners, no other role":
+1. **Eliminate the third "no-role admin" state (LOCKED — harden guards).** A legacy `{admin:true}` account
+   with no/unknown role is code-supported and **silently gets full manager power** — `guards.requireManager`
+   is a straight **alias of `requireAdmin`** (guards.js L106-119) — while being invisible to role filters
+   (`roleOf()` → `""`, L99-102). The dev seed's `legacy@test.com` is one.
+   - Harden `guards.requireManager`/`roleOf` so **manager surface requires `role` exactly `'manager'` or
+     `'owner'`** — an admin claim with any other role (incl. none/unknown) is **refused**, not treated as a
+     manager. (This is a change to the auth **choke point**: TDD-first, and verify managers `role==='manager'`
+     still pass and owners still pass.)
+   - **Migrate the seed same commit:** `seed-emulator.js` makes `legacy@test.com` an explicit **manager**
+     (or drops it). No production accounts exist yet (`.firebaserc`=demo, go-live not started), so the only
+     "migration" is the seed; note in the go-live runbook that any imported role-less admin must be given an
+     explicit role via `set-admin.js` before deploy.
+2. **Hard-cap owners at 2 (LOCKED).** Nothing stops a 3rd owner today ("keep exactly 2" is only a comment;
+   `MIN_ADMINS` is a *floor*). In `set-admin.js`, **refuse `--role=owner` when `countActiveOwners() >= 2`
+   unless `--force`** is passed. Owners are SA-key/script-only, so this is defence-in-depth, not a live
+   escalation fix.
+3. **Reject/alert unknown role strings** (folded into C-1): an out-of-band `role:'superadmin'` must not be
+   silently normalized to a manager-floor — the hardened `requireManager` already refuses it; optionally
+   surface it as a `getStats` health warning rather than a silent collapse. (Low.)
+
+**Security model (non-negotiable):**
+- Exclusion + roster are **server-enforced** (`listUsers` skips admins server-side; `listAdmins` is
+  owner-gated) — hiding rows in the client is only a backstop, not the control.
+- The auth choke point stays **fail-safe**: after C-1, an admin claim with no valid role gets **no** admin
+  surface (refused), never a silent manager grant.
+- Roster and any admin action stay **owner-only** (managers can't open Admin access at all — Point 2, unchanged).
+
+**Acceptance (tests):**
+- `listUsers` returns **no** account with `customClaims.admin===true` (unit/callable tier); the client Users
+  list, count, CSV and bulk actions show none; Overview totals + `findDuplicateEmails` exclude admins.
+- `listAdmins` returns every admin (owner **and** manager, keyed off the claim) for an owner caller, and
+  **refuses a manager** (permission-denied) — the two source-scans (`admin-gate-coverage`, `audit-labels`)
+  stay green with the new callable.
+- A `{admin:true}` account with **no role** (or an unknown role) is **refused** the manager surface after
+  C-1; an explicit `role==='manager'` still passes; owners still pass. The seed no longer creates a role-less
+  admin.
+- `set-admin.js --role=owner` **refuses a 3rd owner** without `--force`.
+- `test:unit` green · `build` clean (no-names guard) · **no `test:rules` needed** (rules untouched) ·
+  browser-verified: owner sees the Admin access roster + no admins in Users; a manager sees no Settings tab.
+
+**DoD:** admins never appear in the Users section (or its count/CSV/bulk surfaces); the owner-only Admin
+access area lists **all** admins (owners + managers) with the email-lookup grant flow kept below it; exactly
+two admin types can exist (no-role state eliminated at the choke point + seed migrated); owners hard-capped
+at 2 in the script; every change server-enforced + audited where it mutates; docs + tests updated; no new
+dependency; light-paper admin only.
+
+**Status: PLAN ONLY — not built.** Decisions locked 2026-08-03 via AskUserQuestion: **(1)** eliminate the
+no-role admin state (harden guards + migrate seed); **(2)** hard-cap owners at 2 in `set-admin.js`; **(3)**
+roster **+ keep** the email lookup; **(4)** exclude admins from **every** user-count surface (Users list,
+Total users, tier counts, dup-email). 🔶 **CHECKPOINT** (security-critical: auth choke point + a new
+owner-gated callable) — but decisions are locked, so it's buildable on a "go". Independent of ADMIN-6 and
+LAUNCH-FREE (no shared files that conflict). Queued in [BUILD-LOOP](BUILD-LOOP.md) as #11.
+
+---
+
 ## ADMIN-JOBS. Human-readable scheduled-job labels  (✅ BUILT 2026-08-01)
 
 Founder ask (2026-08-01): the admin **Overview → System status strip** lists each scheduled job by
