@@ -3846,6 +3846,35 @@ Cross-refs: [`CACHE-POLICY.md`](../decisions/CACHE-POLICY.md) (AI tier) · [`PRI
     They only differ in the default-on-no-proxy state, where Ask shows its canned answers (AI-CHAT-SWITCH's
     deliberate choice) while Pulse stays deterministic-honest — intentional, and more honest than today.
 
+### What the switch governs (matrix)
+The admin **`aiResearch`** toggle drives two derived gates: **`chatEnabled`** = `!(aiResearch === false)` (flag
+only) and **`aiChrome`** = `chatEnabled && AI_PROXY_LIVE` (flag **and** a live proxy). Three real states:
+**A** = switch OFF · **B** = switch ON but no live proxy (today's default) · **C** = switch ON + proxy live (Wave B).
+
+| Research element | Gate | A · switch OFF | B · switch ON, no proxy (today) | C · switch ON + proxy live (Wave B) |
+|---|---|---|---|---|
+| **Ask chat tab** | `chatEnabled` | hidden | **visible** (canned answers) | visible (live AI) |
+| **Pulse "Regenerate" button** | `aiChrome` | hidden | hidden | **visible** |
+| **Pulse AI-gradient label** | `aiChrome` | plain label | plain label | **gradient** |
+| **Pulse AI-status pill** | `aiChrome` | **"AI off"** | **"AI off"** | **"AI on"** |
+| **Pulse summary text** | `aiChrome` | deterministic | deterministic | **live AI** (validated → falls back to deterministic) |
+| **"AI is offline" apology** | — | gone (replaced by the pill) | gone | gone |
+| **Empty-state "AI insights" copy** | none | neutral | neutral | neutral |
+| **Disclaimer "AI-generated" word** | `aiChrome` | omitted | omitted | shown |
+| **Portfolio · Coins · allocation · risk · stress · the deterministic Pulse facts** | never gated | always on | always on | always on |
+
+**How to read it:**
+- **State A is the no-AI launch posture** — set `aiResearch = false`: Ask hidden, pill "AI off", clean
+  deterministic Pulse, no gradient/Regenerate, disclaimer neutral. Fully consistent.
+- **The one asymmetry (state B):** the Ask tab is *visible* while the Pulse AI chrome is *off* — Ask is
+  flag-only (AI-CHAT-SWITCH: its canned answers "work" offline) but the Pulse chrome needs a real proxy. B is a
+  transitional/dev posture you wouldn't ship; to make B fully consistent, gate Ask on `aiChrome` too (reconcile
+  via sweep item #8 — not currently chosen).
+- **The pill never lies:** "AI off" whenever AI can't actually answer (A and B), "AI on" only when a live proxy
+  is serving (C) — the switch alone can't turn it "on".
+- **Nothing outside the AI surface is ever gated** — the deterministic Overview, Portfolio, Coins, allocation,
+  risk meter and stress test are always on in every state.
+
 ### Consistency sweep — change in EVERY file (no silent drift)
 Prop path: `useApp().site.features.aiResearch` → `Research.jsx` → `ResearchTab.jsx` → `OverviewView` → `Pulse`.
 1. **[`ai-client.js`](../../src/features/research/api/ai-client.js)** — export `export const AI_PROXY_LIVE =
