@@ -12,7 +12,7 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
-## AGENT-FACTORY. Autonomous feature assembly line (dev tooling — 📋 BLUEPRINT 2026-08-03)
+## AGENT-FACTORY. Autonomous feature assembly line (dev tooling — ✅ ROSTER BUILT 2026-08-03; first end-to-end run pending)
 
 Canonical: **[`AGENT-FACTORY.md`](AGENT-FACTORY.md)**. A `/build-feature` orchestrator that carries
 one backlog item through the full [Definition of Done](AGILE.md) via a fixed sequence of
@@ -28,6 +28,13 @@ order in AGENT-FACTORY.md §6: orchestrator + fix-controller first, then the gat
 then test-author, the builders, docs-scribe + integrator, and the stage-6 quality reviewers.
 Local-first, no new deps; each agent built to the `jira-*` bar and validated before it's trusted in
 the line.
+
+**Status ✅ ROSTER BUILT 2026-08-03:** all 12 exist — 11 subagents in `.claude/agents/`
+(spec-drafter, architect, test-author, rules/functions/client-builder, api-contract-verifier,
+simplifier, docs-scribe, integrator, fix-controller) + the `/build-feature` orchestrator command.
+The 4 review agents (`consistency-sweep`/`secure-by-design`/`test-tier-verifier`/`design-consistency`)
+are wired in as stages. **Not yet exercised end-to-end** — the first `/build-feature <small item>` run
+is the integration test; start low-risk.
 
 ---
 

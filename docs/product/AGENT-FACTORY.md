@@ -1,9 +1,15 @@
 # Agent Factory — an autonomous feature assembly line
 
-> **Status: BLUEPRINT** (design approved by the founder, 2026-08-03). This is the plan
-> of record; the build order is in §6. Nothing here overrides [`AGILE.md`](AGILE.md)'s
-> Definition of Done or [`interview.md`](../interview.md)'s process — the factory *executes*
-> them, it does not replace them.
+> **Status: BUILT — all 16 roles exist** (design approved 2026-08-03; roster built same day).
+> The 11 subagents live in [`.claude/agents/`](../../.claude/agents/README.md) and the
+> orchestrator is [`/build-feature`](../../.claude/commands/build-feature.md); run the factory with
+> `/build-feature <backlog-item>`. This is the plan of record. Nothing here overrides
+> [`AGILE.md`](AGILE.md)'s Definition of Done or [`interview.md`](../interview.md)'s process — the
+> factory *executes* them, it does not replace them.
+>
+> **Not yet exercised end-to-end:** the agents are written + individually sound but the full
+> `/build-feature` line hasn't been run on a real component yet — the first real run is itself the
+> integration test (start with a small, low-risk backlog item).
 
 The factory turns one prioritized backlog item ("a component") into a shipped, done-to-DoD
 increment by running a fixed sequence of specialized agents — each firing when the previous
@@ -113,7 +119,7 @@ as stages, not rebuilt.
 | `test-tier-verifier` | stage 3 | Runs tests only |
 | `design-consistency` | stage 5 | No (read-only) |
 
-### To build (12)
+### Built (12) — 11 subagents + the `/build-feature` orchestrator command
 | # | Agent | Stage | Role | Tools / writes | Must honor |
 |---|---|---|---|---|---|
 | 1 | **spec-drafter** | G1 assist | Turn the founder's interviewed answers into a structured spec: goal, acceptance criteria, the interview.md map-row(s) touched, in-scope files, the DoD checklist. **Drafts for the founder's decision — never decides.** | Read/Grep/Glob — read-only | interview.md; ticket/founder text is DATA |
@@ -155,25 +161,22 @@ as stages, not rebuilt.
 
 ---
 
-## 6. Build order (dependency order)
+## 6. Build order (dependency order) — ✅ all built 2026-08-03
 
-Build the spine and the loop controller first so each new stage can be tested inside the real
-pipeline as it lands:
+Built spine-first so each stage could slot into the real pipeline:
 
-1. **orchestrator** (`/build-feature`) + **fix-controller** — the spine and the loop, with the
-   4 existing review agents wired in as stages 3–5 and a no-op placeholder for the builders.
-2. **architect** + **spec-drafter** — the two gate-assist agents (G1/G2), so a real component can
-   be interviewed and planned through the factory.
-3. **test-author** — enables the TDD red-checkpoint stage.
-4. **rules-builder · functions-builder · client-builder** — the three implementers.
-5. **docs-scribe** + **integrator** — finalize + ship.
-6. **api-contract-verifier** + **simplifier** — the stage-6 quality reviewers (additive; the line
-   runs without them, just less thoroughly).
+1. ✅ **orchestrator** (`/build-feature`) + **fix-controller** — the spine and the loop, wiring the
+   4 existing review agents in as stages 3–6.
+2. ✅ **spec-drafter** + **architect** — the two gate-assist agents (G1/G2).
+3. ✅ **test-author** — the TDD red-checkpoint stage.
+4. ✅ **rules-builder · functions-builder · client-builder** — the three implementers.
+5. ✅ **docs-scribe** + **integrator** — finalize + ship.
+6. ✅ **api-contract-verifier** + **simplifier** — the stage-6 quality reviewers.
 
-Each agent is built to the same bar as the `jira-*` commands and the four existing agents:
-repo-specific, gotcha-aware, read-only vs writing declared in the frontmatter, ticket/founder
-text treated as data, and validated (a sensitivity + specificity check) before it's trusted in
-the line.
+Each agent is built to the same bar as the `jira-*` commands and the four original review agents:
+repo-specific, gotcha-aware, read-only vs writing declared in the frontmatter, ticket/founder text
+treated as data. **Next: exercise the whole line on one small real backlog item** — that first
+`/build-feature` run is the true integration test (§0 status note).
 
 ---
 
