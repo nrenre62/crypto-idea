@@ -3627,6 +3627,8 @@ verified live on the emulator). Original spec below.
 
 > **Staged, not queued.** This spec is finished and approved (2026-08-01 interview) but is
 > **deliberately NOT in the [`BUILD-LOOP.md`](BUILD-LOOP.md) ledger** — add a ledger row to build it.
+> **Pairs with [RESEARCH-NO-AI](#research-no-ai-make-the-research-overview-honest-with-no-ai-deterministic-pulse-drop-the-offline-apology-gate-ai-chrome-on-the-flag--staged-2026-08-03--not-queued-to-the-build-loop)**
+> — same `aiResearch` flag, same `chatEnabled` derivation; build both in ONE increment/ledger row.
 > Gate: 🟩 GREEN (all decisions locked). Blast radius: moderate — Research feature components + admin
 > bundle + one `functions/features.js` string. **No `firestore.rules` change, no new callable, no
 > data-model change** (the switch already exists in `config/app.flags.features.aiResearch` and is
@@ -3703,6 +3705,115 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 - No `firestore.rules` change ⇒ no `test:rules` requirement. No new dependency, no new hex.
 - Docs: CLAUDE.md Research-tab + ADMIN-2 notes updated; this Status line flipped to ✅ BUILT; commit.
 - Forward requirement (proxy server-enforcement) recorded, explicitly deferred to Wave-B.
+
+---
+
+## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (📋 STAGED 2026-08-03 — NOT queued to the BUILD-LOOP)
+
+> **Staged, not queued.** Finished + approved (2026-08-03 interview). NOT in the [`BUILD-LOOP.md`](BUILD-LOOP.md)
+> ledger — add a ledger row to build it, **sharing ONE row with [AI-CHAT-SWITCH](#ai-chat-switch-owner-switch-to-hide--disable-the-research-ask-chat-client-side--staged-2026-08-01--not-queued-to-the-build-loop)**
+> (same flag, same increment). Gate: 🟩 GREEN (design/copy + one build constant + a derived boolean; **no
+> `firestore.rules`, no backend, no new callable, no new dep**). Blast radius: LOW-MODERATE — 5 Research
+> files + copy + a couple of unit tests. **No pricing change.**
+
+### The founder's question, answered (feasibility)
+> "Can Portfolio Pulse / the Research Overview realistically work with NO AI / no AI API connection?"
+
+**Yes — it already does today, and always has. The AI path is dead code.**
+- `askClaude()` ([`ai-client.js:12`](../../src/features/research/api/ai-client.js)) **throws
+  unconditionally** — no Anthropic, no relay (by design: the key can't ship to the browser).
+- So `usePulse` ([`usePulse.js:39`](../../src/features/research/hooks/usePulse.js)) **always** falls to
+  `catch` → `fallbackText()`, a pure deterministic sentence from the user's OWN numbers (`total`, top
+  holding, `alloc %`, `perf[tf]`). That fallback *is* the live behaviour.
+- The rest of Overview is pure math on holdings + prices — **zero AI**: Daily Brief (24h Δ / top mover /
+  most-volatile), Allocation bar (`alloc %`), Risk meter (`deriveRisk`, rank log-scale), Stress test
+  (`stressScenario`, beta), diversification note.
+- Only inputs: (1) the user's holdings (already in Firestore) + (2) prices/24h/7d/30d/sparkline from the
+  app's **existing** `/api` proxy (flat-cost shared cache). **No new external call, no per-user cost, no AI.**
+
+**Capability isn't the gap — honesty of framing is.** The Overview was built "AI-first with an offline
+fallback," but AI never got wired, so every user permanently sees a product that (a) **apologizes for a
+working feature** ("AI is offline right now — showing a basic summary") and (b) **advertises AI it doesn't
+have** (gradient "Portfolio Pulse" label, "AI insights" copy, an "AI-generated" disclaimer, a "Regenerate"
+button that reproduces byte-identical text).
+
+### Decisions (locked — 2026-08-03 interview)
+1. **AI is Wave-B "later," not "never."** Keep the `askClaude` seam; gate the AI *chrome* on the existing
+   `aiResearch` flag (the same switch AI-CHAT-SWITCH uses). One switch governs the whole Research AI surface.
+2. **Remove the "AI is offline" apology entirely — unconditional.** The deterministic summary presents as the
+   feature; no user is told anything is "offline" or "basic," in any state.
+3. **Keep the name "Portfolio Pulse"** (a product name, not an AI claim); drop the AI-gradient styling + the
+   "AI insights" copy when AI is off.
+4. **Hide "Regenerate" when AI is off** (a deterministic summary regenerates to identical text — a no-op).
+   Keep "Share." It returns when AI is live.
+
+### The gate — reconciled with AI-CHAT-SWITCH (no drift), and honestly "off today" with zero config
+- **Reuse AI-CHAT-SWITCH's `chatEnabled = !(site?.features?.aiResearch === false)`** (derived once in
+  `Research.jsx`). That governs Ask-tab **visibility** — flag-only is right there, because the Ask chat
+  "works" client-side (canned answers) so it's purely the owner's show/hide choice.
+- **Pulse AI-chrome** (gradient label · Regenerate · any live-text attempt · the word "AI-generated" in the
+  disclaimer) is gated on **`chatEnabled && AI_PROXY_LIVE`**, a strict subset — where **`AI_PROXY_LIVE`** is a
+  build constant exported from `ai-client.js`, **`false` today** (askClaude throws), flipped `true` by the
+  Wave-B increment that ships the real proxy.
+  - **Why the extra `&& AI_PROXY_LIVE`, not the flag alone:** `aiResearch` DEFAULTS ON, and no proxy exists.
+    A flag-only gate would paint AI chrome on a deterministic Pulse today and force the founder to remember to
+    flip a default-ON switch. Tying the chrome to "AI actually exists" makes the no-AI state correct with
+    **zero config** — this is what makes the founder's "today it's effectively OFF" literally true — and it
+    can't drift. The flag stays a real kill-switch on top (owner can force everything off before Wave B).
+  - **The two agree exactly in the launch state** (`aiResearch = false` ⇒ Ask hidden AND Pulse chrome off).
+    They only differ in the default-on-no-proxy state, where Ask shows its canned answers (AI-CHAT-SWITCH's
+    deliberate choice) while Pulse stays deterministic-honest — intentional, and more honest than today.
+
+### Consistency sweep — change in EVERY file (no silent drift)
+Prop path: `useApp().site.features.aiResearch` → `Research.jsx` → `ResearchTab.jsx` → `OverviewView` → `Pulse`.
+1. **[`ai-client.js`](../../src/features/research/api/ai-client.js)** — export `export const AI_PROXY_LIVE =
+   false;` (Wave B flips it to `true` in the same increment that replaces the `askClaude` body). Keep the
+   throwing body.
+2. **[`Research.jsx`](../../src/features/research/Research.jsx)** — reuse `chatEnabled` (AI-CHAT-SWITCH);
+   derive `const aiChrome = chatEnabled && AI_PROXY_LIVE;` and pass `aiChrome` to `ResearchTab`.
+3. **[`ResearchTab.jsx`](../../src/features/research/components/ResearchTab.jsx)** — accept `aiChrome = false`:
+   - **line 45** `usePulse(portfolio, tf, !empty)` → `usePulse(portfolio, tf, !empty && aiChrome)` — when AI
+     off, usePulse short-circuits to `fallbackText` (`offline:false`) and makes **no** `askClaude` call
+     (reuses the existing `enabled=false` path — no new branch);
+   - **line 79 disclaimer** "AI-generated insights and the Stress test…" → gate the word "AI-generated" on
+     `aiChrome` (or drop it: insights/Stress test are deterministic either way);
+   - pass `aiChrome` to `<OverviewView>`.
+4. **[`OverviewView.jsx`](../../src/features/research/components/OverviewView.jsx)** — accept + forward
+   `aiChrome` to `<Pulse>`; **line 13** empty-brief "start seeing **AI insights**" → "start seeing your
+   insights" (neutral, unconditional, cosmetic).
+5. **[`Pulse.jsx`](../../src/features/research/components/Pulse.jsx)** —
+   - **remove the offline-note block entirely** (lines 44-46, decision 2); the `offline` prop then goes unused
+     in Pulse → drop it from the signature + the OverviewView pass-through;
+   - gate the `ai-gradient-text` class on `aiChrome` (plain label otherwise);
+   - gate the **Regenerate** button on `aiChrome` (keep **Share** always, decision 4).
+6. **[`EmptyState.jsx`](../../src/features/research/components/EmptyState.jsx)** — line 4 "your **AI insights**,
+   allocation and risk" → "your insights, allocation and risk" (neutral, unconditional, cosmetic).
+7. **[`research-tab.css`](../../src/features/research/styles/research-tab.css)** — keep `.ai-gradient-text`
+   (line 39, used when `aiChrome`); remove the now-dead "AI is offline" note-box rule (~line 286).
+8. **[`useAsk.js`](../../src/features/research/hooks/useAsk.js) / [`AskView.jsx`](../../src/features/research/components/AskView.jsx)** —
+   **out of scope here.** Ask is hidden by **AI-CHAT-SWITCH** when off; `AskView.jsx:29`'s "AI is offline"
+   line is only reachable when Ask is shown (= flag on), where it's honest. Cross-ref, don't touch.
+
+### Acceptance (RED first; never weaken a test)
+- **Unit** (`tests/unit/`, Pulse/Research render test):
+  - Pulse renders **no** "AI is offline"/"basic summary" text in any state.
+  - `aiChrome=false`: **no** `ai-gradient-text` class, **no** Regenerate button, Share present; Pulse text ==
+    the deterministic `fallbackText` for the portfolio+tf; disclaimer omits "AI-generated".
+  - `aiChrome=true`: gradient + Regenerate present.
+  - `usePulse` with `enabled=false` makes **zero** `askClaude` calls (spy) and returns `offline:false`.
+- **`npm run build`** — clean (no-names guard unaffected). **No `test:rules`** (no rules/backend change).
+
+### Definition of Done
+- test:unit + build green; verified in the emulator (Research → Overview) as a Starter user: clean
+  deterministic summary, **no** "offline" note, **no** gradient, **no** Regenerate, disclaimer neutral, Ask
+  tab hidden (via AI-CHAT-SWITCH). (Flip `AI_PROXY_LIVE=true` + `aiResearch` ON in Wave B → chrome returns.)
+- **Docs synced in the same commit:** the CLAUDE.md "Research tab" line "Pulse shows an 'AI is offline' note"
+  becomes stale → update it; note the launch behaviour.
+- **Go-live note:** AI chrome is off automatically (`AI_PROXY_LIVE=false`, belt) and the owner can force
+  `aiResearch=false` (braces). Chrome must not return until the Wave-B proxy **and** the output validator
+  ([`functions/validate-output.js`](../../functions/validate-output.js)) are wired. Cross-ref LAUNCH-FREE.
+- **Build together with AI-CHAT-SWITCH** (one ledger row) — same `chatEnabled` derivation, same increment.
+- Staged, not queued: no BUILD-LOOP ledger row until founder says go.
 
 ---
 
