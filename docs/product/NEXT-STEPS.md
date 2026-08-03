@@ -3747,6 +3747,83 @@ button that reproduces byte-identical text).
 4. **Hide "Regenerate" when AI is off** (a deterministic summary regenerates to identical text — a no-op).
    Keep "Share." It returns when AI is live.
 
+### Pulse content rules — WITHOUT AI (this increment · locked 2026-08-03 interview)
+**Design (single source of truth):** one pure `pulseFacts(portfolio)` layer computes the facts; the no-AI
+Pulse renders them via hand-authored templates, and Wave-B AI (below) rephrases the SAME facts — it never
+invents new ones. Facts (all already produced by `computePortfolio`/`deriveRisk` + each coin's `entries` — no
+new data, no new call): value, invested (cost basis), unrealized P&L $/%, perf 24h/7d/30d, per-coin change,
+alloc %, top holding, top-2/3 concentration, best/worst performer, top 24h mover, most-volatile,
+risk {level,breakdown,megaAlloc}, holding count.
+
+**What the no-AI Pulse MAY say** — structured multi-signal, **~4-6 short scannable lines max**:
+- **R-A Value + performance** (always): "Your portfolio is **$X**, **up/down Y%** over the {24h/7d/30d}."
+- **R-B Unrealized P&L vs cost** (when invested > 0): "That's **up/down $P (Q%)** on the **$Z** you've put in."
+  P&L = total − Σ(amount × avgCost) of current holdings; **honest sign** (a loss reads as a loss).
+- **R-C Concentration** (holdings ≥ 2): "Your top {1-2} — **{held coin name(s)}** — make up **N%** of the book."
+- **R-D Best/worst mover** (holdings ≥ 2, with dispersion): "Over the {tf}, **{best} +X%** led, **{worst} −Y%** lagged."
+- **R-E Risk pointer** (ONE clause, not the full card): "…and your mix leans **{Low/Moderate/High}** risk."
+- **R-F Diversification nudge** (ONLY if top-2 > 60%): "With ~N% in your top two, spreading across more assets is
+  one way to lower single-coin risk." — neutral education (locked: descriptive + neutral), **NEVER "buy/sell X".**
+- **Empty:** "Once you add coins, your portfolio summary appears here." (no AI mention.)
+
+**Hard rules the deterministic templates MUST obey:**
+1. **Held-only naming** — name a coin only if the user actually holds it; never one they don't.
+2. **No advice** — describe + light neutral education only; never buy/sell/hold/"time to".
+3. **No predictions / price targets / valuations** — past + present facts only.
+4. **Never NaN/Infinity** — guard divide-by-zero (missing history → 0%, per the existing adapter convention);
+   **skip R-B** when invested is 0/unknown rather than printing "∞%".
+5. **Don't duplicate the cards below** — the RiskMeter + diversification-note cards already sit under the Pulse
+   in `OverviewView`; R-E is a one-clause pointer and R-F only fires past 60%, so the Pulse **complements**, not
+   repeats (this is the guard against the "wall of text / duplication" risk).
+6. Format via the existing `money`/`fmtPct`/`abbreviate`; bold figures with `**…**` (Pulse `Rich` renders it).
+
+**Implementation (adds to the sweep):** a pure `pulseFacts` + template builder (in `utils/portfolio.js`, or a
+new `utils/pulse.js`) imported by `usePulse`'s `fallbackText`; `usePulse` returns the multi-line text, Pulse's
+`Rich` already renders `**bold**` + newlines. **Tests:** each rule fires/omits on its condition; P&L sign
+correct; no NaN on zero-history/zero-cost; empty-state text; held-only naming.
+
+### Pulse content rules — WITH AI (Wave B / "Plan B" ONLY — NOT built in this increment)
+> Recorded here so all Pulse rules live in one place. Built in **Wave B** (the `researchAsk` proxy + Blaze),
+> NOT now. Founder chose the **"fuller research assistant"** scope → the guardrails below are REQUIRED, not
+> optional (the wider the scope, the harder the validator + judge must work).
+
+**What AI ADDS (scope = fuller assistant):** rephrases the deterministic facts into fluent, varied prose (so
+Regenerate genuinely varies), synthesizes/compares across timeframes, explains concepts (concentration,
+volatility, risk tiers), and powers richer free-form **Ask** threads about the user's OWN holdings. **AI adds
+language + synthesis — never new facts, numbers, names, or verdicts.**
+
+**Hard output rules — enforced SERVER-SIDE by [`functions/validate-output.js`](../../functions/validate-output.js),
+fail-closed (the control, NOT the system prompt):** every response is validated before any text reaches the
+client; a violation regenerates (**N=2 cap**) then falls back to **the deterministic no-AI Pulse text above**
+(the fallback is already built). Blocked: **names** (any coin/token/exchange not in `allowedNames` = the user's
+holdings + BTC/ETH/SOL) · **prices/valuations/targets/multiples** · **advice** (buy/sell/hold, "time to",
+ratings) · **allocation** ("N% of your portfolio") · **aggregate scores/grades**. Because the scope is "fuller
+assistant," the **B2 LLM judge is REQUIRED** — the regex prefilter alone is insufficient for synthesis-heavy prose.
+
+**Grounding + tone rules (system prompt + design — belt to the validator's braces):** reason ONLY from the
+provided portfolio context + computed facts; assert **no external fact** (news/price/event) it wasn't given;
+neutral + educational; 2-4 sentences for Pulse, richer for Ask; never financial advice.
+
+**Server-enforcement rules (the real boundary):** the `researchAsk` Cloud Function holds the Anthropic key
+(never the client) · runs `selectValidated` on every response · checks `featureEnabled(cfg,'aiResearch')` and
+denies when OFF (deny-by-default — the forward requirement AI-CHAT-SWITCH recorded) · meters per-uid cost
+against `aiMonthlyCents` (free 0 / pro 400 / premium 2500) · rate-limit + App Check · sends only the caller's
+OWN portfolio context (no cross-user data).
+
+**Expanded Wave-B Pulse roadmap (build order, gated on Blaze):**
+1. Ship the `researchAsk` proxy holding the key; wire `validate-output.js` (regex prefilter **+ B2 LLM judge**).
+2. Flip `AI_PROXY_LIVE=true`; replace the `askClaude` body with the callable (the seam is already there).
+3. **Pulse-with-AI:** feed `pulseFacts` + context → AI rephrases → validator → fallback = the deterministic Pulse.
+4. **Ask chat** re-enabled (AI-CHAT-SWITCH flips `aiResearch` ON) with the fuller-assistant threads.
+5. **Per-tier budgets** (`aiMonthlyCents`) + **graceful degradation**: at the ceiling, fall back to the
+   deterministic Pulse behind a quiet banner — never a mid-thought paywall (saas-pricing principle 7).
+6. **Cache the Pulse per portfolio-state** so AI cost stays flat + invisible (CACHE-POLICY §C Wave B; C7 keeps
+   the AI meter admin-only).
+7. Later: per-coin AI evidence (swap the `mock-conviction` seam for the live per-coin cache).
+
+Cross-refs: [`CACHE-POLICY.md`](../decisions/CACHE-POLICY.md) (AI tier) · [`PRICING.md`](../decisions/PRICING.md)
+(`aiMonthlyCents`) · [`BILLING.md`](../decisions/BILLING.md) (Blaze) · [`validate-output.js`](../../functions/validate-output.js) (#13–#16).
+
 ### The gate — reconciled with AI-CHAT-SWITCH (no drift), and honestly "off today" with zero config
 - **Reuse AI-CHAT-SWITCH's `chatEnabled = !(site?.features?.aiResearch === false)`** (derived once in
   `Research.jsx`). That governs Ask-tab **visibility** — flag-only is right there, because the Ask chat
