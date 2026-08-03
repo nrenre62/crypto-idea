@@ -26,8 +26,11 @@ change is in, treat it as substantive.**
 
 ## The process (in order)
 
-1. **Interview with AskUserQuestion.** Ask about the goal, the options, and the trade-offs. Don't
-   guess intent on a substantive change.
+1. **Interview with plain-chat questions.** Ask about the goal, the options, and the trade-offs as
+   **numbered plain text in the chat** and **wait for the founder's typed answer** — **never the
+   `AskUserQuestion` tool or any option-box UI** (founder rule, 2026-08-03: questions are never
+   timed or skippable; they stay in the conversation and must be answered). Don't guess intent on a
+   substantive change.
 2. **Find the gaps first.** Before proposing anything, read the related code + every related doc
    (use the map) and list where they **disagree, are stale, or are missing.** Surface the gaps
    explicitly to the founder. *(Shortcut: run **`/consistency-sweep <topic>`** — the read-only
@@ -49,7 +52,8 @@ change is in, treat it as substantive.**
 ## On errors
 
 If I hit or spot an error: **tell the founder plainly** — what it is, where, and why it matters —
-then use **AskUserQuestion** to decide the fix. Never silently pick a solution to a real problem.
+then **ask in plain chat** (numbered questions, no boxes, no time limit) to decide the fix. Never
+silently pick a solution to a real problem.
 
 ---
 

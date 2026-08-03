@@ -24,8 +24,10 @@ files, it does not matter *which* item the compaction lands on.
 1. **Pick the item.** Open the **Queue** table below; take the first row whose status is not ✅.
    Announce which item and that you're building only this one this pass.
 2. **Gate check (safety).** If the row is **🔶 CHECKPOINT**, do **not** build yet — surface the open
-   question(s) with `AskUserQuestion` and wait for a yes. If it's **🟩 GREEN**, the decisions are
-   already locked in its `NEXT-STEPS.md` entry — proceed without re-interviewing.
+   question(s) as **plain-chat numbered questions** (never `AskUserQuestion` / option boxes; no time
+   limit; they stay in the chat and must be answered — founder rule 2026-08-03) and wait for a yes.
+   If it's **🟩 GREEN**, the decisions are already locked in its `NEXT-STEPS.md` entry — proceed
+   without re-interviewing.
 3. **Re-read the spec.** Read that item's full section in `NEXT-STEPS.md` (scope, decisions,
    Acceptance, DoD). The plan is the source of truth; don't improvise scope.
 4. **TDD first.** Write/extend the failing test(s) the item's **Acceptance** names. For a bug-class

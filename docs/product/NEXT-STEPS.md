@@ -20,8 +20,8 @@ specialized agents (each fires when the previous finishes), pausing only at the 
 gates** — interview, plan approval, merge approval (founder decision: the factory replaces the
 founder's *hands*, never the *decisions* or the interview). Founder interview 2026-08-03 locked:
 **layer-specialized builders** (rules/functions/client), a **main-session orchestrator command**
-(so the gates can use AskUserQuestion — a background Workflow can't), and **write the blueprint
-first**. Roster = 4 built review agents (`consistency-sweep`/`secure-by-design`/`test-tier-verifier`/
+(so the gates can ask the founder in **plain chat** — a background Workflow can't ask at all), and
+**write the blueprint first**. Roster = 4 built review agents (`consistency-sweep`/`secure-by-design`/`test-tier-verifier`/
 `design-consistency`) + 12 to build (spec-drafter, architect, test-author, 3 builders,
 api-contract-verifier, simplifier, docs-scribe, integrator, fix-controller, orchestrator). Build
 order in AGENT-FACTORY.md §6: orchestrator + fix-controller first, then the gate-assist agents,
@@ -2086,9 +2086,10 @@ Standing operating procedure so **code + rules + README + every MD doc stay in a
 topic change (pricing, tier limits, settings, admin, API, security…) is reflected *everywhere* it
 lives, no silent drift. Canonical: [`docs/interview.md`](../interview.md); bound via a MANDATORY rule
 in [`CLAUDE.md`](../../CLAUDE.md) → Conventions (loaded every session). Flow for substantive work:
-**AskUserQuestion → find gaps across all related files → plan + get a yes → consistency sweep (every
+**plain-chat interview (numbered questions, no boxes, no time limit — founder rule 2026-08-03) →
+find gaps across all related files → plan + get a yes → consistency sweep (every
 file in the topic's map row) → verify → log here → commit.** Trivial single-file fixes skip it with a
-one-line heads-up. On an error: surface it, then AskUserQuestion for the fix. The `interview.md`
+one-line heads-up. On an error: surface it, then ask in plain chat for the fix. The `interview.md`
 **topic→files consistency map** is the concrete checklist (Pricing / Tier limits / AI budget /
 Billing / User settings / Admin / API / Security / Caching). Keep the map current when files move.
 

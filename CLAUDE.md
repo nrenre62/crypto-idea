@@ -40,13 +40,22 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - Output encoding: React auto-escapes; the static landing uses `textContent`, never `innerHTML`, for API data. **CSP `script-src` has NO `unsafe-inline`** (D12, 2026-07-03): all page scripts are external files in `public/` (`landing.js`, `sw-register.js`, `termly-embed.js`) — never add an inline `<script>` to any HTML entry; the build ships zero inline scripts.
 
 ## Conventions
+- **Question style — ALWAYS plain chat, never boxes, never timed (founder rule, 2026-08-03):**
+  ask every question — the interview, an error-fix choice, any clarification — as **plain text in
+  the chat**, written as numbered questions, and **wait for the founder's typed answer**. **Do NOT
+  use the `AskUserQuestion` tool** (or any option-box / picker UI): those read as time-limited and
+  skippable, and the founder wants questions that **stay in the conversation and must be answered**.
+  There is **no time limit** on a question; never proceed by treating one as skipped or dismissed.
+  This rule governs how every other convention below (the interview, the build loop, the factory
+  gates) asks its questions.
 - **Interview & consistency ([`docs/interview.md`](docs/interview.md)) — MANDATORY for substantive work:**
   for any new/edited **function, tool, option, category, or plan**, any **review** (code / settings /
   admin / security / API / pricing), or anything touching a topic in the interview.md **consistency
-  map** — first **interview with AskUserQuestion**, **find the gaps** across all related code+docs,
+  map** — first **interview the founder with plain-chat questions** (per the Question-style rule
+  above), **find the gaps** across all related code+docs,
   **plan and get a yes** before editing, then do the **consistency sweep** (change it in EVERY file
   the topic's map row lists — no silent drift), verify, log the plan in `NEXT-STEPS.md`, commit. On an
-  error: surface it plainly, then use AskUserQuestion to pick the fix. *Trivial, obvious, single-file
+  error: surface it plainly, then **ask the founder in plain chat** to pick the fix. *Trivial, obvious, single-file
   fixes (typo / one-liner) skip this with a one-line heads-up.*
 - **Agile workflow ([`AGILE.md`](docs/product/AGILE.md)):** work the prioritized backlog (`NEXT-STEPS.md`) one
   small, shippable increment at a time; every increment meets the **Definition of Done** (KISS +
