@@ -5,6 +5,15 @@ its conclusion, which is why they suit tasks that read across many files. A
 freshly added agent registers on the **next** session (not the one it was created
 in).
 
+> **Agent Factory.** These agents are the review/verify **stages** of the
+> autonomous feature assembly line specced in
+> [`docs/product/AGENT-FACTORY.md`](../../docs/product/AGENT-FACTORY.md) — a
+> `/build-feature` orchestrator that carries one backlog item through the full
+> Definition of Done, pausing only at the three **human gates** (interview, plan
+> approval, merge approval). The four agents below are built; the remaining
+> factory agents (builders, orchestrator, docs-scribe, …) are queued in that doc's
+> §6 build order.
+
 | Agent | What it does | Writes? | Invoke |
 |---|---|---|---|
 | **consistency-sweep** | Read-only gap-hunt for the Interview & Consistency process (`docs/interview.md`). Given a topic or a proposed change, loads every file in that topic's consistency-map row and reports where code / `firestore.rules` / `README.md` / `openapi.json` / MD docs **DISAGREE / are STALE / are MISSING**, with `file:line` evidence, plus the exact **sweep list** a change must touch. | No (read-only) | `/consistency-sweep <topic>` or the Agent tool with `subagent_type: "consistency-sweep"` |

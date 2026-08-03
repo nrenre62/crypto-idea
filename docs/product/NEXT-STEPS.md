@@ -12,6 +12,25 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## AGENT-FACTORY. Autonomous feature assembly line (dev tooling — 📋 BLUEPRINT 2026-08-03)
+
+Canonical: **[`AGENT-FACTORY.md`](AGENT-FACTORY.md)**. A `/build-feature` orchestrator that carries
+one backlog item through the full [Definition of Done](AGILE.md) via a fixed sequence of
+specialized agents (each fires when the previous finishes), pausing only at the **three human
+gates** — interview, plan approval, merge approval (founder decision: the factory replaces the
+founder's *hands*, never the *decisions* or the interview). Founder interview 2026-08-03 locked:
+**layer-specialized builders** (rules/functions/client), a **main-session orchestrator command**
+(so the gates can use AskUserQuestion — a background Workflow can't), and **write the blueprint
+first**. Roster = 4 built review agents (`consistency-sweep`/`secure-by-design`/`test-tier-verifier`/
+`design-consistency`) + 12 to build (spec-drafter, architect, test-author, 3 builders,
+api-contract-verifier, simplifier, docs-scribe, integrator, fix-controller, orchestrator). Build
+order in AGENT-FACTORY.md §6: orchestrator + fix-controller first, then the gate-assist agents,
+then test-author, the builders, docs-scribe + integrator, and the stage-6 quality reviewers.
+Local-first, no new deps; each agent built to the `jira-*` bar and validated before it's trusted in
+the line.
+
+---
+
 ## AUTH-DUP. Prevent duplicate-signup double-submit + admin dedupe detector  (✅ BUILT 2026-08-01 · client lock + read-only admin callable)
 
 Founder report (2026-08-01, with a screenshot showing **two `mark@test.com` rows** in the admin
