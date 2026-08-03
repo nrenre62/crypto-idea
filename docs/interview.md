@@ -30,7 +30,10 @@ change is in, treat it as substantive.**
    guess intent on a substantive change.
 2. **Find the gaps first.** Before proposing anything, read the related code + every related doc
    (use the map) and list where they **disagree, are stale, or are missing.** Surface the gaps
-   explicitly to the founder.
+   explicitly to the founder. *(Shortcut: run **`/consistency-sweep <topic>`** — the read-only
+   `consistency-sweep` subagent in [`.claude/agents/`](../.claude/agents/README.md) does exactly
+   this hunt across the topic's map row and hands back a ranked gap list + `file:line` evidence +
+   the sweep list. It reports only; the plan/edit/verify/commit steps below are still yours.)*
 3. **Take context from the whole topic.** Reconcile against ALL related files — code, rules, README
    section, MD docs — not just the one file the founder named.
 4. **Plan, then ask.** Present a clear plan (what changes, in which files, why). Get a clear "yes"
