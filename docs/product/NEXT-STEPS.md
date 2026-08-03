@@ -3623,12 +3623,12 @@ verified live on the emulator). Original spec below.
 
 ---
 
-## AI-CHAT-SWITCH. Owner switch to hide + disable the Research "Ask" chat (client-side)  (📋 STAGED 2026-08-01 — NOT queued to the BUILD-LOOP)
+## AI-CHAT-SWITCH. Owner switch to hide + disable the Research "Ask" chat (client-side)  (📋 STAGED 2026-08-01; queued in BUILD-LOOP #13 — NOT built)
 
-> **Staged, not queued.** This spec is finished and approved (2026-08-01 interview) but is
-> **deliberately NOT in the [`BUILD-LOOP.md`](BUILD-LOOP.md) ledger** — add a ledger row to build it.
-> **Pairs with [RESEARCH-NO-AI](#research-no-ai-make-the-research-overview-honest-with-no-ai-deterministic-pulse-drop-the-offline-apology-gate-ai-chrome-on-the-flag--staged-2026-08-03--not-queued-to-the-build-loop)**
-> — same `aiResearch` flag, same `chatEnabled` derivation; build both in ONE increment/ledger row.
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #13** (2026-08-03) — approved 2026-08-01 interview, decisions
+> locked. Built in **ONE increment together with RESEARCH-NO-AI** (same `aiResearch` flag, same `chatEnabled`
+> derivation; see that section below for the shared gate + the "what the switch governs" matrix). This section
+> owns the **Ask-chat hide/disable**; RESEARCH-NO-AI owns the **Pulse framing**.
 > Gate: 🟩 GREEN (all decisions locked). Blast radius: moderate — Research feature components + admin
 > bundle + one `functions/features.js` string. **No `firestore.rules` change, no new callable, no
 > data-model change** (the switch already exists in `config/app.flags.features.aiResearch` and is
@@ -3708,11 +3708,11 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 
 ---
 
-## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (📋 STAGED 2026-08-03 — NOT queued to the BUILD-LOOP)
+## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (📋 STAGED 2026-08-03; queued in BUILD-LOOP #13 — NOT built)
 
-> **Staged, not queued.** Finished + approved (2026-08-03 interview). NOT in the [`BUILD-LOOP.md`](BUILD-LOOP.md)
-> ledger — add a ledger row to build it, **sharing ONE row with [AI-CHAT-SWITCH](#ai-chat-switch-owner-switch-to-hide--disable-the-research-ask-chat-client-side--staged-2026-08-01--not-queued-to-the-build-loop)**
-> (same flag, same increment). Gate: 🟩 GREEN (design/copy + one build constant + a derived boolean; **no
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #13** (2026-08-03) — finished + approved (2026-08-03 interview),
+> decisions locked. Built in **ONE increment together with AI-CHAT-SWITCH** (same `aiResearch` flag, same
+> `chatEnabled` derivation). Gate: 🟩 GREEN (design/copy + one build constant + a derived boolean; **no
 > `firestore.rules`, no backend, no new callable, no new dep**). Blast radius: LOW-MODERATE — 5 Research
 > files + copy + a couple of unit tests. **No pricing change.**
 
