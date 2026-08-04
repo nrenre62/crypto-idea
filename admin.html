@@ -21,11 +21,25 @@
       background: #faf9f5; color: #1A1A1A; -webkit-font-smoothing: antialiased;
     }
     #root { min-height: 100vh; }
-    .app-loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; color: #999; font-size: 14px; }
+    .app-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 12px; color: #999; font-size: 14px; }
+    /* LOGO-2: the unified brand lockup — green "C" tile + one-word "CryptoIdea".
+       Brand green #0b6b4f (the landing --accent); no app tokens exist pre-bundle. */
+    .app-loading .lockup { display: flex; align-items: center; gap: 10px; }
+    .app-loading .mark {
+      width: 28px; height: 28px; border-radius: 8px; background: #0b6b4f; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Fraunces', Georgia, serif; font-size: 16px; font-weight: 600;
+    }
+    .app-loading .word { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: #1A1A1A; }
   </style>
 </head>
 <body>
-  <div id="root"><div class="app-loading">Loading admin…</div></div>
+  <div id="root">
+    <div class="app-loading">
+      <div class="lockup"><span class="mark">C</span><span class="word">CryptoIdea</span></div>
+      <p>Loading…</p>
+    </div>
+  </div>
   <!-- Separate entry: the admin code is NOT bundled into the user app. No service
        worker here — the admin panel is a plain page, not an installable PWA. -->
   <script type="module" src="/src/admin-main.jsx"></script>

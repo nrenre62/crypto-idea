@@ -20,10 +20,17 @@ const Education = lazy(() => import("./components/education-page.jsx"));
 const ProSuccess = lazy(() => import("./components/pro-success.jsx"));
 
 function Loading() {
+  // LOGO-2: the tiny entry-chunk fallback uses the shared brand lockup, but INLINED
+  // (not `import { Logo }`) so the deliberately-small entry chunk stays lean. The
+  // .ci-app wrapper lets the app.css .ci-logo* styles apply.
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, fontFamily: "system-ui, -apple-system, sans-serif", color: "#1A1A2E" }}>
-      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>CryptoIdea</div>
-      <div style={{ width: 26, height: 26, border: "3px solid #E8E8ED", borderTopColor: "#6C5CE7", borderRadius: "50%", animation: "ci-spin 0.7s linear infinite" }} />
+    <div className="ci-app" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, fontFamily: "system-ui, -apple-system, sans-serif", color: "#1A1A2E" }}>
+      <span className="ci-logo lg" role="img" aria-label="CryptoIdea">
+        <span className="ci-logo-mark" aria-hidden="true">C</span>
+        <span className="ci-logo-word">CryptoIdea</span>
+      </span>
+      <div style={{ width: 26, height: 26, border: "3px solid #E8E8ED", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "ci-spin 0.7s linear infinite" }} />
+      <div style={{ fontSize: 13, color: "#999" }}>Loading…</div>
       <style>{"@keyframes ci-spin{to{transform:rotate(360deg)}}"}</style>
     </div>
   );
