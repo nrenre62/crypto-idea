@@ -4296,6 +4296,148 @@ Keep the `rank` const (L37, still used by the Market Data row L64) and the field
 
 ---
 
+## RESEARCH-RISK. Split Allocation + Portfolio Risk into two card pills, and re-tier the risk formula to market-cap/rank tiers  (📋 STAGED 2026-08-04 interview + adversarial validation; NOT built)
+
+> **Staged, not queued.** Finished + approved (2026-08-04 interview; calibration adversarially
+> validated). NOT in the BUILD-LOOP ledger. Gate: **Part 1** design 🟩 GREEN; **Part 2** is a pure
+> client-side formula change (unit-tested). Blast radius: `research/utils/portfolio.js` + 2 components +
+> the note copy + tests. **No `firestore.rules`, no backend, no new dep, no `test:rules`. No pricing change.**
+
+### The founder's ask (2026-08-04, screenshot of the Overview Allocation + Portfolio Risk card)
+1. **Design:** Allocation and Portfolio Risk each become **their own card pill** (same design, just
+   separated — today they share one container).
+2. **Accuracy:** make Portfolio Risk *reflect the real portfolio* — driven by **allocation × per-coin
+   risk**, where per-coin risk comes from **market-cap tiers + rank**. 50% Bitcoin → risk down massively;
+   30% in a rank-~300 / sub-$100M coin → adds a lot; <$100M = very risky; <$50M = near-certain eventual zero.
+
+### What already exists (so this is a refinement, not a rebuild)
+`deriveRisk`/`coinRisk` ([`portfolio.js`](../../src/features/research/utils/portfolio.js) L67-109) **already**:
+rank-first log curve + a *different* log-cap fallback, **allocation-weighted mean**, a **≥40% $100B mega-cap
+floor**, 3 bands (0.34/0.67), and a rank-bucket note. **Two of the founder's requirements are already met**
+(allocation-weighting → a small junk % barely moves it; 50% BTC already pulls the mean down). **Gaps:**
+(a) the explicit **market-cap tiers aren't the driver** (rank is); (b) the **$1B–$10B band is undefined**;
+(c) super-safe is anchored at **$100B not $10B**; (d) the note speaks **rank buckets**, not the founder's $ tiers.
+
+### Decisions (locked — 2026-08-04 interview)
+1. **Per-coin risk = the RISKIER (`max`) of {cap-tier, rank-tier}** over the signals present; **neither → 0.98.**
+2. **5 cap tiers:** >$10B · $1B–$10B · $100M–$1B · $50M–$100M · <$50M.
+3. **Concentration stays OUT of the risk score** — risk = allocation-weighted mean only; the Allocation card
+   keeps the "High concentration" pill. (More Bitcoin → lower risk, per the founder's example.)
+4. **Discrete named tiers** (not a smooth curve).
+5. **Retire the ≥40% mega-cap floor** — under the accuracy goal it would *mask* a junk-heavy book (50% BTC +
+   50% sub-$50M must read High, not be capped at Moderate). The honest weighted mean supersedes it. **(New —
+   a design consequence, not asked; flagged for veto.)**
+
+### Part 1 — Two card pills (design-only)
+[`OverviewView.jsx`](../../src/features/research/components/OverviewView.jsx) L45-52 wraps `AllocationBar` +
+`RiskMeter` in one `.pulse`/`.pulse-inner` container. Give **each** its own card pill (same visual as the
+current combined card, reusing the existing card styling in
+[`research-tab.css`](../../src/features/research/styles/research-tab.css)). No logic change.
+
+### Part 2 — The re-tiered risk formula (LOCKED calibration, adversarially validated 12/12)
+**Structure:** `perCoinRisk = max(capTier, rankTier)` over the **present** signals; `score = Σ (allocᵢ/100)·riskᵢ`
+(weights sum to 1). **No concentration penalty. No mega floor.** Pure → unit-tested.
+
+**CAP tiers** (by USD market cap):
+
+| Market cap | risk | meaning |
+|---|---|---|
+| ≥ $10B | **0.05** | super-safe |
+| $1B – $10B | **0.18** | large / safe |
+| $100M – $1B | **0.45** | medium |
+| $50M – $100M | **0.80** | very risky |
+| < $50M | **0.98** | highest — near-certain eventual zero |
+
+**RANK tiers** (by market-cap rank; the validation re-aligned three lines so rank never *overstates* a size the
+cap tier already vouched for):
+
+| Rank | risk |
+|---|---|
+| ≤ 10 | 0.05 |
+| 11 – 50 | 0.12 |
+| 51 – 100 | 0.18 |
+| 101 – 300 | 0.45 |
+| 301 – 500 | 0.70 |
+| 501 – 1000 | 0.85 |
+| > 1000 | 0.95 |
+| **absent / `null`** | **no signal** → score on cap alone (if cap also absent → 0.98) |
+
+**Bands:** `score < 0.20 → Low` · `0.20 ≤ score < 0.50 → Moderate` · `score ≥ 0.50 → High`.
+
+**⚠️ Two calibration traps the validation caught (bake into the tests):**
+- **`null` rank is ABSENT, not `rank > 1000`.** The app shows rank as `—`/`null` until the daily universe
+  refresh assigns one. Mapping `null → 0.95` would let `max()` flip a **fresh $3B large-cap to High**. Score on
+  **cap alone** when rank is null. (A sub-$50M unranked coin still reads 0.98 via its **cap** tier — nothing masked.)
+- **`max(cap, rank)` means a tiny-cap coin can't hide behind an OK rank:** a $30M coin at rank 200 reads **0.98**
+  (cap), not 0.45 (rank).
+
+**Worked-examples acceptance oracle (12/12 pass — use these as the unit tests):**
+Assume BTC rank1 ~$1.3T; ETH rank2 ~$330B; SOL rank5 ~$70B; *mid* = rank~120/~$500M; *small* = rank~350/~$80M;
+*micro* = rank~900/~$30M; *unranked-micro* = no rank/~$20M. Per-coin: BTC/ETH/SOL 0.05 · mid 0.45 · small 0.80 ·
+micro 0.98 · unranked-micro 0.98.
+
+| Portfolio | Score | Label |
+|---|---|---|
+| 100% BTC | 0.050 | Low |
+| 50% BTC + 20% SOL + 20% ETH + 10% micro | 0.143 | Low |
+| 50% BTC + 50% micro | 0.515 | High |
+| 70% BTC + 30% small | 0.275 | Moderate |
+| 30% BTC + 40% ETH + 30% SOL | 0.050 | Low |
+| 100% micro (<$50M) | 0.980 | High |
+| 100% small ($50–100M) | 0.800 | High |
+| 100% mid ($100M–$1B, rank~120) | 0.450 | Moderate |
+| 80% BTC + 20% micro | 0.236 | Moderate |
+| 80% BTC + 10% micro + 10% small | 0.218 | Moderate |
+| 100% unranked-micro (<$50M, no rank) | 0.980 | High |
+| 33% BTC + 33% mid + 34% small | 0.437 | Moderate |
+
+**Risk-note copy** (cap-tier language, replaces the rank-bucket note). One-line template — a 3-bucket rollup of
+the 5 tiers: `{safe}% safe (>$1B) · {medium}% medium ($100M–$1B) · {high}% high-risk (<$100M)` (safe = cap ≥ $1B;
+high-risk = cap < $100M). Examples: *Low* — "83% in safe large-caps over $1B and only 10% in high-risk coins
+under $100M — small enough to go to zero without denting the total. Reads Low." *High* — "Over half of this book
+is in high-risk coins under $100M market cap, which can lose most of their value — so it reads High." Per-coin
+card vocabulary (for a later Coins-tab label): `super-safe (≥$10B) · large ($1–10B) · medium ($100M–$1B) · very
+risky ($50–100M) · highest-risk (<$50M)`.
+
+**Edge cases:** no cap AND no rank → 0.98 (honest default when we can't measure). One signal present → use that
+tier alone (cap-present/rank-absent → cap tier; do NOT synthesize a rank). Boundary steps at $10B/$1B/$100M/$50M
+are intentional discrete cliffs; `max()` cushions most rank cliffs because the overlapping cap tier holds the floor.
+
+### Implementation (consistency sweep — change in EVERY file; no drift)
+1. **`portfolio.js`** — rewrite `coinRisk` (tiered `max(cap,rank)`, **null-rank = absent**, neither → 0.98);
+   `deriveRisk` (**drop the mega floor**, re-tier bands to 0.20/0.50, build a **cap-tier** breakdown for the
+   note); replace the rank-bucket `riskNote` with the cap-rollup copy. Keep everything pure.
+2. **`OverviewView.jsx`** — Part 1 two-card split.
+3. **`RiskMeter.jsx`** — mechanics unchanged (reads `risk.score`/`level`/note); it just renders the new note.
+4. **`research-tab.css`** — card-pill styles for the split if needed.
+5. **Tests** — `tests/unit/research-risk.test.js`: **replace** the old rank-log assertions with the 12
+   worked-example portfolios as the oracle + the two calibration traps (null-rank-on-cap-alone; `max` beats a
+   deceptive rank); `research-adapters` if it asserts risk; the Overview render test for the 2-card split.
+6. **Docs** — CLAUDE.md "Research tab" + the **R23/R14** notes (rank-log risk, mega floor, rank-bucket note) go
+   stale → update to the tiered model in the same commit; [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) R23/R14
+   cross-note.
+
+### Acceptance (RED first; never weaken a test)
+- **Unit (pure):** the 12 worked-example portfolios produce the **exact** score+label above; a $30M/rank-200 coin
+  reads 0.98 (cap beats rank); a **null-rank $3B** coin reads 0.18/**Low** (not High); neither-signal → 0.98;
+  band boundaries at 0.20/0.50; the mega floor is gone (50% BTC + 50% micro = 0.515 → **High**).
+- **Component:** Overview renders **two** separate cards (Allocation, Portfolio Risk); the meter note uses
+  cap-tier language.
+- **`npm run build`** clean. **No `test:rules`** (no rules/backend change).
+
+### Definition of Done
+- test:unit + build green. Emulator browser-verify: the two cards render separately; 50% BTC + 50% sub-$50M reads
+  **High** (was capped Moderate by the old floor); a fresh unranked large-cap reads **Low**.
+- Docs synced in the same commit (CLAUDE.md R23 note is now wrong).
+- Staged, not queued: no BUILD-LOOP row until founder says go.
+
+### Cross-links
+- **Supersedes** the R23 rank-log risk model + R14/R23 mega-cap floor + rank-bucket note (DESIGN-PASS §R23/§R14).
+- The 5-tier **per-coin** vocabulary could later label the **conviction-signal pills** on the Coins tab (a
+  separate per-coin signal, mock-fed today) — optional follow-on, not in scope here.
+
+---
+
 ## Commands
 
 | Command | What |
