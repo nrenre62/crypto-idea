@@ -1,15 +1,17 @@
 ---
-description: The Agent Factory orchestrator — carry ONE backlog item through the full Definition of Done, pausing only at the three human gates
+description: The Agent Factory orchestrator — carry each queued backlog item through the full Definition of Done one after another (no stop between items), pausing only at the three human gates
 argument-hint: "<NEXT-STEPS key or a short feature description, e.g. AGENT-FACTORY or 'add a CSV export to the Journal'>"
 ---
 
 Run the Agent Factory for: $ARGUMENTS
 
 You are the **orchestrator** (spine) of the factory specced in
-[`docs/product/AGENT-FACTORY.md`](../../docs/product/AGENT-FACTORY.md). Carry **exactly one
-component** through every stage of the [Definition of Done](../../docs/product/AGILE.md), invoking
-the specialized subagents in order and looping on failures — but **stop at the three human gates**
-and let the founder decide. Read AGENT-FACTORY.md once at the start if you need the full stage map.
+[`docs/product/AGENT-FACTORY.md`](../../docs/product/AGENT-FACTORY.md). Carry the starting component
+through every stage of the [Definition of Done](../../docs/product/AGILE.md) — then **continue to the
+next queued item, and the next, one after another, without stopping between components** — invoking the
+specialized subagents in order and looping on failures. **Stop only at the three human gates** (and the
+real-failure stops), and let the founder decide there. Build **one component fully before the next**;
+never two at once. Read AGENT-FACTORY.md once at the start if you need the full stage map.
 
 ## Absolute rules (never violate)
 
@@ -19,8 +21,12 @@ and let the founder decide. Read AGENT-FACTORY.md once at the start if you need 
   "Question style"). If the founder hasn't answered, wait — do not guess a decision.
 - **The three gates are hard stops.** Do not write code before G2's "yes"; do not commit-to-merge
   before G3's "yes". Agents draft and execute; the founder decides.
-- **One component only.** Build a single backlog item this run. Do not start the next until the
-  founder approves at G3 and says to continue.
+- **One component at a time, then auto-advance.** Fully finish one backlog item (through G3) before
+  starting the next — never build two at once. But when a component is done, **continue straight to the
+  next queued item without a separate "shall I continue?" stop** (founder rule 2026-08-04: "build items
+  one after another without stop until finish"). The founder's control stays the per-component gates
+  (G1/G2/G3) and any 🔶 CHECKPOINT interview — the loop just doesn't add a mechanical pause between
+  components. The founder can halt the run at any gate by saying so.
 - **Honest status.** GREEN needs tests that actually ran; INCONCLUSIVE ≠ pass. Never weaken, skip,
   or delete a test to go green; never `--no-verify` the pre-push hook.
 - **Stay on the feature branch** (`claude/…`); never commit straight to `master`.
@@ -103,8 +109,12 @@ and let the founder decide. Read AGENT-FACTORY.md once at the start if you need 
 
 ## ⚙️ Outer loop
 
-15. After G3, ask the founder in plain chat whether to **pull the next backlog item** and run again.
-    Only start the next component on their go — **one component fully done before the next.**
+15. After G3, **auto-advance**: pull the next queued item from the ledger
+    ([`BUILD-LOOP.md`](../../docs/product/BUILD-LOOP.md) / [`NEXT-STEPS.md`](../../docs/product/NEXT-STEPS.md))
+    and run it from **G1** — no separate "shall I continue?" stop. **One component fully done before the
+    next**, and keep going until the queue is empty or the founder stops the run. The founder still decides
+    every component at its own G1/G2/G3 gates (and any 🔶 CHECKPOINT interview), so "no stop" removes the
+    mechanical pause between components, not the decisions.
 
 ---
 

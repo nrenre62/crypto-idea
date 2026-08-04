@@ -1,28 +1,35 @@
-# BUILD-LOOP — safe, resumable, one-item-at-a-time build campaign
+# BUILD-LOOP — continuous, resumable build campaign (no stop between items)
 
-**Purpose.** Build the queued `📋 PLAN` items in [`NEXT-STEPS.md`](NEXT-STEPS.md) **one at a time,
-safely**, with a **compaction between each item** so a long campaign never runs out of context or
-carries stale state forward. The loop is:
+**Purpose.** Build the queued `📋 PLAN` items in [`NEXT-STEPS.md`](NEXT-STEPS.md) **one after another,
+continuously** — finish one item, then go straight to the next **without stopping between them** — until
+every queued item is done (founder rule 2026-08-04: "build items one after another without stop until
+finish"). The loop is:
 
-> **build one item → verify → commit → tick the ledger → compact → build the next → …**
+> **build one item → verify → commit → tick the ledger → straight to the next → …**  (no compact, no stop)
 
-**Why this is safe across compaction (the key idea): all progress lives in FILES, not in chat.**
-The plan is in `NEXT-STEPS.md`; the running progress is the **ledger table** in this file. Compaction
-wipes the *conversation*, not the *files* — so after a compact, a fresh context reads the ledger, picks
-the first unfinished item, and continues exactly where it left off. Nothing is lost.
+**The loop stops only for a real reason, never as a routine step:** a 🔶 CHECKPOINT item with an
+unanswered question (asked in **plain chat** — step 2), a **red/inconclusive** test, a tripped
+name-guard, a wrong plan, or a **founder-only / prohibited** action (see *Stop the whole loop* +
+*Global safety rails*). 🟩 GREEN items flow through to commit unattended, one after the next.
 
-**Honest note on "compact auto."** I cannot press `/compact` myself — it's a local command. It happens
-two ways, both fine: (a) **auto** — the harness compacts automatically when the context fills (this is
-the common case in a long loop), or (b) **you run `/compact`** after an item's commit. Either way, you
-then paste the **Resume prompt** (bottom of this file) and the loop continues. Because state is in
-files, it does not matter *which* item the compaction lands on.
+**Progress lives in FILES, not in chat — which is what makes a long continuous run robust.** The plan is
+in `NEXT-STEPS.md`; the running progress is the **ledger table** in this file. So even if the harness has
+to **auto-compact** the conversation on a very long run (a harness behavior I can't switch off — see the
+note below), the *files* survive: a fresh context reads the ledger, picks the first unfinished item, and
+keeps going. The loop **does not stop for compaction** and there is **no per-item compact step**.
+
+**Honest note on compaction.** I can't press `/compact` (it's a local command) and I can't stop the
+harness from auto-compacting when the context fills — but neither is a step in this loop anymore. The
+loop just keeps building. If a session ever restarts mid-campaign (a forced auto-compaction, or a new
+session), the **Recovery prompt** at the bottom re-enters the continuous loop from the ledger. It is a
+recovery tool, **not** a routine between-item stop.
 
 ---
 
-## The per-item loop (run top-to-bottom, for EXACTLY ONE item, then stop)
+## The per-item loop (run top-to-bottom for each item, then continue straight to the next)
 
 1. **Pick the item.** Open the **Queue** table below; take the first row whose status is not ✅.
-   Announce which item and that you're building only this one this pass.
+   Announce which item you're building; you'll continue to the next when it's done.
 2. **Gate check (safety).** If the row is **🔶 CHECKPOINT**, do **not** build yet — surface the open
    question(s) as **plain-chat numbered questions** (never `AskUserQuestion` / option boxes; no time
    limit; they stay in the chat and must be answered — founder rule 2026-08-03) and wait for a yes.
@@ -49,13 +56,16 @@ files, it does not matter *which* item the compaction lands on.
 8. **Update docs + tick the ledger.** Flip the item's **Status** line in `NEXT-STEPS.md` from
    `📋 PLAN — NOT built` to `✅ BUILT <date> <commit>`, and set its row here to ✅ with the commit hash.
    Update README/CLAUDE/canonical docs only if the change altered how things build or run.
-9. **Compact, then resume.** Let auto-compaction fire (or run `/compact`), then paste the **Resume
-   prompt**. The next pass returns to step 1 for the next unfinished item.
+9. **Next item — no stop.** Return to step 1 for the next unfinished row and keep building. Do **not**
+   pause, compact, or ask "shall I continue?" between items — the loop runs continuously until every row
+   is ✅ or one of the real stops below fires. (If the harness auto-compacts on a long run, the ledger
+   lets a fresh context resume seamlessly — see the *Recovery prompt*.)
 
-**Stop the whole loop and ask if:** a test run is **red or inconclusive** (a `test:unit` run while
-`start:all` is up is *inconclusive, not a failure* — re-run standalone), the build's name-guard trips,
-the plan turns out to be wrong once you're in the code, or an item needs a **founder-only / prohibited**
-action (see below). Never paper over a failure to keep the loop moving.
+**The loop stops (and asks in plain chat) only if:** the next row is a 🔶 CHECKPOINT with an unanswered
+question (step 2), a test run is **red or inconclusive** (a `test:unit` run while `start:all` is up is
+*inconclusive, not a failure* — re-run standalone), the build's name-guard trips, the plan turns out to
+be wrong once you're in the code, or an item needs a **founder-only / prohibited** action (see below).
+Otherwise it keeps going. Never paper over a failure to keep the loop moving — a real stop is a real stop.
 
 ---
 
@@ -138,11 +148,16 @@ interviews, so they're out of an unattended build loop.
 
 ---
 
-## Resume prompt (paste this after each compact)
+## Recovery prompt (only if a session restarts mid-campaign — NOT a routine step)
+
+The loop no longer stops to compact, so you rarely need this. Use it only if the session actually
+restarts (a forced auto-compaction, or a new session) and you need to re-enter the continuous loop:
 
 ```
-Continue the BUILD-LOOP (docs/product/BUILD-LOOP.md): open the Queue/ledger table, pick the first
-item whose status is not ✅, and run the per-item loop for EXACTLY that one item — stop after its
-commit + ledger tick. If the item is a 🔶 CHECKPOINT, ask me before building. Report the real test
-and build results. When every row is ✅, say the loop is complete and stop.
+Continue the BUILD-LOOP (docs/product/BUILD-LOOP.md): open the Queue/ledger table and run the loop
+CONTINUOUSLY — build each item whose status is not ✅ to done (verify + commit + ledger tick), then go
+straight to the next without stopping between items. Stop only if the next item is a 🔶 CHECKPOINT with
+an open question (ask me in plain chat), or a test is red/inconclusive, or the name-guard trips, or the
+plan is wrong, or an item needs a founder-only action. Report real test + build results. When every row
+is ✅, say the loop is complete and stop.
 ```

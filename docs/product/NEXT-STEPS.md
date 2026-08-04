@@ -36,6 +36,16 @@ The 4 review agents (`consistency-sweep`/`secure-by-design`/`test-tier-verifier`
 are wired in as stages. **Not yet exercised end-to-end** — the first `/build-feature <small item>` run
 is the integration test; start low-risk.
 
+**Update 2026-08-04 — continuous loop, no stop between items (founder rule):** removed the *mechanical*
+stops so the loop "build[s] items one after another without stop until finish." `BUILD-LOOP.md` dropped
+its per-item **compact-and-resume** step (build → verify → commit → tick → *straight to the next*; the
+"Resume prompt" became a **Recovery prompt** used only if a session actually restarts), and the factory's
+outer loop (`AGENT-FACTORY.md` §5 + `/build-feature` step 15) now **auto-advances** to the next queued
+item after G3 instead of asking "shall I continue?". **Decisions preserved:** the three human gates
+(G1/G2/G3), 🔶 CHECKPOINT interviews, and real-failure stops all stay — "no stop" removes only the
+mechanical pauses, never the founder's decisions. (Honest caveat: harness *auto*-compaction can't be
+switched off, but progress lives in the ledger files, so it no longer halts the run.)
+
 ---
 
 ## AUTH-DUP. Prevent duplicate-signup double-submit + admin dedupe detector  (✅ BUILT 2026-08-01 · client lock + read-only admin callable)
