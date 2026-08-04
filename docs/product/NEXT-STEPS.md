@@ -4145,6 +4145,157 @@ the same App Check.)
 
 ---
 
+## TX-SAFE-C. Edit-buy sell-invariant guard — editing a buy (or its date) can't leave a later sell over-sold  (📋 STAGED 2026-08-04 interview; NOT built)
+
+> **Staged, not queued.** Finished + approved (2026-08-04 interview). NOT in the BUILD-LOOP ledger.
+> Gate: 🔶 **bug-class** → failing-test-first (a red `it("CRYP-XX: …")` committed as a checkpoint,
+> then the fix), per [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md). Blast radius: LOW (one pure
+> helper + one guard in `CryptoIdea.jsx` + tests). **No `firestore.rules`, no backend, no new dep, no
+> `test:rules`.** Same family as **TX-SAFE** (Parts A/B) → this is effectively **TX-SAFE Part C**.
+
+### Founder report (2026-08-04, client-side user app, coin **BTC**; screenshot)
+The app enforces "you can't sell more than you hold" when you **add a sell** — good, and helpful. But
+there's a bypass: **add a buy → add a sell smaller than the buy → then edit the buy DOWN** (repeat) until
+total-sold exceeds total-bought. The screenshot shows a BTC position with **bought 0.3, sold 6** (holding
+displays 0, P/L "+1900%"). Founder: when you edit a coin and a sell transaction exists, the edit should be
+refused with a clear message — "there is a sell transaction; you can't edit this below what you've sold.
+Delete the sell first, then reduce the buy."
+
+### Root cause (verified in code)
+- The sell-vs-holdings check in `addEntry` ([`src/CryptoIdea.jsx`](../../src/CryptoIdea.jsx) ~L783-798)
+  is **gated on `eTxType==="sell"`**. It's even date-aware — it computes `holdingsAtDate` (cumulative
+  buys−sells up to the sell's date, excluding the edited entry) and rejects a sell that exceeds it.
+- **The edit path reuses `addEntry`** (`if(editEntry)` ~L804 → `dbUpdateTransaction`). So when you edit a
+  **buy** (`eTxType==="buy"`), that whole sell-check block is **skipped** — nothing re-validates that the
+  edit keeps every existing sell covered. Editing a buy's **amount down**, moving its **date later**, or
+  flipping **buy→sell** can all retroactively break a later sell, unchecked.
+- The **delete path already guards this correctly**: `remEntry` (~L830-831) replays the remaining entries
+  in date order and refuses with *"Can't delete — a sell on `<date>` depends on it"* if the running balance
+  goes negative (epsilon `-0.00000001`). So the invariant is understood — it's just **not applied on edit**.
+  Asymmetry today: **add-sell ✅ guarded · delete-buy ✅ guarded · edit-buy ❌ unguarded.**
+- Why the corrupt state *looks* clean: `holdings()` ([`src/utils/pnl.js`](../../src/utils/pnl.js) L6-7)
+  clamps to `Math.max(0,…)`, so an over-sold coin shows **0 held** (never negative) while P/L still counts
+  the phantom sell proceeds — the "+1900%" / "profited more than your total investment" note.
+
+### The invariant is inherently client-side (honest scope)
+`validTransactionData()` in [`firestore.rules`](../../firestore.rules) (L456-465) validates a **single**
+transaction doc's shape (`type∈{buy,sell}`, `amount>0`, `priceAtBuy`, `date`). Firestore rules **cannot
+aggregate sibling transaction docs** during a write, so "cumulative sold ≤ bought at each sell's date"
+can't be a rule. This guard is therefore a **client-side data-integrity / UX guard, not a security
+boundary** — acceptable here: it's the user's **own** cost-basis tracker, no money moves, no cross-tenant
+exposure. Record it as such (defense-in-depth: the existing per-doc rule bounds stay).
+
+### Decisions (locked — 2026-08-04 interview)
+1. **Fix shape = replay-guard (mirror `remEntry`).** On Save, replay the coin's timeline **with the edit
+   applied**; if any sell would exceed holdings at its date, block with a **date-specific** message. More
+   robust than a plain "buy vs total-sold" check: it's date-correct and covers amount-down, date-moved, and
+   buy→sell edits. One reusable **pure** helper — and the existing add-sell check + `remEntry` can route
+   through the same function (single source of truth for the invariant).
+2. **Existing corrupt data = prevent-new only (KISS).** No migration. Already-over-sold coins stay until the
+   user edits/deletes to fix them; the misleading P/L note self-corrects once the transactions are valid.
+3. **Track as a CRYP Jira bug + failing-test-first.** ⚠️ The Rovo/Jira MCP was **disconnected** when this
+   was staged (2026-08-04, non-interactive session) — file via `/jira-bug` in an interactive session (or
+   once the MCP reconnects); until then **this section is the spec**. The build starts with the red
+   reproduction test committed as a checkpoint (`it("CRYP-XX: editing a buy below the sold amount is
+   rejected")`), never weakened to pass.
+
+### The fix (smallest thing that works · consistency sweep — change in EVERY file)
+1. **`src/utils/tx.js`** (already holds tx ordering helpers) — add a **pure** `firstOverSoldSell(entries)`:
+   sort by date asc (createdAt tie-break, same order `remEntry` uses), replay `bal = buy?+amt:−amt`, and
+   return the **first sell** whose running `bal < -1e-8` (the offending sell), else `null`. Unit-tested.
+2. **`src/CryptoIdea.jsx`** — in `addEntry`, **before the write on the edit path** (and harmlessly on add),
+   build the **projected** entries = the coin's entries with `editEntry.id` replaced by the new
+   `{type,amount,date}` (for a plain add, the appended entry), run `firstOverSoldSell`, and if it returns a
+   sell: `showErr("Can't save — a sell on "+date+" would exceed your holdings. Delete or reduce that sell
+   first.")` and `return` (no `dbUpdateTransaction`/`dbAddTransaction` call). Optionally fold the existing
+   `eTxType==="sell"` point-in-time check into the same helper so there is ONE invariant function.
+3. **Tests** — `tests/unit/tx.test.js` (helper) + `tests/unit/AddEntry.test.jsx` (edit path).
+4. **Docs** — a one-line note in [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) that the sell-invariant is now
+   enforced on **edit** too (closes the hole adjacent to **DI/G3**, which audited the edit path's *toast*
+   wording but not this invariant).
+
+### Acceptance (RED first; never weaken a test)
+- **Unit — `firstOverSoldSell` (pure):** buy 0.3 then sell 0.2 → `null`; buy 2 + sell 2, then the projected
+  "buy→0.2" → returns the sell; **date-aware:** a buy dated *after* a sell does not cover it; a buy→sell
+  flip that over-sells → returns; the `-1e-8` epsilon boundary.
+- **Interaction — edit path:** editing a buy below what a later sell needs is **rejected** with the
+  date-specific message and **no db write fires** (spy asserts `dbUpdateTransaction` **not** called); a valid
+  edit still saves; the `CRYP-XX`-keyed reproduction of the founder's exploit (buy 2 → sell 2 → edit buy→0.2)
+  is blocked.
+- **`npm run build`** — clean (no-names guard). **No `test:rules`** (no rules/backend change).
+
+### Definition of Done
+- test:unit + build green. Emulator browser-verify (if the stack runs): reproduce the exploit → blocked with
+  the date message; delete the sell → the buy then edits fine.
+- CRYP ticket filed (or intent recorded here if the MCP is down); the failing test is committed **red first**
+  per [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md).
+- Staged, not queued: no BUILD-LOOP row until founder says go.
+
+### Cross-links
+- **TX-SAFE** (Parts A/B, ✅ built) — same "transaction-write safety" family; this is Part C.
+- **DI / G3** (§DI) — audited the edit path's *limit-toast* wording; missed this sell-invariant. This closes it.
+- `remEntry`'s delete-guard (`CryptoIdea.jsx` ~L830-831) — the exact replay pattern reused here.
+
+---
+
+## COININFO-RANK. Remove the duplicate market-cap rank next to the coin symbol in the Coin-info overlay  (📋 STAGED 2026-08-04 interview; NOT built)
+
+> **Staged, not queued.** Finished + approved (2026-08-04 interview). NOT in the BUILD-LOOP ledger.
+> Gate: 🟩 **GREEN** — display-only, single file, **one line**, computation-safe. Blast radius: MINIMAL.
+> **No rules, no backend, no new dep.** Qualifies for the CLAUDE.md "trivial single-file display fix,
+> one-line heads-up" exception; staged here for the record.
+
+### The founder's question, answered (trace)
+> "In the Coin-info popup a rank shows twice — `BTC · Rank #1` next to the symbol AND `Rank #1` in Market
+> Data. Is the one next to the symbol wired to any computation? If not, remove it."
+
+**No — the sub-header text drives zero computation; removing it is safe** (verified 2026-08-04, read-only
+4-agent trace). Two separate things are named "rank," and only one is wired to logic:
+- **The rank DATA FIELD (`usd_market_cap_rank`)** *does* feed a real computation — the Research tab's
+  **Portfolio Risk / RiskMeter** — but via a completely separate path: `/api/prices` → `useLivePrices` map →
+  `priceAdapter.js` reads `live.usd_market_cap_rank` → `computePortfolio` puts `rank` on each holding →
+  `coinRisk`/`isMega`/`rankBucket` grade it. That chain reads the **field off the prices map**, never any
+  rendered CoinInfo string.
+- **The sub-header TEXT** ([`src/components/CoinInfo.jsx`](../../src/components/CoinInfo.jsx) L54) is pure
+  display. CoinInfo's local `rank` const (L37) is used at exactly two leaf JSX sites — the price-hero
+  sub-line (L54) and the Market Data row (L64) — and is never exported, returned, or pushed to state. It's a
+  terminal presentational value.
+
+Deleting the `· Rank #N` suffix at L54 therefore affects **zero computation**: the `usd_market_cap_rank`
+field stays (still read at L37, still rendered in the Market Data row at L64), so the risk model is
+untouched and the rank is still shown once — in its labeled row.
+
+### Decision (locked — 2026-08-04 interview)
+- **Remove the hero rank only; keep the Market Data "Rank" row.** After the edit the CoinInfo header matches
+  [`Detail.jsx`](../../src/components/Detail.jsx) (`.ph-sub` ~L76 is already symbol-only) — a consistency win.
+- **`Search.jsx` left as-is** (its `{symbol} · #N` ~L72/L100 is the **only** rank on the Search screen — a
+  feature, not a duplicate; dropping it would be a feature removal, not a de-dup).
+
+### The change (one line)
+`CoinInfo.jsx` L54:
+`<div className="ph-sub">{coin.symbol}{rank?" · Rank #"+rank:""}</div>` → `<div className="ph-sub">{coin.symbol}</div>`
+Keep the `rank` const (L37, still used by the Market Data row L64) and the field. Display-only.
+
+### Consistency
+- **Leave (data-field docs/tests — the field + Market Data row stay):** CLAUDE.md `/api/prices` shape,
+  [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) DP-9b / R23, `openapi.json` `PriceEntry.usd_market_cap_rank`,
+  the research-risk unit tests — all describe the backend field, unaffected.
+- **Optional cosmetic tidy (nothing breaks if skipped):** `tests/unit/CoinInfo.test.jsx` stays green (its
+  `getAllByText(/Rank #1|^#1$/)` still matches the kept Market Data value via the `^#1$` branch); the
+  `Rank #1` alternative + "Rank rows" (plural) comment go stale → optionally singularize. CLAUDE.md ~"CoinInfo
+  Rank rows" → "Rank row". `docs/mockups/desktop/index.html` hero still shows "BTC · Rank #1" (historical
+  artifact; optional).
+
+### Acceptance & DoD
+- `tests/unit/CoinInfo.test.jsx` stays green (kept row matches); optionally tidy the stale regex alternative
+  + comment. **`npm run build`** clean. No rules/backend/dep. Emulator browser-verify: open a coin's info →
+  header shows just the symbol, Market Data still shows Rank. GREEN; staged, not queued.
+
+### Cross-link
+- The trace found **Detail.jsx** already renders the symbol-only header — this aligns the two coin headers.
+
+---
+
 ## Commands
 
 | Command | What |
