@@ -25,6 +25,28 @@ describe("LOGO — shared <Logo> brand mark", () => {
     expect(screen.getByLabelText("CryptoIdea")).toBeInTheDocument();
   });
 
+  // LOGO-2: re-lock the confirmed structure spec in ONE place. DOM / text / class
+  // ONLY — geometry (28px / r8 / 16) and font-family (Hanken) come from app.css,
+  // which jsdom does NOT apply to getComputedStyle, so asserting them here is false
+  // confidence. Those stay a real-browser check, never a unit assertion.
+  it("LOGO-2 spec: role='img' + aria-label, decorative 'C' tile, one-word 'CryptoIdea', size='lg' → .lg", () => {
+    const { container, rerender } = render(<div className="ci-app"><Logo /></div>);
+    const logo = container.querySelector(".ci-logo");
+    expect(logo.getAttribute("role")).toBe("img");
+    expect(logo.getAttribute("aria-label")).toBe("CryptoIdea");
+    const mark = logo.querySelector(".ci-logo-mark");
+    expect(mark.textContent).toBe("C");
+    expect(mark.getAttribute("aria-hidden")).toBe("true"); // tile is decorative
+    const word = logo.querySelector(".ci-logo-word");
+    expect(word.textContent).toBe("CryptoIdea");
+    expect(word.textContent).not.toContain("Crypto Idea"); // one word, not two
+    // exactly ONE accessible name (the decorative tile must not add a second)
+    expect(screen.getAllByLabelText("CryptoIdea")).toHaveLength(1);
+    expect(container.querySelector(".ci-logo.lg")).toBeNull();
+    rerender(<div className="ci-app"><Logo size="lg" /></div>);
+    expect(container.querySelector(".ci-logo.lg")).toBeTruthy();
+  });
+
   it("default is header size; size='lg' adds the .lg modifier for the auth screens", () => {
     const { container, rerender } = render(<div className="ci-app"><Logo /></div>);
     expect(container.querySelector(".ci-logo")).toBeTruthy();
