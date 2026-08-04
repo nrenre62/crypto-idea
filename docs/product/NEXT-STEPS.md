@@ -4529,6 +4529,43 @@ This is what makes the switcher choice cheap — the ≤15-portfolio load proble
 - **RESEARCH-RISK** (above): orthogonal; the switcher feeds whichever risk model is live.
 - **If stacked is what the founder meant** (see Reconciliation): re-open with the heavier "load all + per-group
   allocation/risk/pulse + per-group coinOrder" design — a materially larger build than this switcher.
+- **[`PORTFOLIO-SCOPE-MAP`](#portfolio-scope-map-per-portfolio-vs-per-account-tab-by-tab)** (below): Learn is
+  explicitly **per-account** and out of scope for any per-portfolio work.
+
+---
+
+## PORTFOLIO-SCOPE-MAP. Per-portfolio vs per-account, tab by tab  (📋 DECISION LOG 2026-08-04 interview)
+
+> **Not a build item — a scope guard rail** for the multi-portfolio thread (RESEARCH-SWITCH above). Records
+> which tabs move *per portfolio* and which stay *per account*, so no future increment accidentally adds a
+> portfolio dimension where there shouldn't be one (or forgets one where there should).
+
+### Founder decision (2026-08-04) — Learn is per-account
+The **Learn tab is per-user, NOT per-portfolio.** One Learn tab per account; multiple portfolios do not affect
+it and there is **no reason to have a per-portfolio Learn.** **Verified against the code:** progress is stored
+at **`users/{uid}/learn/progress`** (rules `match /learn/{docId}` gated on `isOwner(userId)` — no portfolio in
+the path; [`firestore.rules`](../../firestore.rules) L346-352), and [`useLearn.js`](../../src/hooks/useLearn.js)
+never reads `activePortId`/`portfolio`. So the RESEARCH-SWITCH switcher (which drives the global active
+portfolio) **leaves Learn untouched by design** — level/XP/streak/module state are one shared account journey.
+**Guard rail:** do NOT add a portfolio dimension to Learn.
+
+### The map (audited 2026-08-04)
+| Tab | Scope | Why / where |
+|---|---|---|
+| **Portfolio** | per-portfolio | shows the active portfolio's coins; switch = `setActivePortId`. |
+| **Research** | per-portfolio | RESEARCH-SWITCH: in-tab switcher selects the portfolio (Overview/Coins/Ask). |
+| **Journal** | per-portfolio | theses persist on the **coin doc** (`journal{…}`), bounded by a portfolio's coins. |
+| **Learn** | **per-account** | `users/{uid}/learn/progress` — one journey per user. **This decision.** |
+| **Search** | global | searches the shared coin universe; not portfolio-scoped (adds *into* the active one). |
+| **Account** | per-account | profile / plan / usage / privacy — user-level, no portfolio dimension. |
+
+### Gaps found (audited)
+- **G1 — none functional.** Learn already matches the founder's intent; this is documentation + a guard rail,
+  not a code change. No `firestore.rules`, no backend, no test change.
+- **G2 — cross-tab consistency:** the RESEARCH-SWITCH switcher changing the global active portfolio must NOT be
+  read as "Learn should follow too." The map makes the boundary explicit: Learn ignores `activePortId`.
+- **G3 — Journal is the one to watch:** unlike Learn, Journal **is** per-portfolio, so a per-portfolio feature
+  that lumps "Journal + Learn" together would be wrong. Called out so they're never scoped as a pair.
 
 ---
 
