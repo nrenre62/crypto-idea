@@ -105,7 +105,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   **never import the admin-only `.adm-*` into the user bundle.** ONE responsive design, **no `@media`,
   no `useIsDesktop`**: `max-width:560px` + `margin:auto` (centred desktop / full-width phones in the
   18px `.pad` gutters); dark-safe via token flip. Design-only (handlers/state/routing unchanged).
-- **Unified brand logo (LOGO, BUILT 2026-08-01):** ONE shared **`<Logo>`** primitive in
+- **Unified brand logo (LOGO, BUILT 2026-08-01 · LOGO-2, 2026-08-04):** ONE shared **`<Logo>`** primitive in
   [`ui.jsx`](src/components/ui.jsx) — a CSS-drawn green "C" tile (`--accent`, dark-safe solid fill) + the
   one-word **"CryptoIdea"** wordmark — matching the landing (`.brand/.mark`) + admin (`.adm-logo`) marks but
   rebuilt from the app's OWN tokens (`.ci-logo*` in `app.css`; **never import admin `.adm-*`**; no image, no
@@ -113,9 +113,17 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   **Portfolio header** (badges intact) and the **auth screens** (`Login`/`ForgotPass`, `size="lg"`); the other
   tab headers keep their tab-name titles. Same round **normalized every shipped "Crypto Idea" string + code
   comment + PWA/HTML title → "CryptoIdea"** (incl. PayPal `brand_name`) and **deleted the dead `APP_NAME`
-  const** (it drove nothing — the real page title is each HTML entry's `<title>`). Docs prose (`docs/**`,
-  README, this file's bodies, `openapi.json`) still say "Crypto Idea" as the project name — deferred as an
-  optional docs pass.
+  const** (it drove nothing — the real page title is each HTML entry's `<title>`). **LOGO-2 (2026-08-04)** then
+  made every mark a TRUE landing match: `.ci-logo*`/`.adm-logo*` rewritten to the `index.html` `.brand/.mark`
+  VALUES (tile 28/r8/glyph 16, **body-font** wordmark 18px/600/−.01em — this **reverses LOGO's display-font
+  26px** choice), `.lg` scaled from the same ratios; the full green lockup now renders on **all four loading
+  screens** (`Loading.jsx` + `main.jsx` Suspense fallback + the `app.html`/`admin.html` pre-bundle shells' inline
+  `<style>`, `index.html` unchanged as source of truth), and the last off-brand **`#6C5CE7` was purged** (the
+  `main.jsx` spinner → `--accent`; the `terms.html`/`privacy.html` link colours → `#0b6b4f`). It's enforced
+  repo-wide (founder Option A folds in `education-page.jsx` + `terms.html` + `privacy.html`) by
+  `scripts/check-brand.js` + `tests/unit/brand-guard.test.js` — no two-word "Crypto Idea" UI string and no
+  `#6C5CE7` may reappear in shipped surfaces. Docs prose (`docs/**`, README, this file's bodies, `openapi.json`)
+  still say "Crypto Idea" as the project name — deferred as an optional docs pass.
 - **Design revamp (BUILT, 2026-06-26):** the whole app matches the founder-approved mockup — see
   [`DESIGN-REVAMP.md`](docs/design/DESIGN-REVAMP.md) (spec + §7 founder review; backlog §D). Shipped: Portfolio value →
   white summary card (`.value-card`, INVESTED/24H/ASSETS) + assets **row → 3-up card grid on the 1040 wide

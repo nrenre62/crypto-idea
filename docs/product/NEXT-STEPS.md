@@ -659,7 +659,7 @@ browser probe of the auth screen — tile = `--accent` #0a6b4d 46×46, wordmark 
 
 ---
 
-## LOGO-2. True landing-match: the SAME logo (body-font wordmark) scaled across app + admin + all 4 loading screens  (📋 PLAN — 2026-08-02; NOT built)
+## LOGO-2. True landing-match: the SAME logo (body-font wordmark) scaled across app + admin + all 4 loading screens  (✅ BUILT 2026-08-04 · c08661d)
 
 Founder ask (2026-08-02): the **index (landing) logo must MATCH everywhere it appears** — login, loading,
 admin panel, portfolio app. This is a **follow-up to LOGO** (2026-08-01): that item introduced the shared
@@ -667,12 +667,31 @@ admin panel, portfolio app. This is a **follow-up to LOGO** (2026-08-01): that i
 the marks still visibly diverge (bigger tile, a *different* wordmark font/size, and the loading screens were
 never touched). LOGO-2 makes every surface a true match to the landing.
 
+**✅ AS-BUILT (2026-08-04 · impl `c08661d`, red checkpoint `5b99f35`):** all pieces below shipped as planned.
+`.ci-logo*` (app) + `.adm-logo*` (admin) were rewritten to the landing `.brand/.mark` VALUES — tile 28/r8/glyph
+16, **body-font** wordmark 18px/600/−.01em (replacing LOGO's display-font 26px); `.lg` scales from the same
+ratios (tile 44/r13/glyph 24). Five `Crypto<b|span>Idea` splits were de-split to one-word "CryptoIdea" (admin
+bar + sign-in, `/edge` header, loaders); all loading subtext unified to "Loading…"; `Loading.jsx` renders the
+real `<Logo>`, `main.jsx` inlines the `.ci-logo` markup (lean entry chunk), and `app.html`/`admin.html`
+pre-bundle shells got the green-tile lockup via CSP-safe inline `<style>` (`index.html` unchanged — source of
+truth). The last off-brand purple **`#6C5CE7`** was purged: the `main.jsx` Suspense spinner → `var(--accent)`,
+and the `terms.html`/`privacy.html` link colours → brand green `#0b6b4f` (the two historical `#6C5CE7` comments
+were reworded so the new source-scan guard stays a dumb substring scan). **Gap-map completeness correction:**
+the original gap map (below) missed three surfaces — `src/components/education-page.jsx`, `terms.html`,
+`privacy.html`; per **founder Option A** they were folded into this increment so the new brand guard is a clean
+**repo-wide** rule rather than a src-only one. **Enforce-don't-document control:** `scripts/check-brand.js` +
+`tests/unit/brand-guard.test.js` walk the repo and fail if a two-word "Crypto Idea" UI string or a `#6C5CE7`
+reappears in a shipped surface (same pattern as the dist name-guard), plus `tests/unit/Logo.test.jsx` pins the
+`<Logo>` structure/size. Verification: **unit 931/931 GREEN**; brand-guard repo walk clean; `design-consistency`
+CONSISTENT (0 findings); `simplifier` NOTHING TO DO; `npm run build` clean.
+
 **Canonical spec = the landing `index.html` `.brand` / `.mark` (source of truth, verified L63-67/L402):**
 mark tile **28×28 / radius 8**, white "C" in the **display** font **16px** / `background:var(--accent)`;
 wordmark in the **body font, 18px, weight 600, letter-spacing −.01em**; gap **10px**; text **"CryptoIdea"**
 (one word); the mark **rotates on hover** (landing nav link only).
 
-**Gap map (found 2026-08-02 — every surface vs the canonical spec):**
+**Gap map (found 2026-08-02 — every surface vs the canonical spec) — ✅ all rows closed 2026-08-04 (+ the 3
+missed surfaces folded in, see AS-BUILT above):**
 
 | Surface | Mark tile | Wordmark | Divergence |
 |---|---|---|---|
@@ -745,8 +764,15 @@ must add that wrapper. Don't cross the bundle boundary (`.adm-*` ⟷ `.ci-*`). T
 use React/app.css — inline style only. Give the `<Logo>` one accessible name so `getByText`/`getByLabelText`
 still resolve (as LOGO did).
 
-**Status: PLAN ONLY — not built.** Decisions locked 2026-08-02 (same-logo-scaled · body-font wordmark ·
-full loading-screen lockup + purple-spinner fix). Queued in [BUILD-LOOP](BUILD-LOOP.md) as a new GREEN item.
+**Status: ✅ BUILT 2026-08-04 (impl `c08661d`, red checkpoint `5b99f35`).** Decisions locked 2026-08-02
+(same-logo-scaled · body-font wordmark · full loading-screen lockup + purple-spinner fix); shipped per the
+AS-BUILT note above (guard is repo-wide via founder Option A). [BUILD-LOOP](BUILD-LOOP.md) #9 flipped to built.
+
+**Kaizen / optional tiny future cleanup (logged 2026-08-04, NOT introduced by LOGO-2):** the app token
+**`--accent` is `#0a6b4d`** while the landing/shell canonical brand green is **`#0b6b4f`** — a one-digit,
+perceptually-identical divergence that **pre-dates LOGO-2** (LOGO-2 deliberately drove the app tile from
+`--accent`, not a new hex). Optional future reconcile: settle the two greens to a single value so there's one
+brand green of record. Low priority; on record here.
 
 ---
 

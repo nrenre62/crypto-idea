@@ -105,5 +105,10 @@ wins in a conflict) is **bold**.
 - Commands: `.claude/commands/jira-bug.md` · `.claude/commands/jira-fix.md` · `.claude/commands/jira-test-sync.md` · `.claude/commands/jira-bug-hunt.md`
 - Code/config: `scripts/jira-test-map.js` + `tests/unit/jira-test-map.test.js` · `package.json` (test scripts) · `.githooks/pre-push` · `.gitignore` (`.tmp/`)
 
+### Branding / logo (the CryptoIdea mark — tile + wordmark)
+- Canonical: **`index.html` `.brand`/`.mark`** (source of truth — tile 28/r8/glyph 16, body-font wordmark 18px/600/−.01em)
+- Code: `src/components/ui.jsx` (`<Logo>`) · `src/styles/app.css` (`.ci-logo*`) · `src/styles/admin-settings.css` (`.adm-logo`/`.adm-brand-txt`/`.adm-auth-brand`) · `src/admin-main.jsx` · `src/components/admin-dashboard.jsx` · `src/components/education-page.jsx` · `src/components/Loading.jsx` · `src/main.jsx` · `app.html` · `admin.html` · `terms.html` · `privacy.html`
+- Tests: `tests/unit/Logo.test.jsx` · `tests/unit/brand-guard.test.js` + `scripts/check-brand.js`
+
 > **Keep this map current.** When a file moves or a new canonical doc is added (e.g. `BILLING.md`),
 > update the affected row in the *same* change — the map itself is subject to the consistency rule.

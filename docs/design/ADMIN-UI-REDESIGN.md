@@ -504,7 +504,7 @@ Mockup source: the sticky header `<div>` at the top of the decoded template (`pa
 | **4** | **Email** (`.adm-email`, L108) | 12.5px · `--ink-faint` | **13px** · **`--ink-soft`** | 12.5→13px · faint→soft (bigger + a touch darker) |
 | 5 | **Right-group gap** (`.adm-bar-right`, L107) | gap 12px | gap 14px | 12→14 *(minor)* |
 | — | **Bar padding** (`.adm-bar-inner`, L98) | 11px clamp(14,4vw,30) | 13px 28px | vertical 11→13; **keep the responsive clamp** (28 = its max) |
-| — | **Logo tile `C`** (`.adm-logo`, L102) | 30×30 · radius 9 · serif 18/600 | 28×28 · radius 8 · serif 16/600 | *(optional, NOT reported)* mockup tile is slightly **smaller** |
+| — | **Logo tile `C`** (`.adm-logo`, L102) | 28×28 · radius 8 · serif 16/600 (**LOGO-2**, 2026-08-04) | 28×28 · radius 8 · serif 16/600 | ✅ **matches** — LOGO-2 aligned the tile to the landing geometry (sign-in `.adm-logo.lg` → ~44/r13) |
 | — | **Bar border** (`.adm-bar`, L92) | 1px `--line-2` | 1px `--line` | *(optional)* a hair more visible |
 
 **All targets are existing tokens — no new hex:** `#15140f`=`--ink` · `#55534b`=`--ink-soft` ·
@@ -516,6 +516,8 @@ rows are small fidelity touch-ups measured alongside — apply or skip.
 > green **tile** is actually a hair **smaller** (28 vs 30). The tile wasn't part of the report — recommend
 > **leaving it at 30/9/18**, or align it to 28/8/16 for strict fidelity. Bumping the text to 18px already
 > restores the mockup's text-to-tile proportion without shrinking the tile.
+> **✅ Settled by LOGO-2 (2026-08-04):** `.adm-logo` is now the landing geometry **28/8/16** (sign-in
+> `.adm-logo.lg` → ~44/r13), so the admin tile matches the app + landing marks; the "no purple" rule is unchanged.
 
 ### 12.2 One open decision (founder confirm before build)
 **The wordmark font — serif → sans.** ADMIN-UI-1 deliberately set the wordmark in the Fraunces serif
@@ -537,8 +539,9 @@ keep the serif wordmark and only bump its size/weight, say so and item #1 drops 
   600→**700**. Border / bg / hover unchanged (already `--line-strong` / white / `--paper-3`).
 - **Email (#4):** on `.adm-email` 12.5→13px, colour `--ink-faint`→`--ink-soft`; keep the ellipsis + max-width.
 - **Touch-ups (optional):** `.adm-bar-right` gap 12→14; `.adm-bar-inner` vertical 11→13 (**leave the horizontal
-  `clamp`** — do NOT hard-code 28px or you lose the phone padding); `.adm-logo` 30/9/18→28/8/16 (the sign-in
-  `.adm-logo.lg` sets its own size, so it's unaffected); `.adm-bar` border `--line-2`→`--line`.
+  `clamp`** — do NOT hard-code 28px or you lose the phone padding); `.adm-logo` 30/9/18→28/8/16 (**done by
+  LOGO-2, 2026-08-04** — now landing geometry; the sign-in `.adm-logo.lg` scaled to ~44/r13); `.adm-bar` border
+  `--line-2`→`--line`.
 - **Responsive:** the wordmark already `white-space:nowrap; text-overflow:ellipsis`; at 18px re-check 375px so
   `CryptoIdea · Admin` + email + `Log out` don't overflow — the email truncates first (`max-width:min(40vw,240px)`).
   No breakpoint change expected.
