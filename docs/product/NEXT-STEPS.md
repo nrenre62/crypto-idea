@@ -4438,6 +4438,100 @@ are intentional discrete cliffs; `max()` cushions most rank cliffs because the o
 
 ---
 
+## RESEARCH-SWITCH. Portfolio switcher in the Research tab — pick which portfolio you're researching, in-tab  (📋 STAGED 2026-08-04 interview; NOT built)
+
+> **Staged, not queued.** Finished + approved (2026-08-04 interview). NOT in the BUILD-LOOP ledger.
+> Gate: **small, client-only** — a selector + prop threading; **no `firestore.rules`, no backend, no new
+> dep, no `test:rules`, no pricing change.** Candidate 🟩 GREEN, but founder decides the build order.
+> Blast radius: `research/Research.jsx` + `ResearchTab.jsx` (+ optional tiny `PortfolioSwitcher.jsx`) +
+> `research-tab.css` + the CLAUDE.md Research note + a component test.
+
+### The founder's ask (2026-08-04, screenshot of Overview Allocation/Risk with multiple portfolios in mind)
+"What happens to Research when there are multiple portfolios (max 15, each its own coins)? Is it one combined
+risk? What about allocation / coins? I want **separation per portfolio** — each portfolio's allocation, its
+own risk, its coins grouped by portfolio, and Portfolio Pulse cards one after another, each showing the
+portfolio's name."
+
+### Reconciliation — the founder chose a SWITCHER over stacking (interview Q1)
+The ask described portfolios **stacked "one under another."** When shown the cost of that (Research today loads
+ONLY the active portfolio; stacking all 15 means loading every portfolio's coins + a large price poll on every
+open), the founder chose **"Portfolio switcher"** — *view one portfolio at a time, selectable in-tab.* This is
+the reconciled design below. **If the founder actually wants them stacked, this section is re-opened.** (Noted
+because the chosen option diverges from the literal first description — a deliberate, cost-aware choice.)
+
+### What already exists (so this is a small add, not a rebuild)
+Research is **active-portfolio-only today.** [`Research.jsx`](../../src/features/research/Research.jsx) L19-28
+passes just the active `portfolio`; [`CryptoIdea.jsx`](../../src/CryptoIdea.jsx) L857-863 `watchCoins` streams
+**only the active portfolio's** coins (the other ≤14 aren't loaded); [`useLivePrices`](../../src/hooks/useLivePrices.js)
+polls only the active portfolio's coins; `coinOrder` (R32) + the conviction pills are already keyed to the
+active portfolio. **So everything Research shows already follows whichever portfolio is active** — there's just
+no way to change *which* without leaving the tab.
+
+### Decisions (locked — 2026-08-04 interview)
+1. **Switcher, one portfolio at a time** (Q1) — not stacked, not a combined view. A selector at the top of
+   Research lists the user's portfolios by name; picking one shows THAT portfolio's Overview + Coins + Ask.
+2. **No whole-account summary** (Q2) — per-portfolio only; no combined value/blended-risk card. (Matches the ask + KISS.)
+3. **The one switcher scopes all three sub-tabs** — Overview, Coins **and Ask**. This *is* the "picker in Ask"
+   (Q3): Ask inherits the selected portfolio's context, so **no separate Ask picker is needed** (one control,
+   not two). If the founder later wants Ask independently selectable, add a second picker — not in scope here.
+4. **Pulse cached per portfolio** (Q4) — today Pulse is derived offline **per shown portfolio** (already
+   effectively per-portfolio). The decision only bites at **Wave B**: the live-AI Pulse/conviction cache MUST
+   be keyed **per `(uid, portfolioId)`** so 15 portfolios cost ≤15 cached refreshes/day, never one per view.
+   Recorded here so the B2 proxy keys the cache correctly (cross-link below); **nothing to build now.**
+
+### The design (KISS — reuse the active-portfolio machinery)
+**The switcher drives the app's global `activePortId`** (recommended). Selecting a portfolio in Research calls
+`setActivePortId` — and `watchCoins`, `useLivePrices`, `coinOrder`, conviction, risk **already** key off the
+active portfolio, so **zero new data plumbing**: only the selected portfolio's coins load, exactly as today.
+This is what makes the switcher choice cheap — the ≤15-portfolio load problem is *sidestepped*, not solved.
+- **Side effect to flag:** switching the portfolio from Research also changes what the **Portfolio / Journal /
+  Learn** tabs show (there's one global "active" portfolio). This is arguably *correct* (one current portfolio)
+  and is the KISS default. **Alternative** (if the side effect is unwanted): an independent `researchPortId`
+  with its own coin load + price poll — more moving parts; revisit at build time only if the founder dislikes
+  the cross-tab jump.
+- **Free tier (1 portfolio):** hide the switcher (nothing to pick). **Pro (3) / Premium (≤15):** list all by name.
+- **Empty selected portfolio:** the existing `source==='empty'` → `<EmptyState/>` already handles it — no new work.
+- **Portfolio names** are user strings → React auto-escapes (no `innerHTML`); safe by default.
+- **UI placement:** a compact selector (chips or a `<select>`) between the Research header and the
+  Overview/Coins/Ask segmented bar. Design-only styling in `research-tab.css`.
+
+### Gaps found (audited)
+- **G1 — data load:** the ONLY real blocker for "show all portfolios" was that non-active portfolios aren't
+  loaded. The switcher-drives-`activePortId` design **avoids it entirely** (still one portfolio loaded at a time).
+- **G2 — Ask double-picker:** naively adding a separate Ask picker would give two controls that can disagree.
+  Decision 3 uses the single top switcher for all three sub-tabs → one source of truth.
+- **G3 — Wave-B AI cost:** a per-portfolio Pulse with an un-keyed cache would regenerate per view. Decision 4
+  pins the cache key to `(uid, portfolioId)` — captured now, enforced when B2 lands.
+- **G4 — coinOrder / conviction:** both are already per-active-portfolio, so they follow the switcher for free
+  (no per-group re-scoping needed — which a *stacked* design WOULD have required).
+- **G5 — RESEARCH-RISK coupling:** orthogonal. RESEARCH-RISK changes the single-portfolio risk math + splits
+  the Allocation/Risk cards; the switcher only changes *which* portfolio feeds them. Either can build first; if
+  RESEARCH-RISK lands first, the switcher inherits the split cards automatically.
+
+### Consistency sweep (change in every file the topic touches)
+- [`Research.jsx`](../../src/features/research/Research.jsx) — pull `portfolios, activePortId, setActivePortId`
+  from context (already exposed at CryptoIdea.jsx L991), thread to `ResearchTab`.
+- [`ResearchTab.jsx`](../../src/features/research/components/ResearchTab.jsx) — render the switcher; `onChange → setActivePortId`.
+- *(optional)* `src/features/research/components/PortfolioSwitcher.jsx` — small presentational selector (or inline).
+- [`research-tab.css`](../../src/features/research/styles/research-tab.css) — switcher styles (scoped under `.research-root`).
+- `CLAUDE.md` "Research tab" section — update the "active portfolio's coins" note to "the **selected** portfolio (switcher)".
+- Tests: a component test that changing the switcher changes the shown portfolio; existing research tests unaffected.
+
+### Definition of Done
+- test:unit + build green. Emulator browser-verify (Pro/Premium account with ≥2 seeded portfolios): the switcher
+  lists all portfolios; picking one swaps Overview/Coins/Ask to that portfolio; a 1-portfolio account hides it.
+- Docs synced in the same commit (CLAUDE.md Research note + this file).
+- Staged, not queued: no BUILD-LOOP row until founder says go.
+
+### Cross-links
+- **Wave B / [`CACHE-POLICY.md`](../decisions/CACHE-POLICY.md):** the live Pulse/conviction cache key must
+  include `portfolioId` (Decision 4) — the B2 proxy owns this; recorded here so it isn't missed.
+- **RESEARCH-RISK** (above): orthogonal; the switcher feeds whichever risk model is live.
+- **If stacked is what the founder meant** (see Reconciliation): re-open with the heavier "load all + per-group
+  allocation/risk/pulse + per-group coinOrder" design — a materially larger build than this switcher.
+
+---
+
 ## Commands
 
 | Command | What |
