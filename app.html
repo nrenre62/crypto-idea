@@ -40,16 +40,23 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       min-height: 100vh; gap: 12px;
     }
-    .app-loading h1 { font-size: 28px; font-weight: 200; letter-spacing: -0.5px; }
-    .app-loading h1 span { font-weight: 700; }
+    /* LOGO-2: the unified brand lockup — green "C" tile + one-word "CryptoIdea".
+       Brand green #0b6b4f (the landing --accent); no app tokens exist pre-bundle. */
+    .app-loading .lockup { display: flex; align-items: center; gap: 10px; }
+    .app-loading .mark {
+      width: 28px; height: 28px; border-radius: 8px; background: #0b6b4f; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Fraunces', Georgia, serif; font-size: 16px; font-weight: 600;
+    }
+    .app-loading .word { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
     .app-loading p { font-size: 13px; color: #999; }
   </style>
 </head>
 <body>
   <div id="root">
     <div class="app-loading">
-      <h1>Crypto <span>Idea</span></h1>
-      <p>Loading...</p>
+      <div class="lockup"><span class="mark">C</span><span class="word">CryptoIdea</span></div>
+      <p>Loading…</p>
     </div>
   </div>
 

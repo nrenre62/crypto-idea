@@ -26,11 +26,17 @@ change is in, treat it as substantive.**
 
 ## The process (in order)
 
-1. **Interview with AskUserQuestion.** Ask about the goal, the options, and the trade-offs. Don't
-   guess intent on a substantive change.
+1. **Interview with plain-chat questions.** Ask about the goal, the options, and the trade-offs as
+   **numbered plain text in the chat** and **wait for the founder's typed answer** — **never the
+   `AskUserQuestion` tool or any option-box UI** (founder rule, 2026-08-03: questions are never
+   timed or skippable; they stay in the conversation and must be answered). Don't guess intent on a
+   substantive change.
 2. **Find the gaps first.** Before proposing anything, read the related code + every related doc
    (use the map) and list where they **disagree, are stale, or are missing.** Surface the gaps
-   explicitly to the founder.
+   explicitly to the founder. *(Shortcut: run **`/consistency-sweep <topic>`** — the read-only
+   `consistency-sweep` subagent in [`.claude/agents/`](../.claude/agents/README.md) does exactly
+   this hunt across the topic's map row and hands back a ranked gap list + `file:line` evidence +
+   the sweep list. It reports only; the plan/edit/verify/commit steps below are still yours.)*
 3. **Take context from the whole topic.** Reconcile against ALL related files — code, rules, README
    section, MD docs — not just the one file the founder named.
 4. **Plan, then ask.** Present a clear plan (what changes, in which files, why). Get a clear "yes"
@@ -46,7 +52,8 @@ change is in, treat it as substantive.**
 ## On errors
 
 If I hit or spot an error: **tell the founder plainly** — what it is, where, and why it matters —
-then use **AskUserQuestion** to decide the fix. Never silently pick a solution to a real problem.
+then **ask in plain chat** (numbered questions, no boxes, no time limit) to decide the fix. Never
+silently pick a solution to a real problem.
 
 ---
 
@@ -97,6 +104,11 @@ wins in a conflict) is **bold**.
 - Docs: **[`JIRA-WORKFLOW.md`](testing/JIRA-WORKFLOW.md)** · [`AGILE.md`](product/AGILE.md) (Definition of Done + testing conventions) · [`ERRORS.md`](testing/ERRORS.md) · `README.md` (Tests) · `CLAUDE.md` (Conventions) · `docs/testing/bug-hunts/` (hunt reports)
 - Commands: `.claude/commands/jira-bug.md` · `.claude/commands/jira-fix.md` · `.claude/commands/jira-test-sync.md` · `.claude/commands/jira-bug-hunt.md`
 - Code/config: `scripts/jira-test-map.js` + `tests/unit/jira-test-map.test.js` · `package.json` (test scripts) · `.githooks/pre-push` · `.gitignore` (`.tmp/`)
+
+### Branding / logo (the CryptoIdea mark — tile + wordmark)
+- Canonical: **`index.html` `.brand`/`.mark`** (source of truth — tile 28/r8/glyph 16, body-font wordmark 18px/600/−.01em)
+- Code: `src/components/ui.jsx` (`<Logo>`) · `src/styles/app.css` (`.ci-logo*`) · `src/styles/admin-settings.css` (`.adm-logo`/`.adm-brand-txt`/`.adm-auth-brand`) · `src/admin-main.jsx` · `src/components/admin-dashboard.jsx` · `src/components/education-page.jsx` · `src/components/Loading.jsx` · `src/main.jsx` · `app.html` · `admin.html` · `terms.html` · `privacy.html`
+- Tests: `tests/unit/Logo.test.jsx` · `tests/unit/brand-guard.test.js` + `scripts/check-brand.js`
 
 > **Keep this map current.** When a file moves or a new canonical doc is added (e.g. `BILLING.md`),
 > update the affected row in the *same* change — the map itself is subject to the consistency rule.

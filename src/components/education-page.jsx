@@ -65,7 +65,7 @@ export default function EduDesign3() {
       <div style={{ padding: "48px 24px 0", maxWidth: 600, margin: "0 auto" }}>
         <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <a href="/" style={{ fontSize: 15, fontWeight: 200, textDecoration: "none", color: c.text }}>Crypto <span style={{ fontWeight: 700 }}>Idea</span></a>
+            <a href="/" style={{ fontSize: 15, fontWeight: 600, textDecoration: "none", color: c.text }}>CryptoIdea</a>
             <span style={{ color: c.border }}>·</span>
             <span style={{ fontSize: 12, fontWeight: 600, color: c.green }}>The Edge</span>
           </div>

@@ -1,31 +1,40 @@
-# BUILD-LOOP — safe, resumable, one-item-at-a-time build campaign
+# BUILD-LOOP — continuous, resumable build campaign (no stop between items)
 
-**Purpose.** Build the queued `📋 PLAN` items in [`NEXT-STEPS.md`](NEXT-STEPS.md) **one at a time,
-safely**, with a **compaction between each item** so a long campaign never runs out of context or
-carries stale state forward. The loop is:
+**Purpose.** Build the queued `📋 PLAN` items in [`NEXT-STEPS.md`](NEXT-STEPS.md) **one after another,
+continuously** — finish one item, then go straight to the next **without stopping between them** — until
+every queued item is done (founder rule 2026-08-04: "build items one after another without stop until
+finish"). The loop is:
 
-> **build one item → verify → commit → tick the ledger → compact → build the next → …**
+> **build one item → verify → commit → tick the ledger → straight to the next → …**  (no compact, no stop)
 
-**Why this is safe across compaction (the key idea): all progress lives in FILES, not in chat.**
-The plan is in `NEXT-STEPS.md`; the running progress is the **ledger table** in this file. Compaction
-wipes the *conversation*, not the *files* — so after a compact, a fresh context reads the ledger, picks
-the first unfinished item, and continues exactly where it left off. Nothing is lost.
+**The loop stops only for a real reason, never as a routine step:** a 🔶 CHECKPOINT item with an
+unanswered question (asked in **plain chat** — step 2), a **red/inconclusive** test, a tripped
+name-guard, a wrong plan, or a **founder-only / prohibited** action (see *Stop the whole loop* +
+*Global safety rails*). 🟩 GREEN items flow through to commit unattended, one after the next.
 
-**Honest note on "compact auto."** I cannot press `/compact` myself — it's a local command. It happens
-two ways, both fine: (a) **auto** — the harness compacts automatically when the context fills (this is
-the common case in a long loop), or (b) **you run `/compact`** after an item's commit. Either way, you
-then paste the **Resume prompt** (bottom of this file) and the loop continues. Because state is in
-files, it does not matter *which* item the compaction lands on.
+**Progress lives in FILES, not in chat — which is what makes a long continuous run robust.** The plan is
+in `NEXT-STEPS.md`; the running progress is the **ledger table** in this file. So even if the harness has
+to **auto-compact** the conversation on a very long run (a harness behavior I can't switch off — see the
+note below), the *files* survive: a fresh context reads the ledger, picks the first unfinished item, and
+keeps going. The loop **does not stop for compaction** and there is **no per-item compact step**.
+
+**Honest note on compaction.** I can't press `/compact` (it's a local command) and I can't stop the
+harness from auto-compacting when the context fills — but neither is a step in this loop anymore. The
+loop just keeps building. If a session ever restarts mid-campaign (a forced auto-compaction, or a new
+session), the **Recovery prompt** at the bottom re-enters the continuous loop from the ledger. It is a
+recovery tool, **not** a routine between-item stop.
 
 ---
 
-## The per-item loop (run top-to-bottom, for EXACTLY ONE item, then stop)
+## The per-item loop (run top-to-bottom for each item, then continue straight to the next)
 
 1. **Pick the item.** Open the **Queue** table below; take the first row whose status is not ✅.
-   Announce which item and that you're building only this one this pass.
+   Announce which item you're building; you'll continue to the next when it's done.
 2. **Gate check (safety).** If the row is **🔶 CHECKPOINT**, do **not** build yet — surface the open
-   question(s) with `AskUserQuestion` and wait for a yes. If it's **🟩 GREEN**, the decisions are
-   already locked in its `NEXT-STEPS.md` entry — proceed without re-interviewing.
+   question(s) as **plain-chat numbered questions** (never `AskUserQuestion` / option boxes; no time
+   limit; they stay in the chat and must be answered — founder rule 2026-08-03) and wait for a yes.
+   If it's **🟩 GREEN**, the decisions are already locked in its `NEXT-STEPS.md` entry — proceed
+   without re-interviewing.
 3. **Re-read the spec.** Read that item's full section in `NEXT-STEPS.md` (scope, decisions,
    Acceptance, DoD). The plan is the source of truth; don't improvise scope.
 4. **TDD first.** Write/extend the failing test(s) the item's **Acceptance** names. For a bug-class
@@ -47,13 +56,16 @@ files, it does not matter *which* item the compaction lands on.
 8. **Update docs + tick the ledger.** Flip the item's **Status** line in `NEXT-STEPS.md` from
    `📋 PLAN — NOT built` to `✅ BUILT <date> <commit>`, and set its row here to ✅ with the commit hash.
    Update README/CLAUDE/canonical docs only if the change altered how things build or run.
-9. **Compact, then resume.** Let auto-compaction fire (or run `/compact`), then paste the **Resume
-   prompt**. The next pass returns to step 1 for the next unfinished item.
+9. **Next item — no stop.** Return to step 1 for the next unfinished row and keep building. Do **not**
+   pause, compact, or ask "shall I continue?" between items — the loop runs continuously until every row
+   is ✅ or one of the real stops below fires. (If the harness auto-compacts on a long run, the ledger
+   lets a fresh context resume seamlessly — see the *Recovery prompt*.)
 
-**Stop the whole loop and ask if:** a test run is **red or inconclusive** (a `test:unit` run while
-`start:all` is up is *inconclusive, not a failure* — re-run standalone), the build's name-guard trips,
-the plan turns out to be wrong once you're in the code, or an item needs a **founder-only / prohibited**
-action (see below). Never paper over a failure to keep the loop moving.
+**The loop stops (and asks in plain chat) only if:** the next row is a 🔶 CHECKPOINT with an unanswered
+question (step 2), a test run is **red or inconclusive** (a `test:unit` run while `start:all` is up is
+*inconclusive, not a failure* — re-run standalone), the build's name-guard trips, the plan turns out to
+be wrong once you're in the code, or an item needs a **founder-only / prohibited** action (see below).
+Otherwise it keeps going. Never paper over a failure to keep the loop moving — a real stop is a real stop.
 
 ---
 
@@ -73,19 +85,20 @@ update it after every item. (Reorder if you'd rather do the `launch-blocker` fir
 | 6 | **AUTH-DUP** | 🟩 GREEN | Client in-flight lock + one read-only admin callable + admin UI. Moderate. | ✅ built 2026-08-01 |
 | 7 | **ONBOARD-GATE** | 🔶 CHECKPOINT | **Touches `firestore.rules`** (security boundary) + server callable + client. `launch-blocker`, high blast radius. | ✅ built 2026-08-01 (App Check + rules-deploy = go-live) |
 | 8 | **ADMIN-6** | 🔶 CHECKPOINT | **Touches `firestore.rules`** + server + email + client. Largest, security-critical. | ⏸️ HELD 2026-08-02 (founder) — no mail transport exists; see NEXT-STEPS ADMIN-6 Status |
-| 9 | **LOGO-2** | 🟩 GREEN | Design-only: true landing-match logo (body-font wordmark, scaled) across app + admin + all 4 loading screens; fix leftover purple spinner. Client CSS/JSX + pre-bundle HTML shells. Moderate. | 📋 not built |
+| 9 | **LOGO-2** | 🟩 GREEN | Design-only: true landing-match logo (body-font wordmark, scaled) across app + admin + all 4 loading screens; fix leftover purple spinner. Client CSS/JSX + pre-bundle HTML shells. Moderate. | ✅ built 2026-08-04 (c08661d) |
 | 10 | **LAUNCH-FREE** | 🔶 CHECKPOINT (decisions locked) | **Touches `firestore.rules`** (Starter limits → 2/30/100) + billing gate (`paidPlansEnabled` flag: new regs Starter-only, no new subs, existing users untouched) + config/indexes + admin toggle + client + landing. Security-critical. Decisions locked 2026-08-02. | 📋 not built |
 | 11 | **ADMIN-SEP** | 🔶 CHECKPOINT (decisions locked) | Admin/user separation: admins out of the Users list (+count/CSV/bulk), owner-only Admin-access **roster** (new `listAdmins` callable), eliminate the no-role admin state at the auth **choke point** (`guards.js`), hard-cap owners at 2 (`set-admin.js`). Server + admin-UI; **`firestore.rules` NOT touched** (no `test:rules`). Security-critical. Decisions locked 2026-08-03. | 📋 not built |
 | 12 | **PLAN-LIMITS-MAX** | 🔶 CHECKPOINT (decisions locked, rev.2) | **Touches `firestore.rules`** — plan limit bumps (Starter 3/30/**300** **supersedes LAUNCH-FREE §A** · Pro 6/100/**1000** · Premium lowered to **15/200/2000**; **prices unchanged**) across DEFAULT_PLANS + rules fallbacks + the stored `config/app.plans` doc + index exemptions + landing/app copy + PRICING/USER-BENEFITS docs, **plus** a lazy-load read optimization (Part B). Raised Pro/Premium limits **hard-gated on Part B (lazy-load) + Wave-B abuse controls** (App Check + rate limiter + `addCoinGuarded`) before prod. Overlaps #10 LAUNCH-FREE §A — first-to-build does the shared Starter work. Decisions locked 2026-08-03 (rev.2). | 📋 not built |
 | 13 | **RESEARCH-NO-AI + AI-CHAT-SWITCH** | 🟩 GREEN (decisions locked) | **ONE increment** for both plans (shared `aiResearch` flag → `chatEnabled` + `aiChrome` gates). Research-tab honesty: **AI-CHAT-SWITCH** hides/disables the **Ask** chat when the flag is off (+ moves the admin toggle onto the AI settings screen); **RESEARCH-NO-AI** reframes the **Overview/Pulse** as honest deterministic analytics (multi-signal no-AI Pulse from a pure `pulseFacts` source + unrealized P&L, **AI-status pill** on/off, drop the "AI-generated"/"AI insights" copy + gradient, hide Regenerate) and adds the build-constant `AI_PROXY_LIVE`. Also folds in the **Daily Brief** fix (biggest-decliner mover, drops the "volatility" mislabel) + optional **RESEARCH-METRICS** (4 added deterministic Pulse calculations — return attribution · effective-N · 7d drawdown + volatility — under S1–S4 compliance rules, + a Wave-B data roadmap). Client Research components + `functions/features.js` string + admin-toggle move; **no `firestore.rules`, no new callable, no new dep** → no `test:rules`. Wave-B "Plan B" AI rules recorded, not built. Decisions locked 2026-08-03. | 📋 not built |
 
-**Loop state (2026-08-03):** items 1–7 ✅ built; #8 ADMIN-6 is ⏸️ **HELD by founder** (no mail transport
-exists for the emailed-reset piece — see NEXT-STEPS ADMIN-6 Status). Three items are queued from
-2026-08-02/03 gap/interview sessions, all PLAN-ONLY awaiting a "go": **#9 LOGO-2** (🟩 GREEN, design-only,
-logo landing-match), **#10 LAUNCH-FREE** (🔶 CHECKPOINT, decisions locked — Starter→2/30/100 + a
+**Loop state (2026-08-04):** items 1–7 ✅ built; **#9 LOGO-2 ✅ built 2026-08-04 (c08661d)** — design-only
+landing-match logo across app + admin + all 4 loading screens, purple-spinner purge, repo-wide brand guard;
+unit 931/931 green. #8 ADMIN-6 is ⏸️ **HELD by founder** (no mail transport exists for the emailed-reset
+piece — see NEXT-STEPS ADMIN-6 Status). Two items remain queued from 2026-08-02/03 gap/interview sessions,
+PLAN-ONLY awaiting a "go": **#10 LAUNCH-FREE** (🔶 CHECKPOINT, decisions locked — Starter→2/30/100 + a
 Starter-only launch-mode billing switch), and **#11 ADMIN-SEP** (🔶 CHECKPOINT, decisions locked
 2026-08-03 — admin/user separation: admins out of the Users list, owner-only Admin-access roster, no-role
-admin state eliminated at the auth choke point, owners hard-capped at 2). #9 is the lowest-risk next build.
+admin state eliminated at the auth choke point, owners hard-capped at 2).
 **#10 touches `firestore.rules`** → `test:rules:solo` before commit; **#11 does NOT touch rules** (roster
 lives in Auth custom claims) → no `test:rules`, but it IS security-critical (auth `guards.js` choke point +
 a new owner-gated `listAdmins` callable, which trips the `admin-gate-coverage` + `audit-labels` source
@@ -136,11 +149,16 @@ interviews, so they're out of an unattended build loop.
 
 ---
 
-## Resume prompt (paste this after each compact)
+## Recovery prompt (only if a session restarts mid-campaign — NOT a routine step)
+
+The loop no longer stops to compact, so you rarely need this. Use it only if the session actually
+restarts (a forced auto-compaction, or a new session) and you need to re-enter the continuous loop:
 
 ```
-Continue the BUILD-LOOP (docs/product/BUILD-LOOP.md): open the Queue/ledger table, pick the first
-item whose status is not ✅, and run the per-item loop for EXACTLY that one item — stop after its
-commit + ledger tick. If the item is a 🔶 CHECKPOINT, ask me before building. Report the real test
-and build results. When every row is ✅, say the loop is complete and stop.
+Continue the BUILD-LOOP (docs/product/BUILD-LOOP.md): open the Queue/ledger table and run the loop
+CONTINUOUSLY — build each item whose status is not ✅ to done (verify + commit + ledger tick), then go
+straight to the next without stopping between items. Stop only if the next item is a 🔶 CHECKPOINT with
+an open question (ask me in plain chat), or a test is red/inconclusive, or the name-guard trips, or the
+plan is wrong, or an item needs a founder-only action. Report real test + build results. When every row
+is ✅, say the loop is complete and stop.
 ```
