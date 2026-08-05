@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { Logo } from "./ui.jsx";
 
 export default function EduDesign3() {
   const [email, setEmail] = useState("");
@@ -65,7 +66,9 @@ export default function EduDesign3() {
       <div style={{ padding: "48px 24px 0", maxWidth: 600, margin: "0 auto" }}>
         <nav style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <a href="/" style={{ fontSize: 15, fontWeight: 600, textDecoration: "none", color: c.text }}>CryptoIdea</a>
+            {/* Shared <Logo> lockup (green "C" tile + one-word "CryptoIdea"), clickable
+                home. The .ci-app class scopes the .ci-logo* CSS + resolves the app tokens. */}
+            <a href="/" className="ci-app" style={{ textDecoration: "none" }}><Logo /></a>
             <span style={{ color: c.border }}>·</span>
             <span style={{ fontSize: 12, fontWeight: 600, color: c.green }}>The Edge</span>
           </div>

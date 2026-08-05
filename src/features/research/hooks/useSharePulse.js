@@ -7,7 +7,6 @@ import { abbreviate } from '../utils/format';
 const TFWORD = { '24h': 'Last 24 hours', '7d': 'Last 7 days', '30d': 'Last 30 days' };
 
 function roundRect(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
-function tracked(x, t, gap, X, Y) { let xx = X; for (const ch of t) { x.fillText(ch, xx, Y); xx += x.measureText(ch).width + gap; } }
 function wrap(x, t, X, Y, maxW, lh, maxLines) {
   const words = t.split(/\s+/); let line = '', n = 0;
   for (let i = 0; i < words.length; i++) {
@@ -28,7 +27,14 @@ function buildCard({ portfolio, tf, pulseText }) {
   const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#fbfaf7'); g.addColorStop(1, '#f2f0e9'); x.fillStyle = g; x.fillRect(0, 0, W, H);
   x.fillStyle = '#0a6b4d'; x.fillRect(0, 0, W, 12);
   const perf = portfolio.perf[tf], up = perf >= 0;
-  x.fillStyle = '#0a6b4d'; x.font = '700 26px "Hanken Grotesk",sans-serif'; tracked(x, 'CRYPTO IDEA', 7, P, 156);
+  // Brand lockup — the index.html mark: green "C" tile + one-word "CryptoIdea"
+  // wordmark, drawn on the canvas above the title (fonts are already awaited).
+  const TILE = 48, TX = P, TY = 104;
+  x.fillStyle = '#0b6b4f'; roundRect(x, TX, TY, TILE, TILE, 12); x.fill();
+  x.fillStyle = '#fff'; x.font = '600 30px "Fraunces",Georgia,serif';
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('C', TX + TILE / 2, TY + TILE / 2 + 1);
+  x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+  x.fillStyle = '#15140f'; x.font = '600 34px "Hanken Grotesk",sans-serif'; x.fillText('CryptoIdea', TX + TILE + 16, TY + TILE / 2 + 12);
   x.fillStyle = '#15140f'; x.font = '500 56px "Fraunces",Georgia,serif'; x.fillText('Portfolio Pulse', P, 224);
   x.fillStyle = '#928f85'; x.font = '500 34px "Hanken Grotesk",sans-serif'; x.fillText(TFWORD[tf] || '', P, 300);
   x.fillStyle = up ? '#0a6b4d' : '#bf4730'; x.font = '600 150px "Fraunces",Georgia,serif';
