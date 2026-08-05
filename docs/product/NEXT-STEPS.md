@@ -772,7 +772,55 @@ AS-BUILT note above (guard is repo-wide via founder Option A). [BUILD-LOOP](BUIL
 **`--accent` is `#0a6b4d`** while the landing/shell canonical brand green is **`#0b6b4f`** — a one-digit,
 perceptually-identical divergence that **pre-dates LOGO-2** (LOGO-2 deliberately drove the app tile from
 `--accent`, not a new hex). Optional future reconcile: settle the two greens to a single value so there's one
-brand green of record. Low priority; on record here.
+brand green of record. Low priority; on record here. *(Partly acted on by LOGO-parity below — the logo TILES
+are now pinned to `#0b6b4f`; the `--accent` token itself is deliberately left as `#0a6b4d` for buttons/pills.)*
+
+---
+
+## LOGO-parity. The full index lockup present + identical on every logo surface ("logo everywhere")  (✅ BUILT 2026-08-05 · red `bbb5d17` → green `5334c79`)
+
+Founder ask (2026-08-05): a follow-on to LOGO / LOGO-2 — the complete **index.html logo lockup** (green "C"
+tile + one-word "CryptoIdea" wordmark, hover `rotate(-6deg) scale(1.06)`) must be **present and identical on
+EVERY surface that shows the logo**, including the text-only pages that previously showed a bare wordmark and
+the Pulse share image. Design-only, no logic/rules/tests-behaviour change.
+
+**✅ AS-BUILT (2026-08-05 · impl `5334c79`, red checkpoint `bbb5d17`):**
+- **Tile pinned to the index brand green `#0b6b4f`** on the in-app `<Logo>` (`.ci-logo-mark`, `app.css`) and
+  the admin `.adm-logo` (`admin-settings.css`). The app's general **`--accent` (`#0a6b4d`) is left as-is** for
+  buttons/pills/links — the founder scoped the green change to the **logo only** (partly acts on the LOGO-2
+  Kaizen note above; the two greens are NOT globally reconciled).
+- **Index hover interaction** `rotate(-6deg) scale(1.06)` added to `.ci-logo` (covers Portfolio, Login,
+  ForgotPass, Loading, and the `main.jsx` Suspense fallback) and to `.adm-logo` (fired from the `.adm-brand`
+  bar lockup + the `.adm-auth-logo` sign-in lockup). **NOT** on the transient `app.html`/`admin.html`
+  pre-bundle loading splashes (already exact `#0b6b4f`, deliberately no hover).
+- **Full tile+wordmark lockup added to the three text-only surfaces:** `/edge`
+  ([education-page.jsx](../../src/components/education-page.jsx) renders the shared `<Logo>` wrapped in a
+  clickable `<a href="/">`, scoped under `.ci-app`); `terms.html` + `privacy.html` (hand-authored tile
+  mirroring the `app.html` loading shell + a Google-Fonts link loading **Fraunces + Hanken Grotesk**). **All
+  three clickable → the landing "/".**
+- **Pulse share image** ([useSharePulse.js](../../src/features/research/hooks/useSharePulse.js)) now
+  canvas-draws the index lockup (green `#0b6b4f` tile + white Fraunces "C" + one-word "CryptoIdea" ink
+  wordmark), replacing the old two-word uppercase "CRYPTO IDEA" text.
+- **Brand guard extended from denylist → also enforce PRESENCE** ([scripts/check-brand.js](../../scripts/check-brand.js)
+  + [tests/unit/brand-guard.test.js](../../tests/unit/brand-guard.test.js)): new allowlist helpers
+  `REQUIRED_LOCKUPS`/`findMissingLockups` (terms/privacy must contain the "C" tile lockup),
+  `REQUIRED_FONTS`/`findMissingFonts` (terms/privacy must load Fraunces + Hanken), and
+  `REQUIRED_SOURCE`/`findMissingSource` (education-page uses `<Logo`; both stylesheets carry the hover +
+  `#0b6b4f`). The two-word denylist rule is now **case-insensitive** so the UPPERCASE "CRYPTO IDEA" is caught.
+
+**Deliberately unchanged:** `index.html` (source of truth), the `<Logo>` markup in `ui.jsx`, the pre-bundle
+loading splashes (already exact `#0b6b4f`, no hover), the `/edge` footer copyright line, the `/edge` "The
+Edge" label colour `#34C759` (a label, not the logo — out of scope), the app `--accent` token, and
+`research-tab.css`'s separate `--accent` copy, plus all buttons/pills.
+
+**Verification:** unit **936/936 GREEN** (two runs), **design-consistency CONSISTENT (0 findings)**, `npm run
+build` clean, and a real-browser check confirmed `#0b6b4f` + the hover `matrix` transform + fonts-loaded + all
+three logos link to "/". Commits: red `bbb5d17` → green `5334c79`.
+
+**Kaizen:** the consistency-sweep surfaced logo-carrying files not yet on the Branding/logo map row — they were
+added to [`docs/interview.md`](../interview.md) in this same change (Portfolio/Login/ForgotPass `<Logo>`
+consumers, `useSharePulse.js`, `research-tab.css`, and the `education-page`/`Loading` tests) so future logo work
+sweeps them automatically.
 
 ---
 

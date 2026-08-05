@@ -6,6 +6,12 @@ import {
   listShippedFiles,
   BRAND_RULES,
   REPO_ROOT,
+  REQUIRED_LOCKUPS,
+  findMissingLockups,
+  REQUIRED_FONTS,
+  findMissingFonts,
+  REQUIRED_SOURCE,
+  findMissingSource,
 } from "../../scripts/check-brand.js";
 
 // LOGO-2 brand guard. Mirrors the dist-name guard (#24): a PURE matcher whose
@@ -29,6 +35,14 @@ describe("brand guard — findBrandViolations matcher (LOGO-2)", () => {
     expect(findBrandViolations("Welcome to Crypto Idea")).not.toEqual([]);
   });
 
+  it("flags the UPPERCASE two-word 'CRYPTO IDEA' (the two-word rule is case-insensitive)", () => {
+    // The old Pulse share-image drew the wordmark as the uppercase string
+    // 'CRYPTO IDEA', which a case-sensitive rule silently let through.
+    expect(findBrandViolations("tracked(x, 'CRYPTO IDEA', 7, P, 156)")).not.toEqual([]);
+    expect(findBrandViolations("CRYPTO IDEA")).not.toEqual([]);
+    expect(findBrandViolations("Crypto IDEA")).not.toEqual([]);
+  });
+
   it("flags the legacy loading strings ('Loading admin', 'Loading your data', 'Loading...')", () => {
     expect(findBrandViolations("Loading admin…")).not.toEqual([]);
     expect(findBrandViolations("Loading your data...")).not.toEqual([]);
@@ -46,7 +60,7 @@ describe("brand guard — findBrandViolations matcher (LOGO-2)", () => {
     expect(findBrandViolations(html)).toEqual([]);
   });
 
-  it("enumerates all six brand rules as data", () => {
+  it("enumerates all six brand rules as data, and the two-word rule is case-insensitive", () => {
     expect(BRAND_RULES.map((r) => r.id)).toEqual([
       "purple",
       "split-wordmark",
@@ -55,6 +69,38 @@ describe("brand guard — findBrandViolations matcher (LOGO-2)", () => {
       "loading-data",
       "loading-dots",
     ]);
+    // The uppercase 'CRYPTO IDEA' form is only caught when this rule carries the
+    // /i flag — pin it so a revert to case-sensitive fails the meta-test.
+    const twoWord = BRAND_RULES.find((r) => r.id === "two-word");
+    expect(twoWord.re.flags).toContain("i");
+  });
+});
+
+// ── ALLOWLIST: the complete tile+wordmark lockup must be PRESENT on every surface
+// that shows the logo (brand-lockup unification). These walks are RED until the
+// legal pages, the /edge header, and the two logo stylesheets carry the full
+// index.html lockup; they must never be weakened to pass.
+describe("brand guard — required tile+wordmark lockup on the legal pages (AC1)", () => {
+  it("terms.html & privacy.html render the full 'C' tile lockup, not a text-only wordmark", () => {
+    expect(REQUIRED_LOCKUPS.map((r) => r.file)).toEqual(["terms.html", "privacy.html"]);
+    expect(findMissingLockups(REPO_ROOT)).toEqual([]);
+  });
+});
+
+describe("brand guard — brand fonts on the legal pages (AC2)", () => {
+  it("terms.html & privacy.html load Fraunces + Hanken Grotesk from Google Fonts", () => {
+    expect(REQUIRED_FONTS).toEqual(["terms.html", "privacy.html"]);
+    expect(findMissingFonts(REPO_ROOT)).toEqual([]);
+  });
+});
+
+describe("brand guard — required brand source markers (AC3 + AC6)", () => {
+  it("/edge uses the shared <Logo>, and both logo stylesheets pin #0b6b4f + the hover-rotate", () => {
+    // Enumerated as data so a dropped marker shows up in the diff, not just a count.
+    expect(REQUIRED_SOURCE.map((r) => r.file)).toContain("src/components/education-page.jsx");
+    expect(REQUIRED_SOURCE.map((r) => r.file)).toContain("src/styles/app.css");
+    expect(REQUIRED_SOURCE.map((r) => r.file)).toContain("src/styles/admin-settings.css");
+    expect(findMissingSource(REPO_ROOT)).toEqual([]);
   });
 });
 

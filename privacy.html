@@ -5,12 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Privacy Policy · CryptoIdea</title>
   <meta name="description" content="Privacy Policy for CryptoIdea." />
+  <!-- Brand type (Fraunces + Hanken Grotesk) so the hand-authored lockup renders in
+       the real brand fonts, matching the app.html loading lockup. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@500;600&display=swap" rel="stylesheet" />
   <style>
     :root { color-scheme: light; }
     body { margin:0; font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color:#1A1A2E; background:#fff; line-height:1.6; }
     .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
     header { display:flex; align-items:center; justify-content:space-between; padding-bottom:20px; border-bottom:1px solid #eee; margin-bottom:28px; }
-    .brand { font-size:18px; font-weight:600; letter-spacing:-0.3px; }
+    /* Brand lockup — mirrors the app.html loading .lockup shell exactly (green "C"
+       tile #0b6b4f + one-word "CryptoIdea", hover-rotate). */
+    .brand { display:flex; align-items:center; gap:10px; font-weight:600; font-size:18px; letter-spacing:-.01em; text-decoration:none; }
+    .brand .mark { width:28px; height:28px; border-radius:8px; background:#0b6b4f; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Fraunces',Georgia,serif; font-size:16px; font-weight:600; transition:transform .3s ease; }
+    .brand .word { font-family:'Hanken Grotesk',-apple-system,system-ui,sans-serif; color:#1A1A1A; }
+    .brand:hover .mark { transform:rotate(-6deg) scale(1.06); }
     a.back { font-size:13px; color:#0b6b4f; text-decoration:none; font-weight:600; }
     h1 { font-size:26px; margin:0 0 8px; }
     .muted { color:#888; font-size:13px; margin-bottom:24px; }
@@ -21,7 +31,7 @@
 <body>
   <div class="wrap">
     <header>
-      <div class="brand">CryptoIdea</div>
+      <a href="/" class="brand"><span class="mark">C</span><span class="word">CryptoIdea</span></a>
       <a class="back" href="/">← Back to site</a>
     </header>
 

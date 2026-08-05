@@ -518,6 +518,10 @@ rows are small fidelity touch-ups measured alongside — apply or skip.
 > restores the mockup's text-to-tile proportion without shrinking the tile.
 > **✅ Settled by LOGO-2 (2026-08-04):** `.adm-logo` is now the landing geometry **28/8/16** (sign-in
 > `.adm-logo.lg` → ~44/r13), so the admin tile matches the app + landing marks; the "no purple" rule is unchanged.
+> **✅ LOGO-parity (2026-08-05):** `.adm-logo` is now pinned to the index brand green **`#0b6b4f`** (not the
+> `--accent` token, which stays `#0a6b4d` for the tabs/pills) and gained the shared hover **`rotate(-6deg)
+> scale(1.06)`**, fired from the `.adm-brand` bar lockup + the `.adm-auth-logo` sign-in lockup — a true match
+> to the landing mark on every admin surface.
 
 ### 12.2 One open decision (founder confirm before build)
 **The wordmark font — serif → sans.** ADMIN-UI-1 deliberately set the wordmark in the Fraunces serif

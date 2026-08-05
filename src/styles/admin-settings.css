@@ -99,7 +99,13 @@
 .ci-app .adm-brand { display:flex; align-items:center; gap:10px; min-width:0; }
 /* Green rounded-square logo tile with a serif "C" (the mockup's mark). Shared by
    the bar (30px) and the sign-in screens (.lg, 46px). */
-.ci-app .adm-logo { flex:none; width:28px; height:28px; border-radius:8px; background:var(--accent,#0a6b4d); color:#fff; font-family:var(--display); font-weight:600; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; }
+/* Pin the LOGO tile to the brand green #0b6b4f (the index.html mark) — NOT the
+   --accent token, which drives the admin tabs/pills. transition + the hover-rotate
+   (fired from the .adm-brand bar lockup and the .adm-auth-logo sign-in lockup) mirror
+   the landing .brand .mark exactly. */
+.ci-app .adm-logo { flex:none; width:28px; height:28px; border-radius:8px; background:#0b6b4f; color:#fff; font-family:var(--display); font-weight:600; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; transition:transform .3s var(--ease); }
+.ci-app .adm-brand:hover .adm-logo,
+.ci-app .adm-auth-logo:hover .adm-logo { transform:rotate(-6deg) scale(1.06); }
 .ci-app .adm-logo.lg { width:44px; height:44px; border-radius:13px; font-size:24px; }
 .ci-app .adm-brand-txt { font-family:var(--body); font-weight:600; font-size:18px; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ci-app .adm-brand-txt .adm-sub { font-family:var(--body); font-size:12px; font-weight:600; letter-spacing:.02em; color:var(--ink-faint); }
