@@ -106,9 +106,9 @@ wins in a conflict) is **bold**.
 - Code/config: `scripts/jira-test-map.js` + `tests/unit/jira-test-map.test.js` · `package.json` (test scripts) · `.githooks/pre-push` · `.gitignore` (`.tmp/`)
 
 ### Branding / logo (the CryptoIdea mark — tile + wordmark)
-- Canonical: **`index.html` `.brand`/`.mark`** (source of truth — tile 28/r8/glyph 16, body-font wordmark 18px/600/−.01em)
-- Code: `src/components/ui.jsx` (`<Logo>`) · `src/styles/app.css` (`.ci-logo*`) · `src/styles/admin-settings.css` (`.adm-logo`/`.adm-brand-txt`/`.adm-auth-brand`) · `src/admin-main.jsx` · `src/components/admin-dashboard.jsx` · `src/components/education-page.jsx` · `src/components/Loading.jsx` · `src/main.jsx` · `app.html` · `admin.html` · `terms.html` · `privacy.html`
-- Tests: `tests/unit/Logo.test.jsx` · `tests/unit/brand-guard.test.js` + `scripts/check-brand.js`
+- Canonical: **`index.html` `.brand`/`.mark`** (source of truth — tile 28/r8/glyph 16, body-font wordmark 18px/600/−.01em; tile green `#0b6b4f`; hover `rotate(-6deg) scale(1.06)`)
+- Code: `src/components/ui.jsx` (`<Logo>`) · `src/styles/app.css` (`.ci-logo*`) · `src/styles/admin-settings.css` (`.adm-logo`/`.adm-brand-txt`/`.adm-auth-brand`) · `src/admin-main.jsx` · `src/components/admin-dashboard.jsx` · `src/components/education-page.jsx` · `src/components/Loading.jsx` · `src/main.jsx` · `src/components/Portfolio.jsx` · `src/components/Login.jsx` · `src/components/ForgotPass.jsx` (live `<Logo>` consumers) · `src/features/research/hooks/useSharePulse.js` (ships a rendered brand mark on the Pulse share image) · `src/features/research/styles/research-tab.css` (a separate `--accent` copy) · `app.html` · `admin.html` · `terms.html` · `privacy.html`
+- Tests: `tests/unit/Logo.test.jsx` · `tests/unit/brand-guard.test.js` + `scripts/check-brand.js` (now also enforces PRESENCE via the `findMissingLockups`/`findMissingFonts`/`findMissingSource` helpers — terms/privacy must carry the tile lockup + Fraunces/Hanken, education-page uses `<Logo`, both stylesheets carry the hover + `#0b6b4f`; two-word denylist is case-insensitive) · `tests/unit/education-page.test.jsx` · `tests/unit/Loading.test.jsx`
 
 > **Keep this map current.** When a file moves or a new canonical doc is added (e.g. `BILLING.md`),
 > update the affected row in the *same* change — the map itself is subject to the consistency rule.

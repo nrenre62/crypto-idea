@@ -123,7 +123,21 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   repo-wide (founder Option A folds in `education-page.jsx` + `terms.html` + `privacy.html`) by
   `scripts/check-brand.js` + `tests/unit/brand-guard.test.js` — no two-word "Crypto Idea" UI string and no
   `#6C5CE7` may reappear in shipped surfaces. Docs prose (`docs/**`, README, this file's bodies, `openapi.json`)
-  still say "Crypto Idea" as the project name — deferred as an optional docs pass.
+  still say "Crypto Idea" as the project name — deferred as an optional docs pass. **LOGO-parity ("logo
+  everywhere", 2026-08-05 · red `bbb5d17` → green `5334c79`)** then made the FULL index lockup present and
+  identical on every surface that shows the logo: the in-app `<Logo>` tile (`.ci-logo-mark`) and admin
+  `.adm-logo` are now **pinned to the index brand green `#0b6b4f`** (the general `--accent` `#0a6b4d` stays for
+  buttons/pills/links — the green change is scoped to the logo only) and gained the landing **hover
+  `rotate(-6deg) scale(1.06)`** (covers Portfolio/Login/ForgotPass/Loading/Suspense + the admin bar & sign-in;
+  NOT on the transient `app.html`/`admin.html` splashes); the three text-only surfaces got the whole tile+wordmark
+  lockup — `/edge` (`education-page.jsx` renders the shared `<Logo>`), `terms.html` + `privacy.html` (hand-authored
+  tile mirroring the `app.html` shell + a Google-Fonts link loading Fraunces + Hanken) — **all three clickable →
+  the landing "/"**; and the Pulse **share image** (`useSharePulse.js`) now canvas-draws the index lockup (green
+  `#0b6b4f` tile + white Fraunces "C" + one-word "CryptoIdea") instead of the old two-word "CRYPTO IDEA". The brand
+  guard was **extended from a pure denylist to also enforce PRESENCE** (`findMissingLockups`/`findMissingFonts`/
+  `findMissingSource` in `scripts/check-brand.js` — terms/privacy must carry the tile lockup + both fonts,
+  education-page must use `<Logo`, both stylesheets must carry the hover + `#0b6b4f`) and the two-word denylist is
+  now **case-insensitive** (catches "CRYPTO IDEA"). Design-only; unit 936/936, design-consistency clean, build clean.
 - **Design revamp (BUILT, 2026-06-26):** the whole app matches the founder-approved mockup — see
   [`DESIGN-REVAMP.md`](docs/design/DESIGN-REVAMP.md) (spec + §7 founder review; backlog §D). Shipped: Portfolio value →
   white summary card (`.value-card`, INVESTED/24H/ASSETS) + assets **row → 3-up card grid on the 1040 wide
