@@ -97,7 +97,12 @@ the three anchors — interview.md consistency-map row, CLAUDE.md Conventions bu
 session actually consults the architecture rules; see NEXT-STEPS §ARCHITECTURE-DOC). It also **spins off two
 REQUIRED small code fixes** — **ARCH-DOC-FIX-1** (index.html inline `onclick` → `landing.js` listeners;
 browser-verify) and **ARCH-DOC-FIX-2** (education-page direct `fetch` → `api/`+hook + guard test) — each its
-own commit, NOT part of the docs increment.
+own commit, NOT part of the docs increment. Queued 2026-08-05: **#15 DARK-MODE-FIXES** (🟩 GREEN — **design-only,
+dark-block-only**, no rules/dep: red Sell buttons + shiny Buy/Sell across the Detail overlay & AddEntry popup +
+white/bright card+pill borders across Research Overview & Coins + vivid Stress-test & diversification note; log
+as the next DESIGN-PASS.md round; see NEXT-STEPS §DARK-MODE-FIXES). ⚠️ Light mode must stay byte-for-byte
+identical. It **spins off one REQUIRED functional fix** — **DARK-FIX-NaN** (guard `OverviewView.jsx` so the
+diversification note never renders "NaN%", + a unit test) — its own commit, NOT part of the CSS round.
 
 **Priority override:** ONBOARD-GATE is the only `launch-blocker` here. If launch timing matters more
 than risk-ordering, move it to the front — but keep it a 🔶 CHECKPOINT (it rewrites the rules gate) and

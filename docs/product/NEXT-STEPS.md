@@ -4320,6 +4320,96 @@ is really the frontend model layer (already conceded).
 
 ---
 
+## DARK-MODE-FIXES (DP next round). Dark-mode: red Sell buttons, shiny Buy/Sell, white card+pill borders in Research — + fix the NaN diversification note  (📋 STAGED 2026-08-05; queued in BUILD-LOOP #15 — NOT built)
+
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #15** (2026-08-05). Canonical design doc: **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log this as the next DP round (append after R28; confirm the number at build). **Design-only, 🟩 GREEN** — CSS + one small guard fix, no `firestore.rules`, no new dependency, no new hex beyond the existing token palette. Founder-reported from 4 dark-mode screenshots (2026-08-05).
+>
+> **HARD CONSTRAINT (house rule R3, founder-restated "only on dark mode"): every change is DARK-BLOCK-ONLY** — scoped under `html[data-theme="dark"]`. **Light mode must stay byte-for-byte identical** (diff the built light CSS to prove it). Dark mode is applied via `html[data-theme="dark"]` (`app.css:48`).
+
+### The four reported issues → exact locus (verified in source 2026-08-05)
+1. **"− Sell" button is white in the Detail overlay; must be RED (parity with the green "+ Buy").**
+   Locus: `src/components/Detail.jsx:103-104` → `.tx-btn.buy` / `.tx-btn.sell` in `app.css`. Dark mode never
+   re-colors `.tx-btn.sell`, so it renders as a neutral/white pill. **Fix (dark-only):** `.tx-btn.sell` text +
+   border → the shiny sell red `--sr` (`#ff6b6b` in dark), matching how `.tx-btn.buy` reads as the accent green.
+2. **AddEntry Buy/Sell popup: the Buy | Sell segmented toggle is illegible; the "Add Sell" submit is a dull dark red.**
+   - Toggle: `.seg-btn.on-buy` (green `--accent-ink`) / `.seg-btn.on-sell` (`--sr`) at `app.css:505-506`; inactive
+     `.seg-btn` is `--ink-soft` in dark (`app.css:143`) — so neither option reads as its color. **Fix (dark-only):**
+     make the toggle labels **shiny by state — Buy green, Sell red** — colour the label text per side (buy→`--sg`/`--accent-ink`,
+     sell→`--sr`) and lift the active-pill contrast so the selected side is unmistakable in dark.
+   - Submit: `.submit-buy.submit-sell` uses `--warn` (`#bf4730`, dull, NOT overridden in dark) — `app.css:520`.
+     **Fix (dark-only):** the Sell submit fill → the shiny sell red (`--sr`); the Buy submit (`.submit-buy`, `--accent`)
+     → a vivid dark-mode buy green (`--sg`) so both submit buttons "shine" and are consistent with the toggle.
+3. **Research → Overview: every card + pill needs a WHITE/bright border in dark; the Stress-test colours must be vivid; "A note on diversification" must be a shining, visible green.**
+   - Cards: `.research-root .card` borders on `--line-2` (`rgba(236,233,225,.08)` in dark — nearly invisible). **Fix
+     (dark-only):** raise card + inner-box borders to a bright near-white edge (see Gap G3 for the exact token).
+   - Stress test (`.scn-*` / slider track + "$N at today's prices" + `.scn-note`): muted in dark. **Fix (dark-only):**
+     brighten the red→green gradient stops and the hero/label text so the model reads as vivid.
+   - Diversification note: `html[data-theme="dark"] .research-root .diversify` already tints (`app.css`/
+     `research-tab.css:284-285`) but reads dark-on-dark; its `h3`/`p` inherit muted `--ink-soft` and the
+     "Read the principle →" link uses `--accent` (`#0a6b4d`, low-contrast on dark). **Fix (dark-only):** brighten the
+     card fill/border, set the heading + link to the shining `--accent-ink` (`#5cd6a6`), and lift the body text.
+4. **Research → Coins: the card pills need a white/bright border in dark.**
+   Locus: `.coin-card` + its pills — `Sentiment` pill, the `Dev/Founders/Team/Community` reason chips, the catalyst
+   pill, and the `AVG COST / NOW / P/L / 30D` stat boxes (`.cc-*` classes in `research-tab.css`). **Fix (dark-only):**
+   bright border on the card + each pill/stat-box (per the G3 token + the G4 colored-chip decision).
+
+### Gaps found (founder asked — these go in the plan, some are must-fix beyond the four asks)
+- **G1 — NaN bug (functional, MUST-FIX, spun out as `DARK-FIX-NaN`).** `OverviewView.jsx:64` renders
+  `Math.round(portfolio.risk.top2)` with no guard, so a not-yet-computable `top2` prints **"about NaN%"** (visible
+  in screenshot 3). This violates the module's own "**never NaN**" principle (`usePrices.js:26`). Fix: guard `top2`
+  (show the fallback sentence, or `—`, when it isn't a finite number) and add a unit test. **This is a bug, not a
+  dark-mode style — queue it as its own small commit `DARK-FIX-NaN` (REQUIRED), not folded into the CSS round.**
+- **G2 — Sell uses THREE different reds (drift).** `.tx-btn.sell` (uncolored), `.seg-btn.on-sell` (`--sr`),
+  `.submit-sell` (`--warn`). Consolidate every Sell surface onto ONE token (`--sr`) and every Buy surface onto ONE
+  (`--sg`/`--accent-ink`) so Buy/Sell are consistent across Detail + AddEntry (single source of truth — same ethos
+  as ARCHITECTURE-DOC). Do the light-mode consolidation ONLY if it's provably a no-op; otherwise keep the change
+  dark-block-only and leave the `--warn`/`--sr` light values untouched.
+- **G3 — "white border" needs one shared dark token, decided once.** Pure `#fff` on every card+pill is harsh and
+  can fail as a hairline. Propose a single new **`--edge-bright`** (e.g. `rgba(255,255,255,.72)`) defined in the
+  dark `:root` block and applied uniformly to `.card`, `.coin-card`, `.diversify`, the stress card, and every pill/
+  stat-box — one token so it can't drift. (Founder said "white" — `--edge-bright` renders as bright white; the exact
+  alpha is a build-time contrast call. Confirm the founder wants a hairline vs. a full opaque white line.)
+- **G4 — do the WHITE borders also wrap the COLORED chips?** The `Dev/Founders/Team/Community` chips + the amber
+  `Sentiment` pill + the catalyst pill already carry semantic tint/borders. "Every pill has a white border" would
+  override those. Decide at build: (a) white border on ALL pills incl. colored (uniform, founder's literal ask), or
+  (b) white border on neutral cards/stat-boxes only, colored chips keep their semantic border. **Default to (a)**
+  per the literal request; flag if it muddies the semantic chips.
+- **G5 — consistency sweep across BOTH transaction surfaces + devices.** The Sell/Buy styling lives in the Detail
+  overlay (`.tx-btn`), the AddEntry toggle (`.seg-btn`) AND the submit (`.submit-*`); fix all together or they drift.
+  The Buy/Sell popups are desktop overlays (`useIsDesktop`) that also render inline on mobile — **verify dark on
+  BOTH** (desktop overlay + mobile full-screen).
+- **G6 — accessibility.** The shiny red/green (`--sr` `#ff6b6b`, `--sg` `#2ecc71`) as button FILLS must keep the
+  `#fff` label text ≥ 4.5:1; as TEXT on the dark card they must clear contrast too. Verify with a contrast check;
+  darken the fill a touch if a white label fails (still "shiny", just AA-safe).
+- **G7 — 30D shows "+0.0%" on both coins** (screenshots) — this is the documented graceful degradation when
+  `/api/history` is missing (never NaN), NOT a bug. Note it so it isn't "fixed" into a fake number; out of scope here.
+
+### Scope / consistency sweep (change in EVERY file — dark-block-only)
+1. **`src/styles/app.css`** — dark-only overrides: `.tx-btn.sell` (red), `.seg-btn` label colours (buy green / sell
+   red + active contrast), `.submit-buy` (vivid buy green) + `.submit-sell` (shiny red); the shared token(s) `--sr`/
+   `--sg` reuse + the new `--edge-bright` in the dark `:root`.
+2. **`src/features/research/styles/research-tab.css`** — dark-only: `.card`/`.coin-card`/`.diversify`/stress-card +
+   all pills/stat-boxes → `--edge-bright`; brighten the stress gradient + hero/labels; diversify heading/link/body →
+   `--accent-ink`/lifted text.
+3. **`src/features/research/components/OverviewView.jsx`** — the G1 NaN guard (functional; `DARK-FIX-NaN`).
+4. **`tests/unit/`** — a test asserting the diversification note never renders "NaN" (G1); if any snapshot/style
+   test pins the old Sell/toggle look, update it to the new values (never weaken a test).
+5. **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log this as the next DP round (the four fixes + G1–G7); **[`ERRORS.md`](../testing/ERRORS.md)** — add the NaN-diversification entry.
+6. **CLAUDE.md** design-follow-on note — one line that this round shipped (keep the doc current).
+
+### Acceptance / Definition of Done
+- **Browser-verify DARK (the deliverable):** Detail overlay "− Sell" is red like "+ Buy" is green; AddEntry toggle
+  shows Buy green / Sell red unmistakably and the submit is a shiny red (Sell) / green (Buy); Research Overview +
+  Coins cards **and pills** show the bright white border; Stress-test gradient + "A note on diversification" are
+  vivid and legible; the note reads a real percentage (or the fallback), **never "NaN%"**. Verify on desktop overlay
+  AND mobile.
+- **Light mode unchanged — prove it:** build and diff the light CSS/output; zero visual change in light (house R3 rule).
+- `npm run test:unit` green (incl. the new NaN guard test); `npm run build` clean (no-names guard; ships nothing new).
+- `DARK-FIX-NaN` committed as its own REQUIRED small commit (functional), separate from the CSS round.
+- G3/G4 decisions recorded in DESIGN-PASS.md; this Status flipped to ✅ BUILT; commit. (No rules ⇒ no `test:rules`.)
+
+---
+
 ## Commands
 
 | Command | What |
