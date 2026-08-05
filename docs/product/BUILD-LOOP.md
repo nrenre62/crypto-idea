@@ -91,7 +91,13 @@ lives in Auth custom claims) → no `test:rules`, but it IS security-critical (a
 a new owner-gated `listAdmins` callable, which trips the `admin-gate-coverage` + `audit-labels` source
 scans). Also queued 2026-08-03: **#12 PLAN-LIMITS-MAX** (🔶 CHECKPOINT — touches `firestore.rules`) and
 **#13 RESEARCH-NO-AI + AI-CHAT-SWITCH** (🟩 GREEN — Research-tab AI honesty in one increment, **no rules /
-no new dep**, a low-risk design/copy build).
+no new dep**, a low-risk design/copy build). Queued 2026-08-05: **#14 ARCHITECTURE-DOC** (🟩 GREEN —
+**docs-only**, no code/rules/dep: write the canonical `docs/decisions/ARCHITECTURE.md` rulebook + wire it into
+the three anchors — interview.md consistency-map row, CLAUDE.md Conventions bullet, AGILE DoD gate — so a code
+session actually consults the architecture rules; see NEXT-STEPS §ARCHITECTURE-DOC). It also **spins off two
+REQUIRED small code fixes** — **ARCH-DOC-FIX-1** (index.html inline `onclick` → `landing.js` listeners;
+browser-verify) and **ARCH-DOC-FIX-2** (education-page direct `fetch` → `api/`+hook + guard test) — each its
+own commit, NOT part of the docs increment.
 
 **Priority override:** ONBOARD-GATE is the only `launch-blocker` here. If launch timing matters more
 than risk-ordering, move it to the front — but keep it a 🔶 CHECKPOINT (it rewrites the rules gate) and

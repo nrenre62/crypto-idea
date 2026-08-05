@@ -4145,6 +4145,181 @@ the same App Check.)
 
 ---
 
+## ARCHITECTURE-DOC. Canonical `ARCHITECTURE.md` — consolidate the scattered architecture rules into ONE wired-in rulebook  (📋 STAGED 2026-08-05; queued in BUILD-LOOP #14 — NOT built)
+
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #14** (2026-08-05). **Docs-only increment** — no source code,
+> no `firestore.rules`, no new dependency. Gate: 🟩 GREEN (writing + wiring Markdown; the only "tests" are
+> `npm run build` staying clean — the doc ships nothing — and the doc links resolving). Built off a 4-agent
+> read-only research sweep (2026-08-05): full rule inventory + enforcement-gap trace + house-style analysis
+> + as-built reality check (findings recorded below). **Decisions were taken as the recommended defaults on
+> 2026-08-05 (interview offered, not answered); the founder can override any of the four before build.**
+
+### Why (the founder's exact worry: "is the code being built actually using this file?")
+The research answer is **no — architecture is the one governed area with no wired-in canonical doc.** Two
+files exist and neither governs the build loop:
+- **`src/ARCHITECTURE.md`** (73 lines) is a *living* rulebook but scoped to **frontend layers only**
+  (`api`/`hooks`/`components`/`utils`). Its only tie to the build process is a *passive* AGILE Definition-of-Done
+  line ("update the doc **if** structure changed") — a post-hoc reminder, **not** a placement gate a session
+  reads before writing code.
+- **`docs/testing/ARCHITECTURE-AUDIT.md`** (152 lines) is a **2026-06-16 point-in-time snapshot**, filed under
+  `testing/`, referenced only twice in passing (`REVIEW-FINDINGS.md:57`, `NEXT-STEPS.md:2054`) — **effectively
+  orphaned**, and now **stale** (see Drift below).
+- The repo's real anti-drift engine is the **`docs/interview.md` consistency map** (10 topic rows, bound in as
+  CLAUDE.md Conventions' first mandatory bullet). It has **no "Architecture / layering" row** — so creating or
+  moving a component/hook/api/util file is never routed through the layer rules. Compliance today rides on the
+  coder *already knowing* the convention, not on any enforced reference.
+- Meanwhile the *actual* architecture rules (the security boundary "only `dist/` ships", admin-is-a-separate-app,
+  CSP/no-inline-scripts, flat-cost cache model, backend-monolith decision, code-splitting, data model) live
+  **scattered across `CLAUDE.md`** with **no single canonical home**.
+
+**So this is not "move the audit into a rules file."** It is: (1) **consolidate** the rules that are spread
+across `src/ARCHITECTURE.md` + the audit + `CLAUDE.md` into ONE authoritative doc that matches the house
+canonical-doc pattern, and (2) **wire it into the three places a session actually looks** — that wiring is the
+fix for the founder's worry.
+
+### Decisions (recommended defaults — locked 2026-08-05 unless the founder overrides)
+1. **File home → `docs/decisions/ARCHITECTURE.md`** (founder choice 2026-08-05) — beside the other canonical
+   "record" docs (`CACHE-POLICY.md`, `PRODUCT-DECISIONS.md`, `BILLING.md`) for house consistency; a reader who
+   knows the `docs/decisions/` convention finds it where every other canonical decision doc lives. **`src/ARCHITECTURE.md`
+   stays** as the detailed src-layer sub-doc that *composes under* it (the decisions doc owns the system shape;
+   `src/` owns the `api/hooks/components/utils` layer detail + migration status). **`ARCHITECTURE-AUDIT.md` stays**
+   with a new banner marking it a **historical 2026-06-16 snapshot** (superseded by `docs/decisions/ARCHITECTURE.md`).
+   Nothing is deleted; no history is overwritten (Kaizen rule). *(Alts not chosen: root `ARCHITECTURE.md`, or
+   promoting `src/ARCHITECTURE.md` in place.)*
+2. **Scope → system-wide + cross-links.** All ~17 categories from the inventory as **ID-tagged rules
+   (`ARCH-1…`)**: multi-page Vite/routing, frontend layering (+ documented exceptions), Research feature module,
+   build/bundle/code-splitting, backend monolith, data layer & Firestore model, **rules = the security
+   boundary**, admin separation/roles/claims, what-ships/secrets, output-encoding/CSP/headers, caching/flat-cost
+   proxy, AI/Research safety, billing/audit/observability, responsive/design-system, process/governing-doc rules.
+   For the deep areas the rulebook **CROSS-LINKS the existing canonical docs** (caching→`CACHE-POLICY.md`,
+   HTTP→`API-SECURITY.md`+`openapi.json`, isolation→`ISOLATION.md`, product→`PRODUCT-DECISIONS.md`) and states
+   the *architectural rule* only — **it never copies their decision logs**, so it can't become a NEW drift
+   source. *(Alt not chosen: layering-only.)*
+3. **Enforcement → all three anchors** (see "Wiring" — this is the load-bearing part). *(Alt not chosen:
+   CLAUDE.md bullet only, or doc-only.)*
+4. **Two small real drifts → must-fix** (founder choice 2026-08-05): the rulebook states the CLEAN rule with
+   **no exception carve-out**; both become **required** fix-increments in the backlog (`ARCH-DOC-FIX-1/2`),
+   listed in the doc as **known violations to be fixed** (the audit's "known violations" framing), not as
+   accepted exceptions. *(Alts not chosen: document-as-accepted-exception, or document-only.)*
+
+### Structure of the new `ARCHITECTURE.md` (clone the house canonical-doc pattern)
+Match `CACHE-POLICY.md` / `PRODUCT-DECISIONS.md` / `API-SECURITY.md` exactly:
+1. **Banner blockquote:** "**Canonical record of the system architecture** — 2026-08-05 codebase audit
+   (4-agent read-only sweep: 17 rule categories, as-built verified in source)." + an authority clause —
+   "Where this doc and a stale planning/design note disagree, **this doc wins** for architecture (as
+   `PRODUCT-DECISIONS.md` does for product, `CACHE-POLICY.md` for caching)." + a **scope-composition** line:
+   it owns the system/layering shape; `src/ARCHITECTURE.md` keeps the src-layer rules + migration status;
+   `CACHE-POLICY`/`API-SECURITY`/`ISOLATION`/`PRODUCT-DECISIONS` keep their deep domains; `CLAUDE.md`+`CODEBASE-MAP.md`
+   hold current code reality; `NEXT-STEPS §1/§2` holds build order. Add the "Two readers: future-me + Claude/teammate" line.
+2. **Body:** numbered sections, each an **ID-tagged rule** (`ARCH-1 … ARCH-N`) in **imperative** form, each with
+   its **source** (file + section) and a **status tag** (`current` / `migration-in-progress` / `aspirational` /
+   `by-design-exception` / `historical`). Open with a short **"How this maps to the code"** table
+   (layer → dirs). Keep a **"By-design exceptions"** subsection (backend monolith un-split per §2; frontend
+   model logic in `api/firebase-*.js`; CRUD/upgrade orchestrators in `CryptoIdea.jsx` per §1b; logical—not
+   physical—per-uid isolation per ISO-D1) so a reader never mistakes a deliberate deviation for a violation.
+3. **Cross-references / Interplay footer** linking `src/ARCHITECTURE.md`, `ARCHITECTURE-AUDIT.md` (historical),
+   `CODEBASE-MAP.md`, `docs/diagrams/frontend-layered-architecture.svg` (register the SVG as the visual
+   companion), and the sibling canonical docs. Kaizen footer: "Update this file when an architectural decision
+   changes — don't overwrite history silently."
+
+### Wiring — the three anchors (this is what makes a session consult it; do all three in the SAME commit per the consistency rule)
+1. **`docs/interview.md` consistency map — ADD A ROW (highest leverage).** New `### Architecture / layering`
+   subsection: `Docs: **[ARCHITECTURE.md]** · src/ARCHITECTURE.md · ARCHITECTURE-AUDIT.md (historical) ·
+   CODEBASE-MAP.md · docs/diagrams/frontend-layered-architecture.svg` and `Code: src/{api,hooks,components,utils}/
+   · src/features/research/ · functions/index.js (+ helper modules) · vite.config.js · index.html/app.html/admin.html`.
+   Bold `ARCHITECTURE.md` as the canonical winner. This closes the one gap: today no architecture row and no bold
+   owner exist, so structural changes bypass the sweep entirely.
+2. **`CLAUDE.md` → Conventions — ADD a mandatory canonical-declaration bullet** mirroring the existing
+   "Product direction:" / "Caching policy:" / "API surface & key security:" bullets:
+   "**Architecture:** [`ARCHITECTURE.md`] is the canonical record of the system architecture/layering — it
+   **wins over any stale planning/design doc**; the `src/` layer rules + migration status stay in
+   `src/ARCHITECTURE.md`. When adding or moving a function/component/hook/api/util, follow the layer rules
+   (component → hook → api → util; `utils/` pure; no `firebase/*` in components)." Because CLAUDE.md loads every
+   session, this guarantees the reference is in-context. *(Leave CLAUDE.md's existing "## Architecture" prose as
+   code-reality description; the canonical **pointer** belongs in Conventions.)*
+3. **`docs/product/AGILE.md` Definition of Done — turn the passive line into an active gate.** Change the
+   ":43" line to name the root doc — "(`README.md` / `ARCHITECTURE.md` / `src/ARCHITECTURE.md` / this backlog)"
+   — **and** add a placement-gate item: "New/moved code sits in the correct layer per `ARCHITECTURE.md`; no new
+   layer violation introduced." *(Optional 4th touch: add "place code in the correct layer per `ARCHITECTURE.md`"
+   to `BUILD-LOOP.md` step-5 build gate + name it in step-3 "Re-read the spec"; and add a "Canonical:
+   [ARCHITECTURE.md]" pointer at NEXT-STEPS §1/§2, matching how every other governed area cites its canonical doc.)*
+
+### Drift the rulebook must fix (found in the as-built reality check — record the RESOLVED rule, drop stale gap language)
+Stale-doc lag (code moved ahead of docs — **correct the numbers**, no code change):
+- **D1 — backend size/shape.** `ARCHITECTURE-AUDIT.md` says "one flat 908-line `index.js`, 18 functions, no
+  helper split." Reality: `index.js` ≈ **2,391 lines, 43 exported functions**, with **13 extracted helper
+  modules** (`guards`/`billing`/`validate-output`/`config-diff`/`observability`/`net-utils`/`stats-daily`/
+  `features`/`signup-gate`/`announcement`/`universe-utils`/`duplicates`/`audit-diff`; `functions/*.js` ≈ 3,652
+  lines). Accurate framing: **"modular pure helpers + a per-handler-mixed `index.js`"**, not "flat monolith".
+  The per-function controller+service+model mixing *is* still true and stays a documented by-design exception.
+- **D2 — `src/ARCHITECTURE.md` "known violation #1"** still lists `admin-dashboard.jsx` as calling Cloud
+  Functions directly with `api/admin.js` as "future". Reality: **`api/admin.js` exists** and the panel is
+  **hook-driven** (`useAdminDashboard`), no `httpsCallable`/`firebase` imports (fixed in commit df83e51). Also
+  its "migration in progress" header is now largely stale — NEXT-STEPS §1a/§1b/§1c are complete; reframe as
+  **"layering done, with documented exceptions."**
+
+Genuine small code/CSP inconsistencies (Decision 4 = **must-fix**: rulebook states the clean rule with **no**
+carve-out; both are REQUIRED backlog fixes, listed in the doc as known violations to be fixed):
+- **D3 — 3 inline `onclick` handlers in `index.html`** (`setBilling('monthly')` L714, `setBilling('yearly')`
+  L715, `subscribe()` L777). CLAUDE.md D12 claims "zero inline scripts under a strict CSP", but inline event
+  handlers ARE inline script execution that a `script-src` without `'unsafe-inline'` blocks at runtime (the
+  functions are defined globally in `landing.js`). **Rulebook:** state the clean rule ("no inline scripts
+  **including** `on*` handlers") and list these 3 as a **known violation to be fixed**. Queue **`ARCH-DOC-FIX-1`
+  (REQUIRED)**: rewire to `addEventListener` in `landing.js` — this removes a genuinely CSP-blocked path (the
+  billing toggle + Subscribe button silently fail under the deployed `script-src`). ⚠️ **Browser-verify after
+  the fix** that the landing billing toggle + Subscribe still work.
+- **D4 — `src/components/education-page.jsx:15` calls `fetch("/api/subscribe")` directly**, contradicting the
+  "components never fetch" rule (and the audit's "Clean (14)" listing). **Rulebook:** list as a **known violation
+  to be fixed**. Queue **`ARCH-DOC-FIX-2` (REQUIRED)**: route the newsletter POST through a thin `api/` wrapper
+  (+ a small hook/handler) per the layer rule, and add/extend a unit test so a component-level `fetch` can't
+  reappear.
+
+Also record (already-resolved gaps whose stale "TODO" language should NOT be copied into the new doc): CSP
+`unsafe-inline` removed for scripts (D12 done 2026-07-03; **`style-src` still allows it** — say so precisely);
+signups now server-enforced (`beforeCreateUser`, ADMIN-0); grant-admin UI moved into Settings (ADMIN-D3);
+`setAdminClaim` removed. And flag the **highest drift-risk topic** — tier limits live in ≈9 code+doc locations
+(already has its own consistency-map row) — with a one-line "treat limit/hard-clamp constants as one governed
+set" pointer from the data/rules section (don't restate the numbers — they belong to `PRICING.md`/that row).
+
+### As-built facts the rulebook states as `current` (verified in source 2026-08-05 — 5/7 clean, 2 nuanced)
+Components import zero `firebase/*` (both `src/components` + `src/features`); `script-src` genuinely has **no**
+`'unsafe-inline'`/`'unsafe-eval'` and there are **no inline `<script>` blocks**; ONE shared `cache/universe` +
+`cache/trending` flat-cost proxy (denial-of-wallet bounded to distinct held coins); admin fully separated
+(own Vite entry + own named Firebase app + client claim re-check; **no admin code/CSS in the user bundle**);
+5 Vite entries + `manualChunks` Firebase isolation; `writeBatch`+`increment` counter data layer. Nuanced-but-aligned:
+`api/` no longer owns `TIER_LIMITS` (enforcement-only; table lives in `hooks/useUpgrade.js`); `firebase-database.js`
+is really the frontend model layer (already conceded).
+
+### Scope / consistency sweep (change in EVERY file below — no drift)
+1. **NEW `docs/decisions/ARCHITECTURE.md`** — the canonical rulebook (structure above; sits with the other
+   `docs/decisions/` canonical docs).
+2. **`src/ARCHITECTURE.md`** — add a top pointer "System-level rules: see root `ARCHITECTURE.md` (canonical);
+   this file details the `src/` layers." + apply D2 corrections (admin-dashboard resolved; reframe "migrating").
+3. **`docs/testing/ARCHITECTURE-AUDIT.md`** — add a historical-snapshot banner (2026-06-16, superseded by
+   `ARCHITECTURE.md`) + apply D1 numbers as a "since this audit" note. Keep the file (history).
+4. **`docs/interview.md`** — add the "Architecture / layering" consistency-map row (Wiring #1).
+5. **`CLAUDE.md`** — add the Conventions canonical bullet (Wiring #2).
+6. **`docs/product/AGILE.md`** — DoD placement-gate + doc-list update (Wiring #3).
+7. **`README.md`** — point the existing `ARCHITECTURE.md (src/)` line at the new `docs/decisions/ARCHITECTURE.md`
+   as the canonical system rulebook (keep the `src/` link as the layer detail).
+8. **`docs/product/CODEBASE-MAP.md`** — add a row for the new `docs/decisions/ARCHITECTURE.md`.
+9. **`docs/product/BUILD-LOOP.md`** — (optional 4th touch) step-3/step-5 layer-placement mention.
+10. Queue **`ARCH-DOC-FIX-1`** (inline-onclick → `landing.js` listeners; browser-verify) and
+    **`ARCH-DOC-FIX-2`** (education-page fetch → `api/`+hook + guard test) as separate **REQUIRED** backlog
+    items (NOT part of this docs increment; each its own small code commit).
+
+### Acceptance / Definition of Done
+- `npm run build` clean (docs change ships nothing; the no-names guard still passes).
+- All new inter-doc links resolve; the consistency-map row lists every file that must agree.
+- The three wiring anchors land in the **same commit** as `ARCHITECTURE.md` (per the interview.md rule that the
+  map is itself subject to the consistency sweep).
+- `ARCHITECTURE.md` cross-links (not copies) the deep canonical docs — grep check: it does NOT restate tier-limit
+  numbers, cache TTLs, or the HTTP contract.
+- D1/D2 corrections applied; D3/D4 listed as known violations-to-fix and queued as **required** `ARCH-DOC-FIX-1/2`.
+- This Status line flipped to ✅ BUILT; commit. (No `firestore.rules` ⇒ no `test:rules`; no new dep, no new hex.)
+
+---
+
 ## Commands
 
 | Command | What |
