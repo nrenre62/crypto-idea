@@ -40,3 +40,23 @@ describe("education-page subscribe", () => {
     expect(screen.getByText(/Enter a valid email/i)).toBeInTheDocument();
   });
 });
+
+// AC4 — the /edge header logo must be the shared <Logo> lockup (green "C" tile +
+// one-word "CryptoIdea"), clickable home. Today the header is a BARE text
+// <a href="/">CryptoIdea</a> with NO .ci-logo, so a name-based link query would
+// pass falsely; asserting the LOCKUP (.ci-logo-mark + .ci-logo-word) INSIDE the
+// href="/" anchor is the genuine red. Mount fires no network (subscribe only
+// runs on click), so rendering is clean without any fetch response staged.
+describe("education-page /edge header brand lockup (AC4)", () => {
+  beforeEach(() => { global.fetch = vi.fn(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it("renders the shared <Logo> lockup wrapped in a clickable <a href='/'>", () => {
+    const { container } = render(<EduDesign3 />);
+    const homeAnchors = [...container.querySelectorAll('a[href="/"]')];
+    const lockup = homeAnchors.find((a) => a.querySelector(".ci-logo"));
+    expect(lockup, "the /edge header logo must be a <Logo> lockup inside <a href='/'>").toBeTruthy();
+    expect(lockup.querySelector(".ci-logo-mark")?.textContent).toBe("C");
+    expect(lockup.querySelector(".ci-logo-word")?.textContent).toBe("CryptoIdea");
+  });
+});

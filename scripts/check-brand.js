@@ -35,8 +35,9 @@ export const BRAND_RULES = [
   // what the plain two-word rule below can't see.
   { id: "split-wordmark", re: /Crypto\s*<[^>]*>\s*Idea/i, msg: "split two-word wordmark (Crypto <tag>Idea)" },
   // Plain two-word wordmark. Requires real whitespace, so the one-word
-  // "CryptoIdea" never matches.
-  { id: "two-word", re: /Crypto\s+Idea/, msg: "two-word 'Crypto Idea' wordmark" },
+  // "CryptoIdea" never matches. CASE-INSENSITIVE so the UPPERCASE form
+  // "CRYPTO IDEA" (e.g. the old Pulse share-image wordmark) is caught too.
+  { id: "two-word", re: /Crypto\s+Idea/i, msg: "two-word 'Crypto Idea' wordmark" },
   { id: "loading-admin", re: /Loading admin/, msg: "legacy 'Loading admin' string" },
   { id: "loading-data", re: /Loading your data/, msg: "legacy 'Loading your data' string" },
   // Three ASCII dots — NOT the single ellipsis char "…", which is the new form.
@@ -86,6 +87,76 @@ export function listShippedFiles(root = REPO_ROOT) {
   return out;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// REQUIRED-PRESENCE guards (brand-lockup unification). BRAND_RULES above is a
+// DENYLIST (stale artefacts that must NOT ship); the three lists below are an
+// ALLOWLIST — the brand assets that MUST be present on every surface that shows
+// the logo, so the complete index.html tile+wordmark lockup can't silently
+// regress to a text-only mark on one page. Same DATA-driven shape (a {file, re,
+// msg} entry list + a pure walk) so the test can enumerate them and drive the
+// walk without a build.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Read a repo-relative file; a MISSING file reads as "" so its required marker
+// is reported MISSING rather than throwing (an enforcement guard must fail loud,
+// never error out and skip the check).
+function readShipped(root, rel) {
+  const full = join(root, rel);
+  return existsSync(full) ? readFileSync(full, "utf8") : "";
+}
+
+// AC1 — surfaces that must render the FULL tile lockup (a "C" tile glyph next to
+// the one-word "CryptoIdea"), not a text-only wordmark. The regex proves a tile:
+// a `class="mark"` span (any attrs) OR a bare `>C<` glyph, then "CryptoIdea"
+// within ~120 chars — robust to whitespace/attribute order. A plain
+// `<div class="brand">CryptoIdea</div>` (today's terms/privacy header) does NOT
+// match: the "C" is followed by "ryptoIdea", never by `<`.
+const LOCKUP_RE = /(?:class=["']mark["'][^>]*>|>)\s*C\s*<[\s\S]{0,120}?CryptoIdea/;
+export const REQUIRED_LOCKUPS = [
+  { file: "terms.html", re: LOCKUP_RE, msg: "tile+wordmark logo lockup" },
+  { file: "privacy.html", re: LOCKUP_RE, msg: "tile+wordmark logo lockup" },
+];
+
+// Return the repo-relative files that are MISSING their required lockup. []=clean.
+export function findMissingLockups(root = REPO_ROOT) {
+  return REQUIRED_LOCKUPS
+    .filter(({ file, re }) => !re.test(readShipped(root, file)))
+    .map(({ file }) => file);
+}
+
+// AC2 — the two static legal pages must self-host the brand type (Fraunces +
+// Hanken Grotesk) from Google Fonts so the hand-authored lockup renders in the
+// real brand fonts, not the OS default.
+export const REQUIRED_FONTS = ["terms.html", "privacy.html"];
+
+// Return the files MISSING the Google-Fonts link for BOTH brand families. []=clean.
+export function findMissingFonts(root = REPO_ROOT) {
+  return REQUIRED_FONTS.filter((file) => {
+    const text = readShipped(root, file);
+    return !(text.includes("fonts.googleapis.com") && /Fraunces/.test(text) && /Hanken\+Grotesk/.test(text));
+  });
+}
+
+// AC3 + AC6 — source-presence markers for surfaces jsdom can't verify at render:
+// a build-time HTML page's `<Logo>` import, and the `:hover`/geometry CSS that
+// getComputedStyle does NOT resolve under jsdom. Each entry pins ONE marker.
+export const REQUIRED_SOURCE = [
+  // AC3 — the /edge header renders the shared <Logo> (imported from ui.jsx).
+  { file: "src/components/education-page.jsx", re: /<Logo\b/, msg: "the /edge header must render the shared <Logo> lockup" },
+  // AC6 — the app + admin logo tiles pin the brand green and the index hover-rotate.
+  { file: "src/styles/app.css", re: /rotate\(-6deg\)\s+scale\(1\.06\)/, msg: ".ci-logo:hover must rotate(-6deg) scale(1.06)" },
+  { file: "src/styles/app.css", re: /#0b6b4f/i, msg: ".ci-logo-mark must pin the brand green #0b6b4f" },
+  { file: "src/styles/admin-settings.css", re: /rotate\(-6deg\)\s+scale\(1\.06\)/, msg: ".adm-logo:hover must rotate(-6deg) scale(1.06)" },
+  { file: "src/styles/admin-settings.css", re: /#0b6b4f/i, msg: ".adm-logo must pin the brand green #0b6b4f" },
+];
+
+// Return "<file>: <msg>" for every required source marker that is absent. []=clean.
+export function findMissingSource(root = REPO_ROOT) {
+  return REQUIRED_SOURCE
+    .filter(({ file, re }) => !re.test(readShipped(root, file)))
+    .map(({ file, msg }) => `${file}: ${msg}`);
+}
+
 // --- CLI: scan the repo and fail on any hit ----------------------------------
 // Guarded so importing this module from a test never triggers the scan/exit.
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
@@ -95,11 +166,14 @@ if (isMain) {
     const hits = findBrandViolations(readFileSync(file, "utf8"));
     if (hits.length) offenders.push(`  ${relative(REPO_ROOT, file)}: ${hits.join(", ")}`);
   }
+  for (const f of findMissingLockups()) offenders.push(`  ${f}: missing the tile+wordmark logo lockup`);
+  for (const f of findMissingFonts()) offenders.push(`  ${f}: missing the Fraunces + Hanken Grotesk font links`);
+  for (const m of findMissingSource()) offenders.push(`  ${m} (required brand source marker missing)`);
   if (offenders.length) {
-    console.error("brand-guard: stale brand identity in shipped client code (LOGO-2):");
+    console.error("brand-guard: brand identity not unified in shipped client code (LOGO-2 / lockup):");
     console.error(offenders.join("\n"));
-    console.error("Use the one-word 'CryptoIdea' + <Logo> mark, brand green (--accent), and 'Loading…'.");
+    console.error("Use the one-word 'CryptoIdea' + <Logo> mark, brand green (--accent / #0b6b4f), and 'Loading…'.");
     process.exit(1);
   }
-  console.log("brand-guard: clean — no #6C5CE7, two-word wordmark, or legacy loading copy shipped.");
+  console.log("brand-guard: clean — unified tile+wordmark lockup, no stale purple/wordmark/loading copy.");
 }
