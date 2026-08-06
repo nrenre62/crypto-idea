@@ -40,15 +40,15 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## PORTFOLIO-NUM-FIX — Portfolio number-display correctness (Gap Group A)
-- Phase: G1
+- Phase: G2-approved
 - G1 confirmed: yes         (6 fixes A1–A6 locked; NARROW scope — Portfolio/Detail/CoinInfo/AddEntry + new pure money.js)
-- G2 approved: no           (no code before this is yes)
-- Plan (files): pending architect
+- G2 approved: yes          (plan approved 2026-08-06 — standalone pure splitMoney; 5 display-honesty edits; 2 dark-safe CSS rules)
+- Plan (files): src/utils/money.js (new) · src/components/{Portfolio,Detail,CoinInfo,AddEntry}.jsx · src/styles/app.css | tests: tests/unit/money.test.js (new) + {Portfolio,Detail,CoinInfo,AddEntry}.test.jsx | docs@finalize: interview.md (new map row) · ERRORS.md · CLAUDE.md · NEXT-STEPS.md
 - Fix-round: 0 / 3
 - Open findings: none
 - Branch: claude/portfolio-num-fix
 - Built: no
 - Merged: no
-- Agents this item: 2 (spec-drafter, consistency-sweep)
+- Agents this item: 3 (spec-drafter, consistency-sweep, architect)
 - Updated: 2026-08-06
 - Decisions (G1): 1a narrow scope (Research formatter-drift logged as a NEW backlog item, not this PR) · 2a add interview.md "Number / money display" map row · 3a neutral pill uses --sd/--sd-s
