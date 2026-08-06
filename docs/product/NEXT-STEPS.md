@@ -4680,6 +4680,414 @@ portfolio) **leaves Learn untouched by design** — level/XP/streak/module state
 
 ---
 
+## ARCHITECTURE-DOC. Canonical `ARCHITECTURE.md` — consolidate the scattered architecture rules into ONE wired-in rulebook  (📋 STAGED 2026-08-05; queued in BUILD-LOOP #14 — NOT built)
+
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #14** (2026-08-05). **Docs-only increment** — no source code,
+> no `firestore.rules`, no new dependency. Gate: 🟩 GREEN (writing + wiring Markdown; the only "tests" are
+> `npm run build` staying clean — the doc ships nothing — and the doc links resolving). Built off a 4-agent
+> read-only research sweep (2026-08-05): full rule inventory + enforcement-gap trace + house-style analysis
+> + as-built reality check (findings recorded below). **Decisions were taken as the recommended defaults on
+> 2026-08-05 (interview offered, not answered); the founder can override any of the four before build.**
+
+### Why (the founder's exact worry: "is the code being built actually using this file?")
+The research answer is **no — architecture is the one governed area with no wired-in canonical doc.** Two
+files exist and neither governs the build loop:
+- **`src/ARCHITECTURE.md`** (73 lines) is a *living* rulebook but scoped to **frontend layers only**
+  (`api`/`hooks`/`components`/`utils`). Its only tie to the build process is a *passive* AGILE Definition-of-Done
+  line ("update the doc **if** structure changed") — a post-hoc reminder, **not** a placement gate a session
+  reads before writing code.
+- **`docs/testing/ARCHITECTURE-AUDIT.md`** (152 lines) is a **2026-06-16 point-in-time snapshot**, filed under
+  `testing/`, referenced only twice in passing (`REVIEW-FINDINGS.md:57`, `NEXT-STEPS.md:2054`) — **effectively
+  orphaned**, and now **stale** (see Drift below).
+- The repo's real anti-drift engine is the **`docs/interview.md` consistency map** (10 topic rows, bound in as
+  CLAUDE.md Conventions' first mandatory bullet). It has **no "Architecture / layering" row** — so creating or
+  moving a component/hook/api/util file is never routed through the layer rules. Compliance today rides on the
+  coder *already knowing* the convention, not on any enforced reference.
+- Meanwhile the *actual* architecture rules (the security boundary "only `dist/` ships", admin-is-a-separate-app,
+  CSP/no-inline-scripts, flat-cost cache model, backend-monolith decision, code-splitting, data model) live
+  **scattered across `CLAUDE.md`** with **no single canonical home**.
+
+**So this is not "move the audit into a rules file."** It is: (1) **consolidate** the rules that are spread
+across `src/ARCHITECTURE.md` + the audit + `CLAUDE.md` into ONE authoritative doc that matches the house
+canonical-doc pattern, and (2) **wire it into the three places a session actually looks** — that wiring is the
+fix for the founder's worry.
+
+### Decisions (recommended defaults — locked 2026-08-05 unless the founder overrides)
+1. **File home → `docs/decisions/ARCHITECTURE.md`** (founder choice 2026-08-05) — beside the other canonical
+   "record" docs (`CACHE-POLICY.md`, `PRODUCT-DECISIONS.md`, `BILLING.md`) for house consistency; a reader who
+   knows the `docs/decisions/` convention finds it where every other canonical decision doc lives. **`src/ARCHITECTURE.md`
+   stays** as the detailed src-layer sub-doc that *composes under* it (the decisions doc owns the system shape;
+   `src/` owns the `api/hooks/components/utils` layer detail + migration status). **`ARCHITECTURE-AUDIT.md` stays**
+   with a new banner marking it a **historical 2026-06-16 snapshot** (superseded by `docs/decisions/ARCHITECTURE.md`).
+   Nothing is deleted; no history is overwritten (Kaizen rule). *(Alts not chosen: root `ARCHITECTURE.md`, or
+   promoting `src/ARCHITECTURE.md` in place.)*
+2. **Scope → system-wide + cross-links.** All ~17 categories from the inventory as **ID-tagged rules
+   (`ARCH-1…`)**: multi-page Vite/routing, frontend layering (+ documented exceptions), Research feature module,
+   build/bundle/code-splitting, backend monolith, data layer & Firestore model, **rules = the security
+   boundary**, admin separation/roles/claims, what-ships/secrets, output-encoding/CSP/headers, caching/flat-cost
+   proxy, AI/Research safety, billing/audit/observability, responsive/design-system, process/governing-doc rules.
+   For the deep areas the rulebook **CROSS-LINKS the existing canonical docs** (caching→`CACHE-POLICY.md`,
+   HTTP→`API-SECURITY.md`+`openapi.json`, isolation→`ISOLATION.md`, product→`PRODUCT-DECISIONS.md`) and states
+   the *architectural rule* only — **it never copies their decision logs**, so it can't become a NEW drift
+   source. *(Alt not chosen: layering-only.)*
+3. **Enforcement → all three anchors** (see "Wiring" — this is the load-bearing part). *(Alt not chosen:
+   CLAUDE.md bullet only, or doc-only.)*
+4. **Two small real drifts → must-fix** (founder choice 2026-08-05): the rulebook states the CLEAN rule with
+   **no exception carve-out**; both become **required** fix-increments in the backlog (`ARCH-DOC-FIX-1/2`),
+   listed in the doc as **known violations to be fixed** (the audit's "known violations" framing), not as
+   accepted exceptions. *(Alts not chosen: document-as-accepted-exception, or document-only.)*
+
+### Structure of the new `ARCHITECTURE.md` (clone the house canonical-doc pattern)
+Match `CACHE-POLICY.md` / `PRODUCT-DECISIONS.md` / `API-SECURITY.md` exactly:
+1. **Banner blockquote:** "**Canonical record of the system architecture** — 2026-08-05 codebase audit
+   (4-agent read-only sweep: 17 rule categories, as-built verified in source)." + an authority clause —
+   "Where this doc and a stale planning/design note disagree, **this doc wins** for architecture (as
+   `PRODUCT-DECISIONS.md` does for product, `CACHE-POLICY.md` for caching)." + a **scope-composition** line:
+   it owns the system/layering shape; `src/ARCHITECTURE.md` keeps the src-layer rules + migration status;
+   `CACHE-POLICY`/`API-SECURITY`/`ISOLATION`/`PRODUCT-DECISIONS` keep their deep domains; `CLAUDE.md`+`CODEBASE-MAP.md`
+   hold current code reality; `NEXT-STEPS §1/§2` holds build order. Add the "Two readers: future-me + Claude/teammate" line.
+2. **Body:** numbered sections, each an **ID-tagged rule** (`ARCH-1 … ARCH-N`) in **imperative** form, each with
+   its **source** (file + section) and a **status tag** (`current` / `migration-in-progress` / `aspirational` /
+   `by-design-exception` / `historical`). Open with a short **"How this maps to the code"** table
+   (layer → dirs). Keep a **"By-design exceptions"** subsection (backend monolith un-split per §2; frontend
+   model logic in `api/firebase-*.js`; CRUD/upgrade orchestrators in `CryptoIdea.jsx` per §1b; logical—not
+   physical—per-uid isolation per ISO-D1) so a reader never mistakes a deliberate deviation for a violation.
+3. **Cross-references / Interplay footer** linking `src/ARCHITECTURE.md`, `ARCHITECTURE-AUDIT.md` (historical),
+   `CODEBASE-MAP.md`, `docs/diagrams/frontend-layered-architecture.svg` (register the SVG as the visual
+   companion), and the sibling canonical docs. Kaizen footer: "Update this file when an architectural decision
+   changes — don't overwrite history silently."
+
+### Wiring — the three anchors (this is what makes a session consult it; do all three in the SAME commit per the consistency rule)
+1. **`docs/interview.md` consistency map — ADD A ROW (highest leverage).** New `### Architecture / layering`
+   subsection: `Docs: **[ARCHITECTURE.md]** · src/ARCHITECTURE.md · ARCHITECTURE-AUDIT.md (historical) ·
+   CODEBASE-MAP.md · docs/diagrams/frontend-layered-architecture.svg` and `Code: src/{api,hooks,components,utils}/
+   · src/features/research/ · functions/index.js (+ helper modules) · vite.config.js · index.html/app.html/admin.html`.
+   Bold `ARCHITECTURE.md` as the canonical winner. This closes the one gap: today no architecture row and no bold
+   owner exist, so structural changes bypass the sweep entirely.
+2. **`CLAUDE.md` → Conventions — ADD a mandatory canonical-declaration bullet** mirroring the existing
+   "Product direction:" / "Caching policy:" / "API surface & key security:" bullets:
+   "**Architecture:** [`ARCHITECTURE.md`] is the canonical record of the system architecture/layering — it
+   **wins over any stale planning/design doc**; the `src/` layer rules + migration status stay in
+   `src/ARCHITECTURE.md`. When adding or moving a function/component/hook/api/util, follow the layer rules
+   (component → hook → api → util; `utils/` pure; no `firebase/*` in components)." Because CLAUDE.md loads every
+   session, this guarantees the reference is in-context. *(Leave CLAUDE.md's existing "## Architecture" prose as
+   code-reality description; the canonical **pointer** belongs in Conventions.)*
+3. **`docs/product/AGILE.md` Definition of Done — turn the passive line into an active gate.** Change the
+   ":43" line to name the root doc — "(`README.md` / `ARCHITECTURE.md` / `src/ARCHITECTURE.md` / this backlog)"
+   — **and** add a placement-gate item: "New/moved code sits in the correct layer per `ARCHITECTURE.md`; no new
+   layer violation introduced." *(Optional 4th touch: add "place code in the correct layer per `ARCHITECTURE.md`"
+   to `BUILD-LOOP.md` step-5 build gate + name it in step-3 "Re-read the spec"; and add a "Canonical:
+   [ARCHITECTURE.md]" pointer at NEXT-STEPS §1/§2, matching how every other governed area cites its canonical doc.)*
+
+### Drift the rulebook must fix (found in the as-built reality check — record the RESOLVED rule, drop stale gap language)
+Stale-doc lag (code moved ahead of docs — **correct the numbers**, no code change):
+- **D1 — backend size/shape.** `ARCHITECTURE-AUDIT.md` says "one flat 908-line `index.js`, 18 functions, no
+  helper split." Reality: `index.js` ≈ **2,391 lines, 43 exported functions**, with **13 extracted helper
+  modules** (`guards`/`billing`/`validate-output`/`config-diff`/`observability`/`net-utils`/`stats-daily`/
+  `features`/`signup-gate`/`announcement`/`universe-utils`/`duplicates`/`audit-diff`; `functions/*.js` ≈ 3,652
+  lines). Accurate framing: **"modular pure helpers + a per-handler-mixed `index.js`"**, not "flat monolith".
+  The per-function controller+service+model mixing *is* still true and stays a documented by-design exception.
+- **D2 — `src/ARCHITECTURE.md` "known violation #1"** still lists `admin-dashboard.jsx` as calling Cloud
+  Functions directly with `api/admin.js` as "future". Reality: **`api/admin.js` exists** and the panel is
+  **hook-driven** (`useAdminDashboard`), no `httpsCallable`/`firebase` imports (fixed in commit df83e51). Also
+  its "migration in progress" header is now largely stale — NEXT-STEPS §1a/§1b/§1c are complete; reframe as
+  **"layering done, with documented exceptions."**
+
+Genuine small code/CSP inconsistencies (Decision 4 = **must-fix**: rulebook states the clean rule with **no**
+carve-out; both are REQUIRED backlog fixes, listed in the doc as known violations to be fixed):
+- **D3 — 3 inline `onclick` handlers in `index.html`** (`setBilling('monthly')` L714, `setBilling('yearly')`
+  L715, `subscribe()` L777). CLAUDE.md D12 claims "zero inline scripts under a strict CSP", but inline event
+  handlers ARE inline script execution that a `script-src` without `'unsafe-inline'` blocks at runtime (the
+  functions are defined globally in `landing.js`). **Rulebook:** state the clean rule ("no inline scripts
+  **including** `on*` handlers") and list these 3 as a **known violation to be fixed**. Queue **`ARCH-DOC-FIX-1`
+  (REQUIRED)**: rewire to `addEventListener` in `landing.js` — this removes a genuinely CSP-blocked path (the
+  billing toggle + Subscribe button silently fail under the deployed `script-src`). ⚠️ **Browser-verify after
+  the fix** that the landing billing toggle + Subscribe still work.
+- **D4 — `src/components/education-page.jsx:15` calls `fetch("/api/subscribe")` directly**, contradicting the
+  "components never fetch" rule (and the audit's "Clean (14)" listing). **Rulebook:** list as a **known violation
+  to be fixed**. Queue **`ARCH-DOC-FIX-2` (REQUIRED)**: route the newsletter POST through a thin `api/` wrapper
+  (+ a small hook/handler) per the layer rule, and add/extend a unit test so a component-level `fetch` can't
+  reappear.
+
+Also record (already-resolved gaps whose stale "TODO" language should NOT be copied into the new doc): CSP
+`unsafe-inline` removed for scripts (D12 done 2026-07-03; **`style-src` still allows it** — say so precisely);
+signups now server-enforced (`beforeCreateUser`, ADMIN-0); grant-admin UI moved into Settings (ADMIN-D3);
+`setAdminClaim` removed. And flag the **highest drift-risk topic** — tier limits live in ≈9 code+doc locations
+(already has its own consistency-map row) — with a one-line "treat limit/hard-clamp constants as one governed
+set" pointer from the data/rules section (don't restate the numbers — they belong to `PRICING.md`/that row).
+
+### As-built facts the rulebook states as `current` (verified in source 2026-08-05 — 5/7 clean, 2 nuanced)
+Components import zero `firebase/*` (both `src/components` + `src/features`); `script-src` genuinely has **no**
+`'unsafe-inline'`/`'unsafe-eval'` and there are **no inline `<script>` blocks**; ONE shared `cache/universe` +
+`cache/trending` flat-cost proxy (denial-of-wallet bounded to distinct held coins); admin fully separated
+(own Vite entry + own named Firebase app + client claim re-check; **no admin code/CSS in the user bundle**);
+5 Vite entries + `manualChunks` Firebase isolation; `writeBatch`+`increment` counter data layer. Nuanced-but-aligned:
+`api/` no longer owns `TIER_LIMITS` (enforcement-only; table lives in `hooks/useUpgrade.js`); `firebase-database.js`
+is really the frontend model layer (already conceded).
+
+### Scope / consistency sweep (change in EVERY file below — no drift)
+1. **NEW `docs/decisions/ARCHITECTURE.md`** — the canonical rulebook (structure above; sits with the other
+   `docs/decisions/` canonical docs).
+2. **`src/ARCHITECTURE.md`** — add a top pointer "System-level rules: see root `ARCHITECTURE.md` (canonical);
+   this file details the `src/` layers." + apply D2 corrections (admin-dashboard resolved; reframe "migrating").
+3. **`docs/testing/ARCHITECTURE-AUDIT.md`** — add a historical-snapshot banner (2026-06-16, superseded by
+   `ARCHITECTURE.md`) + apply D1 numbers as a "since this audit" note. Keep the file (history).
+4. **`docs/interview.md`** — add the "Architecture / layering" consistency-map row (Wiring #1).
+5. **`CLAUDE.md`** — add the Conventions canonical bullet (Wiring #2).
+6. **`docs/product/AGILE.md`** — DoD placement-gate + doc-list update (Wiring #3).
+7. **`README.md`** — point the existing `ARCHITECTURE.md (src/)` line at the new `docs/decisions/ARCHITECTURE.md`
+   as the canonical system rulebook (keep the `src/` link as the layer detail).
+8. **`docs/product/CODEBASE-MAP.md`** — add a row for the new `docs/decisions/ARCHITECTURE.md`.
+9. **`docs/product/BUILD-LOOP.md`** — (optional 4th touch) step-3/step-5 layer-placement mention.
+10. Queue **`ARCH-DOC-FIX-1`** (inline-onclick → `landing.js` listeners; browser-verify) and
+    **`ARCH-DOC-FIX-2`** (education-page fetch → `api/`+hook + guard test) as separate **REQUIRED** backlog
+    items (NOT part of this docs increment; each its own small code commit).
+
+### Acceptance / Definition of Done
+- `npm run build` clean (docs change ships nothing; the no-names guard still passes).
+- All new inter-doc links resolve; the consistency-map row lists every file that must agree.
+- The three wiring anchors land in the **same commit** as `ARCHITECTURE.md` (per the interview.md rule that the
+  map is itself subject to the consistency sweep).
+- `ARCHITECTURE.md` cross-links (not copies) the deep canonical docs — grep check: it does NOT restate tier-limit
+  numbers, cache TTLs, or the HTTP contract.
+- D1/D2 corrections applied; D3/D4 listed as known violations-to-fix and queued as **required** `ARCH-DOC-FIX-1/2`.
+- This Status line flipped to ✅ BUILT; commit. (No `firestore.rules` ⇒ no `test:rules`; no new dep, no new hex.)
+
+---
+
+## DARK-MODE-FIXES (DP next round). Dark-mode: red Sell buttons, shiny Buy/Sell, white card+pill borders in Research — + fix the NaN diversification note  (📋 STAGED 2026-08-05; queued in BUILD-LOOP #15 — NOT built)
+
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #15** (2026-08-05). Canonical design doc: **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log this as the next DP round (append after R28; confirm the number at build). **Design-only, 🟩 GREEN** — CSS + one small guard fix, no `firestore.rules`, no new dependency, no new hex beyond the existing token palette. Founder-reported from 4 dark-mode screenshots (2026-08-05).
+>
+> **HARD CONSTRAINT (house rule R3, founder-restated "only on dark mode"): every change is DARK-BLOCK-ONLY** — scoped under `html[data-theme="dark"]`. **Light mode must stay byte-for-byte identical** (diff the built light CSS to prove it). Dark mode is applied via `html[data-theme="dark"]` (`app.css:48`).
+
+### Decisions locked (2026-08-05 founder)
+- **G3 — white border = one shared `--edge-bright:#fff`** (full **opaque** white line, 1px).
+- **G4 — neutral surfaces ONLY** get the white line (cards + `.cc-*` stat-boxes); the colored chips
+  (`Sentiment` / `Dev/Founders/Team/Community` / catalyst) **keep their semantic tint/border**.
+- **G1 — the NaN diversification note = FIX** (required `DARK-FIX-NaN` commit + test).
+
+### The four reported issues → exact locus (verified in source 2026-08-05)
+1. **"− Sell" button is white in the Detail overlay; must be RED (parity with the green "+ Buy").**
+   Locus: `src/components/Detail.jsx:103-104` → `.tx-btn.buy` / `.tx-btn.sell` in `app.css`. Dark mode never
+   re-colors `.tx-btn.sell`, so it renders as a neutral/white pill. **Fix (dark-only):** `.tx-btn.sell` text +
+   border → the shiny sell red `--sr` (`#ff6b6b` in dark), matching how `.tx-btn.buy` reads as the accent green.
+2. **AddEntry Buy/Sell popup: the Buy | Sell segmented toggle is illegible; the "Add Sell" submit is a dull dark red.**
+   - Toggle: `.seg-btn.on-buy` (green `--accent-ink`) / `.seg-btn.on-sell` (`--sr`) at `app.css:505-506`; inactive
+     `.seg-btn` is `--ink-soft` in dark (`app.css:143`) — so neither option reads as its color. **Fix (dark-only):**
+     make the toggle labels **shiny by state — Buy green, Sell red** — colour the label text per side (buy→`--sg`/`--accent-ink`,
+     sell→`--sr`) and lift the active-pill contrast so the selected side is unmistakable in dark.
+   - Submit: `.submit-buy.submit-sell` uses `--warn` (`#bf4730`, dull, NOT overridden in dark) — `app.css:520`.
+     **Fix (dark-only):** the Sell submit fill → the shiny sell red (`--sr`); the Buy submit (`.submit-buy`, `--accent`)
+     → a vivid dark-mode buy green (`--sg`) so both submit buttons "shine" and are consistent with the toggle.
+3. **Research → Overview: cards + neutral stat-boxes need a WHITE border in dark (colored chips keep their tint — G4); the Stress-test colours must be vivid; "A note on diversification" must be a shining, visible green.**
+   - Cards: `.research-root .card` borders on `--line-2` (`rgba(236,233,225,.08)` in dark — nearly invisible). **Fix
+     (dark-only):** raise card + neutral inner-box borders to the opaque white `--edge-bright` (G3); colored chips
+     keep their semantic border (G4).
+   - Stress test (`.scn-*` / slider track + "$N at today's prices" + `.scn-note`): muted in dark. **Fix (dark-only):**
+     brighten the red→green gradient stops and the hero/label text so the model reads as vivid.
+   - Diversification note: `html[data-theme="dark"] .research-root .diversify` already tints (`app.css`/
+     `research-tab.css:284-285`) but reads dark-on-dark; its `h3`/`p` inherit muted `--ink-soft` and the
+     "Read the principle →" link uses `--accent` (`#0a6b4d`, low-contrast on dark). **Fix (dark-only):** brighten the
+     card fill/border, set the heading + link to the shining `--accent-ink` (`#5cd6a6`), and lift the body text.
+4. **Research → Coins: white border on the card + neutral stat-boxes in dark.**
+   Locus: `.coin-card` + the `AVG COST / NOW / P/L / 30D` stat boxes (`.cc-*` in `research-tab.css`). **Fix
+   (dark-only):** opaque white `--edge-bright` on `.coin-card` and each stat-box. Per G4 the colored chips
+   (`Sentiment`, `Dev/Founders/Team/Community`, catalyst) **keep their semantic border** — no white line.
+
+### Gaps found (founder asked — these go in the plan, some are must-fix beyond the four asks)
+- **G1 — NaN bug (functional, MUST-FIX — founder-confirmed 2026-08-05; spun out as `DARK-FIX-NaN`).** `OverviewView.jsx:64` renders
+  `Math.round(portfolio.risk.top2)` with no guard, so a not-yet-computable `top2` prints **"about NaN%"** (visible
+  in screenshot 3). This violates the module's own "**never NaN**" principle (`usePrices.js:26`). Fix: guard `top2`
+  (show the fallback sentence, or `—`, when it isn't a finite number) and add a unit test. **This is a bug, not a
+  dark-mode style — queue it as its own small commit `DARK-FIX-NaN` (REQUIRED), not folded into the CSS round.**
+- **G2 — Sell uses THREE different reds (drift).** `.tx-btn.sell` (uncolored), `.seg-btn.on-sell` (`--sr`),
+  `.submit-sell` (`--warn`). Consolidate every Sell surface onto ONE token (`--sr`) and every Buy surface onto ONE
+  (`--sg`/`--accent-ink`) so Buy/Sell are consistent across Detail + AddEntry (single source of truth — same ethos
+  as ARCHITECTURE-DOC). Do the light-mode consolidation ONLY if it's provably a no-op; otherwise keep the change
+  dark-block-only and leave the `--warn`/`--sr` light values untouched.
+- **G3 — one shared dark token (LOCKED 2026-08-05: full opaque white line).** Define a single new
+  **`--edge-bright:#fff`** (opaque white, 1px) in the dark `:root` block and apply it uniformly to the NEUTRAL
+  surfaces only (see G4): `.card`, `.coin-card`, `.diversify`, the stress card, and the `.cc-*` stat-boxes — one
+  token so it can't drift.
+- **G4 — colored chips (LOCKED 2026-08-05: neutral only).** The white `--edge-bright` border applies to the NEUTRAL
+  cards + stat-boxes ONLY. The colored pills — `Sentiment`, the `Dev/Founders/Team/Community` reason chips, and the
+  catalyst pill — **keep their existing semantic tint/border** (no white line). So "card pills → white border"
+  resolves to: card + neutral `.cc-*` stat-boxes get the opaque white line; colored chips stay as-is.
+- **G5 — consistency sweep across BOTH transaction surfaces + devices.** The Sell/Buy styling lives in the Detail
+  overlay (`.tx-btn`), the AddEntry toggle (`.seg-btn`) AND the submit (`.submit-*`); fix all together or they drift.
+  The Buy/Sell popups are desktop overlays (`useIsDesktop`) that also render inline on mobile — **verify dark on
+  BOTH** (desktop overlay + mobile full-screen).
+- **G6 — accessibility.** The shiny red/green (`--sr` `#ff6b6b`, `--sg` `#2ecc71`) as button FILLS must keep the
+  `#fff` label text ≥ 4.5:1; as TEXT on the dark card they must clear contrast too. Verify with a contrast check;
+  darken the fill a touch if a white label fails (still "shiny", just AA-safe).
+- **G7 — 30D shows "+0.0%" on both coins** (screenshots) — this is the documented graceful degradation when
+  `/api/history` is missing (never NaN), NOT a bug. Note it so it isn't "fixed" into a fake number; out of scope here.
+
+### Scope / consistency sweep (change in EVERY file — dark-block-only)
+1. **`src/styles/app.css`** — dark-only overrides: `.tx-btn.sell` (red), `.seg-btn` label colours (buy green / sell
+   red + active contrast), `.submit-buy` (vivid buy green) + `.submit-sell` (shiny red); the shared token(s) `--sr`/
+   `--sg` reuse + the new **`--edge-bright:#fff`** in the dark `:root`.
+2. **`src/features/research/styles/research-tab.css`** — dark-only: `.card`/`.coin-card`/`.diversify`/stress-card +
+   the NEUTRAL `.cc-*` stat-boxes → `--edge-bright` (colored chips untouched, G4); brighten the stress gradient +
+   hero/labels; diversify heading/link/body → `--accent-ink`/lifted text.
+3. **`src/features/research/components/OverviewView.jsx`** — the G1 NaN guard (functional; `DARK-FIX-NaN`).
+4. **`tests/unit/`** — a test asserting the diversification note never renders "NaN" (G1); if any snapshot/style
+   test pins the old Sell/toggle look, update it to the new values (never weaken a test).
+5. **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log this as the next DP round (the four fixes + G1–G7); **[`ERRORS.md`](../testing/ERRORS.md)** — add the NaN-diversification entry.
+6. **CLAUDE.md** design-follow-on note — one line that this round shipped (keep the doc current).
+
+### Acceptance / Definition of Done
+- **Browser-verify DARK (the deliverable):** Detail overlay "− Sell" is red like "+ Buy" is green; AddEntry toggle
+  shows Buy green / Sell red unmistakably and the submit is a shiny red (Sell) / green (Buy); Research Overview +
+  Coins cards **and pills** show the bright white border; Stress-test gradient + "A note on diversification" are
+  vivid and legible; the note reads a real percentage (or the fallback), **never "NaN%"**. Verify on desktop overlay
+  AND mobile.
+- **Light mode unchanged — prove it:** build and diff the light CSS/output; zero visual change in light (house R3 rule).
+- `npm run test:unit` green (incl. the new NaN guard test); `npm run build` clean (no-names guard; ships nothing new).
+- `DARK-FIX-NaN` committed as its own REQUIRED small commit (functional), separate from the CSS round.
+- G3/G4 decisions recorded in DESIGN-PASS.md; this Status flipped to ✅ BUILT; commit. (No rules ⇒ no `test:rules`.)
+
+---
+
+## PORTFOLIO-TEXT-SIZE. Coin **Detail** card — bump the small text to a readable size (mobile + desktop, both themes)  (📋 STAGED 2026-08-06; queued in BUILD-LOOP #16 — NOT built)
+
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #16** (2026-08-06). Canonical design doc: **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log as the next DP round (confirm the number at build). **Design-only, 🟩 GREEN** — CSS in `app.css` + one tiny JSX edit in `Detail.jsx`; **no `firestore.rules`, no new dependency, no new hex/token.** Founder-reported (2026-08-06): the coin Detail drill-in text is too small to read fast; make it bigger for real use.
+>
+> **NOT dark-block-only.** These are `font-size` bumps on **base `.ci-app` rules** (no `@media`, no theme override), so they apply to **light + dark and mobile + desktop identically** — which is exactly the ask ("make it for mobile and desktop both. its same on mobile"). Size only — **no colour/weight change**, so nothing about dark mode's look changes beyond the larger glyphs. This item touches `app.css`/`Detail.jsx`, the same files as #15 DARK-MODE-FIXES; the loop builds one item at a time so there's no conflict — just build whichever is queued first and re-verify.
+>
+> **Locus = the coin Detail drill-in (`src/components/Detail.jsx`).** It renders full-screen on mobile and as a shared `<Modal>` popup on desktop (R19-9, `useIsDesktop`) — **the same classes drive both**, so one CSS change covers both surfaces. (Confirmed it's Detail, not CoinInfo: the 24h pill reads "(24h)", `Detail.jsx:78`.)
+
+### Decisions locked (2026-08-06 founder)
+- **"Coin name" +4px = the small "BLESS" symbol under the icon (`.ph-sub`).** NOT the big "Bless" header title: on
+  desktop that title is the **shared `<Modal>` title `.cm-title` (`app.css:772`)** used by *every* popup in the app, so
+  bumping it would resize all dialogs — out of scope. The Detail-scoped `.ph-sub` is the small grey ticker the founder
+  can't read, sitting right next to Market Cap; that's the intended target.
+- **"All numbers same size on the card."** The muted "· $123.04" sub-amounts (`.kv-sub`) are **nested inside `.kv-v`**,
+  so bumping `.kv-v` bumps them automatically to the same 15px (they stay lighter/faint by weight+colour — readable,
+  still visually secondary). Avg Buy/Avg Sell Price rows become identical to Holding/Current Value/Bought.
+- **Total P/L unchanged** (founder: "its big already, i think its the right size") — `.pnl-label` (13px) / `.pnl-val` (14px) stay.
+- **Left amount "1 BLESS" (`.tx-amt`, 13px) and the bold tx total "$0.03" (`.tx-rtotal`, 14px) stay** — not flagged;
+  only the date/time + "$price / SYM" sub-line grow in the tx row.
+- **24h change pill in the hero ("+112.20% (24h)") +2px → 15px** (`.price-hero .chg-pill`, `app.css:426`; founder-added
+  2026-08-06). ⚠️ Scope to the **hero** pill only — the base `.chg-pill` (`app.css:388`) is the Portfolio-card % pill and stays.
+- **"Transactions (N)" header stays 14px = the new Buy/Sell button size** (founder: "make same size as the buy/sell
+  buttons with new sizes (14px)"). `.tx-title` is already 14px, and `.tx-btn` goes 12 → 14px, so they match with **no
+  edit to the header** — locked here so a future change keeps the two in sync.
+
+### Exact size map (verified in source 2026-08-06 — every value is a current `app.css` `font-size`)
+| Element | Class | Now → New | Δ |
+|---|---|---|---|
+| Market Cap ("$46.45M") | `.price-hero .ph-mc` (`app.css:438`) | 11 → **15px** | +4 |
+| Coin name ("BLESS" under icon) | `.price-hero .ph-sub` (`app.css:424`) | 11.5 → **15.5px** | +4 |
+| 24h change pill ("+112.20% (24h)") | `.price-hero .chg-pill` (`app.css:426`) | 13 → **15px** | +2 |
+| Holding / Current Value / Bought — labels | `.kv-row .kv-k` (`app.css:430`) | 13 → **15px** | +2 |
+| …their values | `.kv-row .kv-v` (`app.css:431`) | 13 → **15px** | +2 |
+| "· $123.04" muted sub-amounts | `.kv-sub` (`app.css:439`, nested in `.kv-v`) | 13 → **15px** | +2 (auto) |
+| **Avg Buy Price + Avg Sell Price** | **retire `kv-sm`** — `Detail.jsx:89,92` | 11/12 → **15px** | now identical to the rows above (size **+ weight + colour**) |
+| Total P/L | `.pnl-*` | — | **unchanged** |
+| Buy / Sell buttons | `.tx-btn` (`app.css:453`) | 12 → **14px** | +2 |
+| "Transactions (N)" header | `.tx-head .tx-title` (`app.css:451`) | 14 → **14px** | matched — already = the new Buy/Sell button size, **no edit** |
+| BUY/SELL tags per tx | `.tx-badge` (`app.css:458`) | 9 → **11px** | +2 |
+| Date & time row | `.tx-row .tx-meta` (`app.css:462`) | 11 → **12px** | +1 |
+| "$0.0253 / BLESS" (price + symbol) | `.tx-right .tx-rprice` (`app.css:483`) | 11.5 → **12.5px** | +1 |
+
+### How to retire `kv-sm` (the Avg Buy/Sell "same as all other text" ask)
+`kv-sm` is used on **exactly two rows** — Avg Buy Price (`Detail.jsx:89`) and Avg Sell Price (`Detail.jsx:92`) — and its
+CSS (`app.css:441-443`) makes them smaller (11/12px), lighter (weight 400) and fainter (`--ink-faint`) than the
+standard rows. The founder wants them "same as all other text, like Holding, Current Value, Bought" → **remove the
+`kv-sm` class from both JSX rows** so they inherit the plain `.kv-row`/`.kv-k`/`.kv-v` (now 15px, weight 600, `--ink`),
+then **delete the now-dead `.kv-row.kv-sm{…}` CSS block** (grep-confirm zero other uses first). This is the cleanest
+read of "same as" — it matches size **and** weight **and** colour, not just size. (Effect: those rows gain the standard
+row divider + padding like the others — consistent.)
+
+### Scope / consistency sweep (change in EVERY file)
+1. **`src/styles/app.css`** — the 9 `font-size` bumps in the table above (`.ph-mc`, `.ph-sub`, `.price-hero .chg-pill`,
+   `.kv-k`, `.kv-v`, `.tx-btn`, `.tx-badge`, `.tx-meta`, `.tx-rprice`); **delete** the `.kv-row.kv-sm` block. **`.tx-title`
+   needs NO edit** — it's already 14px = the new `.tx-btn`. ⚠️ Bump the **hero** pill `.price-hero .chg-pill` ONLY; leave
+   the base `.chg-pill` (Portfolio-card % pill).
+2. **`src/components/Detail.jsx`** — remove `kv-sm` from the two rows (`className="kv-row kv-sm"` → `"kv-row"`, lines 89, 92).
+3. **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log as the next DP round (the size table + the two locked decisions).
+4. **CLAUDE.md** design-follow-on note — one line that this readability round shipped.
+
+### Acceptance / Definition of Done
+- **Browser-verify** the coin Detail card on **mobile (full-screen) AND desktop (Modal popup)**, **light AND dark**:
+  Avg Buy/Sell Price read identically to Holding/Current Value/Bought; Market Cap + the "BLESS" ticker are clearly
+  larger; the "(24h)" change pill is a notch bigger; Buy/Sell buttons, BUY/SELL tags, the date/time and "$price / SYM"
+  lines are all a notch bigger; the "Transactions (N)" header matches the Buy/Sell buttons (both 14px); Total P/L
+  is untouched; no layout breakage (rows don't wrap/overflow at the 560 narrow track or on the smallest phones).
+- **Only sizes changed** — no colour, weight (except the intended `kv-sm` retirement), spacing-token, or dark-block change.
+- `npm run test:unit` green (update any snapshot that pins the old Detail sizes — never weaken a test); `npm run build` clean.
+- Status flipped to ✅ BUILT with commit. (No rules ⇒ no `test:rules`.)
+
+---
+
+## PORTFOLIO-NUM-FIX (Gap Group A). Portfolio number-display correctness — 6 honest-numbers bugs on the Portfolio/Detail/CoinInfo/AddEntry surfaces  (📋 STAGED 2026-08-06; queued in BUILD-LOOP #17 — NOT built)
+
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #17** (2026-08-06). From the 2026-08-06 Portfolio-tab gap sweep (three read-only passes), **Group A** = the display-correctness cluster the founder chose to fix first. **🟩 GREEN, client-only** — display/format logic in components + a small pure helper; **no `firestore.rules`, no new dependency.** These are "the numbers shown are wrong/misleading" bugs, all seen every session, all cheap. Deduped against the backlog: none overlaps DI, #12, #15, or R10/TX-SAFE except where noted (A5).
+>
+> **North star:** the app must never show a *wrong* or *misleading* number — a missing datum reads as "—"/neutral, never as a loss or a fake gain (same ethos as DI-1 verify-then-toast and the Research module's "never NaN" rule).
+
+### The six bugs → exact locus + fix (all verified in source 2026-08-06)
+- **A1 — $1 rounding error on every dollar amount (functional).** `Portfolio.jsx:21,45` (portfolio total) and `:114`
+  (each asset card): dollars use `Math.floor(tv)` while cents are computed **independently** as `(tv % 1).toFixed(2).slice(2)`.
+  When the fraction rounds up the two disagree by $1 — `100.999` → floor `100` + cents `"00"` → renders **`$100.00`**
+  (a dollar low). **Fix:** round to cents **first**, then split — e.g. a pure `utils/money.js` `splitMoney(n)` →
+  `{dollars, cents}` where `const r = Math.round(n*100); dollars = Math.floor(r/100); cents = String(((r%100)+100)%100).padStart(2,'0')`
+  (handles the ≥.995 carry AND negatives). Use it at both loci; **grep for the same `Math.floor(…)`+`(…%1).toFixed` split
+  elsewhere** (Search/Account/CoinInfo) and sweep any copies. Unit-test `splitMoney` incl. `100.999`, `0`, `1234.995`, negatives.
+- **A2 — negative P/L dollar shown with NO minus sign.** `Detail.jsx:93` (Total P/L) and `CoinInfo.jsx:89` (Unrealised P/L):
+  `{v>=0?"+":""}$…Math.abs(v)` drops the sign on losses — only colour + the percent convey it. **Fix:** use the value-card
+  convention (`Portfolio.jsx:47` already renders `−$`): `{v>=0?"+":"−"}$…`. Sweep any other P/L-dollar render for the same pattern.
+- **A3 — missing 24h price drawn as a RED loss pill.** `Portfolio.jsx:118` and `Detail.jsx:78`: `ch = p?.usd_24h_change`
+  is `undefined` before prices load, and `undefined >= 0` is false → the pill gets the red **`dn`** class while showing "—".
+  **Fix:** only apply up/`dn` colour when `Number.isFinite(ch)`; otherwise render a **neutral** pill ("—", no red/green).
+  Locked default: reuse a muted/neutral pill style (add a minimal `.chg-pill.muted` if none exists — neutral tint, no new hex beyond existing `--ink-*`/line tokens).
+- **A4 — a real `0` replaced by MOCK data.** `CoinInfo.jsx:32-33`: `pr = p?.usd || cd?.mockPrice || 0` and
+  `ch = p?.usd_24h_change || cd?.mockChange || 0` use `||`, so a genuine `0` (exactly 0.00% change, or a $0 price)
+  falls through to the mock estimate. **Fix:** use `??` (nullish) so only truly-absent values fall back
+  (`p?.usd ?? cd?.mockPrice ?? 0`). (The broader "mock shown with no 'estimated' signal" is **Group D** — out of scope here;
+  A4 is only the `||`→`??` correctness fix.)
+- **A5 — `$NaN` in the AddEntry "Total cost" + Submit enabled in that state.** `AddEntry.jsx:113-116` renders `tx-total`
+  when `eAmt && ePrice` are truthy, but a lone `.` is truthy and `parseFloat(".")` is `NaN` → shows **`$NaN`**; Submit
+  (`:121`, guarded only by `!eAmt||!ePrice`) is also enabled. **Fix:** derive `const amt=parseFloat(eAmt), prc=parseFloat(ePrice),
+  valid = Number.isFinite(amt)&&amt>0&&Number.isFinite(prc)&&prc>0`; show the total only when `valid`; **disable Submit when
+  `!valid`.** (Complements R10 positive-only + TX-SAFE input hardening — closes the lone-"." gap they didn't cover; keep their guards intact.)
+- **A6 — green "▲ +$0.00" gain on an empty/zero book.** `Portfolio.jsx:46-47`: an empty portfolio shows a green up-arrow
+  gain that implies a return that doesn't exist. **Fix (locked default):** when there's nothing invested
+  (`totalBuys === 0` / no holdings), render a **neutral** gain row (a muted "—", no arrow/colour) instead of the green +$0.00.
+
+### Gaps / notes (surfaced during the sweep)
+- **A1 helper is a single source of truth.** Once `splitMoney` exists, route the value card, asset cards, and any other
+  floor+cents split through it — a second inline copy is exactly how the drift started.
+- **A3/A6 are the only two with a small visible-design choice** (neutral pill vs hide; muted dash vs blank). Locked
+  defaults above (neutral, keep the row, show "—") — no founder sign-off needed; the correct behaviour ("don't show
+  missing data as a loss / don't show a fake gain") is unambiguous.
+- **Out of scope (other groups, do NOT fold in):** the P/L math on oversold/missing-price books (Group B), the
+  loading-skeleton/estimated-signal states (Group D), the copy/token/responsive polish (Group E). This item is
+  strictly the six display-correctness fixes above.
+
+### Scope / consistency sweep (change in EVERY file)
+1. **`src/utils/money.js`** (new) — pure `splitMoney(n)`; **`tests/unit/`** — its unit tests (A1).
+2. **`src/components/Portfolio.jsx`** — A1 (total + cards via `splitMoney`), A3 (neutral pill on missing `ch`), A6 (neutral empty gain).
+3. **`src/components/Detail.jsx`** — A2 (Total P/L minus sign), A3 (neutral 24h pill).
+4. **`src/components/CoinInfo.jsx`** — A2 (Unrealised P/L minus sign), A4 (`||` → `??`), A1 if it renders a floor+cents split.
+5. **`src/components/AddEntry.jsx`** — A5 (NaN-safe total + Submit disabled when invalid).
+6. **`src/styles/app.css`** — only if A3 needs a minimal neutral `.chg-pill.muted` (no new hex).
+7. **`tests/unit/`** — assertions for each fix where testable (money split; a missing-price pill is not red; AddEntry total never "NaN" + Submit disabled on a lone "."). **[`ERRORS.md`](../testing/ERRORS.md)** — add the A1 rounding entry.
+8. **CLAUDE.md** — one line noting the Portfolio number-display correctness round shipped.
+
+### Acceptance / Definition of Done
+- **A1:** `$100.999`-class values render the correct dollar (e.g. `$101.00`), on both the total and every card; `splitMoney` unit-tested.
+- **A2:** a negative Total P/L / Unrealised P/L shows a leading `−` on the dollar figure (parity with the value card).
+- **A3:** before prices load / on a missing 24h datum, the pill is **neutral "—"**, never red.
+- **A4:** a genuine `0` price/change is shown as `0`, not the mock estimate.
+- **A5:** typing a lone "." never shows `$NaN` and leaves Submit **disabled**; a valid amount+price re-enables it.
+- **A6:** an empty portfolio shows a neutral gain row, not a green +$0.00.
+- **Browser-verify** the above on Portfolio + Detail + CoinInfo + AddEntry, mobile + desktop. `npm run test:unit` green; `npm run build` clean. Status flipped to ✅ BUILT with commit. (No rules ⇒ no `test:rules`.)
+
+---
+
 ## Commands
 
 | Command | What |
