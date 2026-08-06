@@ -4434,18 +4434,25 @@ is really the frontend model layer (already conceded).
 - **Total P/L unchanged** (founder: "its big already, i think its the right size") — `.pnl-label` (13px) / `.pnl-val` (14px) stay.
 - **Left amount "1 BLESS" (`.tx-amt`, 13px) and the bold tx total "$0.03" (`.tx-rtotal`, 14px) stay** — not flagged;
   only the date/time + "$price / SYM" sub-line grow in the tx row.
+- **24h change pill in the hero ("+112.20% (24h)") +2px → 15px** (`.price-hero .chg-pill`, `app.css:426`; founder-added
+  2026-08-06). ⚠️ Scope to the **hero** pill only — the base `.chg-pill` (`app.css:388`) is the Portfolio-card % pill and stays.
+- **"Transactions (N)" header stays 14px = the new Buy/Sell button size** (founder: "make same size as the buy/sell
+  buttons with new sizes (14px)"). `.tx-title` is already 14px, and `.tx-btn` goes 12 → 14px, so they match with **no
+  edit to the header** — locked here so a future change keeps the two in sync.
 
 ### Exact size map (verified in source 2026-08-06 — every value is a current `app.css` `font-size`)
 | Element | Class | Now → New | Δ |
 |---|---|---|---|
 | Market Cap ("$46.45M") | `.price-hero .ph-mc` (`app.css:438`) | 11 → **15px** | +4 |
 | Coin name ("BLESS" under icon) | `.price-hero .ph-sub` (`app.css:424`) | 11.5 → **15.5px** | +4 |
+| 24h change pill ("+112.20% (24h)") | `.price-hero .chg-pill` (`app.css:426`) | 13 → **15px** | +2 |
 | Holding / Current Value / Bought — labels | `.kv-row .kv-k` (`app.css:430`) | 13 → **15px** | +2 |
 | …their values | `.kv-row .kv-v` (`app.css:431`) | 13 → **15px** | +2 |
 | "· $123.04" muted sub-amounts | `.kv-sub` (`app.css:439`, nested in `.kv-v`) | 13 → **15px** | +2 (auto) |
 | **Avg Buy Price + Avg Sell Price** | **retire `kv-sm`** — `Detail.jsx:89,92` | 11/12 → **15px** | now identical to the rows above (size **+ weight + colour**) |
 | Total P/L | `.pnl-*` | — | **unchanged** |
 | Buy / Sell buttons | `.tx-btn` (`app.css:453`) | 12 → **14px** | +2 |
+| "Transactions (N)" header | `.tx-head .tx-title` (`app.css:451`) | 14 → **14px** | matched — already = the new Buy/Sell button size, **no edit** |
 | BUY/SELL tags per tx | `.tx-badge` (`app.css:458`) | 9 → **11px** | +2 |
 | Date & time row | `.tx-row .tx-meta` (`app.css:462`) | 11 → **12px** | +1 |
 | "$0.0253 / BLESS" (price + symbol) | `.tx-right .tx-rprice` (`app.css:483`) | 11.5 → **12.5px** | +1 |
@@ -4460,8 +4467,10 @@ read of "same as" — it matches size **and** weight **and** colour, not just si
 row divider + padding like the others — consistent.)
 
 ### Scope / consistency sweep (change in EVERY file)
-1. **`src/styles/app.css`** — the 8 `font-size` bumps in the table above (`.ph-mc`, `.ph-sub`, `.kv-k`, `.kv-v`,
-   `.tx-btn`, `.tx-badge`, `.tx-meta`, `.tx-rprice`); **delete** the `.kv-row.kv-sm` block.
+1. **`src/styles/app.css`** — the 9 `font-size` bumps in the table above (`.ph-mc`, `.ph-sub`, `.price-hero .chg-pill`,
+   `.kv-k`, `.kv-v`, `.tx-btn`, `.tx-badge`, `.tx-meta`, `.tx-rprice`); **delete** the `.kv-row.kv-sm` block. **`.tx-title`
+   needs NO edit** — it's already 14px = the new `.tx-btn`. ⚠️ Bump the **hero** pill `.price-hero .chg-pill` ONLY; leave
+   the base `.chg-pill` (Portfolio-card % pill).
 2. **`src/components/Detail.jsx`** — remove `kv-sm` from the two rows (`className="kv-row kv-sm"` → `"kv-row"`, lines 89, 92).
 3. **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log as the next DP round (the size table + the two locked decisions).
 4. **CLAUDE.md** design-follow-on note — one line that this readability round shipped.
@@ -4469,7 +4478,8 @@ row divider + padding like the others — consistent.)
 ### Acceptance / Definition of Done
 - **Browser-verify** the coin Detail card on **mobile (full-screen) AND desktop (Modal popup)**, **light AND dark**:
   Avg Buy/Sell Price read identically to Holding/Current Value/Bought; Market Cap + the "BLESS" ticker are clearly
-  larger; Buy/Sell buttons, BUY/SELL tags, the date/time and "$price / SYM" lines are all a notch bigger; Total P/L
+  larger; the "(24h)" change pill is a notch bigger; Buy/Sell buttons, BUY/SELL tags, the date/time and "$price / SYM"
+  lines are all a notch bigger; the "Transactions (N)" header matches the Buy/Sell buttons (both 14px); Total P/L
   is untouched; no layout breakage (rows don't wrap/overflow at the 560 narrow track or on the smallest phones).
 - **Only sizes changed** — no colour, weight (except the intended `kv-sm` retirement), spacing-token, or dark-block change.
 - `npm run test:unit` green (update any snapshot that pins the old Detail sizes — never weaken a test); `npm run build` clean.
