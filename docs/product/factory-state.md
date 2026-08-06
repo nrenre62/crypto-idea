@@ -39,4 +39,16 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(none — the factory has not been run yet. The first `/build-feature` run writes the first block here.)*
+## PORTFOLIO-NUM-FIX — Portfolio number-display correctness (Gap Group A)
+- Phase: G1
+- G1 confirmed: yes         (6 fixes A1–A6 locked; NARROW scope — Portfolio/Detail/CoinInfo/AddEntry + new pure money.js)
+- G2 approved: no           (no code before this is yes)
+- Plan (files): pending architect
+- Fix-round: 0 / 3
+- Open findings: none
+- Branch: claude/portfolio-num-fix
+- Built: no
+- Merged: no
+- Agents this item: 2 (spec-drafter, consistency-sweep)
+- Updated: 2026-08-06
+- Decisions (G1): 1a narrow scope (Research formatter-drift logged as a NEW backlog item, not this PR) · 2a add interview.md "Number / money display" map row · 3a neutral pill uses --sd/--sd-s
