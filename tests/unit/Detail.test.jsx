@@ -286,4 +286,24 @@ describe("Detail screen (extracted, via AppContext)", () => {
     expect(container.querySelector(".tx-rprice").textContent).toBe("$0.001200 / DOGE");
     expect(container.querySelector(".tx-rtotal").textContent).toBe("$1.20"); // 1000 × 0.0012
   });
+
+  // ── A2: a losing position must carry a leading REAL minus (− U+2212) on the dollar
+  //       figure, not sign-by-colour only (today the "$" figure has no leading minus). ──
+  it("A2: a losing position's Total P/L starts with a real minus −$ (U+2212)", () => {
+    const loss = { id: "bitcoin", symbol: "BTC", name: "Bitcoin",
+      entries: [{ id: "t1", type: "buy", amount: 1, priceAtBuy: 30000, date: "2024-01-01T00:00" }] };
+    const { container } = provide({ sel: loss, portfolio: [loss],
+      prices: { bitcoin: { usd: 20000, usd_24h_change: -5, usd_market_cap: 6e11 } } });
+    // bought 1 @ $30,000, now $20,000 → −$10,000.00 loss (− = real minus, not ASCII "-")
+    expect(container.querySelector(".pnl-val").textContent).toMatch(/^\u2212\$/);
+  });
+
+  // ── A3: with no live price the 24h pill is UNKNOWN, not down — a neutral muted pill,
+  //       never the red "dn" pill (undefined >= 0 is false today). ──
+  it("A3: with no live price the price-hero pill is muted, not a red down pill", () => {
+    const { container } = provide({ sel: COIN, portfolio: [COIN], prices: {} });
+    const pill = container.querySelector(".price-hero .chg-pill");
+    expect(pill.className).toContain("muted");
+    expect(pill.className).not.toContain("dn");
+  });
 });
