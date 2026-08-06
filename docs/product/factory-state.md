@@ -40,15 +40,15 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## PORTFOLIO-NUM-FIX — Portfolio number-display correctness (Gap Group A)
-- Phase: G2-approved
+- Phase: inner-loop
 - G1 confirmed: yes         (6 fixes A1–A6 locked; NARROW scope — Portfolio/Detail/CoinInfo/AddEntry + new pure money.js)
 - G2 approved: yes          (plan approved 2026-08-06 — standalone pure splitMoney; 5 display-honesty edits; 2 dark-safe CSS rules)
 - Plan (files): src/utils/money.js (new) · src/components/{Portfolio,Detail,CoinInfo,AddEntry}.jsx · src/styles/app.css | tests: tests/unit/money.test.js (new) + {Portfolio,Detail,CoinInfo,AddEntry}.test.jsx | docs@finalize: interview.md (new map row) · ERRORS.md · CLAUDE.md · NEXT-STEPS.md
-- Fix-round: 0 / 3
-- Open findings: none
+- Fix-round: 1 / 3
+- Open findings: none  (design dark-contrast on .chg-pill.muted resolved fix-round 1; verify GREEN 951/951, security SAFE)
 - Branch: claude/portfolio-num-fix
 - Built: no
 - Merged: no
-- Agents this item: 3 (spec-drafter, consistency-sweep, architect)
+- Agents this item: 8 (spec-drafter, consistency-sweep, architect, test-author, client-builder, test-tier-verifier, secure-by-design, design-consistency)
 - Updated: 2026-08-06
 - Decisions (G1): 1a narrow scope (Research formatter-drift logged as a NEW backlog item, not this PR) · 2a add interview.md "Number / money display" map row · 3a neutral pill uses --sd/--sd-s

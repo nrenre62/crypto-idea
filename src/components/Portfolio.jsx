@@ -1,5 +1,6 @@
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct } from "../utils/format.js";
+import { splitMoney } from "../utils/money.js";
 import { portfolio24hPct } from "../utils/pnl.js";
 import { CoinIcon } from "./CoinIcon.jsx";
 import { PortfolioBar } from "./PortfolioBar.jsx";
@@ -18,7 +19,7 @@ export function Portfolio() {
   } = useApp();
   const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
   const pricesPaused = usePricesPaused();
-  const cents = (tv % 1).toFixed(2).slice(2);
+  const m = splitMoney(tv);
   const sorted = [...portfolio]
     .map((coin) => ({ coin, val: Math.max(0, coin.entries.reduce((s, e) => (e.type === "sell" ? s - e.amount : s + e.amount), 0)) * (prices[coin.id]?.usd || 0) }))
     .sort((a, b) => b.val - a.val)
@@ -42,10 +43,15 @@ export function Portfolio() {
       <div className="value-card">
         <div className="vc-main">
           <div className="vc-eyebrow">Portfolio value</div>
-          <div className="port-total">${Math.floor(tv).toLocaleString()}<span className="cents">.{cents}</span></div>
-          <div className={"vc-gain" + (tpnl >= 0 ? "" : " dn")}>
-            {tpnl >= 0 ? "▲" : "▼"} {tpnl >= 0 ? "+" : "−"}${Math.abs(tpnl).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({fmtPct(tpp)})
-          </div>
+          <div className="port-total">${m.dollars.toLocaleString()}<span className="cents">.{m.cents}</span></div>
+          {/* A6: an empty book (nothing invested) has no gain to show — a neutral "—",
+              not a fake "+$0.00" that reads like a real break-even result. Keyed off
+              totalBuys===0, so a REAL break-even (money in, P/L exactly 0) still shows +$0.00. */}
+          {totalBuys === 0
+            ? <div className="vc-gain muted">—</div>
+            : <div className={"vc-gain" + (tpnl >= 0 ? "" : " dn")}>
+                {tpnl >= 0 ? "▲" : "▼"} {tpnl >= 0 ? "+" : "−"}${Math.abs(tpnl).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({fmtPct(tpp)})
+              </div>}
         </div>
         <div className="vc-stats">
           <div className="vc-stat">
@@ -95,6 +101,7 @@ export function Portfolio() {
             const ch = p?.usd_24h_change;
             const h = Math.max(0, coin.entries.reduce((s, e) => (e.type === "sell" ? s - e.amount : s + e.amount), 0));
             const v = h * (pr || 0);
+            const m = splitMoney(v);
             // DI-4: an over-limit coin is KEPT but locked — dimmed, tagged, and tapping it
             // opens the explainer (upgrade / remove others) instead of the detail screen.
             const locked = lockedCoins && lockedCoins.has(coin.id);
@@ -111,11 +118,15 @@ export function Portfolio() {
                   </div>
                 </div>
                 {v > 0
-                  ? <div className="ac-val">${Math.floor(v).toLocaleString()}<span className="cents">.{(v % 1).toFixed(2).slice(2)}</span></div>
+                  ? <div className="ac-val">${m.dollars.toLocaleString()}<span className="cents">.{m.cents}</span></div>
                   : <div className="ac-val muted">$0.00</div>}
                 <div className="ac-bot">
                   <span className="ac-price">{fmtP(pr)}</span>
-                  <span className={"chg-pill " + (ch >= 0 ? "up" : "dn")}>{fmtPct(ch)}</span>
+                  {/* A3: no live 24h change (missing price) = UNKNOWN, not down — a neutral
+                      muted "—", never the red "dn" pill. */}
+                  {ch == null
+                    ? <span className="chg-pill muted">—</span>
+                    : <span className={"chg-pill " + (ch >= 0 ? "up" : "dn")}>{fmtPct(ch)}</span>}
                 </div>
               </div>
             );
