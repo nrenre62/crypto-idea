@@ -27,6 +27,11 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
   one after another without stop until finish"). The founder's control stays the per-component gates
   (G1/G2/G3) and any 🔶 CHECKPOINT interview — the loop just doesn't add a mechanical pause between
   components. The founder can halt the run at any gate by saying so.
+- **Spend has a runaway ceiling, not a routine stop.** The "no stop between items" rule stands — never
+  pause for a budget checkpoint. But meter subagent invocations, and if a single item exceeds **25
+  agents** or a run exceeds **150**, STOP and escalate in plain chat with the spend and the reason. A
+  runaway is a real-failure stop (like a stuck fix-loop), not a routine checkpoint. See **Durable
+  state · spend · resume**.
 - **No write reaches `integrator` unverified.** A read-only reviewer must never run concurrently with a
   writer touching the same files, and **any code write must have a `test-tier-verifier` run downstream
   of it** before commit — including a `simplifier` cleanup or a consistency-sweep gap routed back to a
@@ -47,6 +52,13 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
    **not** silently fall back to a `general-purpose` agent for a read-only reviewer (that would run a
    review stage in a **write-capable** context, defeating the tool-scoping the safety model rests on).
    See Notes for the only sanctioned inline exception.
+
+**Resume from durable state (before step 4).** Read
+[`docs/product/factory-state.md`](../../docs/product/factory-state.md) first. If an item is mid-flight,
+resume from its recorded `Phase`: **`G2-approved` jumps straight to the inner loop** (do NOT
+re-interview a plan the founder already approved), **`built`-not-`merged` re-presents at G3**, and the
+`Fix-round` count **continues** from where it was (never reset). See **Durable state · spend · resume**
+below. This changes no step numbers — G1 still begins at step 4.
 
 ---
 
@@ -98,7 +110,9 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
     the right builder (or escalates). Apply its routed fix (re-spawn that builder), then re-run step 10
     for the affected tier/review. Repeat until **every selected tier is GREEN and no HIGH remains.**
     - **Bounded:** after **3** rounds without convergence, **stop and escalate to the founder in
-      plain chat** with a clear problem statement.
+      plain chat** with a clear problem statement. Read/increment the round count in
+      `docs/product/factory-state.md` each round, so the bound **survives an auto-compaction or
+      restart** instead of silently resetting.
     - **Escalate, don't paper over:** if fix-controller judges a finding to be a *decision* (an
       architecture change, a spec ambiguity, a rules trade-off) rather than a *defect*, **stop and
       ask the founder** — never loosen a test or a rule to force green. An INCONCLUSIVE verify
@@ -127,7 +141,10 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
     ERRORS.md on a diagnosed bug / the topic's MD docs / the `NEXT-STEPS.md` log / diagrams) per the
     DoD.
 16. **Integrate.** Spawn **`integrator`** to commit (message convention + `Co-Authored-By` trailer)
-    and push to the feature branch. It presents the diff + the test verdict + the review summaries.
+    and push to the feature branch. It records `Built` + the commit in `factory-state.md` and appends
+    the item's row to [`factory-runs.md`](../../docs/product/factory-runs.md) (fix-rounds, escalations,
+    reviewer verdicts, agent count, commit range), then presents the diff + the test verdict + the
+    review summaries.
 
 ## 🧑 G3 — Merge approval (founder decides)
 
@@ -145,6 +162,27 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
     mechanical pause between components, not the decisions.
 
 ---
+
+## Durable state · spend · resume
+
+The run's memory lives in files, so an auto-compaction or a fresh container never loses gate decisions
+or the fix-loop count — the ledger (`BUILD-LOOP.md`) says *which* items, this says *where* the current
+one is.
+
+- **[`docs/product/factory-state.md`](../../docs/product/factory-state.md)** — the per-item resume
+  block. Write it: after G1 is confirmed (step 5 → `G1 confirmed`), after G2 is approved (step 7 →
+  `G2 approved` + the plan's file list — this is what lets a restart skip re-interviewing), on **each
+  fix-loop round** (step 11 → increment `Fix-round`, update `Open findings`), at integrate (step 16 →
+  `Built` + commit), and at G3 (step 17 → `Merged`, then remove the block). **On Preflight, read it
+  first and resume from the recorded `Phase`.**
+- **[`docs/product/factory-runs.md`](../../docs/product/factory-runs.md)** — one row per finished item,
+  appended by `integrator` at step 16: fix-rounds, escalations, reviewer verdicts, **agent count**,
+  commit range. This is the factory's only self-observability — keep it accurate so the Kaizen retro
+  (`AGILE.md`) has data instead of vibes.
+- **Cost tripwire.** Track subagent invocations per item and per run; record the per-item count in
+  `factory-state.md`. It is a runaway ceiling, **not** a routine pause (per the Absolute rule): escalate
+  only if one item exceeds **25 agents** or a run exceeds **150**. Change the thresholds only with the
+  founder.
 
 ## Notes
 

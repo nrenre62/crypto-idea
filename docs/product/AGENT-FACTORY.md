@@ -1,7 +1,7 @@
 # Agent Factory — an autonomous feature assembly line
 
 > **Status: BUILT — all 16 roles exist** (design approved 2026-08-03; roster built same day).
-> The 11 subagents live in [`.claude/agents/`](../../.claude/agents/README.md) and the
+> The 15 subagents live in [`.claude/agents/`](../../.claude/agents/README.md) and the
 > orchestrator is [`/build-feature`](../../.claude/commands/build-feature.md); run the factory with
 > `/build-feature <backlog-item>`. This is the plan of record. Nothing here overrides
 > [`AGILE.md`](AGILE.md)'s Definition of Done or [`interview.md`](../interview.md)'s process — the
@@ -115,8 +115,8 @@ the factory never guesses a decision.
 
 ## 4. The agent roster
 
-**16 roles = 4 already built + 12 to build.** Reviewers built in the prior sessions are *reused*
-as stages, not rebuilt.
+**16 roles = 15 subagents + the `/build-feature` orchestrator command — all built.** The four review
+agents from prior sessions are *reused* as stages, not rebuilt.
 
 ### Already built (`.claude/agents/`)
 | Agent | Stage | Writes? |
@@ -238,8 +238,33 @@ treated as data. **Next: exercise the whole line on one small real backlog item*
   the founder open/merge the PR; a PR-first mode is a config choice.
 - **Jira integration** — a component that originates from a CRYP bug could enter via `/jira-fix`
   instead of `/build-feature`, reusing the same inner loop.
-- **Retro/Kaizen capture** — `docs-scribe` logs new opportunities into `NEXT-STEPS.md`; a periodic
-  review of those stays a founder activity.
+- **Retro/Kaizen capture** — `docs-scribe` logs new opportunities into `NEXT-STEPS.md`, and the per-run
+  metrics in [`factory-runs.md`](factory-runs.md) (§9) give the retro **data** instead of vibes. A
+  periodic review of both stays a founder activity.
+
+---
+
+## 9. Durable state, observability & cost (resumable runs)
+
+The factory runs in an ephemeral container and its context can auto-compact on a long run, so the run's
+memory lives in **committed files**, not chat. The ledger (`BUILD-LOOP.md`) says *which* items; these
+say *where* the current one is and *what each finished run cost*.
+
+- **Resumability — [`factory-state.md`](factory-state.md).** One block per in-flight item holding the
+  G1/G2 gate decisions (the approved plan's file list), the fix-round count, and `Built`/`Merged`. The
+  orchestrator writes it at each gate/loop step and **reads it on Preflight**, so a restart resumes from
+  the recorded phase: a `G2-approved` item skips straight to the inner loop (never re-interviewing an
+  approved plan), a `built`-not-`merged` item re-presents at G3, and the fix-loop bound **continues**
+  instead of resetting. `BUILD-LOOP.md`'s Recovery prompt re-enters `/build-feature` from this state —
+  **one execution path**, not a separate manual loop.
+- **Observability — [`factory-runs.md`](factory-runs.md).** `integrator` appends one row per finished
+  item (fix-rounds, escalations, reviewer verdicts, agent count, commit range). This is the factory's
+  only self-measurement — it turns the §8 Kaizen retro into data: which stage is the bottleneck, which
+  reviewer earns its cost, whether the defect-escape rate is falling.
+- **Cost — a runaway tripwire, not a routine stop.** Subagent invocations are metered per item and per
+  run and recorded in `factory-state.md`. The "no stop between items" rule stands; the tripwire fires
+  **only on a runaway** — one item > 25 agents, or a run > 150 — as a real-failure escalation, never a
+  between-item checkpoint. Thresholds change only with the founder.
 
 ---
 
