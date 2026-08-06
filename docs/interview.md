@@ -110,5 +110,11 @@ wins in a conflict) is **bold**.
 - Code: `src/components/ui.jsx` (`<Logo>`) · `src/styles/app.css` (`.ci-logo*`) · `src/styles/admin-settings.css` (`.adm-logo`/`.adm-brand-txt`/`.adm-auth-brand`) · `src/admin-main.jsx` · `src/components/admin-dashboard.jsx` · `src/components/education-page.jsx` · `src/components/Loading.jsx` · `src/main.jsx` · `src/components/Portfolio.jsx` · `src/components/Login.jsx` · `src/components/ForgotPass.jsx` (live `<Logo>` consumers) · `src/features/research/hooks/useSharePulse.js` (ships a rendered brand mark on the Pulse share image) · `src/features/research/styles/research-tab.css` (a separate `--accent` copy) · `app.html` · `admin.html` · `terms.html` · `privacy.html`
 - Tests: `tests/unit/Logo.test.jsx` · `tests/unit/brand-guard.test.js` + `scripts/check-brand.js` (now also enforces PRESENCE via the `findMissingLockups`/`findMissingFonts`/`findMissingSource` helpers — terms/privacy must carry the tile lockup + Fraunces/Hanken, education-page uses `<Logo`, both stylesheets carry the hover + `#0b6b4f`; two-word denylist is case-insensitive) · `tests/unit/education-page.test.jsx` · `tests/unit/Loading.test.jsx`
 
+### Number / money display (app-side $-rounding · % · minus signs · missing-data neutrality)
+- Canonical: **`src/utils/format.js`** + **`src/utils/money.js`** (pure `splitMoney` — rounds to cents FIRST, then splits, so `$100.999` → `$101.00`; single source of truth for the dollar+cents split)
+- Consumers: `src/components/Portfolio.jsx` · `src/components/Detail.jsx` · `src/components/CoinInfo.jsx` · `src/components/AddEntry.jsx`
+- Tests: `tests/unit/money.test.js` · `tests/unit/format.test.js`
+- **Note:** the Research tab has its OWN formatter (`src/features/research/utils/format.js`) that currently DIVERGES from the app pair (rounds differently; `fmtPct(null)` → "NaN%") — unifying the two is tracked in `NEXT-STEPS.md` §FORMATTER-UNIFY (with the "NaN%" piece partly staged as DARK-FIX-NaN), not yet done. Row added 2026-08-06 (PORTFOLIO-NUM-FIX) to close the gap that let the app-vs-Research formatters drift.
+
 > **Keep this map current.** When a file moves or a new canonical doc is added (e.g. `BILLING.md`),
 > update the affected row in the *same* change — the map itself is subject to the consistency rule.

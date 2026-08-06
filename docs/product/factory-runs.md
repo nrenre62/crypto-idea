@@ -20,4 +20,4 @@ orchestrator supplies the counts it already knows.
 
 | Item | Date | Fix-rounds | Escalations | Reviewers (verdict) | Agents | Commit range |
 |------|------|-----------:|------------:|---------------------|-------:|--------------|
-| *(none yet — the first `/build-feature` run appends here)* | | | | | | |
+| PORTFOLIO-NUM-FIX | 2026-08-06 | 1 | 0 | sec:SAFE · design:CHANGES→OK · verify:GREEN (unit 951/951) | 11 | 082945d..c9b3d05 |

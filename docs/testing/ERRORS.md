@@ -235,6 +235,29 @@
   differently again, in which case detection silently stops firing (degraded, not dangerous).
   Confirming the real string is GO-LIVE-AUDIT Phase 7 step 29.
 
+### A7 · Portfolio dollar amounts render $1 low when the cents round up (`$100.999` → `$100.00`) ✅ (medium)
+
+- **Symptom:** The Portfolio value card total and each asset card sometimes show a dollar figure **$1 too
+  low** — a holding worth `$100.999` renders as **`$100.00`** instead of `$101.00`. Off by exactly one
+  dollar, only on values whose fractional part rounds up to (or past) the next whole dollar.
+- **Where:** `src/components/Portfolio.jsx` — the portfolio total and each asset card. Dollars were taken
+  with `Math.floor(v)` while the cents were computed **independently** as `(v % 1).toFixed(2).slice(2)`.
+- **Root cause:** the two halves round on their own and disagree. For `100.999`: dollars
+  `Math.floor(100.999) = 100`, but cents `(0.999).toFixed(2) = "1.00"` → `.slice(2) = "00"` — the cents
+  rounded UP into the next dollar while the dollars floored DOWN, so the carried dollar is silently
+  dropped. Any value ≥ `x.995` hits it.
+- **Fix:** round to cents **first**, then split — new pure [`src/utils/money.js`](../../src/utils/money.js)
+  `splitMoney(n)`: `c = Math.round(n*100)`, `dollars = Math.trunc(c/100)`,
+  `cents = String(Math.abs(c)%100).padStart(2,"0")`. Both loci render through the ONE helper (single
+  source of truth), so the dollars and cents can never disagree; non-finite input is treated as `0`.
+  Unit-tested (`tests/unit/money.test.js`) incl. `100.999`, `0`, `1234.995`, and negatives.
+- **Verify:** a `$100.999`-class holding shows `$101.00` on the total AND every asset card; `npm run
+  test:unit` green (951/951); build clean.
+- **Severity:** medium (wrong money shown, but only ±$1 and only on rounding boundaries).
+- **Status:** ✅ **FIXED 2026-08-06** (PORTFOLIO-NUM-FIX, commit `c9b3d05`, via the Agent Factory) — one
+  of Gap Group A's six number-display fixes; see [`NEXT-STEPS.md`](../product/NEXT-STEPS.md)
+  §PORTFOLIO-NUM-FIX.
+
 ---
 
 ## B. Robustness / hardening (recommended, not blocking)
