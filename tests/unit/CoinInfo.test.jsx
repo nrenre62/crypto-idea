@@ -134,4 +134,28 @@ describe("CoinInfo screen (extracted, via AppContext)", () => {
     // held 2 @ avg $100 = $200 cost basis; now 2 @ $200 = $400 → +$200.00 (+100.00%)
     expect(screen.getByText("+$200.00 (+100.00%)")).toBeInTheDocument();
   });
+
+  // ── A2: a held coin at a loss must carry a leading REAL minus (− U+2212) on the
+  //       dollar figure, not sign-by-colour only (today the "$" has no leading minus). ──
+  it("A2: a held coin at a loss shows Unrealised P/L starting with a real minus −$ (U+2212)", () => {
+    const held = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", entries: [
+      { id: "t1", type: "buy", amount: 2, priceAtBuy: 100, date: "2024-01-01" },
+    ] };
+    const { container } = provide({ infoCoin: BTC, portfolio: [held],
+      prices: { bitcoin: { usd: 50, usd_24h_change: 0, usd_market_cap: 6e11 } } });
+    // held 2 @ avg $100 = $200 cost basis; now 2 @ $50 = $100 → −$100.00 (−50.00%)
+    expect(container.querySelector(".pnl-val").textContent).toMatch(/^\u2212\$/);
+  });
+
+  // ── A4: a GENUINE live 0 must render as the real value, not fall through the `||`
+  //       chain to BTC's mock price/change (today 0 is falsy → mock wins). ──
+  it("A4: a live price/percent of 0 renders as the genuine $0 / +0.00%, not the mock", () => {
+    const { container } = provide({ infoCoin: BTC, portfolio: [],
+      prices: { bitcoin: { usd: 0, usd_24h_change: 0, usd_market_cap: 0 } } });
+    // percent chip is the real 0% change, not BTC's mock +2.40%
+    expect(container.querySelector(".price-hero .chg-pill").textContent).toBe("+0.00% today");
+    // price is the real 0, not BTC's mock $84,000
+    expect(container.querySelector(".ph-price").textContent).toMatch(/^\$0\.00/);
+    expect(container.querySelector(".ph-price").textContent).not.toContain("84,000");
+  });
 });

@@ -154,4 +154,20 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     expect(screen.getByRole("button", { name: "AUTO" }).className).toContain("on");
     expect(screen.queryByText(/tap AUTO to use/i)).toBeNull();
   });
+
+  // ── A5: a lone "." is what sanitizeDecimal yields mid-typing — it is NOT a number,
+  //       so no "$NaN" preview may render and the submit must stay disabled
+  //       (today "." is truthy → $NaN previews AND the Add button is enabled). ──
+  it("A5: an amount of '.' shows no $NaN preview and keeps the submit button disabled", () => {
+    const { container } = render(<Harness amt="." price="40000" />);
+    expect(container.textContent).not.toContain("$NaN");
+    expect(screen.getByText("Add Buy")).toBeDisabled();
+  });
+
+  // ── A5: a zero amount is not a valid transaction — submit stays disabled
+  //       (today "0" is truthy → the Add button is enabled). ──
+  it("A5: an amount of '0' with a valid price keeps the submit button disabled", () => {
+    render(<Harness amt="0" price="40000" />);
+    expect(screen.getByText("Add Buy")).toBeDisabled();
+  });
 });

@@ -29,9 +29,11 @@ export function CoinInfo() {
   if(!coin)return null;
   const cd=TOP_COINS.find(x=>x.id===coin.id);
   const p=live||fetched;
-  const pr=p?.usd||cd?.mockPrice||0;
-  const ch=p?.usd_24h_change||cd?.mockChange||0;
-  const mc=p?.usd_market_cap||cd?.mockMcap||0;
+  // A4: `??`-chain the live→mock fallback so a GENUINE live 0 (price/change/mcap) renders
+  // as the real value instead of falling through `||` to BTC's mock reference numbers.
+  const pr=p?.usd??cd?.mockPrice??0;
+  const ch=p?.usd_24h_change??cd?.mockChange??0;
+  const mc=p?.usd_market_cap??cd?.mockMcap??0;
   const vol=p?.usd_24h_vol||0;            // 24h trading volume — "—" until the proxy supplies it
   const circ=p?.circulating||0;           // circulating supply — "—" until the proxy supplies it
   const rank=p?.usd_market_cap_rank!=null?p.usd_market_cap_rank:cd?.rank;   // R23: live rank first
@@ -86,7 +88,7 @@ export function CoinInfo() {
               <div className="card-title">Your Position</div>
               <div className="kv-row"><span className="kv-k">Held</span><span className="kv-v">{holding.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol}</span></div>
               <div className="kv-row"><span className="kv-k">Avg cost</span><span className="kv-v">{fmtP(avgBuy)}</span></div>
-              <div className={"pnl-row"+(unreal>=0?"":" dn")}><span className="pnl-label">Unrealised P/L</span><span className="pnl-val">{unreal>=0?"+":""}${Math.abs(unreal).toLocaleString("en-US",{minimumFractionDigits:2})} ({fmtPct(unrealPct)})</span></div>
+              <div className={"pnl-row"+(unreal>=0?"":" dn")}><span className="pnl-label">Unrealised P/L</span><span className="pnl-val">{unreal>=0?"+":"−"}${Math.abs(unreal).toLocaleString("en-US",{minimumFractionDigits:2})} ({fmtPct(unrealPct)})</span></div>
             </div>
           );
         })()}

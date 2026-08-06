@@ -55,6 +55,11 @@ export function AddEntry() {
   const histPrice = sel ? priceAt(new Date(eDate)) : null;
   const priceIsHist = histPrice && ePrice && Math.abs(parseFloat(ePrice)-histPrice)/histPrice < 0.15;
   const isBeforeLaunch = eDate && new Date(eDate) < new Date(launchDate);
+  // A5: a lone "." / "" / "0" is NOT a valid transaction — parseFloat(".")→NaN. Gate the
+  // live total preview + the submit on a real positive number, so no "$NaN" ever previews
+  // and the Add button stays disabled until both fields hold a positive value.
+  const amt = parseFloat(eAmt), prc = parseFloat(ePrice);
+  const valid = Number.isFinite(amt) && amt > 0 && Number.isFinite(prc) && prc > 0;
   return (
     <div className={isDesktop ? "detail-popup" : "ci-app screen-bg"}>
       {/* R19-9: desktop = popup stacked over the coin popup (Modal supplies title + X). */}
@@ -110,15 +115,15 @@ export function AddEntry() {
           <input type="datetime-local" step="1" value={eDate} min={launchDateTime} onChange={e=>onDateChange(e.target.value)} className="field-input"/>
           {isBeforeLaunch&&<div className="field-warn"><span style={{fontSize:14}}>⚠️</span>{sel?.name} launched on {launchDate}. Date adjusted to earliest available.</div>}
         </div>
-        {eAmt&&ePrice&&(
+        {valid&&(
           <div className="tx-total">
             <span className="tx-total-label">{eTxType==="sell"?"Sell value":"Total cost"}</span>
-            <span className="tx-total-amt">${(parseFloat(eAmt||0)*parseFloat(ePrice||0)).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+            <span className="tx-total-amt">${(amt*prc).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
           </div>
         )}
         {/* TX-SAFE (Part B): disabled + busy label while a write is in flight, so a
             double-click can't fire two writes (two duplicate transaction docs). */}
-        <button onClick={addEntry} disabled={!eAmt||!ePrice||addingTx} className={"submit-buy"+(eTxType==="sell"?" submit-sell":"")}>{addingTx?"Saving…":editEntry?"Save Changes":eTxType==="sell"?"Add Sell":"Add Buy"}</button>
+        <button onClick={addEntry} disabled={!valid||addingTx} className={"submit-buy"+(eTxType==="sell"?" submit-sell":"")}>{addingTx?"Saving…":editEntry?"Save Changes":eTxType==="sell"?"Add Sell":"Add Buy"}</button>
       </div>
     </div>
   );

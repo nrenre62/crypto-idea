@@ -5022,7 +5022,7 @@ row divider + padding like the others — consistent.)
 
 ---
 
-## PORTFOLIO-NUM-FIX (Gap Group A). Portfolio number-display correctness — 6 honest-numbers bugs on the Portfolio/Detail/CoinInfo/AddEntry surfaces  (📋 STAGED 2026-08-06; queued in BUILD-LOOP #17 — NOT built)
+## PORTFOLIO-NUM-FIX (Gap Group A). Portfolio number-display correctness — 6 honest-numbers bugs on the Portfolio/Detail/CoinInfo/AddEntry surfaces  (✅ BUILT 2026-08-06 · `c9b3d05` · via the Agent Factory · BUILD-LOOP #17)
 
 > **Queued as [BUILD-LOOP](BUILD-LOOP.md) #17** (2026-08-06). From the 2026-08-06 Portfolio-tab gap sweep (three read-only passes), **Group A** = the display-correctness cluster the founder chose to fix first. **🟩 GREEN, client-only** — display/format logic in components + a small pure helper; **no `firestore.rules`, no new dependency.** These are "the numbers shown are wrong/misleading" bugs, all seen every session, all cheap. Deduped against the backlog: none overlaps DI, #12, #15, or R10/TX-SAFE except where noted (A5).
 >
@@ -5085,6 +5085,44 @@ row divider + padding like the others — consistent.)
 - **A5:** typing a lone "." never shows `$NaN` and leaves Submit **disabled**; a valid amount+price re-enables it.
 - **A6:** an empty portfolio shows a neutral gain row, not a green +$0.00.
 - **Browser-verify** the above on Portfolio + Detail + CoinInfo + AddEntry, mobile + desktop. `npm run test:unit` green; `npm run build` clean. Status flipped to ✅ BUILT with commit. (No rules ⇒ no `test:rules`.)
+
+**Status: ✅ BUILT 2026-08-06 (commit `c9b3d05`, via the Agent Factory — the factory's first end-to-end item).**
+All six fixes shipped: new pure `src/utils/money.js` `splitMoney(n)` (rounds to cents FIRST, then splits —
+A1), routed through the Portfolio total + asset cards; real `−` (U+2212) on losing Total/Unrealised P/L in
+`Detail.jsx`/`CoinInfo.jsx` (A2); neutral "muted" pill (—) on a missing 24h datum, with a dark-block contrast
+override in `app.css` (A3); `CoinInfo.jsx` `||`→`??` so a genuine live `0` isn't overwritten by mock (A4);
+`AddEntry.jsx` shows no `$NaN` and disables Submit unless amount/price are finite `>0` (A5); neutral empty-book
+gain (`totalBuys===0` → "—", not green +$0.00 — A6). Client-only; two dark-safe `app.css` rules; ERRORS.md §A7
+records the A1 rounding bug. `npm run test:unit` **951/951**, build clean. The one deliberately-deferred piece —
+the app-vs-Research **formatter divergence** — was split out per the founder's G1 (1a narrow scope) decision into
+its own backlog item **§FORMATTER-UNIFY** (below).
+
+---
+
+## FORMATTER-UNIFY. Unify the two diverging number formatters (app `utils/format.js` ↔ Research `features/research/utils/format.js`)  (📋 STAGED 2026-08-06 — NOT built; split out of PORTFOLIO-NUM-FIX per founder G1)
+
+> **Split out of PORTFOLIO-NUM-FIX** per the founder's **G1 decision (1a — narrow scope):** PORTFOLIO-NUM-FIX
+> fixed only the six app-side display bugs; unifying the app and Research formatters is its own item so the
+> narrow correctness fix wasn't widened mid-flight. **🟩 GREEN, client-only** — display/format logic only; **no
+> `firestore.rules`, no new dependency.**
+>
+> **The gap:** the app uses `src/utils/format.js` (+ the new `src/utils/money.js`) while the Research tab uses
+> its OWN `src/features/research/utils/format.js`, and the two **disagree**: Research `fmtPct(null)` renders
+> **"NaN%"** (vs the app never showing NaN), and the two `money`/`fmtPct` implementations **round differently**,
+> so the same value can read one way on a Portfolio/Detail surface and another in Research. This is the drift the
+> interview.md "Number / money display" map row now guards against.
+>
+> **Note — partial overlap already staged.** The Research **"NaN%"** piece is partly covered by **DARK-FIX-NaN**
+> (the required spin-off commit under [BUILD-LOOP](BUILD-LOOP.md) #15 **§DARK-MODE-FIXES** — guards
+> `OverviewView.jsx` so the diversification note never renders "NaN%"). FORMATTER-UNIFY is the broader,
+> single-source-of-truth consolidation of the two formatters (rounding parity + null-safety across every Research
+> call site), not just that one note. Sequence after DARK-MODE-FIXES so the pieces don't collide.
+>
+> **Direction (not yet locked — needs a G1/G2 pass):** make the app pair (`format.js` + `money.js`) the single
+> source of truth and have Research consume it (or a thin shared re-export), so `money`/`fmtPct`/`splitMoney`
+> round identically and never emit "NaN%"/`$NaN`. Deduped against DARK-MODE-FIXES (DARK-FIX-NaN handles the one
+> note; this handles the formatter itself) and against PORTFOLIO-NUM-FIX (which was app-only). Consistency sweep
+> will follow the interview.md **"Number / money display"** map row. No rules ⇒ no `test:rules`.
 
 ---
 

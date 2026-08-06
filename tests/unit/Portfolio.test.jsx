@@ -116,6 +116,45 @@ describe("Portfolio screen (extracted, via AppContext)", () => {
     // the old two-word serif wordmark is gone (the mark reads "CryptoIdea")
     expect(title.textContent).not.toContain("Crypto Idea");
   });
+
+  // ── A1: the value card must ROUND to the nearest dollar, not floor the dollars while
+  //       the cents round up — otherwise $100.999 shows as $100.00 (a lost dollar). ──
+  it("A1: a portfolio value of 100.999 renders as $101.00, not $100.00", () => {
+    const { container } = provide(Portfolio, { tv: 100.999 });
+    expect(container.querySelector(".port-total").textContent).toBe("$101.00");
+  });
+
+  // ── A3: a coin with NO live price is unknown, not down — the pill must be a neutral
+  //       muted "—", never the red "dn" pill (undefined >= 0 is false today). ──
+  it("A3: an asset with no live price shows a neutral muted pill (—), not a red down pill", () => {
+    const coin = { id: "bitcoin", symbol: "BTC", name: "Bitcoin", thumb: "",
+      entries: [{ id: "t1", type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01" }] };
+    const { container } = provide(Portfolio, { portfolio: [coin], prices: {} });
+    const pill = container.querySelector(".asset-card .chg-pill");
+    expect(pill.className).toContain("muted");
+    expect(pill.className).not.toContain("dn");
+    expect(pill.textContent).toBe("—");
+  });
+
+  // ── A6: an EMPTY book (nothing invested) has no gain to show — a neutral "—", not a
+  //       fake "+$0.00" that reads like a real break-even result. ──
+  it("A6: an empty book (totalBuys 0) shows a neutral — gain, not +$0.00", () => {
+    const { container } = provide(Portfolio, { totalBuys: 0, tpnl: 0 });
+    const gain = container.querySelector(".vc-gain");
+    expect(gain.className).toContain("muted");
+    expect(gain.textContent.trim()).toBe("—");
+    expect(gain.textContent).not.toContain("+$0.00");
+  });
+
+  // ── A6 guard: a REAL break-even book (money invested, P/L exactly 0) must still show
+  //       +$0.00 and NOT be muted — proving the neutral state keys off totalBuys===0,
+  //       not tpnl===0. (Green today; guards against a wrong "neutral when tpnl 0" fix.) ──
+  it("A6: a real break-even book (totalBuys > 0, tpnl 0) shows +$0.00 and is not muted", () => {
+    const { container } = provide(Portfolio, { totalBuys: 100, tpnl: 0 });
+    const gain = container.querySelector(".vc-gain");
+    expect(gain.textContent).toContain("+$0.00");
+    expect(gain.className).not.toContain("muted");
+  });
 });
 
 describe("PortfolioBar (extracted, via AppContext)", () => {

@@ -39,4 +39,16 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(none — the factory has not been run yet. The first `/build-feature` run writes the first block here.)*
+## PORTFOLIO-NUM-FIX — Portfolio number-display correctness (Gap Group A)
+- Phase: built  (awaiting G3 — merge + PR)
+- G1 confirmed: yes         (6 fixes A1–A6 locked; NARROW scope — Portfolio/Detail/CoinInfo/AddEntry + new pure money.js)
+- G2 approved: yes          (plan approved 2026-08-06 — standalone pure splitMoney; 5 display-honesty edits; 2 dark-safe CSS rules)
+- Plan (files): src/utils/money.js (new) · src/components/{Portfolio,Detail,CoinInfo,AddEntry}.jsx · src/styles/app.css | tests: tests/unit/money.test.js (new) + {Portfolio,Detail,CoinInfo,AddEntry}.test.jsx | docs: interview.md (new map row) · ERRORS.md §A7 · CLAUDE.md · NEXT-STEPS.md (+ §FORMATTER-UNIFY) · BUILD-LOOP #17 · BUILD-PROGRESS row 29
+- Fix-round: 1 / 3
+- Open findings: none  (design dark-contrast on .chg-pill.muted resolved fix-round 1; verify GREEN 951/951, security SAFE, final sweep CLEAN)
+- Branch: claude/portfolio-num-fix
+- Built: yes c9b3d05  (code green; docs finalized this round)
+- Merged: no
+- Agents this item: 11 (spec-drafter, consistency-sweep, architect, test-author, client-builder, test-tier-verifier, secure-by-design, design-consistency, simplifier, docs-scribe, consistency-sweep[final])
+- Updated: 2026-08-06
+- Decisions (G1): 1a narrow scope (Research formatter-drift logged as a NEW backlog item, not this PR) · 2a add interview.md "Number / money display" map row · 3a neutral pill uses --sd/--sd-s

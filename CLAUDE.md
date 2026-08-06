@@ -138,6 +138,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   `findMissingSource` in `scripts/check-brand.js` — terms/privacy must carry the tile lockup + both fonts,
   education-page must use `<Logo`, both stylesheets must carry the hover + `#0b6b4f`) and the two-word denylist is
   now **case-insensitive** (catches "CRYPTO IDEA"). Design-only; unit 936/936, design-consistency clean, build clean.
+- **Number-display honesty (PORTFOLIO-NUM-FIX, BUILT 2026-08-06 · `c9b3d05`):** Gap Group A's six honest-numbers fixes on Portfolio/Detail/CoinInfo/AddEntry — pure `src/utils/money.js` `splitMoney` (cents-FIRST rounding, single source of truth, kills the `$100.999`→`$100.00` $1-loss), real `−` (U+2212) on losing Total/Unrealised P/L, neutral "muted" pills (—) for a missing 24h datum instead of a red down pill, `||`→`??` so a genuine live `0` isn't overwritten by mock, no `$NaN` preview + Submit disabled unless amount/price are finite `>0`, and a neutral empty-book gain (no green +$0.00); client-only, unit 951/951.
 - **Design revamp (BUILT, 2026-06-26):** the whole app matches the founder-approved mockup — see
   [`DESIGN-REVAMP.md`](docs/design/DESIGN-REVAMP.md) (spec + §7 founder review; backlog §D). Shipped: Portfolio value →
   white summary card (`.value-card`, INVESTED/24H/ASSETS) + assets **row → 3-up card grid on the 1040 wide
