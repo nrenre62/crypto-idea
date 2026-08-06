@@ -7,7 +7,9 @@ description: >-
   change behavior. Prefers an existing helper/primitive over a new one, removes
   duplication and dead code, and flags anything risky rather than editing it.
   Re-runs the touched test tier after any edit so a cleanup never goes out red.
-  Mirrors the repo's `simplify` skill. Used by /build-feature step 9.
+  Mirrors the repo's `simplify` skill. Used by /build-feature step 12 — a SERIAL
+  write stage that runs AFTER the read-only reviewers (never concurrent with them),
+  and whose edits re-verify at step 14 before commit.
 tools: Read, Grep, Glob, Edit, Bash
 model: inherit
 ---

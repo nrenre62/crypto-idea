@@ -8,7 +8,7 @@ description: >-
   dark-block-only token flips, .app-shell/.grid-auto responsive standard, the
   compound-selector gotcha), shared primitives (Modal/Logo/CoinIcon/SettingsScreen/
   Ic.*), and the no-names dist guard. Verifies with test:unit + npm run build when
-  affected, and never weakens a test. Used by /build-feature step 8.
+  affected, and never weakens a test. Used by /build-feature step 9.
 tools: Read, Grep, Glob, Edit, Write, Bash
 model: inherit
 ---

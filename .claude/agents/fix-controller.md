@@ -10,7 +10,7 @@ description: >-
   routed to a builder; a decision (architecture change, spec ambiguity, a rules
   trade-off, a genuinely-wrong test) is ESCALATED to the founder instead of
   papered over. Never edits, never weakens a test to force green. Used by
-  /build-feature step 10; also usable standalone to triage a red run or a review
+  /build-feature step 11; also usable standalone to triage a red run or a review
   finding.
 tools: Read, Grep, Glob, Bash
 model: inherit

@@ -2,13 +2,13 @@
 name: api-contract-verifier
 description: >-
   Read-only reviewer that catches openapi.json ↔ implementation drift — the
-  factory's stage-6 contract check. When a callable or /api/* endpoint is added or
+  factory's stage-3 contract check. When a callable or /api/* endpoint is added or
   its request/response shape changes in functions/**, it verifies openapi.json
   reflects it: the operation exists, request wrappers are additionalProperties:false,
   response arrays have real maxItems, strings have honest maxLength/pattern (no bare
   ^\S*$), the security scheme matches (public /api = security:[], admin = gated),
   and OAS-3.0 form is used (nullable:true, not type:[…,null]). Returns ranked drift
-  findings (file:line · what · fix). Never edits. Used by /build-feature step 9.
+  findings (file:line · what · fix). Never edits. Used by /build-feature step 10.
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---

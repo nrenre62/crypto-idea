@@ -9,7 +9,7 @@ description: >-
   allowlists (privileged fields never client-writable), the isChosen onboard gate
   on every owner branch, isAdminOwner (write/delete) vs isAdmin (read), null-safe
   claim reads, and bounded/typed validators. Verifies with npm run test:rules and
-  never weakens a test. Used by /build-feature step 8.
+  never weakens a test. Used by /build-feature step 9.
 tools: Read, Grep, Glob, Edit, Write, Bash
 model: inherit
 ---

@@ -8,7 +8,7 @@ description: >-
   idiom (no secret ever returned/shipped), the single cgFetch CoinGecko choke
   point, deny-by-default input shape (unknownKeys), guard-before-side-effect, and
   webhook signature + idempotency (marker rollback on failure). Verifies with the
-  right tier and never weakens a test. Used by /build-feature step 8.
+  right tier and never weakens a test. Used by /build-feature step 9.
 tools: Read, Grep, Glob, Edit, Write, Bash
 model: inherit
 ---

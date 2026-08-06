@@ -7,7 +7,7 @@ description: >-
   documented network-retry backoff), and presents the diff + test verdict + review
   summaries for the founder's G3 merge decision. NEVER merges to master and NEVER
   opens a PR unless the founder explicitly asks. Refuses to commit a red/unverified
-  change. Used by /build-feature step 13.
+  change. Used by /build-feature step 16.
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---
