@@ -188,12 +188,16 @@ html[data-theme="dark"] .ci-app .trend-item { border-bottom-color:var(--edge); }
    (a solid fill with a white letter is dark-safe on its own — no border, so it needs
    no R18 --edge lift) + the --ink wordmark (flips light/dark). No image asset. Header
    size is the default; .lg is the larger auth-screen variant. */
-.ci-app .ci-logo { display:inline-flex; align-items:center; gap:9px; font-family:var(--display); font-weight:600; letter-spacing:-.02em; color:var(--ink); line-height:1; }
-.ci-app .ci-logo-mark { flex:none; width:30px; height:30px; border-radius:9px; background:var(--accent); color:#fff; font-family:var(--display); font-weight:600; font-size:18px; display:grid; place-items:center; }
-.ci-app .ci-logo-word { font-size:26px; }
+.ci-app .ci-logo { display:inline-flex; align-items:center; gap:10px; font-family:var(--body); font-weight:600; letter-spacing:-.01em; color:var(--ink); line-height:1; }
+/* Pin the LOGO tile to the brand green #0b6b4f (the index.html mark), NOT the
+   --accent token — the token drives buttons/pills/links and must stay theme-flexible.
+   transition + hover-rotate mirror the landing .brand .mark exactly. */
+.ci-app .ci-logo-mark { flex:none; width:28px; height:28px; border-radius:8px; background:#0b6b4f; color:#fff; font-family:var(--display); font-weight:600; font-size:16px; display:grid; place-items:center; transition:transform .3s var(--ease); }
+.ci-app .ci-logo:hover .ci-logo-mark { transform:rotate(-6deg) scale(1.06); }
+.ci-app .ci-logo-word { font-size:18px; }
 .ci-app .ci-logo.lg { gap:12px; }
-.ci-app .ci-logo.lg .ci-logo-mark { width:46px; height:46px; border-radius:14px; font-size:27px; }
-.ci-app .ci-logo.lg .ci-logo-word { font-size:32px; }
+.ci-app .ci-logo.lg .ci-logo-mark { width:44px; height:44px; border-radius:13px; font-size:24px; }
+.ci-app .ci-logo.lg .ci-logo-word { font-size:28px; }
 .ci-app .avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(155deg,#26241d,#15140f); color:var(--paper); display:grid; place-items:center; font-weight:700; font-size:13px; flex:none; }
 /* Persistent account avatar — top-right of every tab screen (opens Account) */
 .ci-app .screen-wrap { position:relative; }

@@ -421,7 +421,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
         <div className="adm-bar-inner">
           <div className="adm-brand">
             <span className="adm-logo" aria-hidden="true">C</span>
-            <span className="adm-brand-txt">Crypto<b>Idea</b> <span className="adm-sub">· Admin</span></span>
+            <span className="adm-brand-txt">CryptoIdea <span className="adm-sub">· Admin</span></span>
           </div>
           <div className="adm-bar-right">
             {email && <span className="adm-email" title={email}>{email}</span>}

@@ -12,6 +12,42 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## AGENT-FACTORY. Autonomous feature assembly line (dev tooling — ✅ ROSTER BUILT 2026-08-03; first end-to-end run pending)
+
+Canonical: **[`AGENT-FACTORY.md`](AGENT-FACTORY.md)**. A `/build-feature` orchestrator that carries
+one backlog item through the full [Definition of Done](AGILE.md) via a fixed sequence of
+specialized agents (each fires when the previous finishes), pausing only at the **three human
+gates** — interview, plan approval, merge approval (founder decision: the factory replaces the
+founder's *hands*, never the *decisions* or the interview). Founder interview 2026-08-03 locked:
+**layer-specialized builders** (rules/functions/client), a **main-session orchestrator command**
+(so the gates can ask the founder in **plain chat** — a background Workflow can't ask at all), and
+**write the blueprint first**. Roster = 4 built review agents (`consistency-sweep`/`secure-by-design`/`test-tier-verifier`/
+`design-consistency`) + 12 to build (spec-drafter, architect, test-author, 3 builders,
+api-contract-verifier, simplifier, docs-scribe, integrator, fix-controller, orchestrator). Build
+order in AGENT-FACTORY.md §6: orchestrator + fix-controller first, then the gate-assist agents,
+then test-author, the builders, docs-scribe + integrator, and the stage-6 quality reviewers.
+Local-first, no new deps; each agent built to the `jira-*` bar and validated before it's trusted in
+the line.
+
+**Status ✅ ROSTER BUILT 2026-08-03:** all 12 exist — 11 subagents in `.claude/agents/`
+(spec-drafter, architect, test-author, rules/functions/client-builder, api-contract-verifier,
+simplifier, docs-scribe, integrator, fix-controller) + the `/build-feature` orchestrator command.
+The 4 review agents (`consistency-sweep`/`secure-by-design`/`test-tier-verifier`/`design-consistency`)
+are wired in as stages. **Not yet exercised end-to-end** — the first `/build-feature <small item>` run
+is the integration test; start low-risk.
+
+**Update 2026-08-04 — continuous loop, no stop between items (founder rule):** removed the *mechanical*
+stops so the loop "build[s] items one after another without stop until finish." `BUILD-LOOP.md` dropped
+its per-item **compact-and-resume** step (build → verify → commit → tick → *straight to the next*; the
+"Resume prompt" became a **Recovery prompt** used only if a session actually restarts), and the factory's
+outer loop (`AGENT-FACTORY.md` §5 + `/build-feature` step 15) now **auto-advances** to the next queued
+item after G3 instead of asking "shall I continue?". **Decisions preserved:** the three human gates
+(G1/G2/G3), 🔶 CHECKPOINT interviews, and real-failure stops all stay — "no stop" removes only the
+mechanical pauses, never the founder's decisions. (Honest caveat: harness *auto*-compaction can't be
+switched off, but progress lives in the ledger files, so it no longer halts the run.)
+
+---
+
 ## AUTH-DUP. Prevent duplicate-signup double-submit + admin dedupe detector  (✅ BUILT 2026-08-01 · client lock + read-only admin callable)
 
 Founder report (2026-08-01, with a screenshot showing **two `mark@test.com` rows** in the admin
@@ -623,7 +659,7 @@ browser probe of the auth screen — tile = `--accent` #0a6b4d 46×46, wordmark 
 
 ---
 
-## LOGO-2. True landing-match: the SAME logo (body-font wordmark) scaled across app + admin + all 4 loading screens  (📋 PLAN — 2026-08-02; NOT built)
+## LOGO-2. True landing-match: the SAME logo (body-font wordmark) scaled across app + admin + all 4 loading screens  (✅ BUILT 2026-08-04 · c08661d)
 
 Founder ask (2026-08-02): the **index (landing) logo must MATCH everywhere it appears** — login, loading,
 admin panel, portfolio app. This is a **follow-up to LOGO** (2026-08-01): that item introduced the shared
@@ -631,12 +667,31 @@ admin panel, portfolio app. This is a **follow-up to LOGO** (2026-08-01): that i
 the marks still visibly diverge (bigger tile, a *different* wordmark font/size, and the loading screens were
 never touched). LOGO-2 makes every surface a true match to the landing.
 
+**✅ AS-BUILT (2026-08-04 · impl `c08661d`, red checkpoint `5b99f35`):** all pieces below shipped as planned.
+`.ci-logo*` (app) + `.adm-logo*` (admin) were rewritten to the landing `.brand/.mark` VALUES — tile 28/r8/glyph
+16, **body-font** wordmark 18px/600/−.01em (replacing LOGO's display-font 26px); `.lg` scales from the same
+ratios (tile 44/r13/glyph 24). Five `Crypto<b|span>Idea` splits were de-split to one-word "CryptoIdea" (admin
+bar + sign-in, `/edge` header, loaders); all loading subtext unified to "Loading…"; `Loading.jsx` renders the
+real `<Logo>`, `main.jsx` inlines the `.ci-logo` markup (lean entry chunk), and `app.html`/`admin.html`
+pre-bundle shells got the green-tile lockup via CSP-safe inline `<style>` (`index.html` unchanged — source of
+truth). The last off-brand purple **`#6C5CE7`** was purged: the `main.jsx` Suspense spinner → `var(--accent)`,
+and the `terms.html`/`privacy.html` link colours → brand green `#0b6b4f` (the two historical `#6C5CE7` comments
+were reworded so the new source-scan guard stays a dumb substring scan). **Gap-map completeness correction:**
+the original gap map (below) missed three surfaces — `src/components/education-page.jsx`, `terms.html`,
+`privacy.html`; per **founder Option A** they were folded into this increment so the new brand guard is a clean
+**repo-wide** rule rather than a src-only one. **Enforce-don't-document control:** `scripts/check-brand.js` +
+`tests/unit/brand-guard.test.js` walk the repo and fail if a two-word "Crypto Idea" UI string or a `#6C5CE7`
+reappears in a shipped surface (same pattern as the dist name-guard), plus `tests/unit/Logo.test.jsx` pins the
+`<Logo>` structure/size. Verification: **unit 931/931 GREEN**; brand-guard repo walk clean; `design-consistency`
+CONSISTENT (0 findings); `simplifier` NOTHING TO DO; `npm run build` clean.
+
 **Canonical spec = the landing `index.html` `.brand` / `.mark` (source of truth, verified L63-67/L402):**
 mark tile **28×28 / radius 8**, white "C" in the **display** font **16px** / `background:var(--accent)`;
 wordmark in the **body font, 18px, weight 600, letter-spacing −.01em**; gap **10px**; text **"CryptoIdea"**
 (one word); the mark **rotates on hover** (landing nav link only).
 
-**Gap map (found 2026-08-02 — every surface vs the canonical spec):**
+**Gap map (found 2026-08-02 — every surface vs the canonical spec) — ✅ all rows closed 2026-08-04 (+ the 3
+missed surfaces folded in, see AS-BUILT above):**
 
 | Surface | Mark tile | Wordmark | Divergence |
 |---|---|---|---|
@@ -709,8 +764,63 @@ must add that wrapper. Don't cross the bundle boundary (`.adm-*` ⟷ `.ci-*`). T
 use React/app.css — inline style only. Give the `<Logo>` one accessible name so `getByText`/`getByLabelText`
 still resolve (as LOGO did).
 
-**Status: PLAN ONLY — not built.** Decisions locked 2026-08-02 (same-logo-scaled · body-font wordmark ·
-full loading-screen lockup + purple-spinner fix). Queued in [BUILD-LOOP](BUILD-LOOP.md) as a new GREEN item.
+**Status: ✅ BUILT 2026-08-04 (impl `c08661d`, red checkpoint `5b99f35`).** Decisions locked 2026-08-02
+(same-logo-scaled · body-font wordmark · full loading-screen lockup + purple-spinner fix); shipped per the
+AS-BUILT note above (guard is repo-wide via founder Option A). [BUILD-LOOP](BUILD-LOOP.md) #9 flipped to built.
+
+**Kaizen / optional tiny future cleanup (logged 2026-08-04, NOT introduced by LOGO-2):** the app token
+**`--accent` is `#0a6b4d`** while the landing/shell canonical brand green is **`#0b6b4f`** — a one-digit,
+perceptually-identical divergence that **pre-dates LOGO-2** (LOGO-2 deliberately drove the app tile from
+`--accent`, not a new hex). Optional future reconcile: settle the two greens to a single value so there's one
+brand green of record. Low priority; on record here. *(Partly acted on by LOGO-parity below — the logo TILES
+are now pinned to `#0b6b4f`; the `--accent` token itself is deliberately left as `#0a6b4d` for buttons/pills.)*
+
+---
+
+## LOGO-parity. The full index lockup present + identical on every logo surface ("logo everywhere")  (✅ BUILT 2026-08-05 · red `bbb5d17` → green `5334c79`)
+
+Founder ask (2026-08-05): a follow-on to LOGO / LOGO-2 — the complete **index.html logo lockup** (green "C"
+tile + one-word "CryptoIdea" wordmark, hover `rotate(-6deg) scale(1.06)`) must be **present and identical on
+EVERY surface that shows the logo**, including the text-only pages that previously showed a bare wordmark and
+the Pulse share image. Design-only, no logic/rules/tests-behaviour change.
+
+**✅ AS-BUILT (2026-08-05 · impl `5334c79`, red checkpoint `bbb5d17`):**
+- **Tile pinned to the index brand green `#0b6b4f`** on the in-app `<Logo>` (`.ci-logo-mark`, `app.css`) and
+  the admin `.adm-logo` (`admin-settings.css`). The app's general **`--accent` (`#0a6b4d`) is left as-is** for
+  buttons/pills/links — the founder scoped the green change to the **logo only** (partly acts on the LOGO-2
+  Kaizen note above; the two greens are NOT globally reconciled).
+- **Index hover interaction** `rotate(-6deg) scale(1.06)` added to `.ci-logo` (covers Portfolio, Login,
+  ForgotPass, Loading, and the `main.jsx` Suspense fallback) and to `.adm-logo` (fired from the `.adm-brand`
+  bar lockup + the `.adm-auth-logo` sign-in lockup). **NOT** on the transient `app.html`/`admin.html`
+  pre-bundle loading splashes (already exact `#0b6b4f`, deliberately no hover).
+- **Full tile+wordmark lockup added to the three text-only surfaces:** `/edge`
+  ([education-page.jsx](../../src/components/education-page.jsx) renders the shared `<Logo>` wrapped in a
+  clickable `<a href="/">`, scoped under `.ci-app`); `terms.html` + `privacy.html` (hand-authored tile
+  mirroring the `app.html` loading shell + a Google-Fonts link loading **Fraunces + Hanken Grotesk**). **All
+  three clickable → the landing "/".**
+- **Pulse share image** ([useSharePulse.js](../../src/features/research/hooks/useSharePulse.js)) now
+  canvas-draws the index lockup (green `#0b6b4f` tile + white Fraunces "C" + one-word "CryptoIdea" ink
+  wordmark), replacing the old two-word uppercase "CRYPTO IDEA" text.
+- **Brand guard extended from denylist → also enforce PRESENCE** ([scripts/check-brand.js](../../scripts/check-brand.js)
+  + [tests/unit/brand-guard.test.js](../../tests/unit/brand-guard.test.js)): new allowlist helpers
+  `REQUIRED_LOCKUPS`/`findMissingLockups` (terms/privacy must contain the "C" tile lockup),
+  `REQUIRED_FONTS`/`findMissingFonts` (terms/privacy must load Fraunces + Hanken), and
+  `REQUIRED_SOURCE`/`findMissingSource` (education-page uses `<Logo`; both stylesheets carry the hover +
+  `#0b6b4f`). The two-word denylist rule is now **case-insensitive** so the UPPERCASE "CRYPTO IDEA" is caught.
+
+**Deliberately unchanged:** `index.html` (source of truth), the `<Logo>` markup in `ui.jsx`, the pre-bundle
+loading splashes (already exact `#0b6b4f`, no hover), the `/edge` footer copyright line, the `/edge` "The
+Edge" label colour `#34C759` (a label, not the logo — out of scope), the app `--accent` token, and
+`research-tab.css`'s separate `--accent` copy, plus all buttons/pills.
+
+**Verification:** unit **936/936 GREEN** (two runs), **design-consistency CONSISTENT (0 findings)**, `npm run
+build` clean, and a real-browser check confirmed `#0b6b4f` + the hover `matrix` transform + fonts-loaded + all
+three logos link to "/". Commits: red `bbb5d17` → green `5334c79`.
+
+**Kaizen:** the consistency-sweep surfaced logo-carrying files not yet on the Branding/logo map row — they were
+added to [`docs/interview.md`](../interview.md) in this same change (Portfolio/Login/ForgotPass `<Logo>`
+consumers, `useSharePulse.js`, `research-tab.css`, and the `education-page`/`Loading` tests) so future logo work
+sweeps them automatically.
 
 ---
 
@@ -2067,9 +2177,10 @@ Standing operating procedure so **code + rules + README + every MD doc stay in a
 topic change (pricing, tier limits, settings, admin, API, security…) is reflected *everywhere* it
 lives, no silent drift. Canonical: [`docs/interview.md`](../interview.md); bound via a MANDATORY rule
 in [`CLAUDE.md`](../../CLAUDE.md) → Conventions (loaded every session). Flow for substantive work:
-**AskUserQuestion → find gaps across all related files → plan + get a yes → consistency sweep (every
+**plain-chat interview (numbered questions, no boxes, no time limit — founder rule 2026-08-03) →
+find gaps across all related files → plan + get a yes → consistency sweep (every
 file in the topic's map row) → verify → log here → commit.** Trivial single-file fixes skip it with a
-one-line heads-up. On an error: surface it, then AskUserQuestion for the fix. The `interview.md`
+one-line heads-up. On an error: surface it, then ask in plain chat for the fix. The `interview.md`
 **topic→files consistency map** is the concrete checklist (Pricing / Tier limits / AI budget /
 Billing / User settings / Admin / API / Security / Caching). Keep the map current when files move.
 
@@ -4142,6 +4253,430 @@ the same App Check.)
 - Browser-verify (emulator on Java 21): Starter create 2nd + 3rd portfolio (4th denied), 30 coins ok (31st
   denied), 300 tx ok (301st denied); Pro 100 coins ok (101st denied), 1,000 tx ok (1,001st denied); Premium
   200 coins ok (201st denied), 2,000 tx ok (2,001st denied). Confirm no wrong P&L on an unopened portfolio (Part B).
+
+---
+
+## TX-SAFE-C. Edit-buy sell-invariant guard — editing a buy (or its date) can't leave a later sell over-sold  (📋 STAGED 2026-08-04 interview; NOT built)
+
+> **Staged, not queued.** Finished + approved (2026-08-04 interview). NOT in the BUILD-LOOP ledger.
+> Gate: 🔶 **bug-class** → failing-test-first (a red `it("CRYP-XX: …")` committed as a checkpoint,
+> then the fix), per [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md). Blast radius: LOW (one pure
+> helper + one guard in `CryptoIdea.jsx` + tests). **No `firestore.rules`, no backend, no new dep, no
+> `test:rules`.** Same family as **TX-SAFE** (Parts A/B) → this is effectively **TX-SAFE Part C**.
+
+### Founder report (2026-08-04, client-side user app, coin **BTC**; screenshot)
+The app enforces "you can't sell more than you hold" when you **add a sell** — good, and helpful. But
+there's a bypass: **add a buy → add a sell smaller than the buy → then edit the buy DOWN** (repeat) until
+total-sold exceeds total-bought. The screenshot shows a BTC position with **bought 0.3, sold 6** (holding
+displays 0, P/L "+1900%"). Founder: when you edit a coin and a sell transaction exists, the edit should be
+refused with a clear message — "there is a sell transaction; you can't edit this below what you've sold.
+Delete the sell first, then reduce the buy."
+
+### Root cause (verified in code)
+- The sell-vs-holdings check in `addEntry` ([`src/CryptoIdea.jsx`](../../src/CryptoIdea.jsx) ~L783-798)
+  is **gated on `eTxType==="sell"`**. It's even date-aware — it computes `holdingsAtDate` (cumulative
+  buys−sells up to the sell's date, excluding the edited entry) and rejects a sell that exceeds it.
+- **The edit path reuses `addEntry`** (`if(editEntry)` ~L804 → `dbUpdateTransaction`). So when you edit a
+  **buy** (`eTxType==="buy"`), that whole sell-check block is **skipped** — nothing re-validates that the
+  edit keeps every existing sell covered. Editing a buy's **amount down**, moving its **date later**, or
+  flipping **buy→sell** can all retroactively break a later sell, unchecked.
+- The **delete path already guards this correctly**: `remEntry` (~L830-831) replays the remaining entries
+  in date order and refuses with *"Can't delete — a sell on `<date>` depends on it"* if the running balance
+  goes negative (epsilon `-0.00000001`). So the invariant is understood — it's just **not applied on edit**.
+  Asymmetry today: **add-sell ✅ guarded · delete-buy ✅ guarded · edit-buy ❌ unguarded.**
+- Why the corrupt state *looks* clean: `holdings()` ([`src/utils/pnl.js`](../../src/utils/pnl.js) L6-7)
+  clamps to `Math.max(0,…)`, so an over-sold coin shows **0 held** (never negative) while P/L still counts
+  the phantom sell proceeds — the "+1900%" / "profited more than your total investment" note.
+
+### The invariant is inherently client-side (honest scope)
+`validTransactionData()` in [`firestore.rules`](../../firestore.rules) (L456-465) validates a **single**
+transaction doc's shape (`type∈{buy,sell}`, `amount>0`, `priceAtBuy`, `date`). Firestore rules **cannot
+aggregate sibling transaction docs** during a write, so "cumulative sold ≤ bought at each sell's date"
+can't be a rule. This guard is therefore a **client-side data-integrity / UX guard, not a security
+boundary** — acceptable here: it's the user's **own** cost-basis tracker, no money moves, no cross-tenant
+exposure. Record it as such (defense-in-depth: the existing per-doc rule bounds stay).
+
+### Decisions (locked — 2026-08-04 interview)
+1. **Fix shape = replay-guard (mirror `remEntry`).** On Save, replay the coin's timeline **with the edit
+   applied**; if any sell would exceed holdings at its date, block with a **date-specific** message. More
+   robust than a plain "buy vs total-sold" check: it's date-correct and covers amount-down, date-moved, and
+   buy→sell edits. One reusable **pure** helper — and the existing add-sell check + `remEntry` can route
+   through the same function (single source of truth for the invariant).
+2. **Existing corrupt data = prevent-new only (KISS).** No migration. Already-over-sold coins stay until the
+   user edits/deletes to fix them; the misleading P/L note self-corrects once the transactions are valid.
+3. **Track as a CRYP Jira bug + failing-test-first.** ⚠️ The Rovo/Jira MCP was **disconnected** when this
+   was staged (2026-08-04, non-interactive session) — file via `/jira-bug` in an interactive session (or
+   once the MCP reconnects); until then **this section is the spec**. The build starts with the red
+   reproduction test committed as a checkpoint (`it("CRYP-XX: editing a buy below the sold amount is
+   rejected")`), never weakened to pass.
+
+### The fix (smallest thing that works · consistency sweep — change in EVERY file)
+1. **`src/utils/tx.js`** (already holds tx ordering helpers) — add a **pure** `firstOverSoldSell(entries)`:
+   sort by date asc (createdAt tie-break, same order `remEntry` uses), replay `bal = buy?+amt:−amt`, and
+   return the **first sell** whose running `bal < -1e-8` (the offending sell), else `null`. Unit-tested.
+2. **`src/CryptoIdea.jsx`** — in `addEntry`, **before the write on the edit path** (and harmlessly on add),
+   build the **projected** entries = the coin's entries with `editEntry.id` replaced by the new
+   `{type,amount,date}` (for a plain add, the appended entry), run `firstOverSoldSell`, and if it returns a
+   sell: `showErr("Can't save — a sell on "+date+" would exceed your holdings. Delete or reduce that sell
+   first.")` and `return` (no `dbUpdateTransaction`/`dbAddTransaction` call). Optionally fold the existing
+   `eTxType==="sell"` point-in-time check into the same helper so there is ONE invariant function.
+3. **Tests** — `tests/unit/tx.test.js` (helper) + `tests/unit/AddEntry.test.jsx` (edit path).
+4. **Docs** — a one-line note in [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) that the sell-invariant is now
+   enforced on **edit** too (closes the hole adjacent to **DI/G3**, which audited the edit path's *toast*
+   wording but not this invariant).
+
+### Acceptance (RED first; never weaken a test)
+- **Unit — `firstOverSoldSell` (pure):** buy 0.3 then sell 0.2 → `null`; buy 2 + sell 2, then the projected
+  "buy→0.2" → returns the sell; **date-aware:** a buy dated *after* a sell does not cover it; a buy→sell
+  flip that over-sells → returns; the `-1e-8` epsilon boundary.
+- **Interaction — edit path:** editing a buy below what a later sell needs is **rejected** with the
+  date-specific message and **no db write fires** (spy asserts `dbUpdateTransaction` **not** called); a valid
+  edit still saves; the `CRYP-XX`-keyed reproduction of the founder's exploit (buy 2 → sell 2 → edit buy→0.2)
+  is blocked.
+- **`npm run build`** — clean (no-names guard). **No `test:rules`** (no rules/backend change).
+
+### Definition of Done
+- test:unit + build green. Emulator browser-verify (if the stack runs): reproduce the exploit → blocked with
+  the date message; delete the sell → the buy then edits fine.
+- CRYP ticket filed (or intent recorded here if the MCP is down); the failing test is committed **red first**
+  per [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md).
+- Staged, not queued: no BUILD-LOOP row until founder says go.
+
+### Cross-links
+- **TX-SAFE** (Parts A/B, ✅ built) — same "transaction-write safety" family; this is Part C.
+- **DI / G3** (§DI) — audited the edit path's *limit-toast* wording; missed this sell-invariant. This closes it.
+- `remEntry`'s delete-guard (`CryptoIdea.jsx` ~L830-831) — the exact replay pattern reused here.
+
+---
+
+## COININFO-RANK. Remove the duplicate market-cap rank next to the coin symbol in the Coin-info overlay  (📋 STAGED 2026-08-04 interview; NOT built)
+
+> **Staged, not queued.** Finished + approved (2026-08-04 interview). NOT in the BUILD-LOOP ledger.
+> Gate: 🟩 **GREEN** — display-only, single file, **one line**, computation-safe. Blast radius: MINIMAL.
+> **No rules, no backend, no new dep.** Qualifies for the CLAUDE.md "trivial single-file display fix,
+> one-line heads-up" exception; staged here for the record.
+
+### The founder's question, answered (trace)
+> "In the Coin-info popup a rank shows twice — `BTC · Rank #1` next to the symbol AND `Rank #1` in Market
+> Data. Is the one next to the symbol wired to any computation? If not, remove it."
+
+**No — the sub-header text drives zero computation; removing it is safe** (verified 2026-08-04, read-only
+4-agent trace). Two separate things are named "rank," and only one is wired to logic:
+- **The rank DATA FIELD (`usd_market_cap_rank`)** *does* feed a real computation — the Research tab's
+  **Portfolio Risk / RiskMeter** — but via a completely separate path: `/api/prices` → `useLivePrices` map →
+  `priceAdapter.js` reads `live.usd_market_cap_rank` → `computePortfolio` puts `rank` on each holding →
+  `coinRisk`/`isMega`/`rankBucket` grade it. That chain reads the **field off the prices map**, never any
+  rendered CoinInfo string.
+- **The sub-header TEXT** ([`src/components/CoinInfo.jsx`](../../src/components/CoinInfo.jsx) L54) is pure
+  display. CoinInfo's local `rank` const (L37) is used at exactly two leaf JSX sites — the price-hero
+  sub-line (L54) and the Market Data row (L64) — and is never exported, returned, or pushed to state. It's a
+  terminal presentational value.
+
+Deleting the `· Rank #N` suffix at L54 therefore affects **zero computation**: the `usd_market_cap_rank`
+field stays (still read at L37, still rendered in the Market Data row at L64), so the risk model is
+untouched and the rank is still shown once — in its labeled row.
+
+### Decision (locked — 2026-08-04 interview)
+- **Remove the hero rank only; keep the Market Data "Rank" row.** After the edit the CoinInfo header matches
+  [`Detail.jsx`](../../src/components/Detail.jsx) (`.ph-sub` ~L76 is already symbol-only) — a consistency win.
+- **`Search.jsx` left as-is** (its `{symbol} · #N` ~L72/L100 is the **only** rank on the Search screen — a
+  feature, not a duplicate; dropping it would be a feature removal, not a de-dup).
+
+### The change (one line)
+`CoinInfo.jsx` L54:
+`<div className="ph-sub">{coin.symbol}{rank?" · Rank #"+rank:""}</div>` → `<div className="ph-sub">{coin.symbol}</div>`
+Keep the `rank` const (L37, still used by the Market Data row L64) and the field. Display-only.
+
+### Consistency
+- **Leave (data-field docs/tests — the field + Market Data row stay):** CLAUDE.md `/api/prices` shape,
+  [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) DP-9b / R23, `openapi.json` `PriceEntry.usd_market_cap_rank`,
+  the research-risk unit tests — all describe the backend field, unaffected.
+- **Optional cosmetic tidy (nothing breaks if skipped):** `tests/unit/CoinInfo.test.jsx` stays green (its
+  `getAllByText(/Rank #1|^#1$/)` still matches the kept Market Data value via the `^#1$` branch); the
+  `Rank #1` alternative + "Rank rows" (plural) comment go stale → optionally singularize. CLAUDE.md ~"CoinInfo
+  Rank rows" → "Rank row". `docs/mockups/desktop/index.html` hero still shows "BTC · Rank #1" (historical
+  artifact; optional).
+
+### Acceptance & DoD
+- `tests/unit/CoinInfo.test.jsx` stays green (kept row matches); optionally tidy the stale regex alternative
+  + comment. **`npm run build`** clean. No rules/backend/dep. Emulator browser-verify: open a coin's info →
+  header shows just the symbol, Market Data still shows Rank. GREEN; staged, not queued.
+
+### Cross-link
+- The trace found **Detail.jsx** already renders the symbol-only header — this aligns the two coin headers.
+
+---
+
+## RESEARCH-RISK. Split Allocation + Portfolio Risk into two card pills, and re-tier the risk formula to market-cap/rank tiers  (📋 STAGED 2026-08-04 interview + adversarial validation; NOT built)
+
+> **Staged, not queued.** Finished + approved (2026-08-04 interview; calibration adversarially
+> validated). NOT in the BUILD-LOOP ledger. Gate: **Part 1** design 🟩 GREEN; **Part 2** is a pure
+> client-side formula change (unit-tested). Blast radius: `research/utils/portfolio.js` + 2 components +
+> the note copy + tests. **No `firestore.rules`, no backend, no new dep, no `test:rules`. No pricing change.**
+
+### The founder's ask (2026-08-04, screenshot of the Overview Allocation + Portfolio Risk card)
+1. **Design:** Allocation and Portfolio Risk each become **their own card pill** (same design, just
+   separated — today they share one container).
+2. **Accuracy:** make Portfolio Risk *reflect the real portfolio* — driven by **allocation × per-coin
+   risk**, where per-coin risk comes from **market-cap tiers + rank**. 50% Bitcoin → risk down massively;
+   30% in a rank-~300 / sub-$100M coin → adds a lot; <$100M = very risky; <$50M = near-certain eventual zero.
+
+### What already exists (so this is a refinement, not a rebuild)
+`deriveRisk`/`coinRisk` ([`portfolio.js`](../../src/features/research/utils/portfolio.js) L67-109) **already**:
+rank-first log curve + a *different* log-cap fallback, **allocation-weighted mean**, a **≥40% $100B mega-cap
+floor**, 3 bands (0.34/0.67), and a rank-bucket note. **Two of the founder's requirements are already met**
+(allocation-weighting → a small junk % barely moves it; 50% BTC already pulls the mean down). **Gaps:**
+(a) the explicit **market-cap tiers aren't the driver** (rank is); (b) the **$1B–$10B band is undefined**;
+(c) super-safe is anchored at **$100B not $10B**; (d) the note speaks **rank buckets**, not the founder's $ tiers.
+
+### Decisions (locked — 2026-08-04 interview)
+1. **Per-coin risk = the RISKIER (`max`) of {cap-tier, rank-tier}** over the signals present; **neither → 0.98.**
+2. **5 cap tiers:** >$10B · $1B–$10B · $100M–$1B · $50M–$100M · <$50M.
+3. **Concentration stays OUT of the risk score** — risk = allocation-weighted mean only; the Allocation card
+   keeps the "High concentration" pill. (More Bitcoin → lower risk, per the founder's example.)
+4. **Discrete named tiers** (not a smooth curve).
+5. **Retire the ≥40% mega-cap floor** — under the accuracy goal it would *mask* a junk-heavy book (50% BTC +
+   50% sub-$50M must read High, not be capped at Moderate). The honest weighted mean supersedes it. **(New —
+   a design consequence, not asked; flagged for veto.)**
+
+### Part 1 — Two card pills (design-only)
+[`OverviewView.jsx`](../../src/features/research/components/OverviewView.jsx) L45-52 wraps `AllocationBar` +
+`RiskMeter` in one `.pulse`/`.pulse-inner` container. Give **each** its own card pill (same visual as the
+current combined card, reusing the existing card styling in
+[`research-tab.css`](../../src/features/research/styles/research-tab.css)). No logic change.
+
+### Part 2 — The re-tiered risk formula (LOCKED calibration, adversarially validated 12/12)
+**Structure:** `perCoinRisk = max(capTier, rankTier)` over the **present** signals; `score = Σ (allocᵢ/100)·riskᵢ`
+(weights sum to 1). **No concentration penalty. No mega floor.** Pure → unit-tested.
+
+**CAP tiers** (by USD market cap):
+
+| Market cap | risk | meaning |
+|---|---|---|
+| ≥ $10B | **0.05** | super-safe |
+| $1B – $10B | **0.18** | large / safe |
+| $100M – $1B | **0.45** | medium |
+| $50M – $100M | **0.80** | very risky |
+| < $50M | **0.98** | highest — near-certain eventual zero |
+
+**RANK tiers** (by market-cap rank; the validation re-aligned three lines so rank never *overstates* a size the
+cap tier already vouched for):
+
+| Rank | risk |
+|---|---|
+| ≤ 10 | 0.05 |
+| 11 – 50 | 0.12 |
+| 51 – 100 | 0.18 |
+| 101 – 300 | 0.45 |
+| 301 – 500 | 0.70 |
+| 501 – 1000 | 0.85 |
+| > 1000 | 0.95 |
+| **absent / `null`** | **no signal** → score on cap alone (if cap also absent → 0.98) |
+
+**Bands:** `score < 0.20 → Low` · `0.20 ≤ score < 0.50 → Moderate` · `score ≥ 0.50 → High`.
+
+**⚠️ Two calibration traps the validation caught (bake into the tests):**
+- **`null` rank is ABSENT, not `rank > 1000`.** The app shows rank as `—`/`null` until the daily universe
+  refresh assigns one. Mapping `null → 0.95` would let `max()` flip a **fresh $3B large-cap to High**. Score on
+  **cap alone** when rank is null. (A sub-$50M unranked coin still reads 0.98 via its **cap** tier — nothing masked.)
+- **`max(cap, rank)` means a tiny-cap coin can't hide behind an OK rank:** a $30M coin at rank 200 reads **0.98**
+  (cap), not 0.45 (rank).
+
+**Worked-examples acceptance oracle (12/12 pass — use these as the unit tests):**
+Assume BTC rank1 ~$1.3T; ETH rank2 ~$330B; SOL rank5 ~$70B; *mid* = rank~120/~$500M; *small* = rank~350/~$80M;
+*micro* = rank~900/~$30M; *unranked-micro* = no rank/~$20M. Per-coin: BTC/ETH/SOL 0.05 · mid 0.45 · small 0.80 ·
+micro 0.98 · unranked-micro 0.98.
+
+| Portfolio | Score | Label |
+|---|---|---|
+| 100% BTC | 0.050 | Low |
+| 50% BTC + 20% SOL + 20% ETH + 10% micro | 0.143 | Low |
+| 50% BTC + 50% micro | 0.515 | High |
+| 70% BTC + 30% small | 0.275 | Moderate |
+| 30% BTC + 40% ETH + 30% SOL | 0.050 | Low |
+| 100% micro (<$50M) | 0.980 | High |
+| 100% small ($50–100M) | 0.800 | High |
+| 100% mid ($100M–$1B, rank~120) | 0.450 | Moderate |
+| 80% BTC + 20% micro | 0.236 | Moderate |
+| 80% BTC + 10% micro + 10% small | 0.218 | Moderate |
+| 100% unranked-micro (<$50M, no rank) | 0.980 | High |
+| 33% BTC + 33% mid + 34% small | 0.437 | Moderate |
+
+**Risk-note copy** (cap-tier language, replaces the rank-bucket note). One-line template — a 3-bucket rollup of
+the 5 tiers: `{safe}% safe (>$1B) · {medium}% medium ($100M–$1B) · {high}% high-risk (<$100M)` (safe = cap ≥ $1B;
+high-risk = cap < $100M). Examples: *Low* — "83% in safe large-caps over $1B and only 10% in high-risk coins
+under $100M — small enough to go to zero without denting the total. Reads Low." *High* — "Over half of this book
+is in high-risk coins under $100M market cap, which can lose most of their value — so it reads High." Per-coin
+card vocabulary (for a later Coins-tab label): `super-safe (≥$10B) · large ($1–10B) · medium ($100M–$1B) · very
+risky ($50–100M) · highest-risk (<$50M)`.
+
+**Edge cases:** no cap AND no rank → 0.98 (honest default when we can't measure). One signal present → use that
+tier alone (cap-present/rank-absent → cap tier; do NOT synthesize a rank). Boundary steps at $10B/$1B/$100M/$50M
+are intentional discrete cliffs; `max()` cushions most rank cliffs because the overlapping cap tier holds the floor.
+
+### Implementation (consistency sweep — change in EVERY file; no drift)
+1. **`portfolio.js`** — rewrite `coinRisk` (tiered `max(cap,rank)`, **null-rank = absent**, neither → 0.98);
+   `deriveRisk` (**drop the mega floor**, re-tier bands to 0.20/0.50, build a **cap-tier** breakdown for the
+   note); replace the rank-bucket `riskNote` with the cap-rollup copy. Keep everything pure.
+2. **`OverviewView.jsx`** — Part 1 two-card split.
+3. **`RiskMeter.jsx`** — mechanics unchanged (reads `risk.score`/`level`/note); it just renders the new note.
+4. **`research-tab.css`** — card-pill styles for the split if needed.
+5. **Tests** — `tests/unit/research-risk.test.js`: **replace** the old rank-log assertions with the 12
+   worked-example portfolios as the oracle + the two calibration traps (null-rank-on-cap-alone; `max` beats a
+   deceptive rank); `research-adapters` if it asserts risk; the Overview render test for the 2-card split.
+6. **Docs** — CLAUDE.md "Research tab" + the **R23/R14** notes (rank-log risk, mega floor, rank-bucket note) go
+   stale → update to the tiered model in the same commit; [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) R23/R14
+   cross-note.
+
+### Acceptance (RED first; never weaken a test)
+- **Unit (pure):** the 12 worked-example portfolios produce the **exact** score+label above; a $30M/rank-200 coin
+  reads 0.98 (cap beats rank); a **null-rank $3B** coin reads 0.18/**Low** (not High); neither-signal → 0.98;
+  band boundaries at 0.20/0.50; the mega floor is gone (50% BTC + 50% micro = 0.515 → **High**).
+- **Component:** Overview renders **two** separate cards (Allocation, Portfolio Risk); the meter note uses
+  cap-tier language.
+- **`npm run build`** clean. **No `test:rules`** (no rules/backend change).
+
+### Definition of Done
+- test:unit + build green. Emulator browser-verify: the two cards render separately; 50% BTC + 50% sub-$50M reads
+  **High** (was capped Moderate by the old floor); a fresh unranked large-cap reads **Low**.
+- Docs synced in the same commit (CLAUDE.md R23 note is now wrong).
+- Staged, not queued: no BUILD-LOOP row until founder says go.
+
+### Cross-links
+- **Supersedes** the R23 rank-log risk model + R14/R23 mega-cap floor + rank-bucket note (DESIGN-PASS §R23/§R14).
+- The 5-tier **per-coin** vocabulary could later label the **conviction-signal pills** on the Coins tab (a
+  separate per-coin signal, mock-fed today) — optional follow-on, not in scope here.
+
+---
+
+## RESEARCH-SWITCH. Portfolio switcher in the Research tab — pick which portfolio you're researching, in-tab  (📋 STAGED 2026-08-04 interview; NOT built)
+
+> **Staged, not queued.** Finished + approved (2026-08-04 interview). NOT in the BUILD-LOOP ledger.
+> Gate: **small, client-only** — a selector + prop threading; **no `firestore.rules`, no backend, no new
+> dep, no `test:rules`, no pricing change.** Candidate 🟩 GREEN, but founder decides the build order.
+> Blast radius: `research/Research.jsx` + `ResearchTab.jsx` (+ optional tiny `PortfolioSwitcher.jsx`) +
+> `research-tab.css` + the CLAUDE.md Research note + a component test.
+
+### The founder's ask (2026-08-04, screenshot of Overview Allocation/Risk with multiple portfolios in mind)
+"What happens to Research when there are multiple portfolios (max 15, each its own coins)? Is it one combined
+risk? What about allocation / coins? I want **separation per portfolio** — each portfolio's allocation, its
+own risk, its coins grouped by portfolio, and Portfolio Pulse cards one after another, each showing the
+portfolio's name."
+
+### Reconciliation — the founder chose a SWITCHER over stacking (interview Q1)
+The ask described portfolios **stacked "one under another."** When shown the cost of that (Research today loads
+ONLY the active portfolio; stacking all 15 means loading every portfolio's coins + a large price poll on every
+open), the founder chose **"Portfolio switcher"** — *view one portfolio at a time, selectable in-tab.* This is
+the reconciled design below. **If the founder actually wants them stacked, this section is re-opened.** (Noted
+because the chosen option diverges from the literal first description — a deliberate, cost-aware choice.)
+
+### What already exists (so this is a small add, not a rebuild)
+Research is **active-portfolio-only today.** [`Research.jsx`](../../src/features/research/Research.jsx) L19-28
+passes just the active `portfolio`; [`CryptoIdea.jsx`](../../src/CryptoIdea.jsx) L857-863 `watchCoins` streams
+**only the active portfolio's** coins (the other ≤14 aren't loaded); [`useLivePrices`](../../src/hooks/useLivePrices.js)
+polls only the active portfolio's coins; `coinOrder` (R32) + the conviction pills are already keyed to the
+active portfolio. **So everything Research shows already follows whichever portfolio is active** — there's just
+no way to change *which* without leaving the tab.
+
+### Decisions (locked — 2026-08-04 interview)
+1. **Switcher, one portfolio at a time** (Q1) — not stacked, not a combined view. A selector at the top of
+   Research lists the user's portfolios by name; picking one shows THAT portfolio's Overview + Coins + Ask.
+2. **No whole-account summary** (Q2) — per-portfolio only; no combined value/blended-risk card. (Matches the ask + KISS.)
+3. **The one switcher scopes all three sub-tabs** — Overview, Coins **and Ask**. This *is* the "picker in Ask"
+   (Q3): Ask inherits the selected portfolio's context, so **no separate Ask picker is needed** (one control,
+   not two). If the founder later wants Ask independently selectable, add a second picker — not in scope here.
+4. **Pulse cached per portfolio** (Q4) — today Pulse is derived offline **per shown portfolio** (already
+   effectively per-portfolio). The decision only bites at **Wave B**: the live-AI Pulse/conviction cache MUST
+   be keyed **per `(uid, portfolioId)`** so 15 portfolios cost ≤15 cached refreshes/day, never one per view.
+   Recorded here so the B2 proxy keys the cache correctly (cross-link below); **nothing to build now.**
+
+### The design (KISS — reuse the active-portfolio machinery)
+**The switcher drives the app's global `activePortId`** (recommended). Selecting a portfolio in Research calls
+`setActivePortId` — and `watchCoins`, `useLivePrices`, `coinOrder`, conviction, risk **already** key off the
+active portfolio, so **zero new data plumbing**: only the selected portfolio's coins load, exactly as today.
+This is what makes the switcher choice cheap — the ≤15-portfolio load problem is *sidestepped*, not solved.
+- **Side effect to flag:** switching the portfolio from Research also changes what the **Portfolio / Journal /
+  Learn** tabs show (there's one global "active" portfolio). This is arguably *correct* (one current portfolio)
+  and is the KISS default. **Alternative** (if the side effect is unwanted): an independent `researchPortId`
+  with its own coin load + price poll — more moving parts; revisit at build time only if the founder dislikes
+  the cross-tab jump.
+- **Free tier (1 portfolio):** hide the switcher (nothing to pick). **Pro (3) / Premium (≤15):** list all by name.
+- **Empty selected portfolio:** the existing `source==='empty'` → `<EmptyState/>` already handles it — no new work.
+- **Portfolio names** are user strings → React auto-escapes (no `innerHTML`); safe by default.
+- **UI placement:** a compact selector (chips or a `<select>`) between the Research header and the
+  Overview/Coins/Ask segmented bar. Design-only styling in `research-tab.css`.
+
+### Gaps found (audited)
+- **G1 — data load:** the ONLY real blocker for "show all portfolios" was that non-active portfolios aren't
+  loaded. The switcher-drives-`activePortId` design **avoids it entirely** (still one portfolio loaded at a time).
+- **G2 — Ask double-picker:** naively adding a separate Ask picker would give two controls that can disagree.
+  Decision 3 uses the single top switcher for all three sub-tabs → one source of truth.
+- **G3 — Wave-B AI cost:** a per-portfolio Pulse with an un-keyed cache would regenerate per view. Decision 4
+  pins the cache key to `(uid, portfolioId)` — captured now, enforced when B2 lands.
+- **G4 — coinOrder / conviction:** both are already per-active-portfolio, so they follow the switcher for free
+  (no per-group re-scoping needed — which a *stacked* design WOULD have required).
+- **G5 — RESEARCH-RISK coupling:** orthogonal. RESEARCH-RISK changes the single-portfolio risk math + splits
+  the Allocation/Risk cards; the switcher only changes *which* portfolio feeds them. Either can build first; if
+  RESEARCH-RISK lands first, the switcher inherits the split cards automatically.
+
+### Consistency sweep (change in every file the topic touches)
+- [`Research.jsx`](../../src/features/research/Research.jsx) — pull `portfolios, activePortId, setActivePortId`
+  from context (already exposed at CryptoIdea.jsx L991), thread to `ResearchTab`.
+- [`ResearchTab.jsx`](../../src/features/research/components/ResearchTab.jsx) — render the switcher; `onChange → setActivePortId`.
+- *(optional)* `src/features/research/components/PortfolioSwitcher.jsx` — small presentational selector (or inline).
+- [`research-tab.css`](../../src/features/research/styles/research-tab.css) — switcher styles (scoped under `.research-root`).
+- `CLAUDE.md` "Research tab" section — update the "active portfolio's coins" note to "the **selected** portfolio (switcher)".
+- Tests: a component test that changing the switcher changes the shown portfolio; existing research tests unaffected.
+
+### Definition of Done
+- test:unit + build green. Emulator browser-verify (Pro/Premium account with ≥2 seeded portfolios): the switcher
+  lists all portfolios; picking one swaps Overview/Coins/Ask to that portfolio; a 1-portfolio account hides it.
+- Docs synced in the same commit (CLAUDE.md Research note + this file).
+- Staged, not queued: no BUILD-LOOP row until founder says go.
+
+### Cross-links
+- **Wave B / [`CACHE-POLICY.md`](../decisions/CACHE-POLICY.md):** the live Pulse/conviction cache key must
+  include `portfolioId` (Decision 4) — the B2 proxy owns this; recorded here so it isn't missed.
+- **RESEARCH-RISK** (above): orthogonal; the switcher feeds whichever risk model is live.
+- **If stacked is what the founder meant** (see Reconciliation): re-open with the heavier "load all + per-group
+  allocation/risk/pulse + per-group coinOrder" design — a materially larger build than this switcher.
+- **[`PORTFOLIO-SCOPE-MAP`](#portfolio-scope-map-per-portfolio-vs-per-account-tab-by-tab)** (below): Learn is
+  explicitly **per-account** and out of scope for any per-portfolio work.
+
+---
+
+## PORTFOLIO-SCOPE-MAP. Per-portfolio vs per-account, tab by tab  (📋 DECISION LOG 2026-08-04 interview)
+
+> **Not a build item — a scope guard rail** for the multi-portfolio thread (RESEARCH-SWITCH above). Records
+> which tabs move *per portfolio* and which stay *per account*, so no future increment accidentally adds a
+> portfolio dimension where there shouldn't be one (or forgets one where there should).
+
+### Founder decision (2026-08-04) — Learn is per-account
+The **Learn tab is per-user, NOT per-portfolio.** One Learn tab per account; multiple portfolios do not affect
+it and there is **no reason to have a per-portfolio Learn.** **Verified against the code:** progress is stored
+at **`users/{uid}/learn/progress`** (rules `match /learn/{docId}` gated on `isOwner(userId)` — no portfolio in
+the path; [`firestore.rules`](../../firestore.rules) L346-352), and [`useLearn.js`](../../src/hooks/useLearn.js)
+never reads `activePortId`/`portfolio`. So the RESEARCH-SWITCH switcher (which drives the global active
+portfolio) **leaves Learn untouched by design** — level/XP/streak/module state are one shared account journey.
+**Guard rail:** do NOT add a portfolio dimension to Learn.
+
+### The map (audited 2026-08-04)
+| Tab | Scope | Why / where |
+|---|---|---|
+| **Portfolio** | per-portfolio | shows the active portfolio's coins; switch = `setActivePortId`. |
+| **Research** | per-portfolio | RESEARCH-SWITCH: in-tab switcher selects the portfolio (Overview/Coins/Ask). |
+| **Journal** | per-portfolio | theses persist on the **coin doc** (`journal{…}`), bounded by a portfolio's coins. |
+| **Learn** | **per-account** | `users/{uid}/learn/progress` — one journey per user. **This decision.** |
+| **Search** | global | searches the shared coin universe; not portfolio-scoped (adds *into* the active one). |
+| **Account** | per-account | profile / plan / usage / privacy — user-level, no portfolio dimension. |
+
+### Gaps found (audited)
+- **G1 — none functional.** Learn already matches the founder's intent; this is documentation + a guard rail,
+  not a code change. No `firestore.rules`, no backend, no test change.
+- **G2 — cross-tab consistency:** the RESEARCH-SWITCH switcher changing the global active portfolio must NOT be
+  read as "Learn should follow too." The map makes the boundary explicit: Learn ignores `activePortId`.
+- **G3 — Journal is the one to watch:** unlike Learn, Journal **is** per-portfolio, so a per-portfolio feature
+  that lumps "Journal + Learn" together would be wrong. Called out so they're never scoped as a pair.
 
 ---
 

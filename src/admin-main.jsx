@@ -24,7 +24,7 @@ import { onAdminAuthChange, adminLogin, adminLogout, adminAuth } from "./api/adm
 import AdminDashboard from "./components/admin-dashboard.jsx";
 
 // ADMIN-UI-1 (2026-07-25): the sign-in / denied / loading screens are now on the
-// .ci-app paper design (green logo tile), replacing the off-brand purple (#6C5CE7)
+// .ci-app paper design (green logo tile), replacing the old off-brand purple
 // inline styles. The classes live in src/styles/admin-settings.css (.adm-auth-*),
 // imported above and out of the user bundle.
 
@@ -59,7 +59,14 @@ function AdminApp() {
 
   const signOut = async () => { setErr(""); await adminLogout(); setPhase("login"); };
 
-  if (phase === "loading") return <div className="ci-app adm-auth-wrap"><div className="adm-auth-loading">Loading…</div></div>;
+  if (phase === "loading") return (
+    <div className="ci-app adm-auth-wrap">
+      <div className="adm-auth-logo">
+        <span className="adm-logo lg" aria-hidden="true">C</span>
+        <div className="adm-auth-loading">Loading…</div>
+      </div>
+    </div>
+  );
 
   if (phase === "ok") {
     // ADMIN-UI-1: the whole persistent chrome (bar → H1 → tabs) lives inside
@@ -72,7 +79,7 @@ function AdminApp() {
   const logo = (
     <div className="adm-auth-logo">
       <span className="adm-logo lg" aria-hidden="true">C</span>
-      <div className="adm-auth-brand">Crypto<b>Idea</b><span className="adm-auth-sub">Admin</span></div>
+      <div className="adm-auth-brand">CryptoIdea<span className="adm-auth-sub">Admin</span></div>
     </div>
   );
 

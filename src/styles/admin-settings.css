@@ -99,10 +99,15 @@
 .ci-app .adm-brand { display:flex; align-items:center; gap:10px; min-width:0; }
 /* Green rounded-square logo tile with a serif "C" (the mockup's mark). Shared by
    the bar (30px) and the sign-in screens (.lg, 46px). */
-.ci-app .adm-logo { flex:none; width:30px; height:30px; border-radius:9px; background:var(--accent,#0a6b4d); color:#fff; font-family:var(--display); font-weight:600; font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center; }
-.ci-app .adm-logo.lg { width:46px; height:46px; border-radius:14px; font-size:27px; }
-.ci-app .adm-brand-txt { font-family:var(--display); font-weight:500; font-size:17px; letter-spacing:-.02em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.ci-app .adm-brand-txt b { font-weight:600; }
+/* Pin the LOGO tile to the brand green #0b6b4f (the index.html mark) — NOT the
+   --accent token, which drives the admin tabs/pills. transition + the hover-rotate
+   (fired from the .adm-brand bar lockup and the .adm-auth-logo sign-in lockup) mirror
+   the landing .brand .mark exactly. */
+.ci-app .adm-logo { flex:none; width:28px; height:28px; border-radius:8px; background:#0b6b4f; color:#fff; font-family:var(--display); font-weight:600; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; transition:transform .3s var(--ease); }
+.ci-app .adm-brand:hover .adm-logo,
+.ci-app .adm-auth-logo:hover .adm-logo { transform:rotate(-6deg) scale(1.06); }
+.ci-app .adm-logo.lg { width:44px; height:44px; border-radius:13px; font-size:24px; }
+.ci-app .adm-brand-txt { font-family:var(--body); font-weight:600; font-size:18px; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ci-app .adm-brand-txt .adm-sub { font-family:var(--body); font-size:12px; font-weight:600; letter-spacing:.02em; color:var(--ink-faint); }
 .ci-app .adm-bar-right { display:flex; align-items:center; gap:12px; min-width:0; }
 .ci-app .adm-email { font-size:12.5px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:min(40vw,240px); }
@@ -530,15 +535,14 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * ADMIN-UI-1 — sign-in / denied / loading reskin (admin-main.jsx). Paper card +
- * the green logo tile, replacing the off-brand purple (#6C5CE7) inline styles, so
+ * the green logo tile, replacing the old off-brand purple inline styles, so
  * the whole /admin experience is consistent end-to-end. Same rules: admin-only,
  * .ci-app light paper. Reuses .adm-logo (with .lg) from the bar above.
  * ═══════════════════════════════════════════════════════════════════════════ */
 .ci-app.adm-auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:var(--paper); }
 .ci-app .adm-auth-card { width:100%; max-width:360px; display:flex; flex-direction:column; gap:12px; background:var(--adm-card-bg,#fff); border:.8px solid rgba(21,20,15,.06); border-radius:22px; padding:26px; box-shadow:0 1px 1px rgba(21,20,15,.03), 0 10px 30px -12px rgba(21,20,15,.14); }
 .ci-app .adm-auth-logo { display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:6px; }
-.ci-app .adm-auth-brand { font-family:var(--display); font-weight:500; font-size:20px; letter-spacing:-.02em; color:var(--ink); text-align:center; }
-.ci-app .adm-auth-brand b { font-weight:600; }
+.ci-app .adm-auth-brand { font-family:var(--body); font-weight:600; font-size:18px; letter-spacing:-.01em; color:var(--ink); text-align:center; }
 .ci-app .adm-auth-sub { display:block; font-family:var(--body); font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-top:4px; }
 .ci-app .adm-auth-btn { padding:12px; border-radius:12px; border:1px solid var(--accent,#0a6b4d); background:var(--accent,#0a6b4d); color:#fff; font-family:var(--body); font-size:15px; font-weight:600; cursor:pointer; }
 .ci-app .adm-auth-btn:disabled { opacity:.6; cursor:default; }
