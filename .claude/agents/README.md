@@ -30,12 +30,13 @@ Read-only = reviews/plans, never edits. Writing agents touch only their own laye
 | **2** | `functions-builder` | Implement `functions/**` callables/guards/validators + `openapi.json` | Backend |
 | **2** | `client-builder` | Implement `src/**` hooks/data/components/CSS | Client |
 | **3** | `test-tier-verifier` | Run the right tier(s); honest GREEN / RED / INCONCLUSIVE | Runs tests |
-| **4** | `secure-by-design` | Adversarial security review vs the repo's real invariants | No |
-| **5** | `design-consistency` | Design-system / dark-mode review on a UI/CSS diff | No |
-| **6** | `api-contract-verifier` | `openapi.json` ↔ callable drift | No |
-| **6** | `simplifier` | KISS / reuse / dead-code pass on the diff (behavior-preserving) | Small edits |
-| **7** | `fix-controller` | Diagnose a RED/HIGH failure, route the fix to a builder, or escalate a *decision* | No (diagnoses) |
-| **8** | `consistency-sweep` | Final sweep — did the change hit every file in the map row? | No |
+| **3** | `secure-by-design` | Adversarial security review — fires on ANY code change (backend OR client `src/**`/`*.html`/`public/*.js`); fast-exits SAFE if no security surface | No |
+| **3** | `design-consistency` | Design-system / dark-mode review on a UI/CSS diff | No |
+| **3** | `api-contract-verifier` | `openapi.json` ↔ callable drift | No |
+| **4** | `fix-controller` | Diagnose a RED/HIGH failure, route the fix to a builder, or escalate a *decision* | No (diagnoses) |
+| **5** | `simplifier` | KISS / reuse / dead-code pass on the diff (behavior-preserving) — a SERIAL write stage after the readers; re-verifies at stage 7 | Small edits |
+| **6** | `consistency-sweep` | Final sweep — did the change hit every file in the map row? | No |
+| **7** | *(re-verify)* | INVARIANT — any code write from stage 5/6 re-runs the verifier (+ `secure-by-design` if a security surface changed) before commit | — |
 | **8** | `docs-scribe` | Update README / CLAUDE.md / ERRORS.md / the topic's docs / NEXT-STEPS / diagrams | Docs |
 | **9** | `integrator` | Commit (message convention + trailer) + push to the feature branch; present at G3 | Git |
 

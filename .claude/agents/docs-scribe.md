@@ -7,7 +7,7 @@ description: >-
   ERRORS.md (on a diagnosed bug), the NEXT-STEPS.md log/status, and flags diagrams
   that need redrawing — so nothing drifts (interview.md step 5 + AGILE.md DoD "docs
   updated"). Writes docs only; never touches code, rules, or tests. Records
-  reusable patterns (Kaizen). Used by /build-feature step 12.
+  reusable patterns (Kaizen). Used by /build-feature step 15.
 tools: Read, Grep, Glob, Edit, Write, Bash
 model: inherit
 ---

@@ -7,7 +7,7 @@ description: >-
   callables), writes a test that fails for the RIGHT reason, confirms the failure,
   and commits it red (never pushes — the pre-push hook blocks a red suite by
   design). Puts any ticket key in the it() title only. NEVER writes the
-  implementation and NEVER weakens a test. Used by /build-feature step 7.
+  implementation and NEVER weakens a test. Used by /build-feature step 8.
 tools: Read, Grep, Glob, Write, Edit, Bash
 model: inherit
 ---
