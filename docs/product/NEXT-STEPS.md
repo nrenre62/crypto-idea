@@ -4415,6 +4415,134 @@ is really the frontend model layer (already conceded).
 
 ---
 
+## PORTFOLIO-TEXT-SIZE. Coin **Detail** card — bump the small text to a readable size (mobile + desktop, both themes)  (📋 STAGED 2026-08-06; queued in BUILD-LOOP #16 — NOT built)
+
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #16** (2026-08-06). Canonical design doc: **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log as the next DP round (confirm the number at build). **Design-only, 🟩 GREEN** — CSS in `app.css` + one tiny JSX edit in `Detail.jsx`; **no `firestore.rules`, no new dependency, no new hex/token.** Founder-reported (2026-08-06): the coin Detail drill-in text is too small to read fast; make it bigger for real use.
+>
+> **NOT dark-block-only.** These are `font-size` bumps on **base `.ci-app` rules** (no `@media`, no theme override), so they apply to **light + dark and mobile + desktop identically** — which is exactly the ask ("make it for mobile and desktop both. its same on mobile"). Size only — **no colour/weight change**, so nothing about dark mode's look changes beyond the larger glyphs. This item touches `app.css`/`Detail.jsx`, the same files as #15 DARK-MODE-FIXES; the loop builds one item at a time so there's no conflict — just build whichever is queued first and re-verify.
+>
+> **Locus = the coin Detail drill-in (`src/components/Detail.jsx`).** It renders full-screen on mobile and as a shared `<Modal>` popup on desktop (R19-9, `useIsDesktop`) — **the same classes drive both**, so one CSS change covers both surfaces. (Confirmed it's Detail, not CoinInfo: the 24h pill reads "(24h)", `Detail.jsx:78`.)
+
+### Decisions locked (2026-08-06 founder)
+- **"Coin name" +4px = the small "BLESS" symbol under the icon (`.ph-sub`).** NOT the big "Bless" header title: on
+  desktop that title is the **shared `<Modal>` title `.cm-title` (`app.css:772`)** used by *every* popup in the app, so
+  bumping it would resize all dialogs — out of scope. The Detail-scoped `.ph-sub` is the small grey ticker the founder
+  can't read, sitting right next to Market Cap; that's the intended target.
+- **"All numbers same size on the card."** The muted "· $123.04" sub-amounts (`.kv-sub`) are **nested inside `.kv-v`**,
+  so bumping `.kv-v` bumps them automatically to the same 15px (they stay lighter/faint by weight+colour — readable,
+  still visually secondary). Avg Buy/Avg Sell Price rows become identical to Holding/Current Value/Bought.
+- **Total P/L unchanged** (founder: "its big already, i think its the right size") — `.pnl-label` (13px) / `.pnl-val` (14px) stay.
+- **Left amount "1 BLESS" (`.tx-amt`, 13px) and the bold tx total "$0.03" (`.tx-rtotal`, 14px) stay** — not flagged;
+  only the date/time + "$price / SYM" sub-line grow in the tx row.
+
+### Exact size map (verified in source 2026-08-06 — every value is a current `app.css` `font-size`)
+| Element | Class | Now → New | Δ |
+|---|---|---|---|
+| Market Cap ("$46.45M") | `.price-hero .ph-mc` (`app.css:438`) | 11 → **15px** | +4 |
+| Coin name ("BLESS" under icon) | `.price-hero .ph-sub` (`app.css:424`) | 11.5 → **15.5px** | +4 |
+| Holding / Current Value / Bought — labels | `.kv-row .kv-k` (`app.css:430`) | 13 → **15px** | +2 |
+| …their values | `.kv-row .kv-v` (`app.css:431`) | 13 → **15px** | +2 |
+| "· $123.04" muted sub-amounts | `.kv-sub` (`app.css:439`, nested in `.kv-v`) | 13 → **15px** | +2 (auto) |
+| **Avg Buy Price + Avg Sell Price** | **retire `kv-sm`** — `Detail.jsx:89,92` | 11/12 → **15px** | now identical to the rows above (size **+ weight + colour**) |
+| Total P/L | `.pnl-*` | — | **unchanged** |
+| Buy / Sell buttons | `.tx-btn` (`app.css:453`) | 12 → **14px** | +2 |
+| BUY/SELL tags per tx | `.tx-badge` (`app.css:458`) | 9 → **11px** | +2 |
+| Date & time row | `.tx-row .tx-meta` (`app.css:462`) | 11 → **12px** | +1 |
+| "$0.0253 / BLESS" (price + symbol) | `.tx-right .tx-rprice` (`app.css:483`) | 11.5 → **12.5px** | +1 |
+
+### How to retire `kv-sm` (the Avg Buy/Sell "same as all other text" ask)
+`kv-sm` is used on **exactly two rows** — Avg Buy Price (`Detail.jsx:89`) and Avg Sell Price (`Detail.jsx:92`) — and its
+CSS (`app.css:441-443`) makes them smaller (11/12px), lighter (weight 400) and fainter (`--ink-faint`) than the
+standard rows. The founder wants them "same as all other text, like Holding, Current Value, Bought" → **remove the
+`kv-sm` class from both JSX rows** so they inherit the plain `.kv-row`/`.kv-k`/`.kv-v` (now 15px, weight 600, `--ink`),
+then **delete the now-dead `.kv-row.kv-sm{…}` CSS block** (grep-confirm zero other uses first). This is the cleanest
+read of "same as" — it matches size **and** weight **and** colour, not just size. (Effect: those rows gain the standard
+row divider + padding like the others — consistent.)
+
+### Scope / consistency sweep (change in EVERY file)
+1. **`src/styles/app.css`** — the 8 `font-size` bumps in the table above (`.ph-mc`, `.ph-sub`, `.kv-k`, `.kv-v`,
+   `.tx-btn`, `.tx-badge`, `.tx-meta`, `.tx-rprice`); **delete** the `.kv-row.kv-sm` block.
+2. **`src/components/Detail.jsx`** — remove `kv-sm` from the two rows (`className="kv-row kv-sm"` → `"kv-row"`, lines 89, 92).
+3. **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log as the next DP round (the size table + the two locked decisions).
+4. **CLAUDE.md** design-follow-on note — one line that this readability round shipped.
+
+### Acceptance / Definition of Done
+- **Browser-verify** the coin Detail card on **mobile (full-screen) AND desktop (Modal popup)**, **light AND dark**:
+  Avg Buy/Sell Price read identically to Holding/Current Value/Bought; Market Cap + the "BLESS" ticker are clearly
+  larger; Buy/Sell buttons, BUY/SELL tags, the date/time and "$price / SYM" lines are all a notch bigger; Total P/L
+  is untouched; no layout breakage (rows don't wrap/overflow at the 560 narrow track or on the smallest phones).
+- **Only sizes changed** — no colour, weight (except the intended `kv-sm` retirement), spacing-token, or dark-block change.
+- `npm run test:unit` green (update any snapshot that pins the old Detail sizes — never weaken a test); `npm run build` clean.
+- Status flipped to ✅ BUILT with commit. (No rules ⇒ no `test:rules`.)
+
+---
+
+## PORTFOLIO-NUM-FIX (Gap Group A). Portfolio number-display correctness — 6 honest-numbers bugs on the Portfolio/Detail/CoinInfo/AddEntry surfaces  (📋 STAGED 2026-08-06; queued in BUILD-LOOP #17 — NOT built)
+
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #17** (2026-08-06). From the 2026-08-06 Portfolio-tab gap sweep (three read-only passes), **Group A** = the display-correctness cluster the founder chose to fix first. **🟩 GREEN, client-only** — display/format logic in components + a small pure helper; **no `firestore.rules`, no new dependency.** These are "the numbers shown are wrong/misleading" bugs, all seen every session, all cheap. Deduped against the backlog: none overlaps DI, #12, #15, or R10/TX-SAFE except where noted (A5).
+>
+> **North star:** the app must never show a *wrong* or *misleading* number — a missing datum reads as "—"/neutral, never as a loss or a fake gain (same ethos as DI-1 verify-then-toast and the Research module's "never NaN" rule).
+
+### The six bugs → exact locus + fix (all verified in source 2026-08-06)
+- **A1 — $1 rounding error on every dollar amount (functional).** `Portfolio.jsx:21,45` (portfolio total) and `:114`
+  (each asset card): dollars use `Math.floor(tv)` while cents are computed **independently** as `(tv % 1).toFixed(2).slice(2)`.
+  When the fraction rounds up the two disagree by $1 — `100.999` → floor `100` + cents `"00"` → renders **`$100.00`**
+  (a dollar low). **Fix:** round to cents **first**, then split — e.g. a pure `utils/money.js` `splitMoney(n)` →
+  `{dollars, cents}` where `const r = Math.round(n*100); dollars = Math.floor(r/100); cents = String(((r%100)+100)%100).padStart(2,'0')`
+  (handles the ≥.995 carry AND negatives). Use it at both loci; **grep for the same `Math.floor(…)`+`(…%1).toFixed` split
+  elsewhere** (Search/Account/CoinInfo) and sweep any copies. Unit-test `splitMoney` incl. `100.999`, `0`, `1234.995`, negatives.
+- **A2 — negative P/L dollar shown with NO minus sign.** `Detail.jsx:93` (Total P/L) and `CoinInfo.jsx:89` (Unrealised P/L):
+  `{v>=0?"+":""}$…Math.abs(v)` drops the sign on losses — only colour + the percent convey it. **Fix:** use the value-card
+  convention (`Portfolio.jsx:47` already renders `−$`): `{v>=0?"+":"−"}$…`. Sweep any other P/L-dollar render for the same pattern.
+- **A3 — missing 24h price drawn as a RED loss pill.** `Portfolio.jsx:118` and `Detail.jsx:78`: `ch = p?.usd_24h_change`
+  is `undefined` before prices load, and `undefined >= 0` is false → the pill gets the red **`dn`** class while showing "—".
+  **Fix:** only apply up/`dn` colour when `Number.isFinite(ch)`; otherwise render a **neutral** pill ("—", no red/green).
+  Locked default: reuse a muted/neutral pill style (add a minimal `.chg-pill.muted` if none exists — neutral tint, no new hex beyond existing `--ink-*`/line tokens).
+- **A4 — a real `0` replaced by MOCK data.** `CoinInfo.jsx:32-33`: `pr = p?.usd || cd?.mockPrice || 0` and
+  `ch = p?.usd_24h_change || cd?.mockChange || 0` use `||`, so a genuine `0` (exactly 0.00% change, or a $0 price)
+  falls through to the mock estimate. **Fix:** use `??` (nullish) so only truly-absent values fall back
+  (`p?.usd ?? cd?.mockPrice ?? 0`). (The broader "mock shown with no 'estimated' signal" is **Group D** — out of scope here;
+  A4 is only the `||`→`??` correctness fix.)
+- **A5 — `$NaN` in the AddEntry "Total cost" + Submit enabled in that state.** `AddEntry.jsx:113-116` renders `tx-total`
+  when `eAmt && ePrice` are truthy, but a lone `.` is truthy and `parseFloat(".")` is `NaN` → shows **`$NaN`**; Submit
+  (`:121`, guarded only by `!eAmt||!ePrice`) is also enabled. **Fix:** derive `const amt=parseFloat(eAmt), prc=parseFloat(ePrice),
+  valid = Number.isFinite(amt)&&amt>0&&Number.isFinite(prc)&&prc>0`; show the total only when `valid`; **disable Submit when
+  `!valid`.** (Complements R10 positive-only + TX-SAFE input hardening — closes the lone-"." gap they didn't cover; keep their guards intact.)
+- **A6 — green "▲ +$0.00" gain on an empty/zero book.** `Portfolio.jsx:46-47`: an empty portfolio shows a green up-arrow
+  gain that implies a return that doesn't exist. **Fix (locked default):** when there's nothing invested
+  (`totalBuys === 0` / no holdings), render a **neutral** gain row (a muted "—", no arrow/colour) instead of the green +$0.00.
+
+### Gaps / notes (surfaced during the sweep)
+- **A1 helper is a single source of truth.** Once `splitMoney` exists, route the value card, asset cards, and any other
+  floor+cents split through it — a second inline copy is exactly how the drift started.
+- **A3/A6 are the only two with a small visible-design choice** (neutral pill vs hide; muted dash vs blank). Locked
+  defaults above (neutral, keep the row, show "—") — no founder sign-off needed; the correct behaviour ("don't show
+  missing data as a loss / don't show a fake gain") is unambiguous.
+- **Out of scope (other groups, do NOT fold in):** the P/L math on oversold/missing-price books (Group B), the
+  loading-skeleton/estimated-signal states (Group D), the copy/token/responsive polish (Group E). This item is
+  strictly the six display-correctness fixes above.
+
+### Scope / consistency sweep (change in EVERY file)
+1. **`src/utils/money.js`** (new) — pure `splitMoney(n)`; **`tests/unit/`** — its unit tests (A1).
+2. **`src/components/Portfolio.jsx`** — A1 (total + cards via `splitMoney`), A3 (neutral pill on missing `ch`), A6 (neutral empty gain).
+3. **`src/components/Detail.jsx`** — A2 (Total P/L minus sign), A3 (neutral 24h pill).
+4. **`src/components/CoinInfo.jsx`** — A2 (Unrealised P/L minus sign), A4 (`||` → `??`), A1 if it renders a floor+cents split.
+5. **`src/components/AddEntry.jsx`** — A5 (NaN-safe total + Submit disabled when invalid).
+6. **`src/styles/app.css`** — only if A3 needs a minimal neutral `.chg-pill.muted` (no new hex).
+7. **`tests/unit/`** — assertions for each fix where testable (money split; a missing-price pill is not red; AddEntry total never "NaN" + Submit disabled on a lone "."). **[`ERRORS.md`](../testing/ERRORS.md)** — add the A1 rounding entry.
+8. **CLAUDE.md** — one line noting the Portfolio number-display correctness round shipped.
+
+### Acceptance / Definition of Done
+- **A1:** `$100.999`-class values render the correct dollar (e.g. `$101.00`), on both the total and every card; `splitMoney` unit-tested.
+- **A2:** a negative Total P/L / Unrealised P/L shows a leading `−` on the dollar figure (parity with the value card).
+- **A3:** before prices load / on a missing 24h datum, the pill is **neutral "—"**, never red.
+- **A4:** a genuine `0` price/change is shown as `0`, not the mock estimate.
+- **A5:** typing a lone "." never shows `$NaN` and leaves Submit **disabled**; a valid amount+price re-enables it.
+- **A6:** an empty portfolio shows a neutral gain row, not a green +$0.00.
+- **Browser-verify** the above on Portfolio + Detail + CoinInfo + AddEntry, mobile + desktop. `npm run test:unit` green; `npm run build` clean. Status flipped to ✅ BUILT with commit. (No rules ⇒ no `test:rules`.)
+
+---
+
 ## Commands
 
 | Command | What |
