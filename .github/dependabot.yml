@@ -1,0 +1,49 @@
+version: 2
+
+# Groups reduce the number of PRs (the 4 hand-merged bumps on 2026-08-05 would have been ~2 grouped PRs).
+# Policy: dev-dependency bumps and non-major production bumps are batched per ecosystem; a MAJOR production
+# bump still opens its own PR so a breaking change gets individual scrutiny. Every PR is labeled `dependencies`
+# so the CI gate + (future) verify-deps lane can route on it.
+
+updates:
+  # Root app: Vite + React client + build tooling
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+      production-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Cloud Functions backend (Node 22, separate package.json + lockfile)
+  - package-ecosystem: "npm"
+    directory: "/functions"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+      production-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Keep the GitHub Actions used by ci.yml current
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
