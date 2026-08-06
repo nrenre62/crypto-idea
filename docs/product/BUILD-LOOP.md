@@ -8,15 +8,18 @@ finish"). The loop is:
 > **build one item → verify → commit → tick the ledger → straight to the next → …**  (no compact, no stop)
 
 **The loop stops only for a real reason, never as a routine step:** a 🔶 CHECKPOINT item with an
-unanswered question (asked in **plain chat** — step 2), a **red/inconclusive** test, a tripped
-name-guard, a wrong plan, or a **founder-only / prohibited** action (see *Stop the whole loop* +
-*Global safety rails*). 🟩 GREEN items flow through to commit unattended, one after the next.
+unanswered question (asked in **plain chat** at the factory's G1 gate), a **red/inconclusive** test, a
+tripped name-guard, a wrong plan, a **founder-only / prohibited** action (see *Global safety rails*),
+or the runaway **cost tripwire**. 🟩 GREEN items flow through to commit unattended, one after the next.
 
 **Progress lives in FILES, not in chat — which is what makes a long continuous run robust.** The plan is
-in `NEXT-STEPS.md`; the running progress is the **ledger table** in this file. So even if the harness has
-to **auto-compact** the conversation on a very long run (a harness behavior I can't switch off — see the
-note below), the *files* survive: a fresh context reads the ledger, picks the first unfinished item, and
-keeps going. The loop **does not stop for compaction** and there is **no per-item compact step**.
+in `NEXT-STEPS.md`; the running progress is the **ledger table** in this file; the in-flight gate/loop
+state (G1/G2 decisions + the fix-round count) is [`factory-state.md`](factory-state.md) and the run
+history is [`factory-runs.md`](factory-runs.md). So even if the harness has to **auto-compact** the
+conversation on a very long run (a harness behavior I can't switch off — see the note below), the
+*files* survive: a fresh context reads them, resumes the in-flight item from its recorded phase (or
+picks the first unmerged ledger row), and keeps going. The loop **does not stop for compaction** and
+there is **no per-item compact step**.
 
 **Honest note on compaction.** I can't press `/compact` (it's a local command) and I can't stop the
 harness from auto-compacting when the context fills — but neither is a step in this loop anymore. The
@@ -26,46 +29,35 @@ recovery tool, **not** a routine between-item stop.
 
 ---
 
-## The per-item loop (run top-to-bottom for each item, then continue straight to the next)
+## The per-item loop — the Agent Factory executes it (`/build-feature`)
 
-1. **Pick the item.** Open the **Queue** table below; take the first row whose status is not ✅.
-   Announce which item you're building; you'll continue to the next when it's done.
-2. **Gate check (safety).** If the row is **🔶 CHECKPOINT**, do **not** build yet — surface the open
-   question(s) as **plain-chat numbered questions** (never `AskUserQuestion` / option boxes; no time
-   limit; they stay in the chat and must be answered — founder rule 2026-08-03) and wait for a yes.
-   If it's **🟩 GREEN**, the decisions are already locked in its `NEXT-STEPS.md` entry — proceed
-   without re-interviewing.
-3. **Re-read the spec.** Read that item's full section in `NEXT-STEPS.md` (scope, decisions,
-   Acceptance, DoD). The plan is the source of truth; don't improvise scope.
-4. **TDD first.** Write/extend the failing test(s) the item's **Acceptance** names. For a bug-class
-   item (AUTH-DUP, TX-SAFE) commit the red test as a checkpoint per
-   [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md); never weaken a test to make it pass.
-5. **Build the smallest thing that works.** KISS. Do the **consistency sweep** — change it in *every*
-   file the topic touches (no drift). Security-first: no new client-writable field that gates access;
-   validate server-side; encode output; admin surfaces are **light-paper only**; no new hex/dependency
-   for design items; grep a CSS class before reusing it (the `.adm-note`/`.grid-auto` collision trap).
-6. **Verify — and report the REAL result.**
-   - `npm run test:unit` **(standalone — stack stopped)** and `npm run build` (build runs the no-names
-     `dist/` guard). Both must be green/clean.
-   - Rules-touching item (ONBOARD-GATE, ADMIN-6) → also `npm run test:rules:solo`.
-   - Previewable UI change → browser-verify per the verification workflow **if the emulator stack can
-     run** (see *Environment caveats*). If it can't, say so and rely on unit + build; don't claim a
-     browser check you didn't do.
-7. **Commit.** Clear message (`feat(...)` / `fix(...)` / `docs(...)`); never force-push, never
-   `--no-verify`. The pre-commit secret scan must pass clean.
-8. **Update docs + tick the ledger.** Flip the item's **Status** line in `NEXT-STEPS.md` from
-   `📋 PLAN — NOT built` to `✅ BUILT <date> <commit>`, and set its row here to ✅ with the commit hash.
-   Update README/CLAUDE/canonical docs only if the change altered how things build or run.
-9. **Next item — no stop.** Return to step 1 for the next unfinished row and keep building. Do **not**
-   pause, compact, or ask "shall I continue?" between items — the loop runs continuously until every row
-   is ✅ or one of the real stops below fires. (If the harness auto-compacts on a long run, the ledger
-   lets a fresh context resume seamlessly — see the *Recovery prompt*.)
+**This file is the campaign LEDGER** (the Queue table below is the source of truth for *what's next*).
+**The EXECUTION path is the Agent Factory** — [`/build-feature`](../../.claude/commands/build-feature.md),
+specced in [`AGENT-FACTORY.md`](AGENT-FACTORY.md). There is **one process**: don't run a separate manual
+loop — run the factory, which carries each ledger item through the full
+[Definition of Done](AGILE.md) (G1 interview → G2 plan → red test → builders → verify+review → fix-loop
+→ simplify → sweep → re-verify → docs → commit → G3 merge), pausing only at the three gates and the
+real-failure stops.
 
-**The loop stops (and asks in plain chat) only if:** the next row is a 🔶 CHECKPOINT with an unanswered
-question (step 2), a test run is **red or inconclusive** (a `test:unit` run while `start:all` is up is
-*inconclusive, not a failure* — re-run standalone), the build's name-guard trips, the plan turns out to
-be wrong once you're in the code, or an item needs a **founder-only / prohibited** action (see below).
-Otherwise it keeps going. Never paper over a failure to keep the loop moving — a real stop is a real stop.
+**Per-item progress is durable in FILES**, which is what makes a long continuous run robust across an
+auto-compaction: the backlog is `NEXT-STEPS.md`, the ledger is the Queue table here, the in-flight
+gate/loop state is [`factory-state.md`](factory-state.md) (G1/G2 decisions + the fix-round count), and
+the run history is [`factory-runs.md`](factory-runs.md). The factory writes those; a fresh context
+reads them and continues.
+
+**How the ledger lines up with the factory:**
+1. **Pick** — the factory takes the first Queue row that is not `✅ merged`.
+2. **Gate** — a **🔶 CHECKPOINT** is asked at G1 in plain chat (never boxes, never timed; must be
+   answered); a **🟩 GREEN** item with locked `NEXT-STEPS.md` decisions skips re-interviewing.
+3. **Build → verify → commit** — the factory's inner loop + finalize. Never weaken a test; the rules
+   file is the security boundary (→ `test:rules`); report the REAL result (INCONCLUSIVE ≠ pass).
+4. **Tick the ledger — built ≠ merged.** A committed item is `✅ built <commit>`; it becomes
+   `✅ merged` only after the founder's G3 yes. **A built-but-unmerged item re-presents at G3 on
+   resume — it is not skipped** (the resume reads `factory-state.md`).
+5. **Next item — no stop.** Continue straight to the next row (the Absolute "no stop between items"
+   rule). The only stops are a gate, a real-failure/escalation, and the **runaway cost tripwire**
+   (one item > 25 agents or a run > 150 — see `build-feature.md`). Never paper over a failure to keep
+   the loop moving — a real stop is a real stop.
 
 ---
 
@@ -174,14 +166,17 @@ interviews, so they're out of an unattended build loop.
 
 ## Recovery prompt (only if a session restarts mid-campaign — NOT a routine step)
 
-The loop no longer stops to compact, so you rarely need this. Use it only if the session actually
-restarts (a forced auto-compaction, or a new session) and you need to re-enter the continuous loop:
+Use it only if the session actually restarts (a forced auto-compaction, or a new session) and you need
+to re-enter the run. It re-enters the **Agent Factory** (`/build-feature`) — **not** a separate manual
+loop — resuming from durable state:
 
 ```
-Continue the BUILD-LOOP (docs/product/BUILD-LOOP.md): open the Queue/ledger table and run the loop
-CONTINUOUSLY — build each item whose status is not ✅ to done (verify + commit + ledger tick), then go
-straight to the next without stopping between items. Stop only if the next item is a 🔶 CHECKPOINT with
-an open question (ask me in plain chat), or a test is red/inconclusive, or the name-guard trips, or the
-plan is wrong, or an item needs a founder-only action. Report real test + build results. When every row
-is ✅, say the loop is complete and stop.
+Resume the Agent Factory (/build-feature). FIRST read docs/product/factory-state.md: if an item is
+mid-flight, continue it from its recorded Phase — a G2-approved plan jumps straight to the inner loop
+(do NOT re-interview it), a built-not-merged item re-presents at G3, and the fix-round count continues
+(never reset). Otherwise open the Queue/ledger in docs/product/BUILD-LOOP.md and start the first row
+that is not "✅ merged" from G1. Run items one after another without stopping between them; stop only at
+a gate (ask me in plain chat), a real-failure/escalation, or the runaway cost tripwire. Report REAL
+test + build results (INCONCLUSIVE ≠ pass). When every row is ✅ merged, say the campaign is complete
+and stop.
 ```

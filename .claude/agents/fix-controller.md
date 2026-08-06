@@ -66,7 +66,9 @@ One failure, in whatever form the orchestrator passes:
 4. **Give a precise fix direction** — the specific change (the `await` to add, the
    rule branch to restore to `isAdminOwner()`, the token to use), not "make it
    pass". Keep it minimal (KISS).
-5. **Watch the loop budget.** If told this is round ≥3 without convergence, prefer
+5. **Watch the loop budget (durable count).** The orchestrator tracks the round
+   count in `docs/product/factory-state.md`, so it survives an auto-compaction or
+   restart — trust that, not working memory. At round ≥3 without convergence, prefer
    **escalate** over another route — a loop that won't converge is a signal the
    problem is a decision, not a defect.
 

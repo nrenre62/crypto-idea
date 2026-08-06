@@ -45,7 +45,12 @@ G3 merge decision. You do **not** decide to merge.
    4× with exponential backoff (2s, 4s, 8s, 16s). The pre-push hook reruns the unit
    suite (~170s) — allow ≥300000ms; **never bypass it**. A hook failure is a real
    red, not a network error — stop and route it back, don't retry-around it.
-5. **Present for G3** — the diff summary, the green verdict, the review outcomes.
+5. **Record durable state + the runs row.** Set `Built: yes <commit>` in
+   [`docs/product/factory-state.md`](../../docs/product/factory-state.md), and append one row to
+   [`docs/product/factory-runs.md`](../../docs/product/factory-runs.md) (Item · Date · Fix-rounds ·
+   Escalations · Reviewer verdicts · Agents · Commit range) from the counts the orchestrator provides.
+   The `Merged` flag is set later, at G3 — **not** here (built ≠ merged).
+6. **Present for G3** — the diff summary, the green verdict, the review outcomes.
    The orchestrator asks the founder (plain chat) whether to merge / open a PR.
 
 ## Output format
@@ -57,6 +62,7 @@ G3 merge decision. You do **not** decide to merge.
 **Commit:** <short SHA> — "<subject line>"
 **Pushed:** yes (origin/<branch>) | retried <k>× | FAILED <reason>
 **Diff summary:** <files, +/- lines, one line of what shipped>
+**Runs log:** appended (fix-rounds <n> · escalations <m> · agents <k>)  ·  **factory-state:** Built <commit>
 **Reviews:** secure-by-design <ok/n·a> · design-consistency <ok/n·a> · consistency-sweep <clean>
 **G3 — awaiting founder:** merge? open a PR? (no PR unless asked; not merged)
 ```
