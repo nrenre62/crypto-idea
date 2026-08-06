@@ -4,7 +4,11 @@ name: CI
 # - `npm run build` = vite build + SW stamp + no-names dist guard (VITE_* absent -> inlined undefined, build still passes)
 # - `npm run test:unit` = vitest; the server-side files it imports only lazy-require @sentry/node behind a DSN, so no functions deps are needed
 # This is the backstop the local pre-push hook can never be for PRs pushed from off-machine (e.g. Dependabot).
-# Emulator tiers (test:rules / test:integration) are a planned follow-up job (they need Java + the Firebase emulator).
+#
+# The emulator tiers run as their own jobs (they need Java + the Firebase emulator, still secret-free —
+# every test uses the `demo-crypto-idea` demo project, no credentials):
+# - rules-tests       = test:rules       (firestore emulator only) — the firestore.rules security boundary
+# - integration-tests = test:integration (auth+firestore+functions emulators) — the only tier that runs a callable body
 
 on:
   push:
@@ -40,3 +44,72 @@ jobs:
 
       - name: Unit tests (vitest)
         run: npm run test:unit
+
+  rules-tests:
+    name: rules tests (firestore emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Set up Java 21 (Firestore emulator runtime)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Firebase emulator binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: firebase-emulators-${{ runner.os }}-
+
+      - name: Install dependencies (root — includes firebase-tools)
+        run: npm ci
+
+      - name: Firestore rules tests
+        run: npm run test:rules
+
+  integration-tests:
+    name: integration tests (auth+firestore+functions emulators)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Set up Java 21 (Firestore emulator runtime)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Firebase emulator binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: firebase-emulators-${{ runner.os }}-
+
+      - name: Install dependencies (root — includes firebase-tools)
+        run: npm ci
+
+      - name: Install functions dependencies (functions emulator loads functions/index.js)
+        run: npm ci --prefix functions
+
+      - name: Integration tests (live callables over HTTP)
+        run: npm run test:integration
