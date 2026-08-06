@@ -40,6 +40,8 @@ Every commit is a **potentially shippable increment**: the app builds and runs a
 - [ ] Verified for real — ran the app or the tests; actual result reported (failures included).
 - [ ] Build clean when it could be affected (`npm run build`).
 - [ ] Committed to git with a clear message.
+- [ ] Shipped as one PR per [`PR-WORKFLOW.md`](PR-WORKFLOW.md) — Conventional-Commit title + linked
+      ticket, template body, ~200-line scope, CI green, squash-merge + delete branch.
 - [ ] Docs updated if structure/behavior changed (`README.md` / `src/ARCHITECTURE.md` / this backlog).
 - [ ] Reusable patterns captured in skills/memory.
 

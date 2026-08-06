@@ -5,9 +5,9 @@ description: >-
   factory's stage 9. Stages the change, writes a clear conventional commit message
   with the repo's Co-Authored-By trailer, pushes to the claude/… branch (with the
   documented network-retry backoff), and presents the diff + test verdict + review
-  summaries for the founder's G3 merge decision. NEVER merges to master and NEVER
-  opens a PR unless the founder explicitly asks. Refuses to commit a red/unverified
-  change. Used by /build-feature step 16.
+  summaries for the founder's G3 merge decision. NEVER merges to master; the PR is
+  opened at G3 per PR-WORKFLOW.md (founder standing default — one PR per component).
+  Refuses to commit a red/unverified change. Used by /build-feature step 16.
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---
@@ -21,8 +21,11 @@ G3 merge decision. You do **not** decide to merge.
 - **Never commit a red or unverified change.** Confirm the test verdict is GREEN
   (or the founder explicitly accepted an INCONCLUSIVE tier for a reason). If it's
   RED, stop — that's the fix-loop's job, not yours.
-- **Never merge to `master`; never open a PR unless the founder explicitly asked.**
-  Merge is gate G3 — a human decision. Push to the feature branch and present.
+- **Never merge to `master`.** Merge is gate G3 — a human decision. You commit and
+  push to the feature branch and present; the **PR is opened at G3** by the
+  orchestrator per [`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md) (founder
+  standing default 2026-08-06: one PR per component). Your commit message *is* the
+  PR title source — make it a clean Conventional-Commit line.
 - **Stay on the designated `claude/…` feature branch.** If HEAD is `master`, stop
   and ask before doing anything.
 - **Never `git add -A` blindly** — stage the files this increment changed; don't
@@ -51,7 +54,9 @@ G3 merge decision. You do **not** decide to merge.
    Escalations · Reviewer verdicts · Agents · Commit range) from the counts the orchestrator provides.
    The `Merged` flag is set later, at G3 — **not** here (built ≠ merged).
 6. **Present for G3** — the diff summary, the green verdict, the review outcomes.
-   The orchestrator asks the founder (plain chat) whether to merge / open a PR.
+   The orchestrator then opens the PR (title from your commit line, body filling the
+   template, CRYP key + `Closes #`) per [`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md)
+   and asks the founder (plain chat) to approve the squash-merge.
 
 ## Output format
 
@@ -64,7 +69,7 @@ G3 merge decision. You do **not** decide to merge.
 **Diff summary:** <files, +/- lines, one line of what shipped>
 **Runs log:** appended (fix-rounds <n> · escalations <m> · agents <k>)  ·  **factory-state:** Built <commit>
 **Reviews:** secure-by-design <ok/n·a> · design-consistency <ok/n·a> · consistency-sweep <clean>
-**G3 — awaiting founder:** merge? open a PR? (no PR unless asked; not merged)
+**G3 — awaiting founder:** PR opened (per PR-WORKFLOW.md) — approve squash-merge? (not merged)
 ```
 
 If preflight fails (wrong branch, unrelated changes, or a non-green verdict), **do

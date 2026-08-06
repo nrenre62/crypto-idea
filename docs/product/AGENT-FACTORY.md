@@ -73,7 +73,7 @@ honest mechanism is:
 |---|---|---|---|
 | **G1 — Interview & acceptance** | The goal, the options, the trade-offs, and the acceptance criteria for this component. | `spec-drafter` turns the answers into a structured spec; `consistency-sweep` surfaces the gaps to inform the questions. | interview.md steps 1–2; DoD "Definition of Ready" |
 | **G2 — Plan approval** | Whether the implementation plan is right — files, layers, approach, trade-offs. **No code is written before this "yes."** | `architect` drafts the plan (file-by-file, layer order, test plan, risks, the sweep list). | interview.md step 4 |
-| **G3 — Merge approval** | Whether the finished, green, doc-complete increment ships to `master` (or opens a PR). | `integrator` presents the diff, the test verdict, and the review summaries; it does not merge without the "yes." | Founder decision |
+| **G3 — Merge approval** | Whether the finished, green, doc-complete increment ships to `master`. A PR is **opened by default** ([`PR-WORKFLOW.md`](PR-WORKFLOW.md)); the founder approves the squash-merge. | `integrator` commits + pushes; the orchestrator opens the PR and presents the diff, the test verdict, and the review summaries; it does not merge without the "yes." | Founder decision |
 
 At every gate the orchestrator **stops and asks**. If the founder is away, the component waits —
 the factory never guesses a decision.
@@ -106,7 +106,7 @@ the factory never guesses a decision.
                            a security surface changed) before integrate — no write ships unverified
 ⚙️ 8  docs-scribe        update README/CLAUDE.md/ERRORS.md/the topic's MD docs/NEXT-STEPS log/diagrams
 ⚙️ 9  integrator         commit (message convention) + push to the feature branch
-🧑 G3  Merge approval                          ← founder
+🧑 G3  Merge approval    open PR by default (PR-WORKFLOW.md); founder approves squash-merge ← founder
 ────────────────  outer loop (continuous — no stop between components) ────────────────
 ⚙️ →  auto-advance: orchestrator pulls the NEXT queued item, back to G1 (no "shall I continue?" stop)
 ```
@@ -138,7 +138,7 @@ agents from prior sessions are *reused* as stages, not rebuilt.
 | 7 | **api-contract-verifier** | 3 | Flag `openapi.json` ↔ callable drift: a new/changed callable or `/api/*` shape not reflected in the contract. | Read/Grep/Glob — read-only | openapi.json is canonical (interview.md API row) |
 | 8 | **simplifier** | 5 | KISS / reuse / dead-code / duplication pass on the diff (the `simplify` skill, as a stage). Quality only — not a bug hunt. **Runs as a SERIAL write stage after the stage-3 read-only reviewers** (never concurrent with them); its edits re-verify at stage 7 before commit. | Read/Edit — small edits | KISS by design; match surrounding code; no writer overlaps a reader |
 | 9 | **docs-scribe** | 8 | Update every doc the sweep names: README, CLAUDE.md, ERRORS.md (on a diagnosed bug), the topic's MD docs, the NEXT-STEPS log, diagrams. Capture reusable patterns (Kaizen). | Read/Edit/Write — writes docs | interview.md consistency sweep; AGILE retro |
-| 10 | **integrator** | 9 | Commit with the repo's message convention (+ `Co-Authored-By` trailer) and push to the feature branch `claude/…`. Present the diff + verdicts at G3; **never merge without the founder's yes**. Optional PR. | Read/Bash(git) | Branch rules; no PR unless asked; merge is a human gate |
+| 10 | **integrator** | 9 | Commit with the repo's message convention (+ `Co-Authored-By` trailer) and push to the feature branch `claude/…`. Present the diff + verdicts at G3; **never merge without the founder's yes**. The PR is opened at G3 by default ([`PR-WORKFLOW.md`](PR-WORKFLOW.md)). | Read/Bash(git) | Branch rules; PR-per-component default; merge is a human gate |
 | 11 | **fix-controller** | 4 | On any RED tier or HIGH/CHANGES-NEEDED finding, diagnose, route the fix to the correct builder, and re-run the reviewer/tier. Loop until green **or escalate to the founder** with a plain problem statement after a bounded number of rounds. | Orchestrates sub-stages | Never weaken a test to go green; escalate, don't paper over |
 | 12 | **orchestrator** | spine | The `/build-feature <backlog-item>` runner: sequences all stages, enforces the three gates (asks the founder in **plain chat**, never boxes), runs the inner fix-loop, and the outer component loop. The only piece that talks to the founder. | Agent tool + plain-chat questions + Bash | Honors all three gates; plain-chat questions only; one component fully done before the next |
 
@@ -228,14 +228,19 @@ treated as data. **Next: exercise the whole line on one small real backlog item*
   couldn't read a changed file is INCONCLUSIVE, not "clean".
 - **Match the repo:** commit-message convention + `Co-Authored-By` trailer, branch rules, CSS
   scoping, the security invariants, the design system.
+- **One PR per component, kept small** ([`PR-WORKFLOW.md`](PR-WORKFLOW.md)): each component ships as one
+  PR opened by default at G3 (Conventional-Commit title + CRYP key, template body, squash-merge + delete
+  branch, CI green before merge). Scope the increment to **~200 changed lines**; if a plan is clearly
+  larger, split it into sequenced components rather than one sprawling PR.
 
 ---
 
 ## 8. Open questions & future
 
 - **Workflow fan-out** for the stage-3 read-only review pass once the sequential line is proven (§1).
-- **PR mode vs direct-to-branch** at G3 — default is push to the `claude/…` feature branch and let
-  the founder open/merge the PR; a PR-first mode is a config choice.
+- ~~**PR mode vs direct-to-branch** at G3~~ — **DECIDED** (founder, 2026-08-06): the factory **opens a
+  PR per component by default** at G3 and the founder approves the squash-merge. Standard:
+  [`PR-WORKFLOW.md`](PR-WORKFLOW.md).
 - **Jira integration** — a component that originates from a CRYP bug could enter via `/jira-fix`
   instead of `/build-feature`, reusing the same inner loop.
 - **Retro/Kaizen capture** — `docs-scribe` logs new opportunities into `NEXT-STEPS.md`, and the per-run
