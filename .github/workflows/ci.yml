@@ -1,0 +1,42 @@
+name: CI
+
+# Server-side gate (Tier A). Nothing here needs a secret:
+# - `npm run build` = vite build + SW stamp + no-names dist guard (VITE_* absent -> inlined undefined, build still passes)
+# - `npm run test:unit` = vitest; the server-side files it imports only lazy-require @sentry/node behind a DSN, so no functions deps are needed
+# This is the backstop the local pre-push hook can never be for PRs pushed from off-machine (e.g. Dependabot).
+# Emulator tiers (test:rules / test:integration) are a planned follow-up job (they need Java + the Firebase emulator).
+
+on:
+  push:
+    branches: [master, 'claude/**']
+  pull_request:
+    branches: [master]
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-unit:
+    name: build + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies (root)
+        run: npm ci
+
+      - name: Build (vite + SW stamp + no-names dist guard)
+        run: npm run build
+
+      - name: Unit tests (vitest)
+        run: npm run test:unit
