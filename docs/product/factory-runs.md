@@ -22,3 +22,4 @@ orchestrator supplies the counts it already knows.
 |------|------|-----------:|------------:|---------------------|-------:|--------------|
 | PORTFOLIO-NUM-FIX | 2026-08-06 | 1 | 0 | sec:SAFE · design:CHANGES→OK · verify:GREEN (unit 951/951) | 11 | 082945d..c9b3d05 |
 | PORTFOLIO-TEXT-SIZE | 2026-08-07 | 0 | 0 | sec:SAFE · design:CONSISTENT · verify:GREEN (unit 952/952) | 8 | fd3e444..786c85e (+docs finalize tip) |
+| DARK-MODE-FIXES | 2026-08-07 | 1 | 0 | sec:SAFE · design:CONSISTENT (2 advisory — cascade FIXED, dead-guard KEPT) · verify:GREEN (unit 957/957) | 9 | ca291bb..376e771 (+docs finalize tip) |

@@ -14,7 +14,7 @@
 
 ## A. Confirmed bugs
 
-### A6 · DARK-FIX-NaN — Research diversification note reads "about NaN%" ✅ (medium)
+### A9 · DARK-FIX-NaN — Research diversification note reads "about NaN%" ✅ (medium)
 
 - **Symptom:** The Research → Overview "A note on diversification" card reads *"Your top two coins make up
   about **NaN%** of your portfolio."* on every non-empty session (both light and dark — this is **not** a

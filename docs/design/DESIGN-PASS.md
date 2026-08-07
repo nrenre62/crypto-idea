@@ -2054,3 +2054,64 @@ size **and** weight **and** colour (and gain the standard row divider + padding 
 `font-size` bumps in `app.css` + the `.kv-row.kv-sm` block deleted + `kv-sm` removed from the two
 Detail rows. Design-only, no `firestore.rules`, no new dependency, no new hex/token; unit + build
 green.
+
+## Round 34 — Dark-mode Sell/Buy + Research card borders + NaN diversification guard (2026-08-07, BUILT)
+
+Founder-reported from 4 dark-mode screenshots (2026-08-05): the "− Sell" button reads white (not red)
+in the Detail overlay; the AddEntry Buy|Sell toggle + "Add Sell" submit are illegible / a dull dark
+red; the Research **Overview** and **Coins** cards + neutral stat-boxes have no visible border in dark;
+and the Stress-test / "A note on diversification" read dark-on-dark. Plus one **functional** bug — the
+diversification note printed *"about **NaN%**"*. This round ships the four dark-mode readability fixes
+as one CSS round + the NaN bug as a REQUIRED spin-off commit. Interview decisions locked 2026-08-05
+(§DARK-MODE-FIXES in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md)).
+
+**Every CSS change is DARK-BLOCK-ONLY** — scoped under `html[data-theme="dark"]` (`app.css:48`); **light
+mode is byte-for-byte identical** (house rule R3, founder-restated "only on dark mode").
+
+**The four fixes (dark-only).**
+- **R34-1 · Detail "− Sell" → red.** `.tx-btn.sell` was never re-coloured in dark, so it rendered as a
+  neutral/white pill next to the accent-green "+ Buy". Its text + border now take the shiny sell red
+  `--sr`, mirroring how `.tx-btn.buy` reads as the accent green.
+- **R34-2 · AddEntry toggle + submits.** The `.seg-btn` Buy|Sell labels are coloured by state (Buy →
+  `--sg`/`--accent-ink` green, Sell → `--sr` red) with lifted active-pill contrast; the submit fills
+  now "shine" per side — `.submit-buy` → vivid buy green `--sg`, `.submit-sell` → shiny sell red `--sr`
+  (was the dull `--warn`).
+- **R34-3 · Research Overview cards + neutral stat-boxes → white border.** `.research-root .card` and the
+  neutral inner boxes were on `--line-2` (~invisible in dark); raised to the new opaque white
+  `--edge-bright`. The Stress-test gradient/hero/labels are brightened to read vivid; the diversification
+  card fill/border is lifted and its heading + "Read the principle →" link take the shining `--accent-ink`
+  (`#5cd6a6`).
+- **R34-4 · Research Coins card + stat-boxes → white border.** `.coin-card` and the
+  `AVG COST / NOW / P/L / 30D` `.cc-*` stat-boxes take the opaque white `--edge-bright`.
+
+**Decisions locked (2026-08-05 founder).**
+- **G3 · one shared `--edge-bright:#fff`** — a single full-opaque white 1px line, defined once in the
+  dark `:root`, applied uniformly so it can't drift.
+- **G4 · neutral surfaces ONLY** get the white line (`.card`/`.coin-card`/`.cc-*` stat-boxes +
+  `.diversify`/stress card); the **coloured chips keep their semantic tint/border** — `Sentiment`, the
+  `Dev/Founders/Team/Community` reason chips and the catalyst pill are untouched.
+- **Q1=a · shiny submit FILL + dark ink label.** The Buy/Sell submits use the bright `--sg`/`--sr` fill
+  with a dark `--paper` ink label — AA-safe (≈ 8.8:1 buy / 6.7:1 sell).
+- **Q2=yes · Sell consolidation.** `.tx-btn.sell`, `.tx-badge.sell` and `.kv-v.kv-sell` were folded onto
+  the ONE Sell red `--sr` (Buy on `--sg`/`--accent-ink`), so every Buy/Sell surface across the Detail
+  overlay + AddEntry is a single source of truth — killing the "three different reds" drift (G2).
+
+**DARK-FIX-NaN spin-off (functional, its OWN commit).** The "A note on diversification" card printed
+*"…make up about **NaN%**…"* in BOTH themes (not a dark-mode issue): `deriveRisk(holdings)` returns no
+`top2`, so `Math.round(portfolio.risk.top2)` → `Math.round(undefined)` → `NaN`. Fixed by computing the
+top-two allocation locally from `portfolio.holdings` in `OverviewView.jsx`, behind a `Number.isFinite`
+guard (the non-finite path drops the "about X%" clause). Red-first test `ca291bb`, fix `0fbac77`; full
+write-up in [`ERRORS.md`](../testing/ERRORS.md) §A9.
+
+**fix-round-1 cascade consolidation (`376e771`).** The Research-Coins white-card border was first placed
+in the Research module's own `research-tab.css`, at **equal specificity** with an existing `app.css` rule
+across two separately-loaded (lazy-chunk) stylesheets — a fragile source-order tie that could flip with
+chunk load order. Consolidated the card border into `app.css` so ONE rule wins deterministically.
+**Kaizen:** for a lazy-loaded feature module, an equal-specificity selector split across two stylesheets
+is a latent cascade trap — keep the winning rule in one file.
+
+**Status:** ✅ BUILT 2026-08-07 (via the Agent Factory · BUILD-LOOP #15). Commits: `ca291bb` red-first
+NaN test · `0fbac77` DARK-FIX-NaN + ERRORS.md §A9 · `ac08cb5` the dark CSS round · `376e771`
+fix-round-1 cascade consolidation. Dark-block-only (light unchanged), no `firestore.rules`, no new
+dependency; the only new token is `--edge-bright`. Unit 957/957, build clean, security SAFE,
+design-consistency CONSISTENT.

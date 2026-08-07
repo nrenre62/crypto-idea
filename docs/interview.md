@@ -114,7 +114,7 @@ wins in a conflict) is **bold**.
 - Canonical: **`src/utils/format.js`** + **`src/utils/money.js`** (pure `splitMoney` — rounds to cents FIRST, then splits, so `$100.999` → `$101.00`; single source of truth for the dollar+cents split)
 - Consumers: `src/components/Portfolio.jsx` · `src/components/Detail.jsx` · `src/components/CoinInfo.jsx` · `src/components/AddEntry.jsx`
 - Tests: `tests/unit/money.test.js` · `tests/unit/format.test.js`
-- **Note:** the Research tab has its OWN formatter (`src/features/research/utils/format.js`) that currently DIVERGES from the app pair (rounds differently; `fmtPct(null)` → "NaN%") — unifying the two is tracked in `NEXT-STEPS.md` §FORMATTER-UNIFY (with the "NaN%" piece partly staged as DARK-FIX-NaN), not yet done. Row added 2026-08-06 (PORTFOLIO-NUM-FIX) to close the gap that let the app-vs-Research formatters drift.
+- **Note:** the Research tab has its OWN formatter (`src/features/research/utils/format.js`) that currently DIVERGES from the app pair (rounds differently; `fmtPct(null)` → "NaN%") — unifying the two is tracked in `NEXT-STEPS.md` §FORMATTER-UNIFY — still not done (DARK-FIX-NaN shipped 2026-08-07 but only guarded the OverviewView diversification note's `top2` locally; the `format.js` `fmtPct(null)` → "NaN%" divergence itself is untouched). Row added 2026-08-06 (PORTFOLIO-NUM-FIX) to close the gap that let the app-vs-Research formatters drift.
 
 > **Keep this map current.** When a file moves or a new canonical doc is added (e.g. `BILLING.md`),
 > update the affected row in the *same* change — the map itself is subject to the consistency rule.
