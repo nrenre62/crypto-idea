@@ -64,7 +64,7 @@ export default function CoinsView({ holdings, coinOrder, onReorder, empty, onAsk
       {sorting ? (
         <div className="coins-sort-list" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
           {list.map((h, i) => (
-            <div key={h.id} className="coins-sort-row" ref={(el) => (rowsRef.current[i] = el)}>
+            <div key={h.id} className="coins-sort-row" ref={(el) => { rowsRef.current[i] = el; }}>
               <button type="button" className="coins-drag-handle" aria-label={`Reorder ${h.name}`} style={{ touchAction: 'none' }}
                 onPointerDown={onDown(i)}
                 onKeyDown={(e) => {
