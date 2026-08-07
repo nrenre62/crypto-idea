@@ -61,6 +61,11 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   small, shippable increment at a time; every increment meets the **Definition of Done** (KISS +
   secure, tests green, verified, committed, docs updated). Retrospective = Kaizen (leave it better,
   log new opportunities).
+- **Jira planning ([`JIRA-PLAYBOOK.md`](docs/testing/JIRA-PLAYBOOK.md)):** the Epic→Story/Task/Bug
+  hierarchy, copy-paste ticket templates (Given/When/Then AC), Components (feature-area surfaces),
+  Versions/Releases, and how the process reads as portfolio evidence. The Agent Factory's **G1 files a
+  CRYP Story** per component. Rovo MCP is **OAuth — never add a Jira API token** (it would break the
+  no-secrets rule).
 - **Jira bug workflow ([`JIRA-WORKFLOW.md`](docs/testing/JIRA-WORKFLOW.md)):** bugs are tracked in Jira project
   **CRYP** via the Rovo MCP connection (no API token in this repo). **Any bug fix starts with a failing
   test that reproduces the ticket — committed red as a checkpoint — and never deletes, skips or weakens

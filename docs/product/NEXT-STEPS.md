@@ -69,6 +69,33 @@ repo settings.
 
 ---
 
+## JIRA-PLAYBOOK. Full-project Jira planning standard + factory G1 Story wiring  (✅ BUILT 2026-08-07 · Track A, docs/config only)
+
+Founder research note *"Jira workflow"* → a repo-canonical **planning** playbook, closing the gap that
+the repo's Jira docs were **bug-only** while the live CRYP board had already grown into a **9-Epic /
+79-Story roadmap** (the docs literally said "ignore Epic"). Interview decisions locked (2026-08-07):
+(1) new doc `JIRA-PLAYBOOK.md` · (2) templates in the playbook + wire Story-creation into the Agent
+Factory **G1** (no new slash-commands) · (3) adopt **Components** (surfaces) · (4) adopt
+**Versions/Releases** · (5) README "How I built this" + a `CHANGELOG.md` · (6) align `/jira-fix` to
+`claude/…` branches. Founder scoped this to **Track A (repo docs)** — the live-board mutations
+(create components/versions, tag issues, delete the CRYP-84 duplicate) are **Track B, deferred**.
+
+- **New:** [`JIRA-PLAYBOOK.md`](../testing/JIRA-PLAYBOOK.md) (hierarchy · Epic/Story/Task/Bug templates
+  with Given/When/Then AC · Kanban WIP=1 · Components §4.1 · Versions §4.2 · labels · the Rovo-MCP
+  **OAuth-not-token** correction · portfolio-presentation arc) + root **`CHANGELOG.md`** (Keep-a-Changelog,
+  seeded from the backlog, honestly framed as reconstructed-from-git).
+- **Wired:** `JIRA-WORKFLOW.md` (de-staled §2 — "ignore Epic" retired, Components/Versions adopted,
+  playbook cross-link) · `jira-fix.md` (`fix/CRYP-…` → `claude/cryp-<n>-slug`, so CI fires on push) ·
+  `build-feature.md` (G1 files a CRYP Story; transition to Done at merge; a one-Story-per-component
+  absolute rule) · `spec-drafter.md` (AC drafted Story-ready, Given/When/Then) · `interview.md`
+  (consistency-map row) · `CLAUDE.md` (Jira-planning bullet) · `README.md` ("How I built this").
+- **Duplicate flagged for founder cleanup (Jira UI — no delete tool over the connection):** **CRYP-84**
+  (Story) re-files the work of **CRYP-1 + CRYP-2** (Tasks) — delete CRYP-84, keep the two Tasks.
+- **Track B (deferred, founder's go):** create the 9 Components + the `v0.x`/`v1.0` Versions via the
+  Rovo MCP and tag the Done stories; founder deletes CRYP-84 + any unclear Epics in the Jira UI.
+
+---
+
 ## AUTH-DUP. Prevent duplicate-signup double-submit + admin dedupe detector  (✅ BUILT 2026-08-01 · client lock + read-only admin callable)
 
 Founder report (2026-08-01, with a screenshot showing **two `mark@test.com` rows** in the admin

@@ -26,14 +26,16 @@ Work Jira issue: $ARGUMENTS
 ## 2 · Branch
 
 ```bash
-git fetch origin && git switch -c fix/CRYP-42-<short-slug> origin/master || git switch fix/CRYP-42-<short-slug>
+git fetch origin && git switch -c claude/cryp-42-<short-slug> origin/master || git switch claude/cryp-42-<short-slug>
 ```
 
 Fetch first (so the branch cuts from fresh `master`, not a stale local one); the `||` arm makes a
 re-run land on the existing branch instead of dying. **Then confirm `git branch --show-current` is not
-`master` before writing anything.** Match the repo's existing `<type>/<kebab-slug>` convention
-(`fix/…`, `feat/…`) and keep the key in the name so the branch is greppable. Never commit the fix
-straight to `master`.
+`master` before writing anything.** Use the repo's standard **`claude/…`** branch prefix
+([`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md) §1) with the key kept in the name
+(`claude/cryp-<n>-<slug>`) so the branch is greppable **and** CI fires — `.github/workflows/ci.yml`
+triggers on push to `claude/**`, so a `fix/…` branch would run no CI until a PR opened. Never commit the
+fix straight to `master`.
 
 ## 3 · Write the FAILING test first — do NOT write the fix yet
 
@@ -127,7 +129,7 @@ isn't done.
 
 ```bash
 git add -A && git commit -m "fix(CRYP-42): <what changed>"
-git push -u origin fix/CRYP-42-<slug>     # timeout 300000 — pre-push reruns the ~170 s suite
+git push -u origin claude/cryp-42-<slug>     # timeout 300000 — pre-push reruns the ~170 s suite
 ```
 
 (`git add` first — step 4 staged only the test file, so the source changes from step 5 are still

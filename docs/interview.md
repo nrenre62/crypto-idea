@@ -101,8 +101,8 @@ wins in a conflict) is **bold**.
 - Code: `functions/index.js` (universe / cache / history) · `functions/universe-utils.js`
 
 ### Testing & issue tracking (Jira CRYP, test ↔ ticket traceability)
-- Docs: **[`JIRA-WORKFLOW.md`](testing/JIRA-WORKFLOW.md)** · [`AGILE.md`](product/AGILE.md) (Definition of Done + testing conventions) · [`ERRORS.md`](testing/ERRORS.md) · `README.md` (Tests) · `CLAUDE.md` (Conventions) · `docs/testing/bug-hunts/` (hunt reports)
-- Commands: `.claude/commands/jira-bug.md` · `.claude/commands/jira-fix.md` · `.claude/commands/jira-test-sync.md` · `.claude/commands/jira-bug-hunt.md`
+- Docs: **[`JIRA-WORKFLOW.md`](testing/JIRA-WORKFLOW.md)** (bug loop) · **[`JIRA-PLAYBOOK.md`](testing/JIRA-PLAYBOOK.md)** (hierarchy / templates / Components / Versions / presentation) · [`AGILE.md`](product/AGILE.md) (Definition of Done + testing conventions) · [`ERRORS.md`](testing/ERRORS.md) · `README.md` (Tests + "How I built this") · `CHANGELOG.md` · `CLAUDE.md` (Conventions) · `docs/testing/bug-hunts/` (hunt reports)
+- Commands / agents: `.claude/commands/jira-bug.md` · `.claude/commands/jira-fix.md` (uses `claude/…` branches) · `.claude/commands/jira-test-sync.md` · `.claude/commands/jira-bug-hunt.md` · `.claude/commands/build-feature.md` + `.claude/agents/spec-drafter.md` (G1 files a CRYP Story)
 - Code/config: `scripts/jira-test-map.js` + `tests/unit/jira-test-map.test.js` · `package.json` (test scripts) · `.githooks/pre-push` · `.gitignore` (`.tmp/`)
 
 ### Branding / logo (the CryptoIdea mark — tile + wordmark)

@@ -4,6 +4,10 @@
 > **failing test first**, every fixed bug leaves a permanent regression test behind, and test results
 > can be reported back onto the ticket. Canonical for the test↔ticket convention and the Jira gotchas.
 > Established 2026-07-21 (CRYP-1).
+>
+> **This doc is the bug loop.** For the planning side — the Epic→Story hierarchy, how to write each
+> work-item type, Components, Versions/Releases, and portfolio presentation — see the sibling
+> [`JIRA-PLAYBOOK.md`](JIRA-PLAYBOOK.md).
 
 **Status legend:** ✅ Built & verified live · 🟡 Built, not yet exercised on a real bug · ⚠️ Trap — read before relying on it.
 
@@ -26,14 +30,19 @@ inside the same "no secrets in git" rule as everything else (`.githooks/pre-comm
 
 CRYP is a **team-managed** ("next-gen") software project, which changes what fields exist:
 
-- **Issue types:** Epic · Subtask · Task · Story · Feature · **Bug**. Use only **Bug / Task / Story**;
-  ignore the rest unless something genuinely needs breaking down.
+- **Issue types:** Epic · Subtask · Task · Story · Feature · **Bug**. **Bugs** use this doc's loop;
+  **Epic / Story / Task** are the planning types ([`JIRA-PLAYBOOK.md`](JIRA-PLAYBOOK.md) §2). Ignore
+  **Feature / Subtask** unless something genuinely needs breaking down. The live board is an Epic→Story
+  roadmap (9 Epics), so "ignore Epic" is retired — Epics are the feature-area workstreams.
 - **Required to create:** `summary` only (project/issuetype/reporter are supplied or defaulted).
 - ⚠️ **There is no `priority` field.** The usual "Priority: high/medium/low" line and any
   `ORDER BY priority DESC` JQL have nothing to sort on here. Express urgency with **labels**
   (`prio-high` / `prio-med` / `prio-low`), set via `additional_fields: {"labels": [...]}` — which is
   also the right default anyway (structured fields for reporting, labels for flexible tagging).
-- No `components`, no `fixVersions`.
+- **`components` and `fixVersions` are adopted for planning** (the surface a ticket touches + the
+  release it ships in — [`JIRA-PLAYBOOK.md`](JIRA-PLAYBOOK.md) §4.1/§4.2). A **Bug** can carry its
+  affected component + Fix Version, but this loop never blocks on them — `summary` is the only hard
+  requirement.
 
 **Workflow — four states, not three:**
 

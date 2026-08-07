@@ -44,8 +44,12 @@ You are read-only.
    the map row and anything the request obviously needs. Mark out-of-scope
    explicitly to bound the work (DoD "small enough for one increment").
 4. **Draft acceptance criteria** — concrete, testable, and mapped to the tier that
-   proves each (`test:unit` / `test:rules` / `test:integration`). This is what
-   `test-author` will turn red first.
+   proves each (`test:unit` / `test:rules` / `test:integration`). Write them **Story-ready**:
+   **Given/When/Then**, behavioral not implementation-bound
+   ([`JIRA-PLAYBOOK.md`](../../docs/testing/JIRA-PLAYBOOK.md) §3.2). This is what
+   `test-author` will turn red first, and what the orchestrator files verbatim as the
+   component's **CRYP Story** at G1 close — so draft them cleanly. (You stay read-only;
+   the orchestrator does the filing.)
 5. **Surface the open questions** — the real forks the founder must decide (options
    + trade-offs), plus any gap the topic already has (or note that a
    `consistency-sweep` is running to find them).
