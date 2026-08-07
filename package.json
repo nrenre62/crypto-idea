@@ -1,6 +1,6 @@
 {
   "name": "crypto-idea",
-  "version": "4.0.0",
+  "version": "1.0.0-beta",
   "description": "Crypto portfolio tracker & DCA calculator PWA",
   "type": "module",
   "scripts": {

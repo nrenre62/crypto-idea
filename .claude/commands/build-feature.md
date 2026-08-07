@@ -25,6 +25,11 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
   G3, step 17) following [`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md). Scope the increment to
   **~200 changed lines** (a handful of files) at G2; if the plan is clearly larger, split it into
   sequenced components rather than one sprawling PR.
+- **One CRYP Story per component.** At G1 close (step 5) the orchestrator files a CRYP **Story** for the
+  component and threads its key through the run — `test-author` markers, the commit + PR title, and a
+  transition to **Done** at merge ([`JIRA-PLAYBOOK.md`](../../docs/testing/JIRA-PLAYBOOK.md) §6.1). A
+  component that instead originates from a **bug** reuses its existing Bug ticket via
+  [`/jira-fix`](jira-fix.md) — don't open a second ticket for it.
 - **One component at a time, then auto-advance.** Fully finish one backlog item (through G3) before
   starting the next — never build two at once. But when a component is done, **continue straight to the
   next queued item without a separate "shall I continue?" stop** (founder rule 2026-08-04: "build items
@@ -76,6 +81,14 @@ below. This changes no step numbers — G1 still begins at step 4.
    criteria. Wait for typed answers. Iterate until the **goal + acceptance criteria are confirmed by
    the founder.** (For a `NEXT-STEPS.md` item already marked 🟩 GREEN with locked decisions, confirm
    that in one line and skip re-interviewing — per BUILD-LOOP.md.)
+   - **File the CRYP Story (G1 close).** Once the goal + AC are confirmed, file a **Story** in project
+     **CRYP** via the Rovo MCP (`createJiraIssue`, `issueTypeName: "Story"`, `contentFormat: "markdown"`)
+     using the [`JIRA-PLAYBOOK.md`](../../docs/testing/JIRA-PLAYBOOK.md) §3.2 shape — the confirmed
+     acceptance criteria become its **Given/When/Then**, tagged with the tier that proves each. Set its
+     Epic / Component / Fix Version where known. **Record the returned key in `factory-state.md`** and
+     thread it downstream (test markers, commit + PR title). If the item is a **bug** (entering via
+     `/jira-fix`), skip this — its Bug ticket already exists. If the Rovo write is unavailable, say so
+     and proceed with a `CRYP-?` placeholder rather than blocking the build.
 
 ## 🧑 G2 — Plan approval (founder decides)
 
@@ -159,7 +172,10 @@ below. This changes no step numbers — G1 still begins at step 4.
     How tested / Screenshots for UI / Checklist) + `Closes #` for the GitHub issue. Then summarize what
     shipped, the green test verdict, the review outcomes, and the diff, and ask the founder to approve the
     **squash-merge**. Only the *opening* is automatic — **do not merge without the explicit yes**, and
-    confirm the CI Checks are green before merging.
+    confirm the CI Checks are green before merging. **On merge, transition the component's CRYP Story to
+    Done** (`getTransitionsForJiraIssue` → `transitionJiraIssue`, matched by name — never a hardcoded id)
+    and set its Fix Version to the current release ([`JIRA-PLAYBOOK.md`](../../docs/testing/JIRA-PLAYBOOK.md)
+    §6.1).
 
 ## ⚙️ Outer loop
 

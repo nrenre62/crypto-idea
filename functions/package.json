@@ -1,6 +1,6 @@
 {
   "name": "crypto-idea-backend",
-  "version": "4.0.0",
+  "version": "1.0.0-beta",
   "description": "Firebase Cloud Functions for CryptoIdea (PayPal billing)",
   "main": "index.js",
   "engines": {
