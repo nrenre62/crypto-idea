@@ -89,10 +89,10 @@ export function Detail() {
           <div className="kv-row"><span className="kv-k">Holding</span><span className="kv-v">{h.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol}</span></div>
           <div className="kv-row"><span className="kv-k">Current Value</span><span className="kv-v">${v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
           <div className="kv-row"><span className="kv-k">Bought</span><span className="kv-v">{boughtCoins.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol} <span className="kv-sub">· ${buysCost.toLocaleString("en-US",{minimumFractionDigits:2})}</span></span></div>
-          {avgBuy>0&&<div className="kv-row kv-sm"><span className="kv-k">Avg Buy Price</span><span className="kv-v">{fmtP(avgBuy)}</span></div>}
+          {avgBuy>0&&<div className="kv-row"><span className="kv-k">Avg Buy Price</span><span className="kv-v">{fmtP(avgBuy)}</span></div>}
           {soldCoins>0&&<>
           <div className="kv-row"><span className="kv-k">Sold</span><span className="kv-v kv-sell">{soldCoins.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol} <span className="kv-sub">· ${sellsGain.toLocaleString("en-US",{minimumFractionDigits:2})}</span></span></div>
-          <div className="kv-row kv-sm"><span className="kv-k">Avg Sell Price</span><span className="kv-v">{fmtP(avgSell)}</span></div></>}
+          <div className="kv-row"><span className="kv-k">Avg Sell Price</span><span className="kv-v">{fmtP(avgSell)}</span></div></>}
           <div className={"pnl-row"+(totalPnl>=0?"":" dn")}><span className="pnl-label">Total P/L</span><span className="pnl-val">{totalPnl>=0?"+":"−"}${Math.abs(totalPnl).toLocaleString("en-US",{minimumFractionDigits:2})} ({fmtPct(totalPnlPct)})</span></div>
           {sellsGain>buysCost&&<div className="pnl-note">Sell proceeds exceed buy costs — you already profited more than your total investment</div>}
           </>)})()}

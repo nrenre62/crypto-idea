@@ -306,4 +306,29 @@ describe("Detail screen (extracted, via AppContext)", () => {
     expect(pill.className).toContain("muted");
     expect(pill.className).not.toContain("dn");
   });
+
+  // ── PORTFOLIO-TEXT-SIZE: the Avg Buy / Avg Sell Price rows drop the kv-sm shrink class
+  //    so they read at the same size as Holding / Current Value / Bought (plain .kv-row). ──
+  it("CRYP-91 (PORTFOLIO-TEXT-SIZE): Avg Buy/Sell Price rows are plain .kv-row (no kv-sm)", () => {
+    // needs BOTH a buy (avgBuy>0 → Avg Buy row renders) AND a sell (soldCoins>0 → Avg Sell row renders)
+    const coin = {
+      id: "bitcoin", symbol: "BTC", name: "Bitcoin",
+      entries: [
+        { id: "b1", type: "buy", amount: 2, priceAtBuy: 100, date: "2024-01-01T00:00" },
+        { id: "s1", type: "sell", amount: 1, priceAtBuy: 300, date: "2024-02-01T00:00" },
+      ],
+    };
+    const { container } = provide({ sel: coin, portfolio: [coin] });
+
+    const avgBuyRow = screen.getByText("Avg Buy Price").closest(".kv-row");
+    const avgSellRow = screen.getByText("Avg Sell Price").closest(".kv-row");
+    expect(avgBuyRow).toBeTruthy();
+    expect(avgSellRow).toBeTruthy();
+
+    // primary: neither named row carries the shrink class
+    expect(avgBuyRow.classList.contains("kv-sm")).toBe(false);
+    expect(avgSellRow.classList.contains("kv-sm")).toBe(false);
+    // belt-and-suspenders: the class lingers nowhere in the rendered Detail
+    expect(container.querySelectorAll(".kv-sm").length).toBe(0);
+  });
 });
