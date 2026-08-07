@@ -299,13 +299,11 @@ html[data-theme="dark"] .research-root .ic-up{color:var(--accent-ink)}
 html[data-theme="dark"] .research-root .ic-watch{background:var(--sr-s);color:var(--sr)}
 /* (R6-1 disclaimer dark override removed in R13-1 — base is now --ink-soft in both modes.) */
 
-/* ── Dark-mode Research card borders + Stress (Round 34) — dark-block-only; light untouched ──
-   The neutral Overview cards, the Coins card, and the four .pos-stat stat-boxes read as
-   borderless on the dark paper (their --line/--line-2 edges vanish). Give them an opaque
-   white 1px edge. Colored chips (.sentiment/.s-*, .csig/.csig-*, .conv-cat) keep their
-   semantic tint and are deliberately excluded. */
-html[data-theme="dark"] .research-root :is(.card,.coin-card,.pos-stat){border-color:var(--edge-bright)}
-/* Stress: the slider track + up/down deltas used dull light --accent/--warn — brighten. */
+/* ── Dark-mode Research Stress (Round 34) — dark-block-only; light untouched ──
+   (The neutral Overview/Coins/.pos-stat white --edge-bright card borders live in app.css,
+   consolidated onto the rule that already owns the .research-root card edge — no cross-file
+   source-order tie. Colored chips keep their semantic tint and are excluded there.)
+   Stress: the slider track + up/down deltas used dull light --accent/--warn — brighten. */
 html[data-theme="dark"] .research-root .scn-slider{background:linear-gradient(90deg,var(--sr) 0%,var(--line-strong) 50%,var(--sg) 100%)}
 html[data-theme="dark"] .research-root .scn-chg.up{color:var(--accent-ink)}
 html[data-theme="dark"] .research-root .scn-chg.down{color:var(--sr)}
