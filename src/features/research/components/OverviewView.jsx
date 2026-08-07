@@ -33,6 +33,11 @@ function Brief({ portfolio, empty }) {
 // clutter). `status`/`asOf` (and the freshness helpers) went with them — kept out of the
 // signature so no dead code remains. Freshness is an internal cost lever, not user-facing.
 export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShare }) {
+  // DARK-FIX-NaN: deriveRisk() returns {level,score,breakdown,megaAlloc} — there is no
+  // `top2`, so the note's Math.round(risk.top2) rendered "about NaN%" on every non-empty
+  // session. Compute the top-two allocation locally from holdings (same math as usePulse),
+  // guarded so a missing/degenerate book degrades to a clause-less sentence, never "NaN".
+  const top2 = (portfolio.holdings || []).slice(0, 2).reduce((s, h) => s + (h.alloc || 0), 0);
   return (
     <div className="view active">
       <Brief portfolio={portfolio} empty={empty} />
@@ -61,7 +66,9 @@ export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShar
           <h3>A note on diversification</h3>
           <p>{empty
             ? 'Diversification tips appear once you hold a few coins.'
-            : `Your top two coins make up about ${Math.round(portfolio.risk.top2)}% of your portfolio. Spreading across more assets is one of the simplest ways to reduce single-coin risk — a core idea in The Edge.`}</p>
+            : Number.isFinite(top2)
+            ? `Your top two coins make up about ${Math.round(top2)}% of your portfolio. Spreading across more assets is one of the simplest ways to reduce single-coin risk — a core idea in The Edge.`
+            : 'Spreading across more assets is one of the simplest ways to reduce single-coin risk — a core idea in The Edge.'}</p>
           <a href="/edge">Read the principle →</a>
         </div>
       </div>

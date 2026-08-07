@@ -4916,7 +4916,7 @@ is really the frontend model layer (already conceded).
 
 ---
 
-## DARK-MODE-FIXES (DP next round). Dark-mode: red Sell buttons, shiny Buy/Sell, white card+pill borders in Research — + fix the NaN diversification note  (📋 STAGED 2026-08-05; queued in BUILD-LOOP #15 — NOT built)
+## DARK-MODE-FIXES (DP Round 34). Dark-mode: red Sell buttons, shiny Buy/Sell, white card+pill borders in Research — + fix the NaN diversification note  (✅ BUILT 2026-08-07 · `ac08cb5` · via the Agent Factory · BUILD-LOOP #15)
 
 > **Queued as [BUILD-LOOP](BUILD-LOOP.md) #15** (2026-08-05). Canonical design doc: **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log this as the next DP round (append after R28; confirm the number at build). **Design-only, 🟩 GREEN** — CSS + one small guard fix, no `firestore.rules`, no new dependency, no new hex beyond the existing token palette. Founder-reported from 4 dark-mode screenshots (2026-08-05).
 >
@@ -5008,6 +5008,30 @@ is really the frontend model layer (already conceded).
 - `npm run test:unit` green (incl. the new NaN guard test); `npm run build` clean (no-names guard; ships nothing new).
 - `DARK-FIX-NaN` committed as its own REQUIRED small commit (functional), separate from the CSS round.
 - G3/G4 decisions recorded in DESIGN-PASS.md; this Status flipped to ✅ BUILT; commit. (No rules ⇒ no `test:rules`.)
+
+### As-built (2026-08-07, via the Agent Factory · BUILD-LOOP #15)
+Shipped as planned, all four fixes dark-block-only (light byte-for-byte identical). **Locked decisions
+as-built:** **G3** one shared `--edge-bright:#fff` in the dark `:root`; **G4** the white line on NEUTRAL
+surfaces only (cards + `.cc-*` stat-boxes + `.diversify`/stress) — coloured chips kept their tint;
+**Q1=a** bright `--sr`/`--sg` submit **FILLs** + dark `--paper` ink label (AA-safe ≈ 8.8:1 buy / 6.7:1
+sell); **Q2=yes** folded `.tx-btn.sell`/`.tx-badge.sell`/`.kv-v.kv-sell` onto the ONE Sell red `--sr`
+(Buy on `--sg`/`--accent-ink`) so every Buy/Sell surface is a single source of truth (kills the G2
+"three reds" drift). **DARK-FIX-NaN (functional, own commit `0fbac77`, red-first `ca291bb`):** the
+diversification note's `NaN%` fixed **OverviewView-local** — top-two computed from `portfolio.holdings`
+behind a `Number.isFinite` guard (both themes; the bug was never dark-only). Logged as
+**[`DESIGN-PASS.md`](../design/DESIGN-PASS.md) Round 34** + **[`ERRORS.md`](../testing/ERRORS.md) §A9**
+(renumbered from the mis-assigned A6 — A6 was already the blocked-signup entry cross-referenced by
+`USER-CREATION.md`) + a one-line CLAUDE.md design-follow-on note. **fix-round-1 (`376e771`)** consolidated
+the Research-card white border into `app.css` to drop a fragile equal-specificity cross-file cascade tie.
+Commits: `ca291bb` · `0fbac77` · `ac08cb5` (headline CSS round) · `376e771`. Unit 957/957, build clean,
+security SAFE, design-consistency CONSISTENT.
+
+**Kaizen (non-blocking):** the fix-round-1 tie is a reusable lesson — for a **lazy-loaded feature module**
+(here Research's `research-tab.css`, a separate chunk), an **equal-specificity selector split across two
+stylesheets** resolves by source/chunk load order, which can flip. Keep the winning rule in ONE file
+(`app.css` for `.ci-app` surfaces). Worth a consistency-map note that Research-module CSS can collide with
+`app.css` on shared class names (`.card`), same class as the existing `.research-root` vs `.ci-app`
+scoping guard.
 
 ---
 
