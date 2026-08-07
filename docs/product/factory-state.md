@@ -39,4 +39,22 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(none in flight — DARK-MODE-FIXES merged as PR #43 → master `e85753e`; CRYP-92 Done; run metrics in `factory-runs.md`. The next item's G1 writes the next block here.)*
+## RESEARCH-NO-AI-4a — Research tab honesty gate (AI-CHAT-SWITCH + framing)
+- Phase: G1
+- G1 confirmed: yes        (🟩 GREEN in NEXT-STEPS §AI-CHAT-SWITCH + §RESEARCH-NO-AI; decisions locked; founder chose Option A = 3 sequenced PRs)
+- G2 approved: no          (no code before this is yes)
+- Plan (files): TBD — architect to plan the 4a slice (honesty gate only)
+- Fix-round: 0 / 3
+- Open findings: none
+- Branch: claude/research-no-ai
+- Built: no
+- Merged: no
+- Agents this item: 0
+- Jira: CRYP-93 (In Progress)
+- Slice note: BUILD-LOOP #13 split into 3 PRs (founder Option A, 2026-08-07).
+  **4a (this)** = the honesty gate: `aiResearch` flag → `chatEnabled`/`aiChrome`, `AI_PROXY_LIVE=false`,
+  AI-status pill replacing the "AI is offline" apology, gate gradient/Regenerate/disclaimer, hide the Ask
+  chat tab + per-coin Ask button when off, neutral empty-state copy, MOVE the admin toggle to the AI
+  settings screen, `functions/features.js` description string. Keeps today's single-line deterministic
+  Pulse text (the richer multi-signal Pulse + Daily Brief = 4b; RESEARCH-METRICS P-1…P-4 = 4c).
+- Updated: 2026-08-07
