@@ -288,6 +288,29 @@
 - **Status:** ✅ **FIXED 2026-08-07** on branch `claude/github-bot-dependency-review-qupedn` — firebase-admin
   modular migration; unblocks Dependabot #26.
 
+### A9 · Landing billing toggle + Subscribe button are dead under the production CSP (inline `onclick=`) ✅ (medium)
+
+- **Symptom:** On the marketing landing (`/`), clicking **Monthly/Yearly** does nothing and the **Subscribe**
+  button does nothing — only pressing **Enter** in the email field subscribes.
+- **Where:** `index.html` — `#btnMonthly` / `#btnYearly` / the Subscribe `<button>` used inline
+  `onclick="setBilling(...)"` / `onclick="subscribe()"`. `public/landing.js` defines `setBilling`/`subscribe`
+  but bound only the email-field **Enter** key via `addEventListener` (line ~40).
+- **Root cause:** the production CSP (`firebase.json`) `script-src` has **no `'unsafe-inline'`** (D12), so inline
+  event-handler attributes are **blocked at click time**. Confirmed under the real CSP in headless Chromium:
+  clicking Yearly left the toggle unchanged and emitted two `script-src-attr` "Refused to execute inline event
+  handler" violations. (This is why only the `addEventListener`-bound Enter key worked.)
+- **Why it hid:** CI never serves the app under the Hosting CSP or in a real browser, and inline handlers only
+  violate on **click** (not at parse), so a page-load smoke test shows nothing. Surfaced by the **vite 8 bundler
+  PR (#40)** CSP smoke test — it is a *pre-existing* landing bug, independent of vite.
+- **Fix:** remove the 3 inline `onclick=` attributes; bind the buttons in `landing.js` via `addEventListener`
+  (the D12 externalized-script pattern) — `#btnMonthly`→`setBilling('monthly')`, `#btnYearly`→`setBilling('yearly')`,
+  and a new `#subscribeBtn`→`subscribe`. Behaviour-preserving.
+- **Verify:** production build + CSP smoke test (headless Chromium under the exact `firebase.json` CSP) — zero
+  inline handlers in the built HTML, the Yearly toggle switches, the Subscribe button fires (`subMsg` populates),
+  and **zero CSP violations** on load or click.
+- **Severity:** medium (two landing CTAs silently dead in production; no data loss).
+- **Status:** ✅ **FIXED 2026-08-07** on branch `claude/fix-landing-csp-onclick`.
+
 ---
 
 ## B. Robustness / hardening (recommended, not blocking)

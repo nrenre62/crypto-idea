@@ -38,6 +38,11 @@ function subscribe(){
     }).catch(()=>{msg.style.color='var(--warn)';msg.textContent='Network error — please try again.';});
 }
 document.getElementById('emailInput').addEventListener('keydown',e=>{if(e.key==='Enter')subscribe();});
+// Bind the billing toggle + Subscribe button here (not inline onclick=): the production CSP
+// script-src has no 'unsafe-inline', so inline handlers are blocked at click time (D12).
+document.getElementById('btnMonthly').addEventListener('click',()=>setBilling('monthly'));
+document.getElementById('btnYearly').addEventListener('click',()=>setBilling('yearly'));
+document.getElementById('subscribeBtn').addEventListener('click',subscribe);
 
 // Year
 document.getElementById('year').textContent=new Date().getFullYear();

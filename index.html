@@ -711,8 +711,8 @@ footer small{font-size:13px;color:var(--ink-faint)}
       <h2>Simple plans.<br>Honest limits.</h2>
       <p style="font-size:17px;color:var(--ink-soft);margin-top:14px">Start free. Upgrade when your portfolio grows. Cancel anytime.</p>
       <div class="billing-tog">
-        <button id="btnMonthly" class="active" onclick="setBilling('monthly')">Monthly</button>
-        <button id="btnYearly" onclick="setBilling('yearly')">Yearly <span class="save-tag">2 months free</span></button>
+        <button id="btnMonthly" class="active">Monthly</button>
+        <button id="btnYearly">Yearly <span class="save-tag">2 months free</span></button>
       </div>
     </div>
     <div class="plans">
@@ -774,7 +774,7 @@ footer small{font-size:13px;color:var(--ink-faint)}
     <div class="subscribe reveal">
       <input type="text" id="hpField" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
       <input type="email" id="emailInput" placeholder="you@email.com" aria-label="Email address">
-      <button class="btn btn-dark" onclick="subscribe()">Subscribe</button>
+      <button id="subscribeBtn" class="btn btn-dark">Subscribe</button>
     </div>
     <div class="sub-msg" id="subMsg"></div>
     <p class="sub-note">By subscribing you agree to receive occasional emails from CryptoIdea. We never sell or share your email, and you can unsubscribe at any time. Emails are for general information only and are not financial advice.</p>
