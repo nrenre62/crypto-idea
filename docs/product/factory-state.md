@@ -40,13 +40,13 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## DARK-MODE-FIXES — dark-only Sell/Buy + Research borders + NaN guard (DP round 34)
-- Phase: G1  (awaiting architect G2 plan)
+- Phase: G2-approved  (inner loop — no re-interview on resume)
 - CRYP: CRYP-92  (Story; To Do)
 - G1 confirmed: yes  (🟩 GREEN, decisions locked in NEXT-STEPS §DARK-MODE-FIXES; no re-interview — spec fully detailed w/ loci + gaps G1–G7)
-- G2 approved: no    (no code before this is yes)
+- G2 approved: yes   (plan approved 2026-08-07. Q1=a bright --sr/--sg submit FILL + DARK ink label [AA-safe, ~6.4:1/8.5:1]; Q2=yes fold .tx-badge.sell/.buy tags + .kv-v.kv-sell "Sold" value onto the Sell red. NaN fix = OverviewView-local top2 [Option A]. Structure: ONE PR, TWO commits.)
 - Plan (files): pending architect — expected: src/styles/app.css (dark-only .tx-btn.sell red · .seg-btn toggle buy-green/sell-red · .submit-buy/.submit-sell · new --edge-bright:#fff in dark :root) · src/features/research/styles/research-tab.css (dark-only card/coin-card/diversify/stress + neutral .cc-* → --edge-bright; brighten stress + diversify) · src/features/research/components/OverviewView.jsx (NaN guard = DARK-FIX-NaN, own commit) · tests/unit (NaN guard test) · DESIGN-PASS R34 · ERRORS.md (NaN entry) · CLAUDE.md
 - Fix-round: 0 / 3
-- Open findings: G2 plan drafted (architect). Structure = ONE PR, TWO commits: (1) DARK-FIX-NaN — OverviewView-local top2 guard [Option A, recommended] + red-first test + ERRORS.md; (2) dark CSS round. KEY FINDING: NaN is ALWAYS-on in BOTH themes (deriveRisk returns no `top2`; OverviewView L64 does Math.round(undefined)). Loci corrected vs NEXT-STEPS: Detail Buy/Sell buttons Detail.jsx L106-107; Research stat-boxes = `.pos-stat` (NOT `.cc-*`); DP round = **34**. **AWAITING FOUNDER (2 Qs before G2 lock):** Q1 = submit-button contrast (bright --sr/--sg fill fails AA w/ white text) → (a) bright fill + DARK ink label [rec] / (b) white label on current --warn/--accent; Q2 (yes/no) = also fold `.tx-badge.sell`/`.buy` tags + `.kv-v.kv-sell` "Sold" value onto the Sell red [rec yes].
+- Open findings: none — both G2 questions answered (Q1=a, Q2=yes). Plan LOCKED. Commit 1 (DARK-FIX-NaN): OverviewView-local top2 guard + red-first OverviewView.test.jsx + ERRORS.md entry (NaN always-on both themes — deriveRisk has no top2). Commit 2 (dark CSS round, dark-block-only): app.css .tx-btn.sell/.tx-badge.sell/.kv-v.kv-sell→--sr, .seg-btn buy-green/sell-red + active contrast, .submit-* bright fill + DARK ink label; research-tab.css .card/.coin-card/.pos-stat/.diversify/stress→--edge-bright (colored chips keep tint G4) + vivid stress gradient + shining diversify; new --edge-bright:#fff in dark :root. Loci: Detail buttons L106-107; stat-boxes=.pos-stat; DP Round 34. Light byte-for-byte identical (structural + build-diff proof).
 - Branch: claude/dark-mode-fixes
 - Built: no
 - Merged: no
