@@ -21,6 +21,10 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
   "Question style"). If the founder hasn't answered, wait — do not guess a decision.
 - **The three gates are hard stops.** Do not write code before G2's "yes"; do not commit-to-merge
   before G3's "yes". Agents draft and execute; the founder decides.
+- **One PR per component; keep it small.** Each component ships as **one PR** (opened by default at
+  G3, step 17) following [`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md). Scope the increment to
+  **~200 changed lines** (a handful of files) at G2; if the plan is clearly larger, split it into
+  sequenced components rather than one sprawling PR.
 - **One component at a time, then auto-advance.** Fully finish one backlog item (through G3) before
   starting the next — never build two at once. But when a component is done, **continue straight to the
   next queued item without a separate "shall I continue?" stop** (founder rule 2026-08-04: "build items
@@ -148,9 +152,14 @@ below. This changes no step numbers — G1 still begins at step 4.
 
 ## 🧑 G3 — Merge approval (founder decides)
 
-17. **Present for merge in plain chat.** Summarize: what shipped, the green test verdict, the review
-    outcomes, the diff. Ask the founder whether to **merge / open a PR** (open a PR only if they ask).
-    **Do not merge without the explicit yes.**
+17. **Open the PR, then present for merge in plain chat.** Open a PR per component **by default**
+    (founder standing decision 2026-08-06) following [`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md):
+    base `master`, title = the integrator's Conventional-Commit line (with the CRYP key), body filling
+    [`.github/pull_request_template.md`](../../.github/pull_request_template.md) (Why / What changed /
+    How tested / Screenshots for UI / Checklist) + `Closes #` for the GitHub issue. Then summarize what
+    shipped, the green test verdict, the review outcomes, and the diff, and ask the founder to approve the
+    **squash-merge**. Only the *opening* is automatic — **do not merge without the explicit yes**, and
+    confirm the CI Checks are green before merging.
 
 ## ⚙️ Outer loop
 

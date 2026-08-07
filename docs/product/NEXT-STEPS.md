@@ -48,6 +48,27 @@ switched off, but progress lives in the ledger files, so it no longer halts the 
 
 ---
 
+## PR-WORKFLOW. Canonical PR standard + factory wiring (PR-per-component default)  (✅ BUILT 2026-08-06 · docs/config only)
+
+Founder research note *"PR Explained"* → a repo-canonical PR standard, and the Agent Factory now
+**opens a PR per component by default** at G3 (founder decision 2026-08-06; supersedes the old "no PR
+unless asked"). Decisions locked: (1) PR-per-component default · (2) keep `claude/…` branches ·
+(3) new canonical doc · (4) adopt GitHub issues (`Closes #`) · (5) squash-merge + delete + CI-green +
+repo settings.
+
+- **New:** [`PR-WORKFLOW.md`](PR-WORKFLOW.md) (the standard: title/body/size/CI/squash/linking/repo
+  settings) + `.github/pull_request_template.md` (Why / What / How tested / Screenshots / Checklist,
+  CRYP key + `Closes #`).
+- **Wired:** `integrator.md` (PR opened at G3, not "no PR unless asked") · `build-feature.md` (step 17
+  opens the PR by default + a one-PR/~200-line absolute rule) · `AGENT-FACTORY.md` (G3 table, assembly
+  line, roster, §7 conventions, §8 open-question resolved) · `architect.md` (~200-line split rule) ·
+  `AGILE.md` DoD (one PR per PR-WORKFLOW.md).
+- **Founder GitHub-UI follow-up (not code — can't be set from the agent environment):** set Squash as
+  the default merge + disable Merge/Rebase + enable auto-delete head branches; branch protection on
+  `master` requiring the CI checks. Listed in `PR-WORKFLOW.md` §10.
+
+---
+
 ## AUTH-DUP. Prevent duplicate-signup double-submit + admin dedupe detector  (✅ BUILT 2026-08-01 · client lock + read-only admin callable)
 
 Founder report (2026-08-01, with a screenshot showing **two `mark@test.com` rows** in the admin

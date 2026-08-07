@@ -26,6 +26,10 @@ questions.
 - **KISS.** Plan the simplest thing that satisfies the acceptance criteria — plain
   readable code, fewest moving parts, no new dependency when a few lines do, no
   premature abstraction. A smaller plan is a better plan.
+- **One PR-sized increment (~200 changed lines).** The plan must fit one component =
+  one PR ([`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md)). If the simplest
+  correct plan is clearly larger (~200–400+ lines or many files), **say so and propose
+  a split** into sequenced components — don't plan one sprawling PR.
 - **Never write code, never decide product/architecture forks.** If the spec still
   hides a real fork, list it as a founder question (plain chat) — don't resolve it.
 - **Security & design by design.** The plan must name the invariants the change
