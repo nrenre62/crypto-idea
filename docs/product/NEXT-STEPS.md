@@ -89,6 +89,13 @@ Factory **G1** (no new slash-commands) · (3) adopt **Components** (surfaces) ·
   `build-feature.md` (G1 files a CRYP Story; transition to Done at merge; a one-Story-per-component
   absolute rule) · `spec-drafter.md` (AC drafted Story-ready, Given/When/Then) · `interview.md`
   (consistency-map row) · `CLAUDE.md` (Jira-planning bullet) · `README.md` ("How I built this").
+- **Versioning (founder, 2026-08-07):** the app **and** admin ship as **one product at one version**.
+  The first Firebase deploy goes out as a **public beta** — **`1.0.0-beta`**, **target 2026-10-01** —
+  then `1.0.0` when stable (SemVer pre-release ladder documented in `JIRA-PLAYBOOK.md` §4.2). Fixed the
+  bogus `"version": "4.0.0"` in `package.json` + `functions/package.json` → `1.0.0-beta` (metadata only,
+  build-safe — `stamp-sw.js` doesn't read it). `CHANGELOG.md` retargeted to `1.0.0-beta` and the fake
+  `0.1–0.8` "releases" collapsed into one honest "pre-release development" history (nothing was ever
+  tagged/deployed). Until 2026-10-01: fix the major things + polish the app and the docs.
 - **Duplicate flagged for founder cleanup (Jira UI — no delete tool over the connection):** **CRYP-84**
   (Story) re-files the work of **CRYP-1 + CRYP-2** (Tasks) — delete CRYP-84, keep the two Tasks.
 - **Track B (deferred, founder's go):** create the 9 Components + the `v0.x`/`v1.0` Versions via the

@@ -236,14 +236,24 @@ A **Version = a release**; a ticket attaches via its **Fix Version** ("which rel
 Versions move unreleased → released, producing a clean release history and a Releases-page screenshot
 that is strong, always-honest evidence.
 
-Suggested versions, grouped by shipped area (backfill the Done work into these; date each Released
-version from its real ship date in git):
+**One product, one version.** The user app and the admin app ship together as **one product at one
+version** — never versioned separately. The version lives in `package.json` + `functions/package.json`
+(kept in step with the release), and mirrors into [`CHANGELOG.md`](../../CHANGELOG.md).
+
+**Pre-release ladder (SemVer).** Until the product is stable and public it carries a **pre-release tag**,
+which SemVer orders *below* the plain version (`1.0.0-beta` ships before `1.0.0`):
 
 ```
-v0.1 Foundations   v0.2 Accounts     v0.3 Design system
-v0.4 Core features v0.5 AI research  v0.6 Billing
-v0.7 Admin         v0.8 Security     v1.0 Public launch
+pre-alpha → alpha (1.0.0-alpha) → beta (1.0.0-beta) → release candidate (1.0.0-rc.1) → 1.0.0 (stable, public)
 ```
+
+`0.x.y` means "initial development, not yet stable." Our first Firebase deploy skips straight to a
+public **beta**: **`1.0.0-beta`**, targeted **2026-10-01** — the whole app + admin, on a real Firebase
+project. Once the beta is stable it becomes `1.0.0` (optionally through `1.0.0-rc.N`).
+
+**On the board:** set each Done story's **Fix Version** to the release it ships in — most existing work
+is `1.0.0-beta`. Mark a Version **Released** with its real ship date when it deploys. Keep Fix Versions
+few and honest; don't invent a shipped version that never deployed.
 
 > Team-managed projects have a Releases page but **no built-in Release-Notes generator** and fewer
 > automation triggers than company-managed — fine for our purpose (grouping + evidence). Only switch to
