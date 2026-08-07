@@ -46,7 +46,7 @@ a fresh context resumes **exactly where it left off**.
 - G2 approved: no    (no code before this is yes)
 - Plan (files): pending architect — expected: src/styles/app.css (dark-only .tx-btn.sell red · .seg-btn toggle buy-green/sell-red · .submit-buy/.submit-sell · new --edge-bright:#fff in dark :root) · src/features/research/styles/research-tab.css (dark-only card/coin-card/diversify/stress + neutral .cc-* → --edge-bright; brighten stress + diversify) · src/features/research/components/OverviewView.jsx (NaN guard = DARK-FIX-NaN, own commit) · tests/unit (NaN guard test) · DESIGN-PASS R34 · ERRORS.md (NaN entry) · CLAUDE.md
 - Fix-round: 0 / 3
-- Open findings: none
+- Open findings: G2 plan drafted (architect). Structure = ONE PR, TWO commits: (1) DARK-FIX-NaN — OverviewView-local top2 guard [Option A, recommended] + red-first test + ERRORS.md; (2) dark CSS round. KEY FINDING: NaN is ALWAYS-on in BOTH themes (deriveRisk returns no `top2`; OverviewView L64 does Math.round(undefined)). Loci corrected vs NEXT-STEPS: Detail Buy/Sell buttons Detail.jsx L106-107; Research stat-boxes = `.pos-stat` (NOT `.cc-*`); DP round = **34**. **AWAITING FOUNDER (2 Qs before G2 lock):** Q1 = submit-button contrast (bright --sr/--sg fill fails AA w/ white text) → (a) bright fill + DARK ink label [rec] / (b) white label on current --warn/--accent; Q2 (yes/no) = also fold `.tx-badge.sell`/`.buy` tags + `.kv-v.kv-sell` "Sold" value onto the Sell red [rec yes].
 - Branch: claude/dark-mode-fixes
 - Built: no
 - Merged: no
