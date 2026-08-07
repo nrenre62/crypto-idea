@@ -7,7 +7,7 @@
 
 set -e
 
-echo "🚀 CryptoIdea — Deploy v4.0.0"
+echo "🚀 CryptoIdea — Deploy v1.0.0-beta"
 echo "═══════════════════════════════"
 
 # Check prerequisites

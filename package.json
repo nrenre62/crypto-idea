@@ -1,6 +1,6 @@
 {
   "name": "crypto-idea",
-  "version": "4.0.0",
+  "version": "1.0.0-beta",
   "description": "Crypto portfolio tracker & DCA calculator PWA",
   "type": "module",
   "scripts": {
@@ -19,7 +19,7 @@
     "test:integration:solo": "firebase emulators:exec --only auth,firestore,functions --project demo-crypto-idea --config firebase.solo.json \"node --test --test-force-exit tests/data-layer.test.js tests/functions-callable.test.js\""
   },
   "dependencies": {
-    "firebase": "^12.14.0",
+    "firebase": "^12.17.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },

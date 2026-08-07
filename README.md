@@ -44,6 +44,29 @@ Bugs are tracked in Jira (project **CRYP**) and fixed failing-test-first — see
 [`JIRA-WORKFLOW.md`](docs/testing/JIRA-WORKFLOW.md) for the loop, the `it("CRYP-42: …")` traceability
 marker, and the `/jira-bug` · `/jira-fix` · `/jira-test-sync` · `/jira-bug-hunt` commands.
 
+## How I built this
+
+I run CryptoIdea like a product, not a hobby project — a real backlog, tests first, grouped releases.
+
+- **Jira (project CRYP), Kanban with WIP = 1.** Each feature area is an **Epic** (Accounts, Design
+  system, Billing, Admin, Security, …); epics break into **user stories** with **Given/When/Then**
+  acceptance criteria. Work moves `To Do → In Progress → In Review → Done`, one item at a time.
+- **TDD.** Those acceptance criteria become failing tests first (`test:unit` / `test:rules` /
+  `test:integration`), then the implementation makes them green — never the other way around, and never
+  by weakening a test.
+- **AI-assisted, human-reviewed.** I use Claude Code (via the Atlassian Rovo MCP) to draft tickets and
+  implement against them, and I review every line and understand the code that ships.
+- **One PR per change**, Conventional-Commit title carrying the **CRYP key**, CI green, squash-merged —
+  so the process is visible directly in the public commit history. Shipped work is grouped into
+  **Versions/Releases**.
+- **Consistency by construction.** Every substantive change is interviewed, planned, and swept across
+  all the docs/code it touches before it commits (`docs/interview.md`).
+
+The full method: [`JIRA-PLAYBOOK.md`](docs/testing/JIRA-PLAYBOOK.md) (planning + hierarchy + releases) ·
+[`AGILE.md`](docs/product/AGILE.md) (Definition of Done) ·
+[`PR-WORKFLOW.md`](docs/product/PR-WORKFLOW.md) (pull requests) · [`CHANGELOG.md`](CHANGELOG.md)
+(release history).
+
 ## Setup Guide (15 minutes)
 
 ### Step 1: Create Firebase Project
