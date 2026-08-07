@@ -225,6 +225,15 @@ surface** so every ticket says which part of the app it touches:
 | `security` | rules, isolation, hardening |
 | `landing` | marketing page + the free DCA calculator |
 
+⚠️ **Components + Versions are set up in the Jira UI, not over the MCP.** The Rovo MCP creates/edits
+*issues* only — it has **no tool to create a Component or a Version, or to enable the Components
+feature** (its `create*Component` tools are Atlassian *Compass*, a different product). On this
+team-managed project the **Components feature is off**, so the `components` field isn't even on the issue
+screen. One-time UI setup: **Project settings → Features → enable Components**, then **Project settings →
+Components** to create the nine; **Releases → Create version** for `1.0.0-beta`. **Once they exist**, the
+MCP *can* set them per-issue (`editJiraIssue` with `components` / `fixVersions`) — so tagging is
+automatable, creation is not.
+
 > **Why components *and* Epics?** The 9 Epics are **workstreams** (phases of delivery); Components are
 > **surfaces** (parts of the app). They're different axes — a `billing` story lives under the Billing
 > Epic *and* carries the `billing` component. Don't create a component that just restates an Epic 1:1;
