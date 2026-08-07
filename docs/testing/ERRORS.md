@@ -14,6 +14,24 @@
 
 ## A. Confirmed bugs
 
+### A9 · DARK-FIX-NaN — Research diversification note reads "about NaN%" ✅ (medium)
+
+- **Symptom:** The Research → Overview "A note on diversification" card reads *"Your top two coins make up
+  about **NaN%** of your portfolio."* on every non-empty session (both light and dark — this is **not** a
+  dark-mode issue).
+- **Where:** `src/features/research/components/OverviewView.jsx` — the note did `Math.round(portfolio.risk.top2)`.
+- **Root cause:** `deriveRisk(holdings)` (`src/features/research/utils/portfolio.js`) returns
+  `{level, score, breakdown, megaAlloc}` — it has **no `top2` field**. `risk.top2` is therefore `undefined`,
+  and `Math.round(undefined)` → `NaN`, rendered verbatim into the copy. Theme-independent.
+- **Fix:** Compute the top-two allocation locally from `portfolio.holdings` (the same math `usePulse` /
+  `portfolioContext` already use): `const top2 = (portfolio.holdings || []).slice(0,2).reduce((s,h)=>s+(h.alloc||0),0);`
+  and render it behind a `Number.isFinite(top2)` guard — the finite path prints `about {Math.round(top2)}%`,
+  the non-finite path drops the "about X%" clause so "NaN" can never reach the DOM.
+- **Verify:** `npx vitest run tests/unit/OverviewView.test.jsx` — the CRYP-92 test asserts the note reads
+  `about 65%` for holdings 40 + 25 and never matches `/NaN/`; the sibling R7-5 glyph test still passes.
+- **Severity:** medium (visibly broken copy on a core tab; no data loss).
+- **Status:** ✅ **FIXED 2026-08-07** (CRYP-92 / DARK-FIX-NaN).
+
 ### A1 · B-PORT — "Couldn't create portfolio. Check your connection." ✅ (high)
 
 - **Symptom:** Adding a portfolio shows the toast *"Couldn't create portfolio. Check your connection."* —
@@ -288,7 +306,7 @@
 - **Status:** ✅ **FIXED 2026-08-07** on branch `claude/github-bot-dependency-review-qupedn` — firebase-admin
   modular migration; unblocks Dependabot #26.
 
-### A9 · Landing billing toggle + Subscribe button are dead under the production CSP (inline `onclick=`) ✅ (medium)
+### A10 · Landing billing toggle + Subscribe button are dead under the production CSP (inline `onclick=`) ✅ (medium)
 
 - **Symptom:** On the marketing landing (`/`), clicking **Monthly/Yearly** does nothing and the **Subscribe**
   button does nothing — only pressing **Enter** in the email field subscribes.

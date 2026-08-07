@@ -281,8 +281,12 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 /* ── Dark-mode fixes (R2-8 / R3-8) — dark-block-only; light mode untouched ──
    These rules hardcoded light colours that don't flip with the design tokens. */
 /* R2-8: "A note on diversification" card was a light gradient (light-on-light in dark) */
-html[data-theme="dark"] .research-root .diversify{background:linear-gradient(135deg,var(--accent-soft),var(--paper-2));border-color:var(--line)}
+/* Round 34: opaque white edge + shining green heading/link + lifted body text in dark. */
+html[data-theme="dark"] .research-root .diversify{background:linear-gradient(135deg,var(--accent-soft),var(--paper-2));border-color:var(--edge-bright)}
 html[data-theme="dark"] .research-root .diversify .dic{background:var(--paper-3);border-color:var(--line-strong)}
+html[data-theme="dark"] .research-root .diversify h3{color:var(--accent-ink)}
+html[data-theme="dark"] .research-root .diversify a{color:var(--accent-ink)}
+html[data-theme="dark"] .research-root .diversify p{color:var(--ink)}
 /* the "AI is offline" note kept a light amber box — tint it for dark, stay amber */
 html[data-theme="dark"] .research-root .ai-note{color:var(--amber);background:rgba(184,132,31,.14);border-color:rgba(184,132,31,.32)}
 /* R3-8: the Ask hero is a dark gradient that blends into the dark page, and its h3
@@ -294,3 +298,12 @@ html[data-theme="dark"] .research-root .ask{color:var(--ink);border:1px solid va
 html[data-theme="dark"] .research-root .ic-up{color:var(--accent-ink)}
 html[data-theme="dark"] .research-root .ic-watch{background:var(--sr-s);color:var(--sr)}
 /* (R6-1 disclaimer dark override removed in R13-1 — base is now --ink-soft in both modes.) */
+
+/* ── Dark-mode Research Stress (Round 34) — dark-block-only; light untouched ──
+   (The neutral Overview/Coins/.pos-stat white --edge-bright card borders live in app.css,
+   consolidated onto the rule that already owns the .research-root card edge — no cross-file
+   source-order tie. Colored chips keep their semantic tint and are excluded there.)
+   Stress: the slider track + up/down deltas used dull light --accent/--warn — brighten. */
+html[data-theme="dark"] .research-root .scn-slider{background:linear-gradient(90deg,var(--sr) 0%,var(--line-strong) 50%,var(--sg) 100%)}
+html[data-theme="dark"] .research-root .scn-chg.up{color:var(--accent-ink)}
+html[data-theme="dark"] .research-root .scn-chg.down{color:var(--sr)}

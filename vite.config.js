@@ -40,6 +40,12 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: false,
     minify: "terser",
+    // Pin the browser floor explicitly. Vite 7 changed the default build.target from
+    // "modules" to "baseline-widely-available" (newer: chrome107/safari16/…), so leaving it
+    // unset would SILENTLY drop older-browser support on the vite 6→8 bump. This is the
+    // explicit expansion of the old "modules" alias (vite 8's Rolldown bundler rejects the
+    // bare "modules" string); it keeps the prior floor. Raise it deliberately if ever wanted.
+    target: ["es2020", "edge88", "firefox78", "chrome87", "safari14"],
     rollupOptions: {
       input: {
         main: r("./index.html"),

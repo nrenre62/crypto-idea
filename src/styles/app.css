@@ -61,6 +61,10 @@ html[data-theme="dark"] .research-root {
   /* R18: soft off-white edge for cards/popups/neutral-pills + the Search separator in dark
      (one tunable knob). Their --line/--line-2 borders are near-invisible on dark paper. */
   --edge:rgba(236,233,225,.16);
+  /* Round 34: an OPAQUE white 1px edge for the neutral Research cards + the four .pos-stat
+     stat-boxes, where the faint .16 --edge still reads as no border. The only new value
+     this round; scoped so it reaches both .ci-app and .research-root. */
+  --edge-bright:#fff;
 }
 
 /* ── Dark-mode visibility fixes (Round 3) — dark-block-only; light mode untouched ── */
@@ -147,11 +151,28 @@ html[data-theme="dark"] .ci-app .seg-btn { color:var(--ink-soft); }
    on the dark paper. Internal row-dividers (.kv-row/.tx-row/journal-Q) intentionally stay
    subtle (--line-2). .learn-hero/.value-card keep their gradient frames (not listed). */
 html[data-theme="dark"] .ci-app :is(.card,.j-entry,.nt-row,.module,.asset-card,.trend-card,.tx-list,.today-lesson,.set-scr) { border-color:var(--edge); }
-html[data-theme="dark"] .research-root :is(.card,.coin-card,.trend-card) { border-color:var(--edge); }
+html[data-theme="dark"] .research-root :is(.card,.coin-card,.pos-stat) { border-color:var(--edge-bright); }
+html[data-theme="dark"] .research-root .trend-card { border-color:var(--edge); }
 html[data-theme="dark"] .ci-app .cm-card { border:1px solid var(--edge); }
 html[data-theme="dark"] .ci-app :is(.learn-chip,.port-pill,.port-pill-add,.port-pill-edit,.pill-ghost,.btn-ghost,.seg-btn,.add-pill:disabled,.tx-pg,.tx-pg-nav) { border-color:var(--edge); }
 html[data-theme="dark"] .research-root :is(.src-chip,.tf-pills,.seg) { border-color:var(--edge); }
 html[data-theme="dark"] .ci-app .trend-item { border-bottom-color:var(--edge); }
+
+/* ── Dark-mode Buy/Sell semantic colours (Round 34) — dark-block-only; light untouched ──
+   Base Sell surfaces hardcode a light pink (#fbede9) and light-only tokens (--warn) that
+   don't flip. Consolidate every Sell surface onto the bright --sr/--sr-s and every Buy
+   surface onto --accent-soft/--accent-ink/--sg so both read "shiny" on the dark paper. */
+html[data-theme="dark"] .ci-app .tx-btn.sell { background:var(--sr-s); color:var(--sr); }
+html[data-theme="dark"] .ci-app .tx-badge.sell { background:var(--sr-s); color:var(--sr); }
+/* the Detail "Sold" value used the dull light --warn — brighten to --sr */
+html[data-theme="dark"] .ci-app .kv-v.kv-sell { color:var(--sr); }
+/* Buy/Sell form segment: the active pill was a neutral --paper-2 that barely lifts off the
+   dark track — colour the active pill + shiny label per side (inactive stays muted above). */
+html[data-theme="dark"] .ci-app .seg-btn.on-buy { background:var(--accent-soft); color:var(--accent-ink); }
+html[data-theme="dark"] .ci-app .seg-btn.on-sell { background:var(--sr-s); color:var(--sr); }
+/* Submit: bright fill + dark paper-ink label (AA-safe — --sg/--sr on --paper ≈ 6-9:1). */
+html[data-theme="dark"] .ci-app .submit-buy { background:var(--sg); color:var(--paper); }
+html[data-theme="dark"] .ci-app .submit-buy.submit-sell { background:var(--sr); color:var(--paper); }
 
 /* paper background for a full screen root */
 .ci-app.screen-bg { background:var(--paper); min-height:100vh; }

@@ -39,17 +39,17 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-## PORTFOLIO-TEXT-SIZE — Coin Detail card readability (font-size bumps + retire kv-sm)
+## DARK-MODE-FIXES — dark-only Sell/Buy + Research borders + NaN guard (DP round 34)
 - Phase: built  (awaiting G3 — merge + PR)
-- CRYP: CRYP-91  (Story; To Do)
-- G1 confirmed: yes         (size map locked in NEXT-STEPS §PORTFOLIO-TEXT-SIZE; scope decision Option A)
-- G2 approved: yes          (plan approved 2026-08-07 — verified app.css line edits; 1 red-first unit test for kv-sm; font-sizes = browser+build)
-- Plan (files): src/styles/app.css (9 font-size bumps: ph-sub L435 · price-hero .chg-pill L437 · kv-k L441 · kv-v L442 · ph-mc L449 · tx-btn L464 · tx-badge L469 · tx-meta L473 · tx-rprice L494; DELETE .kv-row.kv-sm block L452-454; NO edit to base .chg-pill / .tx-title L462) · src/components/Detail.jsx (drop kv-sm on rows L92,L95) | tests: tests/unit/Detail.test.jsx (new red-first kv-sm-retirement test; coin w/ buy+sell) — font-size bumps browser+build (no unit); no existing test/snapshot pins old sizes | docs: DESIGN-PASS.md (Round 33) · CLAUDE.md (follow-on line) · NEXT-STEPS §PORTFOLIO-TEXT-SIZE + BUILD-LOOP #16 → BUILT. CoinInfo.jsx NOT edited (inherits) but in browser-verify surface.
-- Fix-round: 0 / 3  (green first pass — no fix-loop)
-- Open findings: none  (verify GREEN unit 952/952 + build clean · security SAFE · design CONSISTENT · simplifier no-op)
-- Branch: claude/portfolio-text-size
-- Built: yes 786c85e  (code green; docs finalize commit follows)
+- CRYP: CRYP-92  (Story; To Do)
+- G1 confirmed: yes  (🟩 GREEN, decisions locked in NEXT-STEPS §DARK-MODE-FIXES; no re-interview — spec fully detailed w/ loci + gaps G1–G7)
+- G2 approved: yes   (plan approved 2026-08-07. Q1=a bright --sr/--sg submit FILL + DARK ink label [AA-safe, ~6.4:1/8.5:1]; Q2=yes fold .tx-badge.sell/.buy tags + .kv-v.kv-sell "Sold" value onto the Sell red. NaN fix = OverviewView-local top2 [Option A]. Structure: ONE PR, TWO commits.)
+- Plan (files): pending architect — expected: src/styles/app.css (dark-only .tx-btn.sell red · .seg-btn toggle buy-green/sell-red · .submit-buy/.submit-sell · new --edge-bright:#fff in dark :root) · src/features/research/styles/research-tab.css (dark-only card/coin-card/diversify/stress + neutral .cc-* → --edge-bright; brighten stress + diversify) · src/features/research/components/OverviewView.jsx (NaN guard = DARK-FIX-NaN, own commit) · tests/unit (NaN guard test) · DESIGN-PASS R34 · ERRORS.md (NaN entry) · CLAUDE.md
+- Fix-round: 1 / 3  (design-consistency advisory: fragile equal-specificity cross-file cascade for research .card border → fixed 376e771 by consolidating into app.css; re-verified GREEN)
+- Open findings: none — verify GREEN (unit 957/957 + build clean) · security SAFE · design CONSISTENT (2 advisory: #1 cascade→FIXED fix-round 1; #2 "dead" Number.isFinite guard→KEPT intentionally as never-NaN defense). Both G2 questions answered (Q1=a, Q2=yes). Plan LOCKED. Commit 1 (DARK-FIX-NaN): OverviewView-local top2 guard + red-first OverviewView.test.jsx + ERRORS.md entry (NaN always-on both themes — deriveRisk has no top2). Commit 2 (dark CSS round, dark-block-only): app.css .tx-btn.sell/.tx-badge.sell/.kv-v.kv-sell→--sr, .seg-btn buy-green/sell-red + active contrast, .submit-* bright fill + DARK ink label; research-tab.css .card/.coin-card/.pos-stat/.diversify/stress→--edge-bright (colored chips keep tint G4) + vivid stress gradient + shining diversify; new --edge-bright:#fff in dark :root. Loci: Detail buttons L106-107; stat-boxes=.pos-stat; DP Round 34. Light byte-for-byte identical (structural + build-diff proof).
+- Branch: claude/dark-mode-fixes
+- Built: yes  (code ac08cb5 + fix-round 376e771; docs finalize commit follows)
 - Merged: no
-- Agents this item: 8 (architect, test-author, client-builder, test-tier-verifier, secure-by-design, design-consistency, simplifier, docs-scribe) — G1 gap-grounding + step-13 doc sweep done inline; integrate performed by orchestrator (integrator tool-gap: no Edit/Write for factory-state/runs)
+- Agents this item: 9 (architect, test-author, client-builder, test-tier-verifier, secure-by-design, design-consistency, client-builder[fix-round-1], test-tier-verifier[re-verify], docs-scribe) — simplifier SKIPPED (increment minimal; fix-round removed the sole duplication; NaN guard intentionally retained); dedicated sweep skipped (NEXT-STEPS spec enumerates the file set); integrate by orchestrator (integrator tool-gap)
 - Updated: 2026-08-07
-- Decisions (G1): Q1 = **Option A** — bump the 4 shared base rules directly; the CoinInfo overlay's ticker/hero-pill/kv rows grow too (accepted, consistent readability win; browser-verify no overflow at the 560 narrow track). No Detail-scoping wrapper. Size map + kv-sm retirement locked in NEXT-STEPS.
+- Decisions (G1, all founder-locked 2026-08-05): G1 = NaN diversification note is a FIX, spun out as own required commit DARK-FIX-NaN · G3 = one shared --edge-bright:#fff (opaque white 1px) in dark :root · G4 = white border on NEUTRAL surfaces only (cards + .cc-* stat-boxes); colored chips keep semantic tint. HARD CONSTRAINT: dark-block-only (html[data-theme="dark"]); light mode byte-for-byte identical (prove by diff). Planned PR shape: ONE PR (component #15) with 2 commits (DARK-FIX-NaN functional + dark CSS round) — confirm at G2 per architect.
