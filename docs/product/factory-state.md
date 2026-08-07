@@ -39,4 +39,17 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(none in flight — PORTFOLIO-NUM-FIX merged as PR #32 → master `9c3be65`; run metrics in `factory-runs.md`. The next item's G1 writes the next block here.)*
+## PORTFOLIO-TEXT-SIZE — Coin Detail card readability (font-size bumps + retire kv-sm)
+- Phase: G1  (awaiting G2 plan approval)
+- CRYP: CRYP-91  (Story; To Do)
+- G1 confirmed: yes         (size map locked in NEXT-STEPS §PORTFOLIO-TEXT-SIZE; scope decision Option A)
+- G2 approved: no           (no code before this is yes)
+- Plan (files): pending architect — expected: src/styles/app.css (9 font-size bumps + delete .kv-row.kv-sm block) · src/components/Detail.jsx (drop kv-sm on 2 rows) | tests: kv-sm retirement is unit-testable; font-size bumps browser-verify + build | docs: DESIGN-PASS.md (next DP round) · CLAUDE.md (design-follow-on note)
+- Fix-round: 0 / 3
+- Open findings: none
+- Branch: claude/portfolio-text-size
+- Built: no
+- Merged: no
+- Agents this item: 1 (architect)  — G1 gap-grounding done inline (source-verified the CoinInfo shared-selector leak)
+- Updated: 2026-08-07
+- Decisions (G1): Q1 = **Option A** — bump the 4 shared base rules directly; the CoinInfo overlay's ticker/hero-pill/kv rows grow too (accepted, consistent readability win; browser-verify no overflow at the 560 narrow track). No Detail-scoping wrapper. Size map + kv-sm retirement locked in NEXT-STEPS.
