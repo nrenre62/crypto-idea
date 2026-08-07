@@ -36,7 +36,12 @@ const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
 // Sentinels via the modular subpath — `admin.firestore.FieldValue` is undefined inside the
 // functions emulator (the namespace is proxied), so the namespace form throws there. See ERRORS.md C3.
-const { FieldValue } = require("firebase-admin/firestore");
+const { getAuth } = require("firebase-admin/auth");
+// firebase-admin v13+ REMOVED the namespaced admin.auth()/admin.firestore() accessors from the
+// root export (they throw "admin.auth is not a function" on v13/v14); the modular subpaths below
+// resolve on BOTH v12 and v14. FieldValue must also come from the subpath — admin.firestore.FieldValue
+// is undefined inside the functions emulator (the namespace is proxied). See ERRORS.md A8 (+ C3).
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 // BL-1a/BL-1b: shared security guards (per-uid limiter / cooldown / App Check gate)
 // and the pure PayPal-billing decision logic — both dependency-injected + unit-tested.
 const { checkCooldown, consumeDailyBudget } = require("./guards.js");
@@ -68,7 +73,8 @@ const duplicates = require("./duplicates.js");   // AUTH-DUP: pure duplicate-ema
 const RL_TRUSTED_HOPS = Number(process.env.RL_TRUSTED_HOPS) || 2;
 
 admin.initializeApp();
-const db = admin.firestore();
+const db = getFirestore();
+const auth = getAuth();
 
 // PayPal fallbacks (env). The primary source for clientId/secret/webhookId is the
 // config/app doc (read in getPayPalToken / verifyPayPalWebhook); the plan IDs are
@@ -179,7 +185,7 @@ function assertNoUnknownKeys(data, allowed) {
 // the whole fix for the "promote sock-puppets, then delete the real owners" bypass.
 async function roleOfUid(uid) {
   try {
-    const rec = await admin.auth().getUser(uid);
+    const rec = await auth.getUser(uid);
     return guards.roleOf((rec && rec.customClaims) || null);
   } catch (e) { return ""; }   // no auth record → not an owner
 }
@@ -217,7 +223,7 @@ async function countAdmins() {
   let count = 0;
   let pageToken;
   do {
-    const res = await admin.auth().listUsers(1000, pageToken);
+    const res = await auth.listUsers(1000, pageToken);
     res.users.forEach((u) => { if (u.customClaims && u.customClaims.admin === true) count += 1; });
     pageToken = res.pageToken;
   } while (pageToken);
@@ -231,7 +237,7 @@ async function countActiveOwners() {
   let count = 0;
   let pageToken;
   do {
-    const res = await admin.auth().listUsers(1000, pageToken);
+    const res = await auth.listUsers(1000, pageToken);
     res.users.forEach((u) => {
       if (!u.disabled && guards.roleOf(u.customClaims || null) === guards.ROLE_OWNER) count += 1;
     });
@@ -727,7 +733,7 @@ async function countSignupsSince(cutoffMs) {
   const CAP = 5000;                  // same ceiling as listUsers
   let signups = 0, seen = 0, pageToken;
   do {
-    const res = await admin.auth().listUsers(1000, pageToken);
+    const res = await auth.listUsers(1000, pageToken);
     for (const u of res.users) {
       seen++;
       const created = Date.parse((u.metadata && u.metadata.creationTime) || "");
@@ -800,7 +806,7 @@ exports.setManagerRole = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "Enter a valid email.");
   }
   let userRecord;
-  try { userRecord = await admin.auth().getUserByEmail(email); }
+  try { userRecord = await auth.getUserByEmail(email); }
   catch (e) { throw new functions.https.HttpsError("not-found", "No user with that email."); }
 
   // Owners are never grantable or revocable from the panel — by design, in both
@@ -816,10 +822,10 @@ exports.setManagerRole = functions.https.onCall(async (data, context) => {
   // setCustomUserClaims replaces the object wholesale — write the complete shape.
   // Revoking clears it entirely so the token carries no admin key at all, which is
   // what firestore.rules' .get('admin', false) default already assumes.
-  await admin.auth().setCustomUserClaims(userRecord.uid, grant ? { admin: true, role: guards.ROLE_MANAGER } : null);
+  await auth.setCustomUserClaims(userRecord.uid, grant ? { admin: true, role: guards.ROLE_MANAGER } : null);
   // Without this the change wouldn't take effect until the target's ID token expired
   // (~1h) — unacceptable when REVOKING someone's access.
-  await admin.auth().revokeRefreshTokens(userRecord.uid);
+  await auth.revokeRefreshTokens(userRecord.uid);
   await writeAudit(context, grant ? "grantManager" : "revokeManager", { targetUid: userRecord.uid, targetEmail: email, details: changeDetail("role", beforeRole, grant ? guards.ROLE_MANAGER : "") });
   return { success: true, uid: userRecord.uid, role: grant ? guards.ROLE_MANAGER : null };
 });
@@ -841,7 +847,7 @@ exports.lookupUser = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "Enter a valid email.");
   }
   let rec;
-  try { rec = await admin.auth().getUserByEmail(email); }
+  try { rec = await auth.getUserByEmail(email); }
   catch (e) { throw new functions.https.HttpsError("not-found", "No user with that email."); }
   const snap = await db.collection("users").doc(rec.uid).get();
   const d = snap.exists ? snap.data() : {};
@@ -980,14 +986,14 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
   // ADMIN-5: record the true prior state so a redundant (double-)suspend logs
   // "disabled: true→true", not a fabricated transition.
   let beforeDisabled = false;
-  try { beforeDisabled = !!(await admin.auth().getUser(uid)).disabled; } catch (e) { /* ignore */ }
-  await admin.auth().updateUser(uid, { disabled });
+  try { beforeDisabled = !!(await auth.getUser(uid)).disabled; } catch (e) { /* ignore */ }
+  await auth.updateUser(uid, { disabled });
   const uref = db.collection("users").doc(uid);
   if (disabled) {
     // R31-6 freeze-the-clock: revoke tokens (a live session dies NOW — G40; disabling alone
     // leaves an existing ~1h token valid) and stamp suspendedAt so the daily sweep skips
     // this account (its paid clock is stopped). Go-live also suspends the PayPal subscription.
-    await admin.auth().revokeRefreshTokens(uid);
+    await auth.revokeRefreshTokens(uid);
     await uref.set({ suspendedAt: Date.now() }, { merge: true });
   } else {
     // R31-6 un-suspend: extend the subscription's endDate by the frozen duration so the user
@@ -1020,7 +1026,7 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   // own it protected the admin COUNT, which promoting sock-puppets trivially defeats.
   await assertTargetAllowed(uid, callerRole, "protected");
   let targetRec;
-  try { targetRec = await admin.auth().getUser(uid); }
+  try { targetRec = await auth.getUser(uid); }
   catch (e) { throw new functions.https.HttpsError("not-found", "No such user."); }
   if (targetRec.customClaims && targetRec.customClaims.admin === true && (await countAdmins()) <= MIN_ADMINS) {
     throw new functions.https.HttpsError("failed-precondition", `Can't delete this admin — the app must keep at least ${MIN_ADMINS} admins. Promote another admin first.`);
@@ -1028,7 +1034,7 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   // Wipe Firestore data (the user doc + all nested portfolios/coins/transactions),
   // then remove the Auth account.
   await db.recursiveDelete(db.collection("users").doc(uid));
-  await admin.auth().deleteUser(uid);
+  await auth.deleteUser(uid);
   await writeAudit(context, "deleteUser", { targetUid: uid, targetEmail: (targetRec && targetRec.email) || "" });
   return { success: true, uid };
 });
@@ -1060,7 +1066,7 @@ exports.adminTrashUser = functions.https.onCall(async (data, context) => {
   // ADMIN-SEC: owners can never be trashed, by anyone (identity, not count).
   await assertTargetAllowed(uid, callerRole, "protected");
   let rec = null;
-  try { rec = await admin.auth().getUser(uid); } catch (e) { /* no auth record is fine */ }
+  try { rec = await auth.getUser(uid); } catch (e) { /* no auth record is fine */ }
   if (rec && rec.customClaims && rec.customClaims.admin === true) {
     throw new functions.https.HttpsError("failed-precondition", "Can't trash an admin account — remove their admin role first.");
   }
@@ -1088,7 +1094,7 @@ exports.adminSignOutUser = functions.https.onCall(async (data, context) => {
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   // ADMIN-SEC: repeated force-sign-out is a denial-of-access vector against an owner.
   await assertTargetAllowed(uid, callerRole, "manage");
-  await admin.auth().revokeRefreshTokens(uid);
+  await auth.revokeRefreshTokens(uid);
   await writeAudit(context, "adminSignOutUser", { targetUid: uid });
   return { success: true, uid };
 });
@@ -1122,7 +1128,7 @@ exports.viewUserAsAdmin = functions.https.onCall(async (data, context) => {
   if (!reason) throw new functions.https.HttpsError("invalid-argument", "A reason is required to view a user's data.");
 
   let rec = null;
-  try { rec = await admin.auth().getUser(uid); } catch (e) { /* the auth record may be gone (trashed) */ }
+  try { rec = await auth.getUser(uid); } catch (e) { /* the auth record may be gone (trashed) */ }
   const uref = db.collection("users").doc(uid);
   const usnap = await uref.get();
   if (!usnap.exists && !rec) throw new functions.https.HttpsError("not-found", "No such user.");
@@ -1277,7 +1283,7 @@ exports.signOutEverywhere = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   }
   assertNoUnknownKeys(data, []);
-  await admin.auth().revokeRefreshTokens(context.auth.uid);
+  await auth.revokeRefreshTokens(context.auth.uid);
   await writeAudit(context, "signOutEverywhere", { targetUid: context.auth.uid });   // BL-1d (D11)
   return { success: true };
 });
@@ -1432,7 +1438,7 @@ exports.listUsers = functions.https.onCall(async (data, context) => {
   const users = [];
   let pageToken;
   do {
-    const res = await admin.auth().listUsers(1000, pageToken);
+    const res = await auth.listUsers(1000, pageToken);
     for (const u of res.users) {
       const p = prof[u.uid] || {};
       const joinedMs = p.joined && typeof p.joined.toMillis === "function" ? p.joined.toMillis() : null;
@@ -1484,7 +1490,7 @@ exports.findDuplicateEmails = functions.https.onCall(async (data, context) => {
   const all = [];
   let pageToken;
   do {
-    const res = await admin.auth().listUsers(1000, pageToken);
+    const res = await auth.listUsers(1000, pageToken);
     for (const u of res.users) {
       const p = prof[u.uid] || {};
       all.push({
@@ -2086,7 +2092,7 @@ exports.purgeExpiredTrash = SCHEDULED.pubsub.schedule("every 24 hours").onRun(()
     try {
       if ((d.data().deletedAt || 0) <= cutoff) {
         await db.recursiveDelete(d.ref);
-        try { await admin.auth().deleteUser(d.id); } catch (e) { /* already gone */ }
+        try { await auth.deleteUser(d.id); } catch (e) { /* already gone */ }
         console.log("purgeExpiredTrash: permanently deleted", d.id);
       }
     } catch (e) { console.error("purgeExpiredTrash:", d.id, e); failure = failure || e; }

@@ -65,3 +65,50 @@ describe("functions/index.js — Firestore sentinel access", () => {
     expect(body).toContain("billing.extendForSuspension(");
   });
 });
+
+/**
+ * firebase-admin v13+ REMOVED the namespaced service accessors from the root export:
+ * admin.auth(), admin.firestore(), admin.messaging(), admin.credential.*, etc. all became
+ * undefined, so `const admin = require("firebase-admin"); admin.auth()` throws
+ * "admin.auth is not a function" the moment functions/index.js is evaluated — a full
+ * functions-backend outage, not just a broken feature (Dependabot #26 bumps firebase-admin
+ * 12 -> 14). The modular subpaths (getAuth from "firebase-admin/auth", getFirestore from
+ * "firebase-admin/firestore", applicationDefault from "firebase-admin/app") resolve on BOTH
+ * v12 and v14, so this guard keeps every functions/ file on them. Pure source scan — no
+ * firebase-admin install or emulator needed, so it runs in the unit tier. See ERRORS.md A8.
+ */
+describe("firebase-admin — modular API only (no v13+ removed accessors)", () => {
+  const strip = (s) =>
+    s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const files = {
+    "functions/index.js": strip(SRC),
+    "functions/scripts/seed-emulator.js": strip(
+      readFileSync(resolve(here, "../../functions/scripts/seed-emulator.js"), "utf8"),
+    ),
+    "functions/scripts/set-admin.js": strip(
+      readFileSync(resolve(here, "../../functions/scripts/set-admin.js"), "utf8"),
+    ),
+  };
+  // Accessors removed from the firebase-admin root export in v13. `admin.initializeApp(` is
+  // intentionally NOT here — it stays on the root export in v14.
+  const BANNED =
+    /admin\.(auth|firestore|messaging|storage|database|installations|machineLearning|projectManagement|remoteConfig|securityRules|appCheck)\s*\(|admin\.credential\./g;
+
+  for (const [name, code] of Object.entries(files)) {
+    it(`${name} calls no removed admin.<service>() accessor`, () => {
+      const bad = [...code.matchAll(BANNED)].map((m) => m[0]);
+      expect(
+        bad,
+        `firebase-admin v13+ removed these from the root export — import from the modular ` +
+          `subpath instead (getAuth "firebase-admin/auth", getFirestore "firebase-admin/firestore", ` +
+          `applicationDefault "firebase-admin/app").`,
+      ).toEqual([]);
+    });
+  }
+
+  it("functions/index.js imports getAuth + getFirestore from the modular subpaths", () => {
+    const code = files["functions/index.js"];
+    expect(code).toMatch(/\{\s*getAuth\s*\}\s*=\s*require\("firebase-admin\/auth"\)/);
+    expect(code).toMatch(/\bgetFirestore\b[^}]*\}\s*=\s*require\("firebase-admin\/firestore"\)/);
+  });
+});

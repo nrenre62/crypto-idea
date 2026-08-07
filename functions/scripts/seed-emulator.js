@@ -12,10 +12,14 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOS
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
 
 const admin = require("firebase-admin");
+// Modular subpath accessors — firebase-admin v13+ removed the namespaced admin.auth()/
+// admin.firestore()/admin.firestore.FieldValue forms from the root export. These resolve on both v12 and v14.
+const { getAuth } = require("firebase-admin/auth");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 admin.initializeApp({ projectId: "demo-crypto-idea" });
-const auth = admin.auth();
-const db = admin.firestore();
-const now = admin.firestore.FieldValue.serverTimestamp();
+const auth = getAuth();
+const db = getFirestore();
+const now = FieldValue.serverTimestamp();
 
 // Pool of real coins so seeded portfolios render like real data in the app.
 // Field shape MUST match what the app writes (see api/firebase-database.js addCoin).
