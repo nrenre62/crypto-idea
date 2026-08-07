@@ -40,16 +40,16 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## PORTFOLIO-TEXT-SIZE — Coin Detail card readability (font-size bumps + retire kv-sm)
-- Phase: G2-approved  (inner loop — no re-interview on resume)
+- Phase: built  (awaiting G3 — merge + PR)
 - CRYP: CRYP-91  (Story; To Do)
 - G1 confirmed: yes         (size map locked in NEXT-STEPS §PORTFOLIO-TEXT-SIZE; scope decision Option A)
 - G2 approved: yes          (plan approved 2026-08-07 — verified app.css line edits; 1 red-first unit test for kv-sm; font-sizes = browser+build)
 - Plan (files): src/styles/app.css (9 font-size bumps: ph-sub L435 · price-hero .chg-pill L437 · kv-k L441 · kv-v L442 · ph-mc L449 · tx-btn L464 · tx-badge L469 · tx-meta L473 · tx-rprice L494; DELETE .kv-row.kv-sm block L452-454; NO edit to base .chg-pill / .tx-title L462) · src/components/Detail.jsx (drop kv-sm on rows L92,L95) | tests: tests/unit/Detail.test.jsx (new red-first kv-sm-retirement test; coin w/ buy+sell) — font-size bumps browser+build (no unit); no existing test/snapshot pins old sizes | docs: DESIGN-PASS.md (Round 33) · CLAUDE.md (follow-on line) · NEXT-STEPS §PORTFOLIO-TEXT-SIZE + BUILD-LOOP #16 → BUILT. CoinInfo.jsx NOT edited (inherits) but in browser-verify surface.
-- Fix-round: 0 / 3
-- Open findings: none
+- Fix-round: 0 / 3  (green first pass — no fix-loop)
+- Open findings: none  (verify GREEN unit 952/952 + build clean · security SAFE · design CONSISTENT · simplifier no-op)
 - Branch: claude/portfolio-text-size
-- Built: no
+- Built: yes 786c85e  (code green; docs finalize commit follows)
 - Merged: no
-- Agents this item: 1 (architect)  — G1 gap-grounding done inline (source-verified the CoinInfo shared-selector leak)
+- Agents this item: 8 (architect, test-author, client-builder, test-tier-verifier, secure-by-design, design-consistency, simplifier, docs-scribe) — G1 gap-grounding + step-13 doc sweep done inline; integrate performed by orchestrator (integrator tool-gap: no Edit/Write for factory-state/runs)
 - Updated: 2026-08-07
 - Decisions (G1): Q1 = **Option A** — bump the 4 shared base rules directly; the CoinInfo overlay's ticker/hero-pill/kv rows grow too (accepted, consistent readability win; browser-verify no overflow at the 560 narrow track). No Detail-scoping wrapper. Size map + kv-sm retirement locked in NEXT-STEPS.

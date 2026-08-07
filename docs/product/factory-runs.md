@@ -21,3 +21,4 @@ orchestrator supplies the counts it already knows.
 | Item | Date | Fix-rounds | Escalations | Reviewers (verdict) | Agents | Commit range |
 |------|------|-----------:|------------:|---------------------|-------:|--------------|
 | PORTFOLIO-NUM-FIX | 2026-08-06 | 1 | 0 | sec:SAFE · design:CHANGES→OK · verify:GREEN (unit 951/951) | 11 | 082945d..c9b3d05 |
+| PORTFOLIO-TEXT-SIZE | 2026-08-07 | 0 | 0 | sec:SAFE · design:CONSISTENT · verify:GREEN (unit 952/952) | 8 | fd3e444..786c85e (+docs finalize tip) |

@@ -5011,7 +5011,7 @@ is really the frontend model layer (already conceded).
 
 ---
 
-## PORTFOLIO-TEXT-SIZE. Coin **Detail** card — bump the small text to a readable size (mobile + desktop, both themes)  (📋 STAGED 2026-08-06; queued in BUILD-LOOP #16 — NOT built)
+## PORTFOLIO-TEXT-SIZE. Coin **Detail** card — bump the small text to a readable size (mobile + desktop, both themes)  (✅ BUILT 2026-08-07 · `786c85e` · via the Agent Factory · BUILD-LOOP #16)
 
 > **Queued as [BUILD-LOOP](BUILD-LOOP.md) #16** (2026-08-06). Canonical design doc: **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log as the next DP round (confirm the number at build). **Design-only, 🟩 GREEN** — CSS in `app.css` + one tiny JSX edit in `Detail.jsx`; **no `firestore.rules`, no new dependency, no new hex/token.** Founder-reported (2026-08-06): the coin Detail drill-in text is too small to read fast; make it bigger for real use.
 >
@@ -5080,6 +5080,20 @@ row divider + padding like the others — consistent.)
 - **Only sizes changed** — no colour, weight (except the intended `kv-sm` retirement), spacing-token, or dark-block change.
 - `npm run test:unit` green (update any snapshot that pins the old Detail sizes — never weaken a test); `npm run build` clean.
 - Status flipped to ✅ BUILT with commit. (No rules ⇒ no `test:rules`.)
+
+### As-built (2026-08-07, `786c85e`)
+Shipped exactly as planned: the 9 `font-size` bumps + `.kv-row.kv-sm` block deletion in `app.css` and
+`kv-sm` removed from the two `Detail.jsx` rows (89, 92). Logged as **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)
+Round 33** and a one-line CLAUDE.md design-follow-on note. **Option A confirmed as-built:** the four shared
+base `.ci-app` selectors (`.price-hero .ph-sub` / `.price-hero .chg-pill` / `.kv-row .kv-k` / `.kv-row .kv-v`)
+were bumped directly, so the **CoinInfo overlay grew too** (same readability win; `CoinInfo.jsx` not edited —
+it inherits). Base `.chg-pill` (Portfolio-card pill) + Total P/L left unchanged as decided. Unit + build green.
+
+**Kaizen (non-blocking):** Option A surfaced that `Detail.jsx` and `CoinInfo.jsx` share `.ci-app` base
+rules in `app.css` with no consistency-map row noting that a "Detail-scoped" style edit can silently
+co-change CoinInfo. Consider adding a DESIGN-PASS / design-system consistency-map row that links
+`Detail.jsx` ↔ `CoinInfo.jsx` ↔ the shared `app.css` `.price-hero`/`.kv-row` base rules, so a future
+"just Detail" tweak is a conscious both-surfaces decision, not a surprise.
 
 ---
 

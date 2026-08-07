@@ -2001,3 +2001,56 @@ value-first default / new coins append · R32-D4 Reset-to-auto in sort mode.
 
 **Status:** ✅ BUILT 2026-07-07 (R32-1 pointer-drag Sort mode + R32-2 pure applyCoinOrder + R32-3
 coinOrder persisted/synced; unit + rules + integration green).
+
+## Round 33 — Coin Detail/CoinInfo readability: font-size bumps + retire kv-sm (2026-08-07, BUILT)
+
+Founder-reported (2026-08-06): the coin **Detail** drill-in text is too small to read fast in real
+use. This round bumps the small text on the Detail card to a readable size — **mobile
+(full-screen) AND desktop (Modal popup), light AND dark, size only** (no colour/weight/spacing
+change beyond the intended `kv-sm` retirement). These are `font-size` bumps on **base `.ci-app`
+rules** (no `@media`, no theme override), so light + dark and mobile + desktop change identically —
+which is exactly the ask ("make it for mobile and desktop both. its same on mobile"). Interview
+decisions locked 2026-08-06 (§PORTFOLIO-TEXT-SIZE in `NEXT-STEPS.md`).
+
+**R33-1 · Nine `font-size` bumps in `app.css` (size only).** Exact size map (every value is a
+current `app.css` `font-size`):
+
+| Element | Class | Now → New | Δ |
+|---|---|---|---|
+| Market Cap ("$46.45M") | `.price-hero .ph-mc` | 11 → **15px** | +4 |
+| Coin name ("BLESS" under icon) | `.price-hero .ph-sub` | 11.5 → **15.5px** | +4 |
+| 24h change pill ("+112.20% (24h)") | `.price-hero .chg-pill` | 13 → **15px** | +2 |
+| Holding / Current Value / Bought — labels | `.kv-row .kv-k` | 13 → **15px** | +2 |
+| …their values | `.kv-row .kv-v` | 13 → **15px** | +2 |
+| "· $123.04" muted sub-amounts | `.kv-sub` (nested in `.kv-v`) | 13 → **15px** | +2 (auto) |
+| **Avg Buy Price + Avg Sell Price** | **retire `kv-sm`** — `Detail.jsx:89,92` | 11/12 → **15px** | now identical to the rows above (size **+ weight + colour**) |
+| Total P/L | `.pnl-*` | — | **unchanged** |
+| Buy / Sell buttons | `.tx-btn` | 12 → **14px** | +2 |
+| "Transactions (N)" header | `.tx-head .tx-title` | 14 → **14px** | matched — already = the new Buy/Sell button size, **no edit** |
+| BUY/SELL tags per tx | `.tx-badge` | 9 → **11px** | +2 |
+| Date & time row | `.tx-row .tx-meta` | 11 → **12px** | +1 |
+| "$0.0253 / BLESS" (price + symbol) | `.tx-right .tx-rprice` | 11.5 → **12.5px** | +1 |
+
+**R33-2 · Retire `kv-sm`.** `kv-sm` was on exactly two rows — Avg Buy Price and Avg Sell Price
+(`Detail.jsx:89,92`) — making them smaller (11/12px), lighter (weight 400) and fainter
+(`--ink-faint`) than the standard rows. Founder ask: "same as all other text, like Holding,
+Current Value, Bought." Fix = **remove the `kv-sm` class from both JSX rows** (so they inherit the
+plain 15px / weight 600 / `--ink` `.kv-row`) and **delete the now-dead `.kv-row.kv-sm{…}` CSS
+block** (grep-confirmed zero other uses). So the two rows match Holding/Current Value/Bought in
+size **and** weight **and** colour (and gain the standard row divider + padding — consistent).
+
+**Decisions locked.**
+- **R33-D1 · Option A — bump the shared base rules directly.** Four of the bumped selectors
+  (`.price-hero .ph-sub`, `.price-hero .chg-pill`, `.kv-row .kv-k`, `.kv-row .kv-v`) are shared base
+  `.ci-app` rules used by BOTH `Detail.jsx` and the `CoinInfo.jsx` overlay. Option A bumps them
+  directly, so the **CoinInfo overlay intentionally grows too** (same readability win) — accepted as
+  the consistent choice. `CoinInfo.jsx` was **not edited**; it inherits.
+- **R33-D2 · `kv-sm` retired** so Avg Buy/Sell Price match Holding/Current Value/Bought in size
+  **and** weight **and** colour (see R33-2).
+- **Deliberately left unchanged:** the base `.chg-pill` (the Portfolio-card % pill — only the
+  **hero** `.price-hero .chg-pill` grows) and **Total P/L** (`.pnl-*`; founder: "its big already").
+
+**Status:** ✅ BUILT 2026-08-07 (commit `786c85e`, via the Agent Factory · BUILD-LOOP #16). Nine
+`font-size` bumps in `app.css` + the `.kv-row.kv-sm` block deleted + `kv-sm` removed from the two
+Detail rows. Design-only, no `firestore.rules`, no new dependency, no new hex/token; unit + build
+green.
