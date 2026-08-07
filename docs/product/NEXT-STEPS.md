@@ -96,6 +96,12 @@ Factory **G1** (no new slash-commands) · (3) adopt **Components** (surfaces) ·
   build-safe — `stamp-sw.js` doesn't read it). `CHANGELOG.md` retargeted to `1.0.0-beta` and the fake
   `0.1–0.8` "releases" collapsed into one honest "pre-release development" history (nothing was ever
   tagged/deployed). Until 2026-10-01: fix the major things + polish the app and the docs.
+  - **Repo-wide version sweep (2026-08-07, follow-up):** aligned every remaining **product**-version
+    string to `1.0.0-beta` — `deploy.sh` (`Deploy v4.0.0` → `v1.0.0-beta`), both `package-lock.json`
+    roots (root + `packages[""]`), and `openapi.json` `info.version` (`1.0.0` → `1.0.0-beta`). Verified
+    nothing else carries a product version (the SW stamp, Sentry, HTML entries, and manifest do not; the
+    web-manifest spec has no version field). **Dependency** versions were left untouched — only the
+    project's own version fields changed.
 - **Duplicate flagged for founder cleanup (Jira UI — no delete tool over the connection):** **CRYP-84**
   (Story) re-files the work of **CRYP-1 + CRYP-2** (Tasks) — delete CRYP-84, keep the two Tasks.
 - **Track B (deferred, founder's go):** create the 9 Components + the `v0.x`/`v1.0` Versions via the
