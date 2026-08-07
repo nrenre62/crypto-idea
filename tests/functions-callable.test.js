@@ -22,6 +22,10 @@ import { readFileSync } from "node:fs";
 // firebase-admin lives in functions/node_modules, not the app's — resolve it from there.
 const requireFromFunctions = createRequire(new URL("../functions/", import.meta.url));
 const admin = requireFromFunctions("firebase-admin");
+// Modular subpath accessors (firebase-admin v13+ removed the namespaced admin.auth()/
+// admin.firestore() forms). Resolve them from functions/node_modules too.
+const { getAuth } = requireFromFunctions("firebase-admin/auth");
+const { getFirestore } = requireFromFunctions("firebase-admin/firestore");
 
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || "demo-crypto-idea";
 // `firebase emulators:exec` exports the auth/firestore hosts, but not the functions port.
@@ -44,8 +48,8 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = AUTH_HOST;
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
 
 admin.initializeApp({ projectId: PROJECT });
-const auth = admin.auth();
-const db = admin.firestore();
+const auth = getAuth();
+const db = getFirestore();
 
 const callableUrl = (name) => `http://127.0.0.1:${FN_PORT}/${PROJECT}/us-central1/${name}`;
 const signInUrl = `http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key`;

@@ -258,6 +258,36 @@
   of Gap Group A's six number-display fixes; see [`NEXT-STEPS.md`](../product/NEXT-STEPS.md)
   §PORTFOLIO-NUM-FIX.
 
+### A8 · firebase-admin 14 (Dependabot #26) would crash the whole functions backend on load — the namespaced `admin.auth()`/`admin.firestore()` accessors were removed ✅ (high)
+
+- **Symptom:** CI integration tier red on Dependabot **#26** (`bump firebase-admin 12.7.0 → 14.2.0 in /functions`):
+  `TypeError: admin.auth is not a function` at `tests/functions-callable.test.js:47`, **14/18** callable tests failing
+  (build+unit and rules stayed green).
+- **Where:** `functions/index.js` (`admin.firestore()` at module top-level + `admin.auth()` ×20), plus
+  `functions/scripts/seed-emulator.js` and `functions/scripts/set-admin.js`
+  (`admin.auth()` + `admin.credential.applicationDefault()`).
+- **Root cause:** firebase-admin **v13** removed the namespaced service accessors from the root export
+  (`admin.auth`, `admin.firestore`, `admin.messaging`, `admin.credential.*` … all become `undefined`); #26 jumps
+  straight to **v14** (skipping 13), inheriting the removal. Because `functions/index.js` calls `admin.firestore()`
+  at **module top-level** (right after `admin.initializeApp()`), the module **throws on load** — so it is not just
+  admin features but every callable, the public `/api` CoinGecko proxy, the PayPal webhook and all six crons: a full
+  functions-backend outage. Verified empirically — under 12.7.0 `require("firebase-admin").auth`/`.firestore` are
+  functions; under 14.2.0 they are `undefined`, while the modular subpaths (`firebase-admin/auth` → `getAuth`,
+  `firebase-admin/firestore` → `getFirestore`, `firebase-admin/app` → `applicationDefault`) resolve on **both**
+  versions.
+- **Fix:** migrate every functions file to the **modular subpath API** — the same pattern already used for
+  `FieldValue` (`require("firebase-admin/firestore")`, see C3). `getFirestore()`/`getAuth()` in `functions/index.js`;
+  `getAuth()`/`getFirestore()`/`FieldValue` in `seed-emulator.js`; `getAuth()`/`applicationDefault()` in
+  `set-admin.js`; `getAuth()`/`getFirestore()` in `tests/functions-callable.test.js`. `admin.initializeApp()` is
+  kept (still on the root export in v14). Because the modular API resolves on v12 too, the migration is green on the
+  current lockfile now and lets #26's bump rebase cleanly.
+- **Guard:** `tests/unit/functions-runtime-safety.test.js` extended with a source scan that bans the removed
+  namespaced accessors across `functions/index.js` + both scripts and asserts the modular imports (runs in
+  `test:unit`, no emulator). Confirmed **red on the pre-migration source, green after**.
+- **Severity:** high (merging #26 without this = the functions backend fails to load).
+- **Status:** ✅ **FIXED 2026-08-07** on branch `claude/github-bot-dependency-review-qupedn` — firebase-admin
+  modular migration; unblocks Dependabot #26.
+
 ---
 
 ## B. Robustness / hardening (recommended, not blocking)

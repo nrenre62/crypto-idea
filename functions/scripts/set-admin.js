@@ -41,6 +41,10 @@
  */
 
 const admin = require("firebase-admin");
+// Modular subpath accessors — firebase-admin v13+ removed admin.auth() and the
+// admin.credential.* namespace from the root export. These resolve on both v12 and v14.
+const { getAuth } = require("firebase-admin/auth");
+const { applicationDefault } = require("firebase-admin/app");
 
 const ROLES = ["owner", "manager"];
 const args = process.argv.slice(2);
@@ -69,14 +73,15 @@ if (!show && !revoke && !role) usage("pass --role=owner, --role=manager, --revok
 if (role && !ROLES.includes(role)) usage(`--role must be one of: ${ROLES.join(", ")}`);
 if (role && revoke) usage("--role and --revoke are mutually exclusive");
 
-admin.initializeApp({ credential: admin.credential.applicationDefault() });
+admin.initializeApp({ credential: applicationDefault() });
+const auth = getAuth();
 
 const describe = (c) =>
   (c && c.admin === true ? `admin, role=${c.role || "(none — legacy)"}` : "not an admin");
 
 (async () => {
   try {
-    const user = await admin.auth().getUserByEmail(email);
+    const user = await auth.getUserByEmail(email);
     const current = user.customClaims || {};
 
     if (show) {
@@ -98,11 +103,11 @@ const describe = (c) =>
     // shape. Revoking clears it entirely rather than leaving {admin:false} lying
     // around, so the token simply has no admin key (what firestore.rules assumes).
     const claims = revoke ? null : { admin: true, role };
-    await admin.auth().setCustomUserClaims(user.uid, claims);
+    await auth.setCustomUserClaims(user.uid, claims);
 
     // Claims are baked into the ID token, so without this the change wouldn't apply
     // until the current token expired (~1h). Matters most when REMOVING access.
-    await admin.auth().revokeRefreshTokens(user.uid);
+    await auth.revokeRefreshTokens(user.uid);
 
     console.log(`${email} (uid: ${user.uid}) → ${describe(claims || {})}`);
     console.log("Refresh tokens revoked — they must sign in again for it to apply.");
