@@ -39,4 +39,17 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(none in flight — PORTFOLIO-TEXT-SIZE merged as PR #39 → master `952cdcf`; CRYP-91 Done; run metrics in `factory-runs.md`. The next item's G1 writes the next block here.)*
+## DARK-MODE-FIXES — dark-only Sell/Buy + Research borders + NaN guard (DP round 34)
+- Phase: G1  (awaiting architect G2 plan)
+- CRYP: CRYP-92  (Story; To Do)
+- G1 confirmed: yes  (🟩 GREEN, decisions locked in NEXT-STEPS §DARK-MODE-FIXES; no re-interview — spec fully detailed w/ loci + gaps G1–G7)
+- G2 approved: no    (no code before this is yes)
+- Plan (files): pending architect — expected: src/styles/app.css (dark-only .tx-btn.sell red · .seg-btn toggle buy-green/sell-red · .submit-buy/.submit-sell · new --edge-bright:#fff in dark :root) · src/features/research/styles/research-tab.css (dark-only card/coin-card/diversify/stress + neutral .cc-* → --edge-bright; brighten stress + diversify) · src/features/research/components/OverviewView.jsx (NaN guard = DARK-FIX-NaN, own commit) · tests/unit (NaN guard test) · DESIGN-PASS R34 · ERRORS.md (NaN entry) · CLAUDE.md
+- Fix-round: 0 / 3
+- Open findings: none
+- Branch: claude/dark-mode-fixes
+- Built: no
+- Merged: no
+- Agents this item: 1 (architect)
+- Updated: 2026-08-07
+- Decisions (G1, all founder-locked 2026-08-05): G1 = NaN diversification note is a FIX, spun out as own required commit DARK-FIX-NaN · G3 = one shared --edge-bright:#fff (opaque white 1px) in dark :root · G4 = white border on NEUTRAL surfaces only (cards + .cc-* stat-boxes); colored chips keep semantic tint. HARD CONSTRAINT: dark-block-only (html[data-theme="dark"]); light mode byte-for-byte identical (prove by diff). Planned PR shape: ONE PR (component #15) with 2 commits (DARK-FIX-NaN functional + dark CSS round) — confirm at G2 per architect.
