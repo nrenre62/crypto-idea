@@ -8,6 +8,18 @@ topic (pricing, tier limits, user settings, admin, API, security…) must be ref
 that topic lives — no silent drift. If we edit pricing, it changes across all the code/docs/MD files
 at once, not just the one file that was mentioned.
 
+**Planning lives here too.** This file is the single home for the whole loop — **interview → plan → PR**.
+
+---
+
+## The flow — interview → plan → new PR (always)
+
+**Interview** (plain-chat numbered questions — you answer on your **own time**, no time limit; **never** the `AskUserQuestion` tool) **+ find the gaps** → write a **Plan** → **ask "any change / edit?"** and iterate until you approve → on your OK, fill the **[PR template](../.github/pull_request_template.md)** → open a **NEW PR** on a new branch off the latest `master` **+ file / link the Jira CRYP ticket** (see [`PR-WORKFLOW.md`](product/PR-WORKFLOW.md) · [`JIRA-PLAYBOOK.md`](testing/JIRA-PLAYBOOK.md)).
+
+This one loop covers **building a plan, fixing a bug, or fixing anything** substantive —
+**plan + interview = always · find the gaps = always · one plan = one new PR + one Jira card.**
+Never skip the interview or the gap-hunt; never push to `master`; never reuse or rewrite an old (merged / closed) PR.
+
 ---
 
 ## When this applies
@@ -31,23 +43,28 @@ change is in, treat it as substantive.**
    `AskUserQuestion` tool or any option-box UI** (founder rule, 2026-08-03: questions are never
    timed or skippable; they stay in the conversation and must be answered). Don't guess intent on a
    substantive change.
-2. **Find the gaps first.** Before proposing anything, read the related code + every related doc
-   (use the map) and list where they **disagree, are stale, or are missing.** Surface the gaps
-   explicitly to the founder. *(Shortcut: run **`/consistency-sweep <topic>`** — the read-only
+2. **Find the gaps first — always.** Before proposing anything — whether building a plan, fixing a
+   bug, or making any change — read the related code + every related doc (use the map) and list where
+   they **disagree, are stale, or are missing.** Surface the gaps explicitly to the founder. *(Shortcut: run **`/consistency-sweep <topic>`** — the read-only
    `consistency-sweep` subagent in [`.claude/agents/`](../.claude/agents/README.md) does exactly
    this hunt across the topic's map row and hands back a ranked gap list + `file:line` evidence +
    the sweep list. It reports only; the plan/edit/verify/commit steps below are still yours.)*
 3. **Take context from the whole topic.** Reconcile against ALL related files — code, rules, README
    section, MD docs — not just the one file the founder named.
-4. **Plan, then ask.** Present a clear plan (what changes, in which files, why). Get a clear "yes"
-   before editing. **Never act without a plan.**
+4. **Plan, then ask — and iterate.** Present a clear plan (what changes, in which files, why).
+   **Ask if it needs a change / edit** and revise until the founder approves. Get a clear "yes"
+   before editing. **Never act without a plan. plan + interview = always.**
 5. **Consistency sweep.** Apply the change to **every** file in the topic's row so nothing is left
    contradicting. A changed value (e.g. a price) changes in all N places in the same commit.
 6. **Verify.** Run the relevant tests/build; report the real result, including any failures.
 7. **Commit to NEXT-STEPS.** Log every plan/decision in [`docs/product/NEXT-STEPS.md`](product/NEXT-STEPS.md)
    — even deferred ones — so nothing is lost.
-8. **Save + commit.** Commit with a clear message and push; update memory/skills with any reusable
-   pattern or preference that emerged.
+8. **Ship it — a NEW PR + a Jira card.** Commit (Conventional-Commit + trailers) on a **new branch
+   off the latest `master`**, push, and **open a NEW PR** that fills the
+   [PR template](../.github/pull_request_template.md) — **never** push to `master`, **never** reuse or
+   rewrite an old (merged / closed) PR. **File / link the Jira CRYP ticket** in the PR (see
+   [`PR-WORKFLOW.md`](product/PR-WORKFLOW.md) · [`JIRA-PLAYBOOK.md`](testing/JIRA-PLAYBOOK.md)). Update
+   memory/skills with any reusable pattern or preference that emerged.
 
 ## On errors
 
