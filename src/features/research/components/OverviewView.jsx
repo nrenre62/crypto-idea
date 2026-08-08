@@ -4,7 +4,16 @@ import AllocationBar from './AllocationBar';
 import RiskMeter from './RiskMeter';
 import StressTest from './StressTest';
 import { abbreviate, fmtPct } from '../utils/format';
+import { briefFacts } from '../utils/pulse';
 
+// A percentage label that reads "≈0%" when it rounds to 0.0% (an honest "flat", not a
+// misleading "+0.0%") and keeps the signed glyph otherwise.
+const pctLabel = (x) => (Math.round(Math.abs(x) * 10) / 10 === 0 ? '≈0%' : fmtPct(x));
+
+// CRYP-95: the Daily Brief renders from briefFacts — a sign-matched 24h move (B-1)
+// plus, on a mixed book, BOTH the biggest gainer (B-2) and the biggest decliner (B-3),
+// each shown only when it exists. The old single "top mover" + "… volatility" line is
+// gone (a coin's move isn't "volatility", and an all-down book had no honest "gainer").
 function Brief({ portfolio, empty }) {
   if (empty) {
     return (
@@ -14,17 +23,15 @@ function Brief({ portfolio, empty }) {
       </div>
     );
   }
-  const p24 = portfolio.perf['24h'];
-  const chg = portfolio.total - portfolio.total / (1 + p24 / 100);
-  const mover = [...portfolio.holdings].sort((a, b) => b.c24 - a.c24)[0];
-  const watch = [...portfolio.holdings].sort((a, b) => Math.abs(b.c24) - Math.abs(a.c24))[0];
+  const bf = briefFacts(portfolio);
+  const up = bf.pct24 >= 0;
   return (
     <div className="card brief">
       <div className="brief-top"><div className="brief-greet">Good day</div></div>
       <div className="brief-sub">Here's what moved while you were away.</div>
-      <div className="brief-row"><span className="brief-ic ic-up">▲</span><span>Portfolio is <b>{p24 >= 0 ? 'up ' : 'down '}{abbreviate(Math.abs(chg))} ({fmtPct(p24)})</b> over the last 24 hours.</span></div>
-      <div className="brief-row"><span className="brief-ic ic-move">◆</span><span>Today's top mover: <b>{mover.name} {fmtPct(mover.c24)}</b>.</span></div>
-      <div className="brief-row"><span className="brief-ic ic-watch">!</span><span>Worth watching: <b>{watch.name} volatility</b>.</span></div>
+      <div className="brief-row"><span className="brief-ic ic-up">▲</span><span>Portfolio is <b>{up ? 'up' : 'down'} {abbreviate(Math.abs(bf.chg24))} ({bf.nearZero ? '≈0%' : fmtPct(bf.pct24)})</b> over the last 24 hours.</span></div>
+      {bf.gainer && <div className="brief-row"><span className="brief-ic ic-move">◆</span><span>Today's biggest gainer: <b>{bf.gainer.name} {pctLabel(bf.gainer.c24)}</b>.</span></div>}
+      {bf.decliner && <div className="brief-row"><span className="brief-ic ic-watch">▾</span><span>Biggest decliner: <b>{bf.decliner.name} {pctLabel(bf.decliner.c24)}</b>.</span></div>}
     </div>
   );
 }
