@@ -678,7 +678,7 @@ describe("Research Pulse metrics — attribution / effective-N / drawdown / vol 
     expect(p1).toContain("Ethereum");
     expect(p1).not.toContain("Bitcoin");
     expect(p1).not.toMatch(/-\s*\d/);
-    expect(p1).toMatch(/drove about \d+% of that move/i);
+    expect(p1).toMatch(/drove about \*\*\d+%\*\* of that move/i);
     expect(p1).toContain(String(facts.topContributorShare) + "%");
 
     // number-dropped path (>100% share) — reaffirmed on the existing OFFSET book.

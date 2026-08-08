@@ -180,7 +180,7 @@ export function pulseLines(facts) {
   if (facts.count >= 2 && facts.topContributor) {
     const share = facts.topContributorShare == null ? null : Math.round(facts.topContributorShare);
     if (share != null && share >= 1 && share <= 100) {
-      lines.push(`Over the ${facts.tfWord}, **${facts.topContributor}** drove about ${share}% of that move.`);
+      lines.push(`Over the ${facts.tfWord}, **${facts.topContributor}** drove about **${share}%** of that move.`);
     } else {
       lines.push(`Over the ${facts.tfWord}, **${facts.topContributor}** was the main driver of that move.`);
     }
