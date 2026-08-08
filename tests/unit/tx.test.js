@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sortTx, txCreatedMillis, pageWindow, appendUnique, dedupeById } from "../../src/utils/tx.js";
+import { sortTx, txCreatedMillis, pageWindow, appendUnique, dedupeById, firstOverSoldSell, isFutureTx } from "../../src/utils/tx.js";
 
 describe("tx utils (R19-4/R19-5)", () => {
   describe("txCreatedMillis normalizes every createdAt shape", () => {
@@ -94,6 +94,83 @@ describe("tx utils (R19-4/R19-5)", () => {
     it("TX-SAFE: empty / null -> []", () => {
       expect(dedupeById([])).toEqual([]);
       expect(dedupeById(null)).toEqual([]);
+    });
+  });
+
+  // CRYP-94 (Group B, findings 9+10 — the sell invariant). firstOverSoldSell replays the
+  // coin's timeline in date order and returns the FIRST sell whose running balance drops
+  // below 0 (epsilon -1e-8), else null. It is the single source of truth the add-sell guard,
+  // the edit guard, and remEntry all route through. Date-aware, so a buy dated AFTER a sell
+  // does not cover it.
+  describe("firstOverSoldSell — the oversell invariant", () => {
+    const buy = (amount, date, extra = {}) => ({ type: "buy", amount, date, ...extra });
+    const sell = (amount, date, extra = {}) => ({ type: "sell", amount, date, ...extra });
+
+    it("CRYP-94: a valid book (buy 0.3 then sell 0.2) has no over-sold sell → null", () => {
+      expect(firstOverSoldSell([buy(0.3, "2024-01-01T00:00"), sell(0.2, "2024-02-01T00:00")])).toBeNull();
+    });
+
+    it("CRYP-94: the founder exploit — buy 2, sell 2, then the buy projected down to 0.2 returns the sell", () => {
+      // the projected timeline the edit path builds when a buy is edited below what a sell needs
+      const offending = firstOverSoldSell([buy(0.2, "2024-01-01T00:00"), sell(2, "2024-02-01T00:00", { id: "s1" })]);
+      expect(offending).not.toBeNull();
+      expect(offending.type).toBe("sell");
+      expect(offending.id).toBe("s1");
+    });
+
+    it("CRYP-94: date-aware — a buy dated AFTER a sell does not cover it", () => {
+      // holdings at the sell's date are 0 even though the net over all time is >= 0
+      const offending = firstOverSoldSell([sell(1, "2024-01-01T00:00", { id: "s1" }), buy(5, "2024-06-01T00:00")]);
+      expect(offending?.id).toBe("s1");
+    });
+
+    it("CRYP-94: a backdated sell inserted between existing dates breaks a later sell (finding 9)", () => {
+      // buy 10 @d1, sell 10 @d5, then a backdated sell 5 @d3 → the d5 sell now over-sells
+      const entries = [
+        buy(10, "2024-01-01T00:00"),
+        sell(5, "2024-01-03T00:00", { id: "mid" }),
+        sell(10, "2024-01-05T00:00", { id: "late" }),
+      ];
+      // the mid sell (d3) still has 10 held; the late sell (d5) drops the balance to -5
+      expect(firstOverSoldSell(entries)?.id).toBe("late");
+    });
+
+    it("CRYP-94: a buy→sell flip that over-sells is caught", () => {
+      const offending = firstOverSoldSell([buy(1, "2024-01-01T00:00"), sell(1, "2024-02-01T00:00"), sell(1, "2024-02-01T00:00", { id: "flip" })]);
+      expect(offending?.id).toBe("flip");
+    });
+
+    it("CRYP-94: the -1e-8 epsilon boundary — an exact sell-all is not over-sold", () => {
+      expect(firstOverSoldSell([buy(1, "2024-01-01T00:00"), sell(1, "2024-02-01T00:00")])).toBeNull();
+      // a float dust overshoot beyond epsilon IS caught
+      expect(firstOverSoldSell([buy(1, "2024-01-01T00:00"), sell(1.0001, "2024-02-01T00:00", { id: "over" })])?.id).toBe("over");
+    });
+
+    it("CRYP-94: empty / null input → null (nothing to over-sell)", () => {
+      expect(firstOverSoldSell([])).toBeNull();
+      expect(firstOverSoldSell(null)).toBeNull();
+    });
+  });
+
+  // CRYP-94 (Group B, finding 12 — future-dated transactions). Pure day-granularity check so
+  // a transaction can't be dated after "today"; the caller passes today's date for determinism.
+  describe("isFutureTx — reject future-dated transactions", () => {
+    const TODAY = "2024-06-15";
+    it("CRYP-94: a far-future date (2099) is future", () => {
+      expect(isFutureTx("2099-01-01T00:00", TODAY)).toBe(true);
+    });
+    it("CRYP-94: a past date is not future", () => {
+      expect(isFutureTx("2020-01-01T00:00", TODAY)).toBe(false);
+    });
+    it("CRYP-94: same day (any time today) is allowed", () => {
+      expect(isFutureTx("2024-06-15T23:59", TODAY)).toBe(false);
+    });
+    it("CRYP-94: tomorrow is future", () => {
+      expect(isFutureTx("2024-06-16T00:00", TODAY)).toBe(true);
+    });
+    it("CRYP-94: empty / missing date is not treated as future", () => {
+      expect(isFutureTx("", TODAY)).toBe(false);
+      expect(isFutureTx(null, TODAY)).toBe(false);
     });
   });
 });
