@@ -147,6 +147,23 @@ describe("CoinInfo screen (extracted, via AppContext)", () => {
     expect(container.querySelector(".pnl-val").textContent).toMatch(/^\u2212\$/);
   });
 
+  // ── CRYP-94 (finding 8): a held coin whose price is unknown (not a TOP_COIN, so no mock
+  //    fallback, and the /api/prices fetch returned nothing) shows a muted "—" for
+  //    Unrealised P/L — NOT −$X / −100% as if it crashed. ──
+  it("CRYP-94: an unpriced held coin shows a muted '—' for Unrealised P/L (not −100%)", async () => {
+    fetchPrices.mockResolvedValue(null);   // no cached price comes back
+    const obs = { id: "obscurecoin", symbol: "OBS", name: "Obscure" };
+    const held = { ...obs, entries: [{ id: "t1", type: "buy", amount: 2, priceAtBuy: 100, date: "2024-01-01" }] };
+    const { container } = provide({ infoCoin: obs, portfolio: [held], prices: {} });
+    // wait for the one-shot fetch to settle (still null → price unknown)
+    await waitFor(() => expect(fetchPrices).toHaveBeenCalled());
+    expect(screen.getByText("Unrealised P/L")).toBeInTheDocument();
+    const pnlVal = container.querySelector(".pnl-val");
+    expect(pnlVal.textContent).toBe("—");
+    expect(pnlVal.className).toContain("muted");
+    expect(container.textContent).not.toContain("100.00%");
+  });
+
   // ── A4: a GENUINE live 0 must render as the real value, not fall through the `||`
   //       chain to BTC's mock price/change (today 0 is falsy → mock wins). ──
   it("A4: a live price/percent of 0 renders as the genuine $0 / +0.00%, not the mock", () => {
