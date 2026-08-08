@@ -10,7 +10,7 @@ function Brief({ portfolio, empty }) {
     return (
       <div className="card brief">
         <div className="brief-top"><div className="brief-greet">Welcome</div></div>
-        <div className="brief-row"><span className="brief-ic ic-up">＋</span><span>Add your first coin to start seeing AI insights.</span></div>
+        <div className="brief-row"><span className="brief-ic ic-up">＋</span><span>Add your first coin to start seeing your portfolio summary.</span></div>
       </div>
     );
   }
@@ -32,7 +32,7 @@ function Brief({ portfolio, empty }) {
 // R13-3: the source chips + "Updated just now" freshness line were removed (founder:
 // clutter). `status`/`asOf` (and the freshness helpers) went with them — kept out of the
 // signature so no dead code remains. Freshness is an internal cost lever, not user-facing.
-export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShare }) {
+export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShare, aiChrome }) {
   // DARK-FIX-NaN: deriveRisk() returns {level,score,breakdown,megaAlloc} — there is no
   // `top2`, so the note's Math.round(risk.top2) rendered "about NaN%" on every non-empty
   // session. Compute the top-two allocation locally from holdings (same math as usePulse),
@@ -43,7 +43,7 @@ export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShar
       <Brief portfolio={portfolio} empty={empty} />
       <Pulse
         perf={empty ? 0 : portfolio.perf[tf]} tf={tf} onTf={onTf}
-        text={pulse.text} offline={pulse.offline} loading={pulse.loading}
+        text={pulse.text} aiChrome={aiChrome} loading={pulse.loading}
         onRegenerate={pulse.regenerate} onShare={onShare} empty={empty}
       />
 

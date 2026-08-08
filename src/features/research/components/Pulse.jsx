@@ -15,15 +15,21 @@ function Rich({ text }) {
   ));
 }
 
-export default function Pulse({ perf, tf, onTf, text, offline, loading, onRegenerate, onShare, empty }) {
+// CRYP-93: `aiChrome` (chat on AND the AI proxy live) decides whether the AI dressing
+// shows. Until the proxy ships it is false, so the label loses its gradient, Regenerate
+// (a live-AI action) is hidden, and a neutral "AI off" pill replaces the old apology.
+export default function Pulse({ perf, tf, onTf, text, aiChrome, loading, onRegenerate, onShare, empty }) {
   return (
     <div className="pulse">
       <div className="pulse-inner">
         <div className="pulse-head">
-          <div className="left"><span className="pulse-label ai-gradient-text">Portfolio Pulse</span></div>
+          <div className="left">
+            <span className={'pulse-label' + (aiChrome ? ' ai-gradient-text' : '')}>Portfolio Pulse</span>
+            <span className="ai-status">{aiChrome ? 'AI on' : 'AI off'}</span>
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="regen" onClick={onShare} disabled={empty} aria-label="Share your Pulse">Share</button>
-            <button className="regen" onClick={onRegenerate} disabled={empty}>Regenerate</button>
+            {aiChrome && <button className="regen" onClick={onRegenerate} disabled={empty}>Regenerate</button>}
           </div>
         </div>
 
@@ -41,9 +47,6 @@ export default function Pulse({ perf, tf, onTf, text, offline, loading, onRegene
         <p className="pulse-text">
           {loading ? (<><span className="p-sk w90" /><span className="p-sk w70" /><span className="p-sk w50" /></>) : <Rich text={text} />}
         </p>
-        {offline && (
-          <div className="ai-note"><span className="dot" />AI is offline right now — showing a basic summary from your numbers.</div>
-        )}
       </div>
     </div>
   );

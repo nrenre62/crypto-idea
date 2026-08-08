@@ -15,7 +15,7 @@
 const FEATURES = {
   marketData: "Live market data — CoinGecko prices, search, coin list and history.",
   checkout: "New subscription checkout — starting a PayPal subscription.",
-  aiResearch: "AI research answers — the Wave-B Pulse / Ask proxy.",
+  aiResearch: "AI research — hides the Research → Ask chat now; also gates the Wave-B Pulse / Ask AI proxy when it ships.",
 };
 
 const NAMES = Object.keys(FEATURES);
