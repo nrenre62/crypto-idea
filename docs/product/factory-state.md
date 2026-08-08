@@ -39,30 +39,21 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(4a + 4b merged — PR #46 `bfdbdf0` (CRYP-93) + PR #50 `9e2bbb3` (CRYP-95); run rows in `factory-runs.md`.)*
+*(item 4 fully merged — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); run rows in `factory-runs.md`.)*
 
-## RESEARCH-NO-AI-4c — RESEARCH-METRICS (P-1…P-4), final slice of #13
+## ARCHITECTURE-DOC — canonical docs/decisions/ARCHITECTURE.md + 3-anchor wiring (BUILD-LOOP #14)
 - Phase: built  (awaiting G3 merge decision)
-- G1 confirmed: yes        (🟡 item in NEXT-STEPS §RESEARCH-NO-AI; 4c metric decisions locked 2026-08-03; founder chose Option A = 3 PRs)
-- G2 approved: yes         (founder yes 2026-08-08; Q1=drop number >100% → "the main driver"; Q2=keep R-E as thin-data fallback — both = architect recs)
-- Plan (files): src/features/research/utils/pulse.js ONLY production change (+~60 lines): new facts contrib[]/topContributor/topContributorShare, neff (1/Σwᵢ², clamp[1,N]), drawdown7d + vol7d (from Vₜ=Σ amount×spark reconstructed off holdings — spark+amount already ride on portfolio.holdings, NO threading), weekly gate; reshape pulseLines → R-A·R-B·P-1·(R-C+P-2)·"This week"(P-3+P-4, SUPERSEDES R-E; R-E is thin-data fallback). usePulse/OverviewView/Pulse/useSharePulse UNCHANGED. Tests: extend research-pulse.test.js. Docs: NEXT-STEPS §RESEARCH-NO-AI + CLAUDE.md (drop "4c pending"). Client-only; no rules/callable/api/dep.
-- Key decisions: (a) P-1 uses PAST-VALUE weights (contribᵢ=pᵢ·rᵢ/then) so Σcontrib===perf[tf] exactly (spec's literal current-weight wᵢ breaks the locked "sum exactly" identity); (b) "This week" all-or-nothing — omits if any holding lacks a usable daily spark.
-- Fix-round: 1 / 3
-- Reviews (round 1): verify GREEN (1015/1015) · design CHANGES (1 must-fix) · adversarial-metric CONFIRMED HIGH F1/F2 · secure SKIPPED (no security surface).
-  **F1/F2 ship-blocker:** on a ≥3-coin book where the biggest position OPPOSES the net move (e.g. BTC −50% while alts rally, net +5%), topContributor=max|contrib| picks the DRAG (BTC), share=round(−25/5·100)=−500 → "Bitcoin drove about −500% of that move" (nonsensical + sign-inverted). Guard `share<=100` is one-sided. Tests missed it (all P-1 fixtures 2-coin, where top mover always shares net sign). Identity/P-2/P-3/P-4/weekly-gate proven ROBUST.
-  **Founder decision A (2026-08-08):** attribute P-1 to the top contributor IN THE DIRECTION OF the net move (the real driver), not max|contrib|. FOLD-IN fixes: gate P-1 on count≥2 (no vacuous 1-coin line); "at a 7-day high" when drawdown rounds to 0%; show the share number only when 1≤share≤100 else "was the main driver". ACCEPT+document (not fixed in 4c): F5 tail-align ~1-day skew (Wave-B persisted-series roadmap), F6 "7-day" label on ~3 pts (thin new-coin history), vol ±0.0% on flat weeks.
-- Fix-round 1 verify: GREEN — targeted 27/27, full test:unit 1019/1019, build clean (dist-name-guard clean). Must-fix F1/F2 resolved + test-locked (red f973753 → green 8d51b25). Orchestrator tidy-up 4fe910f: bold the P-1 share figure to match the bold-figures convention (impl + test regex aligned; not weakening).
-- Open findings: none (F3/F5/F6 + minors accepted+documented in NEXT-STEPS)
-- Simplifier: SKIPPED — pulse.js flat/clean, no dead code; the fix-round + tidy-up already left it minimal.
-- Branch: claude/research-metrics  (cut off master 9e2bbb3 = React 19 + 4a + 4b)
-- Built: yes  4fe910f  (feat 4845923 → red f973753 → fix 8d51b25 → bold tidy 4fe910f; pushed)
+- G1 confirmed: yes        (spec decisions were "offered, not answered" — founder confirmed 2026-08-08: accept 1/2/3; D4 reframed)
+- G2 approved: n/a (non-blocking per provenance rule — docs-only, 🟩 GREEN)
+- Decisions (founder 2026-08-08): 1 file home `docs/decisions/ARCHITECTURE.md` (src/ARCHITECTURE.md stays sub-doc; audit gets historical banner) · 2 system-wide ~17 ARCH-* rules cross-linking (not copying) the deep docs · 3 wire all 3 anchors (interview.md map row + CLAUDE.md Conventions bullet + AGILE DoD gate, SAME commit) · 4 D3→ARCH-DOC-FIX-1 (inline onclick→landing.js), **D4 REFRAMED → education-page becomes only a link in index.html (removes the component fetch), NOT an api/ wrapper → ARCH-DOC-FIX-2**.
+- Plan (files): NEW docs/decisions/ARCHITECTURE.md · src/ARCHITECTURE.md (pointer + D2 fixes) · docs/testing/ARCHITECTURE-AUDIT.md (historical banner + D1 numbers) · docs/interview.md (new map row) · CLAUDE.md (Conventions bullet) · docs/product/AGILE.md (DoD gate) · README.md · docs/product/CODEBASE-MAP.md. Docs-only; no code/rules/dep → no test:rules. Verify: npm run build clean + links resolve + grep-check (no restated tier limits/TTLs/HTTP contract).
+- Follow-ups: **ARCH-DOC-FIX-1 SUPERSEDED** — D3 (inline onclick in index.html) was ALREADY fixed by PR #44 `824b903` (buttons id'd + wired via addEventListener in landing.js; verified against the tree). The 2026-08-05 spec was stale; docs-scribe correctly documented D3 as RESOLVED. Only **ARCH-DOC-FIX-2 REQUIRED** (education-page.jsx → link in index.html, removing the direct /api/subscribe fetch — its own interview when built).
+- Fix-round: 0 / 3   (docs-only; no fix-loop)
+- Verify: npm run build clean (dist-name-guard clean, re-run independently) · 171 inter-doc links resolve · grep-check clean (no restated tier limits/TTLs/HTTP contract) · docs-only (no code/rules/tests → no test:unit/test:rules).
+- Open findings: none
+- Branch: claude/architecture-doc  (off master 907085c)
+- Built: yes  (docs increment — new docs/decisions/ARCHITECTURE.md + 3-anchor wiring + 5 sibling docs; commit = the finalize below)
 - Merged: no
-- Agents this item: 9   (architect · test-author · client-builder · test-tier-verifier · design-consistency · adversarial-metric[general] · test-author[fix] · client-builder[fix] · docs-scribe; + orchestrator bold tidy-up)
-- Jira: CRYP-97 (In Progress)
-- Slice note: BUILD-LOOP #13 PR **4c of 3 (final)**. Extends 4b's pulseFacts with four deterministic
-  insight metrics under S1–S4. NOT purely additive — it RESHAPES the 4b Pulse line set per the locked
-  "Integrated line set": adds a P-1 "what drove it" line, merges P-2 effective-N into R-C, and adds a
-  "This week" (P-4 vol + P-3 drawdown) line that SUPERSEDES R-E's one-clause risk pointer in the Pulse
-  (the RiskMeter card's structural rank-risk is untouched). Needs the per-coin 7d sparkline for P-3/P-4.
-  No rules/callable/api/dep → no test:rules. Completes item 4.
+- Agents this item: 1   (docs-scribe; author + wire + verify)
+- Jira: CRYP-100 (In Progress)
 - Updated: 2026-08-08

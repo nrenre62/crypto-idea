@@ -16,6 +16,7 @@
 > | `tests/unit/admin-dashboard.test.jsx` | 64 | Admin panel interaction tests (4 tabs + user detail) |
 > | `tests/unit/education-page.test.jsx` | 42 | Education-page subscribe regression tests |
 > | `tests/unit/format.test.js` | 19 | `fmtPriceInput` tests |
+> | `docs/decisions/ARCHITECTURE.md` | — | **Canonical system architecture rulebook** (ARCH-1…ARCH-17) — wins on architecture; `src/ARCHITECTURE.md` is its src-layer sub-doc, `docs/testing/ARCHITECTURE-AUDIT.md` its historical snapshot (added 2026-08-08, ARCHITECTURE-DOC / CRYP-100) |
 >
 > Also: `useUpgrade.js` gained `dueDowngrade`; `format.js` gained `fmtPriceInput`; dead exports
 > (`getUserProfile`/`updateUserTier`/`renamePortfolio`) + duplicate `TIER_LIMITS` removed from the

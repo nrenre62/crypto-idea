@@ -20,14 +20,17 @@ crypto-idea/
 ├── functions/index.js           ← Cloud Functions (CoinGecko proxy, PayPal, admin/GDPR callables)
 ├── firestore.rules              ← security rules
 ├── tests/                       ← rules + data-layer (node:test) and unit/ (Vitest)
-├── ARCHITECTURE.md (src/)       ← the layer rules + migration status
+├── docs/decisions/ARCHITECTURE.md ← canonical system architecture rulebook (ARCH-1…ARCH-17)
+├── ARCHITECTURE.md (src/)       ← the src/ layer detail + migration status
 └── docs/product/NEXT-STEPS.md  ← what's left to do (refactor, known bug, go-live)
 ```
 
 > **Frontend architecture is layered** (`api` / `hooks` / `components` / `utils`). The
 > historically-monolithic `CryptoIdea.jsx` (~1,560 lines) has been peeled into per-screen
 > components + hooks; it now holds only the auth/data effects, mutation handlers, shared context,
-> and the router shell. The rules, current state, and remaining layer violations live in
+> and the router shell. The **canonical system architecture rulebook** is
+> [`docs/decisions/ARCHITECTURE.md`](docs/decisions/ARCHITECTURE.md) (ARCH-1…ARCH-17, wins on architecture);
+> the `src/` layer detail, current state, and remaining layer violations live in
 > [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md); the to-do list lives in [`NEXT-STEPS.md`](docs/product/NEXT-STEPS.md).
 
 ## Tests
