@@ -42,10 +42,11 @@ a fresh context resumes **exactly where it left off**.
 *(4a + 4b merged — PR #46 `bfdbdf0` (CRYP-93) + PR #50 `9e2bbb3` (CRYP-95); run rows in `factory-runs.md`.)*
 
 ## RESEARCH-NO-AI-4c — RESEARCH-METRICS (P-1…P-4), final slice of #13
-- Phase: G1
+- Phase: G2-approved
 - G1 confirmed: yes        (🟡 item in NEXT-STEPS §RESEARCH-NO-AI; 4c metric decisions locked 2026-08-03; founder chose Option A = 3 PRs)
-- G2 approved: no          (no code before this is yes)
-- Plan (files): TBD — architect to plan extending the pure pulse.js layer with P-1 attribution / P-2 effective-N / P-3 7d drawdown / P-4 7d volatility + the "Integrated line set" reshape (P-1 line, P-2 merged into R-C, "This week" P-3+P-4 line SUPERSEDES R-E in the Pulse). Key open q: how each coin's 7d sparkline reaches pulseFacts (priceAdapter/usePrices) for the daily portfolio-value reconstruction.
+- G2 approved: yes         (founder yes 2026-08-08; Q1=drop number >100% → "the main driver"; Q2=keep R-E as thin-data fallback — both = architect recs)
+- Plan (files): src/features/research/utils/pulse.js ONLY production change (+~60 lines): new facts contrib[]/topContributor/topContributorShare, neff (1/Σwᵢ², clamp[1,N]), drawdown7d + vol7d (from Vₜ=Σ amount×spark reconstructed off holdings — spark+amount already ride on portfolio.holdings, NO threading), weekly gate; reshape pulseLines → R-A·R-B·P-1·(R-C+P-2)·"This week"(P-3+P-4, SUPERSEDES R-E; R-E is thin-data fallback). usePulse/OverviewView/Pulse/useSharePulse UNCHANGED. Tests: extend research-pulse.test.js. Docs: NEXT-STEPS §RESEARCH-NO-AI + CLAUDE.md (drop "4c pending"). Client-only; no rules/callable/api/dep.
+- Key decisions: (a) P-1 uses PAST-VALUE weights (contribᵢ=pᵢ·rᵢ/then) so Σcontrib===perf[tf] exactly (spec's literal current-weight wᵢ breaks the locked "sum exactly" identity); (b) "This week" all-or-nothing — omits if any holding lacks a usable daily spark.
 - Fix-round: 0 / 3
 - Open findings: none
 - Branch: claude/research-metrics  (cut off master 9e2bbb3 = React 19 + 4a + 4b)
