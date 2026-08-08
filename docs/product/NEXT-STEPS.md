@@ -12,6 +12,25 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## FACTORY-INTERVIEW-GATE. Ad-hoc build = mandatory interview; a written NEXT-STEPS plan skips only G1  (✅ BUILT 2026-08-08 · docs/command only · CRYP-98)
+
+**Founder rule (2026-08-08):** the interview→plan phase is enforced by **provenance**, so any operator
+running the loop interviews before building unless a plan already exists.
+- **PLANNED** — a `NEXT-STEPS` key carrying a **written/locked plan** (a real plan block or the 🟩 GREEN
+  "locked decisions" marker) → **G1 interview skipped** (the written plan is G1). **G2 still runs, never
+  skipped**, as a **non-blocking plan-of-record** (`architect` drafts the file-by-file plan, it's shown,
+  the build proceeds).
+- **AD-HOC** — a free-text "build / design / fix this **now**" from chat, or a `NEXT-STEPS` **stub with
+  no plan** → **G1 interview MANDATORY, no exceptions**; **G2 blocking** (no code before the yes). A bug
+  is interviewed **before** `/jira-bug` → `/jira-fix`.
+- **No trivial carve-out for build/design/fix** — even a one-liner is interviewed. The one-line-heads-up
+  path survives only for a **pure doc typo / copy / comment** (not a build/design/fix).
+- Enforced at **any** entry point, not just `/build-feature`.
+- **Consistency sweep (6 files):** `.claude/commands/build-feature.md` (Absolute rule + Preflight §3.5
+  classification + G1/G2/outer-loop), `CLAUDE.md` (Interview convention), `docs/interview.md` (flow +
+  narrowed carve-out), `docs/product/AGENT-FACTORY.md` (gate table + pipeline diagram),
+  `docs/product/BUILD-LOOP.md` (ledger gate step), this log.
+
 ## AGENT-FACTORY. Autonomous feature assembly line (dev tooling — ✅ ROSTER BUILT 2026-08-03; first end-to-end run pending)
 
 Canonical: **[`AGENT-FACTORY.md`](AGENT-FACTORY.md)**. A `/build-feature` orchestrator that carries

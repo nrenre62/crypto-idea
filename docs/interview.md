@@ -20,6 +20,15 @@ This one loop covers **building a plan, fixing a bug, or fixing anything** subst
 **plan + interview = always · find the gaps = always · one plan = one new PR + one Jira card.**
 Never skip the interview or the gap-hunt; never push to `master`; never reuse or rewrite an old (merged / closed) PR.
 
+**Ad-hoc "build / design / fix this now" from chat enters this loop at the interview — it never goes
+straight to build** (founder rule, 2026-08-08). The **only** thing that skips the interview is a
+`NEXT-STEPS` item that already carries a **written/locked plan** (a real plan block or the 🟩 GREEN
+"locked decisions" marker — the founder planned it manually and wrote it in the ledger); a bare
+`NEXT-STEPS` **stub** with no plan is still interviewed. The `/build-feature` factory enforces this same
+split at its gates: PLANNED skips the **G1 interview** (G2 plan still runs as a non-blocking
+plan-of-record), AD-HOC gets the mandatory G1 interview + a blocking G2 — see
+[`AGENT-FACTORY.md`](product/AGENT-FACTORY.md) §5 and [`build-feature`](../.claude/commands/build-feature.md).
+
 ---
 
 ## When this applies
@@ -30,9 +39,10 @@ Never skip the interview or the gap-hunt; never push to `master`; never reuse or
 - touches a **topic in the consistency map** below;
 - or when the founder says "interview me."
 
-**Skip to a one-line heads-up** for *trivial, obvious, single-file* fixes (a typo, a one-line copy
-tweak, a lone comment) — make the change, say what changed, move on. **When unsure which bucket a
-change is in, treat it as substantive.**
+**Skip to a one-line heads-up** for a *pure doc typo / one-line copy tweak / lone comment* — something
+that is **NOT** a build, design, or bug fix. **Any build / design / bug fix is interviewed, no
+exceptions** (founder rule, 2026-08-08) — even a one-liner; there is no straight-to-build path. **When
+unsure which bucket a change is in, treat it as substantive and interview.**
 
 ---
 
