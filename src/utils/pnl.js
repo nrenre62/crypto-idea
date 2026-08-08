@@ -17,14 +17,34 @@ export function sellsGain(entries) {
   return (entries || []).filter(e => e.type === "sell").reduce((s, e) => s + e.amount * e.priceAtBuy, 0);
 }
 
+// CRYP-94 (finding 7): realised sell proceeds counted toward P/L, clamped so an OVER-SOLD
+// coin can't book a phantom gain. holdings() clamps units to Math.max(0,…), but the raw
+// sellsGain() is unbounded — so selling more than you ever held (reachable by editing a buy
+// down, a backdated insert, or a cross-device race) counted proceeds on units never owned.
+// When sold > bought we scale the proceeds to the real position (bought/sold); a normal book
+// (sold <= bought) is returned unchanged. The RAW sellsGain() is still shown in the "Sold"
+// display — this only governs the P/L arithmetic.
+export function realizedProceeds(entries) {
+  const arr = entries || [];
+  let bought = 0, sold = 0, gain = 0;
+  for (const e of arr) {
+    if (e.type === "sell") { sold += e.amount; gain += e.amount * e.priceAtBuy; }
+    else bought += e.amount;
+  }
+  return (sold > bought && sold > 0) ? gain * (bought / sold) : gain;
+}
+
 // Per-coin P/L at a given current unit price. P/L = (current value of holdings +
-// proceeds already realised from sells) − total buy cost.
+// proceeds already realised from sells) − total buy cost. Uses the clamped realizedProceeds
+// (finding 7) so an over-sold coin can't book a phantom gain; the RAW sellsGain is still
+// returned for the "Sold" display line.
 export function coinPnl(entries, price) {
   const holding = holdings(entries);
   const cost = buysCost(entries);
   const sold = sellsGain(entries);
+  const realised = realizedProceeds(entries);
   const value = holding * (price || 0);
-  const pnl = (value + sold) - cost;
+  const pnl = (value + realised) - cost;
   const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
   return { holding, value, buysCost: cost, sellsGain: sold, pnl, pnlPct };
 }
@@ -32,14 +52,15 @@ export function coinPnl(entries, price) {
 // Portfolio-wide P/L. `coins` each have `.id` and `.entries`; `prices` maps a
 // coin id to `{ usd }`. `invested` is net cash in (buys − sells realised).
 export function portfolioPnl(coins, prices) {
-  let value = 0, totalBuys = 0, totalSells = 0;
+  let value = 0, totalBuys = 0, totalSells = 0, realised = 0;
   for (const c of coins || []) {
     const price = (prices && prices[c.id] && prices[c.id].usd) || 0;
     value += holdings(c.entries) * price;
     totalBuys += buysCost(c.entries);
     totalSells += sellsGain(c.entries);
+    realised += realizedProceeds(c.entries);   // clamped per coin (finding 7)
   }
-  const pnl = (value + totalSells) - totalBuys;
+  const pnl = (value + realised) - totalBuys;
   const pnlPct = totalBuys > 0 ? (pnl / totalBuys) * 100 : 0;
   return { value, totalBuys, totalSells, invested: totalBuys - totalSells, pnl, pnlPct };
 }
