@@ -42,16 +42,19 @@ a fresh context resumes **exactly where it left off**.
 *(4a merged — PR #46 → master `bfdbdf0`; CRYP-93 Done; run row in `factory-runs.md`.)*
 
 ## RESEARCH-NO-AI-4b — multi-signal deterministic Pulse (pulseFacts) + Daily Brief
-- Phase: G2-approved
+- Phase: built  (awaiting G3 merge decision)
 - G1 confirmed: yes        (🟡 PARTLY-BUILT item in NEXT-STEPS §RESEARCH-NO-AI; 4b content decisions locked 2026-08-03; founder "go for PR 4b" 2026-08-08)
 - G2 approved: yes         (founder yes 2026-08-08)
-- Plan (files): NEW src/features/research/utils/pulse.js (pulseFacts + pulseLines R-A→R-B→R-C→R-E→R-F + briefFacts B-1/B-2/B-3) · usePulse.js (render multi-line via pulseFacts; DROP orphaned offline field) · OverviewView.jsx (Brief from briefFacts; delete "volatility" line; diversification card unchanged) · Pulse.jsx verify-only (Rich already multi-line) · tests: NEW research-pulse.test.js + 2 render assertions. Client-only; no rules/callable/dep. Scope guard: R-C base (no P-2 merge), R-E stands, NO P-1…P-4 metrics (=4c).
-- Fix-round: 0 / 3
-- Open findings: none
+- Plan (files): NEW src/features/research/utils/pulse.js (pulseFacts + pulseLines R-A→R-B→R-C→R-E→R-F + briefFacts B-1/B-2/B-3) · usePulse.js (render multi-line via pulseFacts; DROPPED orphaned offline field) · OverviewView.jsx (Brief from briefFacts; deleted "volatility" line; diversification card unchanged) · Pulse.jsx verify-only (Rich already multi-line) · tests: NEW research-pulse.test.js (15) + 3 render assertions in ResearchTab.test.jsx. Client-only; no rules/callable/dep. Scope guard held: R-C base (no P-2 merge), R-E stands, NO P-1…P-4 metrics (=4c).
+- Fix-round: 0 / 3   (green first build pass — no fix-loop)
+- Reviews: verify GREEN (unit 982/982) · design CONSISTENT (0 must-fix; 2 advisory copy notes → G3 founder call) · secure SKIPPED (pure client utils + copy — no functions/rules/auth/billing/secret/api surface) · api-contract SKIPPED (no api change)
+- Simplifier: SKIPPED — pulse.js already flat/clean, no dead code (orphaned offline field already dropped in the build); the 2 advisories are copy choices, not simplifications.
+- Advisories (both copy, non-blocking): (1) R-A renders "+3.2%" vs spec "up/down 3.2%" (test-driven, honest); (2) R-F >60% nudge echoes the always-on diversification card (spec-sanctioned overlap, hard-rule #5). Surface at G3.
+- Open findings: none blocking
 - Branch: claude/research-pulse-facts  (cut off master bfdbdf0 = React 19 + 4a; baseline unit 964/964 green)
-- Built: no
+- Built: yes  e6e79db  (red checkpoint 471babc → green impl e6e79db; pushed)
 - Merged: no
-- Agents this item: 0
+- Agents this item: 6   (architect · test-author · client-builder · test-tier-verifier · design-consistency · docs-scribe)
 - Jira: CRYP-95 (In Progress)
 - Slice note: BUILD-LOOP #13 PR **4b of 3**. Base multi-signal Pulse via a NEW pure `pulseFacts`(+`briefFacts`)
   layer: R-A value/perf (always) · R-B unrealized P&L vs cost (invested>0, honest sign) · R-C concentration

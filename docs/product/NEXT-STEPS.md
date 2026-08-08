@@ -3889,19 +3889,37 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 
 ---
 
-## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (🟡 PARTLY BUILT — framing/honesty ✅ 2026-08-08 `b6d32d1` (PR 4a); Pulse content = 4b, metrics = 4c · BUILD-LOOP #13 · CRYP-93)
+## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (🟡 PARTLY BUILT — framing/honesty ✅ 2026-08-08 `b6d32d1` (PR 4a); Pulse content + Daily Brief ✅ 2026-08-08 `e6e79db` (PR 4b · CRYP-95); only metrics = 4c · BUILD-LOOP #13 · CRYP-93/CRYP-95)
 
-> **🟡 PARTLY BUILT — the framing/honesty pass shipped 2026-08-08 (PR 4a of 3 · CRYP-93 · `b6d32d1`).**
-> DONE in 4a: the "AI is offline — showing a basic summary" apology is **removed** and replaced by a neutral
-> **"AI off"/"AI on" status pill** (`.research-root .ai-status`, token-driven, dark-safe); the new build
-> constant **`AI_PROXY_LIVE = false`** in `src/features/research/api/ai-status.js` is the single go-live seam,
-> and `aiChrome = chatEnabled && AI_PROXY_LIVE` gates the AI ornaments (gradient label, Regenerate, the
-> "AI-generated" disclaimer) — all hidden today. De-apologized copy landed in `OverviewView.jsx`,
-> `EmptyState.jsx`, `AskView.jsx` + `hooks/useAsk.js` (dead `offline` field dropped), and the dead
-> `.ai-note`/`.a-off` CSS was removed. **STILL TO BUILD:** the richer **multi-signal deterministic Pulse**
-> (`pulseFacts` layer + templates R-A…R-F) and the **Daily Brief rewrite** are **PR 4b**; **RESEARCH-METRICS**
-> (P-1…P-4) is **PR 4c**. The existing single-line deterministic Pulse text is unchanged for now; a known 4b
-> follow-up is dropping the orphaned `offline` field `hooks/usePulse.js` still computes.
+> **🟡 PARTLY BUILT — 4a (framing/honesty) + 4b (Pulse content + Daily Brief) shipped; only RESEARCH-METRICS (4c) remains.**
+>
+> **PR 4a of 3 — framing/honesty · 2026-08-08 · CRYP-93 · `b6d32d1`.** The "AI is offline — showing a basic
+> summary" apology is **removed** and replaced by a neutral **"AI off"/"AI on" status pill**
+> (`.research-root .ai-status`, token-driven, dark-safe); the new build constant **`AI_PROXY_LIVE = false`** in
+> `src/features/research/api/ai-status.js` is the single go-live seam, and `aiChrome = chatEnabled && AI_PROXY_LIVE`
+> gates the AI ornaments (gradient label, Regenerate, the "AI-generated" disclaimer) — all hidden today.
+> De-apologized copy landed in `OverviewView.jsx`, `EmptyState.jsx`, `AskView.jsx` + `hooks/useAsk.js` (dead
+> `offline` field dropped), and the dead `.ai-note`/`.a-off` CSS was removed.
+>
+> **PR 4b of 3 — Pulse content + Daily Brief · ✅ 2026-08-08 · CRYP-95 · `e6e79db`.** A new pure
+> **`src/features/research/utils/pulse.js`** is now the single source of truth for the Overview's two cards,
+> replacing the old single-line Pulse and the buggy Brief. **`pulseFacts(portfolio, tf)` + `pulseLines(facts)`**
+> produce the **multi-signal deterministic Portfolio Pulse** — R-A value + selected-tf performance (always) ·
+> R-B unrealized P&L vs cost basis (only when there's a cost basis; honest sign; skipped, never "∞%", on a
+> zero-cost book) · R-C top-two concentration naming the two largest HELD coins (only ≥2 holdings) · R-E a
+> one-sentence risk-level pointer · R-F a neutral diversification nudge (only when top-2 > 60%); empty book →
+> the locked "Once you add coins…" line. **`briefFacts(portfolio)`** drives the **honest Daily Brief rewrite** —
+> B-1 portfolio 24h ($ + %, sign-matched, "≈0%" near-zero rule) · B-2 biggest gainer · B-3 biggest decliner
+> (B-2/B-3 always different coins), and the old **"{coin} volatility" mislabel is removed**. `usePulse` now
+> renders `pulseLines(pulseFacts(...)).join('\n')` on the deterministic path and the **orphaned `offline` state
+> field is dropped** (the known 4a follow-up — now done). Every line obeys the locked S1–S4 rules (no verb on a
+> named coin, no advice/target, held-only naming, no roll-up score, neutral labels, never NaN/Infinity).
+> **Client-only — no `firestore.rules`, no callable, no `/api`/openapi change, no new dep, no new CSS.**
+> `pulseFacts` is structured flat so 4c extends it cleanly.
+>
+> **STILL TO BUILD — PR 4c:** **RESEARCH-METRICS** (P-1 return attribution · P-2 effective-N, merges into R-C ·
+> P-3 7-day drawdown · P-4 7-day volatility — the "This week" line + the "what drove it" line, §"Pulse metrics"
+> below). NOT in this slice.
 >
 > **Queued as [BUILD-LOOP](BUILD-LOOP.md) #13** (2026-08-03) — finished + approved (2026-08-03 interview),
 > decisions locked. Built in **ONE increment together with AI-CHAT-SWITCH** (same `aiResearch` flag, same
