@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { holdings, buysCost, sellsGain, coinPnl, portfolioPnl, portfolio24hPct } from "../../src/utils/pnl.js";
+import { holdings, buysCost, sellsGain, realizedProceeds, coinPnl, portfolioPnl, portfolio24hPct } from "../../src/utils/pnl.js";
 
 const buy = (amount, priceAtBuy) => ({ type: "buy", amount, priceAtBuy });
 const sell = (amount, priceAtBuy) => ({ type: "sell", amount, priceAtBuy });
@@ -44,6 +44,40 @@ describe("utils/pnl", () => {
     const r = coinPnl([], 100);
     expect(r.pnl).toBe(0);
     expect(r.pnlPct).toBe(0);
+  });
+
+  // CRYP-94 (Group B, finding 7): an OVER-SOLD coin (holdings clamps to 0, but the raw sell
+  // proceeds are counted in full) shows a phantom realized gain. realizedProceeds clamps the
+  // proceeds proportionally to the real position (bought/sold), so P/L can't exceed a real basis.
+  describe("realizedProceeds clamps phantom over-sold gains (finding 7)", () => {
+    it("CRYP-94: a NORMAL book (sold <= bought) is unchanged — proceeds == raw sellsGain", () => {
+      const e = [buy(2, 100), sell(1, 300)];
+      expect(realizedProceeds(e)).toBe(300);      // 1 * 300, not clamped
+      expect(realizedProceeds(e)).toBe(sellsGain(e));
+    });
+
+    it("CRYP-94: an OVER-SOLD book scales proceeds by bought/sold", () => {
+      // bought 0.3, sold 6 → raw proceeds 6*200=1200, but only 0.3 units were ever held
+      const e = [buy(0.3, 100), sell(6, 200)];
+      expect(sellsGain(e)).toBe(1200);            // raw sell proceeds (still shown as-is)
+      expect(realizedProceeds(e)).toBeCloseTo(60, 8);   // 1200 * (0.3/6)
+    });
+
+    it("CRYP-94: coinPnl uses the clamped proceeds — no phantom '+1900%'", () => {
+      // the founder exploit's end state: bought 0.3 @100 (cost 30), sold 6 @200, holding 0
+      const r = coinPnl([buy(0.3, 100), sell(6, 200)], 150);
+      expect(r.holding).toBe(0);
+      expect(r.sellsGain).toBe(1200);             // raw proceeds preserved for the "Sold" display
+      // honest P/L: (value 0 + clamped 60) - cost 30 = 30 → +100%, NOT (1200-30)=+3900%
+      expect(r.pnl).toBeCloseTo(30, 6);
+      expect(r.pnlPct).toBeCloseTo(100, 6);
+    });
+
+    it("CRYP-94: portfolioPnl does not inflate total P/L from an over-sold coin", () => {
+      const coins = [{ id: "x", entries: [buy(0.3, 100), sell(6, 200)] }];
+      const r = portfolioPnl(coins, { x: { usd: 150 } });
+      expect(r.pnl).toBeCloseTo(30, 6);           // clamped, not 1170
+    });
   });
 
   it("portfolioPnl aggregates value/buys/pnl across coins using the price map", () => {
