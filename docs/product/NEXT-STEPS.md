@@ -3908,76 +3908,98 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 
 ---
 
-## RESEARCH-NOTES. Research Overview "notes" area — 10 portfolio-scenario general guide notes (no links) + link The Edge from the landing as an additional resource  (🟨 PLAN-ONLY — proposed 2026-08-08; founder to lock via interview before build · no CRYP yet)
+## RESEARCH-NOTES. Research Overview "notes" area — 10 allocation/risk general guide notes (no links, relevance-picked) + link The Edge from the landing footer as a Resource  (🟨 PLAN-ONLY — scope/thresholds/copy/selection LOCKED 2026-08-08; relevance ladder awaits a final nod; no CRYP yet)
 
 > **🟨 PLAN-ONLY — a founder-captured idea, NOT built. This is the written plan; it still goes through the
-> normal interview → G2 → build loop when scheduled. Thresholds + exact copy + priority order are OPEN
-> QUESTIONS (below) for the founder to lock first.**
+> normal interview → G2 → build loop when scheduled. Scope + thresholds + copy voice + selection model are
+> LOCKED (founder, 2026-08-08); only the relevance ladder + two overlap resolutions want a final nod (below).**
 
 **What & why (founder, 2026-08-08).** Today the Research Overview ends with ONE hard-coded card, **"A note on
 diversification"** ([`OverviewView.jsx:68-81`](../../src/features/research/components/OverviewView.jsx)), that
 always says the same thing and carries a **`<a href="/edge">Read the principle →</a>`** link. The founder wants
 **two separate changes**:
 
-- **(A) The notes area.** Replace the single fixed card with a **rotating "notes" area** that shows **one
-  general guide note chosen from the portfolio's current state** — its **composition/positioning ("location")
-  and its risk**. The note changes as the portfolio changes. **These notes carry NO link** — not to `/edge`, not
-  to any in-app screen. Plain educational text only. The point is **different notes for different scenarios** so
-  each portfolio gets the guidance most relevant to it. Diversification becomes **one of ten** scenarios.
+- **(A) The notes area.** Replace the single fixed card with a **rotating "notes" area** that shows **exactly one
+  general guide note** chosen from the portfolio's current **allocation and risk**. The note changes as the
+  portfolio changes, always surfacing the **single most-relevant** insight. **These notes carry NO link** — not to
+  `/edge`, not to any in-app screen. Plain educational text only. Diversification becomes **one of ten** notes.
 - **(B) The Edge as an additional resource.** `/edge` (the in-app **education-page.jsx** guide, "The Edge") is
-  meant for the **landing page** but **isn't linked there yet**. Surface it on the landing (`index.html`) as an
-  **additional resource** link. Since (A) strips the `/edge` link out of the note, The Edge needs a real home —
-  the landing is it. *(Open Q: keep a single Edge entry point on the landing only, or also elsewhere?)*
+  meant for the **landing page** but **isn't linked there yet**. Surface it on the landing (`index.html`) as a
+  **footer "Resources" link — landing page only**. Since (A) strips the `/edge` link out of the note, The Edge
+  needs a real home; the landing footer is it. *(The in-app `/edge` route itself stays as-is — it just loses its
+  Research-note entry point; the founder can retire the route separately later.)*
 
-### Proposed 10 scenarios (one note shown, chosen by priority — founder to review/reorder)
-Each = a **trigger** on the already-computed `portfolio` (`holdings[]` with `alloc`/`value`/P&L/`journal`,
-`risk {level, score, breakdown, megaAlloc}`, top-2 concentration, holding count, unrealized P&L%). All notes are
-**neutral education, no advice, no predictions, no coin named that isn't held, no links** — the same S1–S4
-compliance rules the Pulse obeys. A pure `pickNote(portfolio)` returns the highest-priority match.
+### Locked decisions (founder, 2026-08-08)
+1. **"Location" = allocation.** The note is chosen from the portfolio's **allocation** (how weight is spread across
+   coins + cap tiers) and its **risk**. Not geographic, not anything else.
+2. **Keep all thresholds** — 60% concentration · −15% drawdown · +30% winner · 20% mega-anchor · the ≤3 / ≥5
+   holding-count boundaries. *(One new threshold introduced for the rule engine: an "all-large-cap" book = mega ≥
+   70% — flagged for the founder in "remaining nods".)*
+3. **One note at a time** — never a stack. The selector returns the single most-relevant note.
+4. **Selection = "most relevant each time," not a fixed 1→10 order.** Each note is a rule; every rule has a
+   **relevance weight**; the note shown is the **highest-relevance rule that currently matches**. As the portfolio
+   changes, a different rule wins. (Founder's example: *"fewer than 5 coins ⇒ the diversification note"* — the
+   `under-diversified` rule below.)
+5. **The Edge → landing footer "Resources" link, landing only.**
+6. **Copy approved in the no-names / no-advice voice** (the drafts below are the approved lines).
 
-| # | Key | Trigger (proposed threshold — OPEN) | Note (draft copy) |
-|---|-----|-------------------------------------|-------------------|
-| 1 | `one-coin` | `holdings.length === 1` | Everything you hold is in a single coin, so your whole result rides on one asset. Adding a second position you understand is the simplest way to lower that. |
-| 2 | `concentration` | `holdings ≥ 2` and top-2 ≥ **60%** | Your top two coins make up about {N}% of your portfolio. Spreading across more assets is one of the simplest ways to reduce single-coin risk. *(today's note, minus the Edge link)* |
-| 3 | `high-risk` | `risk.level === 'High'` | Your mix leans toward higher-risk, smaller-cap coins. Those tend to move harder in both directions — how much you put in each one matters as much as which ones you pick. |
-| 4 | `drawdown` | unrealized P&L ≤ **−15%** | Your portfolio is below what you put in. Down stretches are when a plan gets tested — the useful question is usually whether the reasons you bought still hold, not just where the price is. |
-| 5 | `big-winner` | unrealized P&L ≥ **+30%** (or one coin's run pushed its weight up) | One position has run up and now takes a bigger share of your portfolio than you may have started with. It's worth knowing how concentrated a winner has quietly made you. |
-| 6 | `thin-anchor` | `risk.megaAlloc < 20%` and `holdings ≥ 2` | Only a small slice sits in large, established coins. Higher-ranked assets have historically swung less than the long tail — some weight there can steady a portfolio. |
-| 7 | `all-large-cap` | `risk.level === 'Low'`, high `megaAlloc`, `holdings ≤ 3` | You're concentrated in large-cap coins. That's lower-volatility than the long tail, but "big" and "safe" aren't the same thing — every coin still carries market risk. |
-| 8 | `no-thesis` | some held coin has no `journal.thesis` | Some of your coins don't have a written reason for holding them yet. Noting why you bought each one gives you something concrete to review later, instead of just the price. |
-| 9 | `early` | `holdings` 2–3 and small total | You're early in building this portfolio. The allocation choices you make now shape its risk for a long time — there's no rush to fill it all at once. |
-| 10 | `balanced` | `holdings ≥ 5` and top-2 < **40%** | Your holdings look well spread out — no single coin dominates. Diversification is upkeep, not a one-time setting: it's worth re-checking as prices move your weights around. |
+### The rule engine — "most relevant wins" (the better plan the founder asked for)
+**Model.** A pure `pickNote(portfolio)` computes a small `facts` object once, evaluates every rule's predicate,
+and returns the **matching rule with the highest `relevance`** (deterministic — weights are all distinct; ties, if
+ever introduced, break by table order). Exactly one note renders. An **empty book** short-circuits to the
+empty-state line before scoring; if (impossibly) nothing matches, the **default** note shows so the area is never
+blank. Every rule is a subset of the S1–S4 Pulse-compliance rules: **neutral education, no advice, no prediction,
+no coin named that isn't held, no link.**
 
-- **Default fallback** (nothing above fires): "Keeping your holdings varied and knowing why you own each one are
-  two of the simplest habits for a steadier portfolio." *(Ensures the area is never blank on a non-empty book.)*
-- **Empty book:** keep today's "Diversification tips appear once you hold a few coins." (reworded to "Notes…").
-- **Proposed priority (first match wins):** 1 `one-coin` → 2 `concentration` → 3 `high-risk` → 4 `drawdown` →
-  5 `big-winner` → 6 `thin-anchor` → 7 `all-large-cap` → 8 `no-thesis` → 9 `early` → 10 `balanced` → default.
+**Facts (all already on `portfolio` — no new data, no new call):** `n` = holdings count · `top1` / `top2` =
+largest / top-two allocation % · `mega` = `risk.megaAlloc` (% in mega-cap/top-rank coins) · `level` =
+`risk.level` ∈ {Low, Moderate, High} · `pnl` = unrealized P&L % (only when cost basis > 0; `hasCost`) ·
+`noThesis` = at least one held coin has no `journal.thesis`.
 
-### Open questions (founder to lock in the interview before build)
-1. **"Location" = my read** — composition/positioning (concentration + cap-mix + holding count). Confirm, or did
-   you mean something else (e.g. geographic, or where a coin sits on the risk spectrum)?
-2. **Thresholds** — 60% concentration, −15% drawdown, +30% winner, 20% mega-anchor, ≤3/≥5 counts. Keep or tune?
-3. **Priority order** — the list above. Reorder any?
-4. **One note at a time, or a small stack** (e.g. up to 2)? Founder text says "different notes for different
-   scenarios" — I read it as **one** most-relevant note; confirm.
-5. **The Edge on the landing** — where exactly (a "Resources" footer link? a card near the DCA calc?) and is the
-   in-app `/edge` route staying reachable elsewhere, or landing-only now?
-6. **Copy** — the draft lines above are placeholders in the no-names / no-advice voice; approve or rewrite each.
+**Rules (higher `relevance` = more pressing → shown first when several match):**
+
+| relevance | key | predicate (fires when…) | note (approved copy) |
+|---|---|---|---|
+| 100 | `one-coin` | `n === 1` | Everything you hold is in a single coin, so your whole result rides on one asset. Adding a second position you understand is the simplest way to lower that. |
+| 92 | `drawdown` | `hasCost && pnl ≤ −15` | Your portfolio is below what you put in. Down stretches are when a plan gets tested — the useful question is usually whether the reasons you bought still hold, not just where the price is. |
+| 88 | `concentration` | `n ≥ 2 && top2 ≥ 60` | Your top two coins make up about {top2}% of your portfolio. Spreading across more assets is one of the simplest ways to reduce single-coin risk. |
+| 80 | `high-risk` | `level === 'High'` | Your mix leans toward higher-risk, smaller-cap coins. Those tend to move harder in both directions — how much you put in each one matters as much as which ones you pick. |
+| 72 | `under-diversified` | `2 ≤ n ≤ 4` *(the founder's "<5 coins" example; folds in the old `early` note)* | You're holding just {n} coins, so each one has a big say in how your portfolio does. Adding a few more you understand spreads that influence out. |
+| 64 | `winner` | `hasCost && pnl ≥ +30` | One position has run up and now takes a bigger share of your portfolio than you may have started with. It's worth knowing how concentrated a winner has quietly made you. |
+| 56 | `thin-anchor` | `n ≥ 5 && mega < 20` | Only a small slice sits in large, established coins. Higher-ranked assets have historically swung less than the long tail — some weight there can steady a portfolio. |
+| 48 | `all-large-cap` | `n ≥ 5 && mega ≥ 70 && level !== 'High'` | You're concentrated in large-cap coins. That's lower-volatility than the long tail, but "big" and "safe" aren't the same thing — every coin still carries market risk. |
+| 40 | `no-thesis` | `noThesis` | Some of your coins don't have a written reason for holding them yet. Noting why you bought each one gives you something concrete to review later, instead of just the price. |
+| 24 | `balanced` | `n ≥ 5 && top2 < 40` | Your holdings look well spread out — no single coin dominates. Diversification is upkeep, not a one-time setting: it's worth re-checking as prices move your weights around. |
+| 0 | `default` | always | Keeping your holdings varied and knowing why you own each one are two of the simplest habits for a steadier portfolio. |
+
+- **Empty book (before scoring):** "Notes about your portfolio appear once you hold a few coins." *(reworded from
+  today's "Diversification tips appear once you hold a few coins.")*
+- **Why relevance beats a static list:** a 3-coin book that's **down 18%** shows `drawdown` (92), not
+  `under-diversified` (72) — the timely insight wins; the same book flat shows `under-diversified`. That's the
+  "most relevant each time" behaviour, made deterministic.
+
+### Remaining nods (small — founder can green-light as-is)
+- **Relevance ladder** above (100 → 0). Reorder any weight? (e.g. should `under-diversified` outrank `high-risk`?)
+- **Two overlap resolutions:** (a) the old `early` (2–3 coins) note is **merged into `under-diversified`**
+  (2 ≤ n ≤ 4) — OK to drop `early` as a separate note? (b) `thin-anchor` / `all-large-cap` are **gated to n ≥ 5**
+  so a small book always shows the more-pressing `under-diversified` first — OK?
+- **One new threshold:** `all-large-cap` uses **mega ≥ 70%**. Keep 70, or move it?
 
 ### Implementation sketch (KISS, client-only — for G2, not now)
-- New pure `src/features/research/utils/notes.js`: the 10 scenario definitions (key + predicate + text) + a
-  `pickNote(portfolio)` selector + `defaultNote`. Unit-tested per scenario (fires/omits on its condition, correct
-  priority, never blank, no coin named that isn't held).
-- `OverviewView.jsx`: the `.diversify` card renders `pickNote(...)` and **drops the `<a href="/edge">`**. Likely
-  rename `.diversify`/`.dic`/`h3` copy to a generic "note" (CSS in `research-tab.css`).
-- `index.html` (landing): add The Edge as an additional-resource link (external page from the landing's view).
-- **No** `firestore.rules` / backend / callable / `/api` / openapi / new-dep change — pure client + one landing
-  link. Blast radius: LOW (Research Overview note card + one landing link + one new pure util + its test).
+- New pure `src/features/research/utils/notes.js`: a `RULES` array (`{key, relevance, test(facts), text(facts)}`),
+  a `noteFacts(portfolio)` deriver, and `pickNote(portfolio)` = argmax-relevance over matching rules (empty-state +
+  `default` handled). Unit-tested per rule (fires/omits on its condition, correct winner when several match, never
+  blank, `{top2}`/`{n}` interpolation, no coin named that isn't held).
+- `OverviewView.jsx`: the `.diversify` card renders `pickNote(...)` and **drops the `<a href="/edge">`** + the
+  "a core idea in The Edge" clause. Rename `.diversify`/`.dic`/`h3` copy to a generic "note" (CSS in
+  `research-tab.css`; keep the ▦ glyph or swap per design).
+- `index.html` (landing): add The Edge to the **footer "Resources"** list (landing-only link).
+- **No** `firestore.rules` / backend / callable / `/api` / openapi / new-dep / new-hex change — pure client + one
+  landing footer link. Blast radius: LOW (one Research card + one landing footer link + one new pure util + test).
 - **Consistency sweep (topic = Research Overview note + landing resources):** `OverviewView.jsx` ·
   new `utils/notes.js` · `styles/research-tab.css` · `tests/unit/OverviewView.test.jsx` +
   new `tests/unit/research-notes.test.js` · `index.html` · CLAUDE.md (Research-tab section — replace the
-  "diversification note" mention + record The Edge→landing link) · README.md (if it names the note) ·
+  "diversification note" mention + record The Edge→landing footer link) · README.md (if it names the note) ·
   `docs/design/DESIGN-PASS.md` (R7-5 references the `.diversify` note/icon).
 
 ---
