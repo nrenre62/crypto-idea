@@ -31,7 +31,12 @@ export function CoinInfo() {
   const p=live||fetched;
   // A4: `??`-chain the live→mock fallback so a GENUINE live 0 (price/change/mcap) renders
   // as the real value instead of falling through `||` to BTC's mock reference numbers.
-  const pr=p?.usd??cd?.mockPrice??0;
+  // CRYP-94 (finding 8): distinguish an UNKNOWN price (no live/fetched value AND no mock
+  // fallback — a non-TOP coin whose /api/prices fetch hasn't landed) from a genuine 0. Only
+  // then is the held-position P/L unknown ("—") rather than a −100% loss.
+  const rawPrice=p?.usd??cd?.mockPrice;
+  const priceKnown=rawPrice!=null&&Number.isFinite(Number(rawPrice));
+  const pr=priceKnown?Number(rawPrice):0;
   const ch=p?.usd_24h_change??cd?.mockChange??0;
   const mc=p?.usd_market_cap??cd?.mockMcap??0;
   const vol=p?.usd_24h_vol||0;            // 24h trading volume — "—" until the proxy supplies it
@@ -88,7 +93,10 @@ export function CoinInfo() {
               <div className="card-title">Your Position</div>
               <div className="kv-row"><span className="kv-k">Held</span><span className="kv-v">{holding.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol}</span></div>
               <div className="kv-row"><span className="kv-k">Avg cost</span><span className="kv-v">{fmtP(avgBuy)}</span></div>
-              <div className={"pnl-row"+(unreal>=0?"":" dn")}><span className="pnl-label">Unrealised P/L</span><span className="pnl-val">{unreal>=0?"+":"−"}${Math.abs(unreal).toLocaleString("en-US",{minimumFractionDigits:2})} ({fmtPct(unrealPct)})</span></div>
+              {/* CRYP-94 (finding 8): no known price for a held coin ⇒ Unrealised P/L is "—", not −100%. */}
+              {holding>0&&!priceKnown
+                ?<div className="pnl-row"><span className="pnl-label">Unrealised P/L</span><span className="pnl-val muted">—</span></div>
+                :<div className={"pnl-row"+(unreal>=0?"":" dn")}><span className="pnl-label">Unrealised P/L</span><span className="pnl-val">{unreal>=0?"+":"−"}${Math.abs(unreal).toLocaleString("en-US",{minimumFractionDigits:2})} ({fmtPct(unrealPct)})</span></div>}
             </div>
           );
         })()}

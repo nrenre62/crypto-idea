@@ -87,13 +87,15 @@ export function Detail() {
         <div className="card">
           {(()=>{const boughtCoins=coin.entries.filter(e=>e.type!=="sell").reduce((s,e)=>s+e.amount,0);const soldCoins=coin.entries.filter(e=>e.type==="sell").reduce((s,e)=>s+e.amount,0);const avgBuy=boughtCoins>0?buysCost/boughtCoins:0;const avgSell=soldCoins>0?sellsGain/soldCoins:0;return(<>
           <div className="kv-row"><span className="kv-k">Holding</span><span className="kv-v">{h.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol}</span></div>
-          <div className="kv-row"><span className="kv-k">Current Value</span><span className="kv-v">${v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+          {/* CRYP-94 (finding 8): an unpriced held coin's value is UNKNOWN — a muted "—", not "$0.00". */}
+          <div className="kv-row"><span className="kv-k">Current Value</span>{v==null?<span className="kv-v muted">—</span>:<span className="kv-v">${v.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>}</div>
           <div className="kv-row"><span className="kv-k">Bought</span><span className="kv-v">{boughtCoins.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol} <span className="kv-sub">· ${buysCost.toLocaleString("en-US",{minimumFractionDigits:2})}</span></span></div>
           {avgBuy>0&&<div className="kv-row"><span className="kv-k">Avg Buy Price</span><span className="kv-v">{fmtP(avgBuy)}</span></div>}
           {soldCoins>0&&<>
           <div className="kv-row"><span className="kv-k">Sold</span><span className="kv-v kv-sell">{soldCoins.toLocaleString("en-US",{maximumFractionDigits:8})} {coin.symbol} <span className="kv-sub">· ${sellsGain.toLocaleString("en-US",{minimumFractionDigits:2})}</span></span></div>
           <div className="kv-row"><span className="kv-k">Avg Sell Price</span><span className="kv-v">{fmtP(avgSell)}</span></div></>}
-          <div className={"pnl-row"+(totalPnl>=0?"":" dn")}><span className="pnl-label">Total P/L</span><span className="pnl-val">{totalPnl>=0?"+":"−"}${Math.abs(totalPnl).toLocaleString("en-US",{minimumFractionDigits:2})} ({fmtPct(totalPnlPct)})</span></div>
+          {/* CRYP-94 (finding 8): no price ⇒ total P/L is UNKNOWN — a muted "—", not "−$… (−100%)". */}
+          <div className={"pnl-row"+(totalPnl==null?"":(totalPnl>=0?"":" dn"))}><span className="pnl-label">Total P/L</span>{totalPnl==null?<span className="pnl-val muted">—</span>:<span className="pnl-val">{totalPnl>=0?"+":"−"}${Math.abs(totalPnl).toLocaleString("en-US",{minimumFractionDigits:2})} ({fmtPct(totalPnlPct)})</span>}</div>
           {sellsGain>buysCost&&<div className="pnl-note">Sell proceeds exceed buy costs — you already profited more than your total investment</div>}
           </>)})()}
         </div>
