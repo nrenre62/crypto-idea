@@ -221,3 +221,7 @@ state self-heals; downgrade locks instead of deleting. Suites green (unit/rules/
   changes visible mid-session.
 - **BL-4:** now only Identity Platform (beforeCreate signups-off, admin 2FA) — the
   reactivate/resolve callables move into DI-4.
+- **CRYP-94 (Group B, 2026-08-08):** the sell invariant is now enforced on **edit** and **backdated
+  insert** too (not just add-a-sell) via the shared `firstOverSoldSell` replay guard — closing the hole
+  adjacent to **DI/G3**, which audited the edit path's *toast wording* but not this invariant. Client-side
+  only (rules can't aggregate sibling tx docs). See `NEXT-STEPS.md` §GROUP-B / ERRORS.md §A11.

@@ -307,6 +307,21 @@ describe("Detail screen (extracted, via AppContext)", () => {
     expect(pill.className).not.toContain("dn");
   });
 
+  // ── CRYP-94 (finding 8): a held coin whose price hasn't loaded shows a muted "—" for
+  //    Current Value and Total P/L — NOT $0.00 / −100% as if it crashed. ──
+  it("CRYP-94: an unpriced held coin shows muted '—' for Current Value and Total P/L", () => {
+    const { container } = provide({ sel: COIN, portfolio: [COIN], prices: {} });
+    const rows = [...container.querySelectorAll(".kv-row")];
+    const valueRow = rows.find((r) => r.querySelector(".kv-k")?.textContent === "Current Value");
+    expect(valueRow).toBeTruthy();
+    expect(valueRow.querySelector(".kv-v").textContent).toBe("—");     // not "$0.00"
+    // Total P/L is muted "—", not "−$30,000.00 (−100.00%)"
+    const pnlVal = container.querySelector(".pnl-val");
+    expect(pnlVal.textContent).toBe("—");
+    expect(pnlVal.className).toContain("muted");
+    expect(container.textContent).not.toContain("100.00%");
+  });
+
   // ── PORTFOLIO-TEXT-SIZE: the Avg Buy / Avg Sell Price rows drop the kv-sm shrink class
   //    so they read at the same size as Holding / Current Value / Bought (plain .kv-row). ──
   it("CRYP-91 (PORTFOLIO-TEXT-SIZE): Avg Buy/Sell Price rows are plain .kv-row (no kv-sm)", () => {

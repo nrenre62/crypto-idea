@@ -50,6 +50,37 @@ export function dedupeById(entries) {
   });
 }
 
+// CRYP-94 (Group B, findings 9+10): the single source of truth for the "you can't sell more
+// than you hold" invariant. Replays a coin's transactions in DATE order (createdAt tie-break,
+// same order remEntry/sortTx use) and returns the FIRST sell whose running balance drops below
+// zero (epsilon -1e-8 to tolerate float dust), else null. Date-aware, so a buy dated AFTER a
+// sell does not cover it. The add-sell guard, the edit guard, and remEntry all route through
+// this one function, so the invariant is enforced identically on add, edit, and delete.
+// Pure — no React, no I/O.
+export function firstOverSoldSell(entries) {
+  const arr = [...(entries || [])].sort((a, b) => {
+    const d = (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0);
+    if (d !== 0) return d;
+    return txCreatedMillis(a) - txCreatedMillis(b);
+  });
+  let bal = 0;
+  for (const e of arr) {
+    bal = e.type === "sell" ? bal - e.amount : bal + e.amount;
+    if (e.type === "sell" && bal < -1e-8) return e;
+  }
+  return null;
+}
+
+// CRYP-94 (Group B, finding 12): a transaction may not be dated in the future. Compared at
+// DAY granularity (holdings/P&L are date-driven, and the app's eDate carries a mixed UTC/local
+// basis, so a day comparison avoids timezone false-rejects while still blocking any future
+// date). `today` defaults to the current UTC day; callers pass it explicitly for deterministic
+// tests. Pure.
+export function isFutureTx(dateStr, today) {
+  const t = today || new Date().toISOString().slice(0, 10);
+  return String(dateStr || "").slice(0, 10) > t;
+}
+
 // R19-4: windowed page numbers for the transaction pager — always the first + last page
 // plus a small window around the current one, with "…" for the gaps.
 // e.g. pageWindow(6, 20) → [1, "…", 5, 6, 7, "…", 20].

@@ -30,6 +30,9 @@ export function AddEntry() {
   const coinData = sel ? TOP_COINS.find(x => x.id === sel.id) : null;
   const launchDate = coinData?.launch || "2013-04-28";
   const launchDateTime = launchDate + "T00:00";
+  // CRYP-94 (finding 12): cap the date picker at the end of today so a future date can't be
+  // chosen; the addEntry submit guard (isFutureTx) is the enforcement backstop for typed/edited values.
+  const maxDateTime = new Date().toISOString().slice(0, 10) + "T23:59";
   // Real daily history for the selected coin (null while loading / unavailable).
   const histPrices = useCoinHistory(sel?.id);
   // Price at a date: prefer real history, fall back to the built-in estimate.
@@ -112,7 +115,7 @@ export function AddEntry() {
         </div>
         <div>
           <label className="field-label">Date & Time <span className="lbl-sub">· available from {launchDate}</span></label>
-          <input type="datetime-local" step="1" value={eDate} min={launchDateTime} onChange={e=>onDateChange(e.target.value)} className="field-input"/>
+          <input type="datetime-local" step="1" value={eDate} min={launchDateTime} max={maxDateTime} onChange={e=>onDateChange(e.target.value)} className="field-input"/>
           {isBeforeLaunch&&<div className="field-warn"><span style={{fontSize:14}}>⚠️</span>{sel?.name} launched on {launchDate}. Date adjusted to earliest available.</div>}
         </div>
         {valid&&(

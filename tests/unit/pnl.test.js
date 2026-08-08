@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { holdings, buysCost, sellsGain, coinPnl, portfolioPnl, portfolio24hPct } from "../../src/utils/pnl.js";
+import { holdings, buysCost, sellsGain, realizedProceeds, coinPnl, portfolioPnl, portfolio24hPct } from "../../src/utils/pnl.js";
 
 const buy = (amount, priceAtBuy) => ({ type: "buy", amount, priceAtBuy });
 const sell = (amount, priceAtBuy) => ({ type: "sell", amount, priceAtBuy });
@@ -46,6 +46,67 @@ describe("utils/pnl", () => {
     expect(r.pnlPct).toBe(0);
   });
 
+  // CRYP-94 (Group B, finding 7): an OVER-SOLD coin (holdings clamps to 0, but the raw sell
+  // proceeds are counted in full) shows a phantom realized gain. realizedProceeds clamps the
+  // proceeds proportionally to the real position (bought/sold), so P/L can't exceed a real basis.
+  describe("realizedProceeds clamps phantom over-sold gains (finding 7)", () => {
+    it("CRYP-94: a NORMAL book (sold <= bought) is unchanged — proceeds == raw sellsGain", () => {
+      const e = [buy(2, 100), sell(1, 300)];
+      expect(realizedProceeds(e)).toBe(300);      // 1 * 300, not clamped
+      expect(realizedProceeds(e)).toBe(sellsGain(e));
+    });
+
+    it("CRYP-94: an OVER-SOLD book scales proceeds by bought/sold", () => {
+      // bought 0.3, sold 6 → raw proceeds 6*200=1200, but only 0.3 units were ever held
+      const e = [buy(0.3, 100), sell(6, 200)];
+      expect(sellsGain(e)).toBe(1200);            // raw sell proceeds (still shown as-is)
+      expect(realizedProceeds(e)).toBeCloseTo(60, 8);   // 1200 * (0.3/6)
+    });
+
+    it("CRYP-94: coinPnl uses the clamped proceeds — no phantom '+1900%'", () => {
+      // the founder exploit's end state: bought 0.3 @100 (cost 30), sold 6 @200, holding 0
+      const r = coinPnl([buy(0.3, 100), sell(6, 200)], 150);
+      expect(r.holding).toBe(0);
+      expect(r.sellsGain).toBe(1200);             // raw proceeds preserved for the "Sold" display
+      // honest P/L: (value 0 + clamped 60) - cost 30 = 30 → +100%, NOT (1200-30)=+3900%
+      expect(r.pnl).toBeCloseTo(30, 6);
+      expect(r.pnlPct).toBeCloseTo(100, 6);
+    });
+
+    it("CRYP-94: portfolioPnl does not inflate total P/L from an over-sold coin", () => {
+      const coins = [{ id: "x", entries: [buy(0.3, 100), sell(6, 200)] }];
+      const r = portfolioPnl(coins, { x: { usd: 150 } });
+      expect(r.pnl).toBeCloseTo(30, 6);           // clamped, not 1170
+    });
+  });
+
+  // CRYP-94 (Group B, finding 8): a held coin whose price hasn't loaded (price == null) is
+  // UNKNOWN, not worthless — value & total P/L are null (rendered as a muted "—"), never a
+  // $0 / −100% loss. A genuine 0 price IS worthless (known). A fully-sold position needs no price.
+  describe("coinPnl distinguishes an unknown price from worthless (finding 8)", () => {
+    it("CRYP-94: a held coin with an unknown (null) price → value & P/L are null (not −100%)", () => {
+      const r = coinPnl([buy(1, 100)], null);
+      expect(r.value).toBeNull();
+      expect(r.pnl).toBeNull();
+      expect(r.pnlPct).toBeNull();
+      expect(r.priceKnown).toBe(false);
+    });
+    it("CRYP-94: an undefined price is also unknown", () => {
+      expect(coinPnl([buy(1, 100)], undefined).pnl).toBeNull();
+    });
+    it("CRYP-94: a GENUINE 0 price is worthless (known), not unknown → −100%", () => {
+      const r = coinPnl([buy(1, 100)], 0);
+      expect(r.priceKnown).toBe(true);
+      expect(r.value).toBe(0);
+      expect(r.pnl).toBe(-100);
+    });
+    it("CRYP-94: a fully-sold position needs no price — realised P/L stays known", () => {
+      const r = coinPnl([buy(1, 100), sell(1, 150)], null);   // holding 0
+      expect(r.value).toBe(0);
+      expect(r.pnl).toBe(50);       // realised 150 − cost 100
+    });
+  });
+
   it("portfolioPnl aggregates value/buys/pnl across coins using the price map", () => {
     const coins = [
       { id: "btc", entries: [buy(1, 100)] },
@@ -62,10 +123,26 @@ describe("utils/pnl", () => {
     expect(r.pnl).toBe(90);           // (210 + 80) - 200
   });
 
-  it("portfolioPnl treats a missing price as 0", () => {
+  // CRYP-94 (finding 8): an unpriced HELD coin is excluded from value & P/L (never a −100%
+  // drag), but its cost still counts in Invested — a price-independent cash figure.
+  it("CRYP-94: portfolioPnl excludes an unpriced held coin from P/L, keeps its cost in Invested", () => {
     const r = portfolioPnl([{ id: "x", entries: [buy(1, 100)] }], {});
-    expect(r.value).toBe(0);
-    expect(r.pnl).toBe(-100);
+    expect(r.value).toBe(0);          // unknown value contributes nothing
+    expect(r.totalBuys).toBe(100);    // Invested stays complete
+    expect(r.invested).toBe(100);
+    expect(r.pnl).toBe(0);            // excluded from P/L → NOT −100
+    expect(r.pnlPct).toBe(0);
+  });
+
+  it("CRYP-94: an unpriced holding doesn't drag a priced coin's portfolio P/L", () => {
+    const coins = [
+      { id: "btc", entries: [buy(1, 100)] },   // priced → +50
+      { id: "obs", entries: [buy(1, 100)] },   // unpriced → excluded from P/L
+    ];
+    const r = portfolioPnl(coins, { btc: { usd: 150 } });
+    expect(r.pnl).toBe(50);          // only btc contributes; obs doesn't drag it to −50
+    expect(r.pnlPct).toBe(50);       // over btc's cost only
+    expect(r.totalBuys).toBe(200);   // Invested still counts both
   });
 
   it("portfolio24hPct value-weights each holding's 24h change", () => {

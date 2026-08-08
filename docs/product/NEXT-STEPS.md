@@ -4339,8 +4339,12 @@ the same App Check.)
 
 ---
 
-## TX-SAFE-C. Edit-buy sell-invariant guard — editing a buy (or its date) can't leave a later sell over-sold  (📋 STAGED 2026-08-04 interview; NOT built)
+## TX-SAFE-C. Edit-buy sell-invariant guard — editing a buy (or its date) can't leave a later sell over-sold  (✅ BUILT 2026-08-08 — CRYP-94, folded into §GROUP-B findings 9+10)
 
+> **✅ BUILT 2026-08-08 as part of §GROUP-B (CRYP-94).** The `firstOverSoldSell` replay guard now
+> runs on add, edit, AND delete (`remEntry` routes through the same helper). See §GROUP-B below for
+> the full Group B build (findings 7–12). The original staging notes are kept below for the record.
+>
 > **Staged, not queued.** Finished + approved (2026-08-04 interview). NOT in the BUILD-LOOP ledger.
 > Gate: 🔶 **bug-class** → failing-test-first (a red `it("CRYP-XX: …")` committed as a checkpoint,
 > then the fix), per [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md). Blast radius: LOW (one pure
@@ -4417,6 +4421,29 @@ exposure. Record it as such (defense-in-depth: the existing per-doc rule bounds 
   edit still saves; the `CRYP-XX`-keyed reproduction of the founder's exploit (buy 2 → sell 2 → edit buy→0.2)
   is blocked.
 - **`npm run build`** — clean (no-names guard). **No `test:rules`** (no rules/backend change).
+
+---
+
+## GROUP-B. Oversell & P&L integrity — 6 findings on the Portfolio/Detail/CoinInfo books  (✅ BUILT 2026-08-08 · CRYP-94 · client-only)
+
+> From the 2026-08-06 Portfolio-tab gap sweep (the umbrella that also contains §TX-SAFE-C = findings 9+10).
+> **🟩 client-only** — pure helpers + P/L math + display; **no `firestore.rules`, no backend, no new dep, no `test:rules`.**
+> Filed as **Jira CRYP-94**; failing-test-first, commits/tests kept per-finding.
+
+**North star (shared with PORTFOLIO-NUM-FIX):** never show a *wrong/misleading* number — a missing datum reads "—", never a loss or a fake gain; and a user's own cost-basis book can't be driven into an impossible state.
+
+**Founder decisions (2026-08-08 interview):** keep the sell-invariant **client-side only** (finding 11's cross-device race self-corrects on reload — no money/cross-tenant risk, and Firestore rules can't aggregate sibling tx docs); **prevent-new only, NO migration** of already-corrupt books; **hard-block future dates**; **defer** the parallel Research copies of 7/8; finding 7 clamp = **proportional (bought/sold)**; finding 8 = **Invested stays complete, P/L aggregates only priced coins**.
+
+| # | Finding | Fix | Loci |
+|---|---------|-----|------|
+| 7 | over-sold coin books phantom realized gains (holdings clamps to 0, sellsGain doesn't) | `realizedProceeds` scales proceeds by `bought/sold`; `coinPnl`/`portfolioPnl` use it for P/L; raw `sellsGain` still shown | `src/utils/pnl.js` |
+| 8 | missing price ≡ worthless (−$100/−100%) | `coinPnl` returns null value/pnl for a held coin with unknown price (a genuine 0 stays worthless); `portfolioPnl` excludes it from value & P/L, keeps cost in Invested; muted "—" | `pnl.js` · `Detail.jsx` · `CoinInfo.jsx` · `app.css` (`.kv-v.muted`/`.pnl-val.muted`) |
+| 9 | oversell not re-checked on a backdated insert | replay the PROJECTED timeline through `firstOverSoldSell` | `src/utils/tx.js` · `CryptoIdea.jsx` (`addEntry`) |
+| 10 | edit path unguarded (editing a buy down below sold — the founder exploit) | same replay guard on the edit path; `remEntry` routes through the same helper | `tx.js` · `CryptoIdea.jsx` |
+| 11 | cross-device stale-state oversell | **accepted** as client-side only (self-corrects on reload); the guard + findings 7/8 neutralize the visible symptom | — (decision) |
+| 12 | future-dated tx accepted | `isFutureTx` rejects a date after today in `addEntry`; date input carries `max` | `tx.js` · `CryptoIdea.jsx` · `AddEntry.jsx` |
+
+**Tests:** `tests/unit/tx.test.js` (firstOverSoldSell + isFutureTx) · `tests/unit/pnl.test.js` (realizedProceeds clamp + unknown-vs-worthless) · `tests/unit/AddEntry.test.jsx` (date `max`) · `tests/unit/Detail.test.jsx` + `tests/unit/CoinInfo.test.jsx` (muted "—") · `tests/unit/CryptoIdea.walkthrough.test.jsx` (edit-buy exploit blocked end-to-end, no db write). Unit 982/982; build clean. Logged in [`ERRORS.md`](../testing/ERRORS.md) §A11.
 
 ### Definition of Done
 - test:unit + build green. Emulator browser-verify (if the stack runs): reproduce the exploit → blocked with
@@ -5184,7 +5211,8 @@ co-change CoinInfo. Consider adding a DESIGN-PASS / design-system consistency-ma
 - **A3/A6 are the only two with a small visible-design choice** (neutral pill vs hide; muted dash vs blank). Locked
   defaults above (neutral, keep the row, show "—") — no founder sign-off needed; the correct behaviour ("don't show
   missing data as a loss / don't show a fake gain") is unambiguous.
-- **Out of scope (other groups, do NOT fold in):** the P/L math on oversold/missing-price books (Group B), the
+- **Out of scope (other groups, do NOT fold in):** ~~the P/L math on oversold/missing-price books (Group B)~~
+  **→ Group B is now ✅ BUILT 2026-08-08 (CRYP-94); see §GROUP-B**, the
   loading-skeleton/estimated-signal states (Group D), the copy/token/responsive polish (Group E). This item is
   strictly the six display-correctness fixes above.
 

@@ -420,6 +420,10 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 /* A3 dark: --sd (#555) isn't flipped in the dark block, so lift the muted pill text to a
    dark-safe faint token for legible contrast (dark-block-only; light stays byte-for-byte). */
 html[data-theme="dark"] .ci-app .chg-pill.muted { color:var(--ink-faint); }
+/* CRYP-94 (finding 8): an unpriced held coin's Current Value / Total P/L (Detail) and
+   Unrealised P/L (CoinInfo) render a muted "—" — same faint token as the other muted states
+   (dark-safe: --ink-faint is defined in both light and dark). */
+.ci-app .kv-v.muted, .ci-app .pnl-val.muted { color:var(--ink-faint); }
 .ci-app .up { color:var(--accent); }
 .ci-app .dn { color:var(--warn); }
 .ci-app .limit-banner { margin:0 18px 8px; padding:10px 14px; border-radius:10px; font-size:12px; font-weight:500; text-align:center; line-height:1.5; }
