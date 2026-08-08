@@ -40,10 +40,10 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## RESEARCH-NO-AI-4a — Research tab honesty gate (AI-CHAT-SWITCH + framing)
-- Phase: G1
+- Phase: G2-approved
 - G1 confirmed: yes        (🟩 GREEN in NEXT-STEPS §AI-CHAT-SWITCH + §RESEARCH-NO-AI; decisions locked; founder chose Option A = 3 sequenced PRs)
-- G2 approved: no          (no code before this is yes)
-- Plan (files): TBD — architect to plan the 4a slice (honesty gate only)
+- G2 approved: yes         (founder yes 2026-08-08)
+- Plan (files): functions/features.js (desc string) · research/api/ai-client.js (AI_PROXY_LIVE=false) · Research.jsx (chatEnabled) · ResearchTab.jsx (tab filter + aiChrome + usePulse gate + onAsk + disclaimer) · OverviewView.jsx · Pulse.jsx (AI-status pill) · CoinCard.jsx (onAsk gate) · AskView.jsx + useAsk.js (drop offline apology) · EmptyState.jsx · research-tab.css (.ai-status) · admin-dashboard.jsx (MOVE aiResearch toggle to AI screen) · tests: NEW ResearchTab.test.jsx + admin-dashboard.test.jsx ext. Verify-only: CoinsView.jsx, usePulse.js.
 - Fix-round: 0 / 3
 - Open findings: none
 - Branch: claude/research-no-ai
