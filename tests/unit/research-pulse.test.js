@@ -319,3 +319,245 @@ describe("Research Daily Brief — briefFacts (pure)", () => {
     expect(bf.decliner).toBeNull();
   });
 });
+
+// ── PR 4c — RESEARCH-METRICS (CRYP-97) ───────────────────────────────────────
+// Four NEW pure facts on pulseFacts + a reshaped pulseLines set. These do NOT
+// exist yet, so the honest red is "facts.contrib / .neff / .drawdown7d / .vol7d /
+// .weekly is undefined" and "no P-1 / This-week line is emitted". Every import and
+// fixture below resolves today (built by the SAME computePortfolio the app runs),
+// so a failure is the missing feature, never a fixture typo.
+//
+// Contract encoded here:
+//   P-1 attribution  — contrib[]={id,name,contrib} on PAST-VALUE weights so
+//                       Σ contribᵢ === portfolio.perf[tf] EXACTLY. topContributor =
+//                       held name w/ max |contrib|; topContributorShare = round(%).
+//                       Q1: share>100 → P-1 line drops the % ("the main driver").
+//   P-2 effective-N  — neff = 1/Σwᵢ² ∈ [1, count], null when count<2; merged into R-C.
+//   P-3 drawdown7d   — (V_last−maxV)/maxV over Vₜ=Σ(amountᵢ·sparkᵢ,ₜ); ≤0, exactly 0
+//                       at a 7-day high.
+//   P-4 vol7d        — SAMPLE stddev (÷ n−1) of daily returns Vₜ/Vₜ₋₁−1; NEVER ×√365.
+//   weekly gate      — false → This-week line omitted, R-E risk sentence stays (Q2).
+describe("Research Pulse metrics — attribution / effective-N / drawdown / vol (CRYP-97)", () => {
+  // Independent reference oracles (recompute the spec math off the fixture holdings).
+  const sampleStd = (arr) => {
+    const n = arr.length;
+    const mean = arr.reduce((s, x) => s + x, 0) / n;
+    const v = arr.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1);
+    return Math.sqrt(v);
+  };
+  const vSeries = (portfolio) => {
+    const K = Math.min(...portfolio.holdings.map((h) => h.spark.length));
+    const V = [];
+    for (let t = 0; t < K; t++) {
+      let v = 0;
+      for (const h of portfolio.holdings) {
+        const tail = h.spark.slice(h.spark.length - K);
+        v += (h.amount || 0) * tail[t];
+      }
+      V.push(v);
+    }
+    return V;
+  };
+  const dailyReturns = (V) => V.slice(1).map((v, i) => v / V[i] - 1);
+
+  const p1Line = (lines) => lines.find((l) => /drove|main driver/i.test(l));
+  const weekLine = (lines) => lines.find((l) => /this week/i.test(l));
+
+  // Large, single-signed moves — the attribution identity should hold for any tf.
+  const MOVERS = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 30000 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 10, avgCost: 2000 }],
+    { bitcoin: { price: 50000, c24: 12, c7d: 25, c30d: 40, marketCap: 1e12, rank: 1 },
+      ethereum: { price: 3000, c24: 8, c7d: 15, c30d: 30, marketCap: 3e11, rank: 2 } }
+  ); // BTC value 50k @ +12% dominates → topContributorShare ≈ 71% (≤100, keeps the %).
+
+  // Offsetting book: equal PAST values, opposite signs → net perf ≈ +1%, top contrib +10 →
+  // topContributorShare ≈ 1000% (>100) → Q1 drops the number.
+  const OFFSET = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 100 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 10, avgCost: 100 }],
+    { bitcoin: { price: 60000, c24: 20, c7d: 20, c30d: 20, marketCap: 1e12, rank: 1 },
+      ethereum: { price: 4100, c24: -18, c7d: -18, c30d: -18, marketCap: 3e11, rank: 2 } }
+  ); // p_BTC = 60000/1.2 = 50000, p_ETH = 41000/0.82 = 50000 → then 100000, contribs +10 / −9.
+
+  // Dip-then-recover 7-day value: V = [100, 80, 90] → drawdown = (90−100)/100 = −0.1.
+  const DRAWDOWN = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 50 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 1, avgCost: 30 }],
+    { bitcoin: { price: 55, c24: 1, c7d: -1, c30d: 1, marketCap: 8e11, rank: 1, spark: [60, 50, 55] },
+      ethereum: { price: 35, c24: 1, c7d: -1, c30d: 1, marketCap: 3e11, rank: 2, spark: [40, 30, 35] } }
+  );
+
+  // Monotonically rising value: V = [80, 90, 100] → last IS the max → drawdown exactly 0.
+  const MONOTONIC = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 50 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 1, avgCost: 30 }],
+    { bitcoin: { price: 60, c24: 1, c7d: 1, c30d: 1, marketCap: 8e11, rank: 1, spark: [50, 55, 60] },
+      ethereum: { price: 40, c24: 1, c7d: 1, c30d: 1, marketCap: 3e11, rank: 2, spark: [30, 35, 40] } }
+  );
+
+  // Known daily-return series: V = [100, 110, 99, 108.9] → returns [+0.1, −0.1, +0.1].
+  const VOL = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 90 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 1, avgCost: 10 }],
+    { bitcoin: { price: 98.9, c24: 1, c7d: 1, c30d: 1, marketCap: 8e11, rank: 1, spark: [90, 100, 89, 98.9] },
+      ethereum: { price: 10, c24: 1, c7d: 1, c30d: 1, marketCap: 3e11, rank: 2, spark: [10, 10, 10, 10] } }
+  );
+
+  // Degenerate spark data — weekly must fall closed (P-3/P-4 omitted, never NaN).
+  const SPARK_NULL = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 100 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 10, avgCost: 100 }],
+    { bitcoin: { price: 50000, c24: 1, c7d: 1, c30d: 1, marketCap: 8e11, rank: 1, spark: null },
+      ethereum: { price: 3000, c24: 1, c7d: 1, c30d: 1, marketCap: 3e11, rank: 2, spark: [100, 110, 120] } }
+  );
+  const SPARK_THIN = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 100 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 10, avgCost: 100 }],
+    { bitcoin: { price: 50000, c24: 1, c7d: 1, c30d: 1, marketCap: 8e11, rank: 1, spark: [100] },
+      ethereum: { price: 3000, c24: 1, c7d: 1, c30d: 1, marketCap: 3e11, rank: 2, spark: [10, 11, 12] } }
+  );
+  const SPARK_ZERO = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 100 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 1, avgCost: 100 }],
+    { bitcoin: { price: 90, c24: 1, c7d: 1, c30d: 1, marketCap: 8e11, rank: 1, spark: [100, 0, 90] },
+      ethereum: { price: 36, c24: 1, c7d: 1, c30d: 1, marketCap: 3e11, rank: 2, spark: [40, 0, 36] } }
+  ); // V = [140, 0, 126] → a Vₜ ≤ 0 → weekly false, and the naive Vₜ/Vₜ₋₁ would be ∞.
+
+  // ── RED-FIRST checkpoint: the identity that proves the metric, not the test. ──
+  it("CRYP-97: return-attribution contributions sum exactly to the portfolio timeframe return", () => {
+    for (const tf of ["24h", "7d", "30d"]) {
+      const facts = pulseFacts(MOVERS, tf);
+      expect(Array.isArray(facts.contrib)).toBe(true);          // the new fact exists
+      expect(facts.contrib).toHaveLength(MOVERS.holdings.length);
+      const sum = facts.contrib.reduce((s, c) => s + c.contrib, 0);
+      expect(sum).toBeCloseTo(MOVERS.perf[tf], 6);              // exact attribution identity
+    }
+  });
+
+  it("CRYP-97: P-1 attributes the move to a HELD coin with no action verb, and drops the % when a holding offsets (>100% share)", () => {
+    // Normal case — dominant coin, share ≤ 100 → the line keeps the percent.
+    const facts = pulseFacts(MOVERS, "24h");
+    expect(facts.topContributor).toBe("Bitcoin");                       // held
+    expect(heldNames(MOVERS)).toContain(facts.topContributor);
+    expect(facts.topContributorShare).toBeGreaterThan(0);
+    expect(facts.topContributorShare).toBeLessThanOrEqual(100);
+    const p1 = p1Line(pulseLines(facts));
+    expect(p1).toBeTruthy();
+    expect(p1).toMatch(/drove/i);
+    expect(p1).toContain(String(facts.topContributorShare) + "%");
+    // no action verb immediately after the coin name (S1/S2), "drove"/"main driver" excepted.
+    let from = 0, idx;
+    while ((idx = p1.indexOf(facts.topContributor, from)) !== -1) {
+      expect(p1.slice(idx + facts.topContributor.length)).not.toMatch(ACTION);
+      from = idx + facts.topContributor.length;
+    }
+
+    // Q1 — offsetting holdings push share > 100 → the P-1 line drops the number.
+    const of = pulseFacts(OFFSET, "24h");
+    expect(of.topContributor).toBe("Bitcoin");
+    expect(of.topContributorShare).toBeGreaterThan(100);
+    const op1 = p1Line(pulseLines(of));
+    expect(op1).toBeTruthy();
+    expect(op1).toMatch(/main driver/i);
+    expect(op1.includes("%")).toBe(false);
+  });
+
+  it("CRYP-97: P-2 effective-N is bounded [1, count], merges into the top-two line, and is null below 2 holdings", () => {
+    const facts = pulseFacts(DIVERSIFIED, "30d");
+    const w = DIVERSIFIED.holdings.map((h) => (h.alloc || 0) / 100);
+    const expectedNeff = 1 / w.reduce((s, x) => s + x * x, 0);
+    expect(facts.count).toBe(4);
+    expect(facts.neff).toBeCloseTo(expectedNeff, 6);
+    expect(facts.neff).toBeGreaterThanOrEqual(1);
+    expect(facts.neff).toBeLessThanOrEqual(facts.count);
+
+    // one merged R-C line: names both coins + "top two" + top2% AND the Neff clause.
+    const rc = pulseLines(facts).find((l) => l.includes("Bitcoin") && l.includes("Ethereum"));
+    expect(rc).toBeTruthy();
+    expect(rc).toMatch(/top two/i);
+    expect(rc).toContain(Math.round(facts.top2Pct) + "%");        // "58%"
+    expect(rc).toMatch(/equal-weight/i);                          // Neff clause merged in
+    expect(rc).toContain(String(facts.count));                    // "…your 4 coins…"
+
+    // below 2 holdings → neff is null (undefined effective-N).
+    expect(pulseFacts(SINGLE, "30d").neff).toBeNull();
+  });
+
+  it("CRYP-97: P-3 drawdown7d is ≤ 0 after a dip and exactly 0 at a 7-day high", () => {
+    const dd = pulseFacts(DRAWDOWN, "7d");
+    expect(dd.weekly).toBe(true);
+    expect(dd.drawdown7d).toBeLessThan(0);
+    expect(dd.drawdown7d).toBeCloseTo(-0.1, 6);
+    expect(weekLine(pulseLines(dd))).toMatch(/below its 7-day high/i);
+
+    const mono = pulseFacts(MONOTONIC, "7d");
+    expect(mono.weekly).toBe(true);
+    expect(mono.drawdown7d).toBe(0);
+    const mLine = weekLine(pulseLines(mono));
+    expect(mLine).toMatch(/at a 7-day high/i);
+    expect(mLine).not.toMatch(/below/i);
+  });
+
+  it("CRYP-97: P-4 weekly volatility is a sample stddev of daily returns and is never annualized", () => {
+    const expectedVol = sampleStd(dailyReturns(vSeries(VOL)));
+    const vf = pulseFacts(VOL, "7d");
+    expect(vf.weekly).toBe(true);
+    expect(vf.vol7d).toBeCloseTo(expectedVol, 6);                       // sample σ (÷ n−1)
+    expect(vf.vol7d).not.toBeCloseTo(expectedVol * Math.sqrt(365), 3);  // NOT annualized
+  });
+
+  it("CRYP-97: weekly metrics fall closed (never NaN) on thin or degenerate spark data", () => {
+    for (const p of [SINGLE, SPARK_NULL, SPARK_THIN, SPARK_ZERO]) {
+      for (const tf of ["24h", "7d", "30d"]) {
+        const f = pulseFacts(p, tf);
+        expect(f.weekly).toBe(false);
+        const lines = pulseLines(f);
+        expect(lines.some((l) => /this week/i.test(l))).toBe(false);   // no P-3/P-4 line
+        expect(lines.join("\n")).not.toMatch(/NaN|Infinity|∞/);
+      }
+    }
+  });
+
+  it("CRYP-97: the This-week line supersedes the risk fallback when weekly data exists; R-E returns without it", () => {
+    // spark-bearing ≥2 book → This-week present, R-E ("reads as … risk") dropped.
+    const wLines = pulseLines(pulseFacts(DRAWDOWN, "7d"));
+    expect(wLines.some((l) => /this week/i.test(l))).toBe(true);
+    expect(wLines.some((l) => /reads as/i.test(l))).toBe(false);
+
+    // spark-less book → R-E fallback stays, no This-week line (Q2 keeps the risk pointer).
+    const nLines = pulseLines(pulseFacts(DIVERSIFIED, "7d"));
+    expect(nLines.some((l) => /reads as/i.test(l))).toBe(true);
+    expect(nLines.some((l) => /this week/i.test(l))).toBe(false);
+  });
+
+  it("CRYP-97: S1–S4 — the reshaped line set stays advice-free, verb-free after coin names, and label-free", () => {
+    for (const p of [MOVERS, OFFSET, DRAWDOWN, MONOTONIC]) {
+      const names = heldNames(p);
+      const held = new Set(names);
+      const hasSpark = p.holdings.every((h) => Array.isArray(h.spark) && h.spark.length >= 2);
+      for (const tf of ["24h", "7d", "30d"]) {
+        const lines = pulseLines(pulseFacts(p, tf));
+        const joined = lines.join("\n");
+        // the reshaped content is actually present (so this scan covers it).
+        expect(lines.some((l) => /drove|main driver/i.test(l))).toBe(true);   // P-1
+        if (hasSpark) expect(lines.some((l) => /this week/i.test(l))).toBe(true); // This-week
+        // S1/S2 — no held-coin name immediately followed by an action verb.
+        for (const line of lines) {
+          for (const name of names) {
+            let from = 0, idx;
+            while ((idx = line.indexOf(name, from)) !== -1) {
+              expect(line.slice(idx + name.length)).not.toMatch(ACTION);
+              from = idx + name.length;
+            }
+          }
+          // held-only naming across the reshaped set.
+          for (const kn of KNOWN_NAMES) if (line.includes(kn)) expect(held.has(kn)).toBe(true);
+        }
+        expect(joined.toLowerCase()).not.toContain("buy the dip");            // S3
+        expect(joined).not.toMatch(/\b(score|grade|rating|health)\b/i);       // S4
+        expect(joined).not.toMatch(/NaN|Infinity|∞/);
+      }
+    }
+  });
+});
