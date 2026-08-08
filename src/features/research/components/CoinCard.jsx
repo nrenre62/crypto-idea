@@ -70,7 +70,7 @@ export default function CoinCard({ holding, index, onAsk }) {
           <div className="pos-stat"><div className="ps-l">P / L</div><div className="ps-v" style={{ color: pl == null ? 'var(--ink-faint)' : pl >= 0 ? 'var(--accent)' : 'var(--warn)' }}>{pl == null ? '—' : fmtPct(pl)}</div></div>
           <div className="pos-stat"><div className="ps-l">30d</div><div className="ps-v" style={{ color: (holding.c30d || 0) >= 0 ? 'var(--accent)' : 'var(--warn)' }}>{fmtPct(holding.c30d || 0)}</div></div>
         </div>
-        <button className="cc-ask" onClick={(e) => { e.stopPropagation(); onAsk(holding.name); }}>Ask AI about {holding.name}</button>
+        {onAsk && <button className="cc-ask" onClick={(e) => { e.stopPropagation(); onAsk(holding.name); }}>Ask AI about {holding.name}</button>}
       </div></div>
     </div>
   );

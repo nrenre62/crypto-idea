@@ -265,7 +265,7 @@ All backend functions live in `functions/index.js` (Node 22, deployed with `fire
 |---|---|
 | `marketData` | Every CoinGecko call is refused at the single `cgFetch()` choke point, and the lazy refresh in `getUniverse`/`getTrending` is skipped. Endpoints keep serving the **last cached** prices, so spend stops immediately while the app stays usable; the app header swaps `● LIVE` for `● PAUSED`. |
 | `checkout` | `createSubscription` throws `failed-precondition`; the paid plan cards read "Temporarily unavailable" (Starter stays selectable, so a forced first choice is never a dead end). |
-| `aiResearch` | **Reserved** — the Wave-B AI proxy does not exist yet, so nothing enforces it today. A unit test fails the build if an Anthropic call is ever added without the gate. |
+| `aiResearch` | Hides the Research → **Ask** chat tab **and** the per-coin "Ask AI about …" button for all users (client-side, as of CRYP-93). The Wave-B AI proxy doesn't exist yet, so there's no server surface to gate — but a unit test fails the build if an Anthropic call is ever added without the gate. The admin toggle lives on the Settings → **AI** screen. |
 
 Each switch is **ON unless config says exactly `false`**, so a missing key or an unreadable config
 can never take the product down. A `saveConfig` payload that omits `features` **keeps** the stored
@@ -460,8 +460,12 @@ risk meter, stress test), **Coins** (per-holding cards with a 7-day sparkline + 
 **Ask** (chat about your holdings). It reads your **real** active portfolio and reuses the app's
 existing `/api` proxy only — current price + 24h from live prices, and 7d/30d change + sparkline
 derived from the CDN-cached `/api/history` (no direct CoinGecko calls, no key in the client). The
-AI "Pulse"/"Ask" currently render **data-driven offline fallbacks**; wiring live Claude is a planned
-next step (a secure Cloud Function proxy holding the Anthropic key — see `NEXT-STEPS.md` N-3).
+Pulse renders an **honest deterministic summary from your own numbers** — as of CRYP-93 the old "AI is
+offline" apology is gone, replaced by a neutral **"AI off"/"AI on" status pill**, and the AI ornaments
+(gradient label, Regenerate, "AI-generated" disclaimer) only appear once the `AI_PROXY_LIVE` seam flips;
+the **Ask** chat + per-coin "Ask AI" button are gated on the `aiResearch` kill-switch. Wiring live Claude
+is a planned next step (a secure Cloud Function proxy holding the Anthropic key — see `NEXT-STEPS.md`
+§RESEARCH-NO-AI / N-3).
 
 The free DCA calculator lives **inline on the landing** (no login, no separate page) — it is **not** in the app. It's built so visitors add **~0 backend calls**: it fetches the full ~3,000-coin list **once** from `/api/coinlist` (CDN-cached 24h) and searches **client-side** (no per-keystroke calls), then a calculation fetches only that coin's `/api/history` (CDN-cached; price history is immutable) and uses its latest point as "today's price" — no per-calc `/api/prices` call. So thousands of visitors share a couple of cached responses; scheduled jobs refresh the data at most daily. (CDN caching applies on the deployed site, not the local dev server.)
 

@@ -13,6 +13,9 @@ import { usePortfolio } from '../hooks/usePortfolio';
 import { usePulse } from '../hooks/usePulse';
 import { useAsk } from '../hooks/useAsk';
 import { useSharePulse } from '../hooks/useSharePulse';
+// The AI-proxy-live flag lives in its own module (see ai-status.js) so the askClaude
+// factory-mock in tests doesn't make reading it throw.
+import { AI_PROXY_LIVE } from '../api/ai-status';
 
 // ADMIN-2: the one live/paused pill shared with the other tab headers, so a frozen
 // price cache can't read as "● LIVE" here while the other two admit it's paused.
@@ -29,11 +32,22 @@ const TABS = [
 ];
 
 // Props:
-//   coins      — the active portfolio's coin objects (with their `entries`).
-//   livePrices — the app's live price map: { [id]: { usd, usd_24h_change, ... } }.
-export default function ResearchTab({ coins, livePrices, api, plan, onAccount, coinOrder, onReorder, pricesPaused = false }) {
+//   coins       — the active portfolio's coin objects (with their `entries`).
+//   livePrices  — the app's live price map: { [id]: { usd, usd_24h_change, ... } }.
+//   chatEnabled — CRYP-93: false hides the Ask chat tab + per-coin "Ask AI" button
+//                 (the aiResearch kill-switch). Defaults on so nothing else regresses.
+export default function ResearchTab({ coins, livePrices, api, plan, onAccount, coinOrder, onReorder, pricesPaused = false, chatEnabled = true }) {
   const [tab, setTab] = useState('overview');
   const [tf, setTf] = useState('30d');
+
+  // CRYP-93: aiChrome gates the *live-AI* ornaments (gradient label, Regenerate, the
+  // "AI-generated" disclaimer) and whether askClaude ever runs. It stays false until
+  // the server proxy ships (AI_PROXY_LIVE), even when the chat tab is shown.
+  const aiChrome = chatEnabled && AI_PROXY_LIVE;
+  // The chat tab drops out of the sub-nav when chat is off…
+  const tabs = chatEnabled ? TABS : TABS.filter((t) => t.id !== 'ask');
+  // …and a stale 'ask' selection (e.g. a live flag flip) falls back to Overview.
+  const active = tab === 'ask' && !chatEnabled ? 'overview' : tab;
 
   const { holdings, source } = useHoldings(coins);
   const empty = source === 'empty';
@@ -42,7 +56,7 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount, c
   const { prices } = usePrices(ids, source, livePrices);   // status/asOf dropped with the R13-3 freshness line
 
   const portfolio = usePortfolio(holdings, prices);
-  const pulse = usePulse(portfolio, tf, !empty);
+  const pulse = usePulse(portfolio, tf, !empty && aiChrome);
   const ask = useAsk(portfolio.context);
   const sharePulse = useSharePulse();
 
@@ -62,22 +76,23 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount, c
 
       <div className="segwrap">
         <div className="seg">
-          {TABS.map((t) => (
-            <button key={t.id} className={t.id === tab ? 'active' : ''} onClick={() => setTab(t.id)}>{t.label}</button>
+          {tabs.map((t) => (
+            <button key={t.id} className={t.id === active ? 'active' : ''} onClick={() => setTab(t.id)}>{t.label}</button>
           ))}
         </div>
       </div>
 
       <div className="pad">
-        {tab === 'overview' && (
-          <OverviewView portfolio={portfolio} empty={empty} pulse={pulse} tf={tf} onTf={setTf} onShare={onShare} />
+        {active === 'overview' && (
+          <OverviewView portfolio={portfolio} empty={empty} pulse={pulse} tf={tf} onTf={setTf} onShare={onShare} aiChrome={aiChrome} />
         )}
-        {tab === 'coins' && <CoinsView holdings={portfolio.holdings} coinOrder={coinOrder} onReorder={onReorder} empty={empty} onAsk={askAboutCoin} />}
-        {tab === 'ask' && <AskView messages={ask.messages} busy={ask.busy} onSend={ask.send} />}
+        {active === 'coins' && <CoinsView holdings={portfolio.holdings} coinOrder={coinOrder} onReorder={onReorder} empty={empty} onAsk={chatEnabled ? askAboutCoin : undefined} />}
+        {active === 'ask' && <AskView messages={ask.messages} busy={ask.busy} onSend={ask.send} />}
 
         <p className="disclaimer">
-          AI-generated insights and the Stress test are for information and education only — not financial advice or a
-          prediction. Crypto is volatile and you can lose money. Always do your own research.
+          {aiChrome
+            ? 'AI-generated insights and the Stress test are for information and education only — not financial advice or a prediction. Crypto is volatile and you can lose money. Always do your own research.'
+            : 'The Stress test and these summaries are for information and education only — not financial advice or a prediction. Crypto is volatile and you can lose money. Always do your own research.'}
         </p>
       </div>
     </div>

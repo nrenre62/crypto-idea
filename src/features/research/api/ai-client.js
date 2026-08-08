@@ -12,3 +12,8 @@
 export async function askClaude(/* system, userMsg */) {
   throw new Error('research-ai-proxy-not-configured');
 }
+
+// The "is the proxy live?" flag (AI_PROXY_LIVE) lives in ./ai-status.js, NOT here:
+// this module is factory-mocked in tests to spy on askClaude, and a mock that omits
+// a co-located constant makes every read of it throw. Flip the flag there in the same
+// increment that swaps the askClaude body above for a callable to `researchAsk`.

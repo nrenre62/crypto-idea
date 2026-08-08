@@ -26,7 +26,6 @@ export default function AskView({ messages, busy, onSend }) {
             ) : (
               <div key={i} className="bubble-a">
                 <div className="a-head">Research</div>
-                {m.offline && <div className="a-off"><span className="dot" />AI is offline — showing a basic answer.</div>}
                 <div className="a-text"><Rich text={m.text} /></div>
                 {m.followups && (
                   <div className="followups">

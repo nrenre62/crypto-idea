@@ -25,7 +25,7 @@ const pickFollowups = (exclude) => {
 };
 
 export function useAsk(context) {
-  const [messages, setMessages] = useState([]); // {role:'user'|'assistant', text, offline?, followups?}
+  const [messages, setMessages] = useState([]); // {role:'user'|'assistant', text, followups?}
   const [busy, setBusy] = useState(false);
 
   const send = useCallback(
@@ -35,10 +35,12 @@ export function useAsk(context) {
       setBusy(true);
       setMessages((m) => [...m, { role: 'user', text }]);
       try {
+        // CRYP-93: the canned answer no longer apologizes for being "offline" — until
+        // the AI proxy ships every answer is the deterministic data-driven fallback.
         const answer = await askClaude(SYS + context, text);
-        setMessages((m) => [...m, { role: 'assistant', text: answer || DEFAULT_A, offline: false, followups: pickFollowups(text) }]);
+        setMessages((m) => [...m, { role: 'assistant', text: answer || DEFAULT_A, followups: pickFollowups(text) }]);
       } catch (_) {
-        setMessages((m) => [...m, { role: 'assistant', text: DEFAULT_A, offline: true, followups: pickFollowups(text) }]);
+        setMessages((m) => [...m, { role: 'assistant', text: DEFAULT_A, followups: pickFollowups(text) }]);
       } finally {
         setBusy(false);
       }

@@ -1161,10 +1161,9 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     <Switch checked={controls.features.checkout !== false}
                             onChange={async () => { const r = await saveFeature("checkout", !(controls.features.checkout !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
                   </CtrlRow>
-                  <CtrlRow icon={SI.ai} label="AI research" sub="Reserved — the Wave-B AI proxy isn’t built yet, so this switch has nothing to gate today.">
-                    <Switch checked={controls.features.aiResearch !== false}
-                            onChange={async () => { const r = await saveFeature("aiResearch", !(controls.features.aiResearch !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
-                  </CtrlRow>
+                  {/* CRYP-93: the AI-research chat toggle MOVED to the AI settings screen —
+                      App Controls is for the two incident switches that gate something live
+                      TODAY; the AI chat switch gates a Wave-B surface and belongs by the key. */}
                   <NavRow icon={SI.keys} label="API keys" value={keysSet ? keysSet + " set" : "Not set"} onClick={() => setSettingsView("apiKeys")} />
                   <NavRow icon={SI.email} label="Email & integrations" value={providerLabel(mail.provider)} onClick={() => setSettingsView("email")} />
                   <NavRow icon={SI.plans} label="Plans & pricing" value="3 tiers" onClick={() => setSettingsView("plans")} />
@@ -1265,7 +1264,14 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
 
               {/* ── AI (reserved — live AI ships at go-live) ── */}
               {settingsView === "ai" && (<>
-                  <div className="card-sub">Reserved — live AI ships at go-live. The Anthropic API key powers the server-side <code>researchAsk</code> proxy (Claude only, validator-first — never called from the browser). Saving it now is safe: it stays in the locked config doc until the proxy ships.</div>
+                  <div className="card-sub">Reserved — live AI ships at go-live. The Anthropic API key powers the server-side <code>researchAsk</code> proxy (Claude only, validator-first — never called from the browser). Saving it now is safe: it stays in the locked config doc until the proxy ships. The AI-research chat switch below is live TODAY.</div>
+                  {/* CRYP-93: the AI-research chat kill-switch lives here (moved from App Controls).
+                      Off = hides the Research → Ask chat for all users now, via the same
+                      saveFeature→saveConfig path the incident switches use. */}
+                  <CtrlRow icon={SI.ai} label="AI research chat" sub="Off = hides the Research → Ask chat for all users now; when live AI ships it also stops the server AI proxy.">
+                    <Switch checked={controls.features.aiResearch !== false}
+                            onChange={async () => { const r = await saveFeature("aiResearch", !(controls.features.aiResearch !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
+                  </CtrlRow>
                   <label className="acct-label">Anthropic API key{setFlags.anthropicKey ? " · saved ✓" : ""}</label>
                   <input className="field-input" type="password" value={keys.anthropicKey}
                     placeholder={setFlags.anthropicKey ? "•••••••• (saved — type to replace)" : "sk-ant-…"}
