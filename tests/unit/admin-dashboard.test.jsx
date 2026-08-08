@@ -843,6 +843,38 @@ describe("admin-dashboard", () => {
     await waitFor(() => expect(toggle.checked).toBe(true));
   });
 
+  /* ── CRYP-93 · the AI-research chat kill-switch MOVES to the AI settings screen ──
+     App Controls is for the two incident switches (market data, checkout) that gate
+     something live TODAY. The AI-research chat toggle gates a Wave-B feature, so it
+     belongs in the reserved AI settings screen next to the Anthropic key — not in the
+     incident row where it reads as a live control. */
+  it("CRYP-93: the AI research chat toggle lives on the AI settings screen, not App Controls", async () => {
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+
+    // App Controls home still renders (sanity: the two incident switches are here)…
+    await screen.findByText("Live market data");
+    expect(screen.getByText("New subscriptions")).toBeInTheDocument();
+    // …but the AI-research toggle is NO LONGER in the App Controls list.
+    expect(screen.queryByText("AI research")).toBeNull();
+    expect(screen.queryByText("AI research chat")).toBeNull();
+
+    // Drill into the AI settings screen — the toggle lives here now.
+    fireEvent.click(screen.getByText("AI", { selector: ".sr-label" }));
+    const row = await screen.findByText(/AI research chat/i);
+    const container = row.closest(".settings-row") || row.closest(".adm-scr") || row.parentElement;
+    const toggle = container.querySelector('input[role="switch"]');
+    expect(toggle, "the AI research chat row should carry a switch").toBeTruthy();
+
+    // Toggling it saves the aiResearch feature key through the same saveFeature→saveConfig path.
+    fireEvent.click(toggle);
+    await waitFor(() => expect(saveConfig).toHaveBeenCalled());
+    const flags = saveConfig.mock.calls[saveConfig.mock.calls.length - 1][0].flags;
+    expect(flags.features).toHaveProperty("aiResearch");
+    expect(flags.features.aiResearch).toBe(false);
+  });
+
   /* ── ADMIN-0 · admin 2FA switch ─────────────────────────────────────────────
      This is the one toggle in the panel that can lock every admin out of the panel
      — including out of itself, since it lives behind owner-only Settings. So it is
