@@ -5,6 +5,7 @@ import RiskMeter from './RiskMeter';
 import StressTest from './StressTest';
 import { abbreviate, fmtPct } from '../utils/format';
 import { briefFacts } from '../utils/pulse';
+import { pickNote } from '../utils/notes';
 
 // A percentage label that reads "≈0%" when it rounds to 0.0% (an honest "flat", not a
 // misleading "+0.0%") and keeps the signed glyph otherwise.
@@ -40,11 +41,9 @@ function Brief({ portfolio, empty }) {
 // clutter). `status`/`asOf` (and the freshness helpers) went with them — kept out of the
 // signature so no dead code remains. Freshness is an internal cost lever, not user-facing.
 export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShare, aiChrome }) {
-  // DARK-FIX-NaN: deriveRisk() returns {level,score,breakdown,megaAlloc} — there is no
-  // `top2`, so the note's Math.round(risk.top2) rendered "about NaN%" on every non-empty
-  // session. Compute the top-two allocation locally from holdings (same math as usePulse),
-  // guarded so a missing/degenerate book degrades to a clause-less sentence, never "NaN".
-  const top2 = (portfolio.holdings || []).slice(0, 2).reduce((s, h) => s + (h.alloc || 0), 0);
+  // CRYP-99: the note shown is chosen by the pure pickNote rule engine (empty book,
+  // NaN-safe top-two %, and the no-name/no-link compliance all live there).
+  const note = pickNote(portfolio);
   return (
     <div className="view active">
       <Brief portfolio={portfolio} empty={empty} />
@@ -66,17 +65,14 @@ export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShar
       {!empty && <StressTest holdings={portfolio.holdings} />}
 
       <div className="diversify">
-        {/* R7-5: a grid/allocation glyph = diversification (the slot was empty → blank
-            box in both themes). Tinted via .dic { color:var(--accent) }. */}
+        {/* CRYP-99: a rotating "notes" area — ONE general guide note picked from the
+            portfolio's allocation + risk (pickNote). No link: the old "/edge" pointer
+            moved to the landing footer as a Resource. The ▦ grid glyph fills the icon
+            slot (R7-5: an empty .dic was a blank box in both themes). */}
         <div className="dic" aria-hidden="true">▦</div>
         <div>
-          <h3>A note on diversification</h3>
-          <p>{empty
-            ? 'Diversification tips appear once you hold a few coins.'
-            : Number.isFinite(top2)
-            ? `Your top two coins make up about ${Math.round(top2)}% of your portfolio. Spreading across more assets is one of the simplest ways to reduce single-coin risk — a core idea in The Edge.`
-            : 'Spreading across more assets is one of the simplest ways to reduce single-coin risk — a core idea in The Edge.'}</p>
-          <a href="/edge">Read the principle →</a>
+          <h3>A note on your portfolio</h3>
+          <p>{note.text}</p>
         </div>
       </div>
     </div>

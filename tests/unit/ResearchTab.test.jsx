@@ -93,7 +93,7 @@ describe("Research tab — AI honesty gate", () => {
     // Flag flips off → the tab bar drops 'ask' and the view falls back to Overview.
     rerender(<ResearchTab {...baseProps} chatEnabled={false} />);
     expect(screen.queryByText("Ask about your portfolio")).toBeNull();          // AskView gone
-    expect(screen.getByText("A note on diversification")).toBeInTheDocument();  // Overview shown
+    expect(screen.getByText("A note on your portfolio")).toBeInTheDocument();    // Overview shown (CRYP-99 notes area)
   });
 
   it("CRYP-93: the Pulse shows a neutral 'AI off' pill, not the old apology", async () => {
