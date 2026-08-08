@@ -3908,6 +3908,80 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 
 ---
 
+## RESEARCH-NOTES. Research Overview "notes" area — 10 portfolio-scenario general guide notes (no links) + link The Edge from the landing as an additional resource  (🟨 PLAN-ONLY — proposed 2026-08-08; founder to lock via interview before build · no CRYP yet)
+
+> **🟨 PLAN-ONLY — a founder-captured idea, NOT built. This is the written plan; it still goes through the
+> normal interview → G2 → build loop when scheduled. Thresholds + exact copy + priority order are OPEN
+> QUESTIONS (below) for the founder to lock first.**
+
+**What & why (founder, 2026-08-08).** Today the Research Overview ends with ONE hard-coded card, **"A note on
+diversification"** ([`OverviewView.jsx:68-81`](../../src/features/research/components/OverviewView.jsx)), that
+always says the same thing and carries a **`<a href="/edge">Read the principle →</a>`** link. The founder wants
+**two separate changes**:
+
+- **(A) The notes area.** Replace the single fixed card with a **rotating "notes" area** that shows **one
+  general guide note chosen from the portfolio's current state** — its **composition/positioning ("location")
+  and its risk**. The note changes as the portfolio changes. **These notes carry NO link** — not to `/edge`, not
+  to any in-app screen. Plain educational text only. The point is **different notes for different scenarios** so
+  each portfolio gets the guidance most relevant to it. Diversification becomes **one of ten** scenarios.
+- **(B) The Edge as an additional resource.** `/edge` (the in-app **education-page.jsx** guide, "The Edge") is
+  meant for the **landing page** but **isn't linked there yet**. Surface it on the landing (`index.html`) as an
+  **additional resource** link. Since (A) strips the `/edge` link out of the note, The Edge needs a real home —
+  the landing is it. *(Open Q: keep a single Edge entry point on the landing only, or also elsewhere?)*
+
+### Proposed 10 scenarios (one note shown, chosen by priority — founder to review/reorder)
+Each = a **trigger** on the already-computed `portfolio` (`holdings[]` with `alloc`/`value`/P&L/`journal`,
+`risk {level, score, breakdown, megaAlloc}`, top-2 concentration, holding count, unrealized P&L%). All notes are
+**neutral education, no advice, no predictions, no coin named that isn't held, no links** — the same S1–S4
+compliance rules the Pulse obeys. A pure `pickNote(portfolio)` returns the highest-priority match.
+
+| # | Key | Trigger (proposed threshold — OPEN) | Note (draft copy) |
+|---|-----|-------------------------------------|-------------------|
+| 1 | `one-coin` | `holdings.length === 1` | Everything you hold is in a single coin, so your whole result rides on one asset. Adding a second position you understand is the simplest way to lower that. |
+| 2 | `concentration` | `holdings ≥ 2` and top-2 ≥ **60%** | Your top two coins make up about {N}% of your portfolio. Spreading across more assets is one of the simplest ways to reduce single-coin risk. *(today's note, minus the Edge link)* |
+| 3 | `high-risk` | `risk.level === 'High'` | Your mix leans toward higher-risk, smaller-cap coins. Those tend to move harder in both directions — how much you put in each one matters as much as which ones you pick. |
+| 4 | `drawdown` | unrealized P&L ≤ **−15%** | Your portfolio is below what you put in. Down stretches are when a plan gets tested — the useful question is usually whether the reasons you bought still hold, not just where the price is. |
+| 5 | `big-winner` | unrealized P&L ≥ **+30%** (or one coin's run pushed its weight up) | One position has run up and now takes a bigger share of your portfolio than you may have started with. It's worth knowing how concentrated a winner has quietly made you. |
+| 6 | `thin-anchor` | `risk.megaAlloc < 20%` and `holdings ≥ 2` | Only a small slice sits in large, established coins. Higher-ranked assets have historically swung less than the long tail — some weight there can steady a portfolio. |
+| 7 | `all-large-cap` | `risk.level === 'Low'`, high `megaAlloc`, `holdings ≤ 3` | You're concentrated in large-cap coins. That's lower-volatility than the long tail, but "big" and "safe" aren't the same thing — every coin still carries market risk. |
+| 8 | `no-thesis` | some held coin has no `journal.thesis` | Some of your coins don't have a written reason for holding them yet. Noting why you bought each one gives you something concrete to review later, instead of just the price. |
+| 9 | `early` | `holdings` 2–3 and small total | You're early in building this portfolio. The allocation choices you make now shape its risk for a long time — there's no rush to fill it all at once. |
+| 10 | `balanced` | `holdings ≥ 5` and top-2 < **40%** | Your holdings look well spread out — no single coin dominates. Diversification is upkeep, not a one-time setting: it's worth re-checking as prices move your weights around. |
+
+- **Default fallback** (nothing above fires): "Keeping your holdings varied and knowing why you own each one are
+  two of the simplest habits for a steadier portfolio." *(Ensures the area is never blank on a non-empty book.)*
+- **Empty book:** keep today's "Diversification tips appear once you hold a few coins." (reworded to "Notes…").
+- **Proposed priority (first match wins):** 1 `one-coin` → 2 `concentration` → 3 `high-risk` → 4 `drawdown` →
+  5 `big-winner` → 6 `thin-anchor` → 7 `all-large-cap` → 8 `no-thesis` → 9 `early` → 10 `balanced` → default.
+
+### Open questions (founder to lock in the interview before build)
+1. **"Location" = my read** — composition/positioning (concentration + cap-mix + holding count). Confirm, or did
+   you mean something else (e.g. geographic, or where a coin sits on the risk spectrum)?
+2. **Thresholds** — 60% concentration, −15% drawdown, +30% winner, 20% mega-anchor, ≤3/≥5 counts. Keep or tune?
+3. **Priority order** — the list above. Reorder any?
+4. **One note at a time, or a small stack** (e.g. up to 2)? Founder text says "different notes for different
+   scenarios" — I read it as **one** most-relevant note; confirm.
+5. **The Edge on the landing** — where exactly (a "Resources" footer link? a card near the DCA calc?) and is the
+   in-app `/edge` route staying reachable elsewhere, or landing-only now?
+6. **Copy** — the draft lines above are placeholders in the no-names / no-advice voice; approve or rewrite each.
+
+### Implementation sketch (KISS, client-only — for G2, not now)
+- New pure `src/features/research/utils/notes.js`: the 10 scenario definitions (key + predicate + text) + a
+  `pickNote(portfolio)` selector + `defaultNote`. Unit-tested per scenario (fires/omits on its condition, correct
+  priority, never blank, no coin named that isn't held).
+- `OverviewView.jsx`: the `.diversify` card renders `pickNote(...)` and **drops the `<a href="/edge">`**. Likely
+  rename `.diversify`/`.dic`/`h3` copy to a generic "note" (CSS in `research-tab.css`).
+- `index.html` (landing): add The Edge as an additional-resource link (external page from the landing's view).
+- **No** `firestore.rules` / backend / callable / `/api` / openapi / new-dep change — pure client + one landing
+  link. Blast radius: LOW (Research Overview note card + one landing link + one new pure util + its test).
+- **Consistency sweep (topic = Research Overview note + landing resources):** `OverviewView.jsx` ·
+  new `utils/notes.js` · `styles/research-tab.css` · `tests/unit/OverviewView.test.jsx` +
+  new `tests/unit/research-notes.test.js` · `index.html` · CLAUDE.md (Research-tab section — replace the
+  "diversification note" mention + record The Edge→landing link) · README.md (if it names the note) ·
+  `docs/design/DESIGN-PASS.md` (R7-5 references the `.diversify` note/icon).
+
+---
+
 ## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (🟡 PARTLY BUILT — framing/honesty ✅ 2026-08-08 `b6d32d1` (PR 4a); Pulse content + Daily Brief ✅ 2026-08-08 `e6e79db` (PR 4b · CRYP-95); only metrics = 4c · BUILD-LOOP #13 · CRYP-93/CRYP-95)
 
 > **🟡 PARTLY BUILT — 4a (framing/honesty) + 4b (Pulse content + Daily Brief) shipped; only RESEARCH-METRICS (4c) remains.**
