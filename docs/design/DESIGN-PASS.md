@@ -544,7 +544,10 @@ the **single-element gradient-border technique** (`border:1px solid transparent`
   unchanged. **Fixes the current dark-mode invisibility for free** (the old `.regen` had no dark override → the
   cream `--paper-3` bg + muddy `--ink-soft` text vanished on dark paper; the new tokens have dark overrides).
 
-- **R7-5 — fix the empty "A note on diversification" icon (light + dark).** Root cause: `OverviewView.jsx:74` is
+- **R7-5 — fix the empty "A note on diversification" icon (light + dark).** *(Update — CRYP-99, 2026-08-08: this card
+  was repurposed into the rotating **allocation/risk notes area** and its heading is now the static "A note on your
+  portfolio"; the `.dic` ▦ icon slot + its styling are RETAINED unchanged, so this R7-5 fix still holds. See
+  `NEXT-STEPS.md` §RESEARCH-NOTES.)* Root cause: `OverviewView.jsx:74` is
   `<div className="dic" />` — an **empty** 40×40 box (no glyph), so it reads as a blank white/`--paper-3` square in
   **both** themes (this is why R2-8 + DP-7 missed it — they fixed colour/contrast, but the slot had no content).
   Fix: (a) put a monochrome glyph inside — `<div className="dic" aria-hidden="true">▦</div>` (a grid/allocation

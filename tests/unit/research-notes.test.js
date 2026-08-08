@@ -96,7 +96,8 @@ describe('CRYP-99 notes rule engine — one note, most relevant wins', () => {
       H({ alloc: 30, avgCost: 1, value: 1 }), H({ alloc: 20, avgCost: 1, value: 1 }),
       H({ alloc: 20, avgCost: 1, value: 1 }), H({ alloc: 15, avgCost: 1, value: 1 }), H({ alloc: 15, avgCost: 1, value: 1 }),
     ];
-    const r = pickNote(P({ holdings, total: 95, risk: { level: 'Moderate', megaAlloc: 50 } }));
+    // invested = 5 (5×1×1); total = 5 → pnl 0 (no drawdown/winner). top2 = 50 (no concentration/balanced).
+    const r = pickNote(P({ holdings, total: 5, risk: { level: 'Moderate', megaAlloc: 50 } }));
     expect(r.key).toBe('default');
     expect(r.text).toBe(DEFAULT_NOTE.text);
   });

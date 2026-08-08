@@ -148,7 +148,6 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .diversify .dic{width:40px;height:40px;border-radius:12px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;flex:none;box-shadow:var(--sh-sm);color:var(--accent);font-size:18px;font-weight:700}
 .research-root .diversify h3{font-size:14px;font-weight:600;margin-bottom:5px;letter-spacing:-.01em}
 .research-root .diversify p{font-size:13px;color:var(--ink-soft);line-height:1.55}
-.research-root .diversify a{display:inline-block;margin-top:9px;font-size:13px;font-weight:600;color:var(--accent)}
 
 .research-root .sec-label{display:flex;align-items:center;justify-content:space-between;margin:0 2px 13px}
 .research-root .sec-label h2{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
@@ -284,7 +283,6 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 html[data-theme="dark"] .research-root .diversify{background:linear-gradient(135deg,var(--accent-soft),var(--paper-2));border-color:var(--edge-bright)}
 html[data-theme="dark"] .research-root .diversify .dic{background:var(--paper-3);border-color:var(--line-strong)}
 html[data-theme="dark"] .research-root .diversify h3{color:var(--accent-ink)}
-html[data-theme="dark"] .research-root .diversify a{color:var(--accent-ink)}
 html[data-theme="dark"] .research-root .diversify p{color:var(--ink)}
 /* R3-8: the Ask hero is a dark gradient that blends into the dark page, and its h3
    inherits color:var(--paper) (which flips dark → invisible). Add an edge + light text. */

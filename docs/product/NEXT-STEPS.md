@@ -3908,11 +3908,24 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 
 ---
 
-## RESEARCH-NOTES. Research Overview "notes" area — 10 allocation/risk general guide notes (no links, relevance-picked) + link The Edge from the landing footer as a Resource  (🟨 PLAN-ONLY — FULLY LOCKED 2026-08-08; rules specified, ready to build on founder "go"; no CRYP yet)
+## RESEARCH-NOTES. Research Overview "notes" area — 10 allocation/risk general guide notes (no links, relevance-picked) + link The Edge from the landing footer as a Resource  (✅ BUILT 2026-08-08 · CRYP-99 · client-only)
 
-> **🟨 PLAN-ONLY — a founder-captured idea, NOT built. This is the written plan; it still goes through the
-> normal interview → G2 → build loop when scheduled. Scope + thresholds + copy voice + selection model are
-> LOCKED (founder, 2026-08-08); only the relevance ladder + two overlap resolutions want a final nod (below).**
+> **✅ BUILT 2026-08-08 · CRYP-99 · client-only.** PLANNED provenance (locked plan below) → G1 interview skipped;
+> the locked spec was the plan-of-record. Shipped: a new pure **`src/features/research/utils/notes.js`**
+> (`noteFacts` + `RULES` + `pickNote` + `DEFAULT_NOTE`/`EMPTY_NOTE`) — the relevance-scored engine picks the single
+> highest-relevance matching note from the portfolio's allocation + risk (argmax, order-independent).
+> **`OverviewView.jsx`** renders `pickNote(portfolio).text` in the (retained) `.diversify` card, the heading is now
+> the static **"A note on your portfolio"**, and the old **`<a href="/edge">` link was removed**; the two dead
+> `.research-root .diversify a` CSS rules (light + dark) were removed. **The Edge** was added to the **landing
+> footer** (`index.html` `.foot-links → /edge`, landing only). **Tests:** new `tests/unit/research-notes.test.js`
+> (15 cases — every rule, the relevance precedence, the `<5-coins` under-diversified example, the `mega ≥ 90`
+> boundary, no-names/no-link compliance, never-blank) committed RED first; `ResearchTab.test.jsx` heading
+> assertion updated; `OverviewView.test.jsx` (R7-5 glyph + CRYP-92 "about 65%") still green unchanged. Build +
+> dist-name guard + brand guard clean. **No `firestore.rules` / backend / callable / `/api` / openapi / new-dep /
+> new-hex change.** The plan of record (rules, ladder, copy) is preserved below.
+
+> **🟨 PLAN (as locked 2026-08-08, now built).** Scope + thresholds + copy voice + selection model + the relevance
+> ladder + the two overlap resolutions were all LOCKED by the founder before build.
 
 **What & why (founder, 2026-08-08).** Today the Research Overview ends with ONE hard-coded card, **"A note on
 diversification"** ([`OverviewView.jsx:68-81`](../../src/features/research/components/OverviewView.jsx)), that
