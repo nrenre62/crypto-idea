@@ -16,6 +16,11 @@ server-side CI in `.github/workflows/ci.yml`). Sibling to [`AGILE.md`](AGILE.md)
 open a PR that fills the template and links the ticket → self-review the diff → CI green → **squash-
 merge → delete branch.** Keep it under **~200 changed lines**; split if it grows.
 
+**Every planning session opens a NEW PR (founder rule, 2026-08-08).** A new plan → a fresh branch off
+the latest `master` → a **new** PR. **Never** push to `master`. **Never** push to, reuse, or
+force-push/rewrite an **old** PR (merged or closed) or its branch — a merged/closed PR is finished.
+Follow-up or corrective work restarts the branch from the latest `master` and opens a **new** PR.
+
 ## 1. Branch
 
 - Agent + web/remote work stays on **`claude/…`** feature branches (the CI triggers on `claude/**`,
@@ -23,6 +28,11 @@ merge → delete branch.** Keep it under **~200 changed lines**; split if it gro
   deletes it and it never appears in `master`'s history. **The PR title is what survives**, so put
   the discipline there, not in the branch name.
 - Never commit straight to `master`.
+- **One plan = one fresh PR (founder rule, 2026-08-08).** Every planning session branches anew off the
+  latest `master` and opens a **new** PR. Never push to, reuse, or rewrite/force-push an **old**
+  (merged or closed) PR or its branch — that history is finished. Follow-up work is a *new* branch and a
+  *new* PR restarted from the latest `master` (this is why the branch name barely matters: each plan
+  gets its own).
 
 ## 2. Title — a Conventional-Commit line
 
