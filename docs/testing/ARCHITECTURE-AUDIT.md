@@ -1,5 +1,20 @@
 # Architecture Audit — Layering Rules
 
+> ⚠️ **HISTORICAL SNAPSHOT (2026-06-16) — superseded by [`docs/decisions/ARCHITECTURE.md`](../decisions/ARCHITECTURE.md).**
+> This is a point-in-time audit, kept for history. The canonical, wired-in architecture rulebook is
+> now [`ARCHITECTURE.md`](../decisions/ARCHITECTURE.md). Some numbers below are stale — see
+> **"Since this audit"** immediately below before quoting any figure.
+
+> **Since this audit (correcting the stale figures — code moved ahead, no re-audit needed to fix a count):**
+> the backend is no longer "one flat 908-line `index.js`, 18 functions, no helper split." As of 2026-08
+> it is **≈2,400-line `index.js` with 43 exported functions + 13 extracted pure-helper modules**
+> (`guards`/`billing`/`validate-output`/`config-diff`/`observability`/`net-utils`/`stats-daily`/`features`/
+> `signup-gate`/`announcement`/`universe-utils`/`duplicates`/`audit-diff`). Accurate framing: **"modular
+> helpers + a per-handler-mixed `index.js`"**, not "flat monolith" (the per-handler controller+service+model
+> mixing is still true and stays a documented by-design exception). Also: `admin-dashboard.jsx` is now
+> **hook-driven** (`api/admin.js` + `useAdminDashboard`, fixed in `df83e51`) — the "Rule 1 biggest violation"
+> row below is **resolved**. See [`ARCHITECTURE.md`](../decisions/ARCHITECTURE.md) D1/D2.
+
 > Generated 2026-06-16. Read-only audit of the codebase against a strict 6-rule layered
 > architecture. No code was changed. Rules 1–3 cover the frontend (`components`/`hooks`/`api`),
 > rules 4–6 the backend (`functions/`).

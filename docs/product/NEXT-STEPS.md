@@ -4859,7 +4859,17 @@ portfolio) **leaves Learn untouched by design** — level/XP/streak/module state
 
 ---
 
-## ARCHITECTURE-DOC. Canonical `ARCHITECTURE.md` — consolidate the scattered architecture rules into ONE wired-in rulebook  (📋 STAGED 2026-08-05; queued in BUILD-LOOP #14 — NOT built)
+## ARCHITECTURE-DOC. Canonical `ARCHITECTURE.md` — consolidate the scattered architecture rules into ONE wired-in rulebook  (✅ BUILT 2026-08-08 · CRYP-100 · BUILD-LOOP #14 · branch `claude/architecture-doc`)
+
+> **Build note (2026-08-08, docs-scribe):** shipped `docs/decisions/ARCHITECTURE.md` (ARCH-1…ARCH-17) + the
+> three wiring anchors (`docs/interview.md` row, `CLAUDE.md` Conventions bullet, `AGILE.md` DoD placement gate)
+> + sibling refreshes (`src/ARCHITECTURE.md`, `ARCHITECTURE-AUDIT.md` historical banner, `README.md`,
+> `CODEBASE-MAP.md`). D1/D2 corrected to `current`. **⚠️ D3 is ALREADY RESOLVED** — the 3 inline `onclick`
+> handlers the 2026-08-05 spec listed were rewired to `addEventListener` in `public/landing.js` by commit
+> `824b903` (PR #44, 2026-08-08), which landed before this doc. So **`ARCH-DOC-FIX-1` is superseded / not
+> needed** (the doc records D3 as resolved, per the "record the RESOLVED rule, drop stale gap language" rule).
+> **`ARCH-DOC-FIX-2` (education-page.jsx direct `fetch` → reduce it to a link in `index.html`, founder-planned
+> 2026-08-08) remains the one REQUIRED follow-up** — its own small code commit + a guard test.
 
 > **Queued as [BUILD-LOOP](BUILD-LOOP.md) #14** (2026-08-05). **Docs-only increment** — no source code,
 > no `firestore.rules`, no new dependency. Gate: 🟩 GREEN (writing + wiring Markdown; the only "tests" are

@@ -97,6 +97,12 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   later.** The market-data layer is already built + flat-cost; the open work is the AI tier. Build order:
   `NEXT-STEPS.md` §C (refines §0 Wave B + §BL, doesn't duplicate). Note: C7 flips the U9 AI meter to
   admin-only (users never see a budget number).
+- **Architecture:** [`ARCHITECTURE.md`](docs/decisions/ARCHITECTURE.md) is the canonical record of the
+  system architecture/layering (ARCH-1…ARCH-17) — it **wins over any stale planning/design doc**; the `src/`
+  layer rules + migration status stay in [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md). When adding or moving
+  a function/component/hook/api/util, follow the layer rules (component → hook → api → util; `utils/` pure;
+  no `firebase/*`/`fetch` in components) and sweep the `docs/interview.md` "Architecture / layering" row.
+  (The "## Architecture" prose above stays as current code-reality description.)
 - **KISS by design:** build the simplest thing that works — plain readable code, fewer moving
   parts, no new dependency when a few lines do, no premature optimization. Simple = fewer bugs,
   faster loads, easier fixes, smaller attack surface. Pairs with security-first below.

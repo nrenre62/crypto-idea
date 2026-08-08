@@ -1,7 +1,12 @@
 # `src/` architecture (layered)
 
-We are migrating to a layered structure. **All new code follows this; existing
-code is peeled into these layers incrementally (one verified commit at a time).**
+> **System-level rules: see [`docs/decisions/ARCHITECTURE.md`](../docs/decisions/ARCHITECTURE.md) (canonical).**
+> That file owns the whole-system shape (ARCH-1…ARCH-17) and wins on architecture; **this file details the
+> `src/` layers** (`api`/`hooks`/`components`/`utils`) + their current state.
+
+The layered structure is **in place: all code follows it, with a few documented by-design exceptions.**
+**All new code follows the layer rules; the last extractions were peeled in one verified commit at a
+time.** (History: this was a "migration in progress" — §1a/§1b/§1c are now complete.)
 
 ```
 src/
@@ -16,7 +21,7 @@ src/
 - Never `fetch`/import the Firebase SDK directly from a component — go through `api/`.
 - `utils/` must stay pure (same input → same output, no side effects) so it's trivially testable.
 
-## Current state (migration in progress)
+## Current state (layering done, with documented exceptions)
 - **Done:**
   - `api/` — Firebase data layer (`firebase.config.js`, `firebase-auth.js`,
     `firebase-database.js`) + the backend `/api/*` fetches: `coingecko.js`
@@ -56,11 +61,15 @@ must be a real element, not a conditional function call) → add/extend a naviga
   See [`../NEXT-STEPS.md`](../docs/product/NEXT-STEPS.md) for the remaining checklist (§1c).**
 - Multi-page Vite entries (`main.jsx`, `admin-main.jsx`) stay at the `src/` root.
 
-## Known layer violations (audit)
-The layered rules aren't fully satisfied yet — these are the gaps the migration is closing:
-1. **Components doing fetch/logic:** PARTIALLY CLOSED — `CryptoIdea.jsx` no longer calls
-   `httpsCallable` directly (GDPR export/delete now in `api/account.js`). Still: it holds most
-   state/logic, and `admin-dashboard.jsx` calls Cloud Functions directly (→ future `api/admin.js`).
+## Known layer exceptions & remaining gap (audit)
+Most of the layered rules are satisfied; the items below are documented by-design exceptions plus one
+genuine remaining gap. (Full status + the system rules: [`docs/decisions/ARCHITECTURE.md`](../docs/decisions/ARCHITECTURE.md).)
+1. **Components doing fetch/logic:** MOSTLY CLOSED — `CryptoIdea.jsx` no longer calls `httpsCallable`
+   directly (GDPR export/delete now in `api/account.js`), and **`admin-dashboard.jsx` is now hook-driven**
+   via `api/admin.js` + `hooks/useAdminDashboard.js` — it imports no `firebase/*`/`httpsCallable` (fixed in
+   `df83e51`). What remains: `CryptoIdea.jsx` still holds the CRUD + upgrade orchestrators (a documented
+   by-design exception, coupled to UI/auth state), and **`components/education-page.jsx` still calls
+   `fetch("/api/subscribe")` directly** — the one real open violation, tracked as `ARCH-DOC-FIX-2`.
 2. **State/logic not in hooks:** PARTIALLY CLOSED — the auth session (`useAuthSession`),
    portfolios state container (`usePortfolios`), and tier-limit logic (`useUpgrade`) now live in
    hooks. What remains in `CryptoIdea.jsx` is coupled to UI/form/auth state by design (KISS):

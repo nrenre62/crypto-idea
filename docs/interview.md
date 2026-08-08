@@ -127,6 +127,10 @@ wins in a conflict) is **bold**.
 - Docs: **[`CACHE-POLICY.md`](decisions/CACHE-POLICY.md)** · `README.md` (CoinGecko proxy) · [`DATA-FLOW.md`](product/DATA-FLOW.md)
 - Code: `functions/index.js` (universe / cache / history) · `functions/universe-utils.js`
 
+### Architecture / layering
+- Docs: **[`ARCHITECTURE.md`](decisions/ARCHITECTURE.md)** · [`src/ARCHITECTURE.md`](../src/ARCHITECTURE.md) · [`ARCHITECTURE-AUDIT.md`](testing/ARCHITECTURE-AUDIT.md) (historical) · [`CODEBASE-MAP.md`](product/CODEBASE-MAP.md) · [`docs/diagrams/frontend-layered-architecture.svg`](diagrams/frontend-layered-architecture.svg)
+- Code: `src/{api,hooks,components,utils}/` · `src/features/research/` · `functions/index.js` (+ helper modules) · `vite.config.js` · `index.html`/`app.html`/`admin.html`
+
 ### Testing & issue tracking (Jira CRYP, test ↔ ticket traceability)
 - Docs: **[`JIRA-WORKFLOW.md`](testing/JIRA-WORKFLOW.md)** (bug loop) · **[`JIRA-PLAYBOOK.md`](testing/JIRA-PLAYBOOK.md)** (hierarchy / templates / Components / Versions / presentation) · [`AGILE.md`](product/AGILE.md) (Definition of Done + testing conventions) · [`ERRORS.md`](testing/ERRORS.md) · `README.md` (Tests + "How I built this") · `CHANGELOG.md` · `CLAUDE.md` (Conventions) · `docs/testing/bug-hunts/` (hunt reports)
 - Commands / agents: `.claude/commands/jira-bug.md` · `.claude/commands/jira-fix.md` (uses `claude/…` branches) · `.claude/commands/jira-test-sync.md` · `.claude/commands/jira-bug-hunt.md` · `.claude/commands/build-feature.md` + `.claude/agents/spec-drafter.md` (G1 files a CRYP Story)

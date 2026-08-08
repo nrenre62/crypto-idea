@@ -42,17 +42,18 @@ a fresh context resumes **exactly where it left off**.
 *(item 4 fully merged — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); run rows in `factory-runs.md`.)*
 
 ## ARCHITECTURE-DOC — canonical docs/decisions/ARCHITECTURE.md + 3-anchor wiring (BUILD-LOOP #14)
-- Phase: inner-loop  (PLANNED GREEN docs item; provenance rule CRYP-98 → G1 interview skipped, G2 non-blocking plan-of-record; flows to G3 merge)
+- Phase: built  (awaiting G3 merge decision)
 - G1 confirmed: yes        (spec decisions were "offered, not answered" — founder confirmed 2026-08-08: accept 1/2/3; D4 reframed)
 - G2 approved: n/a (non-blocking per provenance rule — docs-only, 🟩 GREEN)
 - Decisions (founder 2026-08-08): 1 file home `docs/decisions/ARCHITECTURE.md` (src/ARCHITECTURE.md stays sub-doc; audit gets historical banner) · 2 system-wide ~17 ARCH-* rules cross-linking (not copying) the deep docs · 3 wire all 3 anchors (interview.md map row + CLAUDE.md Conventions bullet + AGILE DoD gate, SAME commit) · 4 D3→ARCH-DOC-FIX-1 (inline onclick→landing.js), **D4 REFRAMED → education-page becomes only a link in index.html (removes the component fetch), NOT an api/ wrapper → ARCH-DOC-FIX-2**.
 - Plan (files): NEW docs/decisions/ARCHITECTURE.md · src/ARCHITECTURE.md (pointer + D2 fixes) · docs/testing/ARCHITECTURE-AUDIT.md (historical banner + D1 numbers) · docs/interview.md (new map row) · CLAUDE.md (Conventions bullet) · docs/product/AGILE.md (DoD gate) · README.md · docs/product/CODEBASE-MAP.md. Docs-only; no code/rules/dep → no test:rules. Verify: npm run build clean + links resolve + grep-check (no restated tier limits/TTLs/HTTP contract).
-- Follow-ups queued (separate REQUIRED items, own interviews when built): ARCH-DOC-FIX-1 (index.html inline onclick → landing.js listeners; browser-verify) · ARCH-DOC-FIX-2 (education-page.jsx → link in index.html, removing the /api/subscribe fetch).
-- Fix-round: 0 / 3
+- Follow-ups: **ARCH-DOC-FIX-1 SUPERSEDED** — D3 (inline onclick in index.html) was ALREADY fixed by PR #44 `824b903` (buttons id'd + wired via addEventListener in landing.js; verified against the tree). The 2026-08-05 spec was stale; docs-scribe correctly documented D3 as RESOLVED. Only **ARCH-DOC-FIX-2 REQUIRED** (education-page.jsx → link in index.html, removing the direct /api/subscribe fetch — its own interview when built).
+- Fix-round: 0 / 3   (docs-only; no fix-loop)
+- Verify: npm run build clean (dist-name-guard clean, re-run independently) · 171 inter-doc links resolve · grep-check clean (no restated tier limits/TTLs/HTTP contract) · docs-only (no code/rules/tests → no test:unit/test:rules).
 - Open findings: none
 - Branch: claude/architecture-doc  (off master 907085c)
-- Built: no
+- Built: yes  (docs increment — new docs/decisions/ARCHITECTURE.md + 3-anchor wiring + 5 sibling docs; commit = the finalize below)
 - Merged: no
-- Agents this item: 0
+- Agents this item: 1   (docs-scribe; author + wire + verify)
 - Jira: CRYP-100 (In Progress)
 - Updated: 2026-08-08

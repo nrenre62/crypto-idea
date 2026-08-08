@@ -42,7 +42,11 @@ Every commit is a **potentially shippable increment**: the app builds and runs a
 - [ ] Committed to git with a clear message.
 - [ ] Shipped as one PR per [`PR-WORKFLOW.md`](PR-WORKFLOW.md) — Conventional-Commit title + linked
       ticket, template body, ~200-line scope, CI green, squash-merge + delete branch.
-- [ ] Docs updated if structure/behavior changed (`README.md` / `src/ARCHITECTURE.md` / this backlog).
+- [ ] **New/moved code sits in the correct layer per [`ARCHITECTURE.md`](../decisions/ARCHITECTURE.md)** —
+      component → hook → api → util; `utils/` pure; no `firebase/*`/`fetch` in components. No new layer
+      violation introduced (and any deliberate deviation is recorded as a by-design exception).
+- [ ] Docs updated if structure/behavior changed (`README.md` / [`ARCHITECTURE.md`](../decisions/ARCHITECTURE.md) /
+      `src/ARCHITECTURE.md` / this backlog).
 - [ ] Reusable patterns captured in skills/memory.
 
 ## Testing conventions
