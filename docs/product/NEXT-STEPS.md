@@ -3814,16 +3814,17 @@ verified live on the emulator). Original spec below.
 
 ---
 
-## AI-CHAT-SWITCH. Owner switch to hide + disable the Research "Ask" chat (client-side)  (✅ BUILT 2026-08-08 · `b6d32d1` · via the Agent Factory · BUILD-LOOP #13 · CRYP-93 · PR 4a of 3)
+## AI-CHAT-SWITCH. Owner switch to hide + disable the Research "Ask" chat (client-side)  (✅ BUILT 2026-08-08 · `bfdbdf0` · via the Agent Factory · BUILD-LOOP #13 · CRYP-93 · PR 4a of 3)
 
-> **✅ BUILT 2026-08-08 (PR 4a of 3 · CRYP-93 · commit `b6d32d1`).** The `aiResearch` kill-switch now has its
+> **✅ BUILT 2026-08-08 (PR 4a of 3 · CRYP-93 · commit `bfdbdf0`).** The `aiResearch` kill-switch now has its
 > first client effect: OFF hides the Research → **Ask** chat tab **and** the per-coin "Ask AI about …" button,
 > and falls a stale `'ask'` selection back to Overview (`chatEnabled = !(site.features.aiResearch === false)`,
 > default-ON, threaded `Research.jsx` → `ResearchTab.jsx`). The admin toggle **moved from App Controls to the
 > AI settings screen** ("AI research chat", same owner-only + step-up `saveFeature → saveConfig` path), and the
 > `functions/features.js` description string was updated to match. Founder sliced BUILD-LOOP #13 into **three
 > PRs (Option A):** 4a = this Ask-chat switch **+ the RESEARCH-NO-AI framing/honesty pass** (below); **4b**
-> (richer multi-signal Pulse + Daily Brief) and **4c** (RESEARCH-METRICS) remain queued.
+> (richer multi-signal Pulse + Daily Brief · `9e2bbb3`/CRYP-95) and **4c** (RESEARCH-METRICS · CRYP-97) have now
+> both shipped — the whole BUILD-LOOP #13 item is ✅ COMPLETE (see the RESEARCH-NO-AI section below).
 >
 > **Queued as [BUILD-LOOP](BUILD-LOOP.md) #13** (2026-08-03) — approved 2026-08-01 interview, decisions
 > locked. Built in **ONE increment together with RESEARCH-NO-AI** (same `aiResearch` flag, same `chatEnabled`
@@ -4019,11 +4020,11 @@ largest / top-two allocation % · `mega` = `risk.megaAlloc` (% in mega-cap/top-r
 
 ---
 
-## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (🟡 PARTLY BUILT — framing/honesty ✅ 2026-08-08 `b6d32d1` (PR 4a); Pulse content + Daily Brief ✅ 2026-08-08 `e6e79db` (PR 4b · CRYP-95); only metrics = 4c · BUILD-LOOP #13 · CRYP-93/CRYP-95)
+## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (✅ COMPLETE 2026-08-08 — all 3 PRs shipped: 4a framing/honesty `bfdbdf0` (CRYP-93) · 4b Pulse content + Daily Brief `9e2bbb3` (CRYP-95) · 4c RESEARCH-METRICS (CRYP-97) · BUILD-LOOP #13)
 
-> **🟡 PARTLY BUILT — 4a (framing/honesty) + 4b (Pulse content + Daily Brief) shipped; only RESEARCH-METRICS (4c) remains.**
+> **✅ COMPLETE — all three PRs shipped: 4a (framing/honesty) + 4b (Pulse content + Daily Brief) + 4c (RESEARCH-METRICS). The whole item (RESEARCH-NO-AI + AI-CHAT-SWITCH) is done.**
 >
-> **PR 4a of 3 — framing/honesty · 2026-08-08 · CRYP-93 · `b6d32d1`.** The "AI is offline — showing a basic
+> **PR 4a of 3 — framing/honesty · 2026-08-08 · CRYP-93 · `bfdbdf0`.** The "AI is offline — showing a basic
 > summary" apology is **removed** and replaced by a neutral **"AI off"/"AI on" status pill**
 > (`.research-root .ai-status`, token-driven, dark-safe); the new build constant **`AI_PROXY_LIVE = false`** in
 > `src/features/research/api/ai-status.js` is the single go-live seam, and `aiChrome = chatEnabled && AI_PROXY_LIVE`
@@ -4031,7 +4032,7 @@ largest / top-two allocation % · `mega` = `risk.megaAlloc` (% in mega-cap/top-r
 > De-apologized copy landed in `OverviewView.jsx`, `EmptyState.jsx`, `AskView.jsx` + `hooks/useAsk.js` (dead
 > `offline` field dropped), and the dead `.ai-note`/`.a-off` CSS was removed.
 >
-> **PR 4b of 3 — Pulse content + Daily Brief · ✅ 2026-08-08 · CRYP-95 · `e6e79db`.** A new pure
+> **PR 4b of 3 — Pulse content + Daily Brief · ✅ 2026-08-08 · CRYP-95 · `9e2bbb3`.** A new pure
 > **`src/features/research/utils/pulse.js`** is now the single source of truth for the Overview's two cards,
 > replacing the old single-line Pulse and the buggy Brief. **`pulseFacts(portfolio, tf)` + `pulseLines(facts)`**
 > produce the **multi-signal deterministic Portfolio Pulse** — R-A value + selected-tf performance (always) ·
@@ -4047,9 +4048,33 @@ largest / top-two allocation % · `mega` = `risk.megaAlloc` (% in mega-cap/top-r
 > **Client-only — no `firestore.rules`, no callable, no `/api`/openapi change, no new dep, no new CSS.**
 > `pulseFacts` is structured flat so 4c extends it cleanly.
 >
-> **STILL TO BUILD — PR 4c:** **RESEARCH-METRICS** (P-1 return attribution · P-2 effective-N, merges into R-C ·
-> P-3 7-day drawdown · P-4 7-day volatility — the "This week" line + the "what drove it" line, §"Pulse metrics"
-> below). NOT in this slice.
+> **PR 4c of 3 — RESEARCH-METRICS · ✅ 2026-08-08 · CRYP-97 · `4845923` (metrics) + `8d51b25` (P-1 net-direction
+> fix) + `4fe910f` (bold tidy-up).** The pure `utils/pulse.js` layer gained four deterministic insight metrics
+> and a line-set reshape (§"Pulse metrics" below): **P-1** return attribution — `contribᵢ` on **past-value
+> weights** so `Σ contrib === portfolio.perf[tf]` exactly, naming the top contributor **in the direction of the
+> net move** and showing "drove about **N%**" only when the share rounds to 1–100% (else "was the main driver",
+> no number; ≥2 holdings) · **P-2** effective-N `Neff = 1/Σwᵢ²` **merged into the R-C concentration line** as an
+> equivalence · **P-3** 7-day drawdown from a reconstructed daily value series `Vₜ = Σ(amount×spark)` ("…now sits
+> **D%** below its 7-day high", or "…is at a 7-day high" at 0%) · **P-4** 7-day sample-stddev volatility,
+> **never annualized** ("typical daily swing of about ±v%"). **Line-set reshape:** R-A · R-B · **P-1** · **R-C+P-2
+> merged** · **"This week" (P-4+P-3)** · R-F — the "This week" line **supersedes R-E's one-clause risk pointer in
+> the Pulse** (R-E remains the fallback only with no usable 7-day data); the dedicated RiskMeter card
+> (market-cap-rank structural risk) is unchanged. All under the locked **S1–S4** rules. **Client-only — no
+> `firestore.rules`, no callable, no `/api`/openapi, no new dep.**
+>
+> **P-1 spec refinement (correctness — founder decision A, 2026-08-08):** the locked spec said P-1 "rank by
+> `|contribᵢ|`" with `wᵢ = valueᵢ/total`. The implementation instead uses **past-value weights** (`pᵢ =
+> valueᵢ/(1+rᵢ/100)`, `contribᵢ = pᵢ·rᵢ/Σpᵢ`) — the only form that honors the locked "contributions sum exactly"
+> identity against `computePortfolio.perf` — and selects the **net-direction** top contributor. The literal
+> max-|contrib| rule rendered a sign-inverted "drove about **−500%**" on offsetting (≥3-coin) books where the
+> biggest position moves *opposite* the net (a drag), so it names the real driver and keeps the share positive
+> (F1/F2, caught in review — never shipped, so no ERRORS.md entry).
+>
+> **Accepted low-priority caveats (documented from the adversarial review, NOT fixed in 4c):** (1) the 7-day value
+> reconstruction **tail-aligns sparklines by index**, so independently-refreshed per-coin histories can be ~1 day
+> out of phase — the real fix is the **persisted daily portfolio-value series** already on the Wave-B DATA roadmap
+> below; (2) the "This week" line can fire on as few as **~3 daily points** for a brand-new holding; (3) **"±0.0%"**
+> renders on a dead-flat week. All three are honest-but-imprecise, never wrong or NaN.
 >
 > **Queued as [BUILD-LOOP](BUILD-LOOP.md) #13** (2026-08-03) — finished + approved (2026-08-03 interview),
 > decisions locked. Built in **ONE increment together with AI-CHAT-SWITCH** (same `aiResearch` flag, same
@@ -4132,7 +4157,7 @@ new `utils/pulse.js`) imported by `usePulse`'s `fallbackText`; `usePulse` return
 `Rich` already renders `**bold**` + newlines. **Tests:** each rule fires/omits on its condition; P&L sign
 correct; no NaN on zero-history/zero-cost; empty-state text; held-only naming.
 
-### Pulse metrics — added calculations (RESEARCH-METRICS · locked 2026-08-03 interview; part of #13, or a fast-follow)
+### Pulse metrics — added calculations (RESEARCH-METRICS · ✅ BUILT 2026-08-08 · PR 4c · CRYP-97 · locked 2026-08-03 interview)
 Four deterministic calculations added to the no-AI Pulse, vetted by a 5-family metric research sweep + an
 **adversarial compliance audit** (the audit reframed 3 of them + produced the S1–S4 rules below). **All
 descriptive, no new data, no AI.** The base Pulse (R-A…R-F) ships fine without these — this is an insight
@@ -4142,6 +4167,11 @@ expansion. The Pulse stays ~5-6 short lines by **merging, not stacking** (see "I
 - **P-1 Return attribution** — `contribᵢ = wᵢ × returnᵢ` (`wᵢ = valueᵢ/total`; `returnᵢ` = that coin's tf %
   change). Contributions **sum exactly** to the portfolio's tf return (self-checking identity); rank by
   `|contribᵢ|`. → "Over the {tf}, **{coin}** drove about **{share}%** of that move." *(no verb on the coin — S1.)*
+  **↳ As built (4c refinement — founder decision A, 2026-08-08):** weights are the **past-value** form
+  `pᵢ = valueᵢ/(1+rᵢ/100)`, `contribᵢ = pᵢ·rᵢ/Σpᵢ` — the only form that keeps `Σ contrib === perf[tf]` exact
+  against `computePortfolio.perf` — and the named coin is the **largest contributor in the net-move direction**,
+  not the biggest `|contribᵢ|` (which on a ≥3-coin offsetting book names the drag and sign-inverts the share to
+  "−500%"). The share prints only when it rounds to **1–100%**; otherwise "was the main driver" (no number).
 - **P-2 Effective number of holdings** — `Neff = 1 / Σwᵢ²`; report beside the raw count N. → **merged into the
   concentration line:** "Your top two are **{N}%** of the book — by size, your {M} coins act like about
   **{Neff}** equal-weight positions." *(an equivalence, never a "but/you-should" nudge — S2.)*
@@ -4187,7 +4217,9 @@ already stores unlocks higher-value metrics:
 - **True max drawdown (90d/all-time) + historical VaR** · **Sharpe / Sortino** · **beta vs BTC** · **pairwise
   correlation** (false-diversification check) — need a **persisted daily portfolio-value series** (+ a stored BTC /
   per-coin daily series). Meaningless on 6 sparkline points; strictly wait for real history; show as plain stats,
-  never grades (S3).
+  never grades (S3). **This same persisted series also retires 4c's accepted P-3/P-4 caveat** — the by-index
+  sparkline tail-alignment (up to ~1 day out of phase) and the "fires on ~3 points" edge both disappear once a
+  real dated daily value series replaces the reconstructed one.
 
 ### Daily Brief rules — the "since you were away" card (this increment · locked 2026-08-03 interview)
 The **Daily Brief** is the greeting card at the top of the Overview ("Good day / here's what moved"), separate
