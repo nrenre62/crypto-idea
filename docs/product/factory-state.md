@@ -42,10 +42,10 @@ a fresh context resumes **exactly where it left off**.
 *(4a merged — PR #46 → master `bfdbdf0`; CRYP-93 Done; run row in `factory-runs.md`.)*
 
 ## RESEARCH-NO-AI-4b — multi-signal deterministic Pulse (pulseFacts) + Daily Brief
-- Phase: G1
+- Phase: G2-approved
 - G1 confirmed: yes        (🟡 PARTLY-BUILT item in NEXT-STEPS §RESEARCH-NO-AI; 4b content decisions locked 2026-08-03; founder "go for PR 4b" 2026-08-08)
-- G2 approved: no          (no code before this is yes)
-- Plan (files): TBD — architect to plan the 4b slice (base R-A…R-F Pulse + Daily Brief B-1/B-2/B-3; NO P-1…P-4 metrics = 4c)
+- G2 approved: yes         (founder yes 2026-08-08)
+- Plan (files): NEW src/features/research/utils/pulse.js (pulseFacts + pulseLines R-A→R-B→R-C→R-E→R-F + briefFacts B-1/B-2/B-3) · usePulse.js (render multi-line via pulseFacts; DROP orphaned offline field) · OverviewView.jsx (Brief from briefFacts; delete "volatility" line; diversification card unchanged) · Pulse.jsx verify-only (Rich already multi-line) · tests: NEW research-pulse.test.js + 2 render assertions. Client-only; no rules/callable/dep. Scope guard: R-C base (no P-2 merge), R-E stands, NO P-1…P-4 metrics (=4c).
 - Fix-round: 0 / 3
 - Open findings: none
 - Branch: claude/research-pulse-facts  (cut off master bfdbdf0 = React 19 + 4a; baseline unit 964/964 green)
