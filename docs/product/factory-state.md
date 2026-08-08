@@ -39,24 +39,26 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-## RESEARCH-NO-AI-4a — Research tab honesty gate (AI-CHAT-SWITCH + framing)
-- Phase: built  (awaiting G3 merge decision)
-- G1 confirmed: yes        (🟩 GREEN in NEXT-STEPS §AI-CHAT-SWITCH + §RESEARCH-NO-AI; decisions locked; founder chose Option A = 3 sequenced PRs)
-- G2 approved: yes         (founder yes 2026-08-08)
-- Plan (files): functions/features.js (desc string) · research/api/ai-status.js NEW (AI_PROXY_LIVE=false — moved off ai-client.js so the test's factory-mock can't swallow it) · ai-client.js (xref comment) · Research.jsx (chatEnabled) · ResearchTab.jsx (tab filter + aiChrome + usePulse gate + onAsk + disclaimer) · OverviewView.jsx · Pulse.jsx (AI-status pill) · CoinCard.jsx (onAsk gate) · AskView.jsx + useAsk.js (drop offline apology) · EmptyState.jsx · research-tab.css (.ai-status) · admin-dashboard.jsx (MOVE aiResearch toggle to AI screen) · tests: NEW ResearchTab.test.jsx + admin-dashboard.test.jsx ext. Verify-only: CoinsView.jsx, usePulse.js.
-- Fix-round: 0 / 3   (green first build pass — no fix-loop)
-- Reviews: verify GREEN (unit 964/964) · secure SAFE (0 findings) · design CONSISTENT (0 must-fix; 1 advisory) · api-contract SKIPPED (no callable/openapi/api change)
-- Simplifier: SKIPPED — the 1 advisory (orphaned `usePulse.offline` dead state) is deferred to PR 4b, which reworks usePulse wholesale; touching it now would double-churn that file.
-- Open findings: none blocking (1 advisory deferred to 4b)
-- Branch: claude/research-no-ai
-- Built: yes  b6d32d1  (red checkpoint 81732f0 → green impl b6d32d1; pushed)
+*(4a merged — PR #46 → master `bfdbdf0`; CRYP-93 Done; run row in `factory-runs.md`.)*
+
+## RESEARCH-NO-AI-4b — multi-signal deterministic Pulse (pulseFacts) + Daily Brief
+- Phase: G1
+- G1 confirmed: yes        (🟡 PARTLY-BUILT item in NEXT-STEPS §RESEARCH-NO-AI; 4b content decisions locked 2026-08-03; founder "go for PR 4b" 2026-08-08)
+- G2 approved: no          (no code before this is yes)
+- Plan (files): TBD — architect to plan the 4b slice (base R-A…R-F Pulse + Daily Brief B-1/B-2/B-3; NO P-1…P-4 metrics = 4c)
+- Fix-round: 0 / 3
+- Open findings: none
+- Branch: claude/research-pulse-facts  (cut off master bfdbdf0 = React 19 + 4a; baseline unit 964/964 green)
+- Built: no
 - Merged: no
-- Agents this item: 7   (architect · test-author · client-builder · test-tier-verifier · secure-by-design · design-consistency · docs-scribe)
-- Jira: CRYP-93 (In Progress)
-- Slice note: BUILD-LOOP #13 split into 3 PRs (founder Option A, 2026-08-07).
-  **4a (this)** = the honesty gate: `aiResearch` flag → `chatEnabled`/`aiChrome`, `AI_PROXY_LIVE=false`,
-  AI-status pill replacing the "AI is offline" apology, gate gradient/Regenerate/disclaimer, hide the Ask
-  chat tab + per-coin Ask button when off, neutral empty-state copy, MOVE the admin toggle to the AI
-  settings screen, `functions/features.js` description string. Keeps today's single-line deterministic
-  Pulse text (the richer multi-signal Pulse + Daily Brief = 4b; RESEARCH-METRICS P-1…P-4 = 4c).
-- Updated: 2026-08-07
+- Agents this item: 0
+- Jira: CRYP-95 (In Progress)
+- Slice note: BUILD-LOOP #13 PR **4b of 3**. Base multi-signal Pulse via a NEW pure `pulseFacts`(+`briefFacts`)
+  layer: R-A value/perf (always) · R-B unrealized P&L vs cost (invested>0, honest sign) · R-C concentration
+  (≥2 holdings) · R-E one-clause risk pointer · R-F diversification nudge (only top-2>60%) · empty-state copy.
+  Daily Brief rewrite: B-1 portfolio 24h ($ + %, "≈0%" near-zero rule) · B-2 biggest gainer · B-3 biggest
+  decliner (B-2≠B-3, drop the "volatility" mislabel). Under S1–S4 compliance (no verb on named coin, no
+  advice/target, held-only, no roll-up score, neutral labels, never NaN). Also drops the orphaned
+  `usePulse.offline` field (4a follow-up). **NOT in 4b:** P-1 attribution / P-2 effective-N / P-3 drawdown /
+  P-4 volatility → PR 4c. No rules/callable/api/dep change → no test:rules.
+- Updated: 2026-08-08
