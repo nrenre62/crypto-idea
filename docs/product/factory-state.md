@@ -47,7 +47,10 @@ a fresh context resumes **exactly where it left off**.
 - G2 approved: yes         (founder yes 2026-08-08; Q1=drop number >100% → "the main driver"; Q2=keep R-E as thin-data fallback — both = architect recs)
 - Plan (files): src/features/research/utils/pulse.js ONLY production change (+~60 lines): new facts contrib[]/topContributor/topContributorShare, neff (1/Σwᵢ², clamp[1,N]), drawdown7d + vol7d (from Vₜ=Σ amount×spark reconstructed off holdings — spark+amount already ride on portfolio.holdings, NO threading), weekly gate; reshape pulseLines → R-A·R-B·P-1·(R-C+P-2)·"This week"(P-3+P-4, SUPERSEDES R-E; R-E is thin-data fallback). usePulse/OverviewView/Pulse/useSharePulse UNCHANGED. Tests: extend research-pulse.test.js. Docs: NEXT-STEPS §RESEARCH-NO-AI + CLAUDE.md (drop "4c pending"). Client-only; no rules/callable/api/dep.
 - Key decisions: (a) P-1 uses PAST-VALUE weights (contribᵢ=pᵢ·rᵢ/then) so Σcontrib===perf[tf] exactly (spec's literal current-weight wᵢ breaks the locked "sum exactly" identity); (b) "This week" all-or-nothing — omits if any holding lacks a usable daily spark.
-- Fix-round: 0 / 3
+- Fix-round: 1 / 3
+- Reviews (round 1): verify GREEN (1015/1015) · design CHANGES (1 must-fix) · adversarial-metric CONFIRMED HIGH F1/F2 · secure SKIPPED (no security surface).
+  **F1/F2 ship-blocker:** on a ≥3-coin book where the biggest position OPPOSES the net move (e.g. BTC −50% while alts rally, net +5%), topContributor=max|contrib| picks the DRAG (BTC), share=round(−25/5·100)=−500 → "Bitcoin drove about −500% of that move" (nonsensical + sign-inverted). Guard `share<=100` is one-sided. Tests missed it (all P-1 fixtures 2-coin, where top mover always shares net sign). Identity/P-2/P-3/P-4/weekly-gate proven ROBUST.
+  **Founder decision A (2026-08-08):** attribute P-1 to the top contributor IN THE DIRECTION OF the net move (the real driver), not max|contrib|. FOLD-IN fixes: gate P-1 on count≥2 (no vacuous 1-coin line); "at a 7-day high" when drawdown rounds to 0%; show the share number only when 1≤share≤100 else "was the main driver". ACCEPT+document (not fixed in 4c): F5 tail-align ~1-day skew (Wave-B persisted-series roadmap), F6 "7-day" label on ~3 pts (thin new-coin history), vol ±0.0% on flat weeks.
 - Open findings: none
 - Branch: claude/research-metrics  (cut off master 9e2bbb3 = React 19 + 4a + 4b)
 - Built: no
