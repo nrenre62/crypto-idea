@@ -39,29 +39,30 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(4a merged — PR #46 → master `bfdbdf0`; CRYP-93 Done; run row in `factory-runs.md`.)*
+*(4a + 4b merged — PR #46 `bfdbdf0` (CRYP-93) + PR #50 `9e2bbb3` (CRYP-95); run rows in `factory-runs.md`.)*
 
-## RESEARCH-NO-AI-4b — multi-signal deterministic Pulse (pulseFacts) + Daily Brief
+## RESEARCH-NO-AI-4c — RESEARCH-METRICS (P-1…P-4), final slice of #13
 - Phase: built  (awaiting G3 merge decision)
-- G1 confirmed: yes        (🟡 PARTLY-BUILT item in NEXT-STEPS §RESEARCH-NO-AI; 4b content decisions locked 2026-08-03; founder "go for PR 4b" 2026-08-08)
-- G2 approved: yes         (founder yes 2026-08-08)
-- Plan (files): NEW src/features/research/utils/pulse.js (pulseFacts + pulseLines R-A→R-B→R-C→R-E→R-F + briefFacts B-1/B-2/B-3) · usePulse.js (render multi-line via pulseFacts; DROPPED orphaned offline field) · OverviewView.jsx (Brief from briefFacts; deleted "volatility" line; diversification card unchanged) · Pulse.jsx verify-only (Rich already multi-line) · tests: NEW research-pulse.test.js (15) + 3 render assertions in ResearchTab.test.jsx. Client-only; no rules/callable/dep. Scope guard held: R-C base (no P-2 merge), R-E stands, NO P-1…P-4 metrics (=4c).
-- Fix-round: 0 / 3   (green first build pass — no fix-loop)
-- Reviews: verify GREEN (unit 982/982) · design CONSISTENT (0 must-fix; 2 advisory copy notes → G3 founder call) · secure SKIPPED (pure client utils + copy — no functions/rules/auth/billing/secret/api surface) · api-contract SKIPPED (no api change)
-- Simplifier: SKIPPED — pulse.js already flat/clean, no dead code (orphaned offline field already dropped in the build); the 2 advisories are copy choices, not simplifications.
-- Advisories (both copy, non-blocking): (1) R-A renders "+3.2%" vs spec "up/down 3.2%" (test-driven, honest); (2) R-F >60% nudge echoes the always-on diversification card (spec-sanctioned overlap, hard-rule #5). Surface at G3.
-- Open findings: none blocking
-- Branch: claude/research-pulse-facts  (cut off master bfdbdf0 = React 19 + 4a; baseline unit 964/964 green)
-- Built: yes  e6e79db  (red checkpoint 471babc → green impl e6e79db; pushed)
+- G1 confirmed: yes        (🟡 item in NEXT-STEPS §RESEARCH-NO-AI; 4c metric decisions locked 2026-08-03; founder chose Option A = 3 PRs)
+- G2 approved: yes         (founder yes 2026-08-08; Q1=drop number >100% → "the main driver"; Q2=keep R-E as thin-data fallback — both = architect recs)
+- Plan (files): src/features/research/utils/pulse.js ONLY production change (+~60 lines): new facts contrib[]/topContributor/topContributorShare, neff (1/Σwᵢ², clamp[1,N]), drawdown7d + vol7d (from Vₜ=Σ amount×spark reconstructed off holdings — spark+amount already ride on portfolio.holdings, NO threading), weekly gate; reshape pulseLines → R-A·R-B·P-1·(R-C+P-2)·"This week"(P-3+P-4, SUPERSEDES R-E; R-E is thin-data fallback). usePulse/OverviewView/Pulse/useSharePulse UNCHANGED. Tests: extend research-pulse.test.js. Docs: NEXT-STEPS §RESEARCH-NO-AI + CLAUDE.md (drop "4c pending"). Client-only; no rules/callable/api/dep.
+- Key decisions: (a) P-1 uses PAST-VALUE weights (contribᵢ=pᵢ·rᵢ/then) so Σcontrib===perf[tf] exactly (spec's literal current-weight wᵢ breaks the locked "sum exactly" identity); (b) "This week" all-or-nothing — omits if any holding lacks a usable daily spark.
+- Fix-round: 1 / 3
+- Reviews (round 1): verify GREEN (1015/1015) · design CHANGES (1 must-fix) · adversarial-metric CONFIRMED HIGH F1/F2 · secure SKIPPED (no security surface).
+  **F1/F2 ship-blocker:** on a ≥3-coin book where the biggest position OPPOSES the net move (e.g. BTC −50% while alts rally, net +5%), topContributor=max|contrib| picks the DRAG (BTC), share=round(−25/5·100)=−500 → "Bitcoin drove about −500% of that move" (nonsensical + sign-inverted). Guard `share<=100` is one-sided. Tests missed it (all P-1 fixtures 2-coin, where top mover always shares net sign). Identity/P-2/P-3/P-4/weekly-gate proven ROBUST.
+  **Founder decision A (2026-08-08):** attribute P-1 to the top contributor IN THE DIRECTION OF the net move (the real driver), not max|contrib|. FOLD-IN fixes: gate P-1 on count≥2 (no vacuous 1-coin line); "at a 7-day high" when drawdown rounds to 0%; show the share number only when 1≤share≤100 else "was the main driver". ACCEPT+document (not fixed in 4c): F5 tail-align ~1-day skew (Wave-B persisted-series roadmap), F6 "7-day" label on ~3 pts (thin new-coin history), vol ±0.0% on flat weeks.
+- Fix-round 1 verify: GREEN — targeted 27/27, full test:unit 1019/1019, build clean (dist-name-guard clean). Must-fix F1/F2 resolved + test-locked (red f973753 → green 8d51b25). Orchestrator tidy-up 4fe910f: bold the P-1 share figure to match the bold-figures convention (impl + test regex aligned; not weakening).
+- Open findings: none (F3/F5/F6 + minors accepted+documented in NEXT-STEPS)
+- Simplifier: SKIPPED — pulse.js flat/clean, no dead code; the fix-round + tidy-up already left it minimal.
+- Branch: claude/research-metrics  (cut off master 9e2bbb3 = React 19 + 4a + 4b)
+- Built: yes  4fe910f  (feat 4845923 → red f973753 → fix 8d51b25 → bold tidy 4fe910f; pushed)
 - Merged: no
-- Agents this item: 6   (architect · test-author · client-builder · test-tier-verifier · design-consistency · docs-scribe)
-- Jira: CRYP-95 (In Progress)
-- Slice note: BUILD-LOOP #13 PR **4b of 3**. Base multi-signal Pulse via a NEW pure `pulseFacts`(+`briefFacts`)
-  layer: R-A value/perf (always) · R-B unrealized P&L vs cost (invested>0, honest sign) · R-C concentration
-  (≥2 holdings) · R-E one-clause risk pointer · R-F diversification nudge (only top-2>60%) · empty-state copy.
-  Daily Brief rewrite: B-1 portfolio 24h ($ + %, "≈0%" near-zero rule) · B-2 biggest gainer · B-3 biggest
-  decliner (B-2≠B-3, drop the "volatility" mislabel). Under S1–S4 compliance (no verb on named coin, no
-  advice/target, held-only, no roll-up score, neutral labels, never NaN). Also drops the orphaned
-  `usePulse.offline` field (4a follow-up). **NOT in 4b:** P-1 attribution / P-2 effective-N / P-3 drawdown /
-  P-4 volatility → PR 4c. No rules/callable/api/dep change → no test:rules.
+- Agents this item: 9   (architect · test-author · client-builder · test-tier-verifier · design-consistency · adversarial-metric[general] · test-author[fix] · client-builder[fix] · docs-scribe; + orchestrator bold tidy-up)
+- Jira: CRYP-97 (In Progress)
+- Slice note: BUILD-LOOP #13 PR **4c of 3 (final)**. Extends 4b's pulseFacts with four deterministic
+  insight metrics under S1–S4. NOT purely additive — it RESHAPES the 4b Pulse line set per the locked
+  "Integrated line set": adds a P-1 "what drove it" line, merges P-2 effective-N into R-C, and adds a
+  "This week" (P-4 vol + P-3 drawdown) line that SUPERSEDES R-E's one-clause risk pointer in the Pulse
+  (the RiskMeter card's structural rank-risk is untouched). Needs the per-coin 7d sparkline for P-3/P-4.
+  No rules/callable/api/dep → no test:rules. Completes item 4.
 - Updated: 2026-08-08
