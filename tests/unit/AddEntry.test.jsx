@@ -170,4 +170,13 @@ describe("AddEntry screen (extracted, via AppContext)", () => {
     render(<Harness amt="0" price="40000" />);
     expect(screen.getByText("Add Buy")).toBeDisabled();
   });
+
+  // ── CRYP-94 (finding 12): the date input can't be set to a future date — it carries a
+  //    max of today (the addEntry submit guard is the enforcement backstop). ──
+  it("CRYP-94: the date field carries a max of today (no future-dating)", () => {
+    const { container } = render(<Harness />);
+    const date = container.querySelector('input[type="datetime-local"]');
+    expect(date).toBeTruthy();
+    expect(date.getAttribute("max")).toBe(new Date().toISOString().slice(0, 10) + "T23:59");
+  });
 });

@@ -487,6 +487,39 @@ describe("User walkthrough — all functions", () => {
     expect(await screen.findByText("Building Your Thesis")).toBeInTheDocument();
   });
 
+  // ── CRYP-94 (Group B, findings 9+10): the founder edit-buy exploit is blocked end-to-end.
+  //    Editing a buy DOWN below what a later sell needs is refused before any db write, so
+  //    total-sold can never exceed total-bought (the previously-unguarded edit path). ──
+  it("CRYP-94: editing a buy below the already-sold amount is rejected and no db write fires", async () => {
+    loginAs();
+    getPortfolios.mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] });
+    getCoins.mockResolvedValue({ success: true, coins: [
+      { id: "bitcoin", symbol: "BTC", name: "Bitcoin", txCount: 2, entries: [
+        { id: "b1", type: "buy", amount: 2, priceAtBuy: 100, date: "2024-01-01T00:00", createdAt: 1 },
+        { id: "s1", type: "sell", amount: 1, priceAtBuy: 300, date: "2024-02-01T00:00", createdAt: 2 },
+      ] },
+    ] });
+    const { updateTransaction } = await import("../../src/api/firebase-database.js");
+    const { container } = render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+
+    // open the held coin's Detail, then tap its BUY transaction row to edit it
+    fireEvent.click(await screen.findByText("Bitcoin"));
+    const buyRow = [...container.querySelectorAll(".tx-list .tx-row")].find((r) => r.querySelector(".tx-badge.buy"));
+    expect(buyRow).toBeTruthy();
+    fireEvent.click(buyRow);
+
+    // edit the buy amount down to 0.2 (below the 1 BTC already sold) and Save
+    const nums = document.querySelectorAll('input[type="number"]');
+    fireEvent.change(nums[0], { target: { value: "0.2" } });
+    fireEvent.click(screen.getByText("Save Changes"));
+
+    // rejected: the invariant guard fires BEFORE the write, and surfaces a clear toast
+    expect(updateTransaction).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.getByRole("alert").textContent).toMatch(/would exceed your holdings/i);
+  });
+
   it("C-A3 review fix: a broken live-sync stream surfaces a toast (no silent stale data)", async () => {
     loginAs();
     const { watchCoins } = await import("../../src/api/firebase-database.js");

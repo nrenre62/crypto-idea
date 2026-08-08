@@ -54,7 +54,7 @@ import { cleanFunnel } from "./utils/journal.js";
 import { apiErrorMessage } from "./utils/errors.js";
 import { getHistoricalPrice } from "./utils/coins.js";
 import { fmtPriceInput } from "./utils/format.js";
-import { appendUnique } from "./utils/tx.js";
+import { appendUnique, firstOverSoldSell, isFutureTx } from "./utils/tx.js";
 import { Loading } from "./components/Loading.jsx";
 import { AppContext } from "./hooks/app-context.js";
 import { ForgotPass } from "./components/ForgotPass.jsx";
@@ -775,26 +775,24 @@ export default function CryptoIdea(){
     // and the two must stay consistent (raise them together if the cap ever changes).
     if(_amt>1e15){showErr("That amount is too large.");return}
     if(_prc>1e9){showErr("That price is too large.");return}
+    // CRYP-94 (finding 12): a transaction can't be dated in the future — holdings()/P&L ignore
+    // date, so a future-dated buy would inflate current holdings + value right now.
+    if(isFutureTx(eDate)){showErr("A transaction can't be dated in the future.");return}
     if(sel){
       const currentTxCount=sel.entries.filter(e=>!editEntry||e.id!==editEntry.id).length;
       if(currentTxCount>=maxTxPerCoin){showErr("Max "+maxTxPerCoin+" transactions per coin"+(isPro?"":" · Upgrade to Pro for 2,000!"));return}
 
     }
-    if(eTxType==="sell"&&sel){
-      const sellDate=new Date(eDate);
-      const holdingsAtDate=sel.entries.reduce((s,e)=>{
-        if(editEntry&&e.id===editEntry.id)return s;
-        if(new Date(e.date)>sellDate)return s;
-        return e.type==="sell"?s-e.amount:s+e.amount;
-      },0);
-      if(holdingsAtDate<=0){
-        showErr("No "+sel.symbol+" owned at this date. Buy first before selling.");
-        return;
-      }
-      if(parseFloat(eAmt)>holdingsAtDate){
-        showErr("Only "+holdingsAtDate.toFixed(6)+" "+sel.symbol+" owned at this date");
-        return;
-      }
+    // CRYP-94 (findings 9+10): enforce the sell invariant on the PROJECTED timeline — the coin's
+    // entries with this add appended, or with the edited entry replaced in place. One helper
+    // (firstOverSoldSell, shared with remEntry) covers add-a-sell, a backdated sell, AND editing
+    // a BUY down (or moving its date) below what a later sell needs — the edit path was previously
+    // unguarded (the old check was gated on eTxType==="sell"), the founder's edit-buy exploit.
+    if(sel){
+      const cand={id:editEntry?editEntry.id:"__cand__",type:eTxType,amount:_amt,priceAtBuy:_prc,date:eDate,createdAt:editEntry?editEntry.createdAt:Date.now()};
+      const projected=editEntry?sel.entries.map(e=>e.id===editEntry.id?cand:e):[...sel.entries,cand];
+      const bad=firstOverSoldSell(projected);
+      if(bad){showErr("Can't save — a sell on "+String(bad.date).split("T")[0]+" would exceed your holdings. Delete or reduce that sell first.");return}
     }
     if(!user?.uid){showErr("Please sign in again");return}
     // TX-SAFE: take the in-flight lock right before the write; try/finally releases it on
@@ -826,9 +824,10 @@ export default function CryptoIdea(){
     }finally{addingRef.current=false;setAddingTx(false);}};
   const remEntry=async(cid,eid)=>{
     const coin=portfolio.find(c=>c.id===cid);if(!coin)return;
-    const remaining=coin.entries.filter(e=>e.id!==eid).sort((a,b)=>new Date(a.date)-new Date(b.date));
-    let bal=0;for(const e of remaining){bal=e.type==="sell"?bal-e.amount:bal+e.amount;
-      if(bal<-0.00000001){showErr("Can\'t delete — a sell on "+e.date.split("T")[0]+" depends on it");return}}
+    // CRYP-94: reuse the shared oversell invariant — deleting a buy that a later sell depends on
+    // is refused (firstOverSoldSell, the same helper the add/edit guard routes through).
+    const bad=firstOverSoldSell(coin.entries.filter(e=>e.id!==eid));
+    if(bad){showErr("Can't delete — a sell on "+String(bad.date).split("T")[0]+" depends on it");return}
     if(!user?.uid){showErr("Please sign in again");return}
     const res=await dbDeleteTransaction(user.uid,activePortId,cid,eid);
     if(!res.success){failToast(res,"Couldn't delete transaction. Check your connection.");return}
