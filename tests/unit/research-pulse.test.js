@@ -560,4 +560,130 @@ describe("Research Pulse metrics — attribution / effective-N / drawdown / vol 
       }
     }
   });
+
+  // ── PR 4c follow-up (CRYP-97 F1/F2) — the net-direction attribution fix ──────
+  // The current code picks topContributor = max-|contribution| and guards the share
+  // one-sided (share ≤ 100). On a ≥3-coin book where the biggest position moves
+  // OPPOSITE the net, that names the DRAG and renders a sign-inverted "-500%". These
+  // fixtures pin the founder-approved option A: attribute to the top contributor IN
+  // the direction of the net move (always a positive share), gate P-1 on count ≥ 2,
+  // show the number only when it rounds to 1–100%, and say "at a 7-day high" when the
+  // drawdown ROUNDS to 0%. Every fixture is built by the real computePortfolio, so a
+  // failure is the bug/feature, never a fixture typo.
+
+  // ≥3-coin book: BTC −50% is the biggest position (largest PAST value) and the
+  // max-|contribution| coin (contrib −25), while ETH (+18) and SOL (+12) rally with
+  // DISTINCT positive contributions; net perf = +5%. Buggy selector → "Bitcoin drove
+  // about -500%"; option A → "Ethereum was the main driver" (its share 360% > 100).
+  const DRAG_UP = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 40000 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 10, avgCost: 200 },
+     { id: "solana", sym: "SOL", name: "Solana", amount: 320, avgCost: 40 }],
+    { bitcoin: { price: 25000, c24: -50, c7d: -50, c30d: -50, marketCap: 5e11, rank: 1 },
+      ethereum: { price: 4800, c24: 60, c7d: 60, c30d: 60, marketCap: 3e11, rank: 2 },
+      solana: { price: 100, c24: 60, c7d: 60, c30d: 60, marketCap: 5e10, rank: 5 } }
+  );
+
+  // ≥3-coin book where the drag (BTC, contrib −16.23) is STILL the max-|contribution|
+  // coin (so the buggy selector picks it → "-93%"), but the net-direction top
+  // contributor ETH (+11.69) lands a share of 67% — in [1,100] → option A KEEPS the
+  // number. Three positives (ETH 11.69 > SOL 11.04 = ADA 11.04) are what let the drag
+  // dominate |contrib| yet leave the top positive share ≤ 100. Net perf ≈ +17.5%.
+  const IN_RANGE = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 40000 },
+     { id: "ethereum", sym: "ETH", name: "Ethereum", amount: 10, avgCost: 200 },
+     { id: "solana", sym: "SOL", name: "Solana", amount: 510, avgCost: 40 },
+     { id: "cardano", sym: "ADA", name: "Cardano", amount: 102000, avgCost: 0.2 }],
+    { bitcoin: { price: 25000, c24: -50, c7d: -50, c30d: -50, marketCap: 5e11, rank: 1 },
+      ethereum: { price: 5400, c24: 50, c7d: 50, c30d: 50, marketCap: 3e11, rank: 2 },
+      solana: { price: 100, c24: 50, c7d: 50, c30d: 50, marketCap: 5e10, rank: 5 },
+      cardano: { price: 0.5, c24: 50, c7d: 50, c30d: 50, marketCap: 1.7e10, rank: 9 } }
+  );
+
+  // Single holding whose 7-day value ticks a hair below its peak: V = [100, 100.4,
+  // 100.399] → drawdown ≈ −9.96e-6 (NOT exactly 0, but rounds to 0%). The current
+  // `drawdown7d === 0` test misses it and prints "0% below its 7-day high".
+  const NEAR_HIGH = makePortfolio(
+    [{ id: "bitcoin", sym: "BTC", name: "Bitcoin", amount: 1, avgCost: 50 }],
+    { bitcoin: { price: 100.399, c24: 0, c7d: 0, c30d: 0, marketCap: 8e11, rank: 1, spark: [100, 100.4, 100.399] } }
+  );
+
+  it("CRYP-97: P-1 attributes to the driver in the net direction, never a sign-inverted negative share", () => {
+    const facts = pulseFacts(DRAG_UP, "24h");
+
+    // fixture sanity (passes today) — the move is clearly UP, the max-|contribution|
+    // coin is the DRAG, and there is a DISTINCT largest positive contributor.
+    expect(facts.tfPerf).toBeGreaterThan(0);
+    expect(facts.tfPerf).toBeCloseTo(5, 6);
+    const byAbs = [...facts.contrib].sort((a, b) => Math.abs(b.contrib) - Math.abs(a.contrib));
+    expect(byAbs[0].name).toBe("Bitcoin");                 // drag = biggest |contribution|
+    expect(byAbs[0].contrib).toBeLessThan(0);
+    const positives = facts.contrib.filter((c) => c.contrib > 0).sort((a, b) => b.contrib - a.contrib);
+    expect(positives[0].name).toBe("Ethereum");            // distinct top positive driver
+    expect(positives[0].contrib).toBeGreaterThan(positives[1].contrib);
+
+    // the bug + the fix: the P-1 line must name the net-direction driver, never render
+    // the drag's sign-inverted "-500%", and (share 360% > 100) drop the number.
+    const p1 = p1Line(pulseLines(facts));
+    expect(p1).toBeTruthy();
+    expect(p1).not.toContain("-500");        // today's exact buggy output — the smoking gun
+    expect(p1).not.toMatch(/-\s*\d/);        // no ASCII negative number anywhere
+    expect(p1).not.toMatch(/−/);             // no U+2212 minus either
+    expect(p1).not.toContain("Bitcoin");     // never the drag
+    expect(p1).toContain("Ethereum");        // the real driver in the net direction
+    expect(p1).toMatch(/main driver/i);      // 360% share > 100 → number dropped
+    expect(facts.topContributor).toBe("Ethereum");
+    expect(facts.topContributorShare).toBeGreaterThan(0);  // always positive under option A
+  });
+
+  it("CRYP-97: P-1 is omitted on a single-holding book", () => {
+    const facts = pulseFacts(SINGLE, "30d");
+    expect(facts.count).toBe(1);
+    const lines = pulseLines(facts);
+    // nothing to attribute on one coin — no "X drove …" / "X was the main driver".
+    expect(lines.some((l) => /drove|main driver/i.test(l))).toBe(false);
+    expect(p1Line(lines)).toBeUndefined();
+  });
+
+  it("CRYP-97: the This-week line says 'at a 7-day high' when the drawdown rounds to 0%", () => {
+    const facts = pulseFacts(NEAR_HIGH, "7d");
+    expect(facts.weekly).toBe(true);
+    expect(facts.drawdown7d).toBeLessThan(0);                       // a real (tiny) dip
+    expect(facts.drawdown7d).not.toBe(0);                           // NOT exactly zero
+    expect(Math.round(Math.abs(facts.drawdown7d) * 100)).toBe(0);   // but rounds to 0%
+    const wl = weekLine(pulseLines(facts));
+    expect(wl).toBeTruthy();
+    expect(wl).toMatch(/at a 7-day high/i);
+    expect(wl).not.toContain("0% below");
+    expect(wl).not.toMatch(/below/i);
+  });
+
+  it("CRYP-97: P-1 shows the share number only when it rounds to 1–100%", () => {
+    const facts = pulseFacts(IN_RANGE, "24h");
+
+    // fixture sanity — the drag is STILL the max-|contribution| coin, so the buggy
+    // selector would pick it, yet ETH is the distinct net-direction driver.
+    const byAbs = [...facts.contrib].sort((a, b) => Math.abs(b.contrib) - Math.abs(a.contrib));
+    expect(byAbs[0].name).toBe("Bitcoin");
+    expect(byAbs[0].contrib).toBeLessThan(0);
+    const positives = facts.contrib.filter((c) => c.contrib > 0).sort((a, b) => b.contrib - a.contrib);
+    expect(positives[0].name).toBe("Ethereum");
+    expect(positives[0].contrib).toBeGreaterThan(positives[1].contrib);
+
+    // number-shown path: net-direction driver, share in [1,100], a REAL % in the line.
+    expect(facts.topContributor).toBe("Ethereum");
+    expect(facts.topContributorShare).toBeGreaterThanOrEqual(1);
+    expect(facts.topContributorShare).toBeLessThanOrEqual(100);
+    const p1 = p1Line(pulseLines(facts));
+    expect(p1).toContain("Ethereum");
+    expect(p1).not.toContain("Bitcoin");
+    expect(p1).not.toMatch(/-\s*\d/);
+    expect(p1).toMatch(/drove about \d+% of that move/i);
+    expect(p1).toContain(String(facts.topContributorShare) + "%");
+
+    // number-dropped path (>100% share) — reaffirmed on the existing OFFSET book.
+    const op1 = p1Line(pulseLines(pulseFacts(OFFSET, "24h")));
+    expect(op1).toMatch(/main driver/i);
+    expect(op1.includes("%")).toBe(false);
+  });
 });
