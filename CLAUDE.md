@@ -93,7 +93,7 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
 - **Security by design:** keep secrets server-side, deny-by-default rules, validate input, encode
   output (see the "Security model" section above + the `secure-by-design` skill).
 - **Commit every change** to git with a clear message — don't wait to be asked.
-- **PR workflow ([`docs/product/PR-WORKFLOW.md`](docs/product/PR-WORKFLOW.md)):** one PR = one task = one Jira card, under ~200 changed lines; Conventional-Commit title + linked ticket, fill `.github/pull_request_template.md`, CI green, **squash-merge + delete branch**. The Agent Factory opens a PR per component by default at G3 (founder decision 2026-08-06).
+- **PR workflow ([`docs/product/PR-WORKFLOW.md`](docs/product/PR-WORKFLOW.md)):** one PR = one task = one Jira card, under ~200 changed lines; Conventional-Commit title + linked ticket, fill `.github/pull_request_template.md`, CI green, **squash-merge + delete branch**. The Agent Factory opens a PR per component by default at G3 (founder decision 2026-08-06). **Every planning session opens a NEW PR on a NEW branch off the latest `master` (founder rule, 2026-08-08): NEVER push to `master`, and NEVER push to, reuse, or rewrite an OLD (merged/closed) PR or its branch — follow-up work restarts from the latest `master` as a new PR.**
 - **On finishing a session:** commit everything, update README + skills if relevant, shut down emulators + dev server, confirm a clean tree.
 - **Every change must be production-ready.**
 - Reusable patterns live in user skills: `firebase-saas-starter`, `landing-page-design`, `secure-by-design`, `responsive-app`, `crypto-calculator`.
