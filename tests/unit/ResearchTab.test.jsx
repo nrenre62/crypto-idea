@@ -124,3 +124,44 @@ describe("Research tab — AI honesty gate", () => {
     expect(askClaude).toHaveBeenCalledTimes(0);
   });
 });
+
+// CRYP-95 — multi-signal Daily Brief. The Overview "Brief" card is rebuilt to render
+// from briefFacts (gainer/decliner), replacing the old single "top mover" + "… volatility"
+// line. These render-tier assertions FAIL on the current tree (the Brief names only the
+// top mover, never the decliner, and still prints "… volatility") and PASS once the Brief
+// renders from briefFacts. Scoped to the `.brief` card because StressTest legitimately
+// uses the word "volatility" elsewhere in the Overview.
+describe("Research Overview — Daily Brief renders from briefFacts", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("CRYP-95: the Brief names the decliner, not just the gainer, on a mixed-mover book", async () => {
+    // baseProps: Bitcoin +1.5% (gainer), Ethereum −0.8% (decliner).
+    const { container } = renderTab();
+    await screen.findByText("Portfolio Pulse");
+    const brief = container.querySelector(".brief");
+    expect(brief).toBeTruthy();
+    expect(brief.textContent).toContain("Bitcoin");   // gainer named
+    expect(brief.textContent).toContain("Ethereum");  // decliner named (absent today)
+  });
+
+  it("CRYP-95: the Brief no longer labels a coin's move as 'volatility'", async () => {
+    const { container } = renderTab();
+    await screen.findByText("Portfolio Pulse");
+    const brief = container.querySelector(".brief");
+    expect(brief.textContent).not.toMatch(/volatility/i);
+  });
+
+  it("CRYP-95: a near-zero 24h move shows ≈0%, never +0.0%", async () => {
+    const NZ_COINS = [
+      { id: "bitcoin", symbol: "BTC", name: "Bitcoin", entries: [{ id: "e1", type: "buy", amount: 1, priceAtBuy: 40000, date: "2025-01-01" }] },
+    ];
+    const NZ_LIVE = {
+      bitcoin: { usd: 50000, usd_24h_change: 0.04, usd_market_cap: 8e11, usd_24h_vol: 1e10, circulating: 19e6, usd_market_cap_rank: 1 },
+    };
+    const { container } = renderTab({ coins: NZ_COINS, livePrices: NZ_LIVE });
+    await screen.findByText("Portfolio Pulse");
+    const brief = container.querySelector(".brief");
+    expect(brief.textContent).toContain("≈0%");
+    expect(brief.textContent).not.toContain("+0.0%");
+  });
+});

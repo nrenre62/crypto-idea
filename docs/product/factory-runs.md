@@ -24,3 +24,4 @@ orchestrator supplies the counts it already knows.
 | PORTFOLIO-TEXT-SIZE | 2026-08-07 | 0 | 0 | sec:SAFE · design:CONSISTENT · verify:GREEN (unit 952/952) | 8 | fd3e444..786c85e (+docs finalize tip) |
 | DARK-MODE-FIXES | 2026-08-07 | 1 | 0 | sec:SAFE · design:CONSISTENT (2 advisory — cascade FIXED, dead-guard KEPT) · verify:GREEN (unit 957/957) | 9 | ca291bb..376e771 (+docs finalize tip) |
 | RESEARCH-NO-AI-4a (honesty gate) | 2026-08-08 | 0 | 0 | sec:SAFE · design:CONSISTENT (1 advisory — dead usePulse.offline DEFERRED to 4b) · verify:GREEN (unit 964/964) · api:SKIP · simplifier:SKIP | 7 | 81732f0..b6d32d1 (+docs finalize tip) |
+| RESEARCH-NO-AI-4b (multi-signal Pulse + Brief) | 2026-08-08 | 0 | 0 | verify:GREEN (unit 982/982) · design:CONSISTENT (2 advisory copy → G3) · sec:SKIP (no security surface) · api:SKIP · simplifier:SKIP | 6 | 471babc..e6e79db (+docs finalize tip) |

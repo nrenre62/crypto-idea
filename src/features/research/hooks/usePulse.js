@@ -1,7 +1,9 @@
-// hooks/usePulse.js — fetch the AI "Portfolio Pulse" for a timeframe.
+// hooks/usePulse.js — fetch the AI "Portfolio Pulse" for a timeframe, falling to the
+// deterministic multi-signal summary (utils/pulse.js) whenever the AI isn't live.
 import { useCallback, useEffect, useState } from 'react';
 import { askClaude } from '../api/ai-client';
-import { fmtPct, money } from '../utils/format';
+import { fmtPct } from '../utils/format';
+import { pulseFacts, pulseLines, TFWORD } from '../utils/pulse';
 
 const SYS =
   'You are a research assistant in a crypto portfolio app. Write a 2-3 sentence ' +
@@ -9,25 +11,15 @@ const SYS =
   'figures in **double asterisks**. Be educational and neutral — never give advice ' +
   'or predictions. ';
 
-const TFWORD = { '24h': 'last 24 hours', '7d': 'last 7 days', '30d': 'last 30 days' };
+// The honest deterministic product (R-A…R-F) — a newline-joined multi-signal summary.
+const deterministicText = (portfolio, tf) => pulseLines(pulseFacts(portfolio, tf)).join('\n');
 
-function fallbackText(portfolio, tf) {
-  if (!portfolio.holdings.length) return 'Once you add coins, I’ll summarise your portfolio here.';
-  const top = portfolio.holdings[0];
-  const top2 = portfolio.holdings.slice(0, 2).reduce((s, h) => s + h.alloc, 0);
-  return (
-    `Your portfolio is **${money(portfolio.total)}**, with **${top.name} at ${Math.round(top.alloc)}%** ` +
-    `your biggest position. Over the ${TFWORD[tf]} it's **${fmtPct(portfolio.perf[tf])}**. ` +
-    `With ~${Math.round(top2)}% in your top two coins, your results lean heavily on them.`
-  );
-}
-
-// enabled=false (e.g. empty portfolio) skips the network entirely.
+// enabled=false (e.g. empty portfolio or AI proxy not live) skips the network entirely.
 export function usePulse(portfolio, tf, enabled = true) {
-  const [state, setState] = useState({ text: '', offline: false, loading: true });
+  const [state, setState] = useState({ text: '', loading: true });
 
   const run = useCallback(async () => {
-    if (!enabled) { setState({ text: fallbackText(portfolio, tf), offline: false, loading: false }); return; }
+    if (!enabled) { setState({ text: deterministicText(portfolio, tf), loading: false }); return; }
     setState((s) => ({ ...s, loading: true }));
     const perf = portfolio.perf[tf];
     try {
@@ -35,9 +27,9 @@ export function usePulse(portfolio, tf, enabled = true) {
         SYS + portfolio.context,
         `Summarize my portfolio for the ${TFWORD[tf]}. Performance: ${fmtPct(perf)}.`
       );
-      setState({ text, offline: false, loading: false });
+      setState({ text, loading: false });
     } catch (_) {
-      setState({ text: fallbackText(portfolio, tf), offline: true, loading: false });
+      setState({ text: deterministicText(portfolio, tf), loading: false });
     }
   }, [portfolio, tf, enabled]);
 

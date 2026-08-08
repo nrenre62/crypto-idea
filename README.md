@@ -460,8 +460,10 @@ risk meter, stress test), **Coins** (per-holding cards with a 7-day sparkline + 
 **Ask** (chat about your holdings). It reads your **real** active portfolio and reuses the app's
 existing `/api` proxy only — current price + 24h from live prices, and 7d/30d change + sparkline
 derived from the CDN-cached `/api/history` (no direct CoinGecko calls, no key in the client). The
-Pulse renders an **honest deterministic summary from your own numbers** — as of CRYP-93 the old "AI is
-offline" apology is gone, replaced by a neutral **"AI off"/"AI on" status pill**, and the AI ornaments
+Pulse renders an **honest, multi-signal deterministic summary from your own numbers** (value + performance,
+unrealized P&L vs cost basis, top-two concentration, a risk pointer and a diversification nudge), and the
+**Daily Brief** is an honest 24h digest (biggest gainer + biggest decliner, no "volatility" mislabel). The old
+"AI is offline" apology is gone, replaced by a neutral **"AI off"/"AI on" status pill**, and the AI ornaments
 (gradient label, Regenerate, "AI-generated" disclaimer) only appear once the `AI_PROXY_LIVE` seam flips;
 the **Ask** chat + per-coin "Ask AI" button are gated on the `aiResearch` kill-switch. Wiring live Claude
 is a planned next step (a secure Cloud Function proxy holding the Anthropic key — see `NEXT-STEPS.md`
