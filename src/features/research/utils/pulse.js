@@ -84,12 +84,21 @@ export function pulseFacts(portfolio, tf) {
     contrib = ps
       .map((x) => ({ id: x.id, name: x.name, contrib: (x.p * x.r) / then }))
       .sort((a, b) => Math.abs(b.contrib) - Math.abs(a.contrib));
-    const top = contrib[0];
-    topContributor = top ? top.name : null;
-    // Share of the net move that the top coin drove; null when the net move is ~0
-    // (an offsetting book divides by ≈0) or on a single holding.
-    if (top && count >= 2 && Math.abs(tfPerf) >= 0.05) {
-      topContributorShare = Math.round((top.contrib / tfPerf) * 100);
+    // Option A — attribute the move to the largest contributor IN THE DIRECTION of the
+    // net move, not the biggest |contribution|. On a ≥3-coin book where the biggest
+    // position moves OPPOSITE the net (a drag), max-|contrib| names the DRAG and the
+    // share sign-inverts to a negative % ("-500%"). Restricting to the net direction
+    // names the real driver and keeps the share strictly positive. Null when the net
+    // move is ~0 (an offsetting book divides by ≈0) or on a single holding.
+    if (count >= 2 && Math.abs(tfPerf) >= 0.05) {
+      const netSign = Math.sign(tfPerf);
+      const driver = contrib
+        .filter((c) => Math.sign(c.contrib) === netSign)
+        .sort((a, b) => netSign * (b.contrib - a.contrib))[0];
+      if (driver) {
+        topContributor = driver.name;
+        topContributorShare = Math.round((driver.contrib / tfPerf) * 100);
+      }
     }
   }
 
@@ -164,12 +173,14 @@ export function pulseLines(facts) {
     lines.push(`Against a **${money(facts.invested)}** cost basis you're **${dir} ${dollars}** (${pct}).`);
   }
 
-  // P-1 — return attribution: name the coin that drove the move (held-only). Drop the
-  // percent when a holding offsets the move so hard the share exceeds 100% (Q1), or when
-  // it isn't computable (single holding / a net move of ≈0) — "main driver" stays true.
-  if (facts.topContributor) {
-    if (facts.topContributorShare != null && facts.topContributorShare <= 100) {
-      lines.push(`Over the ${facts.tfWord}, **${facts.topContributor}** drove about **${facts.topContributorShare}%** of that move.`);
+  // P-1 — return attribution: name the coin that drove the move in the net direction
+  // (held-only, count ≥ 2). Show the share only when it rounds to 1–100%; drop the
+  // number when a holding offsets the move so hard the share exceeds 100% (Q1) or it
+  // rounds to 0% — "main driver" stays true either way.
+  if (facts.count >= 2 && facts.topContributor) {
+    const share = facts.topContributorShare == null ? null : Math.round(facts.topContributorShare);
+    if (share != null && share >= 1 && share <= 100) {
+      lines.push(`Over the ${facts.tfWord}, **${facts.topContributor}** drove about ${share}% of that move.`);
     } else {
       lines.push(`Over the ${facts.tfWord}, **${facts.topContributor}** was the main driver of that move.`);
     }
@@ -190,7 +201,7 @@ export function pulseLines(facts) {
   // stays as the fallback risk pointer (Q2), one factual sentence naming the risk level.
   if (facts.weekly) {
     const v = (Math.round(facts.vol7d * 1000) / 10).toFixed(1);
-    if (facts.drawdown7d === 0) {
+    if (Math.round(Math.abs(facts.drawdown7d) * 100) === 0) {
       lines.push(`This week your value had a **typical daily swing of about ±${v}%**, and is at a 7-day high.`);
     } else {
       const d = Math.round(Math.abs(facts.drawdown7d) * 100);
