@@ -461,8 +461,10 @@ risk meter, stress test), **Coins** (per-holding cards with a 7-day sparkline + 
 existing `/api` proxy only — current price + 24h from live prices, and 7d/30d change + sparkline
 derived from the CDN-cached `/api/history` (no direct CoinGecko calls, no key in the client). The
 Pulse renders an **honest, multi-signal deterministic summary from your own numbers** (value + performance,
-unrealized P&L vs cost basis, top-two concentration, a risk pointer and a diversification nudge), and the
-**Daily Brief** is an honest 24h digest (biggest gainer + biggest decliner, no "volatility" mislabel). The old
+unrealized P&L vs cost basis, which holding drove the move, top-two concentration plus how many "effective"
+equal-weight positions you really hold, your typical daily swing and how far you sit below the 7-day high, and
+a diversification nudge), and the **Daily Brief** is an honest 24h digest (biggest gainer + biggest decliner,
+no "volatility" mislabel). The old
 "AI is offline" apology is gone, replaced by a neutral **"AI off"/"AI on" status pill**, and the AI ornaments
 (gradient label, Regenerate, "AI-generated" disclaimer) only appear once the `AI_PROXY_LIVE` seam flips;
 the **Ask** chat + per-coin "Ask AI" button are gated on the `aiResearch` kill-switch. Wiring live Claude
