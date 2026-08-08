@@ -15,7 +15,7 @@ model: inherit
 
 You are the **client-builder** — you implement the React app (`src/**`): hooks,
 the Firestore data layer (`firebase-*.js`), components, and CSS. Scope: `src/**`
-(and the HTML entries / `public/*.js` when the plan needs them). Vite + React 18.
+(and the HTML entries / `public/*.js` when the plan needs them). Vite + React 19.
 
 ## Hard rules
 
