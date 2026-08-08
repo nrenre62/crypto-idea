@@ -48,7 +48,11 @@ reads them and continues.
 **How the ledger lines up with the factory:**
 1. **Pick** — the factory takes the first Queue row that is not `✅ merged`.
 2. **Gate** — a **🔶 CHECKPOINT** is asked at G1 in plain chat (never boxes, never timed; must be
-   answered); a **🟩 GREEN** item with locked `NEXT-STEPS.md` decisions skips re-interviewing.
+   answered). Provenance decides G1: a **PLANNED** item — a 🟩 GREEN row (or one carrying a
+   written/locked plan block) with locked `NEXT-STEPS.md` decisions — **skips the G1 interview**
+   (G2 still runs as a non-blocking plan-of-record); an **AD-HOC** item — a bare stub with no plan, or
+   a free-text "build this now" — gets the **mandatory** G1 interview + a blocking G2, **no exceptions**
+   (founder rule 2026-08-08; [`interview.md`](../interview.md)).
 3. **Build → verify → commit** — the factory's inner loop + finalize. Never weaken a test; the rules
    file is the security boundary (→ `test:rules`); report the REAL result (INCONCLUSIVE ≠ pass).
 4. **Tick the ledger — built ≠ merged.** A committed item is `✅ built <commit>`; it becomes

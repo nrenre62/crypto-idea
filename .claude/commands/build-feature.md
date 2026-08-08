@@ -19,6 +19,20 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
   text in the chat** that waits for the founder's typed answer. **Never `AskUserQuestion` / option
   boxes, never a time limit, never treat a question as skipped** (founder rule — `CLAUDE.md`
   "Question style"). If the founder hasn't answered, wait — do not guess a decision.
+- **Ad-hoc build/design/fix is NEVER straight-to-build — it is interviewed first** (founder rule
+  2026-08-08; the [interview process](../../docs/interview.md)). Classify the run's provenance at
+  Preflight (step 3.5) and honour it, **no exceptions**:
+  - **PLANNED** — the argument is a `NEXT-STEPS` key whose item carries a **written/locked plan** (a
+    real plan block **or** the 🟩 GREEN "locked decisions" marker). The founder already planned it, so
+    the **G1 interview is skipped** — confirm the plan in one line and proceed. **G2 is still run**
+    (see below), never skipped.
+  - **AD-HOC** — a free-text "build / design / fix this now" description, **or** a `NEXT-STEPS` **stub
+    with no written plan**. The **G1 interview is MANDATORY** — there is no trivial carve-out and no
+    straight-to-build path; enter at G1 and interview the founder before any plan or code.
+  - **G2 is its own step and is NEVER skipped for either provenance.** For AD-HOC it is a **blocking**
+    gate (no code before the founder's "yes"). For PLANNED it runs as a **non-blocking plan-of-record**:
+    `architect` still drafts the file-by-file plan and you show it, but the build proceeds without a
+    second approval (the written plan already carried the founder's yes).
 - **The three gates are hard stops.** Do not write code before G2's "yes"; do not commit-to-merge
   before G3's "yes". Agents draft and execute; the founder decides.
 - **One PR per component; keep it small.** Each component ships as **one PR** (opened by default at
@@ -62,6 +76,15 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
    review stage in a **write-capable** context, defeating the tool-scoping the safety model rests on).
    See Notes for the only sanctioned inline exception.
 
+3.5. **Classify provenance — PLANNED vs AD-HOC (decides whether G1 is interviewed).** Resolve the
+   argument. If it's a `NEXT-STEPS` key, open the item and check whether it carries a **written/locked
+   plan** — a real plan block **or** the 🟩 GREEN "locked decisions" marker. **PLANNED** = that plan
+   exists → skip the G1 interview (step 5), keep G1's Story filing, and run G2 as a **non-blocking
+   plan-of-record**. **AD-HOC** = a free-text description **or** a `NEXT-STEPS` **stub with no plan** →
+   the G1 interview is **mandatory** (step 5) and G2 is a **blocking** gate. Record the provenance in
+   `factory-state.md` alongside the phase, so a restart knows whether G1 was skipped-by-plan or
+   interviewed. When unsure which bucket the item is in, treat it as **AD-HOC** and interview.
+
 **Resume from durable state (before step 4).** Read
 [`docs/product/factory-state.md`](../../docs/product/factory-state.md) first. If an item is mid-flight,
 resume from its recorded `Phase`: **`G2-approved` jumps straight to the inner loop** (do NOT
@@ -76,11 +99,13 @@ below. This changes no step numbers — G1 still begins at step 4.
 4. **Draft the spec.** Spawn **`spec-drafter`** (`subagent_type: "spec-drafter"`) with the argument.
    In parallel spawn **`consistency-sweep`** for the topic(s) the item touches so the interview is
    gap-informed.
-5. **Interview the founder in plain chat.** Using the spec-drafter's draft + the gap list, ask the
+5. **Interview the founder in plain chat — unless PLANNED (step 3.5).** For an **AD-HOC** run the
+   interview is **mandatory, no exceptions**: using the spec-drafter's draft + the gap list, ask the
    founder **numbered plain-text questions** about the goal, options, trade-offs, and the acceptance
    criteria. Wait for typed answers. Iterate until the **goal + acceptance criteria are confirmed by
-   the founder.** (For a `NEXT-STEPS.md` item already marked 🟩 GREEN with locked decisions, confirm
-   that in one line and skip re-interviewing — per BUILD-LOOP.md.)
+   the founder.** For a **PLANNED** run (a `NEXT-STEPS` item carrying a written/locked plan or the 🟩
+   GREEN "locked decisions" marker), the written plan **is** G1 — confirm it in one line and skip
+   re-interviewing. **Still file the CRYP Story below either way.**
    - **File the CRYP Story (G1 close).** Once the goal + AC are confirmed, file a **Story** in project
      **CRYP** via the Rovo MCP (`createJiraIssue`, `issueTypeName: "Story"`, `contentFormat: "markdown"`)
      using the [`JIRA-PLAYBOOK.md`](../../docs/testing/JIRA-PLAYBOOK.md) §3.2 shape — the confirmed
@@ -90,12 +115,18 @@ below. This changes no step numbers — G1 still begins at step 4.
      `/jira-fix`), skip this — its Bug ticket already exists. If the Rovo write is unavailable, say so
      and proceed with a `CRYP-?` placeholder rather than blocking the build.
 
-## 🧑 G2 — Plan approval (founder decides)
+## 🧑 G2 — Plan approval (founder decides) — its own step, NEVER skipped
 
-6. **Draft the plan.** Spawn **`architect`** with the confirmed spec. It returns a file-by-file plan
-   (layer order, the test plan / which tier proves it, risks, the consistency sweep list).
-7. **Present the plan in plain chat and get a "yes."** Show what will change, in which files, why.
-   **Write no code until the founder approves.** If they want changes, revise and re-ask.
+6. **Draft the plan.** Spawn **`architect`** with the confirmed spec (AD-HOC) or the written NEXT-STEPS
+   plan (PLANNED). It returns a file-by-file plan (layer order, the test plan / which tier proves it,
+   risks, the consistency sweep list). **This runs for both provenances** — a PLANNED item is not
+   exempt from having a file-by-file plan of record.
+7. **Present the plan in plain chat.** Show what will change, in which files, why.
+   - **AD-HOC → blocking gate:** **write no code until the founder approves.** If they want changes,
+     revise and re-ask.
+   - **PLANNED → non-blocking plan-of-record:** present the plan for the record and **proceed to the
+     build** (the founder's written NEXT-STEPS plan already carried the yes). Still stop and ask if the
+     architect surfaces a conflict with that written plan.
 
 ---
 
@@ -180,8 +211,10 @@ below. This changes no step numbers — G1 still begins at step 4.
 ## ⚙️ Outer loop
 
 18. After G3, **auto-advance**: pull the next queued item from the ledger
-    ([`BUILD-LOOP.md`](../../docs/product/BUILD-LOOP.md) / [`NEXT-STEPS.md`](../../docs/product/NEXT-STEPS.md))
-    and run it from **G1** — no separate "shall I continue?" stop. **One component fully done before the
+    ([`BUILD-LOOP.md`](../../docs/product/BUILD-LOOP.md) / [`NEXT-STEPS.md`](../../docs/product/NEXT-STEPS.md)),
+    **re-classify its provenance (step 3.5)** — a queued item carrying a written/locked plan is PLANNED
+    (G1 interview skipped); a stub is AD-HOC (G1 interview mandatory) — and run it from **G1** with no
+    separate "shall I continue?" stop. **One component fully done before the
     next**, and keep going until the queue is empty or the founder stops the run. The founder still decides
     every component at its own G1/G2/G3 gates (and any 🔶 CHECKPOINT interview), so "no stop" removes the
     mechanical pause between components, not the decisions.

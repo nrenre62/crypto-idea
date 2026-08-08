@@ -71,8 +71,8 @@ honest mechanism is:
 
 | Gate | The founder decides | The agent only drafts | Backed by |
 |---|---|---|---|
-| **G1 — Interview & acceptance** | The goal, the options, the trade-offs, and the acceptance criteria for this component. | `spec-drafter` turns the answers into a structured spec; `consistency-sweep` surfaces the gaps to inform the questions. | interview.md steps 1–2; DoD "Definition of Ready" |
-| **G2 — Plan approval** | Whether the implementation plan is right — files, layers, approach, trade-offs. **No code is written before this "yes."** | `architect` drafts the plan (file-by-file, layer order, test plan, risks, the sweep list). | interview.md step 4 |
+| **G1 — Interview & acceptance** | The goal, the options, the trade-offs, and the acceptance criteria for this component. **Skipped only for a PLANNED item** (a `NEXT-STEPS` key carrying a written/locked plan or the 🟩 GREEN "locked decisions" marker); an **AD-HOC** run (free-text "build/design/fix now", or a `NEXT-STEPS` stub with no plan) is **always interviewed, no exceptions.** | `spec-drafter` turns the answers into a structured spec; `consistency-sweep` surfaces the gaps to inform the questions. | interview.md steps 1–2; DoD "Definition of Ready" |
+| **G2 — Plan approval** | Whether the implementation plan is right — files, layers, approach, trade-offs. **Its own step, never skipped.** AD-HOC = **blocking** ("no code before this yes"); PLANNED = **non-blocking plan-of-record** (`architect` still drafts the file-by-file plan and it's shown, but the founder's written NEXT-STEPS plan already carried the yes, so the build proceeds). | `architect` drafts the plan (file-by-file, layer order, test plan, risks, the sweep list). | interview.md step 4 |
 | **G3 — Merge approval** | Whether the finished, green, doc-complete increment ships to `master`. A PR is **opened by default** ([`PR-WORKFLOW.md`](PR-WORKFLOW.md)); the founder approves the squash-merge. | `integrator` commits + pushes; the orchestrator opens the PR and presents the diff, the test verdict, and the review summaries; it does not merge without the "yes." | Founder decision |
 
 At every gate the orchestrator **stops and asks**. If the founder is away, the component waits —
@@ -86,7 +86,9 @@ the factory never guesses a decision.
 
 ```
 🧑 G1  Interview + acceptance criteria        ← founder; spec-drafter + consistency-sweep assist
-🧑 G2  Plan approval                          ← founder; architect drafts
+                                                (SKIPPED for a PLANNED item; MANDATORY for AD-HOC)
+🧑 G2  Plan approval                          ← founder; architect drafts (never skipped;
+                                                blocking for AD-HOC, plan-of-record for PLANNED)
 ────────────────  autonomous build+verify (the inner loop) ────────────────
 ⚙️ 1  test-author        write failing test(s) first, commit RED checkpoint
 ⚙️ 2  builders           implement to green — by layer (only the layers the plan touches):

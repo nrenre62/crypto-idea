@@ -55,8 +55,18 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
   above), **find the gaps** across all related code+docs,
   **plan and get a yes** before editing, then do the **consistency sweep** (change it in EVERY file
   the topic's map row lists — no silent drift), verify, log the plan in `NEXT-STEPS.md`, commit. On an
-  error: surface it plainly, then **ask the founder in plain chat** to pick the fix. *Trivial, obvious, single-file
-  fixes (typo / one-liner) skip this with a one-line heads-up.*
+  error: surface it plainly, then **ask the founder in plain chat** to pick the fix.
+  - **Ad-hoc build/design/fix = STOP and interview first, no exceptions (founder rule, 2026-08-08).**
+    Any "build / design / fix this **now**" that comes from the chat — a new feature, a design change,
+    or a bug fix — at **any** entry point (not just `/build-feature`) is **never** built straight-forward:
+    stop the founder and run the [interview → plan](docs/interview.md) loop before touching code. The
+    interview is skipped **only** when the work is a `NEXT-STEPS` item that already carries a
+    **written/locked plan** (a real plan block or the 🟩 GREEN "locked decisions" marker — the founder
+    planned it manually); a bare `NEXT-STEPS` **stub** with no plan is still interviewed. A bug enters
+    the interview **before** `/jira-bug` → `/jira-fix`, not after.
+  - *The only one-line-heads-up carve-out left is a **pure doc typo / copy tweak / lone comment** —
+    something that is NOT a build, design, or bug fix. Any code/feature/design/bug change, even a
+    one-liner, is interviewed. When unsure which bucket a change is in, treat it as substantive and interview.*
 - **Agile workflow ([`AGILE.md`](docs/product/AGILE.md)):** work the prioritized backlog (`NEXT-STEPS.md`) one
   small, shippable increment at a time; every increment meets the **Definition of Done** (KISS +
   secure, tests green, verified, committed, docs updated). Retrospective = Kaizen (leave it better,
