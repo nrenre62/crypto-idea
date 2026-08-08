@@ -1,6 +1,6 @@
 # Crypto Idea
 
-Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.** Full-stack:
+Crypto portfolio tracker + DCA calculator PWA. **Vite + React 19 + Firebase.** Full-stack:
 a static marketing landing, a React user app, a separate admin app, and Cloud Functions.
 
 ## Project structure

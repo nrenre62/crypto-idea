@@ -33,7 +33,7 @@ crypto-idea/
 ├── public/
 │   └── icons/           # PWA icons (8 PNGs, binary)
 ├── scripts/             # build helpers (icon gen, service-worker stamp)
-├── src/                 # frontend (Vite + React 18)
+├── src/                 # frontend (Vite + React 19)
 │   ├── api/             # backend-access layer (Firebase + /api proxy wrappers)
 │   ├── components/      # screens & UI primitives
 │   ├── hooks/           # state containers & business logic

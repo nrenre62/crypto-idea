@@ -1,6 +1,6 @@
 # Crypto Idea — project guide for Claude
 
-Crypto portfolio tracker + DCA calculator PWA. **Vite + React 18 + Firebase.**
+Crypto portfolio tracker + DCA calculator PWA. **Vite + React 19 + Firebase.**
 
 ## How to run (always start the whole stack together)
 - **`npm run start:all`** — emulators + dev server in one lifecycle (start one → start all; Ctrl-C stops all).
