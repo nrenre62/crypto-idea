@@ -14,6 +14,34 @@
 
 ## A. Confirmed bugs
 
+### A11 · Oversell & P&L integrity (Group B) — phantom realized gains, unpriced-coin −100%, unguarded edit/backdated/future sells ✅ (high)
+
+- **Symptom:** a user's own book could show impossible numbers: (7) an **over-sold** coin (e.g. bought 0.3,
+  sold 6) showed holding 0 but **P/L "+1900%"** — phantom realized gains; (8) a held coin whose live price
+  hadn't loaded showed **−$100 / −100%** as if it crashed, and dragged the whole portfolio P/L negative;
+  and the oversell guard was bypassable — (10) editing a **buy** down below already-sold units, (9) inserting
+  a **backdated** sell between existing dates, and (12) a **future-dated** buy were all accepted.
+- **Where:** `src/utils/pnl.js` (`sellsGain` unclamped while `holdings` clamps to `Math.max(0,…)`; missing
+  price collapsed to `0`), `src/CryptoIdea.jsx` `addEntry` (oversell guard gated on `eTxType==="sell"`, so the
+  edit path was unguarded; no future-date bound), `Detail.jsx`/`CoinInfo.jsx` (rendered `$0.00` / −100% for a
+  priceless held coin).
+- **Root cause:** the sell-invariant was only checked on *add-a-sell* at that sell's own date (not on edit,
+  not across the timeline); the P/L math counted full raw sell proceeds even when units were never held; and
+  a missing price was conflated with a genuine `0`.
+- **Fix (CRYP-94, client-side only):** one pure `firstOverSoldSell(entries)` replay guard in
+  [`src/utils/tx.js`](../../src/utils/tx.js) shared by add, edit, and delete (`remEntry`); `isFutureTx` +
+  a date `max` block future dates; `realizedProceeds` clamps proceeds to `bought/sold` (finding 7); `coinPnl`
+  returns null value/P&L for a held coin with an **unknown** price (a genuine 0 stays worthless) and
+  `portfolioPnl` excludes it from value & P/L while keeping its cost in Invested, rendered as a muted "—"
+  (finding 8). Firestore rules can't aggregate sibling tx docs, so this is a **data-integrity/UX guard, not a
+  security boundary** (founder decision — the user's own cost-basis tracker, no money/cross-tenant exposure);
+  prevent-new only, no migration of existing corrupt books.
+- **Verify:** `npm run test:unit` green (982/982) incl. the end-to-end walkthrough that blocks the edit-buy
+  exploit with no db write; build clean.
+- **Severity:** high (wrong/misleading numbers on the core Portfolio surface; a reachable impossible state).
+- **Status:** ✅ **FIXED 2026-08-08** (CRYP-94, Group B) — see [`NEXT-STEPS.md`](../product/NEXT-STEPS.md)
+  §GROUP-B (folds in §TX-SAFE-C findings 9+10).
+
 ### A9 · DARK-FIX-NaN — Research diversification note reads "about NaN%" ✅ (medium)
 
 - **Symptom:** The Research → Overview "A note on diversification" card reads *"Your top two coins make up
