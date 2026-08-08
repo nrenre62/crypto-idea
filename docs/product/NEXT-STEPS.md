@@ -3795,8 +3795,17 @@ verified live on the emulator). Original spec below.
 
 ---
 
-## AI-CHAT-SWITCH. Owner switch to hide + disable the Research "Ask" chat (client-side)  (📋 STAGED 2026-08-01; queued in BUILD-LOOP #13 — NOT built)
+## AI-CHAT-SWITCH. Owner switch to hide + disable the Research "Ask" chat (client-side)  (✅ BUILT 2026-08-08 · `b6d32d1` · via the Agent Factory · BUILD-LOOP #13 · CRYP-93 · PR 4a of 3)
 
+> **✅ BUILT 2026-08-08 (PR 4a of 3 · CRYP-93 · commit `b6d32d1`).** The `aiResearch` kill-switch now has its
+> first client effect: OFF hides the Research → **Ask** chat tab **and** the per-coin "Ask AI about …" button,
+> and falls a stale `'ask'` selection back to Overview (`chatEnabled = !(site.features.aiResearch === false)`,
+> default-ON, threaded `Research.jsx` → `ResearchTab.jsx`). The admin toggle **moved from App Controls to the
+> AI settings screen** ("AI research chat", same owner-only + step-up `saveFeature → saveConfig` path), and the
+> `functions/features.js` description string was updated to match. Founder sliced BUILD-LOOP #13 into **three
+> PRs (Option A):** 4a = this Ask-chat switch **+ the RESEARCH-NO-AI framing/honesty pass** (below); **4b**
+> (richer multi-signal Pulse + Daily Brief) and **4c** (RESEARCH-METRICS) remain queued.
+>
 > **Queued as [BUILD-LOOP](BUILD-LOOP.md) #13** (2026-08-03) — approved 2026-08-01 interview, decisions
 > locked. Built in **ONE increment together with RESEARCH-NO-AI** (same `aiResearch` flag, same `chatEnabled`
 > derivation; see that section below for the shared gate + the "what the switch governs" matrix). This section
@@ -3880,11 +3889,24 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 
 ---
 
-## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (📋 STAGED 2026-08-03; queued in BUILD-LOOP #13 — NOT built)
+## RESEARCH-NO-AI. Make the Research Overview honest with no AI: deterministic Pulse, drop the "offline" apology, gate AI chrome on the flag  (🟡 PARTLY BUILT — framing/honesty ✅ 2026-08-08 `b6d32d1` (PR 4a); Pulse content = 4b, metrics = 4c · BUILD-LOOP #13 · CRYP-93)
 
+> **🟡 PARTLY BUILT — the framing/honesty pass shipped 2026-08-08 (PR 4a of 3 · CRYP-93 · `b6d32d1`).**
+> DONE in 4a: the "AI is offline — showing a basic summary" apology is **removed** and replaced by a neutral
+> **"AI off"/"AI on" status pill** (`.research-root .ai-status`, token-driven, dark-safe); the new build
+> constant **`AI_PROXY_LIVE = false`** in `src/features/research/api/ai-status.js` is the single go-live seam,
+> and `aiChrome = chatEnabled && AI_PROXY_LIVE` gates the AI ornaments (gradient label, Regenerate, the
+> "AI-generated" disclaimer) — all hidden today. De-apologized copy landed in `OverviewView.jsx`,
+> `EmptyState.jsx`, `AskView.jsx` + `hooks/useAsk.js` (dead `offline` field dropped), and the dead
+> `.ai-note`/`.a-off` CSS was removed. **STILL TO BUILD:** the richer **multi-signal deterministic Pulse**
+> (`pulseFacts` layer + templates R-A…R-F) and the **Daily Brief rewrite** are **PR 4b**; **RESEARCH-METRICS**
+> (P-1…P-4) is **PR 4c**. The existing single-line deterministic Pulse text is unchanged for now; a known 4b
+> follow-up is dropping the orphaned `offline` field `hooks/usePulse.js` still computes.
+>
 > **Queued as [BUILD-LOOP](BUILD-LOOP.md) #13** (2026-08-03) — finished + approved (2026-08-03 interview),
 > decisions locked. Built in **ONE increment together with AI-CHAT-SWITCH** (same `aiResearch` flag, same
-> `chatEnabled` derivation). Gate: 🟩 GREEN (design/copy + one build constant + a derived boolean; **no
+> `chatEnabled` derivation), sliced into **3 PRs (founder Option A):** 4a framing/honesty (this), 4b Pulse
+> content, 4c metrics. Gate: 🟩 GREEN (design/copy + one build constant + a derived boolean; **no
 > `firestore.rules`, no backend, no new callable, no new dep**). Blast radius: LOW-MODERATE — 5 Research
 > files + copy + a couple of unit tests. **No pricing change.**
 
