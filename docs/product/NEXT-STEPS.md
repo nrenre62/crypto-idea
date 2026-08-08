@@ -3908,7 +3908,7 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 
 ---
 
-## RESEARCH-NOTES. Research Overview "notes" area — 10 allocation/risk general guide notes (no links, relevance-picked) + link The Edge from the landing footer as a Resource  (🟨 PLAN-ONLY — scope/thresholds/copy/selection LOCKED 2026-08-08; relevance ladder awaits a final nod; no CRYP yet)
+## RESEARCH-NOTES. Research Overview "notes" area — 10 allocation/risk general guide notes (no links, relevance-picked) + link The Edge from the landing footer as a Resource  (🟨 PLAN-ONLY — FULLY LOCKED 2026-08-08; rules specified, ready to build on founder "go"; no CRYP yet)
 
 > **🟨 PLAN-ONLY — a founder-captured idea, NOT built. This is the written plan; it still goes through the
 > normal interview → G2 → build loop when scheduled. Scope + thresholds + copy voice + selection model are
@@ -3934,7 +3934,7 @@ always says the same thing and carries a **`<a href="/edge">Read the principle �
    coins + cap tiers) and its **risk**. Not geographic, not anything else.
 2. **Keep all thresholds** — 60% concentration · −15% drawdown · +30% winner · 20% mega-anchor · the ≤3 / ≥5
    holding-count boundaries. *(One new threshold introduced for the rule engine: an "all-large-cap" book = mega ≥
-   70% — flagged for the founder in "remaining nods".)*
+   90% — locked by the founder 2026-08-08.)*
 3. **One note at a time** — never a stack. The selector returns the single most-relevant note.
 4. **Selection = "most relevant each time," not a fixed 1→10 order.** Each note is a rule; every rule has a
    **relevance weight**; the note shown is the **highest-relevance rule that currently matches**. As the portfolio
@@ -3967,7 +3967,7 @@ largest / top-two allocation % · `mega` = `risk.megaAlloc` (% in mega-cap/top-r
 | 72 | `under-diversified` | `2 ≤ n ≤ 4` *(the founder's "<5 coins" example; folds in the old `early` note)* | You're holding just {n} coins, so each one has a big say in how your portfolio does. Adding a few more you understand spreads that influence out. |
 | 64 | `winner` | `hasCost && pnl ≥ +30` | One position has run up and now takes a bigger share of your portfolio than you may have started with. It's worth knowing how concentrated a winner has quietly made you. |
 | 56 | `thin-anchor` | `n ≥ 5 && mega < 20` | Only a small slice sits in large, established coins. Higher-ranked assets have historically swung less than the long tail — some weight there can steady a portfolio. |
-| 48 | `all-large-cap` | `n ≥ 5 && mega ≥ 70 && level !== 'High'` | You're concentrated in large-cap coins. That's lower-volatility than the long tail, but "big" and "safe" aren't the same thing — every coin still carries market risk. |
+| 48 | `all-large-cap` | `n ≥ 5 && mega ≥ 90 && level !== 'High'` | You're concentrated in large-cap coins. That's lower-volatility than the long tail, but "big" and "safe" aren't the same thing — every coin still carries market risk. |
 | 40 | `no-thesis` | `noThesis` | Some of your coins don't have a written reason for holding them yet. Noting why you bought each one gives you something concrete to review later, instead of just the price. |
 | 24 | `balanced` | `n ≥ 5 && top2 < 40` | Your holdings look well spread out — no single coin dominates. Diversification is upkeep, not a one-time setting: it's worth re-checking as prices move your weights around. |
 | 0 | `default` | always | Keeping your holdings varied and knowing why you own each one are two of the simplest habits for a steadier portfolio. |
@@ -3978,12 +3978,14 @@ largest / top-two allocation % · `mega` = `risk.megaAlloc` (% in mega-cap/top-r
   `under-diversified` (72) — the timely insight wins; the same book flat shows `under-diversified`. That's the
   "most relevant each time" behaviour, made deterministic.
 
-### Remaining nods (small — founder can green-light as-is)
-- **Relevance ladder** above (100 → 0). Reorder any weight? (e.g. should `under-diversified` outrank `high-risk`?)
-- **Two overlap resolutions:** (a) the old `early` (2–3 coins) note is **merged into `under-diversified`**
-  (2 ≤ n ≤ 4) — OK to drop `early` as a separate note? (b) `thin-anchor` / `all-large-cap` are **gated to n ≥ 5**
-  so a small book always shows the more-pressing `under-diversified` first — OK?
-- **One new threshold:** `all-large-cap` uses **mega ≥ 70%**. Keep 70, or move it?
+### All nods resolved — fully locked (founder, 2026-08-08)
+- **Relevance ladder** above (100 → 0) — **confirmed as-is.**
+- **Two overlap resolutions confirmed:** (a) the old `early` (2–3 coins) note is **merged into
+  `under-diversified`** (2 ≤ n ≤ 4); (b) `thin-anchor` / `all-large-cap` are **gated to n ≥ 5** so a small book
+  always shows the more-pressing `under-diversified` first.
+- **`all-large-cap` threshold = mega ≥ 90%** (raised from the proposed 70%). Locked.
+
+**→ Rules fully specified. Ready for the interview → G2 → build loop on the founder's "go" (a fresh PR).**
 
 ### Implementation sketch (KISS, client-only — for G2, not now)
 - New pure `src/features/research/utils/notes.js`: a `RULES` array (`{key, relevance, test(facts), text(facts)}`),
