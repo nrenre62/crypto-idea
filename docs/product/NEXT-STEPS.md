@@ -66,6 +66,69 @@ non-blocking plan-of-record; build through the loop on branch `master-6mrr02` (f
 
 ---
 
+## JOURNAL-POLISH. Journal/thesis type-scale + floating coin header + honest disclaimers  (🟩 GREEN — locked 2026-08-09 · design + honest-copy · founder interview 2026-08-09)
+
+**Founder ask (2026-08-09, plain-chat interview + screenshots):** tighten the Journal/thesis surfaces
+(type sizes, the duplicated coin name, the delete-confirm visibility, empty-state) AND fix two **false**
+copy claims — the thesis does NOT currently feed the AI/Research (no connection is wired), and the journal
+is NOT "only you" (an owner-admin can view a thesis per account via the audited `viewUserAsAdmin`). Next
+build-loop component after FLOATING-HEADER. Design-only + copy; handlers/state/routing unchanged. Dark-safe,
+responsive, no new `@media`, no-names guard clean.
+
+**🟩 Locked decisions (founder answered the interview):**
+1. **Tab footer disclaimers → 14px**, and **keep each tab's own line** (do NOT unify the text): Portfolio
+   "Prices via CoinGecko · Not financial advice" (13px→14px), Research keeps its line, Learn keeps
+   "For educational purposes only — not financial advice", Journal keeps its privacy note (edited, #9).
+   **Search** currently has NO disclaimer → **add "Prices via CoinGecko · Not financial advice"** (same as
+   Portfolio), 14px.
+2. **Kill the duplicate coin name in the thesis detail overlay** — `JournalDetail`'s `<Modal title={coin.name}>`
+   renders the name at top AND again in `.bj-coin-head` next to the logo. Drop the Modal title's coin name;
+   keep the logo+name row where it is.
+3. **Question type-scale:** `.q-label` (headline, e.g. "Why are you buying this?") → **16px**; `.q-sub`
+   (description) → **14px**.
+4. **Make the logo+name row (`.bj-coin-head`) the FLOATING (sticky) header** inside the thesis overlay —
+   don't move it; content scrolls under it; the Modal X stays. (Pairs with #2.)
+5. **Delete-thesis confirm:** when `confirmDel` opens, **scroll the two buttons into view** (they currently
+   render below the fold in the long modal); **8px gap** between "Yes, delete thesis" and "Keep it".
+6. **Empty "No thesis yet — tap 'Add thesis' above…"** → wrap in a **card/pill** + **16px** (already
+   auto-hides once a thesis exists — conditional on `entries.length===0`).
+7. **Section headings** "Needs a thesis (N)" and "Your theses (N)" (`.sec-label h2`) → **16px**.
+8. **AddThesis callout:** `.bjc-label` → **16px**, `.bjc-text` → **14px**, and **drop the false AI claim** —
+   new text (founder-approved): *"Your thesis lives with this coin. When the market drops, you'll know
+   exactly why you bought — and whether that reason still holds."* (removes "and powers your Research & Ask").
+9. **Journal footer note (`JOURNAL_NOTE`)** → **truthful** copy (founder chose B1):
+   *"Your journal is visible only to you and the CryptoIdea team."* (no AI claim; honest that an admin can
+   view it — matches the audited owner-only `viewUserAsAdmin`).
+
+**Plan of record (file-by-file, design + copy only):**
+- `src/components/Journal.jsx` — `JOURNAL_NOTE` string (#9); drop `Modal title` coin name in `JournalDetail`
+  (+ `ThesisBreakdown` if it double-renders) (#2); sticky `.bj-coin-head` wiring (#4); `AddThesis` callout
+  text (#8); delete-confirm scroll-into-view (a `ref` + `scrollIntoView` when `confirmDel` flips true) (#5);
+  wrap the "No thesis yet" empty line in a pill element (#6).
+- `src/components/Search.jsx` — add the "Prices via CoinGecko · Not financial advice" footer disclaimer (#1).
+- `src/styles/app.css` — `.disclaimer`/`.disclaimer-lg` → 14px unification (#1); `.q-label` 16px / `.q-sub`
+  14px (#3); `.bj-coin-head` sticky (#4); the 8px delete-button gap (#5); the empty-state pill (#6);
+  `.sec-label h2` 16px (#7); `.bjc-label` 16px / `.bjc-text` 14px (#8).
+- `src/features/research/styles/research-tab.css` — the Research `.disclaimer` → 14px if it's the tab footer
+  (confirm during build; keep `.research-root`-scoped).
+- Docs: `docs/design/DESIGN-PASS.md` (round entry), this log (status), `CLAUDE.md` if the JOURNAL note copy
+  is referenced.
+
+**Honesty note (why #8/#9 matter):** CLAUDE.md's Research section states the thesis-→-AI link is **Wave B,
+not yet wired** — so the current "powers your Research & Ask" / "helps the AI" copy is false today. When the
+Wave-B proxy actually consumes journal context, the AI phrasing can be reinstated in that increment.
+
+**Tests:** the delete-confirm `scrollIntoView` (#5) and the "No thesis yet" pill presence/absence (#6) are
+unit-testable (`tests/unit/Journal.test.jsx`) — red-first. Pure-CSS type sizes / sticky header have no jsdom
+layout → covered by `design-consistency` + screenshots. The copy strings (#8/#9) are assertable in the
+Journal test (exact text). No rules/functions/openapi surface.
+
+**Provenance:** 🟩 GREEN locked plan → G1 satisfied by this block; G2 non-blocking plan-of-record; build on a
+fresh branch off `master` after FLOATING-HEADER merges, one PR. Sizing: mostly CSS + copy + small JSX — if it
+nears ~200 lines, split disclaimers (#1) from the thesis-overlay work.
+
+---
+
 ## FACTORY-INTERVIEW-GATE. Ad-hoc build = mandatory interview; a written NEXT-STEPS plan skips only G1  (✅ BUILT 2026-08-08 · docs/command only · CRYP-98)
 
 **Founder rule (2026-08-08):** the interview→plan phase is enforced by **provenance**, so any operator
