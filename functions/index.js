@@ -1697,10 +1697,10 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   // value; stored-absent ⇒ false.
   const exFlags = existing.flags || {};
   const requireAdminMfa = "requireAdminMfa" in f ? f.requireAdminMfa === true : exFlags.requireAdminMfa === true;
-  // CRYP-101: same per-key KEEP rule — the instant maintenance/signups toggles post
-  // `flags` WITHOUT paidPlansEnabled, so re-defaulting an omitted field would
-  // silently switch launch-free mode back off. Absent ⇒ KEEP the stored value;
-  // stored-absent ⇒ default-ON (true).
+  // CRYP-101: same per-key KEEP rule as requireAdminMfa above — a server-side safety
+  // net for ANY caller that posts `flags` without paidPlansEnabled. Re-defaulting an
+  // omitted field would silently switch launch-free mode back off. Absent ⇒ KEEP the
+  // stored value; stored-absent ⇒ default-ON (true).
   const paidPlansEnabled = "paidPlansEnabled" in f ? f.paidPlansEnabled !== false : exFlags.paidPlansEnabled !== false;
   const flags = { maintenance: !!f.maintenance, signupsEnabled: f.signupsEnabled !== false, requireAdminMfa, paidPlansEnabled, features: featureFlags.mergeFeatures(f.features, exFlags.features) };
   const an = (data && data.analytics) || existing.analytics || {};
