@@ -25,7 +25,7 @@ const admin = requireFromFunctions("firebase-admin");
 // Modular subpath accessors (firebase-admin v13+ removed the namespaced admin.auth()/
 // admin.firestore() forms). Resolve them from functions/node_modules too.
 const { getAuth } = requireFromFunctions("firebase-admin/auth");
-const { getFirestore } = requireFromFunctions("firebase-admin/firestore");
+const { getFirestore, FieldValue } = requireFromFunctions("firebase-admin/firestore");
 
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || "demo-crypto-idea";
 // `firebase emulators:exec` exports the auth/firestore hosts, but not the functions port.
@@ -296,4 +296,118 @@ test("chooseFreePlan: rejects an unknown field and requires auth", async () => {
     body: JSON.stringify({ data: {} }),
   });
   assert.strictEqual(noAuth.status, 401, "an unauthenticated call must be rejected");
+});
+
+// ── CRYP-101: LAUNCH-FREE Part B — the paidPlansEnabled top-level flag ──
+// A config/app.flags.paidPlansEnabled switch (default ON; OFF only on exact false)
+// that pauses NEW paid subscriptions and drives the launch-free UI. It gates the
+// createSubscription callable BODY (the only tier that runs it), is published on
+// /api/config, and must survive a flags save that omits it (per-key KEEP). It must
+// NOT touch existing paying customers or their manage/cancel path.
+//
+// These set config/app directly (Admin SDK); the enforcement must reflect a change
+// promptly (read fresh, like the signup gate) — not lag behind a multi-minute cache.
+
+test("CRYP-101: createSubscription refuses when paidPlansEnabled=false (paused, nothing written)", async () => {
+  const email = `paidoff_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set({ email, name: "PaidOff", tier: "free", portfolioCount: 1 });
+  const token = await idTokenFor(email);
+  // Launch-free mode ON: paid plans switched off.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: false } }, { merge: true });
+
+  const res = await callAs("createSubscription", token, { plan: "pro" });
+  assert.strictEqual(res.status, 400, `expected failed-precondition (400), got ${res.status}: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body.error && res.body.error.status, "FAILED_PRECONDITION");
+  // THE assertion: the refusal is the launch-free "paused" message, not the later
+  // "Plan not configured" it hits today because no gate exists yet.
+  assert.match(
+    String(res.body.error && res.body.error.message),
+    /paused/i,
+    "createSubscription must refuse with the launch-free 'paid plans paused' message",
+  );
+  // No side effects: no tier change, no subscription, no billing cycle.
+  const after = await userDoc(uid);
+  assert.strictEqual(after.tier, "free", "tier must be untouched");
+  assert.strictEqual(after.subscription, undefined, "no subscription may be created");
+  assert.strictEqual(after.billingCycle, undefined, "no billing cycle may be recorded");
+});
+
+test("CRYP-101: createSubscription proceeds past the paid gate when paidPlansEnabled is absent (default ON)", async () => {
+  const email = `paidon_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set({ email, name: "PaidOn", tier: "free", portfolioCount: 1 });
+  const token = await idTokenFor(email);
+  // Absent key → default ON (paid plans available).
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete() } }, { merge: true });
+
+  const res = await callAs("createSubscription", token, { plan: "pro" });
+  const msg = String((res.body.error && res.body.error.message) || "");
+  // It must NOT be blocked by the launch-free pause…
+  assert.ok(!/paused/i.test(msg), `must not be paused when the flag is absent; got ${JSON.stringify(res.body)}`);
+  // …it reaches a LATER checkout stage instead (no PayPal env here → "Plan not configured").
+  assert.ok(
+    res.status === 200 || /plan not configured|paypal|approval|token/i.test(msg),
+    `expected to reach the checkout stage past the paid gate, got ${res.status}: ${JSON.stringify(res.body)}`,
+  );
+});
+
+test("CRYP-101: an existing paid user is untouched when paidPlansEnabled=false; manage/cancel stays available", async () => {
+  const email = `paiduser_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  // A paying Pro customer with an active (non-cancelled) subscription marker.
+  await db.collection("users").doc(uid).set(
+    { email, name: "Payer", tier: "pro", subscription: { cancelled: false, endDate: "2027-01-01T00:00:00.000Z" } },
+    { merge: true },
+  );
+  const token = await idTokenFor(email);
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: false } }, { merge: true });
+
+  // The flag does NOT downgrade or strip an existing subscriber.
+  let after = await userDoc(uid);
+  assert.strictEqual(after.tier, "pro", "an existing paid tier must be untouched by the launch-free switch");
+  assert.strictEqual(after.subscription.cancelled, false, "the active subscription marker must be untouched");
+
+  // Managing the subscription stays ungated: reactivate (Firestore-only) still succeeds.
+  const react = await callAs("reactivateSubscription", token, {});
+  assert.strictEqual(react.status, 200, `reactivateSubscription must stay available: ${JSON.stringify(react.body)}`);
+
+  // Cancel is reachable too — NOT short-circuited by the launch-free pause (here it
+  // stops at the missing PayPal subscription id, proving it got past the gate without
+  // making a live PayPal call).
+  const cancel = await callAs("cancelSubscription", token, {});
+  const cmsg = String((cancel.body.error && cancel.body.error.message) || "");
+  assert.ok(!/paused/i.test(cmsg), `cancel must not be blocked by the launch-free pause; got ${JSON.stringify(cancel.body)}`);
+
+  // Tier is STILL pro after the manage/cancel attempts.
+  after = await userDoc(uid);
+  assert.strictEqual(after.tier, "pro", "tier stays pro after manage/cancel");
+});
+
+test("CRYP-101: /api/config publishes paidPlansEnabled (absent → true, explicit false → false)", async () => {
+  const apiConfigUrl = `http://127.0.0.1:${FN_PORT}/${PROJECT}/us-central1/api/config`;
+
+  // Absent key → default ON.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete() } }, { merge: true });
+  let cfg = await fetch(apiConfigUrl).then((r) => r.json());
+  assert.strictEqual(cfg.paidPlansEnabled, true, `absent flag must publish true, got ${JSON.stringify(cfg.paidPlansEnabled)}`);
+
+  // Explicit false → OFF.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: false } }, { merge: true });
+  cfg = await fetch(apiConfigUrl).then((r) => r.json());
+  assert.strictEqual(cfg.paidPlansEnabled, false, `explicit false must publish false, got ${JSON.stringify(cfg.paidPlansEnabled)}`);
+});
+
+test("CRYP-101: saveConfig KEEPS a stored paidPlansEnabled=false when a flags payload omits it", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+  // Launch-free stored directly.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: false } }, { merge: true });
+  // An App-Controls maintenance toggle posts `flags` WITHOUT paidPlansEnabled.
+  const res = await callAs("saveConfig", ownerToken, { flags: { maintenance: false, signupsEnabled: true } });
+  assert.strictEqual(res.status, 200, `saveConfig failed: ${JSON.stringify(res.body)}`);
+  const stored = (await db.doc("config/app").get()).data();
+  assert.strictEqual(
+    stored.flags.paidPlansEnabled, false,
+    "an omitted paidPlansEnabled must be KEPT (per-key merge), not silently reset to default-true",
+  );
 });
