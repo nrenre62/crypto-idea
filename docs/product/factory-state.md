@@ -40,16 +40,16 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## FLOATING-HEADER — pinned brand-bar header + 30px gap + sticky settings (CRYP-102)
-- Phase: inner-loop (fix-round 2 — Option B + defect fixes)
+- Phase: built
 - G1 confirmed: yes (founder interview 2026-08-09, 8 locked decisions)
 - G2 approved: yes (written NEXT-STEPS plan carried the founder yes; architect = non-blocking plan-of-record)
 - Plan (files): src/styles/app.css · src/features/research/styles/research-tab.css · src/features/research/components/ResearchTab.jsx · src/CryptoIdea.jsx · src/components/Account.jsx · docs
 - Fix-round: 2 / 3
 - Founder decisions (2026-08-09): F3 → Option B (settings header = separate --paper/#F6F5F0 sticky bar, card body below as the white --paper-2 frame — pure-CSS reallocation, DOM unchanged so USER-SET-UI tests stay green); Q2 → scroll-to-top on Account open confirmed OK (F4 accepted).
 - Open findings being fixed: F1 avatar z-index → 20 (above research header z16); F2 → wrap research .apphead+.segwrap in ONE sticky container, drop the top:76px magic number; F3 → Option B CSS reallocation.
-- Reviews so far: secure=SAFE, test-tier=GREEN 88/88, design-consistency=CHANGES-NEEDED (F1/F2/F3 addressed this round).
+- Reviews: secure=SAFE, test-tier=GREEN 97/97, design-consistency=CONSISTENT (F1/F2/F3 resolved round 2), build+dist-no-names clean, simplifier ran (1 cleanup).
 - Branch: master-6mrr02
-- Built: no
+- Built: yes 9d6974a
 - Merged: no
 - Agents this item: 0
 - Updated: 2026-08-09
