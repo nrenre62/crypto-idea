@@ -134,6 +134,9 @@ export function Account() {
   } = useApp();
   const settings = user?.settings || {};
   const [view, setView] = useState("home");
+  // CRYP-102: opening a settings drill-in (or returning home) resets scroll to the top
+  // so the framed panel always starts at its sticky header, not the prior scroll offset.
+  useEffect(() => { window.scrollTo(0, 0); }, [view]);
   const portPct = Math.min(100, (portfolios.length / maxPortfolios) * 100);
   const coinPct = portfolio.length > 0 ? Math.min(100, (portfolio.length / maxCoinsPerPort) * 100) : 0;
 

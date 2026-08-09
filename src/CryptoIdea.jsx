@@ -1197,7 +1197,7 @@ export default function CryptoIdea(){
     )}
     <div className="screen-wrap">
     {TAB_SCREENS.has(screen)&&(
-      <button className="avatar app-avatar" onClick={()=>setScreen("account")} aria-label="Account">{acctInitial}</button>
+      <div className="avatar-dock"><button className="avatar app-avatar" onClick={()=>setScreen("account")} aria-label="Account">{acctInitial}</button></div>
     )}
     {screen==="account"&&<Account/>}
     {(screen==="portfolio"||(isDesktop&&NARROW_SCREENS.has(screen)))&&<Portfolio/>}

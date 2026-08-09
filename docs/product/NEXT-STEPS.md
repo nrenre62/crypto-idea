@@ -12,7 +12,7 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
-## FLOATING-HEADER. Pinned brand-bar header on every tab + Account, 30px top gap, sticky settings headers  (🟩 GREEN — locked 2026-08-09 · design-only · founder interview 2026-08-09)
+## FLOATING-HEADER. Pinned brand-bar header on every tab + Account, 30px top gap, sticky settings headers  (✅ BUILT 2026-08-09 · CRYP-102 · branch master-6mrr02 · design-only · founder interview 2026-08-09)
 
 **Founder ask (2026-08-09, plain-chat interview + interactive spacing mockup):** the header must stay
 on screen while the page scrolls — on all 5 tabs and in Account — with breathing room above it and a
@@ -62,7 +62,19 @@ interactive mockup + a `design-consistency` review (scoping · dark-block light-
 no-new-`@media` · no-names) before commit. No rules/functions/openapi surface touched.
 
 **Provenance:** 🟩 GREEN locked plan → G1 interview satisfied by this block (done 2026-08-09); G2
-non-blocking plan-of-record; build through the loop on branch `master-6mrr02` (fresh off `master`), one PR.
+non-blocking plan-of-record; built through the loop on branch `master-6mrr02` (fresh off `master`), one PR.
+
+**As built (✅ 2026-08-09 · CRYP-102, design-only, client-only):** shipped exactly as planned —
+the four `.ci-app` tabs share ONE `.ci-app .apphead` sticky rule (`position:sticky; top:0; z-index:4;
+padding:30px 56px 14px 18px; background:var(--paper); box-shadow:0 1px 0 var(--line)`); Research pins
+header+sub-nav together via its own `.research-stickyhead` wrapper (`position:sticky; top:0; z-index:16`)
+around `.apphead`+`.segwrap` (no magic-number offset). The account **M** avatar is the single shell-level
+`.avatar-dock` (zero-height `position:sticky; top:0; z-index:20`) wrapping the one `.app-avatar`
+(`top:28px; right:18px`) for all 5 tabs — supersedes the old `position:absolute; top:14px` shell avatar.
+Settings did Option B as PURE CSS (DOM unchanged): `.set-scr` is now a transparent layout wrapper, the
+white card frame moved onto `.set-scr-body`, and `.set-scr-head` is a sticky paper-tone bar (30px top
+pad + `border-bottom`); plus a `scrollTo(0,0)` effect on drill-in open and an 8px stacked-field gap.
+Full as-built spec: `DESIGN-PASS.md` (Round 35).
 
 ---
 

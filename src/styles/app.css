@@ -150,7 +150,7 @@ html[data-theme="dark"] .ci-app .seg-btn { color:var(--ink-soft); }
 /* Soft off-white edges (--edge) so cards/popups/neutral pills + the Search separator read
    on the dark paper. Internal row-dividers (.kv-row/.tx-row/journal-Q) intentionally stay
    subtle (--line-2). .learn-hero/.value-card keep their gradient frames (not listed). */
-html[data-theme="dark"] .ci-app :is(.card,.j-entry,.nt-row,.module,.asset-card,.trend-card,.tx-list,.today-lesson,.set-scr) { border-color:var(--edge); }
+html[data-theme="dark"] .ci-app :is(.card,.j-entry,.nt-row,.module,.asset-card,.trend-card,.tx-list,.today-lesson,.set-scr-body) { border-color:var(--edge); }
 html[data-theme="dark"] .research-root :is(.card,.coin-card,.pos-stat) { border-color:var(--edge-bright); }
 html[data-theme="dark"] .research-root .trend-card { border-color:var(--edge); }
 html[data-theme="dark"] .ci-app .cm-card { border:1px solid var(--edge); }
@@ -192,7 +192,7 @@ html[data-theme="dark"] .ci-app .submit-buy.submit-sell { background:var(--sr); 
 .ci-app .pad { padding:0 18px; }
 /* R2-1: right padding reserves the top-right corner for the shell account avatar so
    the header title never runs under it (the avatar is position:absolute, top-right). */
-.ci-app .apphead { padding:14px 56px 14px 18px; display:flex; align-items:flex-start; justify-content:space-between; }
+.ci-app .apphead { padding:30px 56px 14px 18px; display:flex; align-items:flex-start; justify-content:space-between; position:sticky; top:0; z-index:4; background:var(--paper); box-shadow:0 1px 0 var(--line); }
 .ci-app .apphead .title { font-family:var(--display); font-weight:500; font-size:28px; letter-spacing:-.025em; display:flex; align-items:center; gap:8px; }
 .ci-app .badge { font-family:var(--body); font-size:9.5px; font-weight:700; letter-spacing:.1em; padding:3px 8px; border-radius:6px; position:relative; top:-2px; }
 .ci-app .badge-live { color:#1a7a3c; background:rgba(26,122,60,.1); border:1px solid rgba(26,122,60,.2); }
@@ -222,7 +222,13 @@ html[data-theme="dark"] .ci-app .submit-buy.submit-sell { background:var(--sr); 
 .ci-app .avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(155deg,#26241d,#15140f); color:var(--paper); display:grid; place-items:center; font-weight:700; font-size:13px; flex:none; }
 /* Persistent account avatar — top-right of every tab screen (opens Account) */
 .ci-app .screen-wrap { position:relative; }
-.ci-app .app-avatar { position:absolute; top:14px; right:18px; z-index:5; border:0; cursor:pointer; }
+/* CRYP-102: the avatar lives inside a zero-height sticky dock (.avatar-dock) so it
+   pins with the floating header without reflowing the tab body. It stays absolutely
+   positioned to the shell's top-right, above the sticky header background (z 4). */
+/* CRYP-102 (F1): z-index 20 keeps the avatar above every sticky header (the Research header
+   is 16), still below the tabbar/modal/toast. */
+.ci-app .avatar-dock { position:sticky; top:0; height:0; z-index:20; }
+.ci-app .app-avatar { position:absolute; top:28px; right:18px; z-index:20; border:0; cursor:pointer; }
 /* Token monogram circle (the CI fallback). Brand color comes in via --ci; dark mode
    lightens dark brand colors (ADA/XLM/TAO…) so the initials stay legible on dark paper. */
 .ci-app .ci-mono { display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0; overflow:hidden; background:color-mix(in srgb, var(--ci) 18%, transparent); color:var(--ci); border:1.5px solid color-mix(in srgb, var(--ci) 32%, transparent); }
@@ -654,14 +660,26 @@ html[data-theme="dark"] .ci-app .cycle-card.on.prem { background:rgba(125,75,191
    OUTER frame border also gets the R18 --edge lift in dark (see the dark-mode block above,
    with .card et al.) because --line-2 is near-invisible on dark paper — the internal
    .set-scr-head / .set-scr-section dividers intentionally stay subtle (--line-2). */
-.ci-app .set-scr { max-width:560px; margin:0 auto 16px; background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); box-shadow:var(--sh-sm); overflow:hidden; }
-.ci-app .set-scr-head { display:flex; align-items:center; gap:10px; padding:12px 15px; border-bottom:1px solid var(--line-2); }
+/* CRYP-102 (F3, Option B): "card down" — the .set-scr is a TRANSPARENT layout wrapper (no
+   frame), the .set-scr-head is a paper-tone sticky bar matching the four tab headers, and the
+   white card frame moves onto the .set-scr-body which sits 12px below the bar. overflow stays
+   VISIBLE so the sticky head isn't clipped by a non-scrolling ancestor scrollport. */
+.ci-app .set-scr { max-width:560px; margin:0 auto 16px; }
+/* CRYP-102 (F3): the header pins as a full-width paper-tone sticky bar (--paper = the tab
+   headers' #F6F5F0 page tone, NOT the --paper-2 card tone). The border-bottom is the divider. */
+.ci-app .set-scr-head { position:sticky; top:0; z-index:4; background:var(--paper); display:flex; align-items:center; gap:10px; padding:30px 15px 12px; border-bottom:1px solid var(--line-2); }
 .ci-app .set-scr-head .dh-title { flex:1; text-align:center; font-family:var(--display); font-weight:600; font-size:16px; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ci-app .set-scr-head .set-scr-spacer { flex:none; width:34px; }
 .ci-app .set-scr-head .icon-btn { flex:none; width:34px; height:34px; border-radius:11px; background:var(--paper-2); border:1px solid var(--line-strong); color:var(--ink-soft); }
 .ci-app .set-scr-head .icon-btn:hover { background:var(--paper-3); }
 .ci-app .set-scr-head .icon-btn svg { width:18px; height:18px; }
-.ci-app .set-scr-body { padding:18px; }
+/* CRYP-102 (F3): the white rounded card frame now lives on the body, sitting 12px below the
+   paper-tone sticky header bar (reuses the same card tokens .set-scr used to carry). */
+.ci-app .set-scr-body { padding:18px; margin-top:12px; background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); box-shadow:var(--sh-sm); }
+/* CRYP-102: 8px gap between stacked settings inputs (Profile email↔password confirm,
+   Security current↔new password). Adjacent-sibling only — .port-add holds a single
+   .field-input (button follows), so its horizontal row is never matched. */
+.ci-app .set-scr .field-input + .field-input { margin-top:8px; }
 .ci-app .set-scr-section { padding:16px 0; border-top:1px solid var(--line-2); }
 .ci-app .set-scr-section:first-child { padding-top:2px; border-top:0; }
 /* the home profile block sits inside the first section — drop its own padding (section +

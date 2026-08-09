@@ -23,7 +23,10 @@
 
 .research-root .pad{padding:0 18px}
 
-.research-root .apphead{padding:6px 18px 14px;display:flex;align-items:flex-start;justify-content:space-between}
+/* CRYP-102 (F2): header + sub-nav pin together as ONE sticky block, so the segwrap sits at
+   the header's REAL height (no top:76px magic number that breaks when the header wraps). */
+.research-root .research-stickyhead{position:sticky;top:0;z-index:16;background:var(--paper)}
+.research-root .apphead{padding:30px 18px 14px;display:flex;align-items:flex-start;justify-content:space-between}
 /* R13-5: unify all tab headings to 28px (was 29). */
 .research-root .apphead .title{font-family:var(--display);font-weight:500;font-size:28px;letter-spacing:-.025em;display:flex;align-items:center;gap:10px}
 .research-root .beta{font-family:var(--body);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--ai-2);background:rgba(63,125,240,.09);padding:3px 7px;border-radius:6px;position:relative;top:-2px}
@@ -38,7 +41,9 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .apphead .sub{font-size:13px;color:var(--ink-faint);margin-top:3px;letter-spacing:0}
 .research-root .ai-gradient-text{background:linear-gradient(95deg,var(--ai-1),var(--ai-2));-webkit-background-clip:text;background-clip:text;color:transparent}
 
-.research-root .segwrap{position:sticky;top:0;z-index:15;background:linear-gradient(var(--paper) 68%,rgba(248,247,243,0));padding:6px 18px 13px}
+/* CRYP-102 (F2): the sub-nav flows directly under the header inside .research-stickyhead —
+   no own sticky/top; it pins as part of the block at the header's real height. */
+.research-root .segwrap{padding:6px 18px 13px}
 .research-root .seg{display:flex;background:var(--paper-2);border:1px solid var(--line-2);border-radius:999px;padding:4px;box-shadow:var(--sh-sm),inset 0 1px 2px rgba(21,20,15,.03)}
 .research-root .seg button{flex:1;font-family:var(--body);border:0;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-soft);padding:9px 0;border-radius:999px;transition:.25s var(--ease);letter-spacing:0}
 .research-root .seg button.active{background:var(--ink);color:var(--paper);box-shadow:0 2px 8px -2px rgba(21,20,15,.4)}

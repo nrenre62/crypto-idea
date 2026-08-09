@@ -65,20 +65,22 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount, c
 
   return (
     <div className="research-root">
-      <div className="apphead">
-        <div>
-          <div className="title">Research <span className="beta">BETA</span>
-            <LivePill api={api} paused={pricesPaused} />
-            {plan && <span className="badge badge-plan" onClick={onAccount} style={{ cursor: 'pointer' }}>{plan}</span>}
+      <div className="research-stickyhead">
+        <div className="apphead">
+          <div>
+            <div className="title">Research <span className="beta">BETA</span>
+              <LivePill api={api} paused={pricesPaused} />
+              {plan && <span className="badge badge-plan" onClick={onAccount} style={{ cursor: 'pointer' }}>{plan}</span>}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="segwrap">
-        <div className="seg">
-          {tabs.map((t) => (
-            <button key={t.id} className={t.id === active ? 'active' : ''} onClick={() => setTab(t.id)}>{t.label}</button>
-          ))}
+        <div className="segwrap">
+          <div className="seg">
+            {tabs.map((t) => (
+              <button key={t.id} className={t.id === active ? 'active' : ''} onClick={() => setTab(t.id)}>{t.label}</button>
+            ))}
+          </div>
         </div>
       </div>
 

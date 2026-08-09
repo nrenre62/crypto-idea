@@ -2118,3 +2118,69 @@ NaN test · `0fbac77` DARK-FIX-NaN + ERRORS.md §A9 · `ac08cb5` the dark CSS ro
 fix-round-1 cascade consolidation. Dark-block-only (light unchanged), no `firestore.rules`, no new
 dependency; the only new token is `--edge-bright`. Unit 957/957, build clean, security SAFE,
 design-consistency CONSISTENT.
+
+## Round 35 — Floating/sticky brand-bar header on all 5 tabs + Account, 30px top gap, single docked avatar (2026-08-09, BUILT)
+
+Founder ask (2026-08-09, plain-chat interview + interactive spacing mockup): the brand bar must stay
+on screen while the page scrolls — on all 5 bottom-nav tabs (Portfolio · Research · Journal · Learn ·
+Search) and in every Account/Settings screen — with breathing room above it and a paper-tone bar behind
+it. **Design-only, client-only; handlers/state/routing unchanged.** Responsive (mobile + desktop),
+**no new layout `@media`** (the sticky bar + gap are the same markup both widths), dark-safe (light stays
+structurally unchanged, dark flips via token). Interview decisions locked 2026-08-09 (§FLOATING-HEADER in
+[`NEXT-STEPS.md`](../product/NEXT-STEPS.md)). Ticket **CRYP-102**, branch `master-6mrr02`.
+
+**R35-1 · Sticky `.ci-app` tab header (one shared rule).** The four `.ci-app` tabs (Portfolio · Journal ·
+Learn · Search) all pin from ONE rule — `.ci-app .apphead` is now `position:sticky; top:0; z-index:4;
+padding:30px 56px 14px 18px; background:var(--paper); box-shadow:0 1px 0 var(--line)`. Only the brand bar
+(logo + BETA + LIVE/PAUSED + plan badge) pins; the value card, asset list and all body content scroll
+**under** it. The top pad went **14px → 30px** total (mobile + desktop, no `@media`); the paper-tone bar
+bg is `var(--paper)` (light `#F6F5F0`, dark flips via token) with a hairline `box-shadow` divider.
+
+**R35-2 · Research sticky header block.** Research uses its OWN `.research-stickyhead` wrapper
+(`position:sticky; top:0; z-index:16; background:var(--paper)`) around `.apphead` + `.segwrap`, so the
+header AND the Overview/Coins/Ask sub-nav pin as ONE block — no magic-number offset needed. Scoped under
+`.research-root` (never `.ci-app`); same 30px gap + paper bar.
+
+**R35-3 · Single docked account avatar (supersedes the DP-3 / R2-1 / R3-4 absolute avatar).** The account
+"M" avatar is now the SINGLE shell-level **`.avatar-dock`** — a zero-height `position:sticky; top:0;
+z-index:20` wrapper around the one `.app-avatar` (`top:28px; right:18px; z-index:20`) — for all 5 tab
+screens. This **replaces the old shell avatar's `position:absolute; top:14px`** described in DP-3 (persistent
+shell avatar), R2-1 (consistent top-right placement) and R3-4 (dark-mode visibility). The docked avatar
+floats above both stacking contexts and taps still open Account (behavior identical).
+
+**R35-4 · Settings frame reallocation (Option B, PURE CSS — DOM unchanged).** `SettingsScreen` in
+`Account.jsx` keeps its markup; the change is entirely in `.ci-app .set-scr*` rules:
+- `.set-scr` is now a **transparent layout wrapper** — the frame/`overflow` was removed so the sticky
+  header isn't clipped.
+- `.set-scr-head` is now a **sticky paper-tone bar** (`background:var(--paper)`, 30px top pad, `border-bottom`
+  divider), matching the tab headers' `#F6F5F0` tone.
+- `.set-scr-body` now **carries the white card frame** (`--paper-2` fill + `--line-2` border + `--radius` +
+  `--sh-sm`, `margin-top:12px`), so the header reads as a separate bar with the card "down" below it.
+The Account home and every drill-in (Profile · Plan & billing · Portfolio · Security · Privacy & data) get
+the pinned header + card-below treatment.
+
+**R35-5 · Scroll-to-top on drill-in open + 8px field gap.** A `useEffect(() => window.scrollTo(0,0), [view])`
+resets the scroll to the top when any settings item opens, so the title is visible even if the operator had
+scrolled. And the stacked Profile (new email ↔ current password) and Security (new password ↔ confirm) inputs
+gained an **8px gap** (were flush/merged).
+
+**Maintainer note (stacking contexts — not a bug):** the four `.ci-app` tab headers pin at `z-index:4`
+while Research pins at `z-index:16`. These are **separate stacking roots** (`.ci-app` vs `.research-root`),
+so the two z-index values are not directly comparable and never overlap — each tab only ever renders one of
+the two headers. The docked avatar (`z-index:20`) floats above both.
+
+**Decisions locked (2026-08-09 founder).**
+- **Option B for Settings** — reallocate the frame (move it off `.set-scr` onto `.set-scr-body`, make
+  `.set-scr-head` a sticky bar) as PURE CSS rather than restructuring the DOM.
+- **30px total top gap**, mobile + desktop, every header — confirmed via the interactive mockup.
+- **Just the brand bar sticks** (the value card is not part of the frozen header).
+- **Header bg `#F6F5F0`** (the existing `--paper` tone) in light; dark-block flip via token; light
+  structurally unchanged elsewhere.
+
+**Status:** ✅ BUILT 2026-08-09 (CRYP-102, branch `master-6mrr02`). Design-only, client-only:
+`src/styles/app.css` (the `.apphead` + `.set-scr*` + `.avatar-dock` rules), `src/features/research/styles/
+research-tab.css` (`.research-stickyhead`), `src/CryptoIdea.jsx` (the shell `.avatar-dock`),
+`src/components/Account.jsx` (`scrollTo(0,0)` effect + 8px field gap) and
+`src/features/research/components/ResearchTab.jsx` (the `.research-stickyhead` wrapper). No
+`firestore.rules`, no functions, no openapi surface; no new dependency; no new hex/token. Light stays
+structurally unchanged; dark flips via `--paper`.
