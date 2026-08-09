@@ -39,28 +39,6 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`. Run rows in `factory-runs.md`.)*
+*(none in flight — queue paused for founder direction on the 🔶 CHECKPOINTs #11 ADMIN-SEP / #12 PLAN-LIMITS-MAX.)*
 
-## LAUNCH-FREE — "Starter-only launch mode" switch, Part B ONLY (BUILD-LOOP #10)
-- Phase: built — PR #58 open, awaiting G3 (do not merge until founder yes + CI integration check green)
-- RED checkpoint: 06b5c98 (test-author stalled after writing all 6 files — root cause: the functions emulator cannot boot in this container [egress-policy 403 to firebase-public.firebaseio.com during beforeCreateUser blocking-config registration]; orchestrator verified UNIT tier RED for the right reason [141 pass / 4 fail + flags.js suite import-fail] and committed the checkpoint). Files: tests/functions-callable.test.js, tests/unit/{flags,onboarding-free-launch,Account,Login,admin-dashboard}.*
-- Backend built: 7fed4df (functions-builder) — functions/flags.js (paidPlansOn), createSubscription FRESH-read refusal before checkout gate, /api/config publish, saveConfig per-key-KEEP, getAdminConfig prefill, getSystemStatus surface, openapi (PublicConfig + getAdminConfig/saveConfig/getSystemStatus flags; FeatureFlags untouched). Unit flags.test.js GREEN 3/3. **Integration tier INCONCLUSIVE locally (functions emulator un-bootable in this sandbox — egress policy); AC1/2/3/7/8 to be confirmed by the CI "integration tests" check before merge. Hand-traced GREEN by builder.** Off-limits files untouched.
-- Client built: 72be9a4 (client-builder) — onboarding auto-Starter, Login/Account hide, admin Plans&Pricing toggle, landing hide. secure-by-design LOW comment fix a747568; docs 96e94a3.
-- Verdicts at build: verify GREEN (unit 1043/1043) · secure-by-design SAFE (1 LOW comment → FIXED) · api IN-SYNC · design CONSISTENT · simplifier no-changes. Integration/callable tier is CI-ONLY in this sandbox (functions emulator un-bootable — egress policy); AC1/2/3/7/8 confirmed by the CI "integration tests" check before merge.
-- ⚠️ Verification note: integration tier is CI-only in this container. Do NOT merge until CI's integration check is green.
-- G2 plan (plan-of-record, non-blocking): NEW functions/flags.js `paidPlansOn(cfg)`; functions/index.js (createSubscription refusal — FRESH config read, before checkout gate · /api/config publish · saveConfig per-key-KEEP · getAdminConfig prefill · getSystemStatus surface); src/CryptoIdea.jsx (site flag + auto-Starter onboarding + startUpgrade guard); src/components/Login.jsx (Starter-only picker); src/components/Account.jsx (hide upgrade CTAs, paid keeps cancel); src/hooks/useAdminDashboard.js + src/components/admin-dashboard.jsx (Plans&Pricing toggle); public/landing.js (hide #pricing/nav); openapi.json (PublicConfig + getAdminConfig/saveConfig/getSystemStatus flags — NOT FeatureFlags); docs (BILLING/API-SECURITY/BACKEND-ADMIN/README/CLAUDE/NEXT-STEPS/flags SVG). NO firestore.rules. Accepted recs: fresh read + getSystemStatus surface. ~56 core + ~16 openapi + ~110 tests = one PR.
-- Provenance: PLANNED (locked plan 2026-08-02; 🔶 CHECKPOINT — founder gave the go "Do the #10" 2026-08-08)
-- Scope decision (founder 2026-08-08): **Part B ONLY.** Part A (Starter-limit bump) REMOVED from this item — the single Starter at 3/30/300 is owned by #12 PLAN-LIMITS-MAX. So #10 does NOT touch `firestore.rules` limit defaults / DEFAULT_PLANS limits / index exemptions.
-- Q1 (founder 2026-08-08): **KEEP BOTH switches** — `paidPlansEnabled` (top-level flag, admin Plans & Pricing, master) takes precedence over the existing `checkout` kill-switch (App Controls, stays). Q2: pure server helper `paidPlansOn(cfg)` (`!== false`), unit-tested.
-- G1 confirmed: yes (locked plan + founder confirmed Part-B-only + Q1=keep both)
-- G2 approved: n/a (PLANNED → non-blocking plan-of-record; architect drafts + present, then build)
-- Scope (Part B): new server flag `config/app.flags.paidPlansEnabled` (default true). When false: new registrations auto-Starter (onboarding chooser suppressed, server-side); `createSubscription` REFUSES server-side (THE control); billing/pricing UI hidden (app + landing via /api/config); existing paid users untouched; reversible; audited; per-key-KEEP merge in saveConfig.
-- Security surface: createSubscription callable gate (proven at integration/callable tier, the only one that runs the body). Likely NO firestore.rules change (flag is server-only config). → rules-builder likely skipped; functions-builder + client-builder + integration tier essential.
-- Fix-round: 0 / 3
-- Open findings: none
-- Branch: claude/launch-free-mode  (off master 17f9865)
-- Built: yes 06b5c98..96e94a3
-- Merged: no
-- Agents this item: 13
-- Jira: CRYP-101 (In Progress)
-- Updated: 2026-08-09
+*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101). Run rows in `factory-runs.md`.)*
