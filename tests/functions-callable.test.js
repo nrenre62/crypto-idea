@@ -84,6 +84,21 @@ async function callAs(name, token, data) {
   return { status: r.status, body: await r.json() };
 }
 
+// Like callAs, but tolerant of a non-JSON body. A callable that does NOT exist yet
+// (listAdmins, until ADMIN-SEP ships) 404s with a plain-text body — callAs()'s
+// `await r.json()` would THROW on that, masking the real red (a missing endpoint) with a
+// SyntaxError. This lets the assertion land cleanly on the status code instead.
+async function callAsSafe(name, token, data) {
+  const r = await fetch(callableUrl(name), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ data }),
+  });
+  let body = null;
+  try { body = await r.json(); } catch { body = null; }
+  return { status: r.status, body };
+}
+
 const userDoc = (uid) => db.collection("users").doc(uid).get().then((s) => s.data() || {});
 
 const stamp = Date.now();
@@ -410,4 +425,139 @@ test("CRYP-101: saveConfig KEEPS a stored paidPlansEnabled=false when a flags pa
     stored.flags.paidPlansEnabled, false,
     "an omitted paidPlansEnabled must be KEPT (per-key merge), not silently reset to default-true",
   );
+});
+
+// ── ADMIN-SEP · CRYP-103 · admin/user separation + owner-only admin roster (PR1: Parts A + B) ──
+// Founder ask: an admin account (owner OR manager) must NEVER appear as a normal user.
+// The exclusion + the roster are SERVER-enforced and key off the Firebase custom claim
+// `customClaims.admin === true`, NOT the `role` string — a legacy no-role admin has
+// role === "" (identical to a plain user), so a role-based filter would leak it back in.
+// These callable-BODY tests run in CI (the functions emulator can't boot in the authoring
+// sandbox). Each is confirmed red by reading functions/index.js as it stands today:
+//   • listUsers (~L1446-1483) tags each Auth account isAdmin but never SKIPS admins.
+//   • gatherStats (~L668-722) counts every users/{uid} doc, admin docs included.
+//   • findDuplicateEmails (~L1495-1522) iterates all Auth users with no admin filter.
+//   • listAdmins does not exist at all → the emulator 404s the call.
+
+test("CRYP-103: listUsers excludes every admin account (keyed off the claim, not role)", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+  const mgrEmail = `sep_mgr_${stamp}@example.com`;
+  const plainEmail = `sep_plain_${stamp}@example.com`;
+  // A manager admin WITH a users/{uid} profile doc (the seed shape: tier "free") — exactly
+  // the account that shows today as a normal, "ADMIN"-badged row in the Users list.
+  const mgrUid = await makeUser(mgrEmail, { admin: true, role: "manager" });
+  await db.collection("users").doc(mgrUid).set({ email: mgrEmail, name: "Sep Mgr", tier: "free", portfolioCount: 0 });
+  const plainUid = await makeUser(plainEmail, null);
+  await db.collection("users").doc(plainUid).set({ email: plainEmail, name: "Sep Plain", tier: "free", portfolioCount: 0 });
+
+  const res = await callAs("listUsers", ownerToken, {});
+  assert.strictEqual(res.status, 200, `listUsers failed: ${JSON.stringify(res.body)}`);
+  const users = res.body.result.users;
+  assert.ok(Array.isArray(users), "listUsers must return a users array");
+
+  // THE assertion: NO returned account carries the admin claim (owners AND managers gone).
+  assert.ok(users.every((u) => !u.isAdmin), "listUsers must return NO account with the admin claim");
+  const emails = new Set(users.map((u) => u.email));
+  assert.ok(!emails.has(mgrEmail), "a manager admin must not appear in the Users list");
+  assert.ok(!emails.has(OWNER_EMAIL), "an owner must not appear in the Users list");
+  // Guard against over-filtering: a genuine plain user is still listed.
+  assert.ok(emails.has(plainEmail), "a plain user must still appear in the Users list");
+});
+
+test("CRYP-103: getStats/gatherStats excludes admins from totalUsers and the tier counts", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+  const readStats = async () => {
+    const r = await callAs("getStats", ownerToken, {});
+    assert.strictEqual(r.status, 200, `getStats failed: ${JSON.stringify(r.body)}`);
+    return r.body.result;
+  };
+
+  const s0 = await readStats();
+
+  // Add ONE manager admin with a users/{uid} doc (tier "free"). Today this bumps the counts;
+  // after the fix it must not, because gatherStats keys off customClaims.admin === true.
+  const admEmail = `sep_stat_admin_${stamp}@example.com`;
+  const admUid = await makeUser(admEmail, { admin: true, role: "manager" });
+  await db.collection("users").doc(admUid).set({ email: admEmail, tier: "free", portfolioCount: 0 });
+  const s1 = await readStats();
+  assert.strictEqual(s1.totalUsers, s0.totalUsers, "an admin account must NOT be counted in totalUsers");
+  assert.strictEqual(s1.freeUsers, s0.freeUsers, "an admin account must NOT be counted in the free-tier total");
+
+  // Positive control: a plain user with the SAME doc shape IS still counted (proves the
+  // counter isn't simply broken / frozen after the fix).
+  const plnEmail = `sep_stat_plain_${stamp}@example.com`;
+  const plnUid = await makeUser(plnEmail, null);
+  await db.collection("users").doc(plnUid).set({ email: plnEmail, tier: "free", portfolioCount: 0 });
+  const s2 = await readStats();
+  assert.strictEqual(s2.totalUsers, s1.totalUsers + 1, "a plain user must still be counted");
+  assert.strictEqual(s2.freeUsers, s1.freeUsers + 1, "a plain free user must still be counted in the free total");
+});
+
+test("CRYP-103: findDuplicateEmails does not report an admin account's email as a duplicate", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+
+  // The Auth emulator's create-time email-uniqueness check is bypassed by importUsers (a
+  // migration API), so it's the deterministic way to force the duplicate-email pair this
+  // detector exists to surface. Separate calls sidestep any within-batch validation.
+  const adminDupEmail = `sep_admindup_${stamp}@example.com`;
+  const aUid = `sep_admindupA_${stamp}`, bUid = `sep_admindupB_${stamp}`;
+  await auth.importUsers([{ uid: aUid, email: adminDupEmail }]);
+  await auth.importUsers([{ uid: bUid, email: adminDupEmail }]);
+  await auth.setCustomUserClaims(aUid, { admin: true, role: "manager" });
+  await auth.setCustomUserClaims(bUid, { admin: true, role: "owner" });
+
+  // A genuine plain-user duplicate — the POSITIVE control the detector must STILL report.
+  const plainDupEmail = `sep_plaindup_${stamp}@example.com`;
+  await auth.importUsers([{ uid: `sep_plaindupA_${stamp}`, email: plainDupEmail }]);
+  await auth.importUsers([{ uid: `sep_plaindupB_${stamp}`, email: plainDupEmail }]);
+
+  const res = await callAs("findDuplicateEmails", ownerToken, {});
+  assert.strictEqual(res.status, 200, `findDuplicateEmails failed: ${JSON.stringify(res.body)}`);
+  const emails = res.body.result.groups.map((g) => g.email);
+
+  // Construction sanity: the plain-user duplicate really was created + detected. If this
+  // fails, importUsers didn't produce a duplicate in this environment (fix the harness),
+  // rather than the fix silently over-filtering.
+  assert.ok(emails.includes(plainDupEmail), "a genuine plain-user duplicate must still be reported");
+  // THE assertion: the admin-only duplicate is filtered out.
+  assert.ok(!emails.includes(adminDupEmail), "an admin account's email must NOT be reported as a duplicate");
+});
+
+test("CRYP-103: listAdmins returns every admin for an owner; refuses a manager and a plain user", async () => {
+  // listAdmins does not exist yet — an owner-only roster read, keyed off the claim, that
+  // returns { uid, email, role, disabled, lastSignInTime } for every admin. Today the
+  // callable is absent, so the emulator 404s and the owner-success assertion fails: red
+  // for the right reason. The functions-builder adds the body + its assertOwner gate.
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+  const mgrEmail = `sep_roster_mgr_${stamp}@example.com`;
+  const plainEmail = `sep_roster_plain_${stamp}@example.com`;
+  await makeUser(mgrEmail, { admin: true, role: "manager" });
+  await makeUser(plainEmail, null);
+  const mgrToken = await idTokenFor(mgrEmail);
+  const plainToken = await idTokenFor(plainEmail);
+
+  const ok = await callAsSafe("listAdmins", ownerToken, {});
+  assert.strictEqual(ok.status, 200, `owner listAdmins must succeed: ${JSON.stringify(ok.body)}`);
+  const admins = ok.body.result.admins;
+  assert.ok(Array.isArray(admins), "listAdmins must return an admins array");
+  const byEmail = new Map(admins.map((a) => [a.email, a]));
+
+  // Owner AND manager both appear, keyed off the claim (not the role string).
+  assert.ok(byEmail.has(OWNER_EMAIL), "the owner must be in the roster");
+  assert.strictEqual(byEmail.get(OWNER_EMAIL).role, "owner");
+  assert.ok(byEmail.has(mgrEmail), "the manager must be in the roster");
+  assert.strictEqual(byEmail.get(mgrEmail).role, "manager");
+  // The record shape the roster renders.
+  for (const k of ["uid", "email", "role", "disabled", "lastSignInTime"]) {
+    assert.ok(k in byEmail.get(mgrEmail), `each roster record must carry "${k}"`);
+  }
+  // A plain user is never in the roster.
+  assert.ok(!byEmail.has(plainEmail), "a plain user must never appear in the admin roster");
+
+  // Owner-only READ: a manager is refused (permission-denied → 403)…
+  const asMgr = await callAsSafe("listAdmins", mgrToken, {});
+  assert.strictEqual(asMgr.status, 403, `a manager must be refused listAdmins, got ${asMgr.status}: ${JSON.stringify(asMgr.body)}`);
+  // …and a plain user is refused too.
+  const asPlain = await callAsSafe("listAdmins", plainToken, {});
+  assert.strictEqual(asPlain.status, 403, `a plain user must be refused listAdmins, got ${asPlain.status}: ${JSON.stringify(asPlain.body)}`);
 });
