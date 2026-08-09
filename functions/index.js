@@ -1536,28 +1536,42 @@ exports.findDuplicateEmails = functions.https.onCall(async (data, context) => {
   // duplicate; the profile just enriches the row.
   const prof = {};
   try { const snap = await db.collection("users").get(); snap.forEach((d) => { prof[d.id] = d.data(); }); } catch (e) { /* Auth is enough to detect a dup */ }
-  const all = [];
+  // Accumulate EVERY Auth record (admins included), carrying customClaims so the pure
+  // duplicates.excludeAdmins helper can filter them out below — keeping the admin-exclusion
+  // unit-testable without the emulator (the Auth emulator can't hold duplicate emails at all).
+  const raw = [];
   let pageToken;
   do {
     const res = await auth.listUsers(1000, pageToken);
     for (const u of res.users) {
-      // ADMIN-SEP (CRYP-103): an admin account is not a normal user, so its email is never
-      // reported as a duplicate here. Keyed off the claim (not `role`, which is "" for a
-      // legacy no-role admin), same as the Users list exclusion.
-      if (u.customClaims && u.customClaims.admin === true) continue;
       const p = prof[u.uid] || {};
-      all.push({
+      raw.push({
         uid: u.uid,
         email: u.email || "",
         tier: p.tier || "free",
         disabled: !!u.disabled,
         creationTime: (u.metadata && u.metadata.creationTime) || null,
+        customClaims: u.customClaims || null,
       });
     }
     pageToken = res.pageToken;
-  } while (pageToken && all.length < CAP);
+  } while (pageToken && raw.length < CAP);
+  // ADMIN-SEP (CRYP-103): drop admin accounts (keyed off the { admin:true } claim, not
+  // `role`, so a legacy no-role admin is excluded too), then .map STRIPS customClaims so the
+  // claims blob NEVER leaks to the client — each account stays { uid, email, tier, disabled,
+  // creationTime } exactly as before.
+  const all = duplicates.excludeAdmins(raw).map((u) => ({
+    uid: u.uid,
+    email: u.email,
+    tier: u.tier,
+    disabled: u.disabled,
+    creationTime: u.creationTime,
+  }));
   const groups = duplicates.groupDuplicateEmails(all);
-  return { groups, duplicateEmails: groups.length, capped: all.length >= CAP };
+  // `capped` = truncated: we stopped paging because raw hit CAP while more pages remained
+  // (pageToken still set). Keyed off pageToken, NOT `all.length` — `all` is post-admin-filter,
+  // so `all.length >= CAP` would under-count and falsely report "not capped" on a huge tenant.
+  return { groups, duplicateEmails: groups.length, capped: !!pageToken };
 });
 
 // ─── ADMIN-SEP (CRYP-103): the admin roster — owners + managers (owner only) ───

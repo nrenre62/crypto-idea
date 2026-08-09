@@ -49,12 +49,12 @@ a fresh context resumes **exactly where it left off**.
 - Plan (PR1 files): functions/index.js (listUsers/findDuplicateEmails/gatherStats/countSignupsSince exclude admins via adminUidSet(); new exports.listAdmins owner-only read) · src/api/admin.js (listAdmins wrapper) · src/hooks/useAdminDashboard.js (admins state + lazy loadAdmins) · src/components/admin-dashboard.jsx (roster at top of Admin-access drill-in; A1 user-detail backstop; Users render filters !u.isAdmin) · openapi.json (/listAdmins + ListAdminsResultEnvelope/AdminEntry; /listUsers desc) · tests/unit/admin-gate-coverage.test.js (MATRIX += listAdmins:assertOwner) · docs/decisions/ADMIN-PANEL-AUDIT.md (roles matrix row)
 - Plan (PR2 files): functions/guards.js (requireManager harden) · tests/unit/guards.test.js · functions/scripts/seed-emulator.js (drop legacy@) · functions/scripts/set-admin.js (owner hard-cap) + Gap-7 prose (guards.js comment, API-SECURITY.md, BACKEND-ADMIN-DECISIONS.md, ADMIN-PANEL-AUDIT.md)
 - Jira: CRYP-103 (Story)
-- Fix-round: 1 / 3
-- Open findings: CI integration tier — 1 of 4 CRYP-103 callable tests RED (findDuplicateEmails fixture: two separate importUsers calls → emulator drops the 2nd same-email record → setCustomUserClaims(bUid) 404s before the callable runs). Impl sound (listUsers/getStats/listAdmins integration tests GREEN; same claim-skip). Fix = single-batch importUsers per dup pair (test-fixture only).
+- Fix-round: 2 / 3 (RESOLVED locally — pushing round 2)
+- Open findings: none. Round-2 fix DONE: `excludeAdmins` pure helper (functions/duplicates.js) + findDuplicateEmails rewired to `groupDuplicateEmails(excludeAdmins(raw).map(strip customClaims))`; admin-exclusion proven at UNIT tier (tests/unit/duplicates.test.js, 2 new CRYP-103 cases, LOCALLY green 1049/1049); impossible integration case removed (Auth emulator can't hold dup emails — ERRORS.md C7). Re-review clean: verify GREEN 1049/1049+build, secure-by-design SAFE (customClaims-strip confirmed; 1 LOW capped-flag semantics → FIXED via `capped: !!pageToken`). No openapi change (response shape identical).
 - Branch: claude/admin-sep (PR1); PR2 branch claude/admin-sep-partc off master after PR1 merges
-- Built: yes 380d50b (PR #61) — CI: rules ✅, build+unit ⏳, integration ❌ (fixture; fixing)
+- Built: yes 380d50b→922c8f1→(round2 pending push) (PR #61) — CI: rules ✅, build+unit ✅, integration was ❌ on fixture (now moved to unit tier)
 - Merged: no
-- Agents this item: 14
+- Agents this item: 18
 - Updated: 2026-08-09
 
 *(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101). Run rows in `factory-runs.md`.)*

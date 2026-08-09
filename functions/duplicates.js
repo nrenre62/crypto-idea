@@ -27,4 +27,12 @@ function groupDuplicateEmails(users) {
   return dups;
 }
 
-module.exports = { groupDuplicateEmails };
+// ADMIN-SEP (CRYP-103): an admin account is not a "user", so it's dropped before the
+// duplicate-email grouping. Keyed off the CLAIM (customClaims.admin === true), NOT role —
+// a legacy no-role admin has role "" and must still be excluded. Pure so the exclusion is
+// unit-testable without the emulator (the Auth emulator can't hold duplicate emails at all).
+function excludeAdmins(users) {
+  return (users || []).filter((u) => !(u && u.customClaims && u.customClaims.admin === true));
+}
+
+module.exports = { groupDuplicateEmails, excludeAdmins };

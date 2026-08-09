@@ -494,6 +494,17 @@
   (source guard banning `admin.firestore.<Static>`, runs in `test:unit`) and `tests/functions-callable.test.js`
   (invokes the real callable over HTTP against the functions emulator, asserting `suspendedAt` is cleared and
   `endDate` is extended by the frozen window). Both were confirmed to fail against the buggy line. ✅
+- **C7 · `findDuplicateEmails` duplicate-detection CANNOT be integration-tested — the Auth emulator forbids
+  duplicate emails.** The Firebase Auth emulator rejects any attempt to create two accounts sharing an email —
+  `createUser`/`updateUser` enforce uniqueness, and even `importUsers` (the bulk migration API) fails with
+  `auth/invalid-user-import` ("Auth Emulator does not support importing duplicate email"), whether the records
+  are in separate calls or a single batch. So the exact state `findDuplicateEmails` exists to surface — ≥2 Auth
+  accounts with one email — is **un-constructable at the integration tier** (the positive control is impossible
+  too). This is why the AUTH-DUP grouping (`functions/duplicates.js` `groupDuplicateEmails`) and the ADMIN-SEP
+  admin-exclusion (`excludeAdmins`) are proven at the **unit tier** (`tests/unit/duplicates.test.js`), not via a
+  live callable. The admin *gate* is covered by `tests/unit/admin-gate-coverage.test.js`, and the same
+  `customClaims.admin === true` claim-skip is separately proven end-to-end by the passing `listUsers`/`getStats`
+  ADMIN-SEP callable tests. Do NOT re-add an `importUsers`-based duplicate-email fixture — it will fail in CI. ℹ️ (CRYP-103)
 
 ---
 

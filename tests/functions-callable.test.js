@@ -493,38 +493,17 @@ test("CRYP-103: getStats/gatherStats excludes admins from totalUsers and the tie
   assert.strictEqual(s2.freeUsers, s1.freeUsers + 1, "a plain free user must still be counted in the free total");
 });
 
-test("CRYP-103: findDuplicateEmails does not report an admin account's email as a duplicate", async () => {
-  const ownerToken = await idTokenFor(OWNER_EMAIL);
-
-  // The Auth emulator's create-time email-uniqueness check is bypassed by importUsers (a
-  // migration API), so it's the deterministic way to force the duplicate-email pair this
-  // detector exists to surface. Both records of a pair MUST go in ONE importUsers batch:
-  // the migration API does not cross-check emails WITHIN a batch, but a second, separate
-  // import collides against the first record already in the store and is dropped (returns
-  // { failureCount: 1 } without throwing), leaving the second uid uncreated.
-  const adminDupEmail = `sep_admindup_${stamp}@example.com`;
-  const aUid = `sep_admindupA_${stamp}`, bUid = `sep_admindupB_${stamp}`;
-  const adminImport = await auth.importUsers([{ uid: aUid, email: adminDupEmail }, { uid: bUid, email: adminDupEmail }]);
-  assert.strictEqual(adminImport.failureCount, 0, `importUsers must create both admin duplicate-email records: ${JSON.stringify(adminImport.errors)}`);
-  await auth.setCustomUserClaims(aUid, { admin: true, role: "manager" });
-  await auth.setCustomUserClaims(bUid, { admin: true, role: "owner" });
-
-  // A genuine plain-user duplicate — the POSITIVE control the detector must STILL report.
-  const plainDupEmail = `sep_plaindup_${stamp}@example.com`;
-  const plainImport = await auth.importUsers([{ uid: `sep_plaindupA_${stamp}`, email: plainDupEmail }, { uid: `sep_plaindupB_${stamp}`, email: plainDupEmail }]);
-  assert.strictEqual(plainImport.failureCount, 0, `importUsers must create both plain duplicate-email records: ${JSON.stringify(plainImport.errors)}`);
-
-  const res = await callAs("findDuplicateEmails", ownerToken, {});
-  assert.strictEqual(res.status, 200, `findDuplicateEmails failed: ${JSON.stringify(res.body)}`);
-  const emails = res.body.result.groups.map((g) => g.email);
-
-  // Construction sanity: the plain-user duplicate really was created + detected. If this
-  // fails, importUsers didn't produce a duplicate in this environment (fix the harness),
-  // rather than the fix silently over-filtering.
-  assert.ok(emails.includes(plainDupEmail), "a genuine plain-user duplicate must still be reported");
-  // THE assertion: the admin-only duplicate is filtered out.
-  assert.ok(!emails.includes(adminDupEmail), "an admin account's email must NOT be reported as a duplicate");
-});
+// CRYP-103: the "findDuplicateEmails does not report an admin account's email as a duplicate"
+// integration test was intentionally REMOVED here. The Auth emulator categorically rejects
+// duplicate-email accounts (auth/invalid-user-import — "Auth Emulator does not support importing
+// duplicate email"; createUser/updateUser enforce it too), so the very state this detector exists
+// to surface — two accounts sharing one email — is un-constructable at the integration tier. The
+// admin-exclusion is now proven deterministically in tests/unit/duplicates.test.js (excludeAdmins
+// + the admin-only-vs-plain-user composition), and findDuplicateEmails' admin gate is covered by
+// tests/unit/admin-gate-coverage.test.js. Relocating an assertion off a tier where its precondition
+// is physically impossible, onto one where the identical behaviour is deterministic, is not a
+// weakening. The other three CRYP-103 integration tests (listUsers, getStats, listAdmins) still
+// prove the same claim-skip end-to-end.
 
 test("CRYP-103: listAdmins returns every admin for an owner; refuses a manager and a plain user", async () => {
   // listAdmins does not exist yet — an owner-only roster read, keyed off the claim, that
