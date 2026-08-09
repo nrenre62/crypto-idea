@@ -40,12 +40,12 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## FLOATING-HEADER — pinned brand-bar header + 30px gap + sticky settings (CRYP-102)
-- Phase: G2-approved (PLANNED — 🟩 GREEN locked plan is G1)
+- Phase: inner-loop (built, in review fix-round)
 - G1 confirmed: yes (founder interview 2026-08-09, 8 locked decisions)
 - G2 approved: yes (written NEXT-STEPS plan carried the founder yes; architect = non-blocking plan-of-record)
 - Plan (files): src/styles/app.css · src/features/research/styles/research-tab.css · src/CryptoIdea.jsx · src/components/Account.jsx · (Portfolio.jsx/HeaderTags.jsx if needed) · docs
-- Fix-round: 0 / 3
-- Open findings: none
+- Fix-round: 1 / 3
+- Open findings: F1 avatar hidden behind sticky Research header (z16>z6) — DEFECT, fix; F2 segwrap top:76px magic number fragile on wrap — DEFECT, fix via one sticky wrapper; F3 settings header uses --paper-2 (white) not --paper/#F6F5F0 + builder kept head INSIDE card vs founder decision #3 "card down" — DECISION, escalated to founder; F4 scrollTo(0,0) also fires on Account mount — intended callout. Reviews: secure=SAFE, test-tier=GREEN 88/88.
 - Branch: master-6mrr02
 - Built: no
 - Merged: no
