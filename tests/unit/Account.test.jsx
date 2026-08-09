@@ -373,3 +373,22 @@ describe("USER-SET-UI — framed settings panels (mirror admin DScreen, responsi
     expect(container.querySelector(".acct-divider")).toBeNull();
   });
 });
+
+// CRYP-102 (FLOATING-HEADER, decision #4): opening a settings drill-in resets the
+// scroll to the top, so the new framed panel always starts at its header rather than
+// inheriting the home view's scroll offset. Design-only; Account() gains a
+// `useEffect(() => window.scrollTo(0, 0), [view])` so every home→detail transition
+// jumps to the top of the panel.
+describe("CRYP-102 — settings drill-in scroll-to-top", () => {
+  it("CRYP-102: scrolls to the top when opening a settings drill-in", () => {
+    const scrollSpy = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    try {
+      provide({});
+      scrollSpy.mockClear();          // ignore any mount-time scroll — assert the drill-in transition
+      open(/Profile/);                // home → profile detail view (view state changes)
+      expect(scrollSpy).toHaveBeenCalledWith(0, 0);
+    } finally {
+      scrollSpy.mockRestore();
+    }
+  });
+});

@@ -141,4 +141,22 @@ describe("CryptoIdea (smoke)", () => {
     expect(await screen.findByText("Plan usage")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Privacy & data/ })).toBeInTheDocument();
   });
+
+  // CRYP-102 (FLOATING-HEADER, decision #1): the shell-level account avatar button is
+  // pinned INSIDE the sticky header dock, so it stays with the floating header instead
+  // of scrolling away with the tab body. The refactor wraps the avatar button in a
+  // `<div className="avatar-dock">` in CryptoIdea.jsx. This is the shell where the
+  // avatar actually renders (it is not part of <Portfolio/>), so the dock structure is
+  // only assertable here.
+  it("CRYP-102: the account avatar is pinned inside the sticky .avatar-dock", async () => {
+    onAuthChange.mockImplementation((cb) => {
+      cb({ uid: "u1", email: "free@test.com", displayName: "Free" });
+      return () => {};
+    });
+    const { container } = render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    const avatar = container.querySelector(".app-avatar");
+    expect(avatar).toBeTruthy();                       // shell-level avatar renders on a tab screen
+    expect(avatar.closest(".avatar-dock")).toBeTruthy(); // and sits inside the sticky header dock
+  });
 });
