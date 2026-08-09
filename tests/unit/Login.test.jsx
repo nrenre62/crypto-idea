@@ -236,6 +236,42 @@ describe("Login screen (extracted, via AppContext)", () => {
     });
   });
 
+  /* CRYP-101 — LAUNCH-FREE Part B. When paid plans are switched off site-wide
+     (site.paidPlansEnabled === false), the plan picker offers ONLY the Starter
+     card — the Pro/Premium cards are not rendered at all (there is nothing to
+     buy). With the flag on or absent the three-card picker is unchanged. */
+  describe("CRYP-101 — launch-free plan picker", () => {
+    it("CRYP-101: paid plans off → the picker shows ONLY Starter (no Pro/Premium cards)", () => {
+      const { container } = provide({
+        showPlan: true, upgradeStep: "pickPlan", planChosen: false,
+        site: { signupsEnabled: true, paidPlansEnabled: false },
+        user: { name: "T", tier: "free" },
+      });
+      // Starter is still there — a forced first choice must never be a dead end.
+      expect(container.querySelector(".plan-card.starter")).toBeTruthy();
+      expect(screen.getByText("Choose Starter")).toBeInTheDocument();
+      // …but the paid cards are gone entirely.
+      expect(container.querySelector(".plan-card.rec")).toBeNull();   // Pro
+      expect(container.querySelector(".plan-card.prem")).toBeNull();  // Premium
+      expect(screen.queryByText("Choose Pro")).toBeNull();
+      expect(screen.queryByText("Choose Premium")).toBeNull();
+    });
+
+    it("CRYP-101: paid plans on/absent → all three plan cards render as today", () => {
+      for (const site of [{ signupsEnabled: true, paidPlansEnabled: true }, { signupsEnabled: true }]) {
+        const { container, unmount } = provide({
+          showPlan: true, upgradeStep: "pickPlan", planChosen: false, site,
+          user: { name: "T", tier: "free" },
+        });
+        expect(container.querySelector(".plan-card.rec"), JSON.stringify(site)).toBeTruthy();
+        expect(container.querySelector(".plan-card.prem"), JSON.stringify(site)).toBeTruthy();
+        expect(screen.getByText("Choose Pro")).toBeInTheDocument();
+        expect(screen.getByText("Choose Premium")).toBeInTheDocument();
+        unmount();
+      }
+    });
+  });
+
   it("the mode-toggle buttons are type=button so they don't submit the form", () => {
     const handleAuth = vi.fn();
     const { container } = provide({ handleAuth });

@@ -70,6 +70,28 @@ describe("Account screen (drill-in, via AppContext)", () => {
     expect(screen.getByText("Upgrade to Pro")).toBeInTheDocument();
   });
 
+  // CRYP-101 — LAUNCH-FREE Part B. With paid plans switched off site-wide
+  // (site.paidPlansEnabled === false) a Starter/non-paid user has nothing to buy, so
+  // the Upgrade CTA is hidden. A user already on a paid tier still gets the full
+  // cancel/manage flow — turning off SALES must never trap an existing subscriber.
+  it("CRYP-101: paid plans off → a Starter user sees NO Upgrade-to-Pro CTA", () => {
+    provide({ site: { signupsEnabled: true, paidPlansEnabled: false } });
+    open(/Plan & billing/);
+    expect(screen.queryByText("Upgrade to Pro")).toBeNull();
+    expect(screen.queryByText("Upgrade to Premium")).toBeNull();
+  });
+
+  it("CRYP-101: paid plans off → an existing Pro user still sees cancel + manage", () => {
+    provide({
+      isPro: true, site: { signupsEnabled: true, paidPlansEnabled: false },
+      user: { ...base.user, tier: "pro" },
+    });
+    open(/Plan & billing/);
+    // Managing/cancelling an existing subscription is ungated by the launch-free switch.
+    expect(screen.getByText(/Cancel Pro · Switch to Starter/)).toBeInTheDocument();
+    expect(screen.getByText(/Update payment method/i)).toBeInTheDocument();
+  });
+
   // C-A4 (C6/C7, supersedes the U9 meter): users never see AI budget/usage numbers —
   // the row reads "Live" for every tier; usage + cost are admin-only.
   it("Plan & billing: AI reads Live with NO budget numbers — free tier (C-A4)", () => {

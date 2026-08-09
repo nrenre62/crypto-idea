@@ -875,6 +875,31 @@ describe("admin-dashboard", () => {
     expect(flags.features.aiResearch).toBe(false);
   });
 
+  /* ── CRYP-101 · LAUNCH-FREE Part B — the paidPlansEnabled master toggle ──
+     A top-level flag (peer of maintenance/signups, NOT a flags.features switch) that
+     turns off ALL new paid subscriptions site-wide. It lives on the Plans & pricing
+     settings screen next to the prices it governs, and rides along on the same
+     saveControls → saveConfig path so it can't be dropped by another flags save. */
+  it("CRYP-101: the Plans & pricing screen has a paidPlansEnabled master toggle that flips via saveControls", async () => {
+    getAdminConfig.mockResolvedValueOnce({ flags: { maintenance: false, signupsEnabled: true, paidPlansEnabled: true } });
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Plans & pricing/i }));
+
+    // The master toggle reflects controls.paidPlansEnabled — ON here, so checked.
+    const label = await screen.findByText(/Paid plans/i);
+    const row = label.closest(".settings-row") || label.closest(".plan-block") || label.parentElement;
+    const toggle = row.querySelector('input[role="switch"]');
+    expect(toggle, "the Plans & pricing screen must render a paidPlansEnabled master toggle").toBeTruthy();
+    expect(toggle.checked).toBe(true);
+
+    // Flipping it saves flags.paidPlansEnabled=false through the saveControls→saveConfig path.
+    fireEvent.click(toggle);
+    await waitFor(() => expect(saveConfig).toHaveBeenCalled());
+    expect(saveConfig.mock.calls.at(-1)[0].flags.paidPlansEnabled).toBe(false);
+  });
+
   /* ── ADMIN-0 · admin 2FA switch ─────────────────────────────────────────────
      This is the one toggle in the panel that can lock every admin out of the panel
      — including out of itself, since it lives behind owner-only Settings. So it is

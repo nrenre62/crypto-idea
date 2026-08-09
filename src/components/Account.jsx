@@ -130,9 +130,13 @@ export function Account() {
     delPass, setDelPass, delType, setDelType, cancelDelete,
     pwCur, setPwCur, pwNew, setPwNew, pwMsg, changeMyPassword, signOutEverywhere,
     profName, setProfName, profMsg, saveDisplayName, emNew, setEmNew, emPass, setEmPass, emMsg, requestEmailChange,
-    toggleSetting,
+    toggleSetting, site,
   } = useApp();
   const settings = user?.settings || {};
+  // CRYP-101 (LAUNCH-FREE Part B): paid plans are ON unless the server says exactly false.
+  // When off, a non-paid user has nothing to buy, so the upgrade CTAs are hidden — but an
+  // existing subscriber's cancel/downgrade/manage flow stays (it gates on tier, not this).
+  const paidPlansOn = site?.paidPlansEnabled !== false;
   const [view, setView] = useState("home");
   // CRYP-102: opening a settings drill-in (or returning home) resets scroll to the top
   // so the framed panel always starts at its sticky header, not the prior scroll offset.
@@ -283,8 +287,8 @@ export function Account() {
               {isPremium&&<button onClick={openDowngradeChooser} className="acct-btn ghost">Change downgrade choice</button>}
             </>)}
 
-            {!isPro&&<button onClick={()=>startUpgrade("pro")} className="acct-btn accent">Upgrade to Pro</button>}
-            {isPro&&!isPremium&&<button onClick={()=>startUpgrade("premium")} className="acct-btn prem">Upgrade to Premium</button>}
+            {paidPlansOn&&!isPro&&<button onClick={()=>startUpgrade("pro")} className="acct-btn accent">Upgrade to Pro</button>}
+            {paidPlansOn&&isPro&&!isPremium&&<button onClick={()=>startUpgrade("premium")} className="acct-btn prem">Upgrade to Premium</button>}
             {isPro&&!isPremium&&!user?.subscription?.cancelled&&<button onClick={()=>startDowngrade("free")} className="acct-btn ghost">Cancel Pro · Switch to Starter</button>}
             {/* R29-1: Premium picks its target (Pro or Starter) in the chooser popup */}
             {isPremium&&!user?.subscription?.cancelled&&<button onClick={openDowngradeChooser} className="acct-btn ghost">Downgrade</button>}

@@ -89,6 +89,40 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
   user, and un-suspending **extends `endDate` by the frozen duration** (`billing.extendForSuspension`)
   so the user loses none of the paid time they couldn't use.
 
+### 3.6 Launch-free mode — the `paidPlansEnabled` master switch (CRYP-101, 2026-08-08)
+A single top-level flag, **`config/app.flags.paidPlansEnabled`** (default `true`; a peer of
+`maintenance`/`signupsEnabled`, **not** a `flags.features` switch), pauses **all new paid
+subscriptions** so the app can launch free (Starter-only) while billing is still being hardened.
+
+- **The control is server-side, in `createSubscription`.** When the flag is exactly `false`, the
+  callable throws `failed-precondition` ("New subscriptions are paused right now.") *before* the
+  cooldown/PayPal work — so no client, even from devtools, can open a checkout. The gate reads
+  `config/app` **fresh** (one extra read, `functions/flags.js` `paidPlansOn`), never the 5-min
+  `getConfig()` cache: a revenue gate must not lag its own switch.
+- **Precedence over `checkout`.** The `paidPlansEnabled` check sits **before** the ADMIN-2 `checkout`
+  kill-switch, so `paidPlansEnabled=false` blocks new subs regardless of the finer `checkout` flag.
+  The two coexist: `paidPlansEnabled` is the launch-master (admin **Plans & Pricing** card),
+  `checkout` is the mid-incident finer control (App Controls). `signupsEnabled`/`maintenance` are
+  orthogonal.
+- **Default-ON, `!== false` idiom.** A missing key or an unreadable config reads as "paid plans
+  available" — launch-free mode may only ever engage because a human flipped it, never as a silent
+  side effect of a Firestore blip. `saveConfig` uses the same per-key **KEEP** merge as
+  `requireAdminMfa`, so a partial `flags` save (the instant maintenance/signups toggles) can't drop
+  the switch back on.
+- **New registrations auto-resolve to Starter.** The ONBOARD-GATE chooser is suppressed client-side
+  and onboarding runs the unchanged `chooseFreePlan` path (sets `planChosen` + `tier:'free'` +
+  `ensureDefaultPortfolio`). Billing/pricing UI is hidden in the app (Login/Account) and on the
+  landing (`#pricing` + nav/footer links, driven by `/api/config`) — presentation only; the server
+  refusal is the boundary.
+- **Existing paid users are untouched.** Tier, the running PayPal subscription, and cancel/downgrade/
+  manage all stay (those gate on `tier`, not this flag). No data is touched; the switch never demotes
+  anyone. Fully **reversible** — flip back to `true` and billing returns.
+
+The admin toggle rides `saveConfig`; its audit `details` come from `config-diff.js` `diffConfig`,
+which already recursively captures nested `flags.*` changes — so there is **no new audit action**.
+Part A of LAUNCH-FREE (the Starter-limit bump) is a separate item (#12 PLAN-LIMITS-MAX) and changes
+no tier limits here. Full plan + acceptance: [NEXT-STEPS.md](../product/NEXT-STEPS.md) §LAUNCH-FREE.
+
 ---
 
 ## 4. Security model (the part that must not regress)

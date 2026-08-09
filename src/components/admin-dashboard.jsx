@@ -1245,6 +1245,14 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
               {/* ── PLANS & PRICING ── */}
               {settingsView === "plans" && (<>
                   <div className="card-sub">Prices drive the revenue estimate + what users see; limits are enforced server-side by Firestore rules. Mo $ = monthly · Yr $ = annual (2 months free) · AI ¢/mo = live-AI cost ceiling in cents.</div>
+                  {/* CRYP-101 (LAUNCH-FREE Part B): the paidPlansEnabled master switch. OFF puts
+                      the whole site in free-launch mode — Starter-only, no plan chooser and no
+                      new subscriptions (server-enforced; the checkout switch stays as the finer
+                      control). Rides the saveControls→saveConfig path so a flags save can't drop it. */}
+                  <CtrlRow icon={SI.plans} label="Paid plans" sub="OFF = free launch · Starter-only · no new subscriptions">
+                    <Switch checked={controls.paidPlansEnabled !== false}
+                            onChange={() => saveControls({ ...controls, paidPlansEnabled: !(controls.paidPlansEnabled !== false) })} />
+                  </CtrlRow>
                   {["free","pro","premium"].map(t => (
                     <div key={t} className="plan-block">
                       <div className={"plan-name " + (t==="free"?"starter":t==="pro"?"pro":"prem")}>{t==="free"?"Starter":t}</div>

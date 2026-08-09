@@ -40,7 +40,7 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## FLOATING-HEADER — pinned brand-bar header + 30px gap + sticky settings (CRYP-102)
-- Phase: built
+- Phase: built (awaiting G3 merge)
 - G1 confirmed: yes (founder interview 2026-08-09, 8 locked decisions)
 - G2 approved: yes (written NEXT-STEPS plan carried the founder yes; architect = non-blocking plan-of-record)
 - Plan (files): src/styles/app.css · src/features/research/styles/research-tab.css · src/features/research/components/ResearchTab.jsx · src/CryptoIdea.jsx · src/components/Account.jsx · docs
@@ -48,7 +48,7 @@ a fresh context resumes **exactly where it left off**.
 - Founder decisions (2026-08-09): F3 → Option B (settings header = separate --paper/#F6F5F0 sticky bar, card body below as the white --paper-2 frame — pure-CSS reallocation, DOM unchanged so USER-SET-UI tests stay green); Q2 → scroll-to-top on Account open confirmed OK (F4 accepted).
 - Open findings being fixed: F1 avatar z-index → 20 (above research header z16); F2 → wrap research .apphead+.segwrap in ONE sticky container, drop the top:76px magic number; F3 → Option B CSS reallocation.
 - Reviews: secure=SAFE, test-tier=GREEN 97/97, design-consistency=CONSISTENT (F1/F2/F3 resolved round 2), build+dist-no-names clean, simplifier ran (1 cleanup).
-- Branch: master-6mrr02
+- Branch: master-6mrr02 (PR #60; merged master in to resolve CRYP-101 conflict)
 - Built: yes 9d6974a
 - Merged: no
 - Agents this item: 0
@@ -56,4 +56,4 @@ a fresh context resumes **exactly where it left off**.
 
 *(none other in flight.)*
 
-*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100). Run rows in `factory-runs.md`.)*
+*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101). Run rows in `factory-runs.md`.)*

@@ -64,6 +64,7 @@ The drawing loop draws **one per iteration**, ticks it, commits, and stops when 
 - [x] Research tab module (`src/features/research/` — Overview / Coins / Ask; app-native data, no new API calls)
 - [x] App Controls & feature flags (`config/app.flags` → public `/api/config`, maintenance / signups-off) — covered by [config-and-feature-flags.svg](config-and-feature-flags.svg)
 - [x] analytics & legal injection (`config/app.analytics`+`legal` → `/api/config` → `site-meta.js`, Termly/GA4/Plausible + CSP)
+- [ ] **TODO (CRYP-101):** `config-and-feature-flags.svg` needs `paidPlansEnabled` added — to the `flags: { … }` box (a top-level flag, peer of maintenance/signupsEnabled, NOT a `flags.features` switch) **and** the returned-`/api/config`-payload text. Deferred from the CRYP-101 doc sweep: a naive text-node append overflows the `flags` inner box (right edge x=574), so the box needs a small re-layout (extra line or widened box) rather than a text-only edit — redraw via the `drawing-diagram` skill.
 
 ## Conventions (see the `drawing-diagram` skill for the full guide)
 - **Blue** = public / DCA flow.  **Grey** = app flow.  **Dark** = upstream / refresh / external.

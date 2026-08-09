@@ -275,6 +275,15 @@ can never take the product down. A `saveConfig` payload that omits `features` **
 switches (per-key merge) — otherwise flipping maintenance mid-incident would silently re-enable the
 feature you had just killed.
 
+**Launch-free master switch (`paidPlansEnabled`, CRYP-101).** Separate from the three above, this is a
+**top-level `config/app.flags` key** (a peer of `maintenance`/`signupsEnabled`, **not** a member of
+`flags.features`), toggled from admin **Plans & Pricing**. OFF puts the site in free-launch mode:
+Starter-only, no plan chooser, and **no new subscriptions** — `createSubscription` refuses
+server-side (`failed-precondition`), read *fresh* and checked *before* the `checkout` switch so it
+**takes precedence over `checkout`**. Same default-ON `!== false` rule and per-key KEEP-on-save;
+published on `/api/config`. Existing paid users are untouched; reversible. See
+[BILLING.md](docs/decisions/BILLING.md) §3.6.
+
 ### Launch gate (ADMIN-0)
 
 **Signups-off is enforced inside account creation, not just in the UI.** `exports.beforeCreateUser`
@@ -453,7 +462,7 @@ Multi-page app (Vite build + Firebase Hosting rewrites):
 | `/admin` | `admin.html` → React | **Separate** admin app (own login + admin-claim check; owner/manager roles). Not in the user bundle. |
 | `/edge` | React | Education guide. |
 | `/pro-success` | React | PayPal return / upgrade confirmation. |
-| `/api/*` | `api` function | CoinGecko proxy: `prices` / `search` / `trending` / `history` / `coinlist`; plus `config` = public app flags (maintenance, signups). All cached / CDN-friendly. |
+| `/api/*` | `api` function | CoinGecko proxy: `prices` / `search` / `trending` / `history` / `coinlist`; plus `config` = public app flags (maintenance, signups, paidPlansEnabled). All cached / CDN-friendly. |
 
 ### Research tab (AI insights)
 
