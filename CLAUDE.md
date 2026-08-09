@@ -119,14 +119,29 @@ Crypto portfolio tracker + DCA calculator PWA. **Vite + React 19 + Firebase.**
   `.grid-auto`. Same markup mobile↔desktop, **no `@media`, no new deps, design unchanged** (rows/forms kept,
   nothing restyled). As-built: [`RESPONSIVE-DESIGN.md`](docs/design/RESPONSIVE-DESIGN.md) (+ backlog §R); method = `responsive-app` skill.
   Gotcha: shell classes are compound (`.ci-app.app-shell`) — same-element classes need a compound selector, not a descendant one.
-- **User settings framing (USER-SET-UI, BUILT 2026-08-01):** the Account **home AND every drill-in**
-  render in ONE framed panel via a user-scoped **`SettingsScreen`** primitive in `Account.jsx`
-  (`.set-scr` card → `.set-scr-head` divided header w/ bordered `‹` back BOX + title once →
-  `.set-scr-body`; sub-blocks are `.set-scr-section` dividers). It **mirrors the admin `DScreen`
-  (`.adm-scr*`)** but the `.ci-app .set-scr*` CSS lives in `app.css` using the app's OWN tokens —
-  **never import the admin-only `.adm-*` into the user bundle.** ONE responsive design, **no `@media`,
-  no `useIsDesktop`**: `max-width:560px` + `margin:auto` (centred desktop / full-width phones in the
-  18px `.pad` gutters); dark-safe via token flip. Design-only (handlers/state/routing unchanged).
+- **User settings framing (USER-SET-UI, BUILT 2026-08-01 · reframed by FLOATING-HEADER/CRYP-102, 2026-08-09):**
+  the Account **home AND every drill-in** render via a user-scoped **`SettingsScreen`** primitive in
+  `Account.jsx` (`.set-scr` wrapper → `.set-scr-head` header w/ bordered `‹` back BOX + title once →
+  `.set-scr-body`; sub-blocks are `.set-scr-section` dividers). **As of CRYP-102 the frame was reallocated
+  (Option B, pure CSS — DOM unchanged):** `.set-scr` is now a **transparent layout wrapper** (no frame/
+  `overflow`), `.set-scr-head` is a **sticky paper-tone bar** (`background:var(--paper)`, 30px top pad +
+  `border-bottom` divider — matching the tab headers) and the **white card frame now lives on `.set-scr-body`**
+  (`--paper-2` + `--line-2` border + `--radius` + `--sh-sm`), so the header reads as a separate pinned bar
+  with the card below it. (It **still echoes** the admin `DScreen` (`.adm-scr*`) drill-in pattern, but the
+  header no longer structurally mirrors the admin card frame the same way — the frame moved onto the body.)
+  The `.ci-app .set-scr*` CSS lives in `app.css` using the app's OWN tokens — **never import the admin-only
+  `.adm-*` into the user bundle.** ONE responsive design, **no `@media`, no `useIsDesktop`**: `max-width:560px`
+  + `margin:auto` (centred desktop / full-width phones in the 18px `.pad` gutters); dark-safe via token flip;
+  a `scrollTo(0,0)` effect on drill-in open + 8px stacked-field gap (CRYP-102). Design-only
+  (handlers/state/routing unchanged).
+- **Floating brand-bar header (FLOATING-HEADER, BUILT 2026-08-09 · CRYP-102):** the app header is a
+  **sticky/floating brand bar** on all 5 bottom-nav tabs + Account — **30px total top gap**, `var(--paper)`
+  bar bg (light `#F6F5F0`, dark flips via token), hairline bottom divider. The four `.ci-app` tabs share ONE
+  `.ci-app .apphead` sticky rule (`z-index:4`); **Research** pins header+sub-nav together via its own
+  `.research-stickyhead` wrapper (`z-index:16`, scoped under `.research-root`). The account **M** avatar is the
+  SINGLE shell-level **`.avatar-dock`** (zero-height `position:sticky; top:0; z-index:20`) for all 5 tabs
+  (supersedes the old `position:absolute; top:14px` shell avatar). Design-only, client-only, **no new `@media`**,
+  dark-safe. Canonical: [`DESIGN-PASS.md`](docs/design/DESIGN-PASS.md) Round 35.
 - **Unified brand logo (LOGO, BUILT 2026-08-01 · LOGO-2, 2026-08-04):** ONE shared **`<Logo>`** primitive in
   [`ui.jsx`](src/components/ui.jsx) — a CSS-drawn green "C" tile (`--accent`, dark-safe solid fill) + the
   one-word **"CryptoIdea"** wordmark — matching the landing (`.brand/.mark`) + admin (`.adm-logo`) marks but

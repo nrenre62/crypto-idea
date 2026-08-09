@@ -12,6 +12,135 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## FLOATING-HEADER. Pinned brand-bar header on every tab + Account, 30px top gap, sticky settings headers  (✅ BUILT 2026-08-09 · CRYP-102 · branch master-6mrr02 · design-only · founder interview 2026-08-09)
+
+**Founder ask (2026-08-09, plain-chat interview + interactive spacing mockup):** the header must stay
+on screen while the page scrolls — on all 5 tabs and in Account — with breathing room above it and a
+paper-tone bar behind it. Design-only; handlers/state/routing unchanged. Responsive (mobile + desktop),
+**no new layout `@media`** (the sticky bar + gap are the same markup both widths), dark-safe (light stays
+byte-for-byte, dark flips via token).
+
+**🟩 Locked decisions (founder answered all 8):**
+1. **Floating/sticky header** on every bottom-nav tab (Portfolio · Research · Journal · Learn · Search):
+   **only the brand bar** pins (logo + BETA + LIVE/PAUSED + plan badge + the account **M** avatar). The
+   value card, asset list, and all body content scroll **under** the pinned bar.
+2. **Top gap = 30px total** above the header content (replaces the current `.apphead` `14px` top padding),
+   **mobile + desktop**, every header. Confirmed via the interactive mockup ("replace with 30px total").
+3. **Settings screens** (Account home + every drill-in: Profile · Plan & billing · Portfolio · Security ·
+   Privacy & data): the **settings header + its divider line** get the 30px gap above them and pin; the
+   **settings card body sits below** with its normal spacing — the 30px is *above the header/border only*,
+   never inside the card.
+4. **Scroll-to-top on drill-in open** — opening any settings item resets the scroll to the top so the
+   title is visible, even if the operator had scrolled down.
+5. **Header background `#F6F5F0` in light** (the existing `--paper` tone), **matching dark paper tone in
+   dark** — dark-block-only (`html[data-theme="dark"]`), light untouched. Header bar bg only.
+6. **Field gap = 8px** between the stacked inputs in **Profile** (new email ↔ current password) and
+   **Security** (new password ↔ confirm) — today they're flush/merged.
+7. Re-confirm of #1: **just the brand bar sticks** (value card is not part of the frozen header).
+8. **Research** header gets the same 30px + `#F6F5F0` bar; its Overview/Coins/Ask sub-nav already floats.
+
+**Plan of record (file-by-file, KISS, design-only):**
+- `src/styles/app.css` — `.ci-app .apphead` → `position:sticky; top:0; z-index`, `padding-top:30px`,
+  `background:var(--paper)` + subtle bottom hairline/shadow; dark-block override for the bar bg; the
+  settings header (`.set-scr-head`) becomes a sticky top bar with the 30px gap (split out of the
+  `overflow:hidden` `.set-scr` card so sticky isn't clipped — card body sits below); `.fields` gap → 8px.
+  One rule covers Portfolio/Journal/Learn/Search (all share `.apphead`).
+- `src/features/research/styles/research-tab.css` — Research header 30px + `#F6F5F0` (+ dark), scoped
+  under `.research-root` (never `.ci-app`).
+- `src/CryptoIdea.jsx` — the shell-level floating **avatar** (`.app-avatar`, currently
+  `position:absolute; top:14px`) is unified **into the pinned brand bar** so it sticks with the row
+  (tap still opens Account; behavior identical). Bump/retire the old absolute `top`.
+- `src/components/Account.jsx` — restructure `SettingsScreen` so the header pins (30px gap) and the body
+  card scrolls below; add a `scrollTo(0)` effect keyed on the settings `view`; 8px field gap.
+- `src/components/Portfolio.jsx` / `HeaderTags.jsx` — header wrapper touch only if the avatar
+  unification needs it (keep the shared `.apphead`/`.title` markup).
+- Docs: `docs/design/DESIGN-PASS.md` (new round), this log (status), `CLAUDE.md` (design convention note).
+
+**Tests:** the `scrollTo(0)`-on-view-change effect and the avatar-in-header structure are unit-testable
+(vitest) — red-first. Pure-CSS sticky/spacing/`#F6F5F0` has no jsdom layout to assert; covered by the
+interactive mockup + a `design-consistency` review (scoping · dark-block light-unchanged · responsive
+no-new-`@media` · no-names) before commit. No rules/functions/openapi surface touched.
+
+**Provenance:** 🟩 GREEN locked plan → G1 interview satisfied by this block (done 2026-08-09); G2
+non-blocking plan-of-record; built through the loop on branch `master-6mrr02` (fresh off `master`), one PR.
+
+**As built (✅ 2026-08-09 · CRYP-102, design-only, client-only):** shipped exactly as planned —
+the four `.ci-app` tabs share ONE `.ci-app .apphead` sticky rule (`position:sticky; top:0; z-index:4;
+padding:30px 56px 14px 18px; background:var(--paper); box-shadow:0 1px 0 var(--line)`); Research pins
+header+sub-nav together via its own `.research-stickyhead` wrapper (`position:sticky; top:0; z-index:16`)
+around `.apphead`+`.segwrap` (no magic-number offset). The account **M** avatar is the single shell-level
+`.avatar-dock` (zero-height `position:sticky; top:0; z-index:20`) wrapping the one `.app-avatar`
+(`top:28px; right:18px`) for all 5 tabs — supersedes the old `position:absolute; top:14px` shell avatar.
+Settings did Option B as PURE CSS (DOM unchanged): `.set-scr` is now a transparent layout wrapper, the
+white card frame moved onto `.set-scr-body`, and `.set-scr-head` is a sticky paper-tone bar (30px top
+pad + `border-bottom`); plus a `scrollTo(0,0)` effect on drill-in open and an 8px stacked-field gap.
+Full as-built spec: `DESIGN-PASS.md` (Round 35).
+
+---
+
+## JOURNAL-POLISH. Journal/thesis type-scale + floating coin header + honest disclaimers  (🟩 GREEN — locked 2026-08-09 · design + honest-copy · founder interview 2026-08-09)
+
+**Founder ask (2026-08-09, plain-chat interview + screenshots):** tighten the Journal/thesis surfaces
+(type sizes, the duplicated coin name, the delete-confirm visibility, empty-state) AND fix two **false**
+copy claims — the thesis does NOT currently feed the AI/Research (no connection is wired), and the journal
+is NOT "only you" (an owner-admin can view a thesis per account via the audited `viewUserAsAdmin`). Next
+build-loop component after FLOATING-HEADER. Design-only + copy; handlers/state/routing unchanged. Dark-safe,
+responsive, no new `@media`, no-names guard clean.
+
+**🟩 Locked decisions (founder answered the interview):**
+1. **Tab footer disclaimers → 14px**, and **keep each tab's own line** (do NOT unify the text): Portfolio
+   "Prices via CoinGecko · Not financial advice" (13px→14px), Research keeps its line, Learn keeps
+   "For educational purposes only — not financial advice", Journal keeps its privacy note (edited, #9).
+   **Search** currently has NO disclaimer → **add "Prices via CoinGecko · Not financial advice"** (same as
+   Portfolio), 14px.
+2. **Kill the duplicate coin name in the thesis detail overlay** — `JournalDetail`'s `<Modal title={coin.name}>`
+   renders the name at top AND again in `.bj-coin-head` next to the logo. Drop the Modal title's coin name;
+   keep the logo+name row where it is.
+3. **Question type-scale:** `.q-label` (headline, e.g. "Why are you buying this?") → **16px**; `.q-sub`
+   (description) → **14px**.
+4. **Make the logo+name row (`.bj-coin-head`) the FLOATING (sticky) header** inside the thesis overlay —
+   don't move it; content scrolls under it; the Modal X stays. (Pairs with #2.)
+5. **Delete-thesis confirm:** when `confirmDel` opens, **scroll the two buttons into view** (they currently
+   render below the fold in the long modal); **8px gap** between "Yes, delete thesis" and "Keep it".
+6. **Empty "No thesis yet — tap 'Add thesis' above…"** → wrap in a **card/pill** + **16px** (already
+   auto-hides once a thesis exists — conditional on `entries.length===0`).
+7. **Section headings** "Needs a thesis (N)" and "Your theses (N)" (`.sec-label h2`) → **16px**.
+8. **AddThesis callout:** `.bjc-label` → **16px**, `.bjc-text` → **14px**, and **drop the false AI claim** —
+   new text (founder-approved): *"Your thesis lives with this coin. When the market drops, you'll know
+   exactly why you bought — and whether that reason still holds."* (removes "and powers your Research & Ask").
+9. **Journal footer note (`JOURNAL_NOTE`)** → **truthful** copy (founder chose B1):
+   *"Your journal is visible only to you and the CryptoIdea team."* (no AI claim; honest that an admin can
+   view it — matches the audited owner-only `viewUserAsAdmin`).
+
+**Plan of record (file-by-file, design + copy only):**
+- `src/components/Journal.jsx` — `JOURNAL_NOTE` string (#9); drop `Modal title` coin name in `JournalDetail`
+  (+ `ThesisBreakdown` if it double-renders) (#2); sticky `.bj-coin-head` wiring (#4); `AddThesis` callout
+  text (#8); delete-confirm scroll-into-view (a `ref` + `scrollIntoView` when `confirmDel` flips true) (#5);
+  wrap the "No thesis yet" empty line in a pill element (#6).
+- `src/components/Search.jsx` — add the "Prices via CoinGecko · Not financial advice" footer disclaimer (#1).
+- `src/styles/app.css` — `.disclaimer`/`.disclaimer-lg` → 14px unification (#1); `.q-label` 16px / `.q-sub`
+  14px (#3); `.bj-coin-head` sticky (#4); the 8px delete-button gap (#5); the empty-state pill (#6);
+  `.sec-label h2` 16px (#7); `.bjc-label` 16px / `.bjc-text` 14px (#8).
+- `src/features/research/styles/research-tab.css` — the Research `.disclaimer` → 14px if it's the tab footer
+  (confirm during build; keep `.research-root`-scoped).
+- Docs: `docs/design/DESIGN-PASS.md` (round entry), this log (status), `CLAUDE.md` if the JOURNAL note copy
+  is referenced.
+
+**Honesty note (why #8/#9 matter):** CLAUDE.md's Research section states the thesis-→-AI link is **Wave B,
+not yet wired** — so the current "powers your Research & Ask" / "helps the AI" copy is false today. When the
+Wave-B proxy actually consumes journal context, the AI phrasing can be reinstated in that increment.
+
+**Tests:** the delete-confirm `scrollIntoView` (#5) and the "No thesis yet" pill presence/absence (#6) are
+unit-testable (`tests/unit/Journal.test.jsx`) — red-first. Pure-CSS type sizes / sticky header have no jsdom
+layout → covered by `design-consistency` + screenshots. The copy strings (#8/#9) are assertable in the
+Journal test (exact text). No rules/functions/openapi surface.
+
+**Provenance:** 🟩 GREEN locked plan → G1 satisfied by this block; G2 non-blocking plan-of-record; build on a
+fresh branch off `master` after FLOATING-HEADER merges, one PR. Sizing: mostly CSS + copy + small JSX — if it
+nears ~200 lines, split disclaimers (#1) from the thesis-overlay work.
+
+---
+
 ## FACTORY-INTERVIEW-GATE. Ad-hoc build = mandatory interview; a written NEXT-STEPS plan skips only G1  (✅ BUILT 2026-08-08 · docs/command only · CRYP-98)
 
 **Founder rule (2026-08-08):** the interview→plan phase is enforced by **provenance**, so any operator
