@@ -3126,6 +3126,10 @@
           "signupsEnabled": {
             "type": "boolean"
           },
+          "paidPlansEnabled": {
+            "type": "boolean",
+            "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Non-secret, default true; only false when config says exactly false. Drives the launch-free UI; the server still enforces it in createSubscription, so this is presentation, never the control."
+          },
           "plans": {
             "$ref": "#/components/schemas/Plans"
           },
@@ -4274,6 +4278,10 @@
                     "type": "boolean",
                     "description": "ADMIN-0. Require a second sign-in factor on EVERY admin callable. Defaults false and is only true when config says exactly true — nothing can satisfy the gate until Identity Platform MFA is enabled. Admin-only: deliberately NOT exposed on the public /api/config. On a save, an omitted key KEEPS the stored value."
                   },
+                  "paidPlansEnabled": {
+                    "type": "boolean",
+                    "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Default true; only false when config says exactly false. On a save, an omitted key KEEPS the stored value (per-key merge)."
+                  },
                   "features": {
                     "$ref": "#/components/schemas/FeatureFlags"
                   }
@@ -4420,6 +4428,10 @@
                   "requireAdminMfa": {
                     "type": "boolean",
                     "description": "ADMIN-0. Require a second sign-in factor on EVERY admin callable. Defaults false and is only true when config says exactly true — nothing can satisfy the gate until Identity Platform MFA is enabled. Admin-only: deliberately NOT exposed on the public /api/config. On a save, an omitted key KEEPS the stored value."
+                  },
+                  "paidPlansEnabled": {
+                    "type": "boolean",
+                    "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Default true; only false when config says exactly false. On a save, an omitted key KEEPS the stored value (per-key merge) — the instant maintenance/signups toggles post flags without it and must not reset launch-free mode."
                   },
                   "features": {
                     "$ref": "#/components/schemas/FeatureFlags"
@@ -4682,6 +4694,10 @@
               },
               "signupsEnabled": {
                 "type": "boolean"
+              },
+              "paidPlansEnabled": {
+                "type": "boolean",
+                "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available — ON unless config says exactly false. Surfaced on the admin Overview strip."
               },
               "jobs": {
                 "type": "array",
