@@ -39,6 +39,19 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(none in flight — queue paused for founder direction on the 🔶 CHECKPOINTs.)*
+## FLOATING-HEADER — pinned brand-bar header + 30px gap + sticky settings (CRYP-102)
+- Phase: G2-approved (PLANNED — 🟩 GREEN locked plan is G1)
+- G1 confirmed: yes (founder interview 2026-08-09, 8 locked decisions)
+- G2 approved: yes (written NEXT-STEPS plan carried the founder yes; architect = non-blocking plan-of-record)
+- Plan (files): src/styles/app.css · src/features/research/styles/research-tab.css · src/CryptoIdea.jsx · src/components/Account.jsx · (Portfolio.jsx/HeaderTags.jsx if needed) · docs
+- Fix-round: 0 / 3
+- Open findings: none
+- Branch: master-6mrr02
+- Built: no
+- Merged: no
+- Agents this item: 0
+- Updated: 2026-08-09
+
+*(none other in flight.)*
 
 *(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100). Run rows in `factory-runs.md`.)*
