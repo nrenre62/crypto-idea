@@ -904,7 +904,7 @@ sweeps them automatically.
 
 ---
 
-## LAUNCH-FREE. "Starter-only launch mode" switch + maxed Starter limits  (📋 PLAN — 2026-08-02; NOT built)
+## LAUNCH-FREE. "Starter-only launch mode" switch + maxed Starter limits  (Part B ✅ BUILT 2026-08-08 · CRYP-101 · branch `claude/launch-free-mode`; Part A → #12 PLAN-LIMITS-MAX)
 
 Founder ask (2026-08-02): a switch in **admin → Plans & Pricing** to launch the app **free (Starter-only)**
 while billing is still being developed/secured — plus a **more generous Starter tier**. Interviewed via
@@ -940,7 +940,7 @@ AskUserQuestion; all decisions locked below. **Two parts.**
   6. Tests: `test:rules:solo` ("configured limits override defaults" + new-limit assertions); update any unit
      test asserting the old 1/10/50.
 
-### Part B — "Starter-only launch mode" switch (admin Plans & Pricing) — billing gate
+### Part B — "Starter-only launch mode" switch (admin Plans & Pricing) — billing gate  ✅ BUILT 2026-08-08 (CRYP-101, branch `claude/launch-free-mode`)
 - New server flag **`config/app.flags.paidPlansEnabled`** (default **true** = normal). When **false**
   (launch-free mode):
   - **New registrations → Starter automatically, NO plan choice.** The ONBOARD-GATE chooser is suppressed;
@@ -958,8 +958,12 @@ AskUserQuestion; all decisions locked below. **Two parts.**
   registration chooser reappears for new users. Nobody is auto-charged; users who registered as Starter stay
   Starter (their `planChosen` is set) and can upgrade normally once billing is back.
 - **Publish:** `/api/config` exposes `paidPlansEnabled` (non-secret, CDN ~60s) so landing + app react ~60s.
-- **Admin UI:** a toggle in the Plans & Pricing card (light-paper), **audited** on change (`writeAudit` +
-  `ACTION_LABELS`), with a clear "OFF = free launch · Starter-only · no new subscriptions" explainer.
+- **Admin UI:** a toggle in the Plans & Pricing card (light-paper), with a clear "OFF = free launch ·
+  Starter-only · no new subscriptions" explainer. **Audit correction (as built, CRYP-101):** the toggle
+  rides the existing `saveConfig` path, whose audit `details` come from `config-diff.js` `diffConfig`,
+  which **already recursively captures nested `flags.*`** — so the change is audited as a config diff
+  (e.g. `flags.paidPlansEnabled: true→false`) with **NO new audit action or `ACTION_LABELS` entry**
+  (this supersedes the earlier plan line that said "audited via `writeAudit` + `ACTION_LABELS`").
 - **Flag precedence (GAP documented):** when `paidPlansEnabled=false`, `checkout` is effectively off
   regardless (the callable refuses); `signupsEnabled`/`maintenance` are orthogonal.
 
@@ -978,10 +982,15 @@ flipping back on restores everything. Starter enforces **2/30/100** (`test:rules
 audited; Starter is 2/30/100 with index exemptions planned; docs + tests updated; no new dependency.
 Deploy-time (founder): `firebase deploy --only firestore:rules,firestore:indexes`.
 
-**Status: PLAN ONLY — not built.** Decisions locked 2026-08-02 (Starter **2/30/100**; **pause ALL new
-subscriptions**; existing users untouched; Starter tag; reversible). 🔶 **CHECKPOINT** (touches
-`firestore.rules` + billing) — but decisions are locked, so it's buildable on a "go" with `test:rules:solo`
-before commit. Queued in [BUILD-LOOP](BUILD-LOOP.md).
+**Status: Part B ✅ BUILT 2026-08-08 (CRYP-101, branch `claude/launch-free-mode`)** — the `paidPlansEnabled`
+top-level flag: `createSubscription` server-refusal (fresh read, precedence over `checkout`), chooser
+suppressed + auto-Starter for new users, billing/pricing UI hidden in-app + landing, existing paid users
+untouched, reversible; published on `/api/config`; admin toggle in Plans & Pricing (audited via the
+`saveConfig` diff, no new action/label). Contract in [`openapi.json`](../../openapi.json); canonical
+billing gate in [`BILLING.md`](../decisions/BILLING.md) §3.6. **Part A** (Starter **2/30/100** limits +
+index exemptions) is severed to **#12 PLAN-LIMITS-MAX** (3/30/300) — no tier-limit or `firestore.rules`
+change shipped in Part B. Original decisions locked 2026-08-02 (pause ALL new subscriptions; existing
+users untouched; Starter tag; reversible).
 
 ---
 

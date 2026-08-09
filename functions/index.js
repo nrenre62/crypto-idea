@@ -63,6 +63,8 @@ const featureFlags = require("./features.js");
 const observability = require("./observability.js");
 // ADMIN-0: the pure signups decision behind the Auth beforeCreate blocking function.
 const signupGate = require("./signup-gate.js");
+// CRYP-101: the pure paidPlansEnabled predicate (top-level launch-free switch).
+const { paidPlansOn } = require("./flags.js");
 // ADMIN-5: the site announcement banner (sanitise/merge/publish) + the pure
 // before/after formatter for per-user admin-action audit entries.
 const announce = require("./announcement.js");
@@ -420,6 +422,18 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
   }
   assertNoUnknownKeys(data, ["plan", "billing"]);
+  // CRYP-101 (LAUNCH-FREE): the paidPlansEnabled switch is THE control that pauses
+  // new paid subscriptions during launch-free mode — hiding the upgrade UI stops
+  // honest users, this stops a scripted client too. Read config/app FRESH (one
+  // extra read), NOT through the 60s featuresNow()/getConfig() cache: a revenue gate
+  // must not lag its own switch. Checked BEFORE the checkout kill-switch so
+  // paidPlansEnabled=false takes precedence regardless of the checkout flag, and
+  // before any cooldown/PayPal work so a paused call does nothing.
+  let paidCfg = {};
+  try { const s = await db.doc("config/app").get(); paidCfg = (s.exists && s.data()) || {}; } catch (e) { /* default-ON below */ }
+  if (!paidPlansOn(paidCfg)) {
+    throw new functions.https.HttpsError("failed-precondition", "New subscriptions are paused right now.");
+  }
   // ADMIN-2: the checkout kill-switch, enforced HERE rather than by hiding the
   // button. Hiding a button stops honest users; this stops a scripted client too,
   // which is the whole point when PayPal is misconfigured or misbehaving and every
@@ -1602,6 +1616,8 @@ exports.getSystemStatus = functions.https.onCall(async (data, context) => {
     features: featureFlags.readFeatures(cfg),
     maintenance: !!(cfg.flags && cfg.flags.maintenance),
     signupsEnabled: !(cfg.flags && cfg.flags.signupsEnabled === false),
+    // CRYP-101: launch-free switch on the Overview strip — ON unless exactly false.
+    paidPlansEnabled: !(cfg.flags && cfg.flags.paidPlansEnabled === false),
     // `at: null` is the honest reading for a job that has never completed — the
     // client renders "never", never a reassuring blank.
     jobs: SCHEDULED_JOBS.map(({ name, everyMs }) => {
@@ -1638,7 +1654,7 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     // ADMIN-0: requireAdminMfa is OFF unless config says exactly true — nothing can
     // satisfy the gate until Identity Platform MFA is enabled, so an absent flag
     // must not read as "on".
-    flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false, requireAdminMfa: fl.requireAdminMfa === true, features: featureFlags.readFeatures(cfg) },
+    flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false, requireAdminMfa: fl.requireAdminMfa === true, paidPlansEnabled: fl.paidPlansEnabled !== false, features: featureFlags.readFeatures(cfg) },
     plans: mergePlans(cfg.plans),
     // ADMIN-2: the DSN itself is a secret-ish endpoint URL, so it follows the same
     // rule as every other key — the form learns only whether one is configured.
@@ -1681,7 +1697,12 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   // value; stored-absent ⇒ false.
   const exFlags = existing.flags || {};
   const requireAdminMfa = "requireAdminMfa" in f ? f.requireAdminMfa === true : exFlags.requireAdminMfa === true;
-  const flags = { maintenance: !!f.maintenance, signupsEnabled: f.signupsEnabled !== false, requireAdminMfa, features: featureFlags.mergeFeatures(f.features, exFlags.features) };
+  // CRYP-101: same per-key KEEP rule as requireAdminMfa above — a server-side safety
+  // net for ANY caller that posts `flags` without paidPlansEnabled. Re-defaulting an
+  // omitted field would silently switch launch-free mode back off. Absent ⇒ KEEP the
+  // stored value; stored-absent ⇒ default-ON (true).
+  const paidPlansEnabled = "paidPlansEnabled" in f ? f.paidPlansEnabled !== false : exFlags.paidPlansEnabled !== false;
+  const flags = { maintenance: !!f.maintenance, signupsEnabled: f.signupsEnabled !== false, requireAdminMfa, paidPlansEnabled, features: featureFlags.mergeFeatures(f.features, exFlags.features) };
   const an = (data && data.analytics) || existing.analytics || {};
   const lg = (data && data.legal) || existing.legal || {};
   const cfg = {
@@ -2275,6 +2296,10 @@ exports.api = functions
       res.json({
         maintenance: !!fl.maintenance,
         signupsEnabled: fl.signupsEnabled !== false,
+        // CRYP-101: launch-free switch — non-secret, default-true. The client reads
+        // it to drive the launch-free UI; the server still enforces it in
+        // createSubscription, so this is presentation, never the control.
+        paidPlansEnabled: fl.paidPlansEnabled !== false,
         // ADMIN-2: the per-feature switches. Published so the UI can be HONEST about
         // what is off (frozen prices say "paused", not a stale "● LIVE" badge) — the
         // server enforces them regardless, so this is presentation, never the control.

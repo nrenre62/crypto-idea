@@ -89,9 +89,18 @@ boolean **set-flags only** — raw secrets never leave the server); **(b)** serv
 | `plans.{tier}.aiMonthlyCents` | Settings | `/api/config` → Account display | public | shown "coming soon" until metered |
 | `flags.maintenance` | Settings toggle | `/api/config` → maintenance screen | public | live (60s + reload) |
 | `flags.signupsEnabled` | Settings toggle | `/api/config` → hide Register tab | public | ⚠️ client-only → server-enforce |
+| `flags.paidPlansEnabled` | **Plans & Pricing** toggle | `/api/config` + fresh read in `createSubscription` | public | live (CRYP-101) — top-level flag, not `flags.features` |
 | `analytics.{ga4,plausible}` | Settings | `/api/config` → `site-meta.js` | public | Plausible at launch |
 | `legal.{termlyUuid,privacyId,termsId,cookieBanner}` | Settings | `/api/config` → site-meta + privacy/terms.html | public | go-live IDs needed |
 | AI provider key (Anthropic) | **NEW** AI Settings | `researchAsk` proxy (Wave B) | 🔒 | to build (B1) |
+
+**Launch-free master toggle (CRYP-101, 2026-08-08).** `flags.paidPlansEnabled` is an admin **Plans &
+Pricing** switch — OFF puts the whole site in free-launch mode (Starter-only, no plan chooser, no new
+subscriptions; server-enforced in `createSubscription`, precedence over the finer `checkout`
+kill-switch). It rides the same `saveConfig` path as every other flag, so its change is **audited via
+the existing `saveConfig` diff** (`config-diff.js` `diffConfig` recursively captures nested `flags.*`)
+— there is **no new audit action or `ACTION_LABELS` entry**. Contract + security rationale:
+[BILLING.md](BILLING.md) §3.6; the plan: [NEXT-STEPS.md](../product/NEXT-STEPS.md) §LAUNCH-FREE.
 
 ### 1.5 Keys & secrets — where each lives
 The only values in `dist/` are the **public** `VITE_FIREBASE_*` config and the **public** reCAPTCHA site key.
