@@ -498,18 +498,21 @@ test("CRYP-103: findDuplicateEmails does not report an admin account's email as 
 
   // The Auth emulator's create-time email-uniqueness check is bypassed by importUsers (a
   // migration API), so it's the deterministic way to force the duplicate-email pair this
-  // detector exists to surface. Separate calls sidestep any within-batch validation.
+  // detector exists to surface. Both records of a pair MUST go in ONE importUsers batch:
+  // the migration API does not cross-check emails WITHIN a batch, but a second, separate
+  // import collides against the first record already in the store and is dropped (returns
+  // { failureCount: 1 } without throwing), leaving the second uid uncreated.
   const adminDupEmail = `sep_admindup_${stamp}@example.com`;
   const aUid = `sep_admindupA_${stamp}`, bUid = `sep_admindupB_${stamp}`;
-  await auth.importUsers([{ uid: aUid, email: adminDupEmail }]);
-  await auth.importUsers([{ uid: bUid, email: adminDupEmail }]);
+  const adminImport = await auth.importUsers([{ uid: aUid, email: adminDupEmail }, { uid: bUid, email: adminDupEmail }]);
+  assert.strictEqual(adminImport.failureCount, 0, `importUsers must create both admin duplicate-email records: ${JSON.stringify(adminImport.errors)}`);
   await auth.setCustomUserClaims(aUid, { admin: true, role: "manager" });
   await auth.setCustomUserClaims(bUid, { admin: true, role: "owner" });
 
   // A genuine plain-user duplicate — the POSITIVE control the detector must STILL report.
   const plainDupEmail = `sep_plaindup_${stamp}@example.com`;
-  await auth.importUsers([{ uid: `sep_plaindupA_${stamp}`, email: plainDupEmail }]);
-  await auth.importUsers([{ uid: `sep_plaindupB_${stamp}`, email: plainDupEmail }]);
+  const plainImport = await auth.importUsers([{ uid: `sep_plaindupA_${stamp}`, email: plainDupEmail }, { uid: `sep_plaindupB_${stamp}`, email: plainDupEmail }]);
+  assert.strictEqual(plainImport.failureCount, 0, `importUsers must create both plain duplicate-email records: ${JSON.stringify(plainImport.errors)}`);
 
   const res = await callAs("findDuplicateEmails", ownerToken, {});
   assert.strictEqual(res.status, 200, `findDuplicateEmails failed: ${JSON.stringify(res.body)}`);
