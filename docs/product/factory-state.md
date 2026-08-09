@@ -52,7 +52,7 @@ a fresh context resumes **exactly where it left off**.
 - Fix-round: 2 / 3 (RESOLVED locally — pushing round 2)
 - Open findings: none. Round-2 fix DONE: `excludeAdmins` pure helper (functions/duplicates.js) + findDuplicateEmails rewired to `groupDuplicateEmails(excludeAdmins(raw).map(strip customClaims))`; admin-exclusion proven at UNIT tier (tests/unit/duplicates.test.js, 2 new CRYP-103 cases, LOCALLY green 1049/1049); impossible integration case removed (Auth emulator can't hold dup emails — ERRORS.md C7). Re-review clean: verify GREEN 1049/1049+build, secure-by-design SAFE (customClaims-strip confirmed; 1 LOW capped-flag semantics → FIXED via `capped: !!pageToken`). No openapi change (response shape identical).
 - Branch: claude/admin-sep (PR1); PR2 branch claude/admin-sep-partc off master after PR1 merges
-- Built: yes 380d50b→922c8f1→(round2 pending push) (PR #61) — CI: rules ✅, build+unit ✅, integration was ❌ on fixture (now moved to unit tier)
+- Built: yes 380d50b→922c8f1→11d45f6 (PR #61) — CI ALL GREEN on 11d45f6 (build+unit ✅, rules ✅, integration ✅). Awaiting founder G3 squash-merge.
 - Merged: no
 - Agents this item: 18
 - Updated: 2026-08-09
