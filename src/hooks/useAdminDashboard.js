@@ -129,7 +129,11 @@ export function useAdminDashboard() {
   // payload. Default FALSE (the strict default) — nothing can satisfy the gate until
   // Identity Platform MFA is enabled, so an optimistic `true` would render the panel
   // as already-protected when it isn't.
-  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true, requireAdminMfa: false, features: { marketData: true, checkout: true, aiResearch: true } });
+  // CRYP-101 (LAUNCH-FREE Part B): paidPlansEnabled is a top-level flag (peer of
+  // maintenance/signups, NOT a flags.features switch). It rides along on the same
+  // `flags: controls` save path, so it can't be dropped by another flags save. ON by
+  // default (mirrors the server), so an untouched config never reads as "sales off".
+  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, requireAdminMfa: false, features: { marketData: true, checkout: true, aiResearch: true } });
   // Arming step for the 2FA switch. Turning it ON can lock every admin out of the
   // panel (including out of this switch), so it is deliberately NOT one tap.
   const [mfaWarn, setMfaWarn] = useState(false);
@@ -160,6 +164,9 @@ export function useAdminDashboard() {
       setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet), anthropicKey: !!(d.ai && d.ai.anthropicKeySet), sentryDsn: !!(d.sentry && d.sentry.dsnSet) });
       const ff = (d.flags && d.flags.features) || {};
       setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false),
+        // CRYP-101: ON unless the server says exactly false — a missing key reads as
+        // "paid plans enabled", matching the server + client (/api/config) default.
+        paidPlansEnabled: !(d.flags && d.flags.paidPlansEnabled === false),
         // ADMIN-0: OFF unless the server says exactly true — mirrors guards.requireMfa,
         // so the switch can never show "protected" for a config that isn't.
         requireAdminMfa: !!(d.flags && d.flags.requireAdminMfa === true),

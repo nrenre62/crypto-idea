@@ -56,7 +56,15 @@ document.querySelectorAll('.reveal').forEach((el,i)=>{
 
 // Live plan prices from admin config (falls back to hardcoded data-* values)
 fetch('/api/config').then(r=>r.ok?r.json():null).then(c=>{
-  if(!c||!c.plans)return;
+  if(!c)return;
+  // CRYP-101 (LAUNCH-FREE Part B): free-launch mode hides every pricing surface on the
+  // landing. CSP-safe — programmatic el.style only, no inline script/style injected.
+  if(c.paidPlansEnabled===false){
+    ['#pricing','.nav-links a[href="#pricing"]','.foot-links a[href="#pricing"]'].forEach(function(sel){
+      document.querySelectorAll(sel).forEach(function(el){if(el)el.style.display='none';});
+    });
+  }
+  if(!c.plans)return;
   var cards=document.querySelectorAll('.plan-price');
   ['free','pro','premium'].forEach((t,i)=>{
     var p=c.plans[t];if(!cards[i]||!p||p.price==null)return;

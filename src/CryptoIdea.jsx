@@ -81,13 +81,24 @@ const APP_VERSION = "4.1.0";
 // via the Admin SDK — see functions/index.js (setAdminClaim) and functions/scripts/set-admin.js.
 // There is intentionally no email allowlist here; the client only reads the verified token claim.
 
+// CRYP-101 (LAUNCH-FREE Part B): the neutral placeholder shown in the plan modal while a
+// forced new user's free choice is auto-recorded (paid plans off site-wide). Deliberately
+// carries NO plan cards, so the chooser never flashes. Scoped under .ci-app like the rest
+// of the user app; no new CSS class (inline layout only).
+function SettingUpFree(){
+  return(<div className="ci-app" style={{padding:"48px 28px",textAlign:"center",color:"var(--app-fg)"}}>
+    <div style={{fontWeight:600,fontSize:16,marginBottom:6}}>Setting up your account…</div>
+    <div style={{fontSize:13,opacity:.7}}>Just a moment.</div>
+  </div>);
+}
+
 // ── Main App ──
 export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
   // Public config from /api/config. ADMIN-2: `features` defaults to all-ON for the same
   // reason the server does — if the config fetch fails we must degrade to a WORKING app,
   // never to one that looks deliberately switched off.
-  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,plans:null,announcement:null,features:{marketData:true,checkout:true,aiResearch:true}});
+  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,paidPlansEnabled:true,plans:null,announcement:null,features:{marketData:true,checkout:true,aiResearch:true}});
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
   const[authPass,setAuthPass]=useState("");
@@ -185,7 +196,10 @@ export default function CryptoIdea(){
   // Public app flags (maintenance / signups / ADMIN-2 feature switches) set by an
   // admin — read once on load. Each switch is ON unless the server says exactly false,
   // matching functions/features.js so client and server can't disagree about a missing key.
-  useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,plans:d.plans||null,
+  useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,
+    // CRYP-101 (LAUNCH-FREE Part B): paid plans are ON unless the server says exactly
+    // false — a missing key must read as "sales enabled", mirroring the server default.
+    paidPlansEnabled:d.paidPlansEnabled!==false,plans:d.plans||null,
     // ADMIN-5: the server sends `announcement` only when it's active (else null).
     announcement:d.announcement||null,
     features:{marketData:(d.features||{}).marketData!==false,checkout:(d.features||{}).checkout!==false,aiResearch:(d.features||{}).aiResearch!==false}})})},[]);
@@ -435,6 +449,18 @@ export default function CryptoIdea(){
   // ONBOARD-GATE: a signed-in user who hasn't recorded a plan choice is FORCED through the
   // gate. Drives the non-dismissible modal (below) and Login's no-skip "forced" picker state.
   const forcedPlan=!!(user&&!planChosen);
+  // CRYP-101 (LAUNCH-FREE Part B): when paid plans are switched off site-wide, Starter is the
+  // only plan on offer — a forced first choice has nothing to pick. So instead of showing the
+  // chooser we auto-record the free choice and move straight on. chooseFree's own choosingRef
+  // blocks a same-tick double-invoke, and once it succeeds planChosen flips (forcedPlan→false),
+  // so this effect can't re-fire; a failure leaves the deps unchanged, so it also won't loop.
+  useEffect(()=>{
+    if(forcedPlan&&site.paidPlansEnabled===false&&user?.uid)chooseFree();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[forcedPlan,site.paidPlansEnabled,user?.uid]);
+  // CRYP-101: while that auto-resolve is in flight, the plan modal renders a neutral
+  // "setting up" placeholder instead of the chooser cards, so the picker never flashes.
+  const autoStarter=forcedPlan&&site.paidPlansEnabled===false;
   // Email-verify nudge (USER-CREATION.md §5): dismissible banner + resend.
   const [verifyDismissed,setVerifyDismissed]=useState(false);
   const [verifyMsg,setVerifyMsg]=useState("");
@@ -538,6 +564,10 @@ export default function CryptoIdea(){
   // server refuses createSubscription anyway, but sending someone into a checkout
   // that is switched off just wastes their time and earns a support email.
   const startUpgrade=(toTier)=>{if(toTier===(user?.tier||"free"))return;
+    // CRYP-101 (LAUNCH-FREE Part B): defense in depth — the server already refuses new
+    // subscriptions when paid plans are switched off, and the CTAs are hidden, but any
+    // stray caller must never open a checkout that is going to fail.
+    if(site.paidPlansEnabled===false){showErr("New subscriptions are paused right now.");return}
     if(site.features.checkout===false){showErr("Checkout is temporarily unavailable — please try again shortly.");return}
     setUpgradeFlow(toTier);setUpgradeStep("billing");setShowPlan(true)};
   const startDowngrade=(toTier)=>{setDowngradeTo(toTier)};
@@ -1038,10 +1068,10 @@ export default function CryptoIdea(){
         // ONBOARD-GATE (fixes G1): when the choice is FORCED, the modal is truly non-dismissible
         // — no X (hideClose), no scrim/Esc close (dismissOnScrim already off; Modal has no Esc),
         // and a focus-trap so Tab can't reach the app behind it. Only the plan cards can act.
-        return(<Modal size="md" title={planTitle} dismissOnScrim={false} hideClose={upgradeStep==="processing"||forcedPlan} trapFocus={forcedPlan} onClose={closePlanFlow}><Login popup/></Modal>);
+        return(<Modal size="md" title={autoStarter?"":planTitle} dismissOnScrim={false} hideClose={upgradeStep==="processing"||forcedPlan} trapFocus={forcedPlan} onClose={closePlanFlow}>{autoStarter?<SettingUpFree/>:<Login popup/>}</Modal>);
       }
       return(<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:c.bg,zIndex:9000,overflowY:"auto",display:"flex",justifyContent:"center"}}>
-        <div style={{width:"100%",maxWidth:430}}><Login/></div>
+        <div style={{width:"100%",maxWidth:430}}>{autoStarter?<SettingUpFree/>:<Login/>}</div>
       </div>);
     })()}
     {screen==="loading"&&Loading()}

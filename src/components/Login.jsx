@@ -148,6 +148,10 @@ export function Login({ popup }) {
     // card unclickable. The server refuses createSubscription regardless; this only
     // stops people walking into a checkout that is going to fail.
     const checkoutOff=!!(site&&site.features&&site.features.checkout===false);
+    // CRYP-101 (LAUNCH-FREE Part B): when paid plans are switched off site-wide, there is
+    // nothing to buy — the Pro/Premium cards are omitted entirely (below), leaving Starter
+    // as the only choice so a forced first pick is never a dead end.
+    const paidPlansOff=!!(site&&site.paidPlansEnabled===false);
     const cardState=(t)=>checkoutOff&&t!=="free"?"paused"
       :forced?"upgrade":t===currentTier?"current":TIER_RANK[t]>TIER_RANK[currentTier]?"upgrade":"included";
     const ctaText=(t,label)=>cardState(t)==="paused"?"Temporarily unavailable":cardState(t)==="current"?"Your current plan":cardState(t)==="included"?"Included":label;
@@ -169,21 +173,21 @@ export function Login({ popup }) {
           <div className="plan-feats">{PLAN_BENEFITS.free.feature}</div>
           <div className={"plan-cta neutral"+lockCls("free")}>{choosingPlan&&cardState("free")==="upgrade"?"Setting up…":ctaText("free","Choose Starter")}</div>
         </div>
-        <div onClick={cardGo("pro",()=>{setUpgradeFlow("pro");setUpgradeStep("billing")})} className={"plan-card rec"+lockCls("pro")} aria-disabled={cardState("pro")!=="upgrade"}>
+        {!paidPlansOff&&<div onClick={cardGo("pro",()=>{setUpgradeFlow("pro");setUpgradeStep("billing")})} className={"plan-card rec"+lockCls("pro")} aria-disabled={cardState("pro")!=="upgrade"}>
           {/* CURRENT replaces RECOMMENDED on the user's own card */}
           {cardState("pro")==="current"?<div className="plan-badge">CURRENT</div>:cardState("pro")==="upgrade"?<div className="plan-badge">RECOMMENDED</div>:null}
           <div className="plan-top"><span className="plan-name">Pro</span><span className="plan-price-sm">from ${((site?.plans?.pro?.priceYear ?? 99.99)/12).toFixed(2)}/mo</span></div>
           <div className="plan-feats">{PLAN_BENEFITS.pro.limits.join(" · ")}</div>
           <div className="plan-feats">{PLAN_BENEFITS.pro.feature}</div>
           <div className={"plan-cta "+(cardState("pro")==="upgrade"?"accent":"neutral locked")}>{ctaText("pro","Choose Pro")}</div>
-        </div>
-        <div onClick={cardGo("premium",()=>{setUpgradeFlow("premium");setUpgradeStep("billing")})} className={"plan-card prem"+lockCls("premium")} aria-disabled={cardState("premium")!=="upgrade"}>
+        </div>}
+        {!paidPlansOff&&<div onClick={cardGo("premium",()=>{setUpgradeFlow("premium");setUpgradeStep("billing")})} className={"plan-card prem"+lockCls("premium")} aria-disabled={cardState("premium")!=="upgrade"}>
           {cardState("premium")==="current"&&<div className="plan-badge" style={{background:"#7d4bbf"}}>CURRENT</div>}
           <div className="plan-top"><span className="plan-name prem">Premium</span><span className="plan-price-sm">from ${((site?.plans?.premium?.priceYear ?? 499.99)/12).toFixed(2)}/mo</span></div>
           <div className="plan-feats">{PLAN_BENEFITS.premium.limits.join(" · ")}</div>
           <div className="plan-feats">{PLAN_BENEFITS.premium.feature}</div>
           <div className={"plan-cta "+(cardState("premium")==="upgrade"?"prem":"neutral locked")}>{ctaText("premium","Choose Premium")}</div>
-        </div>
+        </div>}
       </div>
       {/* R31-2: the FORCED first choice has no escape — the three cards ARE the decision.
           After a plan is chosen, the picker (from Account) gets a Close / Continue link. */}
