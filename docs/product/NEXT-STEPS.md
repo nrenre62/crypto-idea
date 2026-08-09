@@ -12,6 +12,60 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## FLOATING-HEADER. Pinned brand-bar header on every tab + Account, 30px top gap, sticky settings headers  (🟩 GREEN — locked 2026-08-09 · design-only · founder interview 2026-08-09)
+
+**Founder ask (2026-08-09, plain-chat interview + interactive spacing mockup):** the header must stay
+on screen while the page scrolls — on all 5 tabs and in Account — with breathing room above it and a
+paper-tone bar behind it. Design-only; handlers/state/routing unchanged. Responsive (mobile + desktop),
+**no new layout `@media`** (the sticky bar + gap are the same markup both widths), dark-safe (light stays
+byte-for-byte, dark flips via token).
+
+**🟩 Locked decisions (founder answered all 8):**
+1. **Floating/sticky header** on every bottom-nav tab (Portfolio · Research · Journal · Learn · Search):
+   **only the brand bar** pins (logo + BETA + LIVE/PAUSED + plan badge + the account **M** avatar). The
+   value card, asset list, and all body content scroll **under** the pinned bar.
+2. **Top gap = 30px total** above the header content (replaces the current `.apphead` `14px` top padding),
+   **mobile + desktop**, every header. Confirmed via the interactive mockup ("replace with 30px total").
+3. **Settings screens** (Account home + every drill-in: Profile · Plan & billing · Portfolio · Security ·
+   Privacy & data): the **settings header + its divider line** get the 30px gap above them and pin; the
+   **settings card body sits below** with its normal spacing — the 30px is *above the header/border only*,
+   never inside the card.
+4. **Scroll-to-top on drill-in open** — opening any settings item resets the scroll to the top so the
+   title is visible, even if the operator had scrolled down.
+5. **Header background `#F6F5F0` in light** (the existing `--paper` tone), **matching dark paper tone in
+   dark** — dark-block-only (`html[data-theme="dark"]`), light untouched. Header bar bg only.
+6. **Field gap = 8px** between the stacked inputs in **Profile** (new email ↔ current password) and
+   **Security** (new password ↔ confirm) — today they're flush/merged.
+7. Re-confirm of #1: **just the brand bar sticks** (value card is not part of the frozen header).
+8. **Research** header gets the same 30px + `#F6F5F0` bar; its Overview/Coins/Ask sub-nav already floats.
+
+**Plan of record (file-by-file, KISS, design-only):**
+- `src/styles/app.css` — `.ci-app .apphead` → `position:sticky; top:0; z-index`, `padding-top:30px`,
+  `background:var(--paper)` + subtle bottom hairline/shadow; dark-block override for the bar bg; the
+  settings header (`.set-scr-head`) becomes a sticky top bar with the 30px gap (split out of the
+  `overflow:hidden` `.set-scr` card so sticky isn't clipped — card body sits below); `.fields` gap → 8px.
+  One rule covers Portfolio/Journal/Learn/Search (all share `.apphead`).
+- `src/features/research/styles/research-tab.css` — Research header 30px + `#F6F5F0` (+ dark), scoped
+  under `.research-root` (never `.ci-app`).
+- `src/CryptoIdea.jsx` — the shell-level floating **avatar** (`.app-avatar`, currently
+  `position:absolute; top:14px`) is unified **into the pinned brand bar** so it sticks with the row
+  (tap still opens Account; behavior identical). Bump/retire the old absolute `top`.
+- `src/components/Account.jsx` — restructure `SettingsScreen` so the header pins (30px gap) and the body
+  card scrolls below; add a `scrollTo(0)` effect keyed on the settings `view`; 8px field gap.
+- `src/components/Portfolio.jsx` / `HeaderTags.jsx` — header wrapper touch only if the avatar
+  unification needs it (keep the shared `.apphead`/`.title` markup).
+- Docs: `docs/design/DESIGN-PASS.md` (new round), this log (status), `CLAUDE.md` (design convention note).
+
+**Tests:** the `scrollTo(0)`-on-view-change effect and the avatar-in-header structure are unit-testable
+(vitest) — red-first. Pure-CSS sticky/spacing/`#F6F5F0` has no jsdom layout to assert; covered by the
+interactive mockup + a `design-consistency` review (scoping · dark-block light-unchanged · responsive
+no-new-`@media` · no-names) before commit. No rules/functions/openapi surface touched.
+
+**Provenance:** 🟩 GREEN locked plan → G1 interview satisfied by this block (done 2026-08-09); G2
+non-blocking plan-of-record; build through the loop on branch `master-6mrr02` (fresh off `master`), one PR.
+
+---
+
 ## FACTORY-INTERVIEW-GATE. Ad-hoc build = mandatory interview; a written NEXT-STEPS plan skips only G1  (✅ BUILT 2026-08-08 · docs/command only · CRYP-98)
 
 **Founder rule (2026-08-08):** the interview→plan phase is enforced by **provenance**, so any operator
