@@ -39,6 +39,19 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-*(none in flight — queue paused for founder direction on the 🔶 CHECKPOINTs #11 ADMIN-SEP / #12 PLAN-LIMITS-MAX.)*
+## ADMIN-SEP (#11) — admin/user separation (CRYP-103)
+- Provenance: PLANNED (🔶 CHECKPOINT, decisions locked 2026-08-03) — G1 interview skipped, G2 = non-blocking plan-of-record
+- Phase: G1 → G2
+- G1 confirmed: yes (written/locked plan; Story CRYP-103 filed)
+- G2 approved: pending (plan-of-record)
+- Plan (files): TBD — architect running
+- Jira: CRYP-103 (Story)
+- Fix-round: 0 / 3
+- Open findings: none
+- Branch: claude/admin-sep
+- Built: no
+- Merged: no
+- Agents this item: 1 (consistency-sweep)
+- Updated: 2026-08-09
 
 *(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101). Run rows in `factory-runs.md`.)*
