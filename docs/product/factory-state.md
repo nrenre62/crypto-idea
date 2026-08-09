@@ -41,7 +41,7 @@ a fresh context resumes **exactly where it left off**.
 
 ## ADMIN-SEP (#11) — admin/user separation (CRYP-103)
 - Provenance: PLANNED (🔶 CHECKPOINT, decisions locked 2026-08-03) — G1 interview skipped, G2 = non-blocking plan-of-record
-- Phase: inner-loop (PR1 of 2)
+- Phase: built (PR1)
 - G1 confirmed: yes (written/locked plan; Story CRYP-103 filed)
 - G2 approved: yes (plan-of-record 2026-08-09; founder confirmed 2-PR split + drop legacy@ + added Part A1)
 - Split: **2 sequenced PRs** — PR1 = Parts A + A1 + B (CRYP-103a) · PR2 = Part C (CRYP-103b)
@@ -52,9 +52,9 @@ a fresh context resumes **exactly where it left off**.
 - Fix-round: 0 / 3
 - Open findings: none
 - Branch: claude/admin-sep (PR1); PR2 branch claude/admin-sep-partc off master after PR1 merges
-- Built: no
+- Built: yes 380d50b
 - Merged: no
-- Agents this item: 2 (consistency-sweep, architect)
+- Agents this item: 13
 - Updated: 2026-08-09
 
 *(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101). Run rows in `factory-runs.md`.)*
