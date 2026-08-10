@@ -543,3 +543,56 @@ test("CRYP-103: listAdmins returns every admin for an owner; refuses a manager a
   const asPlain = await callAsSafe("listAdmins", plainToken, {});
   assert.strictEqual(asPlain.status, 403, `a plain user must be refused listAdmins, got ${asPlain.status}: ${JSON.stringify(asPlain.body)}`);
 });
+
+// ── ADMIN-SEP · CRYP-103b · Part C — server-BACKS the Part A1 client backstop ──
+// PR1 hid the Suspend / Delete-Trash buttons for an admin target in the UI, but the SERVER
+// only refused trash/delete on an admin — suspend / tier / limits were still permissive on a
+// MANAGER target (assertTargetAllowed only protects OWNER targets). These prove PR2 closes that
+// gap: suspend / tier / limits on ANY admin target are refused server-side (failed-precondition
+// → HTTP 400), mirroring adminTrashUser's claim check, so "an admin can't be suspended at all"
+// is enforced, not merely hidden. Red today (no admin-target check on those three). Runs in CI —
+// the functions emulator can't boot in the authoring sandbox (egress policy), same as PR1.
+
+test("CRYP-103: suspend / tier / limits are all refused on an admin (manager) target", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+  const mgrEmail = `sep_target_mgr_${stamp}@example.com`;
+  const mgrUid = await makeUser(mgrEmail, { admin: true, role: "manager" });
+
+  const susp = await callAs("suspendUser", ownerToken, { uid: mgrUid, disabled: true });
+  assert.strictEqual(susp.status, 400, `suspending an admin must be refused, got ${susp.status}: ${JSON.stringify(susp.body)}`);
+  // The refusal must be BEFORE the side effect: the Auth account stays enabled.
+  assert.strictEqual((await auth.getUser(mgrUid)).disabled, false, "an admin target's Auth account must stay enabled");
+
+  const tier = await callAs("setUserTier", ownerToken, { uid: mgrUid, tier: "premium" });
+  assert.strictEqual(tier.status, 400, `setting an admin's tier must be refused, got ${tier.status}: ${JSON.stringify(tier.body)}`);
+
+  const lim = await callAs("setPremiumLimits", ownerToken, { uid: mgrUid, limits: { coins: 5 } });
+  assert.strictEqual(lim.status, 400, `setting an admin's limits must be refused, got ${lim.status}: ${JSON.stringify(lim.body)}`);
+
+  // Positive control: a plain (non-admin) user is still suspendable — no over-refusal.
+  const plainUid = await makeUser(`sep_target_plain_${stamp}@example.com`, null);
+  const ok = await callAs("suspendUser", ownerToken, { uid: plainUid, disabled: true });
+  assert.strictEqual(ok.status, 200, `a plain user must still be suspendable: ${JSON.stringify(ok.body)}`);
+});
+
+// CRYP-103b · Part C-1: the "no-role admin" third state is eliminated at the auth choke point.
+// A { admin:true } claim with NO role must be REFUSED the manager (WRITE) surface — instead of
+// silently getting full manager power (the old requireManager === requireAdmin alias). The READ
+// surface (getStats/listUsers/…) is deliberately unchanged so a role-less admin can still read
+// through the migration window. Red today: requireManager aliases requireAdmin, so a role-less
+// admin's setUserTier succeeds.
+test("CRYP-103: a no-role admin is refused the manager WRITE surface but keeps READ", async () => {
+  const legacyEmail = `sep_legacy_${stamp}@example.com`;
+  await makeUser(legacyEmail, { admin: true });     // pre-ADMIN-SEC flat claim, NO role
+  const legacyToken = await idTokenFor(legacyEmail);
+  const targetUid = await makeUser(`sep_legacy_target_${stamp}@example.com`, null);
+  await db.collection("users").doc(targetUid).set({ email: "t", tier: "free", portfolioCount: 0 }, { merge: true });
+
+  // WRITE surface: refused (permission-denied → 403).
+  const write = await callAs("setUserTier", legacyToken, { uid: targetUid, tier: "pro" });
+  assert.strictEqual(write.status, 403, `a no-role admin must be refused a manager action, got ${write.status}: ${JSON.stringify(write.body)}`);
+
+  // READ surface: still works (migration window) — guards against over-tightening.
+  const read = await callAs("getStats", legacyToken, {});
+  assert.strictEqual(read.status, 200, `a no-role admin must keep the shared READ surface: ${JSON.stringify(read.body)}`);
+});
