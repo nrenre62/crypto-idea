@@ -87,8 +87,8 @@ in fundamentals — not FOMO."*
 
 | # | Decision | Choice | Status | Build implication |
 |---|---|---|---|---|
-| 19 | Tiers | **Starter** 1 portfolio/10 coins · **Pro** 3 portfolios/50 coins each · **Premium** 15 portfolios/"unlimited" coins (**hard clamp 1,000/portfolio**) · keep tx caps (Pro 2,000 / Premium 5,000) · rename Free→**Starter** (label only; internal tier key stays `free`) | 🔧 | `config/app.plans` + `firestore.rules` + admin defaults + plan labels |
-| 20 | Anti-abuse | "Unlimited" = **1,000-coin hard clamp (rules `min(config,1000)`) + `addCoinGuarded` callable (per-uid rate limit) + App Check (v1 `context.app`)** — never bot-inflatable | 🆕 | The clamp is *independent of* `config/app.plans` (a finite default isn't a ceiling); protects data *and* AI cost (each novel coin = a fresh engine run) |
+| 19 | Tiers | **Starter** 3 portfolios/30 coins each · **Pro** 6 portfolios/100 coins each · **Premium** 15 portfolios/200 coins each · tx caps (Starter 300 / Pro 1,000 / Premium 2,000) · rename Free→**Starter** (label only; internal tier key stays `free`). *(Limits raised by PLAN-LIMITS-MAX #12, 2026-08 — originally 1/10/50 · 3/50/2,000 · 15/1,000/5,000; prices unchanged.)* | 🔧 | `config/app.plans` + `firestore.rules` + admin defaults + plan labels |
+| 20 | Anti-abuse | **1,000-coin hard clamp (rules `min(config,1000)`) + `addCoinGuarded` callable (per-uid rate limit) + App Check (v1 `context.app`)** — never bot-inflatable. The 1,000 clamp is the anti-abuse **ceiling**; the *enforced* Premium default is now **200 coins/portfolio** (#12), which sits under it | 🆕 | The clamp is *independent of* `config/app.plans` (the 200 default demonstrates a finite default isn't a ceiling); protects data *and* AI cost (each novel coin = a fresh engine run) |
 | 21 | AI cost control | **Template-first tutor** (personalize only the coin) + **per-uid monthly live-AI $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), metered on actual token cost — see [PRICING.md §4](PRICING.md). *Supersedes the retired "Pro 50 / Premium 300 per day" call-count (not margin-safe).* | 🆕 | Keeps the flat-cost model; "unlimited" Premium needs finite ceilings |
 | 22 | Journal storage | **Firestore** (already on the coin doc: `journal{thesis,changeMyMind,status,priceAtAdd,createdAt}`, `validJournal` rule) | ✅ | Required for AI read + cross-device sync — **already done** |
 | 23 | Learn at launch | **Full library + gamification + AI tutor** (tutor templated per #21) | 🆕 | Largest content lift: ~9 modules / ~50 lessons + XP/badges/streaks + quiz + wiring |
@@ -137,7 +137,7 @@ pre-reconciliation archive):
 | Was open | Resolved |
 |---|---|
 | Learn-progress storage | **Firestore** — `users/{uid}/learn/progress` doc + `validLearnProgress` rule (mirrors the journal) |
-| Anti-abuse ceiling number | **1,000 coins/portfolio** — identical literal in `DEFAULT_PLANS` + the `firestore.rules` hard clamp |
+| Anti-abuse ceiling number | **1,000 coins/portfolio hard clamp** — lives in the `mergePlans` clamp + the `firestore.rules` `maxCoins` hardMax. **No longer an identical literal in `DEFAULT_PLANS`:** as of PLAN-LIMITS-MAX (#12, 2026-08) `DEFAULT_PLANS.premium.coins = 200` (the enforced default), while 1,000 remains only as the clamp ceiling |
 | Add-coin rate-limit | **`addCoinGuarded` callable** (per-uid sliding window + App Check), Wave B |
 | Live-AI budget | **Monthly $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), token-cost-metered — see [PRICING.md §4](PRICING.md) (supersedes the retired 50/300 daily count) |
 | Regen cap N | **2**, then safe fallback (validator fails closed) |

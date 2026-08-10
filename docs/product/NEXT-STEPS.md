@@ -1040,7 +1040,8 @@ while billing is still being developed/secured — plus a **more generous Starte
 AskUserQuestion; all decisions locked below. **Two parts.**
 
 ### Part A — Maxed Starter limits (permanent; more generous, still < Pro) — 🔶 touches `firestore.rules`
-> ⚠️ **SUPERSEDED (2026-08-03) by PLAN-LIMITS-MAX (below).** That plan raises Starter to **3 portfolios /
+> ⚠️ **SUPERSEDED (2026-08-03) by PLAN-LIMITS-MAX (below) — Part A ✅ BUILT 2026-08-10 (branch
+> `claude/plan-limits-max`).** That plan raises Starter to **3 portfolios /
 > 30 / 300** (not 2), also bumps Pro to 6/100/1000 (+ lowers Premium to 15/200/2000), and adds a lazy-load read optimization. **Build
 > coordination:** whichever of the two ships first does the shared work (rules `configuredLimit` free
 > fallbacks, `DEFAULT_PLANS`, the stored `config/app.plans` doc, index exemptions, landing/app copy); the
@@ -4584,7 +4585,7 @@ Prop path: `useApp().site.features.aiResearch` → `Research.jsx` → `ResearchT
 
 ---
 
-## PLAN-LIMITS-MAX. Maximize plan benefits (Starter 3/30/300 · Pro 6/100/1000 · Premium 15/200/2000) + lazy-load reads  (📋 STAGED 2026-08-03 rev.2; queued in BUILD-LOOP #12 — NOT built)
+## PLAN-LIMITS-MAX. Maximize plan benefits (Starter 3/30/300 · Pro 6/100/1000 · Premium 15/200/2000) + lazy-load reads  (Part A ✅ BUILT 2026-08-10 · branch `claude/plan-limits-max` · BUILD-LOOP #12; Part B lazy-load NOT built)
 
 > **rev.2 (2026-08-03):** Starter tx 100→**300**; Pro tx 2000→**1000**; Premium lowered **1000→200 coins /
 > 5000→2000 tx**; **Part B (lazy-load) promoted from "companion" to a HARD prerequisite** of the raised
@@ -4655,6 +4656,18 @@ with Part B — hence the hard gate. Realistic-use margins are >99% at every tie
    coins drops 1,000→200 (still 3,000 total across 15 portfolios; no real users affected — pre-launch).
 10. **`docs/decisions/PRODUCT-DECISIONS.md`** — update if it records the limit values (#20/#21).
 11. **LAUNCH-FREE §A** (above) — already carries the superseded note (3/30/300); keep the two in sync.
+
+**Status — Part A ✅ BUILT (2026-08-10 · branch `claude/plan-limits-max` · BUILD-LOOP #12):** limits raised in
+`firestore.rules` `configuredLimit` fallbacks + `functions/index.js` `DEFAULT_PLANS` (Starter **3/30/300** · Pro
+**6/100/1,000** · Premium **15/200/2,000**; coins hardMax stays 1,000 — 200 is the enforced Premium default), the
+admin `useAdminDashboard.js` `DEFAULT_PLANS` mirror, `Login.jsx` `PLAN_BENEFITS` + `index.html` #pricing copy, and
+`firestore.indexes.json` tx-collection-group index **exemptions** (`type`/`amount`/`priceAtBuy`; `date` kept).
+Docs swept: PRICING · USER-BENEFITS · PRODUCT-DECISIONS (#19/#20/§8) · README · CLAUDE · DESIGN-PASS R28-2 ·
+ai-tool-policy · GO-LIVE-AUDIT deploy gate · the `authorization-and-tier-limits` diagram (already updated in the
+code commit) · the LAUNCH-FREE §A note. **Prices UNCHANGED.** Green: `test:rules` **51/51** · `test:unit`
+**1,064/1,064** · build clean. ⚠️ **NOT deployed** — the raised **Pro/Premium** limits are gated on Part B +
+Wave-B abuse controls (see Gating), and a stored `config/app.plans` doc must be re-saved at deploy or the old
+defaults silently win. **Part B (lazy-load reads) is a separate PR, still to come — the whole item is NOT done.**
 
 ### Part B — Lazy-load read optimization (⚠️ REQUIRED — hard prerequisite for the raised Pro/Premium limits)
 12. **`src/hooks/useAuthSession.js`** `loadPortfolios` (L36-61): eager-load coins for all portfolios but

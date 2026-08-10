@@ -62,7 +62,7 @@ Tier limits live in the backend, not the client and not the prompt. Full matrix 
 - **AI thesis review** (the model critiques the user's written journal thesis): Premium only.
 - **AI tutor in lessons** (Premium learning): answers questions on a lesson, quizzes the user and explains gaps, and re-explains using coins they hold — drawn from the lesson content + the user's portfolio. No open web.
 - **Personalized lessons** (Premium learning): examples from the user's holdings, a gap-tailored path, and portfolio-triggered lessons — driven by the user's own data. No open web.
-- **Coin cap & watchlist size:** Starter 10 · Pro 50 · Premium **1,000** (the "∞" hard clamp, #20) — checked per request server-side.
+- **Coin cap & watchlist size:** Starter 30 · Pro 100 · Premium **200** (enforced default as of PLAN-LIMITS-MAX #12; the **1,000-coin hard clamp** #20 remains the ceiling) — checked per request server-side.
 
 A reminder on the Premium-only features: every one of them — the deep-dive report, the
 thesis review, the AI tutor, and personalized lessons — runs on the **same approved

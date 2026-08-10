@@ -13,9 +13,9 @@ friend deciding which plan to start on.
 | **Monthly** | $0 | **$9.99** | **$49.99** |
 | **Annual** | $0 | **$99.99** (~$8.33/mo) | **$499.99** (~$41.67/mo) |
 | **Annual savings** | — | 2 months free | 2 months free |
-| **Portfolios** | 1 | 3 | 15 |
-| **Coins per portfolio** | 10 | 50 | 1,000 |
-| **Transactions per coin** | 50 | 2,000 | 5,000 |
+| **Portfolios** | 3 | 6 | 15 |
+| **Coins per portfolio** | 30 | 100 | 200 |
+| **Transactions per coin** | 300 | 1,000 | 2,000 |
 | **Live AI** | offline summaries | ~13 analyses/day | ~80 analyses/day |
 | **Conviction signals** | ✓ on your coins | ✓ on your coins | ✓ on your coins (priority refresh) |
 | **Journal & thesis** | ✓ | ✓ | ✓ unlimited history |
@@ -32,7 +32,7 @@ Cancel anytime. No card to start on Starter.
 number of coins they don't want to micro-manage.
 
 **You get:**
-- **One portfolio**, up to 10 coins, 50 transactions per coin.
+- **Three portfolios**, up to 30 coins each, 300 transactions per coin.
 - **Live prices** and real P/L tracking. Same prices, same speed as Premium.
 - **Journal before you buy** — record your thesis on each coin so future-you
   can review it honestly.
@@ -54,7 +54,7 @@ fallback instead. Upgrade unlocks the live model.
 layer without committing to Premium yet.
 
 **You get everything in Starter, plus:**
-- **3 portfolios**, 50 coins each, 2,000 transactions per coin.
+- **6 portfolios**, 100 coins each, 1,000 transactions per coin.
 - **Live AI** on Pulse and Ask — roughly **13 analyses/day**. Ask "what
   changed in my portfolio this week" or "is my BTC thesis still intact" and
   get a live, model-generated answer that actually reads your journal.
@@ -75,7 +75,7 @@ monthly billing.
 multiple narratives, real research workflows.
 
 **You get everything in Pro, plus:**
-- **15 portfolios**, up to **1,000 coins each**, 5,000 transactions per coin.
+- **15 portfolios**, up to **200 coins each**, 2,000 transactions per coin.
 - **Live AI** on Pulse, Ask, and conviction — roughly **80 analyses/day**.
   Enough headroom to actually use it as a research partner across every
   position, every week.
@@ -153,5 +153,11 @@ nothing gets deleted on your side until you say so.
 
 ---
 
-*Pricing last updated 2026-06-23. See [PRICING.md](../decisions/PRICING.md) for the
-decision rationale and margin math.*
+*Pricing last updated 2026-08-10 (limits raised — PLAN-LIMITS-MAX #12). See
+[PRICING.md](../decisions/PRICING.md) for the decision rationale and margin math.*
+
+> **Internal note (not user-facing):** Premium's advertised coins-per-portfolio
+> dropped **1,000 → 200** in this update (still **3,000 total** across 15
+> portfolios — more than any real portfolio needs). Prices are unchanged. This
+> is pre-launch with no real users, so no one is affected. Starter rose 1/10/50
+> → 3/30/300 and Pro 3/50/2,000 → 6/100/1,000.

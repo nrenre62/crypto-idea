@@ -323,6 +323,16 @@ script can. So:
 14. Sign in again (tokens were revoked), open `/admin`, fill Settings.
 15. Set both Termly doc IDs (B5); load `/privacy.html` and `/terms.html` and confirm the embed
     renders — wait ~60s for the CDN.
+15b. **⚠️ Re-save Plans & Pricing so the raised limits take effect (PLAN-LIMITS-MAX #12).** A
+    pre-existing stored `config/app.plans` doc **silently overrides the new rule defaults** — rules read
+    config first, the built-in defaults only as a fallback. In admin → Settings → **Plans & Pricing**,
+    re-save the plan limits (or run a one-time migration) so Starter 3/30/300 · Pro 6/100/1,000 ·
+    Premium 15/200/2,000 actually apply; bumping the code defaults alone is not enough. **Deploy gate on
+    the raised Pro/Premium limits:** do NOT deploy them until BOTH (1) Part B active-portfolio-only
+    lazy-load reads and (2) the Wave-B abuse controls (App Check enforcement + per-uid rate limiter +
+    `addCoinGuarded`) are live — without Part B a Pro-max account's daily-open read cost is a margin loss.
+    **Starter's raise is deploy-safe on its own.** Prices are unchanged. See PRICING.md §7 + NEXT-STEPS
+    §PLAN-LIMITS-MAX.
 
 ### Phase 5 — App Check (strict order, H1)
 16. Console → App Check → register the web app, create the reCAPTCHA v3 key.

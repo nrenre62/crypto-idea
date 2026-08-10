@@ -95,7 +95,7 @@ wins in a conflict) is **bold**.
 - `README.md` (Tier Limits table)
 
 ### Tier limits (portfolios / coins / tx caps)
-- Enforcement: **`firestore.rules`** (`configuredLimit` / `maxPortfolios` / `maxCoins` / `maxTx`)
+- Enforcement: **`firestore.rules`** (`configuredLimit` / `maxPortfolios` / `maxCoins` / `maxTx`) · `firestore.indexes.json` (tx-collection-group index exemptions — storage lever, PLAN-LIMITS-MAX #12)
 - Code: `functions/index.js` (`DEFAULT_PLANS`) · `src/hooks/useUpgrade.js` (`TIER_LIMITS`, `limitsForTier`) · `src/hooks/useAdminDashboard.js` · `src/components/Login.jsx` (`PLAN_BENEFITS`)
 - Docs: `README.md` (Tier Limits) · [`PRICING.md`](decisions/PRICING.md) · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #19/#20
 
