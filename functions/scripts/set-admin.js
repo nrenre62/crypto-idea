@@ -30,9 +30,10 @@
  *   node scripts/set-admin.js you@example.com --show           # print current claims
  *
  * SAFETY: demoting or revoking an existing OWNER requires --force, so a stray
- * command can't quietly strip an owner. Refresh tokens are revoked on every
- * change, so the new role takes effect on the target's next request rather than
- * up to an hour later.
+ * command can't quietly strip an owner. Minting a 3rd owner is likewise refused
+ * without --force (CRYP-103b: keep exactly 2 — the un-deletable root of trust).
+ * Refresh tokens are revoked on every change, so the new role takes effect on the
+ * target's next request rather than up to an hour later.
  *
  * ⚠️ RECOVERY: owners exist only as claims set by this script. If you lose both
  * owner passwords AND this service-account key there is no in-app way back —
@@ -45,6 +46,9 @@ const admin = require("firebase-admin");
 // admin.credential.* namespace from the root export. These resolve on both v12 and v14.
 const { getAuth } = require("firebase-admin/auth");
 const { applicationDefault } = require("firebase-admin/app");
+// CRYP-103b (C-2): the owner hard-cap decision is a pure, unit-tested helper (owner-cap.js);
+// this script does the Auth I/O and applies the verdict.
+const { ownerCapDecision, OWNER_CAP } = require("../owner-cap");
 
 const ROLES = ["owner", "manager"];
 const args = process.argv.slice(2);
@@ -79,6 +83,24 @@ const auth = getAuth();
 const describe = (c) =>
   (c && c.admin === true ? `admin, role=${c.role || "(none — legacy)"}` : "not an admin");
 
+// CRYP-103b (C-2): count existing OWNER-claim holders. Counts the claim regardless of
+// `disabled` — a suspended owner still holds an owner slot that can be re-enabled, so the
+// hard cap on "how many owners can exist" must include it. Paginates all users (fine at
+// this scale; owners are a handful).
+async function countOwners() {
+  let count = 0;
+  let pageToken;
+  do {
+    const res = await auth.listUsers(1000, pageToken);
+    res.users.forEach((u) => {
+      const c = u.customClaims;
+      if (c && c.admin === true && c.role === "owner") count += 1;
+    });
+    pageToken = res.pageToken;
+  } while (pageToken);
+  return count;
+}
+
 (async () => {
   try {
     const user = await auth.getUserByEmail(email);
@@ -97,6 +119,20 @@ const describe = (c) =>
       console.error("Re-run with --force if you really mean to demote them, and make");
       console.error("sure the OTHER owner can still sign in first.");
       process.exit(1);
+    }
+
+    // CRYP-103b (C-2): hard-cap owners at OWNER_CAP. Owners are the un-deletable root of
+    // trust — keep exactly two. Only a fresh owner mint is capped (re-setting an existing
+    // owner, granting a manager, or revoking all pass); --force is the deliberate escape.
+    if (role === "owner") {
+      const cap = ownerCapDecision({ role, currentRole: current.role, ownerCount: await countOwners(), force });
+      if (!cap.allowed) {
+        console.error(`Refusing: there are already ${cap.ownerCount} owners (cap is ${cap.cap}).`);
+        console.error("Owners are the un-deletable root of trust — keep exactly two.");
+        console.error("Re-run with --force ONLY if you are deliberately changing the owner set");
+        console.error("(e.g. rotating an owner) and the other owner can still sign in.");
+        process.exit(1);
+      }
     }
 
     // setCustomUserClaims REPLACES the object wholesale — always write the complete

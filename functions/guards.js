@@ -86,10 +86,12 @@ function appCheckOk(context, { enforce }) {
  * decision object; the caller maps it to an HttpsError. Same contract as the rest of
  * this file, so the whole role matrix is unit-testable with no emulator.
  *
- * FAIL CLOSED, ALWAYS. A legacy admin whose token predates this build has no `role`
- * claim: they stay a working admin for account actions (`requireManager`) but are NOT
- * an owner, so Settings and grant/revoke deny until `set-admin.js --role=owner` is run
- * and they re-login. Never widen `roleOf` to guess — an unknown role is not an owner.
+ * FAIL CLOSED, ALWAYS. A legacy admin whose token predates ADMIN-SEC has no `role`
+ * claim: after CRYP-103b they keep only the shared READ surface (`requireAdmin`) and are
+ * REFUSED both the account-management WRITE surface (`requireManager`) and owner areas
+ * (`requireOwner`) until `set-admin.js --role=manager|owner` gives them an explicit role
+ * and they re-login. Never widen `roleOf` to guess — an unknown role is neither a manager
+ * nor an owner.
  */
 const ROLE_OWNER = "owner";
 const ROLE_MANAGER = "manager";
@@ -113,10 +115,22 @@ function requireAdmin(context) {
   return { ok: true, role: roleOf(token), uid: context.auth.uid };
 }
 
-// Account-management surface: owner OR manager (and legacy role-less admins).
-// Alias of requireAdmin today — named separately so the call sites read as the
-// access matrix, and so tightening managers later is a one-line change here.
-function requireManager(context) { return requireAdmin(context); }
+// Account-management (WRITE) surface: owner OR manager ONLY.
+// ADMIN-SEP (CRYP-103b · Part C-1): no longer an alias of requireAdmin. Exactly two
+// admin types may ACT here — an admin claim with any other role (none/unknown/near-miss)
+// is REFUSED, eliminating the silent third "no-role admin gets full manager power" state.
+// requireAdmin (the shared READ surface) still admits a legacy role-less admin so the
+// panel stays readable through the migration window; only mutation tightens. Fails closed:
+// roleOf() already collapses anything that isn't exactly "owner"/"manager" to "".
+function requireManager(context) {
+  const base = requireAdmin(context);
+  if (!base.ok) return base;                      // unauthenticated / not-admin first
+  const role = roleOf(context.auth.token);
+  if (role !== ROLE_MANAGER && role !== ROLE_OWNER) {
+    return { ok: false, reason: "manager-required", role };
+  }
+  return { ok: true, role, uid: context.auth.uid };
+}
 
 // Owner-only surface: Settings (getAdminConfig/saveConfig), grant/revoke manager,
 // permanent erasure. A manager or a legacy role-less admin is refused.

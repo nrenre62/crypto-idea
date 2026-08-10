@@ -116,6 +116,11 @@ function denied(reason) {
   if (reason === "owner-required") {
     return new functions.https.HttpsError("permission-denied", "Owners only. Your admin account doesn't have owner access.");
   }
+  if (reason === "manager-required") {
+    // CRYP-103b: a { admin:true } claim with no/unknown role. It's an admin (it keeps the
+    // read surface), but it may not ACT — an owner must give it an explicit role first.
+    return new functions.https.HttpsError("permission-denied", "Your admin account has no role assigned. An owner must set your role before you can make changes.");
+  }
   if (reason === "reauth-required") {
     // The client watches for this exact code to re-prompt for the password.
     return new functions.https.HttpsError("failed-precondition", "reauth-required: confirm your password to continue.");
@@ -206,6 +211,21 @@ async function assertTargetAllowed(uid, callerRole, what) {
     throw new functions.https.HttpsError("permission-denied", "Owner accounts can only be managed by another owner.");
   }
   return targetRole;
+}
+
+// ADMIN-SEP (CRYP-103b): an admin account is never a moderation SUBJECT. suspend / tier /
+// limits on an admin TARGET (owner OR manager) are refused server-side — the server backing
+// for the Part A1 UI backstop (PR1 hid the buttons; trash/delete were already server-refused
+// on an admin, but suspend/tier/limits were not). Keys off the CLAIM, mirroring adminTrashUser,
+// so a no-role admin is covered too. `assertTargetAllowed` protects only OWNER targets, so a
+// MANAGER target would otherwise slip through — this is the general "no admin is a user" rule.
+// Runs BEFORE any side effect. `verb` shapes the message ("suspend" / "change the tier of" / …).
+async function assertTargetNotAdmin(uid, verb) {
+  let rec = null;
+  try { rec = await auth.getUser(uid); } catch (e) { return; }   // no auth record → not an admin
+  if (rec && rec.customClaims && rec.customClaims.admin === true) {
+    throw new functions.https.HttpsError("failed-precondition", `Can't ${verb} an admin account — remove their admin role first.`);
+  }
 }
 
 // The app must always keep at least this many admins, so admin access can never
@@ -939,6 +959,8 @@ exports.setUserTier = functions.https.onCall(async (data, context) => {
   }
   // ADMIN-SEC: owners are protected — a manager may not act on one at all.
   await assertTargetAllowed(uid, callerRole, "manage");
+  // ADMIN-SEP (CRYP-103b): no admin is a moderation subject (covers a MANAGER target too).
+  await assertTargetNotAdmin(uid, "change the tier of");
   // ADMIN-5: read the prior tier so the audit records old→new (reversible by hand).
   const beforeSnap = await db.collection("users").doc(uid).get();
   const beforeTier = (beforeSnap.exists && beforeSnap.data().tier) || "free";
@@ -995,6 +1017,8 @@ exports.setPremiumLimits = functions.https.onCall(async (data, context) => {
   const raw = (data && data.limits) || {};
   // ADMIN-SEC: owners are protected — a manager may not act on one at all.
   await assertTargetAllowed(uid, callerRole, "manage");
+  // ADMIN-SEP (CRYP-103b): no admin is a moderation subject (covers a MANAGER target too).
+  await assertTargetNotAdmin(uid, "set limits on");
   const num = (x) => (typeof x === "number" && isFinite(x) && x >= 0 ? Math.round(x) : null);
   const caps = { portfolios: 100000, coins: 1000, transactions: 1000000 };
   const out = {};
@@ -1026,6 +1050,9 @@ exports.suspendUser = functions.https.onCall(async (data, context) => {
   // this a manager could lock both owners out of the panel while the admin count
   // still looked healthy — the un-deletable guarantee by another route.
   await assertTargetAllowed(uid, callerRole, "manage");
+  // ADMIN-SEP (CRYP-103b): no admin is a moderation subject — "an admin can't be
+  // suspended at all" (covers a MANAGER target, which assertTargetAllowed lets through).
+  await assertTargetNotAdmin(uid, "suspend");
   // ADMIN-5: record the true prior state so a redundant (double-)suspend logs
   // "disabled: true→true", not a fabricated transition.
   let beforeDisabled = false;

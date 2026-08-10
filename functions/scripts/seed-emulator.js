@@ -37,15 +37,16 @@ const COIN_POOL = [
 ];
 
 // portfolios: array of coin-counts, e.g. [6, 4] = two portfolios with 6 and 4 coins.
-// role (ADMIN-SEC): "owner" | "manager" | "legacy" | null.
-//   "legacy" writes the PRE-ADMIN-SEC flat claim { admin:true } with no role, so the
-//   fail-closed path (owner-only areas must deny a role-less admin) is testable locally.
+// role (ADMIN-SEC): "owner" | "manager" | null.
+//   CRYP-103b dropped the "legacy" role-less admin seed — the no-role admin state is now
+//   refused the manager surface at the auth choke point (guards.requireManager), so seeding
+//   one only modelled a state the app no longer supports. Fail-closed behaviour is proven at
+//   the unit tier (tests/unit/guards.test.js). Every seeded admin has an explicit role.
 async function makeUser(email, password, tier, portfolios, role) {
   let u;
   try { u = await auth.getUserByEmail(email); }
   catch { u = await auth.createUser({ email, password, displayName: email.split("@")[0] }); }
-  if (role === "legacy") await auth.setCustomUserClaims(u.uid, { admin: true });
-  else if (role) await auth.setCustomUserClaims(u.uid, { admin: true, role });
+  if (role) await auth.setCustomUserClaims(u.uid, { admin: true, role });
 
   const userRef = db.collection("users").doc(u.uid);
   await userRef.set({ email, name: email.split("@")[0], tier, joined: now, portfolioCount: portfolios.length }, { merge: true });
@@ -69,16 +70,16 @@ async function makeUser(email, password, tier, portfolios, role) {
   await makeUser("admin@test.com",   "test1234", "free", [2],    "owner");    // 1 portfolio, 2 coins
   await makeUser("admin2@test.com",  "test1234", "free", [],     "owner");    // backup owner (no data)
   await makeUser("manager@test.com", "test1234", "free", [],     "manager");  // ADMIN-SEC: accounts-only admin
-  await makeUser("legacy@test.com",  "test1234", "free", [],     "legacy");   // ADMIN-SEC: role-less claim (must fail CLOSED)
   await makeUser("free@test.com",    "test1234", "free", [3],    null);       // 1 portfolio, 3 coins
   await makeUser("pro@test.com",     "test1234", "pro",  [6, 4], null);       // 2 portfolios, 10 coins
   console.log("Seeded the emulator:");
   console.log("  OWNER   -> admin@test.com   / test1234  (full panel incl. Settings + Admin access)");
   console.log("  OWNER   -> admin2@test.com  / test1234  (backup owner)");
   console.log("  MANAGER -> manager@test.com / test1234  (accounts only — no Settings, no grants)");
-  console.log("  legacy  -> legacy@test.com  / test1234  (pre-ADMIN-SEC {admin:true}, no role — owner areas must DENY)");
   console.log("  user    -> free@test.com    / test1234");
   console.log("  user    -> pro@test.com     / test1234");
-  console.log("Expected: 6 users (5 free, 1 pro) | 4 portfolios | 15 coins | avg 0.7 portfolios & 2.5 coins/user.");
+  // Admins (3) are excluded from the app's user-count surfaces (CRYP-103a); the 2 non-admin
+  // users are what the Overview/Users list shows.
+  console.log("Expected: 5 accounts (2 owners, 1 manager, 2 users) | 4 portfolios | 15 coins.");
   process.exit(0);
 })();
