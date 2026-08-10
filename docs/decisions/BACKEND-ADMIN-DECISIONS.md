@@ -83,10 +83,21 @@ tier counts + `signups24h` + the daily `statsDaily` snapshot exclude them as wel
 unfiltered on purpose (a collection-group count, not a user-count surface). Admins are surfaced instead in
 the owner-only Admin-access **roster** fed by the new `listAdmins` read. A **client backstop** in the
 user-detail panel hides Suspend + Delete→Trash for any admin target (owners AND managers) behind a
-"protected admin account" notice — trash/delete are already server-refused for admins, and the server-side
-refusal of **suspend/tier/limits** on an admin target lands in the follow-up **PR2** (with Part C:
-eliminate the no-role admin state + hard-cap owners at 2). Rules are **not** touched (the roster lives in
-custom claims, no Firestore backing). See [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §ADMIN-SEP.
+"protected admin account" notice. Rules are **not** touched (the roster lives in custom claims, no
+Firestore backing).
+
+**Exactly-two-admin-types hardening is now BUILT (ADMIN-SEP PR2, CRYP-103b, branch `claude/admin-sep-partc`).**
+Part C shipped: **(C-1)** `guards.requireManager` is **no longer an alias of `requireAdmin`** — the
+account-management WRITE surface now requires an explicit `role` of `manager` or `owner`, so a legacy
+`{admin:true}` claim with no/unknown role is **refused** (reason `manager-required` → `permission-denied`);
+the shared READ surface (`requireAdmin`) still admits it, so the panel stays readable. This eliminates the
+silent third "no-role admin gets full manager power" state. **(C-2)** `set-admin.js` hard-caps owners at 2
+via the pure, unit-tested `functions/owner-cap.js` `ownerCapDecision` (a fresh `--role=owner` mint past 2 is
+refused without `--force`). The **seed dropped `legacy@test.com`** — every seeded admin now has an explicit
+role. And the deferred server backing for Part A1 landed: `assertTargetNotAdmin` in
+`setUserTier`/`setPremiumLimits`/`suspendUser` **refuses suspend/tier/limits on ANY admin target** (owner OR
+manager, `failed-precondition`), mirroring the already-refused trash/delete — server-enforced, not just a UI
+hide. No new callable. See [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §ADMIN-SEP.
 
 ### 1.4 Settings → `config/app` → its consumers
 The locked **`config/app`** doc is written **only** by `saveConfig` (owner-gated, step-up re-auth). Rules deny **all** client

@@ -157,12 +157,11 @@ describe("guards.roleOf (ADMIN-SEC: strict, null-safe role read)", () => {
   });
 });
 
-describe("guards.requireAdmin / requireManager (shared account surface)", () => {
+describe("guards.requireAdmin (shared READ surface — any admin)", () => {
   it("admits owners, managers AND legacy role-less admins", () => {
     expect(requireAdmin(ctx(OWNER)).ok).toBe(true);
     expect(requireAdmin(ctx(MANAGER)).ok).toBe(true);
-    expect(requireAdmin(ctx(LEGACY)).ok).toBe(true);       // migration window stays usable
-    expect(requireManager(ctx(MANAGER)).ok).toBe(true);
+    expect(requireAdmin(ctx(LEGACY)).ok).toBe(true);       // migration window: read stays usable
   });
 
   it("reports the caller's role so callers can branch on it", () => {
@@ -177,6 +176,39 @@ describe("guards.requireAdmin / requireManager (shared account surface)", () => 
     expect(requireAdmin(ctx({ admin: 1 }))).toMatchObject({ ok: false, reason: "not-admin" });
     expect(requireAdmin(ctx(null))).toMatchObject({ ok: false, reason: "unauthenticated" });
     expect(requireAdmin(undefined)).toMatchObject({ ok: false, reason: "unauthenticated" });
+  });
+});
+
+// ADMIN-SEP (CRYP-103b · Part C-1): the account-management (WRITE) surface is no
+// longer a straight alias of requireAdmin. Exactly two admin types may act here —
+// owner and manager. A legacy { admin:true } claim with no/unknown role is REFUSED
+// (fails closed), eliminating the silent third "no-role admin gets full manager
+// power" state. requireAdmin (the READ surface above) is deliberately UNCHANGED so a
+// role-less admin can still read the panel during the migration window.
+describe("guards.requireManager (account-management WRITE surface — owner or manager only)", () => {
+  it("admits an explicit manager", () => {
+    expect(requireManager(ctx(MANAGER))).toMatchObject({ ok: true, role: "manager" });
+  });
+
+  it("admits an owner (an owner outranks the manager surface)", () => {
+    expect(requireManager(ctx(OWNER))).toMatchObject({ ok: true, role: "owner" });
+  });
+
+  it("CRYP-103: REFUSES a legacy role-less admin — the no-role manager grant is gone", () => {
+    expect(requireManager(ctx(LEGACY))).toMatchObject({ ok: false, reason: "manager-required" });
+  });
+
+  it("CRYP-103: refuses an admin claim with an unknown/near-miss role", () => {
+    for (const role of ["superadmin", "OWNER", "manager ", "admin", "", null, undefined]) {
+      expect(requireManager(ctx({ admin: true, role })).ok).toBe(false);
+    }
+  });
+
+  it("refuses non-admins and the unauthenticated (before it ever looks at the role)", () => {
+    expect(requireManager(ctx(USER))).toMatchObject({ ok: false, reason: "not-admin" });
+    expect(requireManager(ctx({ admin: 1 }))).toMatchObject({ ok: false, reason: "not-admin" });
+    expect(requireManager(ctx(null))).toMatchObject({ ok: false, reason: "unauthenticated" });
+    expect(requireManager(undefined)).toMatchObject({ ok: false, reason: "unauthenticated" });
   });
 });
 

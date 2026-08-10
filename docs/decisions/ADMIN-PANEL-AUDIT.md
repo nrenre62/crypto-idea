@@ -212,6 +212,7 @@ actor, so not a public exploit — but it defeats the "founders can't be locked 
   | **Admin roster read** (`listAdmins` — all admins, ADMIN-SEP) | ✅ | ❌ |
   | Permanent purge (hard-delete from Trash) | ✅ | ❌ |
   | Being deleted / demoted | ❌ never | ✅ (by an owner) |
+  | **Being suspended / tier-changed / limit-set** as a moderation target (ADMIN-SEP PR2) | ❌ never | ❌ never |
 
 - **Grant-admin moves out of the Users tab** → the per-user "Make admin / Remove admin role" button
   is removed. A manager is added only from the owner-only **Admin access** area, via this flow:
@@ -228,6 +229,16 @@ actor, so not a public exploit — but it defeats the "founders can't be locked 
 - **Manager walls (UI + server).** Managers never see the Settings tab, Admin access, permanent purge,
   or any grant-admin control (hidden in the UI **and** denied in the callables — `getAdminConfig`/
   `saveConfig`/grant/revoke add an owner check on top of today's `admin:true` check).
+
+**✅ ADMIN-SEP PR2 (CRYP-103b, branch `claude/admin-sep-partc`) closes the last of this out.** The
+**no-role admin state is eliminated at the auth choke point**: `guards.requireManager` is no longer an
+alias of `requireAdmin` — the account-management **write** surface requires an explicit `manager`/`owner`
+role, so a legacy `{admin:true}` claim with no/unknown role is **refused** (reason `manager-required`) and
+keeps only the shared **read** surface. **No admin is a moderation target** either: `assertTargetNotAdmin`
+in `setUserTier`/`setPremiumLimits`/`suspendUser` refuses suspend/tier/limits on **any** admin target
+(owner OR manager) server-side — the server backing for PR1's Part A1 button-hide (the new matrix row
+above). Owners are hard-capped at **2** in `set-admin.js` (pure `owner-cap.js` `ownerCapDecision`,
+`--force` to override), and the seed dropped the role-less `legacy@test.com`.
 
 **What it supersedes / absorbs:** the audit's "RBAC admin roles" (was 🟡 medium) and "Step-up
 re-authentication" (was 🟡 medium/partial) rows are now committed here; the owner-deletion bypass is a
