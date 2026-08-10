@@ -184,19 +184,23 @@ users/{uid}                       ← owner-only (admins can read/manage). Owner
 
 | Feature                | Starter           | Pro              | Premium             |
 |------------------------|-------------------|------------------|---------------------|
-| Portfolios             | 1                 | 3                | 15                  |
-| Coins per portfolio    | 10                | 50               | 1,000 (hard clamp)  |
-| Transactions per coin  | 50                | 2,000            | 5,000               |
+| Portfolios             | 3                 | 6                | 15                  |
+| Coins per portfolio    | 30                | 100              | 200                 |
+| Transactions per coin  | 300               | 1,000            | 2,000               |
 | Live AI                | offline summaries | ~13 analyses/day | ~80 analyses/day    |
 | Price: monthly         | $0                | $9.99            | $49.99              |
 | Price: yearly          | $0                | $99.99           | $499.99             |
 
 Limits are **server-enforced** by [`firestore.rules`](firestore.rules) (reading `config/app.plans`,
-admin-editable), with the built-in defaults above as the fallback. "Unlimited" Premium coins is a
-**1,000-coin hard clamp** (Decision #20) — it can only be lowered, never raised past 1,000. Live-AI
-spend is bounded by a per-uid **monthly $-cost ceiling** (`aiMonthlyCents`: Pro ~$4/mo, Premium
-~$25/mo), shown to users as "~N analyses/day" — see [PRICING.md](docs/decisions/PRICING.md) §4 and
-[USER-BENEFITS.md](docs/product/USER-BENEFITS.md).
+admin-editable), with the built-in defaults above as the fallback. Capacity limits were raised by
+**PLAN-LIMITS-MAX (#12)** (was 1/10/50 · 3/50/2,000 · 15/1,000/5,000; **prices unchanged**). The Premium
+coins ceiling is still a **1,000-coin hard clamp** (Decision #20) — the enforced Premium default is now
+**200**, and the clamp means a configured coin limit can only be lowered, never raised past 1,000. ⚠️ The
+raised **Pro/Premium** limits are gated: they ship to prod only once Part B lazy-load reads + the Wave-B
+abuse controls (App Check + rate limiter + `addCoinGuarded`) are live (Starter's raise is deploy-safe on its
+own) — see [PRICING.md](docs/decisions/PRICING.md) §7. Live-AI spend is bounded by a per-uid **monthly
+$-cost ceiling** (`aiMonthlyCents`: Pro ~$4/mo, Premium ~$25/mo), shown to users as "~N analyses/day" — see
+[PRICING.md](docs/decisions/PRICING.md) §4 and [USER-BENEFITS.md](docs/product/USER-BENEFITS.md).
 
 ## Costs
 

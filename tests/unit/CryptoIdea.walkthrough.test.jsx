@@ -557,13 +557,15 @@ describe("User walkthrough — all functions", () => {
     fireEvent.click(screen.getByText("STARTER"));
     await screen.findByText("Plan usage");
     fireEvent.click(screen.getByRole("button", { name: /Portfolios/ }));
-    // Trigger a validation error: "+ Add" as a free user already at the 1-portfolio
-    // cap (the classic plan-limit toast; a sync showErr path — no network involved).
+    // Trigger a validation error: "+ Add" with no name entered → "Enter a portfolio name"
+    // (a sync showErr path — no network involved). PLAN-LIMITS-MAX raised the free cap to 3,
+    // so a 1-portfolio user is no longer at the cap; the empty-name toast is the reliable
+    // sync error here. The point of R21 is the toast MECHANIC, not which error fires.
     vi.useFakeTimers();
     try {
       fireEvent.click(screen.getByText("+ Add"));
       const toast = screen.getByRole("alert");
-      expect(toast.textContent).toMatch(/Starter: 1 portfolio/);
+      expect(toast.textContent).toMatch(/Enter a portfolio name/);
       expect(toast.className).toContain("ci-toast");
       // R21-2: still visible at 3s (the old dismiss point)…
       act(() => { vi.advanceTimersByTime(3000); });

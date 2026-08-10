@@ -107,29 +107,36 @@ test("settings auto-save: updateUserSettings merges a toggle into the validated 
   assert.ok(prof.settings.updatedAt, "updatedAt re-stamped");
 });
 
-test("free tier: a 2nd portfolio is rejected by the rules", async () => {
-  const res = await createPortfolio(uid, "Second", 1);
-  assert.equal(res.success, false, "free tier must not allow a 2nd portfolio");
+test("free tier: portfolios allowed up to 3, then rejected (PLAN-LIMITS-MAX)", async () => {
+  // free now allows 3 portfolios (raised from 1). The default portfolio already exists (count 1),
+  // so a 2nd and 3rd are allowed and only the 4th is rejected by the rules. (createPortfolio's
+  // 3rd arg is `order`, not a limit — limit is null here, so the rules are the only check.)
+  const p2 = await createPortfolio(uid, "Second", 1);
+  assert.ok(p2.success, "2nd portfolio allowed on free (limit 3): " + JSON.stringify(p2));
+  const p3 = await createPortfolio(uid, "Third", 2);
+  assert.ok(p3.success, "3rd portfolio allowed on free (limit 3): " + JSON.stringify(p3));
+  const p4 = await createPortfolio(uid, "Fourth", 3);
+  assert.equal(p4.success, false, "the 4th portfolio should be rejected on free tier");
 });
 
-test("free tier: coins allowed up to 10, then rejected", async () => {
-  for (let i = 0; i < 10; i++) {
+test("free tier: coins allowed up to 30, then rejected", async () => {
+  for (let i = 0; i < 30; i++) {
     const r = await addCoin(uid, "default", { id: "coin" + i, symbol: "C" + i, name: "Coin " + i });
     assert.ok(r.success, `coin ${i} should add: ${JSON.stringify(r)}`);
   }
-  const r11 = await addCoin(uid, "default", { id: "coin10", symbol: "C10", name: "Coin 10" });
-  assert.equal(r11.success, false, "the 11th coin should be rejected on free tier");
+  const r31 = await addCoin(uid, "default", { id: "coin30", symbol: "C30", name: "Coin 30" });
+  assert.equal(r31.success, false, "the 31st coin should be rejected on free tier");
 });
 
 test("DI-1: an at-cap add is reason:'limit', a missing parent is reason:'missing-target'", async () => {
-  // The account above is at the coin cap (10). With the tier limit passed in, an over-cap
+  // The account above is at the coin cap (30). With the tier limit passed in, an over-cap
   // add is classified as a REAL limit — the only case the UI shows the upgrade toast.
-  const overCap = await addCoin(uid, "default", { id: "coinX", symbol: "CX", name: "Coin X" }, null, 10);
+  const overCap = await addCoin(uid, "default", { id: "coinX", symbol: "CX", name: "Coin X" }, null, 30);
   assert.equal(overCap.success, false);
   assert.equal(overCap.reason, "limit", "an at-cap add is a real limit: " + JSON.stringify(overCap));
 
   // A write to a parent that no longer exists is 'missing-target', never a fake limit.
-  const gone = await addCoin(uid, "no-such-portfolio", { id: "eth", symbol: "ETH", name: "Ethereum" }, null, 10);
+  const gone = await addCoin(uid, "no-such-portfolio", { id: "eth", symbol: "ETH", name: "Ethereum" }, null, 30);
   assert.equal(gone.success, false);
   assert.equal(gone.reason, "missing-target", "a missing parent is not a limit: " + JSON.stringify(gone));
 });
@@ -142,7 +149,7 @@ test("DI-3: re-adding an existing coin is 'already-exists' — no counter inflat
   const coinCountBefore = (await getPortfolios(uid)).portfolios.find((p) => p.id === "default").coinCount;
 
   const readd = await addCoin(uid, "default", { id: "coin0", symbol: "C0", name: "Coin 0" },
-    { thesis: "CLOBBER", changeMyMind: "x", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" }, 10);
+    { thesis: "CLOBBER", changeMyMind: "x", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" }, 30);
   assert.equal(readd.success, false);
   assert.equal(readd.reason, "already-exists", "a re-add is refused, not applied: " + JSON.stringify(readd));
 
@@ -155,7 +162,7 @@ test("DI-3: re-adding an existing coin is 'already-exists' — no counter inflat
 test("API-SECURITY (counter-forge): deleting a tx does NOT decrement txCount client-side; 2nd delete is 'not-found'", async () => {
   // The client can no longer decrement a tier counter (firestore.rules counterNoForge closes a
   // paywall bypass), so deletes leave the count FAIL-SAFE-high and it's reconciled server-side.
-  const add = await addTransaction(uid, "default", "coin1", { type: "buy", amount: 1, priceAtBuy: 50, date: "2026-02-01T00:00" }, 50);
+  const add = await addTransaction(uid, "default", "coin1", { type: "buy", amount: 1, priceAtBuy: 50, date: "2026-02-01T00:00" }, 300);
   assert.ok(add.success, "add tx: " + JSON.stringify(add));
   const txCountAfterAdd = (await getCoins(uid, "default")).coins.find((c) => c.id === "coin1").txCount;
 

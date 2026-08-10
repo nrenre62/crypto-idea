@@ -390,10 +390,14 @@ exports.beforeCreateUser = functions.auth.user().beforeCreate(async (user, conte
 //                    the margin guard: each live analysis costs ~1¢, so the ceiling
 //                    bounds AI spend per user no matter how many calls they make.
 //                    free=0 (offline only), pro=400 (~$4/mo), premium=2500 (~$25/mo).
+// PLAN-LIMITS-MAX (#12): Starter 3/30/300 · Pro 6/100/1000 · Premium 15/200/2000
+// (portfolios/coins-per-portfolio/tx-per-coin). Prices + aiMonthlyCents UNCHANGED. The
+// coins hardMax stays 1000 (mergePlans clamp below / firestore.rules #20) — 200 is the
+// enforced Premium default, not the ceiling. Mirrored in firestore.rules maxCoins etc.
 const DEFAULT_PLANS = {
-  free:    { price: 0,     priceYear: 0,      aiMonthlyCents: 0,    portfolios: 1,  coins: 10,   transactions: 50 },
-  pro:     { price: 9.99,  priceYear: 99.99,  aiMonthlyCents: 400,  portfolios: 3,  coins: 50,   transactions: 2000 },
-  premium: { price: 49.99, priceYear: 499.99, aiMonthlyCents: 2500, portfolios: 15, coins: 1000, transactions: 5000 },
+  free:    { price: 0,     priceYear: 0,      aiMonthlyCents: 0,    portfolios: 3,  coins: 30,   transactions: 300 },
+  pro:     { price: 9.99,  priceYear: 99.99,  aiMonthlyCents: 400,  portfolios: 6,  coins: 100,  transactions: 1000 },
+  premium: { price: 49.99, priceYear: 499.99, aiMonthlyCents: 2500, portfolios: 15, coins: 200,  transactions: 2000 },
 };
 // Validate + fill any missing plan fields from the defaults (never trust raw input).
 // DI-6 (G41): a PRICE may be 0 (the free tier), but a LIMIT may never be — a blank field

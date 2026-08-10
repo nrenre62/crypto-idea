@@ -49,16 +49,17 @@ function setup(portfolios = [], plans = null) {
 // clamped to the product hard-max — not the hardcoded TIER_LIMITS defaults.
 describe("limitsForTier (configured caps win, clamped to hard-max)", () => {
   it("falls back to the built-in defaults when no plans are configured", () => {
-    expect(limitsForTier("free", null)).toEqual({ ports: 1, coins: 10, tx: 50 });
-    expect(limitsForTier("pro", undefined)).toEqual({ ports: 3, coins: 50, tx: 2000 });
+    expect(limitsForTier("free", null)).toEqual({ ports: 3, coins: 30, tx: 300 });
+    expect(limitsForTier("pro", undefined)).toEqual({ ports: 6, coins: 100, tx: 1000 });
   });
   it("admin-configured plan values override the defaults", () => {
     expect(limitsForTier("free", { free: { portfolios: 2, coins: 20, transactions: 100 } }))
       .toEqual({ ports: 2, coins: 20, tx: 100 });
   });
   it("clamps a configured value to the hard-max (coins can never exceed 1,000)", () => {
+    // config sets coins:5000 → clamped to hardMax 1,000; ports/tx unset → new premium defaults 15 / 2,000.
     expect(limitsForTier("premium", { premium: { coins: 5000 } }))
-      .toEqual({ ports: 15, coins: 1000, tx: 5000 });
+      .toEqual({ ports: 15, coins: 1000, tx: 2000 });
   });
   it("returns null for an unknown tier", () => {
     expect(limitsForTier("bogus", null)).toBeNull();
@@ -105,8 +106,10 @@ describe("useUpgrade", () => {
     });
 
     it("counts over-limit portfolios, coins, and transactions for a downgrade", () => {
-      const { view } = setup(overflowPorts());
-      // free: 1 port, 10 coins, 50 tx.
+      // Pin the caps to 1/10/50 via config so this stays a deterministic LOGIC test after
+      // PLAN-LIMITS-MAX raised the free DEFAULTS to 3/30/300 (the fixture no longer overflows
+      // the new defaults). limitsForTier reads config first, so the counting math is unchanged.
+      const { view } = setup(overflowPorts(), { free: { portfolios: 1, coins: 10, transactions: 50 } });
       //   ports: 2 - 1 = 1
       //   coins: (12 - 10 in p1) + (1 whole coin in over p2) = 3
       //   tx:    (55 - 50 in c1) + (3 in over p2's coin)      = 8

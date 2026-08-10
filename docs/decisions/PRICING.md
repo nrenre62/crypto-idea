@@ -1,6 +1,6 @@
 # Crypto Idea — Pricing Plan
 
-**Canonical pricing decisions for Crypto Idea.** Last updated 2026-07-17.
+**Canonical pricing decisions for Crypto Idea.** Last updated 2026-08-10.
 This doc is the source of truth for *what we charge and why* — our tiers, prices,
 rationale, per-tier benefits, and margins. **Competitor pricing research lives separately
 in [PRICING-RESEARCH.md](../planning/PRICING-RESEARCH.md)** so this doc stays focused on our
@@ -16,9 +16,9 @@ Two readers: (1) **future me** — to remember *why* a number is what it is; (2)
 
 | Tier | Monthly | Annual (2 months free) | Annual ≈ /mo | Portfolios | Coins/portfolio | Tx/coin | Live AI |
 |---|---|---|---|---|---|---|---|
-| **Starter** | $0 | $0 | — | 1 | 10 | 50 | offline only |
-| **Pro** | **$9.99** | **$99.99** (−17%) | $8.33 | 3 | 50 | 2,000 | ~$4/mo budget (~13/day) |
-| **Premium** | **$49.99** | **$499.99** (−17%) | $41.67 | 15 | 1,000 (hard clamp) | 5,000 | ~$25/mo budget (~80/day) |
+| **Starter** | $0 | $0 | — | 3 | 30 | 300 | offline only |
+| **Pro** | **$9.99** | **$99.99** (−17%) | $8.33 | 6 | 100 | 1,000 | ~$4/mo budget (~13/day) |
+| **Premium** | **$49.99** | **$499.99** (−17%) | $41.67 | 15 | 200 | 2,000 | ~$25/mo budget (~80/day) |
 
 The "Live AI" column is shown to users as **"~N analyses/day"**. Internally we
 enforce a **monthly dollar-cost ceiling** (`aiMonthlyCents` in `config/app.plans`)
@@ -86,17 +86,23 @@ Reconsider once the rate-limiter ships. Then a small monthly taste (e.g. 5–10
 analyses) might be a sensible conversion lever — but it stays optional and
 data-driven, not the default.
 
-### 2.5 Premium "unlimited" coins is hard-clamped at 1,000
+### 2.5 Premium coins: 200 enforced default, 1,000 hard clamp
 
-Per **decision #20**: "unlimited" in copy = `min(config, 1000)` in
-`firestore.rules`. The plan can say "unlimited" because:
+Per **decision #20**, `firestore.rules` clamps any configured coin limit to
+`min(config, 1000)` — 1,000 is the absolute ceiling no admin edit can raise.
+As of **PLAN-LIMITS-MAX (#12, 2026-08)** the *enforced* Premium default is
+**200 coins/portfolio** (well below that clamp), which still gives a Premium
+user **3,000 coins across 15 portfolios** — far more than any real human
+portfolio needs. Premium is no longer marketed as "unlimited" coins; it now
+advertises the honest 200/portfolio figure. The 1,000 hard clamp stays as the
+anti-abuse backstop even though the shipped default now sits under it:
 - Real human portfolios don't exceed 1,000 distinct coins (95th-percentile
   Premium user has <100).
 - Each *novel* coin = a fresh conviction-cache miss → fresh AI spend.
 - A 1,000-coin clamp also caps the worst-case write-amplification on the
   Firestore counter and protects the AI budget from being trivially drained.
 
-This is invisible in normal use. The clamp **never** appears in marketing copy.
+The clamp is invisible in normal use and **never** appears in marketing copy.
 
 ---
 
@@ -232,7 +238,7 @@ AI budget. That's the moat. What each paid tier actually unlocks:
 | Capability | Our position |
 |---|---|
 | **AI research / copilot** (conviction + Pulse + Ask) | ✅ Premium at full budget; Pro at a smaller budget; Starter offline-only |
-| **Higher capacity** | ✅ 15 portfolios / 1,000 coins / 5,000 tx on Premium (see §1) |
+| **Higher capacity** | ✅ 15 portfolios / 200 coins / 2,000 tx on Premium (see §1) |
 | **Priority / faster support** | ✅ Premium includes priority support |
 | **Custom dashboards / historical analytics** | Backlog |
 | **Tax / compliance exports** | Backlog (P0 post-launch) |
@@ -253,6 +259,29 @@ capacity, support), see the cross-market matrix in
    compute per-cycle fees accurately (and so the user's Account page can show
    "Renews 2026-08-15 · annual" instead of guessing).
 3. **App Check (#20)** before launching any free-tier live-AI taste.
+4. **⚠️ Deploy gate on the raised Pro/Premium limits (PLAN-LIMITS-MAX #12).**
+   The raised Pro/Premium capacity limits must **not** ship to prod until BOTH
+   (1) the Part B lazy-load read optimization (transactions loaded for the
+   active portfolio only) and (2) the Wave-B abuse controls (App Check
+   enforcement + per-uid rate limiter + `addCoinGuarded`) are live. Without
+   Part B, a Pro-max account's daily-open **read** cost is a margin loss (a
+   maxed portfolio re-reads every transaction on open). **Starter's raise is
+   independently deploy-safe** (a free maxed account is ~$0.16/mo). Also: a
+   pre-existing stored `config/app.plans` doc **silently overrides the new rule
+   defaults**, so at deploy an owner must **re-save Plans & Pricing** (or run a
+   one-time migration) — bumping the code defaults alone is not enough.
+5. **Storage / read cost model (why the raised limits are safe).** CoinGecko
+   cost is FLAT (one shared `cache/universe` doc), so a user's coins/tx add
+   **zero** upstream API cost. The only per-user cost is Firestore, where
+   storage + writes are pennies and **reads on app-open are the sole real
+   driver** — which is why the Part B lazy-load (active-portfolio tx only) is
+   the load-bearing gate above. Single-field index **exemptions** on the
+   `transactions` collection group (`firestore.indexes.json`; `type`/`amount`/
+   `priceAtBuy` exempted, `date` kept for newest-first ordering) hold per-tx
+   storage at ~0.7 KB. With Part B, realistic-use margins are >99% at every
+   tier and even the theoretical maximum stays in-band (~80% Pro, ~83%
+   Premium). Full cost table in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md)
+   §PLAN-LIMITS-MAX.
 
 ---
 

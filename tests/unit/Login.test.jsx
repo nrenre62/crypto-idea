@@ -182,8 +182,8 @@ describe("Login screen (extracted, via AppContext)", () => {
 
     it("the picker cards show each tier's limits + the honest feature line", () => {
       provide({ showPlan: true, upgradeStep: "pickPlan", user: { name: "T", tier: "free" } });
-      expect(screen.getByText(/1 portfolio · 10 coins · 50 transactions per coin/)).toBeInTheDocument();
-      expect(screen.getByText(/15 portfolios · 1,000 coins per portfolio · 5,000 transactions per coin/)).toBeInTheDocument();
+      expect(screen.getByText(/3 portfolios · 30 coins per portfolio · 300 transactions per coin/)).toBeInTheDocument();
+      expect(screen.getByText(/15 portfolios · 200 coins per portfolio · 2,000 transactions per coin/)).toBeInTheDocument();
       // all-features line on Starter/Pro; Premium adds the support promise
       expect(screen.getAllByText(/All features included — live prices, P\/L, Journal, Research, Learn/).length).toBe(2);
       expect(screen.getByText(/All features included \+ priority email support/)).toBeInTheDocument();
