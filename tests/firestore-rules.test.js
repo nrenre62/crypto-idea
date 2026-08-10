@@ -325,20 +325,21 @@ test("free tier allows exactly 1 portfolio (counter-enforced)", async () => {
   await assertFails(b2.commit());
 });
 
-test("configured limits override the defaults (admin raises free to 2 portfolios)", async () => {
+test("configured limits override the defaults (admin raises free to 5 portfolios, above the new default of 3)", async () => {
   await seed(async (db) => {
-    await setDoc(doc(db, "config", "app"), { plans: { free: { portfolios: 2 } } });
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
+    await setDoc(doc(db, "config", "app"), { plans: { free: { portfolios: 5 } } });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 4, planChosen: true });
   });
   const db = aliceDb();
-  // 2nd portfolio: count 1 -> 2, within the CONFIGURED free limit of 2 -> allowed
+  // 5th portfolio: count 4 -> 5. The new DEFAULT free limit is 3 (would deny at 4), but the
+  // CONFIGURED limit of 5 wins -> allowed. Proves config overrides the built-in default.
   const b1 = writeBatch(db);
-  b1.set(doc(db, "users", "alice", "portfolios", "p2"), { name: "Two", coinCount: 0 });
+  b1.set(doc(db, "users", "alice", "portfolios", "p5"), { name: "Five", coinCount: 0 });
   b1.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
   await assertSucceeds(b1.commit());
-  // 3rd portfolio: count 2 -> 3, exceeds the configured limit of 2 -> rejected
+  // 6th portfolio: count 5 -> 6, exceeds the configured limit of 5 -> rejected
   const b2 = writeBatch(db);
-  b2.set(doc(db, "users", "alice", "portfolios", "p3"), { name: "Three", coinCount: 0 });
+  b2.set(doc(db, "users", "alice", "portfolios", "p6"), { name: "Six", coinCount: 0 });
   b2.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
   await assertFails(b2.commit());
 });
@@ -351,27 +352,31 @@ test("pro tier allows a 2nd portfolio where free would fail", async () => {
   const b = writeBatch(db);
   b.set(doc(db, "users", "bob", "portfolios", "p2"), { name: "Two", coinCount: 0 });
   b.update(doc(db, "users", "bob"), { portfolioCount: increment(1) });
-  await assertSucceeds(b.commit()); // count 1 -> 2, within pro limit of 3
+  await assertSucceeds(b.commit()); // count 1 -> 2, within pro limit of 6
 });
 
-test("pro tier caps at 3 portfolios; premium goes beyond (Round 17 — the real maximum)", async () => {
-  // Pro at the cap (3) — a 4th is rejected; a premium user at 3 CAN add a 4th. This is
-  // the cap the Round 17 dev tier-persist unlocks: once the DB tier is pro/premium (set
-  // via the Admin SDK, exactly like devSetMyTier), the rule grants the real maximum.
+test("pro tier caps at 6 portfolios; premium goes beyond (PLAN-LIMITS-MAX)", async () => {
+  // PLAN-LIMITS-MAX raised pro portfolios 3 -> 6. Pro at the cap (6) rejects a 7th; a
+  // premium user goes beyond (limit 15). The 6th succeeding is RED against the old pro=3.
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "bob"), { tier: "pro", portfolioCount: 3 });
-    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 3 });
+    await setDoc(doc(db, "users", "bob"), { tier: "pro", portfolioCount: 5 });
+    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 6 });
   });
-  // Pro: count 3 -> 4 exceeds the pro limit of 3 -> rejected.
   const pdb = bobDb();
-  const pb = writeBatch(pdb);
-  pb.set(doc(pdb, "users", "bob", "portfolios", "p4"), { name: "Four", coinCount: 0 });
-  pb.update(doc(pdb, "users", "bob"), { portfolioCount: increment(1) });
-  await assertFails(pb.commit());
-  // Premium: count 3 -> 4 is within the premium limit of 15 -> allowed.
+  // Pro: count 5 -> 6 is at the new pro limit of 6 -> allowed (was denied at old limit 3).
+  const ok = writeBatch(pdb);
+  ok.set(doc(pdb, "users", "bob", "portfolios", "p6"), { name: "Six", coinCount: 0 });
+  ok.update(doc(pdb, "users", "bob"), { portfolioCount: increment(1) });
+  await assertSucceeds(ok.commit());
+  // Pro: count 6 -> 7 exceeds the pro limit of 6 -> rejected.
+  const over = writeBatch(pdb);
+  over.set(doc(pdb, "users", "bob", "portfolios", "p7"), { name: "Seven", coinCount: 0 });
+  over.update(doc(pdb, "users", "bob"), { portfolioCount: increment(1) });
+  await assertFails(over.commit());
+  // Premium: count 6 -> 7 is within the premium limit of 15 -> allowed.
   const cdb = carolDb();
   const cb = writeBatch(cdb);
-  cb.set(doc(cdb, "users", "carol", "portfolios", "p4"), { name: "Four", coinCount: 0 });
+  cb.set(doc(cdb, "users", "carol", "portfolios", "p7"), { name: "Seven", coinCount: 0 });
   cb.update(doc(cdb, "users", "carol"), { portfolioCount: increment(1) });
   await assertSucceeds(cb.commit());
 });
@@ -421,21 +426,21 @@ test("coin create enforces symbol/name length bounds", async () => {
   await assertFails(bad.commit());
 });
 
-test("pro tier allows 50 coins per portfolio, then rejects (new 0a-core default)", async () => {
+test("pro tier allows 100 coins per portfolio, then rejects (PLAN-LIMITS-MAX)", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "bob"), { tier: "pro", portfolioCount: 1 });
-    // Seed the counter just below the pro ceiling (avoids creating 49 real coins).
-    await setDoc(doc(db, "users", "bob", "portfolios", "p1"), { name: "P", coinCount: 49 });
+    // Seed the counter just below the new pro ceiling (avoids creating 99 real coins).
+    await setDoc(doc(db, "users", "bob", "portfolios", "p1"), { name: "P", coinCount: 99 });
   });
   const db = bobDb();
-  // 49 -> 50: at the pro coins limit -> allowed
+  // 99 -> 100: at the new pro coins limit of 100 -> allowed (was denied at old limit 50)
   const ok = writeBatch(db);
-  ok.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "c50"), { symbol: "AAA", name: "Coin A", txCount: 0 });
+  ok.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "c100"), { symbol: "AAA", name: "Coin A", txCount: 0 });
   ok.update(doc(db, "users", "bob", "portfolios", "p1"), { coinCount: increment(1) });
   await assertSucceeds(ok.commit());
-  // 50 -> 51: exceeds the pro limit of 50 -> rejected
+  // 100 -> 101: exceeds the pro limit of 100 -> rejected
   const over = writeBatch(db);
-  over.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "c51"), { symbol: "BBB", name: "Coin B", txCount: 0 });
+  over.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "c101"), { symbol: "BBB", name: "Coin B", txCount: 0 });
   over.update(doc(db, "users", "bob", "portfolios", "p1"), { coinCount: increment(1) });
   await assertFails(over.commit());
 });
@@ -459,6 +464,103 @@ test("premium coins are hard-clamped at 1,000 even when config sets a higher num
   over.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c1001"), { symbol: "BBB", name: "Coin B", txCount: 0 });
   over.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
   await assertFails(over.commit());
+});
+
+// ── PLAN-LIMITS-MAX (#12): the new ceilings, boundary-tested (Nth ok / N+1th denied) ──
+// Counters are seeded just below each ceiling (the file's existing pattern) rather than
+// creating N real docs. Each "allowed at the new ceiling" assertion is RED against the old
+// limit it replaces; each "denied past it" proves the enforced cap.
+
+test("PLAN-LIMITS-MAX: Starter caps at 3 portfolios / 30 coins / 300 tx", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 2, planChosen: true });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 29 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 299 });
+  });
+  const db = aliceDb();
+  // 3rd portfolio (count 2 -> 3): at the new free limit of 3 -> allowed (denied at old 1).
+  const p3 = writeBatch(db);
+  p3.set(doc(db, "users", "alice", "portfolios", "p3"), { name: "Three", coinCount: 0 });
+  p3.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
+  await assertSucceeds(p3.commit());
+  // 4th portfolio (count 3 -> 4): exceeds 3 -> rejected.
+  const p4 = writeBatch(db);
+  p4.set(doc(db, "users", "alice", "portfolios", "p4"), { name: "Four", coinCount: 0 });
+  p4.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
+  await assertFails(p4.commit());
+  // 30th coin (count 29 -> 30): at the new free coins limit of 30 -> allowed (denied at old 10).
+  const c30 = writeBatch(db);
+  c30.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "c30"), { symbol: "AAA", name: "Coin A", txCount: 0 });
+  c30.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertSucceeds(c30.commit());
+  // 31st coin (count 30 -> 31): exceeds 30 -> rejected.
+  const c31 = writeBatch(db);
+  c31.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "c31"), { symbol: "BBB", name: "Coin B", txCount: 0 });
+  c31.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(c31.commit());
+  // 300th tx on btc (txCount 299 -> 300): at the new free tx limit of 300 -> allowed (denied at old 50).
+  const t300 = writeBatch(db);
+  t300.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t300"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
+  t300.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
+  await assertSucceeds(t300.commit());
+  // 301st tx (txCount 300 -> 301): exceeds 300 -> rejected.
+  const t301 = writeBatch(db);
+  t301.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t301"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
+  t301.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
+  await assertFails(t301.commit());
+});
+
+test("PLAN-LIMITS-MAX: Pro caps at 1,000 tx per coin (lowered from 2,000)", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "bob"), { tier: "pro", portfolioCount: 1 });
+    await setDoc(doc(db, "users", "bob", "portfolios", "p1"), { name: "P", coinCount: 1 });
+    await setDoc(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 999 });
+  });
+  const db = bobDb();
+  // 1000th tx (txCount 999 -> 1000): at the new pro tx limit -> allowed.
+  const ok = writeBatch(db);
+  ok.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc", "transactions", "t1000"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
+  ok.update(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
+  await assertSucceeds(ok.commit());
+  // 1001st tx (txCount 1000 -> 1001): exceeds 1,000 -> rejected (was ALLOWED at the old pro limit of 2,000).
+  const over = writeBatch(db);
+  over.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc", "transactions", "t1001"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
+  over.update(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
+  await assertFails(over.commit());
+});
+
+test("PLAN-LIMITS-MAX: Premium caps at 15 portfolios / 200 coins / 2,000 tx (coins+tx lowered)", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 15 });
+    await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 199 });
+    await setDoc(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 1999 });
+  });
+  const db = carolDb();
+  // 16th portfolio (count 15 -> 16): exceeds the premium limit of 15 -> rejected.
+  const p16 = writeBatch(db);
+  p16.set(doc(db, "users", "carol", "portfolios", "p16"), { name: "Sixteen", coinCount: 0 });
+  p16.update(doc(db, "users", "carol"), { portfolioCount: increment(1) });
+  await assertFails(p16.commit());
+  // 200th coin (count 199 -> 200): at the new premium coins limit -> allowed.
+  const c200 = writeBatch(db);
+  c200.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c200"), { symbol: "AAA", name: "Coin A", txCount: 0 });
+  c200.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertSucceeds(c200.commit());
+  // 201st coin (count 200 -> 201): exceeds 200 -> rejected (was ALLOWED at old premium 1,000).
+  const c201 = writeBatch(db);
+  c201.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c201"), { symbol: "BBB", name: "Coin B", txCount: 0 });
+  c201.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(c201.commit());
+  // 2000th tx on btc (txCount 1999 -> 2000): at the new premium tx limit -> allowed.
+  const t2000 = writeBatch(db);
+  t2000.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc", "transactions", "t2000"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
+  t2000.update(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
+  await assertSucceeds(t2000.commit());
+  // 2001st tx (txCount 2000 -> 2001): exceeds 2,000 -> rejected (was ALLOWED at old premium 5,000).
+  const t2001 = writeBatch(db);
+  t2001.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc", "transactions", "t2001"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
+  t2001.update(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
+  await assertFails(t2001.commit());
 });
 
 test("premium per-user premiumLimits override is enforced (U11/S8)", async () => {
