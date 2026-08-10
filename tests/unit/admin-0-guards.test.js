@@ -30,7 +30,10 @@ describe("ADMIN-0 · the admin gates are ASYNC — every call site must await", 
      so the callable runs unauthenticated while the code still LOOKS gated. Nothing
      else catches that — not the type system, not a review, and not the gate-coverage
      test, whose regex matches the awaited and un-awaited forms alike. */
-  const CALL = /\bassert(?:Admin|Manager|Owner|FreshOwner)\s*\(/;
+  // Includes the async TARGET guards (assertTargetAllowed / assertTargetNotAdmin, CRYP-103b):
+  // a missing await on those silently skips owner-protection / the admin-target refusal — the
+  // same invisible failure mode as the role gates. `Target\w+` also pins any future assertTarget*.
+  const CALL = /\bassert(?:Admin|Manager|Owner|FreshOwner|Target\w+)\s*\(/;
 
   const callSites = CODE.split("\n")
     .map((line, i) => ({ line, n: i + 1 }))
@@ -42,9 +45,9 @@ describe("ADMIN-0 · the admin gates are ASYNC — every call site must await", 
     expect(callSites.length).toBeGreaterThanOrEqual(15);
   });
 
-  it("every assert* call site is awaited", () => {
+  it("every assert* call site is awaited (role gates AND the target guards)", () => {
     const missing = callSites
-      .filter(({ line }) => !/await\s+assert(?:Admin|Manager|Owner|FreshOwner)\s*\(/.test(line))
+      .filter(({ line }) => !/await\s+assert(?:Admin|Manager|Owner|FreshOwner|Target\w+)\s*\(/.test(line))
       .map(({ line, n }) => `functions/index.js:${n}: ${line.trim()}`);
     expect(missing, `Un-awaited admin gate(s) — the callable would run UNGATED:\n${missing.join("\n")}`).toEqual([]);
   });

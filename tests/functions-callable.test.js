@@ -553,7 +553,7 @@ test("CRYP-103: listAdmins returns every admin for an owner; refuses a manager a
 // is enforced, not merely hidden. Red today (no admin-target check on those three). Runs in CI —
 // the functions emulator can't boot in the authoring sandbox (egress policy), same as PR1.
 
-test("CRYP-103: suspend / tier / limits are all refused on an admin (manager) target", async () => {
+test("CRYP-103: suspend / tier / limits / sign-out are all refused on an admin (manager) target", async () => {
   const ownerToken = await idTokenFor(OWNER_EMAIL);
   const mgrEmail = `sep_target_mgr_${stamp}@example.com`;
   const mgrUid = await makeUser(mgrEmail, { admin: true, role: "manager" });
@@ -568,6 +568,10 @@ test("CRYP-103: suspend / tier / limits are all refused on an admin (manager) ta
 
   const lim = await callAs("setPremiumLimits", ownerToken, { uid: mgrUid, limits: { coins: 5 } });
   assert.strictEqual(lim.status, 400, `setting an admin's limits must be refused, got ${lim.status}: ${JSON.stringify(lim.body)}`);
+
+  // Sign-out is a moderation action too — refused on an admin target (secure-by-design LOW #1).
+  const signOut = await callAs("adminSignOutUser", ownerToken, { uid: mgrUid });
+  assert.strictEqual(signOut.status, 400, `signing out an admin must be refused, got ${signOut.status}: ${JSON.stringify(signOut.body)}`);
 
   // Positive control: a plain (non-admin) user is still suspendable — no over-refusal.
   const plainUid = await makeUser(`sep_target_plain_${stamp}@example.com`, null);

@@ -1164,6 +1164,9 @@ exports.adminSignOutUser = functions.https.onCall(async (data, context) => {
   if (!uid) throw new functions.https.HttpsError("invalid-argument", "uid is required.");
   // ADMIN-SEC: repeated force-sign-out is a denial-of-access vector against an owner.
   await assertTargetAllowed(uid, callerRole, "manage");
+  // ADMIN-SEP (CRYP-103b): no admin is a moderation subject — sign-out is a moderation
+  // action, so an admin target (owner OR manager) is refused, same as suspend/tier/limits.
+  await assertTargetNotAdmin(uid, "sign out");
   await auth.revokeRefreshTokens(uid);
   await writeAudit(context, "adminSignOutUser", { targetUid: uid });
   return { success: true, uid };
