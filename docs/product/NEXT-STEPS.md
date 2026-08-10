@@ -4585,7 +4585,7 @@ Prop path: `useApp().site.features.aiResearch` → `Research.jsx` → `ResearchT
 
 ---
 
-## PLAN-LIMITS-MAX. Maximize plan benefits (Starter 3/30/300 · Pro 6/100/1000 · Premium 15/200/2000) + lazy-load reads  (Part A ✅ BUILT 2026-08-10 · branch `claude/plan-limits-max` · BUILD-LOOP #12; Part B lazy-load NOT built)
+## PLAN-LIMITS-MAX. Maximize plan benefits (Starter 3/30/300 · Pro 6/100/1000 · Premium 15/200/2000) + lazy-load reads  (Part A ✅ BUILT 2026-08-10 · branch `claude/plan-limits-max` · Part B ✅ BUILT 2026-08-10 · branch `claude/plan-limits-partb` · CRYP-104 · BUILD-LOOP #12; both parts built — whole item done pending the two PRs merging)
 
 > **rev.2 (2026-08-03):** Starter tx 100→**300**; Pro tx 2000→**1000**; Premium lowered **1000→200 coins /
 > 5000→2000 tx**; **Part B (lazy-load) promoted from "companion" to a HARD prerequisite** of the raised
@@ -4667,9 +4667,10 @@ ai-tool-policy · GO-LIVE-AUDIT deploy gate · the `authorization-and-tier-limit
 code commit) · the LAUNCH-FREE §A note. **Prices UNCHANGED.** Green: `test:rules` **51/51** · `test:unit`
 **1,064/1,064** · build clean. ⚠️ **NOT deployed** — the raised **Pro/Premium** limits are gated on Part B +
 Wave-B abuse controls (see Gating), and a stored `config/app.plans` doc must be re-saved at deploy or the old
-defaults silently win. **Part B (lazy-load reads) is a separate PR, still to come — the whole item is NOT done.**
+defaults silently win. **Part B (lazy-load reads) is now ✅ BUILT too (branch `claude/plan-limits-partb` · CRYP-104
+— see Part B below); the whole item is done pending both PRs merging (PR1 = Part A, PR2 = Part B).**
 
-### Part B — Lazy-load read optimization (⚠️ REQUIRED — hard prerequisite for the raised Pro/Premium limits)
+### Part B — Lazy-load read optimization (✅ BUILT 2026-08-10 · branch `claude/plan-limits-partb` · CRYP-104 — hard prerequisite for the raised Pro/Premium limits)
 12. **`src/hooks/useAuthSession.js`** `loadPortfolios` (L36-61): eager-load coins for all portfolios but
     **transactions ONLY for the active portfolio**; lazy-load a portfolio's transactions on first activation
     (switch), cached for the session. This is what bounds the theoretical max to ONE portfolio's tx and keeps
@@ -4679,6 +4680,22 @@ defaults silently win. **Part B (lazy-load reads) is a separate PR, still to com
       per-portfolio summary (invested/current). Pick the KISS option; **never show a wrong/zero P&L** for an
       unloaded portfolio. Aligns the initial load with the existing active-only `watchCoins` live-sync model.
 
+**Status — Part B ✅ BUILT (2026-08-10 · branch `claude/plan-limits-partb` · CRYP-104 · BUILD-LOOP #12):** chose
+option (a), the KISS load-on-switch path. New **`getCoinsMeta(uid, portfolioId)`** in `src/api/firebase-database.js`
+reads a portfolio's coins + their persisted `txCount` with **ZERO transaction queries** (one `getDocs`, `entries:[]`
+placeholder). **`loadPortfolios`** now reads `ci-active-port` first: the ACTIVE portfolio loads FULL (`getCoins` —
+reads transactions, `txLoaded:true`), every OTHER portfolio loads META-ONLY (`getCoinsMeta`, `txLoaded:false`). A
+`txLoaded` flag rides each portfolio and is carried through the `watchPortfolios` metas-merge; `watchCoins`
+(`CryptoIdea.jsx`) flips it `true` when a switched-to portfolio's transactions arrive. **`Portfolio.jsx`** shows a
+"Loading…" placeholder + "—" for gain/invested/24h while a switched-to portfolio's tx load — **never a wrong/zero
+P&L** for an unopened portfolio (`txLoaded===false` gates it; `undefined` reads as loaded so nothing regresses). The
+three cross-portfolio tx-count surfaces (`src/utils/usage.js`, `Account.jsx` `totalTxAllPorts`, `useUpgrade.js`
+`overLimitImpact`) now count via `txCount ?? entries.length`, so counts stay correct for lazy-loaded portfolios. This
+bounds a multi-portfolio account's app-open Firestore read cost to the ACTIVE portfolio's transactions — the cost
+lever the raised Pro/Premium margin math depends on. Green: `test:unit` **1,066/1,066** · build clean. **DOCS-ONLY
+still open:** none for Part B beyond this sweep. **Both parts now BUILT — the whole item is done pending both PRs
+merging (PR1 = Part A `claude/plan-limits-max`, PR2 = Part B `claude/plan-limits-partb`).**
+
 ### Gating (locked: raised limits are HARD-gated on Part B + Wave-B abuse controls)
 Raised limits are safe to build + test locally now (emulator). **Do NOT deploy the raised Pro/Premium limits to
 prod until BOTH are live: (1) Part B lazy-load, and (2) the Wave-B denial-of-wallet controls** — App Check
@@ -4687,6 +4704,11 @@ in-band; the abuse controls make the ceiling unreachable by a script and stop wr
 this as an explicit deploy-gate in PRICING.md Open items + the go-live checklist. (Starter's raise is safe to
 deploy independently — a free maxed account is ~$0.16/mo — but its abuse surface is account-farming, gated by
 the same App Check.)
+
+**Gate update (2026-08-10): Part B (1) is now ✅ BUILT** (branch `claude/plan-limits-partb` · CRYP-104), so the
+remaining deploy condition for the raised Pro/Premium limits is **(2) the Wave-B denial-of-wallet controls** (App
+Check enforcement + per-uid rate limiter + `addCoinGuarded`) — plus re-saving the stored `config/app.plans` doc at
+deploy. Both PRs (Part A + Part B) must merge before the limits ship.
 
 ### Acceptance (RED first; never weaken a test)
 - **`npm run test:rules:solo`** — new ceilings enforced: Starter 3/30/300 (4th portfolio / 31st coin / 301st tx

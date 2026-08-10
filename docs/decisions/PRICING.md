@@ -263,8 +263,11 @@ capacity, support), see the cross-market matrix in
    The raised Pro/Premium capacity limits must **not** ship to prod until BOTH
    (1) the Part B lazy-load read optimization (transactions loaded for the
    active portfolio only) and (2) the Wave-B abuse controls (App Check
-   enforcement + per-uid rate limiter + `addCoinGuarded`) are live. Without
-   Part B, a Pro-max account's daily-open **read** cost is a margin loss (a
+   enforcement + per-uid rate limiter + `addCoinGuarded`) are live. **(1) Part B
+   is now ✅ BUILT (2026-08-10 · branch `claude/plan-limits-partb` · CRYP-104 —
+   `getCoinsMeta` loads non-active portfolios' coins + `txCount` only, no tx
+   reads), so the remaining code prerequisite is (2) the Wave-B abuse controls.**
+   Without Part B, a Pro-max account's daily-open **read** cost is a margin loss (a
    maxed portfolio re-reads every transaction on open). **Starter's raise is
    independently deploy-safe** (a free maxed account is ~$0.16/mo). Also: a
    pre-existing stored `config/app.plans` doc **silently overrides the new rule

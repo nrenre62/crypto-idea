@@ -41,7 +41,7 @@
 ## 2. User views their portfolio
 
 **Files touched, in order:**
-`main.jsx` → `CryptoIdea.jsx` → `useAuthSession.js` → `firebase-auth.js` (`onAuthChange`) → `firebase-database.js` (`getPortfolios` → `getCoins` → transactions) → `firestore.rules` → `usePortfolios.js` → `CryptoIdea.jsx` (ctx) → `Portfolio.jsx` → `PortfolioBar.jsx`
+`main.jsx` → `CryptoIdea.jsx` → `useAuthSession.js` → `firebase-auth.js` (`onAuthChange`) → `firebase-database.js` (`getPortfolios` → `getCoins`/`getCoinsMeta` → transactions for the ACTIVE portfolio only) → `firestore.rules` → `usePortfolios.js` → `CryptoIdea.jsx` (ctx) → `Portfolio.jsx` → `PortfolioBar.jsx`
 
 1. `src/main.jsx` — Router lazy-loads the app bundle; `<Suspense fallback={<Loading/>}>` shows the spinner.
 2. `CryptoIdea.jsx` mounts — `screen="loading"`; `usePortfolios()` seeds a default in-memory portfolio; `useAuthSession()` wired with collaborators (`setScreen`/`setPortfolios`/`setActivePortId`/`checkSubscriptionStatus`/`saveProfile`) via a ref.
@@ -50,15 +50,15 @@
 5. `useAuthSession.js` callback — reads non-sensitive profile from local storage, assembles `baseUser`, calls `loadPortfolios(uid)`.
 6. `useAuthSession.js` `loadPortfolios()` → `api/firebase-database.js` `getPortfolios(uid)` — **read** `users/{uid}/portfolios` `orderBy("order")`.
    → `firestore.rules`: portfolios `read` allowed if `isOwner`.
-7. For each portfolio → `firebase-database.js` `getCoins(uid, pid)` — **read** `…/coins`; then for each coin, **read** `…/coins/{coinId}/transactions` `orderBy("date","desc")` → mapped onto `coin.entries`.
+7. **Lazy load (PLAN-LIMITS-MAX Part B, #12):** `loadPortfolios` reads the saved `ci-active-port` first, then the **ACTIVE** portfolio → `firebase-database.js` `getCoins(uid, pid)` — **read** `…/coins`; then for each coin, **read** `…/coins/{coinId}/transactions` `orderBy("date","desc")` → mapped onto `coin.entries` (`txLoaded:true`). Every **OTHER** portfolio → `getCoinsMeta(uid, pid)` — **read** `…/coins` + the persisted `txCount` only, **no transaction reads** (`entries:[]`, `txLoaded:false`); its transactions load on first switch via `watchCoins`. This bounds a multi-portfolio account's app-open read cost to the active portfolio's transactions.
    → `firestore.rules`: coins + transactions `read` allowed if `isOwner`.
-8. `useAuthSession.js` — `setPortfolios(loaded)`; restore `activePortId` from local storage (or first portfolio); `setUser(checkSubscriptionStatus(baseUser))`; `setScreen("portfolio")`; `setDataLoaded(true)`.
+8. `useAuthSession.js` — `setPortfolios(loaded)`; set `activePortId` to the saved active (or first portfolio); `setUser(checkSubscriptionStatus(baseUser))`; `setScreen("portfolio")`; `setDataLoaded(true)`.
 9. `hooks/usePortfolios.js` — derives the **active** `portfolio` (`portfolios.find(id===activePortId).coins`).
 10. `CryptoIdea.jsx` — computes `tv` (total value = Σ holdings × `prices[id].usd`), `totalBuys`, `tpnl`/`tpp`; builds `ctx`; (`useLivePrices` kicks off — see flow 3).
 11. `components/Portfolio.jsx` — `useApp()` reads ctx; renders header (total value / invested / P&L / live status) and the asset list (per-coin holdings, price, 24h change, swipe edit/delete).
-12. `components/PortfolioBar.jsx` — renders the switcher if >1 portfolio or Pro; tapping a tab `setActivePortId(p.id)` → re-derive & re-render.
+12. `components/PortfolioBar.jsx` — renders the switcher if >1 portfolio or Pro; tapping a tab `setActivePortId(p.id)` → re-derive & re-render. **Part B:** switching to a lazy-loaded portfolio subscribes `watchCoins`, which reads its transactions and flips `txLoaded:true`; until they arrive `Portfolio.jsx` shows a "Loading…" placeholder + "—" (never a wrong/zero P&L).
 
-> State path: `screen` loading→portfolio · `user` null→object · `portfolios` default→Firestore data · `dataLoaded` false→true. **Three Firestore reads** (portfolios, coins, transactions), all gated by the same `isOwner` rule.
+> State path: `screen` loading→portfolio · `user` null→object · `portfolios` default→Firestore data · `dataLoaded` false→true. **Reads at open:** portfolios + coins for every portfolio, but **transactions for the ACTIVE portfolio only** (Part B lazy-load — non-active portfolios read their `txCount` metadata only, deferring transactions to first switch); all gated by the same `isOwner` rule.
 
 ---
 

@@ -331,8 +331,9 @@ script can. So:
     the raised Pro/Premium limits:** do NOT deploy them until BOTH (1) Part B active-portfolio-only
     lazy-load reads and (2) the Wave-B abuse controls (App Check enforcement + per-uid rate limiter +
     `addCoinGuarded`) are live — without Part B a Pro-max account's daily-open read cost is a margin loss.
-    **Starter's raise is deploy-safe on its own.** Prices are unchanged. See PRICING.md §7 + NEXT-STEPS
-    §PLAN-LIMITS-MAX.
+    **(1) Part B is now ✅ BUILT (2026-08-10 · `claude/plan-limits-partb` · CRYP-104), so the remaining code
+    prerequisite is (2) the Wave-B abuse controls. Starter's raise is deploy-safe on its own.** Prices are
+    unchanged. See PRICING.md §7 + NEXT-STEPS §PLAN-LIMITS-MAX.
 
 ### Phase 5 — App Check (strict order, H1)
 16. Console → App Check → register the web app, create the reCAPTCHA v3 key.

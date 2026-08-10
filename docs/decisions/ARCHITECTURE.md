@@ -98,7 +98,13 @@ Persist through the frontend data layer (`src/api/firebase-database.js` / `fireb
 maintains counters with `writeBatch` + `increment`. These files **are the frontend model layer** (a
 conceded, deliberate role — see exceptions), not thin fetchers. Live multi-device sync is scoped to the
 watchers that need it (`watchPortfolios` / `watchCoins` on the active portfolio / `watchLearnProgress`);
-everything else is fetch-once. Firestore data shapes (portfolios / coins / transactions / `journal` /
+everything else is fetch-once. **App-open reads are lazy (PLAN-LIMITS-MAX Part B, #12, 2026-08-10):** only
+the ACTIVE portfolio eager-loads its transactions (`getCoins`); every other portfolio loads coins + the
+persisted `txCount` only (`getCoinsMeta`, zero transaction reads), with its transactions loaded on first
+switch via `watchCoins`. This bounds a multi-portfolio account's app-open read cost to the active
+portfolio's transactions (a `txLoaded` flag keeps an unopened portfolio from rendering a wrong/zero P&L);
+the cross-portfolio tx-count surfaces count via `txCount ?? entries.length` so counts stay correct for
+lazy-loaded portfolios. Firestore data shapes (portfolios / coins / transactions / `journal` /
 learn progress) are validated in `firestore.rules`. **Treat tier-limit / hard-clamp constants as ONE
 governed set** — do not restate the numbers here; they live in [`PRICING.md`](PRICING.md) and the
 `interview.md` "Tier limits" row (the highest drift-risk topic, ≈9 code+doc locations).
