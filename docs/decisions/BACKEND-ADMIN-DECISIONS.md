@@ -57,12 +57,14 @@ the role decides what each callable will do. The dashboard is presentation-only;
 `useAdminDashboard.js` → 11 thin wrappers in `src/api/admin.js`. **Six tabs:** Overview (`getStats`), Users
 (`listUsers`/`lookupUser`/`setUserTier`/`setPremiumLimits`/`suspendUser`/`adminTrashUser`/`adminSignOutUser`/`deleteUser`
 — **no grant-admin control**), Trash (`restoreUser`/purge), Settings (**owner + step-up re-auth**:
-`getAdminConfig`/`saveConfig`), Audit (`listAudit`), and the **owner-only "Admin access" tab**
-(`setManagerRole` — grant/revoke *manager*). Every callable
+`getAdminConfig`/`saveConfig`), Audit (`listAudit`), and the **owner-only "Admin access" tab** (a
+read-only **roster** of every admin via `listAdmins` above the email-lookup `setManagerRole` grant/revoke
+flow — ADMIN-SEP). Every callable
 re-verifies the claim server-side through one of four gates in `functions/guards.js`: **`assertAdmin`**
 (read-only: `getStats`/`lookupUser`/`listUsers`/`listAudit`) · **`assertManager`** (day-to-day writes:
 `setUserTier`/`setPremiumLimits`/`suspendUser`/`restoreUser`/`adminTrashUser`/`adminSignOutUser`) ·
-**`assertOwner`** (`deleteUser`) · **`assertFreshOwner`** (owner **+** a password re-auth within ~600s:
+**`assertOwner`** (`deleteUser`, `listAdmins` — the ADMIN-SEP owner roster read; a read, so no step-up)
+· **`assertFreshOwner`** (owner **+** a password re-auth within ~600s:
 `getAdminConfig`/`saveConfig`/`setManagerRole`; toggled by the server flag `config/app.flags.stepUpReauth`,
 default ON). Safety nets: **owner protection by identity** — an owner can never be deleted, trashed,
 demoted or self-deleted, and a *manager* may not act on an owner at all (suspend / sign-out / tier /
@@ -70,6 +72,21 @@ limits / trash / delete all refuse); **`MIN_ADMINS=2`** remains only as a second
 mirrors this with `isAdminOwner()` — the blanket `users` update/delete allowances are **owner-only**, reads
 stay open to any admin (`npm run test:rules:solo` runs them against an isolated emulator on :8099).
 Suspend/delete block self-target; `writeAudit()` logs admin actions to a server-only `audit` collection.
+
+**Admins are excluded from the Users section (ADMIN-SEP PR1, CRYP-103a, 2026-08-09).** An admin account
+must never read as a normal user, so `listUsers` and `findDuplicateEmails` skip any account with
+`customClaims.admin === true` (keyed off the **claim**, not `role` — a no-role admin has `role === ""`
+and a role filter would leak it back). Admins are therefore absent from the Users list, its count, the
+CSV export and the page-scoped bulk actions. `gatherStats`/`getStats` (via a new `adminUidSet()`
+Auth-enumeration helper) and `countSignupsSince` exclude admins too, so the Overview **Total users** +
+tier counts + `signups24h` + the daily `statsDaily` snapshot exclude them as well; `totalCoins` stays
+unfiltered on purpose (a collection-group count, not a user-count surface). Admins are surfaced instead in
+the owner-only Admin-access **roster** fed by the new `listAdmins` read. A **client backstop** in the
+user-detail panel hides Suspend + Delete→Trash for any admin target (owners AND managers) behind a
+"protected admin account" notice — trash/delete are already server-refused for admins, and the server-side
+refusal of **suspend/tier/limits** on an admin target lands in the follow-up **PR2** (with Part C:
+eliminate the no-role admin state + hard-cap owners at 2). Rules are **not** touched (the roster lives in
+custom claims, no Firestore backing). See [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §ADMIN-SEP.
 
 ### 1.4 Settings → `config/app` → its consumers
 The locked **`config/app`** doc is written **only** by `saveConfig` (owner-gated, step-up re-auth). Rules deny **all** client

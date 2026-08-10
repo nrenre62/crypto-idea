@@ -366,6 +366,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
     unlockPrompt, unlockPass, setUnlockPass, unlockErr, submitUnlock, cancelUnlock,
     grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound,
     grantMsg, setGrantWarn, grantWarn, grantLookup, setManager,
+    admins, adminsLoading, adminsMsg, loadAdmins,
     mfaWarn, setMfaWarn,
     daily, dailyLoading, dailyMsg, capturing, captureSnapshot,
     status, statusLoading, statusMsg, loadStatus, saveFeature,
@@ -389,6 +390,10 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
   useEffect(() => { setAskView(false); setViewReason(""); }, [found && found.uid]);
   // Close the reason form once the snapshot has loaded (the overlay takes over).
   useEffect(() => { if (viewAs) { setAskView(false); setViewReason(""); } }, [viewAs]);
+  // ADMIN-SEP (CRYP-103): load the admin roster the first time the Admin-access drill-in
+  // opens — lazily, the same way the Overview cards load on their tab. A manager never
+  // reaches this screen (it's inside owner-only Settings), so the roster is owner-only.
+  useEffect(() => { if (settingsView === "access") loadAdmins(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [settingsView]);
 
   /* ADMIN-D2 — one shared toast for every mutating action. It mirrors the hook's
      savedMsg (Settings saves) + actionMsg (Users/Trash actions) so those two
@@ -853,9 +858,11 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   <PremiumLimitsEditor found={found} busy={busy} onSave={changePremiumLimits} />
                 )}
 
-                {/* Moderation */}
+                {/* Moderation. ADMIN-SEP (CRYP-103) Part A1: an admin is not a support
+                    subject — Suspend is hidden for any admin (owner or manager). Sign-out
+                    stays: revoking a compromised admin's sessions is a legitimate action. */}
                 <div className="adm-actions">
-                  <button className="adm-btn danger" disabled={busy} onClick={toggleSuspend}>{found.disabled ? "Un-suspend" : "Suspend"}</button>
+                  {!found.isAdmin && <button className="adm-btn danger" disabled={busy} onClick={toggleSuspend}>{found.disabled ? "Un-suspend" : "Suspend"}</button>}
                   <button className="adm-btn" disabled={busy} onClick={signOutUser}>Sign out all devices</button>
                 </div>
 
@@ -895,10 +902,12 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                 </div>
 
                 {/* R31-5: ONE delete path — Delete → type DELETE → move to the 30-day trash.
-                    Hard (permanent) deletion lives ONLY in the Trash tab. ADMIN-D2: an owner
-                    target is pre-empted with a toast instead of opening the confirm (the
-                    server refuses it anyway — this just skips the dead-end typed-DELETE flow). */}
-                {confirmDelete ? (
+                    Hard (permanent) deletion lives ONLY in the Trash tab. ADMIN-SEP (CRYP-103)
+                    Part A1: the whole delete path is hidden for any admin (owner or manager) —
+                    an admin can't be trashed from here; the server refuses it too. The
+                    role==="owner" pre-empt below is a defensive belt for a legacy row whose
+                    isAdmin flag is missing. */}
+                {!found.isAdmin && (confirmDelete ? (
                   <div style={{ marginTop:10 }}>
                     <div style={{ fontSize:11, color:"var(--ink-soft)", marginBottom:6 }}>Type <b>DELETE</b> to move this account to the trash (recoverable for 30 days):</div>
                     <input className="field-input" value={delText} onChange={e => setDelText(e.target.value)} placeholder="DELETE" autoFocus style={{ marginBottom:8 }} />
@@ -915,17 +924,17 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     }}>
                     Delete account
                   </button>
-                )}
-                <div className="adm-hint" style={{ marginTop:8 }}>Delete moves the account to the trash — recoverable for 30 days. Permanent erasure (GDPR/CCPA) happens only from the Trash tab. Owner accounts can never be deleted or demoted. Sign-out forces every device to re-authenticate.</div>
+                ))}
+                <div className="adm-hint" style={{ marginTop:8 }}>Delete moves the account to the trash — recoverable for 30 days. Permanent erasure (GDPR/CCPA) happens only from the Trash tab. Admin accounts can never be deleted or demoted. Sign-out forces every device to re-authenticate.</div>
 
                 {/* ADMIN-SEC: the per-user "Make admin" button lived here and is GONE.
                     It was the bypass — any admin could promote throw-away accounts and then
                     delete the real owners while the admin count still looked healthy. Roles
                     are now granted only from the owner-only Admin access area, and owners can
                     only ever be minted by functions/scripts/set-admin.js. */}
-                {found.role === "owner" && (
+                {found.isAdmin && (
                   <div style={{ marginTop:12, paddingTop:12, borderTop:"1px solid var(--line-2)", fontSize:10.5, color:"var(--ink-faint)" }}>
-                    🔒 This is an <b>owner</b> account — protected. It can't be suspended, trashed, deleted or demoted from the panel.
+                    🔒 This is an <b>admin</b> account — protected. It can't be suspended, trashed, deleted or demoted from the panel.{found.role === "owner" ? " Owners can only be changed with functions/scripts/set-admin.js." : found.role === "manager" ? " Manager access is removed from the Admin access area." : " This admin's access is managed from the Admin access area."}
                   </div>
                 )}
           </DScreen>
@@ -976,7 +985,10 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
             if (listLoading && !userList) return <div className="adm-loading">Loading users…</div>;
             if (!userList) return null;
             const needle = q.trim().toLowerCase();
-            const { active } = partitionUsers(userList); // trashed accounts live in the Trash tab
+            // ADMIN-SEP (CRYP-103) Part A backstop: listUsers now drops admins server-side,
+            // but filter them client-side too so a stale/legacy list can never surface an
+            // admin as a moderatable user. Count / CSV / bulk all derive from this `active`.
+            const active = partitionUsers(userList).active.filter(u => !u.isAdmin); // trashed accounts live in the Trash tab
             const searched = needle ? active.filter(u => (u.email||"").toLowerCase().includes(needle) || (u.name||"").toLowerCase().includes(needle)) : active;
             // ADMIN-1: apply the billing filter (past_due / canceled) on top of the search.
             const billed = billingFilter === "all" ? searched : searched.filter(u => u.billingStatus === billingFilter);
@@ -1032,7 +1044,9 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                       {u.billingStatus && u.billingStatus !== "none" && <BillDot status={u.billingStatus} />}
                       <TierPill tier={u.tier} />
                       {u.disabled && <span className="adm-pill susp">SUSP</span>}
-                      {u.isAdmin && <span className="adm-pill admin">ADMIN</span>}
+                      {/* ADMIN-SEP (CRYP-103): no ADMIN pill here — the Users list is
+                          filtered to non-admins (server-side + the `!u.isAdmin` backstop
+                          above), so no admin row ever reaches this render. */}
                     </button>
                   </div>
                 ))}
@@ -1393,6 +1407,35 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                         <button className="acct-btn accent" style={{ flex:1, marginTop:0 }} disabled={busy}
                                 onClick={() => { setMfaWarn(false); saveControls({ ...controls, requireAdminMfa: true }); }}>I'm enrolled — require 2FA</button>
                       </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ADMIN-SEP (CRYP-103) Part B: the admin roster — read-only, so an owner
+                    can SEE who the admins are (owners + managers, keyed off the {admin:true}
+                    claim). No per-row actions; grant/revoke stays the email-lookup flow below. */}
+                <div className="adm-scr-section">
+                  <div className="adm-label">ADMINS</div>
+                  <div className="card-sub" style={{ marginBottom:14 }}>
+                    Everyone with admin access. Read-only — use the search below to grant or remove a manager; owners can only be changed with <code>set-admin.js</code>.
+                  </div>
+                  {adminsMsg ? (
+                    <div className="adm-inline-err">{adminsMsg}</div>
+                  ) : adminsLoading && admins.length === 0 ? (
+                    <div className="adm-loading">Loading roster…</div>
+                  ) : admins.length === 0 ? (
+                    <div className="adm-empty">No admins found.</div>
+                  ) : (
+                    <div className="adm-list">
+                      {admins.map(a => (
+                        <div key={a.uid} className="adm-row static">
+                          <div className="who"><div className="nm">{a.email}</div></div>
+                          {a.disabled && <span className="adm-pill susp">SUSPENDED</span>}
+                          {a.role === "owner" && <span className="adm-pill owner">OWNER</span>}
+                          {a.role === "manager" && <span className="adm-pill mgr">MANAGER</span>}
+                          {!a.role && <span className="adm-pill norole">NO ROLE</span>}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

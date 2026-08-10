@@ -39,21 +39,22 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-## FLOATING-HEADER — pinned brand-bar header + 30px gap + sticky settings (CRYP-102)
-- Phase: built (awaiting G3 merge)
-- G1 confirmed: yes (founder interview 2026-08-09, 8 locked decisions)
-- G2 approved: yes (written NEXT-STEPS plan carried the founder yes; architect = non-blocking plan-of-record)
-- Plan (files): src/styles/app.css · src/features/research/styles/research-tab.css · src/features/research/components/ResearchTab.jsx · src/CryptoIdea.jsx · src/components/Account.jsx · docs
-- Fix-round: 2 / 3
-- Founder decisions (2026-08-09): F3 → Option B (settings header = separate --paper/#F6F5F0 sticky bar, card body below as the white --paper-2 frame — pure-CSS reallocation, DOM unchanged so USER-SET-UI tests stay green); Q2 → scroll-to-top on Account open confirmed OK (F4 accepted).
-- Open findings being fixed: F1 avatar z-index → 20 (above research header z16); F2 → wrap research .apphead+.segwrap in ONE sticky container, drop the top:76px magic number; F3 → Option B CSS reallocation.
-- Reviews: secure=SAFE, test-tier=GREEN 97/97, design-consistency=CONSISTENT (F1/F2/F3 resolved round 2), build+dist-no-names clean, simplifier ran (1 cleanup).
-- Branch: master-6mrr02 (PR #60; merged master in to resolve CRYP-101 conflict)
-- Built: yes 9d6974a
+## ADMIN-SEP (#11) — admin/user separation (CRYP-103)
+- Provenance: PLANNED (🔶 CHECKPOINT, decisions locked 2026-08-03) — G1 interview skipped, G2 = non-blocking plan-of-record
+- Phase: G3 (PR1 = PR #61, awaiting founder squash-merge; CI running)
+- G1 confirmed: yes (written/locked plan; Story CRYP-103 filed)
+- G2 approved: yes (plan-of-record 2026-08-09; founder confirmed 2-PR split + drop legacy@ + added Part A1)
+- Split: **2 sequenced PRs** — PR1 = Parts A + A1 + B (CRYP-103a) · PR2 = Part C (CRYP-103b)
+- Part A1 (founder addition 2026-08-09): user-detail panel hides Suspend + Delete→Trash for ANY admin (`found.isAdmin`, not just owner) — generalize the L913/L926 owner guard; client backstop.
+- Plan (PR1 files): functions/index.js (listUsers/findDuplicateEmails/gatherStats/countSignupsSince exclude admins via adminUidSet(); new exports.listAdmins owner-only read) · src/api/admin.js (listAdmins wrapper) · src/hooks/useAdminDashboard.js (admins state + lazy loadAdmins) · src/components/admin-dashboard.jsx (roster at top of Admin-access drill-in; A1 user-detail backstop; Users render filters !u.isAdmin) · openapi.json (/listAdmins + ListAdminsResultEnvelope/AdminEntry; /listUsers desc) · tests/unit/admin-gate-coverage.test.js (MATRIX += listAdmins:assertOwner) · docs/decisions/ADMIN-PANEL-AUDIT.md (roles matrix row)
+- Plan (PR2 files): functions/guards.js (requireManager harden) · tests/unit/guards.test.js · functions/scripts/seed-emulator.js (drop legacy@) · functions/scripts/set-admin.js (owner hard-cap) + Gap-7 prose (guards.js comment, API-SECURITY.md, BACKEND-ADMIN-DECISIONS.md, ADMIN-PANEL-AUDIT.md)
+- Jira: CRYP-103 (Story)
+- Fix-round: 2 / 3 (RESOLVED locally — pushing round 2)
+- Open findings: none. Round-2 fix DONE: `excludeAdmins` pure helper (functions/duplicates.js) + findDuplicateEmails rewired to `groupDuplicateEmails(excludeAdmins(raw).map(strip customClaims))`; admin-exclusion proven at UNIT tier (tests/unit/duplicates.test.js, 2 new CRYP-103 cases, LOCALLY green 1049/1049); impossible integration case removed (Auth emulator can't hold dup emails — ERRORS.md C7). Re-review clean: verify GREEN 1049/1049+build, secure-by-design SAFE (customClaims-strip confirmed; 1 LOW capped-flag semantics → FIXED via `capped: !!pageToken`). No openapi change (response shape identical).
+- Branch: claude/admin-sep (PR1); PR2 branch claude/admin-sep-partc off master after PR1 merges
+- Built: yes 380d50b→922c8f1→11d45f6 (PR #61) — CI ALL GREEN on 11d45f6 (build+unit ✅, rules ✅, integration ✅). Awaiting founder G3 squash-merge.
 - Merged: no
-- Agents this item: 0
+- Agents this item: 18
 - Updated: 2026-08-09
 
-*(none other in flight.)*
-
-*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101). Run rows in `factory-runs.md`.)*
+*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101); **FLOATING-HEADER** PR #60 `1edbef2` (CRYP-102). Run rows in `factory-runs.md`.)*

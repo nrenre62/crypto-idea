@@ -248,6 +248,24 @@ async function countActiveOwners() {
   return count;
 }
 
+// ADMIN-SEP (CRYP-103): the set of uids that hold the { admin: true } claim. Admins have
+// a users/{uid} profile doc (the seed shape: tier "free"), so a users-collection scan
+// counts them as ordinary users unless it can tell which uids are admins. Firestore holds
+// no role — the claim lives ONLY in Auth — so we enumerate Auth once and key off the CLAIM
+// (not `role`: a legacy no-role admin has role === "", indistinguishable from a plain user,
+// and a role-based filter would leak it back into the user counts). Same paginate-all
+// pattern as countAdmins; fine at our scale.
+async function adminUidSet() {
+  const set = new Set();
+  let pageToken;
+  do {
+    const res = await auth.listUsers(1000, pageToken);
+    res.users.forEach((u) => { if (u.customClaims && u.customClaims.admin === true) set.add(u.uid); });
+    pageToken = res.pageToken;
+  } while (pageToken);
+  return set;
+}
+
 // Append an admin action to the server-only `audit` collection. Best-effort:
 // audit logging must NEVER break the action it's recording.
 //
@@ -667,6 +685,10 @@ const PAYMENT_FEE_FIXED = 0.30;
 // what makes the stored snapshot safe to keep indefinitely with no erasure path.
 async function gatherStats() {
   const usersSnap = await db.collection("users").get();
+  // ADMIN-SEP (CRYP-103): admins hold a users/{uid} profile doc (seeded tier "free"), so
+  // exclude them from every user-count surface below — the visible Users rows and the
+  // headline totals must agree. Keyed off the Auth claim, resolved once here.
+  const adminUids = await adminUidSet();
   let proUsers = 0, premiumUsers = 0, freeUsers = 0, totalPortfolios = 0, activeUsers = 0;
   // ADMIN-4: the forward-looking churn signal — subscriptions already cancelled or
   // failing that still HOLD a paid tier. They are what is *about* to churn, so they
@@ -674,6 +696,7 @@ async function gatherStats() {
   let canceledSubs = 0, pastDueSubs = 0;
   const payerList = [];   // BL-1b (D6): [{tier, cycle}] so annual payers are priced by cycle
   usersSnap.forEach((doc) => {
+    if (adminUids.has(doc.id)) return; // ADMIN-SEP: an admin is not counted as a user
     const d = doc.data();
     if (d.deleted === true) return; // soft-deleted accounts live in Trash, not the stats
     activeUsers++;
@@ -692,6 +715,9 @@ async function gatherStats() {
   });
   // Total coins tracked across everyone — a cheap collection-group COUNT
   // (counts index entries, does NOT read each coin document). Failsafe to 0.
+  // ADMIN-SEP (CRYP-103): deliberately NOT admin-excluded — this is a coin count, not a
+  // user-count surface (admins hold no coins in practice), so filtering it would add a
+  // per-uid read for zero effect. The asymmetry with the user counters above is intended.
   let totalCoins = 0;
   try {
     const coinsCount = await db.collectionGroup("coins").count().get();
@@ -750,6 +776,9 @@ async function countSignupsSince(cutoffMs) {
     const res = await auth.listUsers(1000, pageToken);
     for (const u of res.users) {
       seen++;
+      // ADMIN-SEP (CRYP-103): an admin signup is not a user signup — exclude it so the
+      // daily statsDaily series (which composes this) agrees with the Users surfaces.
+      if (u.customClaims && u.customClaims.admin === true) continue;
       const created = Date.parse((u.metadata && u.metadata.creationTime) || "");
       if (Number.isFinite(created) && created >= cutoffMs) signups++;
     }
@@ -1454,6 +1483,12 @@ exports.listUsers = functions.https.onCall(async (data, context) => {
   do {
     const res = await auth.listUsers(1000, pageToken);
     for (const u of res.users) {
+      // ADMIN-SEP (CRYP-103): an admin (owner OR manager) must never appear as a normal
+      // user. Skip on the CLAIM, not `role` — a legacy no-role admin has role === "",
+      // indistinguishable from a plain user, so a role-based filter would leak it back in.
+      // This one exclusion also removes admins from the count, CSV and bulk surfaces that
+      // consume this array. Admins live in the owner-only listAdmins roster instead.
+      if (u.customClaims && u.customClaims.admin === true) continue;
       const p = prof[u.uid] || {};
       const joinedMs = p.joined && typeof p.joined.toMillis === "function" ? p.joined.toMillis() : null;
       users.push({
@@ -1501,24 +1536,74 @@ exports.findDuplicateEmails = functions.https.onCall(async (data, context) => {
   // duplicate; the profile just enriches the row.
   const prof = {};
   try { const snap = await db.collection("users").get(); snap.forEach((d) => { prof[d.id] = d.data(); }); } catch (e) { /* Auth is enough to detect a dup */ }
-  const all = [];
+  // Accumulate EVERY Auth record (admins included), carrying customClaims so the pure
+  // duplicates.excludeAdmins helper can filter them out below — keeping the admin-exclusion
+  // unit-testable without the emulator (the Auth emulator can't hold duplicate emails at all).
+  const raw = [];
   let pageToken;
   do {
     const res = await auth.listUsers(1000, pageToken);
     for (const u of res.users) {
       const p = prof[u.uid] || {};
-      all.push({
+      raw.push({
         uid: u.uid,
         email: u.email || "",
         tier: p.tier || "free",
         disabled: !!u.disabled,
         creationTime: (u.metadata && u.metadata.creationTime) || null,
+        customClaims: u.customClaims || null,
       });
     }
     pageToken = res.pageToken;
-  } while (pageToken && all.length < CAP);
+  } while (pageToken && raw.length < CAP);
+  // ADMIN-SEP (CRYP-103): drop admin accounts (keyed off the { admin:true } claim, not
+  // `role`, so a legacy no-role admin is excluded too), then .map STRIPS customClaims so the
+  // claims blob NEVER leaks to the client — each account stays { uid, email, tier, disabled,
+  // creationTime } exactly as before.
+  const all = duplicates.excludeAdmins(raw).map((u) => ({
+    uid: u.uid,
+    email: u.email,
+    tier: u.tier,
+    disabled: u.disabled,
+    creationTime: u.creationTime,
+  }));
   const groups = duplicates.groupDuplicateEmails(all);
-  return { groups, duplicateEmails: groups.length, capped: all.length >= CAP };
+  // `capped` = truncated: we stopped paging because raw hit CAP while more pages remained
+  // (pageToken still set). Keyed off pageToken, NOT `all.length` — `all` is post-admin-filter,
+  // so `all.length >= CAP` would under-count and falsely report "not capped" on a huge tenant.
+  return { groups, duplicateEmails: groups.length, capped: !!pageToken };
+});
+
+// ─── ADMIN-SEP (CRYP-103): the admin roster — owners + managers (owner only) ───
+// The counterpart to hiding admins from the Users list: once admins leave that section
+// they need a home, and this is it. OWNER-only, because the Admin access area is
+// owner-only (a manager can't open it at all). Step-up re-auth is NOT required — this is
+// a READ, not a claim mutation (grant/revoke stays on setManagerRole behind assertFreshOwner).
+//
+// Keyed off the { admin: true } CLAIM, not `role`, so a legacy no-role admin still appears
+// (with role: "") until it's migrated — the whole point of the roster is to see every admin,
+// including one a role filter would hide. READ-ONLY: no writeAudit (a read is not an audited
+// action), no body uid (acts on the caller's owner gate + returns the full roster).
+exports.listAdmins = functions.https.onCall(async (data, context) => {
+  await assertOwner(context);
+  assertNoUnknownKeys(data, []);
+  const admins = [];
+  let pageToken;
+  do {
+    const res = await auth.listUsers(1000, pageToken);
+    for (const u of res.users) {
+      if (!(u.customClaims && u.customClaims.admin === true)) continue;
+      admins.push({
+        uid: u.uid,
+        email: u.email || "",
+        role: guards.roleOf(u.customClaims || null),
+        disabled: !!u.disabled,
+        lastSignInTime: (u.metadata && u.metadata.lastSignInTime) || null,
+      });
+    }
+    pageToken = res.pageToken;
+  } while (pageToken);
+  return { admins, total: admins.length };
 });
 
 // ─── Admin: read the recent audit log (admins only) ───

@@ -1233,7 +1233,7 @@ the go-ahead and this becomes buildable again.
 
 ---
 
-## ADMIN-SEP. Admin/user separation — admins out of the Users list, into an owner-only Admin-access roster  (📋 PLAN — 2026-08-03; NOT built)
+## ADMIN-SEP. Admin/user separation — admins out of the Users list, into an owner-only Admin-access roster  (🟨 IN PROGRESS — PR1 ✅ BUILT 2026-08-09 · CRYP-103a · branch `claude/admin-sep`; PR2 remaining)
 
 Founder ask (2026-08-03): keep admins **out of the Users section** of the admin panel — an admin account
 must never appear as a normal user. All admins (**managers AND owners**) belong in the **Admin access**
@@ -1243,6 +1243,27 @@ the Admin access UI is a **manager only**; **only an owner** can promote a manag
 
 Mapped read-only against the live code (multi-agent gap map, 2026-08-03) + interviewed via AskUserQuestion;
 all decisions locked below.
+
+**Build status — PR split (CRYP-103, factory G2):**
+- **PR1 (CRYP-103a, ✅ BUILT 2026-08-09, branch `claude/admin-sep`) = Parts A + A1 + B.**
+  - **Part A** — server-side exclusion: `listUsers` + `findDuplicateEmails` skip `customClaims.admin===true`
+    (Users list/count/CSV/bulk); `gatherStats`/`getStats` (new `adminUidSet()` helper) + `countSignupsSince`
+    exclude admins from the Overview **Total users** + tier counts + `signups24h` + the `statsDaily` snapshot
+    (`totalCoins` deliberately unfiltered — a collection-group count). One-time dev-seed discontinuity noted;
+    no production data exists.
+  - **Part A1** — user-detail **client backstop**: Suspend + Delete→Trash are hidden for ANY admin target
+    (`found.isAdmin`, owners AND managers) behind a "🔒 protected admin account" notice (generalized from the
+    old owner-only guard). NOTE: trash/delete are already server-refused for admins; the **server refusal of
+    suspend/tier/limits on an admin target is PR2** — so today the UI hides these, not yet fully server-enforced.
+  - **Part B** — owner-only `listAdmins()` (via `assertOwner`; a read → no step-up, no audit) returns
+    `{uid,email,role,disabled,lastSignInTime}` per admin (keyed off the claim). The Admin-access drill-in now
+    renders a read-only **roster** (owners + managers, role pill, suspended indicator) above the kept
+    email-lookup grant flow. Registered in the `admin-gate-coverage` MATRIX as `assertOwner`; **no
+    `ACTION_LABELS` entry** (a read).
+- **PR2 (remaining) = Part C** — exactly-two-admin-types hardening (eliminate the no-role admin state at the
+  auth choke point + migrate the seed; hard-cap owners at 2 in `set-admin.js`; reject unknown role strings) —
+  **plus** the server-side refusal of **suspend / tier / limits** on an admin target (the backstop Part A1
+  hides today). Not built yet; the item stays in-progress until PR2 merges.
 
 **Big picture — this is a SERVER + admin-UI change; `firestore.rules` is NOT touched.** The entire admin
 roster lives in **Firebase custom claims** (`{admin:true, role:"owner"|"manager"}`), with **zero Firestore
@@ -1266,7 +1287,7 @@ adds an owner-gated callable).
 
 **The real gaps (what this item builds):**
 
-### Part A — Hide admins from the Users section (Point 1) — 🔴 GAP (high)
+### Part A — Hide admins from the Users section (Point 1) — ✅ BUILT (PR1, CRYP-103a)
 Today `listUsers` returns **every** Auth account incl. admins, each tagged `isAdmin`/`role` (index.js
 L1445-1448), and the client renders them as rows **badged "ADMIN"** (admin-dashboard.jsx L1035); the *same
 unfiltered array* also feeds the row count, the CSV export (`buildUsersCsv`) and the page-scoped bulk
@@ -1282,7 +1303,7 @@ set-tier/suspend actions (L995-1019). No exclusion exists at any layer.
   also **exclude admin accounts**, so the visible rows and the headline numbers agree (no "12 users but only
   10 rows" mismatch).
 
-### Part B — Admin access lists ALL admins (Point 3) — 🔴 GAP (high)
+### Part B — Admin access lists ALL admins (Point 3) — ✅ BUILT (PR1, CRYP-103a)
 Today the Admin access area is a **search-by-email lookup** showing one account at a time (`grantLookup` →
 `lookupUser`, admin-dashboard.jsx L1390-1433) plus a numeric owner count (`s.activeOwners`, L1437-1441).
 There is **no roster** and **no `listAdmins` callable** — an owner can't see who the managers/owners are.
@@ -1301,7 +1322,7 @@ There is **no roster** and **no `listAdmins` callable** — an owner can't see w
   the answer to "once admins leave the Users tab, how do you act on them" — you don't manage an admin *as a
   user*; you grant/revoke via this roster or `set-admin.js`.)
 
-### Part C — Exactly two admin types (Point 4) — 🟠 PARTIAL
+### Part C — Exactly two admin types (Point 4) — 🟠 PARTIAL → **PR2 (remaining)**
 Three deviations from "only manager + owner, 2 owners, no other role":
 1. **Eliminate the third "no-role admin" state (LOCKED — harden guards).** A legacy `{admin:true}` account
    with no/unknown role is code-supported and **silently gets full manager power** — `guards.requireManager`
@@ -1349,12 +1370,15 @@ two admin types can exist (no-role state eliminated at the choke point + seed mi
 at 2 in the script; every change server-enforced + audited where it mutates; docs + tests updated; no new
 dependency; light-paper admin only.
 
-**Status: PLAN ONLY — not built.** Decisions locked 2026-08-03 via AskUserQuestion: **(1)** eliminate the
+**Status: 🟨 IN PROGRESS — PR1 ✅ BUILT (Parts A + A1 + B), PR2 remaining (Part C + the suspend/tier/limits
+admin-target server refusal).** Decisions locked 2026-08-03 via AskUserQuestion: **(1)** eliminate the
 no-role admin state (harden guards + migrate seed); **(2)** hard-cap owners at 2 in `set-admin.js`; **(3)**
 roster **+ keep** the email lookup; **(4)** exclude admins from **every** user-count surface (Users list,
-Total users, tier counts, dup-email). 🔶 **CHECKPOINT** (security-critical: auth choke point + a new
-owner-gated callable) — but decisions are locked, so it's buildable on a "go". Independent of ADMIN-6 and
-LAUNCH-FREE (no shared files that conflict). Queued in [BUILD-LOOP](BUILD-LOOP.md) as #11.
+Total users, tier counts, dup-email). Decisions (3) + (4) shipped in **PR1 (CRYP-103a, 2026-08-09, branch
+`claude/admin-sep`)** along with the Part A1 user-detail backstop; decisions (1) + (2) are **PR2**. 🔶
+**CHECKPOINT** (security-critical: auth choke point + a new owner-gated callable) — decisions are locked.
+Independent of ADMIN-6 and LAUNCH-FREE (no shared files that conflict). Queued in
+[BUILD-LOOP](BUILD-LOOP.md) as #11.
 
 ---
 

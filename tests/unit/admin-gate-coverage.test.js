@@ -25,6 +25,8 @@ const MATRIX = {
   lookupUser: "assertAdmin",
   listUsers: "assertAdmin",
   findDuplicateEmails: "assertAdmin",  // AUTH-DUP — read-only duplicate-email detector
+  listAdmins: "assertOwner",          // ADMIN-SEP (CRYP-103) — owner-only admin roster
+                                      // read (no step-up: a read, not a claim mutation)
   listAudit: "assertAdmin",
   listWebhookEvents: "assertAdmin",   // ADMIN-1
   listDailyStats: "assertAdmin",      // ADMIN-4 — same gate as getStats, which already

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser, viewUserAsAdmin, getUserNote, saveUserNote } from "../api/admin.js";
+import { getStats, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser, viewUserAsAdmin, getUserNote, saveUserNote } from "../api/admin.js";
 import { getAdminRole, reauthAdmin } from "../api/admin-auth.js";
 // ADMIN-5: per-operator saved Users-tab filter presets (localStorage, pure util).
 import { loadViews, persistViews, addView, removeView } from "../utils/admin-views.js";
@@ -54,6 +54,11 @@ export function useAdminDashboard() {
   const [grantFound, setGrantFound] = useState(null);
   const [grantMsg, setGrantMsg] = useState("");
   const [grantWarn, setGrantWarn] = useState(false);
+  // ADMIN-SEP (CRYP-103): the admin roster shown at the top of the Admin-access
+  // drill-in (owner-only). Loaded lazily when that screen opens (loadAdmins below).
+  const [admins, setAdmins] = useState([]);
+  const [adminsLoading, setAdminsLoading] = useState(false);
+  const [adminsMsg, setAdminsMsg] = useState("");
 
   /* ADMIN-SEC — step-up unlock.
    * The client timer is a convenience so an owner isn't re-prompted for every field in
@@ -348,6 +353,17 @@ export function useAdminDashboard() {
   // Load the user list the first time the Users or Trash tab is opened (both read it).
   useEffect(() => { if ((tab === "users" || tab === "trash") && userList === null && !listLoading) loadUserList(); }, [tab]);
 
+  // ADMIN-SEP (CRYP-103): load the admin roster for the owner-only Admin-access drill-in.
+  // Same error-vs-empty rule as loadUserList — on failure adminsMsg is set AND admins is
+  // reset to [], so a load error can never masquerade as "there are no admins". The
+  // component fires this lazily the first time the Admin-access screen opens.
+  const loadAdmins = async () => {
+    setAdminsLoading(true); setAdminsMsg("");
+    try { setAdmins(await listAdmins()); }
+    catch (e) { setAdminsMsg((e && e.message) || "Could not load the admin roster"); setAdmins([]); }
+    setAdminsLoading(false);
+  };
+
   // ADMIN-3: `limit` is explicit so "Load more" can re-fetch a deeper slice. The
   // server clamps it to 500, and AUDIT_MAX_LIMIT mirrors that so the button can
   // disappear once there is nothing deeper to ask for.
@@ -611,6 +627,8 @@ export function useAdminDashboard() {
     unlockPrompt, unlockPass, setUnlockPass, unlockErr, submitUnlock, cancelUnlock,
     grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound, setGrantFound,
     grantMsg, setGrantMsg, grantWarn, setGrantWarn, grantLookup, setManager,
+    // ADMIN-SEP (CRYP-103) — the owner-only admin roster.
+    admins, adminsLoading, adminsMsg, loadAdmins,
     mfaWarn, setMfaWarn,
     userList, setUserList, listMsg, setListMsg, listLoading, setListLoading, q, setQ, page, setPage, PAGE_SIZE,
     billingFilter, setBillingFilter,

@@ -209,6 +209,7 @@ actor, so not a public exploit — but it defeats the "founders can't be locked 
   | Change tier · suspend · sign-out · custom limits · move-to-trash | ✅ | ✅ |
   | **Settings** (App Controls · API keys · Plans & pricing · Email · Analytics/legal) | ✅ | ❌ hidden + server-denied |
   | **Admin access** (grant/revoke managers) | ✅ | ❌ |
+  | **Admin roster read** (`listAdmins` — all admins, ADMIN-SEP) | ✅ | ❌ |
   | Permanent purge (hard-delete from Trash) | ✅ | ❌ |
   | Being deleted / demoted | ❌ never | ✅ (by an owner) |
 

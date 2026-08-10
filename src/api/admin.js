@@ -22,6 +22,15 @@ export async function listUsers() {
   return (res.data && res.data.users) || [];
 }
 
+// ADMIN-SEP (CRYP-103): the admin roster — every account holding the {admin:true}
+// claim (owners + managers), for the owner-only Admin-access drill-in. Read-only;
+// grant/revoke stays the email-lookup flow. Returns an array (the callable returns
+// { admins:[{uid,email,role,disabled,lastSignInTime}], total }).
+export async function listAdmins() {
+  const res = await httpsCallable(functions, "listAdmins")({});
+  return (res.data && res.data.admins) || [];
+}
+
 // Recent admin-action audit entries. Returns an array.
 export async function listAudit(limit = 100) {
   const res = await httpsCallable(functions, "listAudit")({ limit });

@@ -38,6 +38,16 @@ enforced server-side, not by the client.** 23 live cross-tenant probes against t
   a former top-level tab by ADMIN-D3) via `setManagerRole({email, grant})`. The old
   `setAdminClaim` is removed (the export now always throws `permission-denied`), and the Users tab has no
   grant/revoke control.
+- **Admins are kept out of the user surface, server-side (ADMIN-SEP PR1, CRYP-103a).** An admin account
+  (owner OR manager) must never read as a normal user: `listUsers` and `findDuplicateEmails` skip any
+  account with `customClaims.admin === true` (keyed off the **claim**, not `role` — a no-role admin would
+  otherwise leak through), so admins are absent from the Users list, its count, the CSV export and the
+  page-scoped bulk actions. `gatherStats`/`getStats` (via an `adminUidSet()` helper) and `countSignupsSince`
+  exclude admins too, so the Overview **Total users** + tier counts + `signups24h` + the daily `statsDaily`
+  snapshot exclude them as well (`totalCoins` stays unfiltered — a collection-group count, not a user-count
+  surface). Admins are surfaced only through the **owner-only `listAdmins` roster** read. The exclusion is
+  the control; hiding rows in the client user-detail panel is a backstop. This keeps the admin/user boundary
+  from leaking the *other* way — a user never sees admins, and admins aren't managed *as users*.
 - **Backend access is guard-first.** All 21 `onCall` callables + the `/api` proxy were probed: every
   one checks `context.auth.uid` (self) or a **role-tiered admin gate** — `assertAdmin` (read-only:
   `getStats`/`lookupUser`/`listUsers`/`listAudit`) · `assertManager` (user actions: `setUserTier`,

@@ -338,6 +338,12 @@ browser-verified **owner + manager**, **desktop 1280 + mobile**: logo 30px from 
 > mobile 375: bordered header + 34×34 back box, title shown once, **zero** `.detail-head` left, no overflow,
 > no console errors.
 
+> **Later addition (ADMIN-SEP PR1, CRYP-103a, 2026-08-09).** The **Admin access** `DScreen` now renders a
+> read-only **admin roster** section at the top — owners + managers with a role pill + a suspended
+> indicator, fed by the new owner-only `listAdmins` read — **above** the existing email-lookup grant/revoke
+> flow. The drill-in chrome (bordered `‹` box + divided header) is unchanged; only the body gained a
+> divider-separated section. See [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §ADMIN-SEP.
+
 Founder pass over the shipped panel (ADMIN-UI-1/2/3). On every admin **second-screen** (drill-in / popup)
 the `‹` back control is technically present (accessible name "Back") but renders as a **bare, borderless
 chevron** floating above the card — `app.css` styles the shared `.icon-btn` as `background:none; border:0;

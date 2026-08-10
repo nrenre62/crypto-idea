@@ -16,6 +16,11 @@ vi.mock("../../src/api/admin.js", () => ({
   listUsers: vi.fn(() => Promise.resolve([
     { uid: "u1", email: "alice@test.com", name: "Alice", tier: "free", disabled: false, portfolioCount: 1, billingStatus: "none" },
   ])),
+  // ADMIN-SEP (CRYP-103): owner-only admin roster for the Admin-access drill-in. Default
+  // empty so unrelated Admin-access tests (grant flow, MFA) are unaffected; the roster
+  // test overrides it. A missing mock would make the wrapper undefined and crash the
+  // load effect the moment Admin access opens (the ADMIN-2/ADMIN-4 mock-gap lesson).
+  listAdmins: vi.fn(() => Promise.resolve([])),
   listAudit: vi.fn(() => Promise.resolve([])),
   listWebhookEvents: vi.fn(() => Promise.resolve([])),   // ADMIN-1: Overview billing card
   // AUTH-DUP (Part B): Overview duplicate-email detector. A missing mock would make the
@@ -77,7 +82,7 @@ vi.mock("../../src/api/admin-auth.js", () => ({
 }));
 
 import AdminDashboard, { JOB_META } from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser } from "../../src/api/admin.js";
 import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
 describe("admin-dashboard", () => {
@@ -284,6 +289,31 @@ describe("admin-dashboard", () => {
     expect(setManagerRole).not.toHaveBeenCalled();
   });
 
+  /* ═══ ADMIN-SEP (CRYP-103) — Part B: owner-only admin roster ═══
+     Today Admin access is search-by-email only — an owner can't see who the admins are.
+     PR1 adds a roster (owners + managers, keyed off the claim via listAdmins) at the TOP
+     of the drill-in, with the email-lookup grant flow KEPT below it. No roster exists
+     today, so the roster rows are absent → red. */
+
+  it("CRYP-103: the Admin-access drill-in lists all admins with role pills, above the kept email-grant UI", async () => {
+    listAdmins.mockResolvedValue([
+      { uid: "o1", email: "owner@test.com", role: "owner", disabled: false, lastSignInTime: null },
+      { uid: "m1", email: "mgr@test.com", role: "manager", disabled: false, lastSignInTime: null },
+    ]);
+    render(<AdminDashboard />);   // default role = owner
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Admin access" }));
+
+    // Both admins are listed by email…
+    expect(await screen.findByText("owner@test.com")).toBeInTheDocument();
+    expect(screen.getByText("mgr@test.com")).toBeInTheDocument();
+    // …each with its role pill.
+    expect(screen.getByText("OWNER")).toBeInTheDocument();
+    expect(screen.getByText("MANAGER")).toBeInTheDocument();
+    // The email-lookup grant flow must STILL be present below it (roster + keep lookup).
+    expect(screen.getByPlaceholderText("email@example.com")).toBeInTheDocument();
+  });
+
   it("ADMIN-SEC: a server reauth-required demand raises the password prompt and retries", async () => {
     // The client timer is only UX — the prompt is driven by the SERVER refusing.
     saveConfig.mockRejectedValueOnce(new Error("reauth-required: confirm your password to continue."));
@@ -365,6 +395,46 @@ describe("admin-dashboard", () => {
     const row = await screen.findByText("Alice");   // list row (after listUsers resolves)
     fireEvent.click(row);
     await screen.findByText("CHANGE TIER");          // detail panel (after lookupUser resolves)
+    expect(screen.getByRole("button", { name: "Suspend" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete account" })).toBeInTheDocument();
+  });
+
+  /* ═══ ADMIN-SEP (CRYP-103) — Part A1: user-detail backstop ═══
+     Even though Part A hides admins from the Users LIST server-side, the detail panel is
+     the last line of defence: if a lookup ever resolves to an admin (a stale list, a
+     direct open), it must not offer moderation. An admin is not a support subject — no
+     Suspend, no Delete — and it says why. The guard fires today only for role === 'owner';
+     a manager admin still shows live Suspend/Delete, so this is red. */
+
+  it("CRYP-103: the user-detail hides Suspend + Delete for an admin manager and shows the protected notice", async () => {
+    // The list row is a plain account; the lookup reveals it is actually a manager admin.
+    lookupUser.mockResolvedValueOnce({
+      uid: "m1", email: "mgr@test.com", name: "Manager Mike", tier: "free", disabled: false,
+      role: "manager", isAdmin: true, portfolioCount: 0, coinCount: 0, billingStatus: "none",
+    });
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    fireEvent.click(await screen.findByText("Alice"));   // opens the (mocked) lookup → manager admin
+    await screen.findByText("CHANGE TIER");              // detail panel rendered
+
+    // An admin can't be moderated as a user.
+    expect(screen.queryByRole("button", { name: "Suspend" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete account" })).toBeNull();
+    // …and the panel explains why.
+    expect(screen.getByText(/protected/i)).toBeInTheDocument();
+  });
+
+  it("CRYP-103: the user-detail STILL shows Suspend + Delete for a plain user (no over-hiding)", async () => {
+    // The companion guard — hiding admin controls must not swallow the controls for a
+    // normal account. Green today; must stay green after the fix.
+    lookupUser.mockResolvedValueOnce({
+      uid: "p1", email: "plain@test.com", name: "Plain Pat", tier: "free", disabled: false,
+      role: "", isAdmin: false, portfolioCount: 0, coinCount: 0, billingStatus: "none",
+    });
+    render(<AdminDashboard />);
+    fireEvent.click(screen.getByRole("button", { name: "Users" }));
+    fireEvent.click(await screen.findByText("Alice"));
+    await screen.findByText("CHANGE TIER");
     expect(screen.getByRole("button", { name: "Suspend" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete account" })).toBeInTheDocument();
   });

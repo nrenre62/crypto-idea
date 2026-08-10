@@ -1239,7 +1239,7 @@
       "post": {
         "operationId": "listUsers",
         "summary": "Full users list — operational data only (admin)",
-        "description": "Callable, any admin role. Merges Auth + profile (tier, disabled, admin, role, portfolioCount, joined, deleted). `role` is \"\" for plain users and for legacy role-less admins. Never returns holdings. Capped at 5000.",
+        "description": "Callable, any admin role. Merges Auth + profile (tier, disabled, admin, role, portfolioCount, joined, deleted). ADMIN-SEP (CRYP-103): accounts holding the `{ admin: true }` claim (owners AND managers) are EXCLUDED — an admin never appears as a normal user, and the exclusion also removes them from the count, CSV and bulk surfaces this array feeds; the admin roster is the owner-only /listAdmins. `role` is \"\" for plain users. Never returns holdings. Capped at 5000.",
         "tags": [
           "Admin"
         ],
@@ -1276,6 +1276,73 @@
           },
           "403": {
             "description": "permission-denied — admins only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
+    "/listAdmins": {
+      "post": {
+        "operationId": "listAdmins",
+        "summary": "Admin roster — owners + managers (owner only)",
+        "description": "Callable, OWNER only (no step-up: a read, not a claim mutation). Enumerates every Auth account holding the `{ admin: true }` custom claim — owners AND managers — keyed off the CLAIM, not `role`, so a legacy no-role admin still appears with role \"\". Returns operational identity only (uid, email, role, disabled, lastSignInTime); never a secret, never holdings. This is the counterpart to /listUsers excluding admins.",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Admin roster.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAdminsResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — owners only.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3783,6 +3850,64 @@
               },
               "capped": {
                 "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminEntry": {
+        "type": "object",
+        "description": "One admin in the ADMIN-SEP roster — operational identity only, never a secret.",
+        "properties": {
+          "uid": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_-]*$"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+          },
+          "role": {
+            "type": "string",
+            "maxLength": 16,
+            "enum": [
+              "",
+              "manager",
+              "owner"
+            ]
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "lastSignInTime": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ListAdminsResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "admins": {
+                "type": "array",
+                "maxItems": 5000,
+                "items": {
+                  "$ref": "#/components/schemas/AdminEntry"
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
               }
             },
             "additionalProperties": false
