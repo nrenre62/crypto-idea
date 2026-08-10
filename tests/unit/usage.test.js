@@ -24,4 +24,21 @@ describe("utils/usage", () => {
     const r = usagePercents(1, all, { maxCoinsPerPort: 100, maxPortfolios: 1, maxTxPerCoin: 50 });
     expect(r.usagePct).toBe(Math.max(r.coinPct, r.txPct));
   });
+
+  it("PLAN-LIMITS-MAX Part B: counts tx via the persisted txCount when entries aren't loaded", () => {
+    // A lazy-loaded (non-active) portfolio carries coins with txCount but entries:[] — the tx
+    // total must read txCount, not the empty entries array, or a multi-portfolio user's usage
+    // would silently under-count. The active portfolio still has real entries.
+    const lims = { maxCoinsPerPort: 100, maxPortfolios: 3, maxTxPerCoin: 300 };
+    const all = [
+      { coins: [{ entries: [1, 2, 3] }] },                    // active: 3 real entries
+      { coins: [{ txCount: 40, entries: [] }, { txCount: 7, entries: [] }] }, // lazy: 47 via txCount
+    ];
+    const r = usagePercents(1, all, lims);
+    // total tx = 3 + 40 + 7 = 50; maxTotalTx = 3*100*300 = 90,000 -> ~0.06% -> 0
+    expect(r.txPct).toBe(0);
+    // Prove the count itself: raise the cap so the percentage is measurable.
+    const r2 = usagePercents(1, all, { maxCoinsPerPort: 1, maxPortfolios: 1, maxTxPerCoin: 50 });
+    expect(r2.txPct).toBe(100); // 50 / (1*1*50) = 100%
+  });
 });
