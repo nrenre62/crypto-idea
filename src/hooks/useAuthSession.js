@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { onAuthChange } from "../api/firebase-auth.js";
-import { getPortfolios, getCoins, getUserProfile, watchPortfolios, createPortfolio } from "../api/firebase-database.js";
+import { getPortfolios, getCoins, getCoinsMeta, getUserProfile, watchPortfolios, createPortfolio } from "../api/firebase-database.js";
 import { DEFAULT_PORTFOLIOS } from "./usePortfolios.js";
 import { db } from "../utils/storage.js";
 
@@ -38,11 +38,21 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
     const res = await getPortfolios(uid);
     if (!res.success) { cb.current.setPortfoliosError && cb.current.setPortfoliosError(true); return; }
     cb.current.setPortfoliosError && cb.current.setPortfoliosError(false);
+    // PLAN-LIMITS-MAX Part B (#12): read the saved active portfolio BEFORE the load so only IT
+    // is loaded FULL (getCoins — reads transactions); every other portfolio loads META-ONLY
+    // (getCoinsMeta — coins + txCount, no transaction reads). This bounds a multi-portfolio
+    // account's app-open read cost to the active portfolio's tx. Each portfolio carries a
+    // `txLoaded` flag so a not-yet-opened one never renders a wrong/zero P&L (Portfolio shows a
+    // placeholder); watchCoins flips it true when the switched-to portfolio's tx arrive.
+    const savedActive = await db.get("ci-active-port");
+    const activeId = res.portfolios.find(p => p.id === savedActive) ? savedActive
+      : (res.portfolios[0] && res.portfolios[0].id);
     let ports = [];
     for (const p of res.portfolios) {
-      const cr = await getCoins(uid, p.id);
+      const isActive = p.id === activeId;
+      const cr = isActive ? await getCoins(uid, p.id) : await getCoinsMeta(uid, p.id);
       // R32: carry the custom coinOrder (Research → Coins view) through the load.
-      ports.push({ id: p.id, name: p.name, coins: cr.success ? cr.coins : [], ...(p.coinOrder ? { coinOrder: p.coinOrder } : {}) });
+      ports.push({ id: p.id, name: p.name, coins: cr.success ? cr.coins : [], txLoaded: isActive, ...(p.coinOrder ? { coinOrder: p.coinOrder } : {}) });
     }
     if (ports.length === 0) {
       // G9/G30: zero portfolios (registration step-2 failed, or a delete race left none) →
@@ -50,13 +60,12 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
       // against. Defensive: if the heal can't run/fails, leave state as-is (the reconcile
       // effect + Retry cover it) rather than crash.
       const created = await createPortfolio(uid, "My Portfolio", 0);
-      if (created && created.success) ports = [{ id: created.id, name: "My Portfolio", coins: [] }];
+      if (created && created.success) ports = [{ id: created.id, name: "My Portfolio", coins: [], txLoaded: true }];
     }
     if (ports.length > 0) {
       cb.current.setPortfolios(ports);
       // Restore last active portfolio if it still exists, else use the first one.
-      const savedActive = await db.get("ci-active-port");
-      cb.current.setActivePortId(ports.find(p => p.id === savedActive) ? savedActive : ports[0].id);
+      cb.current.setActivePortId(ports.find(p => p.id === activeId) ? activeId : ports[0].id);
     }
   }, []);
 
@@ -133,8 +142,9 @@ export function useAuthSession({ setScreen, setPortfolios, setActivePortId, chec
             cb.current.setPortfolios((prev) => metas.map((m) => {
               const ex = prev.find((p) => p.id === m.id);
               // R32: the metas merge rebuilds {id,name,coins} — carry coinOrder through too, or
-              // every live snapshot would silently drop the saved order.
-              return { id: m.id, name: m.name, coins: ex ? ex.coins : [], ...(m.coinOrder ? { coinOrder: m.coinOrder } : {}) };
+              // every live snapshot would silently drop the saved order. Part B: carry txLoaded
+              // too (a portfolio new to this device — not in prev — hasn't loaded its tx yet).
+              return { id: m.id, name: m.name, coins: ex ? ex.coins : [], txLoaded: ex ? ex.txLoaded : false, ...(m.coinOrder ? { coinOrder: m.coinOrder } : {}) };
             }));
           }, () => { if (cb.current.onLiveSyncError) cb.current.onLiveSyncError(); });   // DI-5 (G33)
         } else {

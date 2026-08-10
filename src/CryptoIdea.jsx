@@ -868,6 +868,10 @@ export default function CryptoIdea(){
 
 
   const { value:tv, totalBuys, pnl:tpnl, pnlPct:tpp } = portfolioPnl(portfolio, prices);
+  // Part B: the active portfolio's transactions may still be loading (lazy-loaded on switch).
+  // Only an explicit false triggers the value-card "loading" placeholder — undefined (initial
+  // full-load / legacy) reads as loaded, so nothing regresses. watchCoins flips it true.
+  const activeTxLoaded=portfolios.find(p=>p.id===activePortId)?.txLoaded!==false;
 
   // ── Usage Calculation ── (pure math in utils/usage.js)
   const { usagePct } = usagePercents(portfolio.length, portfolios, { maxCoinsPerPort, maxPortfolios, maxTxPerCoin });
@@ -888,7 +892,9 @@ export default function CryptoIdea(){
   useEffect(()=>{
     if(!user?.uid||!activePortId)return;
     const unsub=dbWatchCoins(user.uid,activePortId,(coins)=>{
-      setPortfolios(prev=>prev.map(p=>p.id===activePortId?{...p,coins}:p));
+      // Part B: watchCoins reads each coin's transactions, so the active portfolio's tx are
+      // now loaded/live — mark txLoaded so the value card drops its "loading" placeholder.
+      setPortfolios(prev=>prev.map(p=>p.id===activePortId?{...p,coins,txLoaded:true}:p));
     },()=>showErr("Live sync was interrupted — reload to make sure you're seeing the latest data."));
     return unsub;
   },[user?.uid,activePortId]);
@@ -1018,7 +1024,7 @@ export default function CryptoIdea(){
     startAddTx,isDesktop,
     infoCoin,setInfoCoin,openCoinInfo,prices,
     remCoin,remEntry,
-    tv,totalBuys,tpnl,tpp,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
+    tv,totalBuys,tpnl,tpp,txLoaded:activeTxLoaded,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
     portfolios,setActivePortId,activePortId,coinOrder,updateCoinOrder,
     maxTxPerCoin,aiMonthlyCents,startDowngrade,openDowngradeChooser,keepPlan,fmtDate,deletePortfolio,startRename,newPortName,setNewPortName,addPortfolio,
     lockedCoins,lockedPortIds,openLockInfo,

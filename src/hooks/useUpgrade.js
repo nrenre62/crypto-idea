@@ -91,15 +91,17 @@ export function useUpgrade({ portfolios, plans = null }) {
     const portsOver = Math.max(0, portfolios.length - lim.ports);
     let coinsOver = 0, txOver = 0;
     // Portfolios KEPT: count coins/tx over the per-portfolio caps.
+    // Part B: count tx via the persisted txCount (a non-active portfolio's coins carry
+    // txCount but entries:[]); fall back to entries.length for legacy/test fixtures.
     portfolios.slice(0, lim.ports).forEach((p) => {
       coinsOver += Math.max(0, p.coins.length - lim.coins);
       p.coins.slice(0, lim.coins).forEach((coin) => {
-        txOver += Math.max(0, (coin.entries?.length || 0) - lim.tx);
+        txOver += Math.max(0, (coin.txCount ?? coin.entries?.length ?? 0) - lim.tx);
       });
     });
     // Portfolios beyond the cap: ALL their coins/tx are locked with them.
     portfolios.slice(lim.ports).forEach((p) => {
-      p.coins.forEach((coin) => { coinsOver++; txOver += (coin.entries?.length || 0); });
+      p.coins.forEach((coin) => { coinsOver++; txOver += (coin.txCount ?? coin.entries?.length ?? 0); });
     });
     return { portsOver, coinsOver, txOver };
   }, [portfolios, plans]);

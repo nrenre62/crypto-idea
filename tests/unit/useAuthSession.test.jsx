@@ -12,6 +12,9 @@ vi.mock("../../src/api/firebase-database.js", () => ({
   watchLearnProgress: vi.fn((uid, cb) => { cb({ success: false }); return () => {}; }),
   getPortfolios: vi.fn().mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] }),
   getCoins: vi.fn().mockResolvedValue({ success: true, coins: [] }),
+  // PLAN-LIMITS-MAX Part B: the lazy-load path for non-active portfolios (coins + txCount,
+  // NO transactions read).
+  getCoinsMeta: vi.fn().mockResolvedValue({ success: true, coins: [] }),
   // Default: no server profile doc -> session should fall back to the "free" default.
   getUserProfile: vi.fn().mockResolvedValue({ success: false }),
 }));
@@ -20,7 +23,7 @@ vi.mock("../../src/utils/storage.js", () => ({
 }));
 
 import { useAuthSession } from "../../src/hooks/useAuthSession.js";
-import { getUserProfile, getPortfolios } from "../../src/api/firebase-database.js";
+import { getUserProfile, getPortfolios, getCoins, getCoinsMeta } from "../../src/api/firebase-database.js";
 import { db } from "../../src/utils/storage.js";
 
 function setup(overrides = {}) {
@@ -45,12 +48,33 @@ describe("useAuthSession", () => {
     const { collab, view } = setup();
     await act(async () => { await authCb({ uid: "u1", email: "a@b.com", displayName: "Ann" }); });
 
-    expect(collab.setPortfolios).toHaveBeenCalledWith([{ id: "p1", name: "Main", coins: [] }]);
+    expect(collab.setPortfolios).toHaveBeenCalledWith([{ id: "p1", name: "Main", coins: [], txLoaded: true }]);
     expect(collab.setActivePortId).toHaveBeenCalledWith("p1");
     expect(collab.checkSubscriptionStatus).toHaveBeenCalled();
     expect(collab.setScreen).toHaveBeenCalledWith("portfolio");
     expect(view.result.current.user).toMatchObject({ uid: "u1", email: "a@b.com", name: "Ann", tier: "free" });
     expect(view.result.current.dataLoaded).toBe(true);
+  });
+
+  it("PLAN-LIMITS-MAX Part B: reads transactions for the ACTIVE portfolio only (lazy-load)", async () => {
+    // Two portfolios, p2 is the saved active one. On open, the active portfolio loads FULL
+    // (getCoins — reads transactions, txLoaded:true); every other loads META-ONLY (getCoinsMeta
+    // — coins + txCount, no transaction reads, txLoaded:false). This bounds a multi-portfolio
+    // account's app-open read cost to the active portfolio's tx (the raised-limit margin gate).
+    getPortfolios.mockResolvedValueOnce({ success: true, portfolios: [{ id: "p1", name: "One" }, { id: "p2", name: "Two" }] });
+    db.get.mockImplementation((k) => Promise.resolve(k === "ci-active-port" ? "p2" : null));
+    const { collab } = setup();
+    await act(async () => { await authCb({ uid: "u1", email: "a@b.com", displayName: "Ann" }); });
+
+    expect(getCoins).toHaveBeenCalledWith("u1", "p2");
+    expect(getCoins).not.toHaveBeenCalledWith("u1", "p1");
+    expect(getCoinsMeta).toHaveBeenCalledWith("u1", "p1");
+    expect(getCoinsMeta).not.toHaveBeenCalledWith("u1", "p2");
+    expect(collab.setPortfolios).toHaveBeenCalledWith([
+      { id: "p1", name: "One", coins: [], txLoaded: false },
+      { id: "p2", name: "Two", coins: [], txLoaded: true },
+    ]);
+    expect(collab.setActivePortId).toHaveBeenCalledWith("p2");
   });
 
   it("ONBOARD-GATE: a not-chosen free user does NOT load portfolios (no spurious load error)", async () => {

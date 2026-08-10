@@ -13,10 +13,14 @@ import { Logo } from "./ui.jsx";
 // flags, the active portfolio and live prices come from context; data/handlers unchanged.
 export function Portfolio() {
   const {
-    api, tv, totalBuys, tpnl, tpp, portfolio, maxCoinsPerPort, usagePct,
+    api, tv, totalBuys, tpnl, tpp, txLoaded, portfolio, maxCoinsPerPort, usagePct,
     prices, isPro, isPremium, setScreen, startUpgrade, setSel,
     lockedCoins, openLockInfo,
   } = useApp();
+  // Part B: when the active portfolio's transactions haven't loaded yet (just switched to a
+  // lazy-loaded portfolio), show a placeholder for the tx-dependent figures instead of a
+  // misleading $0 P&L. Only an explicit false — undefined reads as loaded (no regression).
+  const txPending = txLoaded === false;
   const plan = isPremium ? "PREMIUM" : isPro ? "PRO" : "STARTER";
   const pricesPaused = usePricesPaused();
   const m = splitMoney(tv);
@@ -43,11 +47,14 @@ export function Portfolio() {
       <div className="value-card">
         <div className="vc-main">
           <div className="vc-eyebrow">Portfolio value</div>
-          <div className="port-total">${m.dollars.toLocaleString()}<span className="cents">.{m.cents}</span></div>
+          {txPending
+            ? <div className="port-total muted" style={{ opacity: 0.5 }}>Loading…</div>
+            : <div className="port-total">${m.dollars.toLocaleString()}<span className="cents">.{m.cents}</span></div>}
           {/* A6: an empty book (nothing invested) has no gain to show — a neutral "—",
               not a fake "+$0.00" that reads like a real break-even result. Keyed off
-              totalBuys===0, so a REAL break-even (money in, P/L exactly 0) still shows +$0.00. */}
-          {totalBuys === 0
+              totalBuys===0, so a REAL break-even (money in, P/L exactly 0) still shows +$0.00.
+              Part B: while the switched-to portfolio's tx load, "—" (never a wrong/zero P&L). */}
+          {txPending || totalBuys === 0
             ? <div className="vc-gain muted">—</div>
             : <div className={"vc-gain" + (tpnl >= 0 ? "" : " dn")}>
                 {tpnl >= 0 ? "▲" : "▼"} {tpnl >= 0 ? "+" : "−"}${Math.abs(tpnl).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({fmtPct(tpp)})
@@ -56,11 +63,11 @@ export function Portfolio() {
         <div className="vc-stats">
           <div className="vc-stat">
             <div className="vc-slabel">Invested</div>
-            <div className="vc-sval">${totalBuys.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="vc-sval">{txPending ? "—" : "$" + totalBuys.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
           </div>
           <div className="vc-stat">
             <div className="vc-slabel">24h</div>
-            <div className={"vc-sval " + (p24 >= 0 ? "up" : "dn")}>{fmtPct(p24)}</div>
+            <div className={"vc-sval " + (txPending ? "" : (p24 >= 0 ? "up" : "dn"))}>{txPending ? "—" : fmtPct(p24)}</div>
           </div>
           <div className="vc-stat">
             <div className="vc-slabel">Assets</div>

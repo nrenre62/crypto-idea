@@ -224,6 +224,24 @@ export async function getCoins(uid, portfolioId) {
   }
 }
 
+// PLAN-LIMITS-MAX Part B (#12): coins + their metadata (incl. the persisted `txCount`)
+// WITHOUT reading each coin's transactions — the lazy-load path for NON-active portfolios.
+// One getDocs on the coins collection, ZERO transaction queries, so a multi-portfolio
+// account's app-open read cost tracks the ACTIVE portfolio's transactions only (what keeps
+// the raised Pro/Premium limits in the margin band). `entries: []` is a placeholder until the
+// portfolio is opened — transactions load then via getCoins (watchCoins re-subscribes). The
+// count surfaces (usage/Account/useUpgrade) read `txCount`, so counts stay correct meanwhile.
+export async function getCoinsMeta(uid, portfolioId) {
+  try {
+    const coinsRef = collection(db, "users", uid, "portfolios", portfolioId, "coins");
+    const coinsSnap = await getDocs(coinsRef);
+    const coins = coinsSnap.docs.map((d) => ({ id: d.id, ...d.data(), entries: [] }));
+    return { success: true, coins };
+  } catch (error) {
+    return { success: false, error: error.message, code: error.code };
+  }
+}
+
 // Add a coin to a portfolio (atomically bumps the portfolio's coinCount). An
 // optional `journal` ({ thesis, changeMyMind, status, priceAtAdd, createdAt }) is
 // stored on the coin when the user writes a thesis in the Buy-Journal prompt.
