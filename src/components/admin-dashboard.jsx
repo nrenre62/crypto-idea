@@ -26,9 +26,9 @@ import { agoLabel, jobHealth, worstHealth, featureSummary } from "../utils/statu
 // Tier metadata (labels + paper colours). `bar` is the solid fill for the tier
 // breakdown bar; `ink`/`soft` colour the compact tier pill.
 const TIERS = {
-  free:    { label:"Starter", ink:"var(--amber)",      soft:"color-mix(in srgb, var(--amber) 14%, transparent)", bar:"#b8841f", limits:{ portfolios:1,  coins:10,   transactions:50 },   price:"$0" },
-  pro:     { label:"Pro",     ink:"var(--accent-ink)", soft:"var(--accent-soft)",                                bar:"var(--accent-ink)", limits:{ portfolios:3,  coins:50,   transactions:2000 }, price:"$9.99/mo" },
-  premium: { label:"Premium", ink:"#7d4bbf",           soft:"#f3ecfb",                                           bar:"#7d4bbf", limits:{ portfolios:15, coins:1000, transactions:5000 }, price:"$49.99/mo" },
+  free:    { label:"Starter", ink:"var(--amber)",      soft:"color-mix(in srgb, var(--amber) 14%, transparent)", bar:"#b8841f", limits:{ portfolios:3,  coins:30,   transactions:300 },  price:"$0" },
+  pro:     { label:"Pro",     ink:"var(--accent-ink)", soft:"var(--accent-soft)",                                bar:"var(--accent-ink)", limits:{ portfolios:6,  coins:100,  transactions:1000 }, price:"$9.99/mo" },
+  premium: { label:"Premium", ink:"#7d4bbf",           soft:"#f3ecfb",                                           bar:"#7d4bbf", limits:{ portfolios:15, coins:200,  transactions:2000 }, price:"$49.99/mo" },
 };
 
 // Friendly labels for audit-log action codes. Exported so tests/unit/audit-labels.test.js

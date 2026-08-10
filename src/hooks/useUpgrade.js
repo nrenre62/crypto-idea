@@ -3,10 +3,13 @@ import { useCallback } from "react";
 // Per-tier resource ceilings — the built-in plan defaults (the `_planLim` fallbacks
 // in CryptoIdea.jsx). The over-limit derivation reads admin-configured plans
 // (`site.plans`) first with these as the fallback (see limitsForTier).
+// PLAN-LIMITS-MAX (#12): Starter 3/30/300 · Pro 6/100/1000 · Premium 15/200/2000.
+// MUST equal the firestore.rules maxPortfolios/maxCoins/maxTx defaults — a lower client
+// cap breaks legit UX, a higher one surfaces a false "limit" toast (the DI-1 class).
 export const TIER_LIMITS = {
-  free:    { ports: 1,  coins: 10,   tx: 50 },
-  pro:     { ports: 3,  coins: 50,   tx: 2000 },
-  premium: { ports: 15, coins: 1000, tx: 5000 },
+  free:    { ports: 3,  coins: 30,  tx: 300 },
+  pro:     { ports: 6,  coins: 100, tx: 1000 },
+  premium: { ports: 15, coins: 200, tx: 2000 },
 };
 
 // Hard ceilings a configured limit can never exceed — mirror firestore.rules

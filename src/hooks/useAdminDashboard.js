@@ -148,9 +148,9 @@ export function useAdminDashboard() {
   // Editable plan prices + limits (mirrors functions DEFAULT_PLANS / firestore.rules).
   // priceYear = annual price (2 months free); aiMonthlyCents = live-AI $-cost ceiling (¢/mo).
   const DEFAULT_PLANS = {
-    free:    { price: 0,     priceYear: 0,      aiMonthlyCents: 0,    portfolios: 1,  coins: 10,   transactions: 50 },
-    pro:     { price: 9.99,  priceYear: 99.99,  aiMonthlyCents: 400,  portfolios: 3,  coins: 50,   transactions: 2000 },
-    premium: { price: 49.99, priceYear: 499.99, aiMonthlyCents: 2500, portfolios: 15, coins: 1000, transactions: 5000 },
+    free:    { price: 0,     priceYear: 0,      aiMonthlyCents: 0,    portfolios: 3,  coins: 30,   transactions: 300 },
+    pro:     { price: 9.99,  priceYear: 99.99,  aiMonthlyCents: 400,  portfolios: 6,  coins: 100,  transactions: 1000 },
+    premium: { price: 49.99, priceYear: 499.99, aiMonthlyCents: 2500, portfolios: 15, coins: 200,  transactions: 2000 },
   };
   const [plans, setPlans] = useState(DEFAULT_PLANS);
   // ADMIN-5: the site announcement banner draft (text + level + active). Posted with

@@ -9,15 +9,15 @@ import { Ic, Logo } from "./ui.jsx";
 // real priority-email-support promise (the untrue "Custom limits" was dropped).
 export const PLAN_BENEFITS = {
   free: {
-    limits: ["1 portfolio", "10 coins", "50 transactions per coin"],
+    limits: ["3 portfolios", "30 coins per portfolio", "300 transactions per coin"],
     feature: "All features included — live prices, P/L, Journal, Research, Learn",
   },
   pro: {
-    limits: ["3 portfolios", "50 coins per portfolio", "2,000 transactions per coin"],
+    limits: ["6 portfolios", "100 coins per portfolio", "1,000 transactions per coin"],
     feature: "All features included — live prices, P/L, Journal, Research, Learn",
   },
   premium: {
-    limits: ["15 portfolios", "1,000 coins per portfolio", "5,000 transactions per coin"],
+    limits: ["15 portfolios", "200 coins per portfolio", "2,000 transactions per coin"],
     feature: "All features included + priority email support",
   },
 };

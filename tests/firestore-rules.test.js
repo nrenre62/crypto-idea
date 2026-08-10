@@ -306,21 +306,22 @@ test("an admin (custom claim) can read another user's profile", async () => {
   await assertSucceeds(getDoc(doc(adminDb(), "users", "alice")));
 });
 
-test("free tier allows exactly 1 portfolio (counter-enforced)", async () => {
+test("free tier allows up to 3 portfolios (counter-enforced)", async () => {
+  // PLAN-LIMITS-MAX raised free portfolios 1 -> 3. Seed the counter just below the cap.
   await seed(async (db) => {
-    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 0, planChosen: true });
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 2, planChosen: true });
   });
   const db = aliceDb();
 
-  // First portfolio: count 0 -> 1, within free limit of 1
+  // 3rd portfolio: count 2 -> 3, at the free limit of 3 -> allowed
   const b1 = writeBatch(db);
-  b1.set(doc(db, "users", "alice", "portfolios", "p1"), { name: "One", coinCount: 0 });
+  b1.set(doc(db, "users", "alice", "portfolios", "p3"), { name: "Three", coinCount: 0 });
   b1.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
   await assertSucceeds(b1.commit());
 
-  // Second portfolio: count 1 -> 2, exceeds free limit -> rejected
+  // 4th portfolio: count 3 -> 4, exceeds free limit -> rejected
   const b2 = writeBatch(db);
-  b2.set(doc(db, "users", "alice", "portfolios", "p2"), { name: "Two", coinCount: 0 });
+  b2.set(doc(db, "users", "alice", "portfolios", "p4"), { name: "Four", coinCount: 0 });
   b2.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
   await assertFails(b2.commit());
 });

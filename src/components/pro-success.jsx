@@ -36,7 +36,7 @@ export default function ProSuccess() {
         <p style={{ fontSize: 15, color: c.dim, lineHeight: 1.6, marginBottom: 36 }}>
           Your account has been upgraded.
           <br /><br />
-          3 portfolios. 50 coins each. 2,000 transactions per coin. Unlimited DCA calculations. Live prices. Full P/L tracking.
+          6 portfolios. 100 coins each. 1,000 transactions per coin. Unlimited DCA calculations. Live prices. Full P/L tracking.
         </p>
 
         <a href="/app" style={{

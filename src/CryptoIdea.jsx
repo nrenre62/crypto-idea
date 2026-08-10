@@ -623,9 +623,11 @@ export default function CryptoIdea(){
   // BL-1e: `!=null` (not `||`) so an admin-set custom limit of 0 is respected —
   // firestore.rules reads premiumLimits with .get(key, planVal), which treats 0 as
   // a real value; the display must mirror that, not silently show the default.
-  const maxPortfolios=isPremium?(premLimits.portfolios!=null?premLimits.portfolios:_planLim("portfolios",15)):_planLim("portfolios",isPro?3:1);
-  const maxCoinsPerPort=isPremium?(premLimits.coins!=null?premLimits.coins:_planLim("coins",1000)):_planLim("coins",isPro?50:10);
-  const maxTxPerCoin=isPremium?(premLimits.transactions!=null?premLimits.transactions:_planLim("transactions",5000)):_planLim("transactions",isPro?2000:50);
+  // PLAN-LIMITS-MAX (#12): fallbacks MUST equal the firestore.rules / TIER_LIMITS defaults
+  // (Starter 3/30/300 · Pro 6/100/1000 · Premium 15/200/2000). coins hardMax stays 1000 in rules.
+  const maxPortfolios=isPremium?(premLimits.portfolios!=null?premLimits.portfolios:_planLim("portfolios",15)):_planLim("portfolios",isPro?6:3);
+  const maxCoinsPerPort=isPremium?(premLimits.coins!=null?premLimits.coins:_planLim("coins",200)):_planLim("coins",isPro?100:30);
+  const maxTxPerCoin=isPremium?(premLimits.transactions!=null?premLimits.transactions:_planLim("transactions",2000)):_planLim("transactions",isPro?1000:300);
   // AI research allowance (server-authoritative): the tier's monthly $-budget for live
   // AI, in cents, from /api/config plans (free 0 / pro 400 / premium 2500). Informational
   // until the B2 enforcement counter ships; each analysis costs ~1¢ (so cents≈analyses).
@@ -646,7 +648,7 @@ export default function CryptoIdea(){
   // Account's add field ignores the return — backward-compatible.
   const addPortfolio=async()=>{
     if(blockedOffline())return false;
-    if(portfolios.length>=maxPortfolios){showErr(isPro?("Max "+maxPortfolios+" portfolios"):"Starter: 1 portfolio — upgrade to Pro for 3");return false}
+    if(portfolios.length>=maxPortfolios){showErr(isPro?("Max "+maxPortfolios+" portfolios"):"Starter: "+maxPortfolios+" portfolios — upgrade to Pro for 6");return false}
     if(!newPortName.trim()){showErr("Enter a portfolio name");return false}
     if(newPortName.trim().length>50){showErr("Name must be 50 characters or fewer");return false}
     if(!user?.uid){showErr("Please sign in again");return false}
@@ -701,7 +703,7 @@ export default function CryptoIdea(){
     if(blockedOffline())return;
     if(portfolio.find(x=>x.id===c.id)){showErr("Already added");return}
     const lim=maxCoinsPerPort;
-    if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Starter: "+maxCoinsPerPort+" coins — upgrade to Pro for 50");return}
+    if(portfolio.length>=lim){showErr(isPro?"Max "+maxCoinsPerPort+" coins per portfolio":"Starter: "+maxCoinsPerPort+" coins — upgrade to Pro for 100");return}
     if(!user?.uid){showErr("Please sign in again");return}
     // DI-2 write guard: never write to a ghost portfolio id (the reconcile effect keeps
     // activePortId valid, but this closes the brief window before it fires).
@@ -810,7 +812,7 @@ export default function CryptoIdea(){
     if(isFutureTx(eDate)){showErr("A transaction can't be dated in the future.");return}
     if(sel){
       const currentTxCount=sel.entries.filter(e=>!editEntry||e.id!==editEntry.id).length;
-      if(currentTxCount>=maxTxPerCoin){showErr("Max "+maxTxPerCoin+" transactions per coin"+(isPro?"":" · Upgrade to Pro for 2,000!"));return}
+      if(currentTxCount>=maxTxPerCoin){showErr("Max "+maxTxPerCoin+" transactions per coin"+(isPro?"":" · Upgrade to Pro for 1,000!"));return}
 
     }
     // CRYP-94 (findings 9+10): enforce the sell invariant on the PROJECTED timeline — the coin's

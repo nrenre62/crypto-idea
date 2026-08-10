@@ -1,0 +1,9 @@
+{
+  "//": "PLAN-LIMITS-MAX (#12): single-field index EXEMPTIONS keep per-tx storage ~0.7 KB so the raised limits stay in the margin band. The transactions collection group is only ever queried orderBy('date') (getCoins/watchCoins), so 'date' keeps its default index while the other stored fields are exempted from auto-indexing. Deploy with: firebase deploy --only firestore:indexes",
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "transactions", "fieldPath": "type", "indexes": [] },
+    { "collectionGroup": "transactions", "fieldPath": "amount", "indexes": [] },
+    { "collectionGroup": "transactions", "fieldPath": "priceAtBuy", "indexes": [] }
+  ]
+}
