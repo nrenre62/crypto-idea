@@ -23,23 +23,31 @@ vi.mock("../../src/api/firebase-auth.js", () => ({
   changeEmail: vi.fn().mockResolvedValue({ success: true }),
   updateUserSettings: vi.fn().mockResolvedValue({ success: true }),
 }));
-vi.mock("../../src/api/firebase-database.js", () => ({
-  watchPortfolios: vi.fn(() => () => {}),
-  watchCoins: vi.fn(() => () => {}),
-  watchUserDoc: vi.fn(() => () => {}),
-  watchLearnProgress: vi.fn((uid, cb) => { cb({ success: false }); return () => {}; }),
-  getPortfolios: vi.fn().mockResolvedValue({ success: true, portfolios: [] }),
-  getCoins: vi.fn().mockResolvedValue({ success: true, coins: [] }),
-  // ONBOARD-GATE: the default logged-in user has passed the plan gate (planChosen:true), so
-  // the walkthrough exercises the app itself; paid-tier tests override this per-test below.
-  getUserProfile: vi.fn().mockResolvedValue({ success: true, tier: "free", planChosen: true, settings: {} }),
-  createPortfolio: vi.fn(), deletePortfolio: vi.fn(),
-  addCoin: vi.fn().mockResolvedValue({ success: true }),
-  removeCoin: vi.fn().mockResolvedValue({ success: true }),
-  addTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(),
-  getLearnProgress: vi.fn().mockResolvedValue({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] }),
-  saveLearnProgress: vi.fn().mockResolvedValue({ success: true }),
-}));
+vi.mock("../../src/api/firebase-database.js", () => {
+  const getCoins = vi.fn().mockResolvedValue({ success: true, coins: [] });
+  return {
+    watchPortfolios: vi.fn(() => () => {}),
+    watchCoins: vi.fn(() => () => {}),
+    watchUserDoc: vi.fn(() => () => {}),
+    watchLearnProgress: vi.fn((uid, cb) => { cb({ success: false }); return () => {}; }),
+    getPortfolios: vi.fn().mockResolvedValue({ success: true, portfolios: [] }),
+    getCoins,
+    // Part B (#12): non-active portfolios load via getCoinsMeta. Mirror getCoins so the
+    // multi-portfolio walkthrough tests keep their per-portfolio data (each test configures
+    // getCoins.mockResolvedValue and the delegation picks it up). The lazy-load read pattern
+    // itself is unit-tested in useAuthSession.test.jsx.
+    getCoinsMeta: vi.fn((...a) => getCoins(...a)),
+    // ONBOARD-GATE: the default logged-in user has passed the plan gate (planChosen:true), so
+    // the walkthrough exercises the app itself; paid-tier tests override this per-test below.
+    getUserProfile: vi.fn().mockResolvedValue({ success: true, tier: "free", planChosen: true, settings: {} }),
+    createPortfolio: vi.fn(), deletePortfolio: vi.fn(),
+    addCoin: vi.fn().mockResolvedValue({ success: true }),
+    removeCoin: vi.fn().mockResolvedValue({ success: true }),
+    addTransaction: vi.fn(), updateTransaction: vi.fn(), deleteTransaction: vi.fn(),
+    getLearnProgress: vi.fn().mockResolvedValue({ success: true, xp: 0, streak: 0, lastActivity: "", completedLessons: [] }),
+    saveLearnProgress: vi.fn().mockResolvedValue({ success: true }),
+  };
+});
 vi.mock("../../src/api/coingecko.js", () => ({
   fetchPrices: vi.fn().mockResolvedValue(null),
   searchCoins: vi.fn().mockResolvedValue(null),

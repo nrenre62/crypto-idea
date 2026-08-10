@@ -16,7 +16,7 @@ import { connectFunctionsEmulator } from "firebase/functions";
 import { registerUser, updateUserSettings } from "../src/api/firebase-auth.js";
 import { chooseFreePlan } from "../src/api/account.js";
 import {
-  getPortfolios, createPortfolio, getCoins,
+  getPortfolios, createPortfolio, getCoins, getCoinsMeta,
   addCoin, addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
   getLearnProgress, saveLearnProgress, watchPortfolios, watchCoins, updatePortfolioName, updateCoinOrder,
 } from "../src/api/firebase-database.js";
@@ -174,6 +174,21 @@ test("API-SECURITY (counter-forge): deleting a tx does NOT decrement txCount cli
 
   const txCountFinal = (await getCoins(uid, "default")).coins.find((c) => c.id === "coin1").txCount;
   assert.equal(txCountFinal, txCountAfterAdd, "txCount is NOT decremented by the client delete (counterNoForge)");
+});
+
+test("PLAN-LIMITS-MAX Part B: getCoinsMeta reads coins + txCount but NOT their transactions", async () => {
+  // The lazy-load path for non-active portfolios: same coins as getCoins, each carrying the
+  // persisted txCount (so the count surfaces stay correct) but entries:[] — proving no
+  // transaction reads happen, which is the cost lever that keeps the raised limits in-band.
+  const full = await getCoins(uid, "default");
+  assert.ok(full.success, "getCoins should succeed: " + JSON.stringify(full));
+  const meta = await getCoinsMeta(uid, "default");
+  assert.ok(meta.success, "getCoinsMeta should read the coins: " + JSON.stringify(meta));
+  assert.equal(meta.coins.length, full.coins.length, "getCoinsMeta returns the same coins as getCoins");
+  assert.ok(meta.coins.every((c) => Array.isArray(c.entries) && c.entries.length === 0),
+    "getCoinsMeta must read NO transactions (entries:[] for every coin)");
+  assert.ok(meta.coins.every((c) => typeof c.txCount === "number"),
+    "getCoinsMeta must carry the persisted txCount so counts stay correct");
 });
 
 test("transactions: add then delete, and they round-trip via getCoins", async () => {

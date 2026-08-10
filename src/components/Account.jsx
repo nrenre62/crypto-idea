@@ -217,7 +217,8 @@ export function Account() {
 
           {/* ── PLAN & BILLING: usage bars + subscription status + upgrade/billing ── */}
           {view==="billing" && (() => {
-            const totalTxAllPorts = portfolios.reduce((s,p) => s + p.coins.reduce((cs,c) => cs + (c.entries?.length || 0), 0), 0);
+            // Part B: count via the persisted txCount (lazy-loaded portfolios have entries:[]).
+            const totalTxAllPorts = portfolios.reduce((s,p) => s + p.coins.reduce((cs,c) => cs + (c.txCount ?? c.entries?.length ?? 0), 0), 0);
             const maxTotalTx = maxPortfolios * maxCoinsPerPort * maxTxPerCoin;
             // Per-user custom limits (premium overrides) — flag which caps are non-default.
             const custom = (isPremium && user?.premiumLimits) || {};
