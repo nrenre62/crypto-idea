@@ -31,6 +31,16 @@ export const CONSENT_VERSION = "2026-06-24";
 const NAME_RE = /^[A-Za-z\s]{2,30}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Auth polish (GO-LIVE-AUDIT): verification / password-reset emails carry a continue URL so
+// the user lands back IN the app (with a way forward) after completing the action, instead of
+// stranded on the bare Firebase handler page. Self-referential (window.location.origin) so it
+// always targets the current — and therefore already-authorized — domain, mirroring the
+// verifyBeforeUpdateEmail({url}) pattern changeEmail already uses. `undefined` in SSR/tests.
+function appContinue(path = "/app") {
+  const origin = (typeof window !== "undefined" && window.location) ? window.location.origin : "";
+  return origin ? { url: origin + path } : undefined;
+}
+
 
 // ─── Register New User ───
 // Creates the Firebase Auth account + the Firestore profile (with a validated consent
@@ -57,7 +67,7 @@ export async function registerUser(email, password, name, consent = null) {
 
     // Send a verification email (anti-abuse + confirms a real inbox).
     // Non-fatal: a transient email error must not break account creation.
-    try { await sendEmailVerification(user); } catch (e) { /* ignore */ }
+    try { await sendEmailVerification(user, appContinue()); } catch (e) { /* ignore */ }
 
     const now = new Date().toISOString();
     // Marketing is a WITHDRAWABLE consent, so it lives in the settings map (where the
@@ -130,7 +140,7 @@ export async function updateUserSettings(uid, partial) {
 export async function verifyEmail() {
   try {
     if (!auth.currentUser) return { success: false, error: "Not signed in" };
-    await sendEmailVerification(auth.currentUser);
+    await sendEmailVerification(auth.currentUser, appContinue());
     return { success: true };
   } catch (error) {
     return { success: false, error: getErrorMessage(error.code) };
@@ -198,8 +208,7 @@ export async function changeEmail(currentPassword, newEmail) {
   if (!EMAIL_RE.test(clean)) return { success: false, error: "Enter a valid email address" };
   try {
     await confirmPassword(currentPassword);   // throws on wrong pw / stale session
-    const url = (typeof window !== "undefined" && window.location ? window.location.origin : "") + "/app";
-    await verifyBeforeUpdateEmail(auth.currentUser, clean, { url });
+    await verifyBeforeUpdateEmail(auth.currentUser, clean, appContinue());
     return { success: true };
   } catch (error) {
     return { success: false, error: getErrorMessage(error.code) };
@@ -251,7 +260,7 @@ export async function logoutUser() {
 // ─── Password Reset ───
 export async function resetPassword(email) {
   try {
-    await sendPasswordResetEmail(auth, email);
+    await sendPasswordResetEmail(auth, email, appContinue());
     return { success: true };
   } catch (error) {
     return { success: false, error: getErrorMessage(error.code) };
