@@ -8,9 +8,12 @@
  *    - PRIMARY: set PayPal/CoinGecko keys from the Admin dashboard → Settings,
  *      which writes the locked config/app Firestore doc (read at runtime).
  *    - FALLBACK / deploy-time: a functions/.env file (git-ignored) with
- *      PAYPAL_CLIENT_ID, PAYPAL_SECRET, PAYPAL_PLAN_ID, PAYPAL_PREMIUM_PLAN_ID,
- *      PAYPAL_WEBHOOK_ID, APP_URL, COINGECKO_DEMO_KEY. The PayPal plan IDs and
- *      APP_URL are env-only (not stored in the config doc).
+ *      PAYPAL_CLIENT_ID, PAYPAL_SECRET, the four plan IDs
+ *      (PAYPAL_{PRO,PREMIUM}_{MONTHLY,YEARLY}_PLAN_ID — the legacy
+ *      PAYPAL_PLAN_ID/PAYPAL_PREMIUM_PLAN_ID still work as the monthly fallback),
+ *      PAYPAL_ENV (sandbox|live, default live), PAYPAL_WEBHOOK_ID, APP_URL,
+ *      COINGECKO_DEMO_KEY. The PayPal plan IDs, PAYPAL_ENV and APP_URL are
+ *      env-only (not stored in the config doc).
  * 3. firebase deploy --only functions
  * 4. PayPal Developer Dashboard → Webhooks → Add URL:
  *    https://<REGION>-<PROJECT>.cloudfunctions.net/paypalWebhook   (e.g. us-central1-…)
@@ -85,10 +88,19 @@ const auth = getAuth();
 // env-only. Never hard-code secrets — these stay server-side.
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
 const PAYPAL_SECRET = process.env.PAYPAL_SECRET;
-const PAYPAL_PLAN_ID = process.env.PAYPAL_PLAN_ID;
-const PAYPAL_PREMIUM_PLAN_ID = process.env.PAYPAL_PREMIUM_PLAN_ID;
+// H6 (Plan B): four plan ids — pro/premium × monthly/yearly — so a yearly buyer is
+// charged the yearly plan (was a single id per tier → a mischarge). The two legacy env
+// names remain the MONTHLY fallback so an existing .env keeps working after deploy.
+const PLAN_IDS = {
+  proMonthly: process.env.PAYPAL_PRO_MONTHLY_PLAN_ID || process.env.PAYPAL_PLAN_ID,
+  proYearly: process.env.PAYPAL_PRO_YEARLY_PLAN_ID,
+  premiumMonthly: process.env.PAYPAL_PREMIUM_MONTHLY_PLAN_ID || process.env.PAYPAL_PREMIUM_PLAN_ID,
+  premiumYearly: process.env.PAYPAL_PREMIUM_YEARLY_PLAN_ID,
+};
 const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID;
-const PAYPAL_BASE = "https://api-m.paypal.com";
+// G7 (Plan B): sandbox ↔ live is chosen by PAYPAL_ENV (sandbox|live, default live) so
+// the founder can run a full checkout e2e against PayPal sandbox before a live card.
+const PAYPAL_BASE = billing.paypalBaseFor(process.env.PAYPAL_ENV);
 
 // Fixed, trusted app URL for PayPal redirects (never derived from request headers,
 // which a caller can spoof — that would be an open-redirect).
@@ -543,7 +555,12 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
   const userId = context.auth.uid;                 // the caller — NOT from the body
   const email = context.auth.token.email || undefined;
   const requestedTier = data && data.plan === "premium" ? "premium" : "pro";
-  const plan = requestedTier === "premium" ? PAYPAL_PREMIUM_PLAN_ID : PAYPAL_PLAN_ID;
+  // H6 (Plan B): the plan id is chosen by tier × billing cycle — a yearly buyer gets the
+  // yearly plan, not the monthly one. billingCycle is derived here (was below) so the pick
+  // can use it. planIdFor returns null for an unconfigured id → the "Plan not configured"
+  // guard below fails the checkout SAFELY rather than charging the wrong plan.
+  const billingCycle = data && data.billing === "yearly" ? "yearly" : "monthly";
+  const plan = billing.planIdFor(requestedTier, billingCycle, PLAN_IDS);
 
   // BL-1c (D5): already-paid guard — never open a second checkout for a tier the
   // caller already holds (unless that subscription is winding down, i.e. cancelled).
@@ -560,7 +577,6 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
   if (!plan) throw new functions.https.HttpsError("failed-precondition", "Plan not configured.");
 
   // BL-1b (D6): persist the billing cycle so getStats prices annual payers correctly.
-  const billingCycle = data && data.billing === "yearly" ? "yearly" : "monthly";
   await db.doc(`users/${userId}`).set({ billingCycle }, { merge: true });
   await writeAudit(context, "createSubscription", { targetUid: userId, details: `plan=${requestedTier} billing=${billingCycle}` });
 
@@ -677,7 +693,7 @@ exports.paypalWebhook = functions
       markedKey = evKey;   // we just claimed it — roll back if processing below fails
     }
 
-    const planIds = { proPlanId: PAYPAL_PLAN_ID, premiumPlanId: PAYPAL_PREMIUM_PLAN_ID };
+    const planIds = PLAN_IDS;   // H6: planTier reverse-maps all four (pro/premium × monthly/yearly)
     switch (event.event_type) {
       case "BILLING.SUBSCRIPTION.ACTIVATED": {
         // BL-1f (B8): tier comes from the PayPal plan_id — a Premium purchase lands

@@ -512,7 +512,7 @@
       "post": {
         "operationId": "createSubscription",
         "summary": "Start a PayPal subscription checkout for the signed-in user",
-        "description": "Callable. Creates a PayPal subscription for `context.auth.uid` and returns the approval URL. Guards against re-buying the current tier and against duplicate submissions (60s per-uid cooldown).",
+        "description": "Callable. Creates a PayPal subscription for `context.auth.uid` and returns the approval URL. The PayPal plan is selected server-side from the requested tier × billing cycle (H6: pro/premium × monthly/yearly), so a yearly buyer is charged the yearly plan. Guards against re-buying the current tier and against duplicate submissions (60s per-uid cooldown).",
         "tags": [
           "Billing"
         ],
