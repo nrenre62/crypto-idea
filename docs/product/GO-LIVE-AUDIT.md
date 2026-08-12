@@ -113,9 +113,16 @@ always lands in a *new* database — not something to learn at 2am), and disclos
 > dropped from the buy component). DEV keeps the emulator path (`persistTierDev` → `devSetMyTier`),
 > which is also server-authoritative. `/pro-success` was rebuilt to render the **actual purchased
 > tier** and only claim success once the webhook confirms (new read-only `src/hooks/useProSuccess.js`
-> watching the caller's own user doc: waiting / confirmed / timeout / signed-out). **Residual:**
-> `confirmDowngrade` / `finalizeDowngrade` still only touch localStorage — that's the **downgrade/
-> cancel** path, deferred to **Plan B PR-C**. The historical finding below is kept for context.
+> watching the caller's own user doc: waiting / confirmed / timeout / signed-out). **Downgrade/cancel
+> path now server-authoritative too (Plan B PR-C1, 2026-08-12, branch
+> `claude/plan-b-pr-c1-cancel-downgrade`):** `confirmDowngrade` / `finalizeDowngrade` now `await` the
+> real `cancelSubscription({downgradeTo})` callable (via `src/api/billing.js`) and let `watchUserDoc`
+> sync the **server-written** marker back — the optimistic `setUser`+`saveProfile` forge of
+> `{cancelled, downgradeTo}` is gone, toasts are date-free, and the fake up-front "Approve your Pro
+> payment now" step was deleted (Premium→Pro schedules the downgrade; the period-end R29 re-checkout
+> takes the real Pro payment). **No client-forged billing write remains.** **Remaining:** the real
+> future-start Pro pre-auth is **Plan B PR-C2**, and the full cancel/downgrade round-trip verifies at
+> the go-live PayPal **sandbox e2e**. The historical finding below is kept for context.
 
 `src/components/Login.jsx` fakes payment with `setTimeout(…, 2000)`, writes the tier to
 **localStorage**, and calls a function that is a hard no-op in production. `src/api/` has no billing
@@ -136,8 +143,10 @@ Pro action hits `permission-denied` from the rules. The entire hardened billing 
   webhook set the tier **server-side**. Never `setUser({tier})` locally again. Same for
   `confirmDowngrade` / `finalizeDowngrade`, which also only touch localStorage. Then H6 below.
   **↳ BUY-path done (Plan B PR-B, 2026-08-12):** `src/api/billing.js` + the `createSubscription` →
-  `approvalUrl` redirect are shipped and the local tier write is gone; only `confirmDowngrade` /
-  `finalizeDowngrade` (the downgrade/cancel path) remain localStorage-only, deferred to **PR-C**.
+  `approvalUrl` redirect are shipped and the local tier write is gone. **↳ Downgrade/cancel path done
+  (Plan B PR-C1, 2026-08-12):** `confirmDowngrade` / `finalizeDowngrade` route through the
+  `cancelSubscription` callable (server writes the marker; `watchUserDoc` syncs it) — no client forge
+  remains. The real future-start Pro pre-auth is **PR-C2**; the sandbox e2e still verifies at go-live.
 
 ✅ **PayPal sandbox is now available (Plan B PR-A).** `PAYPAL_ENV=sandbox` switches the API base to
 `https://api-m.sandbox.paypal.com` (default `live`) via pure `billing.paypalBaseFor(env)`, so the

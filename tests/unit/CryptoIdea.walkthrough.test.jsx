@@ -56,8 +56,29 @@ vi.mock("../../src/api/coingecko.js", () => ({
 }));
 vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn().mockResolvedValue(null) }));
 
+// Plan B PR-C1 — the downgrade/cancel handlers route through the REAL server callable
+// (cancelSubscription) instead of forging a `subscription` marker into React state +
+// localStorage. Mock the api seams so we can assert the callable is invoked with the
+// right target and that no client-forged marker is written. (Same hoisted-vi.mock
+// precedent as Login.test's createSubscription seam.)
+const { cancelSubscriptionMock } = vi.hoisted(() => ({ cancelSubscriptionMock: vi.fn() }));
+vi.mock("../../src/api/billing.js", () => ({
+  createSubscription: vi.fn(),
+  cancelSubscription: cancelSubscriptionMock,
+}));
+// account.js keeps its real functions (devSetMyTier/reconcileMyCounters/chooseFreePlan are
+// harmlessly no-op'd through the already-mocked httpsCallable, exactly as before) but the
+// reactivate/resolve wrappers become assertable spies so PR-C1's "finish the job"
+// (keepPlan/declineProRecheckout still call the server but no longer saveProfile) can be pinned.
+const { reactivateMock, resolveMock } = vi.hoisted(() => ({ reactivateMock: vi.fn(), resolveMock: vi.fn() }));
+vi.mock("../../src/api/account.js", async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, reactivateSubscription: reactivateMock, resolveRecheckout: resolveMock };
+});
+
 import { onAuthChange } from "../../src/api/firebase-auth.js";
 import { getPortfolios, getCoins, getUserProfile, addTransaction } from "../../src/api/firebase-database.js";
+import { db } from "../../src/utils/storage.js";
 import CryptoIdea from "../../src/CryptoIdea.jsx";
 import { PLAN_BENEFITS } from "../../src/components/Login.jsx";
 
@@ -318,7 +339,14 @@ describe("User walkthrough — all functions", () => {
     getUserProfile.mockResolvedValueOnce({ success: true, tier: "premium", subscription: sub });
   };
 
-  it("R31-3: premium — Downgrade → select Starter → Continue → warning → Confirm → pending", async () => {
+  // Plan B PR-C1 (rewrite): the chooser's Starter path now routes through the REAL server
+  // callable — Confirm calls cancelSubscription({downgradeTo:"free"}) and forges NO pending
+  // marker (strict server-sync; the marker arrives from watchUserDoc). The old assertions
+  // that a "access ends on … become Starter" notice appears optimistically are removed —
+  // that behavior is being intentionally deleted (founder-locked at G2), not weakened.
+  it("premium → Starter downgrade routes through the server cancelSubscription callable (no client forge)", async () => {
+    cancelSubscriptionMock.mockReset();
+    cancelSubscriptionMock.mockResolvedValue({ success: true, downgradeTo: "free", endDate: "2099-01-01T00:00:00.000Z" });
     loginPremium(premiumSub());
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
@@ -326,22 +354,31 @@ describe("User walkthrough — all functions", () => {
     await screen.findByText("Plan usage");
     fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
     fireEvent.click(screen.getByText("Downgrade"));
-    // The chooser: both targets fed by PLAN_BENEFITS + the either-way access note.
+    // The chooser is unchanged: both targets fed by PLAN_BENEFITS + the either-way access note.
     expect(await screen.findByText("Downgrade to which plan?")).toBeInTheDocument();
     expect(screen.getByText(PLAN_BENEFITS.pro.limits.join(" · "))).toBeInTheDocument();
     expect(screen.getByText(PLAN_BENEFITS.free.limits.join(" · "))).toBeInTheDocument();
     expect(screen.getByText(/either way/i)).toBeInTheDocument();
-    // R31-3: selecting a card no longer confirms — Continue → the "what you'll lose" warning.
+    // select Starter → Continue → the "what you'll lose" warning → Confirm
     fireEvent.click(screen.getByText("Starter"));
     fireEvent.click(screen.getByText("Continue"));
     expect(await screen.findByText(/Switch to Starter\?/)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Confirm"));
-    // → pink pending notice shows the chosen target
-    expect(await screen.findByText(/access ends on/i)).toBeInTheDocument();
-    expect(screen.getByText(/become Starter/)).toBeInTheDocument();
+    // PR-C1: Confirm routes through the real server callable (today it forges instead → RED here).
+    await waitFor(() => expect(cancelSubscriptionMock).toHaveBeenCalledWith({ downgradeTo: "free" }));
+    // strict server-sync: NO optimistic pending notice, and NO forged marker in the profile cache.
+    expect(screen.queryByText(/access ends on/i)).toBeNull();
+    const cached = JSON.parse(localStorage.getItem("ci-profile-u1") || "{}");
+    expect(cached?.subscription?.cancelled).not.toBe(true);
   });
 
-  it("R31-3: premium — downgrade to Pro APPROVES the payment now (future start), no re-checkout later", async () => {
+  // Plan B PR-C1 (rewrite — REPLACES "downgrade to Pro APPROVES the payment now"): the fake
+  // up-front "Approve your Pro payment" cycle step is REMOVED. Premium→Pro now just schedules
+  // cancelSubscription({downgradeTo:"pro"}); the existing period-end re-checkout takes the real
+  // payment. This is an authorized spec change (founder-locked at G2), not a weakening.
+  it("premium → Pro downgrade schedules a server cancellation; the fake up-front approve step is gone", async () => {
+    cancelSubscriptionMock.mockReset();
+    cancelSubscriptionMock.mockResolvedValue({ success: true, downgradeTo: "pro", endDate: "2099-01-01T00:00:00.000Z" });
     loginPremium(premiumSub());
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
@@ -350,18 +387,22 @@ describe("User walkthrough — all functions", () => {
     fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
     fireEvent.click(screen.getByText("Downgrade"));
     await screen.findByText("Downgrade to which plan?");
-    // select Pro → Continue → warning → Continue → the approve-now cycle step
+    // select Pro → Continue → the "what you'll lose" warning
     fireEvent.click(screen.getByText("Pro"));
     fireEvent.click(screen.getByText("Continue"));
     expect(await screen.findByText(/Switch to Pro\?/)).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Continue"));
-    expect(await screen.findByText(/Approve your Pro payment/i)).toBeInTheDocument();
-    // approve the PayPal payment now
-    fireEvent.click(screen.getByText(/Approve with/));
-    // → pending notice shows the pre-approved Pro downgrade
-    expect(await screen.findByText(/access ends on/i)).toBeInTheDocument();
-    expect(screen.getByText(/become Pro/)).toBeInTheDocument();
-    expect(screen.getByText(/Pro payment approved/)).toBeInTheDocument();
+    // PR-C1 removes the fake up-front "Approve your Pro payment" cycle step: the warn step no
+    // longer has an onward "Continue" to a payment-approval screen — it terminates in a plain
+    // Confirm that schedules the REAL server cancellation to Pro.
+    expect(screen.queryByText("Continue")).toBeNull();   // RED today: the Pro warn step shows "Continue" → cycle
+    fireEvent.click(screen.getByText("Confirm"));
+    await waitFor(() => expect(cancelSubscriptionMock).toHaveBeenCalledWith({ downgradeTo: "pro" }));
+    // the removed fake-approve UI never appears, and no proApproved / cancelled is forged.
+    expect(screen.queryByText(/Approve your Pro payment/i)).toBeNull();
+    expect(screen.queryByText(/payment approved/i)).toBeNull();
+    const cached = JSON.parse(localStorage.getItem("ci-profile-u1") || "{}");
+    expect(cached?.subscription?.proApproved).toBeUndefined();
+    expect(cached?.subscription?.cancelled).not.toBe(true);
   });
 
   it("R29-2: Keep-my-plan un-cancels a pending downgrade (notice gone, Downgrade back)", async () => {
@@ -448,6 +489,111 @@ describe("User walkthrough — all functions", () => {
     await screen.findByText(/My Assets/i);
     expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
     expect(await screen.findByText("STARTER")).toBeInTheDocument();
+  });
+
+  // ── Plan B PR-C1: cancel/downgrade route through the server callable (no client forge) ──
+  // PR-C1 removes the last client-forged billing writes. The downgrade handlers now call
+  // cancelSubscription({downgradeTo}) and rely on the live server sync (watchUserDoc) to bring
+  // the marker back — NO optimistic setUser + saveProfile. keepPlan/declineProRecheckout keep
+  // calling the server but drop their own saveProfile. (Founder-locked at G2; client-only.)
+  describe("Plan B PR-C1 — server-routed cancel/downgrade", () => {
+    beforeEach(() => {
+      cancelSubscriptionMock.mockReset();
+      cancelSubscriptionMock.mockImplementation(async ({ downgradeTo } = {}) =>
+        ({ success: true, downgradeTo, endDate: "2099-01-01T00:00:00.000Z" }));
+      reactivateMock.mockReset(); reactivateMock.mockResolvedValue({ success: true });
+      resolveMock.mockReset(); resolveMock.mockResolvedValue({ success: true });
+    });
+
+    // 1) Pro → Starter via the simple confirm modal: Confirm calls the callable with
+    //    {downgradeTo:"free"}, closes the modal, and forges NO cancelled marker.
+    it("Pro→Starter cancel routes through the server cancelSubscription callable (no client forge)", async () => {
+      loginAs("pro@test.com", "Pro");
+      getUserProfile.mockResolvedValueOnce({ success: true, tier: "pro",
+        subscription: { billing: "monthly", startDate: "2026-06-01", endDate: "2026-08-01", cancelled: false } });
+      render(<CryptoIdea />);
+      await screen.findByText(/My Assets/i);
+      fireEvent.click(screen.getByText("PRO"));
+      await screen.findByText("Plan usage");
+      fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+      fireEvent.click(screen.getByText(/Cancel Pro/));
+      expect(await screen.findByText(/Downgrade to Starter\?/)).toBeInTheDocument();
+      fireEvent.click(screen.getByText("Confirm Downgrade"));
+      // routes through the real server callable (today the handler forges instead → RED here)
+      await waitFor(() => expect(cancelSubscriptionMock).toHaveBeenCalledWith({ downgradeTo: "free" }));
+      expect(cancelSubscriptionMock).toHaveBeenCalledTimes(1);
+      // modal closes; strict server-sync means NO optimistic pending notice
+      await waitFor(() => expect(screen.queryByText(/Downgrade to Starter\?/)).toBeNull());
+      expect(screen.queryByText(/access ends on/i)).toBeNull();
+      // and nothing forged into the localStorage profile cache
+      const cached = JSON.parse(localStorage.getItem("ci-profile-u1") || "{}");
+      expect(cached?.subscription?.cancelled).not.toBe(true);
+    });
+
+    // 4) A server refusal is honest: a toast surfaces, and NO cancelled marker is forged
+    //    into state (the "ends on" notice does NOT falsely render). Mirrors PR-B's payErr.
+    it("a server-refused cancel surfaces a toast and forges no pending marker", async () => {
+      loginAs("pro@test.com", "Pro");
+      getUserProfile.mockResolvedValueOnce({ success: true, tier: "pro",
+        subscription: { billing: "monthly", startDate: "2026-06-01", endDate: "2026-08-01", cancelled: false } });
+      cancelSubscriptionMock.mockRejectedValueOnce({ code: "functions/failed-precondition", message: "Couldn't cancel your plan — please try again." });
+      render(<CryptoIdea />);
+      await screen.findByText(/My Assets/i);
+      fireEvent.click(screen.getByText("PRO"));
+      await screen.findByText("Plan usage");
+      fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+      fireEvent.click(screen.getByText(/Cancel Pro/));
+      await screen.findByText(/Downgrade to Starter\?/);
+      fireEvent.click(screen.getByText("Confirm Downgrade"));
+      // the handler must call the server (today it forges instead → RED here)…
+      await waitFor(() => expect(cancelSubscriptionMock).toHaveBeenCalled());
+      // …and on refusal surface a toast, never a falsely-forged pending notice
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(screen.queryByText(/access ends on/i)).toBeNull();
+      const cached = JSON.parse(localStorage.getItem("ci-profile-u1") || "{}");
+      expect(cached?.subscription?.cancelled).not.toBe(true);
+    });
+
+    // 5) keepPlan "finishes the job": still calls the server reactivate, still updates state
+    //    (the pending notice clears), but no longer writes the profile cache itself. The
+    //    useAuthSession auto-save effect writes ci-profile-<uid> exactly ONCE per user change;
+    //    removing keepPlan's own saveProfile means one click → exactly one profile write
+    //    (today it produces two — the effect PLUS keepPlan's forbidden extra write → RED).
+    it("keepPlan reactivates via the server and no longer writes the profile cache itself", async () => {
+      loginPremium(premiumSub({ cancelled: true, downgradeTo: "pro" }));
+      render(<CryptoIdea />);
+      await screen.findByText(/My Assets/i);
+      fireEvent.click(screen.getByText("PREMIUM"));
+      await screen.findByText("Plan usage");
+      fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+      expect(screen.getByText(/access ends on/i)).toBeInTheDocument();
+      const setSpy = vi.spyOn(db, "set");   // spy through to real localStorage
+      setSpy.mockClear();
+      fireEvent.click(screen.getByText("Keep my plan"));
+      await waitFor(() => expect(reactivateMock).toHaveBeenCalled());
+      await waitFor(() => expect(screen.queryByText(/access ends on/i)).toBeNull());
+      const profileWrites = setSpy.mock.calls.filter((cargs) => cargs[0] === "ci-profile-u1");
+      expect(profileWrites.length).toBe(1);
+      setSpy.mockRestore();
+    });
+
+    // 6) declineProRecheckout "finishes the job": still calls the server resolve, still clears
+    //    state, but no longer writes the profile cache itself (one profile write → the effect
+    //    only; today it also saveProfiles → two writes → RED).
+    it("declineProRecheckout clears via the server and no longer writes the profile cache itself", async () => {
+      loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
+      getPortfolios.mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] });
+      render(<CryptoIdea />);
+      expect(await screen.findByText(/Your Premium period has ended/i)).toBeInTheDocument();
+      const setSpy = vi.spyOn(db, "set");
+      setSpy.mockClear();
+      fireEvent.click(screen.getByText("Continue with Starter"));
+      await waitFor(() => expect(resolveMock).toHaveBeenCalled());
+      await waitFor(() => expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull());
+      const profileWrites = setSpy.mock.calls.filter((cargs) => cargs[0] === "ci-profile-u1");
+      expect(profileWrites.length).toBe(1);
+      setSpy.mockRestore();
+    });
   });
 
   // ── #1 THE MOAT — one journey proving Journal → conviction signals → Learn connect ──

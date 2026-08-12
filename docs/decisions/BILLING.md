@@ -37,8 +37,8 @@ Two readers: (1) **future me** — to safely change billing without re-deriving 
 | `getStats` (admin callable) | `functions/index.js` | Net-revenue reporting (gross − PayPal fees, per billing cycle). |
 | **Pure billing decisions** | `functions/billing.js` | All the branch logic (plan→tier, patches, sweep, revenue) — no Firebase, fully unit-tested. |
 | Guards | `functions/guards.js` | Per-uid cooldown on `createSubscription` (anti double-charge). |
-| Billing api wrapper | `src/api/billing.js` | Client `createSubscription({plan, billing})` wrapper (Plan B PR-B) — components never call `httpsCallable` directly. Returns the approval URL for the buy button to redirect to. |
-| Upgrade/downgrade UI | `src/components/Login.jsx`, `src/hooks/useUpgrade.js` | Plan picker, R29 downgrade chooser, period-end re-checkout. **PR-B:** the PROD buy button calls `createSubscription` → redirects to the PayPal `approvalUrl` (no client tier write; DEV keeps the emulator `persistTierDev` path). |
+| Billing api wrapper | `src/api/billing.js` | Client `createSubscription({plan, billing})` (Plan B PR-B) **and `cancelSubscription({downgradeTo})`** (Plan B PR-C1) wrappers — components never call `httpsCallable` directly. `createSubscription` returns the approval URL for the buy button to redirect to; `cancelSubscription` schedules the caller's own period-end downgrade (server writes the marker). |
+| Upgrade/downgrade UI | `src/components/Login.jsx`, `src/hooks/useUpgrade.js`, `src/CryptoIdea.jsx` | Plan picker, R29 downgrade chooser, period-end re-checkout. **PR-B:** the PROD buy button calls `createSubscription` → redirects to the PayPal `approvalUrl` (no client tier write; DEV keeps the emulator `persistTierDev` path). **PR-C1:** the downgrade chooser's Confirm (`confirmDowngrade`/`finalizeDowngrade`) routes through `cancelSubscription` — no client-forged marker; `watchUserDoc` syncs the server marker back. |
 | Success page | `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` | The `/pro-success` PayPal-return page (Plan B PR-B). Read-only: `useProSuccess` watches the caller's own user doc and only claims success once the webhook has written a paid tier; renders the **actual** purchased tier (waiting / confirmed / timeout / signed-out). |
 
 **Why `billing.js` is separate:** every decision (which tier a `plan_id` maps to, what a
@@ -69,8 +69,9 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 > and there is **no client tier write in prod** (the buy component dropped `setUser`/`saveProfile`/
 > `calcEndDate`). On return, `/pro-success` watches the caller's own user doc and confirms only once
 > the webhook has set the paid tier (`watchUserDoc`), rendering the actual purchased tier. DEV keeps
-> the emulator `persistTierDev` → `devSetMyTier` path (also server-authoritative). The remaining
-> localStorage-only piece — the cancel/downgrade handlers — is deferred to **Plan B PR-C**.
+> the emulator `persistTierDev` → `devSetMyTier` path (also server-authoritative). The cancel/downgrade
+> handlers were the last client-forged piece; **Plan B PR-C1** (2026-08-12) moved them onto the server
+> `cancelSubscription` callable too — see §3.3.
 
 ### 3.2 Recurring payments
 - Each renewal fires **`PAYMENT.SALE.COMPLETED`**. A sale carries **no `plan_id`**, so it *never*
@@ -89,6 +90,29 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
     tier that needs a payment: the app's **R29 re-checkout** popup lets the user approve the Pro
     charge (a fresh `ACTIVATED` webhook lands them on Pro) or continue on Starter. A paid tier is
     **never** granted without a payment.
+
+> **Client wiring is server-authoritative (Plan B PR-C1, 2026-08-12).** The app's downgrade chooser
+> (`confirmDowngrade` / `finalizeDowngrade` in `src/CryptoIdea.jsx`) now `await`s
+> `cancelSubscription({downgradeTo})` (via `src/api/billing.js`) and lets `watchUserDoc` bring the
+> **server-written** marker back — the old optimistic `setUser`+`saveProfile` forge of
+> `{cancelled, downgradeTo}` into state + the localStorage profile cache is **gone**, and the
+> confirmation toasts are **date-free** (the real `endDate` renders only once the synced server marker
+> lands, never a client-fabricated number). This removed the last client-forged billing write.
+>
+> **Premium→Pro interim (PR-C1):** the chooser collapsed from 3 steps to 2 — the fake "Approve your
+> Pro payment now" step (which forged `proApproved`/`proBilling`) was **deleted**. Premium→Pro now
+> just schedules `cancelSubscription({downgradeTo:"pro"})`; at period end the existing **R29
+> re-checkout** popup (target `"pro"` above) takes the **real** Pro payment. The real future-start
+> pre-authorization (approve the Pro charge up front, start when Premium ends) is **PR-C2**, not yet
+> built — until then the `checkSubscriptionStatus` `proApproved` branch is inert (dead-until-PR-C2),
+> and the C2 Premium→Pro round-trip verifies against the go-live PayPal sandbox e2e (§8.5).
+>
+> **DEV limitation:** the server `cancelSubscription` throws `failed-precondition` ("No active
+> subscription") when the caller's user doc has no `paypalSubscriptionId`. A **local dev** account set
+> via `devSetMyTier` (`pro@`/`premium@test.com` — no real PayPal sub) therefore now gets an error toast
+> on Confirm-Downgrade instead of the old local forge. This is the intended server-authoritative
+> behaviour; **PR-C2** adds a `FUNCTIONS_EMULATOR` dev-split that restores local downgrade testing.
+> (See [ERRORS.md](../testing/ERRORS.md).)
 
 ### 3.4 Payment failure
 - A failed charge fires **`BILLING.SUBSCRIPTION.SUSPENDED`** → marks `paymentFailed` + a **7-day

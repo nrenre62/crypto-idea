@@ -13,3 +13,11 @@ export async function createSubscription({ plan, billing } = {}) {
   const res = await httpsCallable(functions, "createSubscription")({ plan, billing });
   return res.data;
 }
+
+// Cancel/schedule a downgrade of the caller's OWN subscription. Sends only {downgradeTo}
+// (server acts on context.auth.uid; the server writes the subscription marker — never the
+// client). Returns { success, downgradeTo, endDate }. Throws on refusal (auth / precondition).
+export async function cancelSubscription({ downgradeTo } = {}) {
+  const res = await httpsCallable(functions, "cancelSubscription")({ downgradeTo });
+  return res.data;
+}

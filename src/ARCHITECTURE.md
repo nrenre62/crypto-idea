@@ -27,9 +27,11 @@ src/
     `firebase-database.js`) + the backend `/api/*` fetches: `coingecko.js`
     (`fetchPrices`, `searchCoins`) and `config.js` (`fetchSiteConfig`). `CryptoIdea.jsx`
     no longer calls `fetch()` directly. The callable wrappers `account.js`, `admin.js`,
-    `admin-auth.js` and **`billing.js`** (Plan B PR-B — `createSubscription({plan, billing})`)
+    `admin-auth.js` and **`billing.js`** (Plan B PR-B — `createSubscription({plan, billing})`;
+    Plan B PR-C1 — `cancelSubscription({downgradeTo})`, a peer of `createSubscription`)
     keep `httpsCallable` out of components: `Login.jsx`'s buy button imports `api/billing.js`,
-    never the SDK directly.
+    never the SDK directly, and `CryptoIdea.jsx`'s downgrade handlers (`confirmDowngrade`/
+    `finalizeDowngrade`) route through it too (server-authoritative, no client-forged marker).
   - `utils/` — `format.js` (pure formatters: `fmtP`, `fmtMc`, `fmtPct`, `uid`, `fmtDT`,
     `timeBetween`), `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
     price model `getHistoricalPrice`), and `theme.js` (visual tokens `c`, `inp_s`,

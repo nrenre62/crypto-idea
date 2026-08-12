@@ -1904,6 +1904,17 @@ Account, pending notice ("Premium until {date}, then Pro — payment approved �
 no welcome screen for downgrades. "Keep my plan"/"Change downgrade choice" must also cancel the
 scheduled future-start subscription (server callable at go-live; dev marker locally).
 
+> **AS-BUILT (Plan B PR-C1, 2026-08-12):** the shipped chooser is **pick → warn → Confirm** only — the
+> **"approve the Pro payment NOW / future-start" step was NOT built as designed here.** Confirm routes
+> through the server `cancelSubscription({downgradeTo})` callable (no client-forged marker; `watchUserDoc`
+> syncs it back; toasts **date-free**, never a client-fabricated end date). For the **Premium→Pro interim,
+> the R29-3 period-end re-checkout is KEPT, not retired** — Premium→Pro just schedules the downgrade and the
+> **real** Pro payment is taken by the existing "Your Premium period has ended → Approve Pro payment" popup.
+> The R31-3 **real future-start pre-authorization** (approve up front, PayPal `start_time`, land directly on
+> Pro at period end) is deferred to **Plan B PR-C2** (reuses `/pro-success` "Pro starts when Premium ends";
+> adds a `FUNCTIONS_EMULATOR` dev-split; verified by the go-live PayPal sandbox e2e). Until PR-C2 the
+> `checkSubscriptionStatus` `proApproved` branch is inert. Canonical: [`BILLING.md`](../decisions/BILLING.md) §3.3.
+
 **R31-4 · No-refund disclaimer on EVERY billing surface.**
 The purchase/cycle step has none today — add the R27-4 line ("No refunds. Your subscription
 remains active until the end of the paid period.") to: the billing/cycle step (buy AND

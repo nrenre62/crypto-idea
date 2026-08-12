@@ -637,18 +637,24 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
   clears the gate on the **server-confirmed** tier, not an optimistic one. DEV keeps the emulator
   `persistTierDev` → `devSetMyTier` path (also server-authoritative). Historical note (still true):
   the free path was already fully server-enforced.
-- **📌 Plan B billing — status & what's next (as of this PR-B branch):** **PR-B** (client: real
-  checkout wiring + honest webhook-confirmed [`/pro-success`](../../src/components/pro-success.jsx)
-  via [`useProSuccess`](../../src/hooks/useProSuccess.js), + `PLAN_BENEFITS` extracted to
-  [`src/data/plan-benefits.js`](../../src/data/plan-benefits.js)) **done (2026-08-12,** branch
-  `claude/plan-b-pr-b-checkout`**)**. The buy button now passes the chosen cycle through
-  `createSubscription({plan, billing})`. ⚠️ **PR-A** (server: four plan IDs + `planIdFor(tier,
-  cycle, ids)`, the real **H6** fix) is on its own branch and is **NOT merged into master or this
-  branch** — until it lands the server still selects the plan by **tier only**, so an annual buyer
-  is still sent to the monthly plan (client already sends the cycle, so it's PR-A-ready). **PR-C**
-  (next): move the cancel/downgrade handlers (`confirmDowngrade` / `finalizeDowngrade`) off
-  localStorage onto the `cancelSubscription` callable — the ONE remaining client-forged billing
-  piece (see GO-LIVE-AUDIT B4 residual). Live PayPal sandbox e2e still verifies at go-live.
+- **📌 Plan B billing — status & what's next:** **PR-A** (server: four plan IDs + `planIdFor(tier,
+  cycle, ids)`, the real **H6** fix + the `PAYPAL_ENV` sandbox/live switch) **done (2026-08-12, #73)**.
+  **PR-B** (client: real checkout wiring + honest webhook-confirmed
+  [`/pro-success`](../../src/components/pro-success.jsx) via
+  [`useProSuccess`](../../src/hooks/useProSuccess.js), + `PLAN_BENEFITS` extracted to
+  [`src/data/plan-benefits.js`](../../src/data/plan-benefits.js); the buy button passes the chosen
+  cycle through `createSubscription({plan, billing})`) **done (2026-08-12, #74)**. **PR-C1** (client:
+  move the cancel/downgrade handlers `confirmDowngrade` / `finalizeDowngrade` off localStorage onto
+  the [`cancelSubscription({downgradeTo})`](../../src/api/billing.js) callable — the **last**
+  client-forged billing write; `watchUserDoc` syncs the server marker, toasts are date-free, and the
+  fake up-front "Approve your Pro payment now" step was deleted so Premium→Pro schedules the downgrade
+  and the period-end R29 re-checkout takes the real Pro payment) **done (2026-08-12,** branch
+  `claude/plan-b-pr-c1-cancel-downgrade`, `9b68276`**)**. **PR-C2** (next): the real **future-start Pro
+  pre-authorization** — a backend + PayPal change that approves the Pro charge up front to start when
+  Premium ends (reuse `/pro-success` "Pro starts when Premium ends"), plus a `FUNCTIONS_EMULATOR`
+  dev-split so `devSetMyTier` accounts (no real PayPal sub) can test downgrade locally again;
+  verified by the PayPal **sandbox e2e** at deploy. Live PayPal sandbox e2e still verifies the whole
+  flow at go-live.
 
 ---
 

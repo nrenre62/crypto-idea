@@ -105,7 +105,7 @@ wins in a conflict) is **bold**.
 
 ### Billing / PayPal (subscription lifecycle, webhook)
 - Docs: **[`BILLING.md`](decisions/BILLING.md)** · [`PRICING.md`](decisions/PRICING.md) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) D5/D6 · [`GO-LIVE-AUDIT.md`](product/GO-LIVE-AUDIT.md) · [`NEXT-STEPS.md`](product/NEXT-STEPS.md) §4 · `openapi.json` · `functions/.env.example` (PayPal deploy env-var contract: plan IDs + `PAYPAL_ENV`)
-- Code: `functions/index.js` (PayPal section) · `functions/billing.js` · `functions/guards.js` (cooldown) · `src/api/billing.js` (client `createSubscription` wrapper — Plan B PR-B) · `src/components/Login.jsx` + `src/hooks/useUpgrade.js` (upgrade/downgrade UI) · `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` (webhook-confirmed `/pro-success`) · `firestore.rules` (subscription/tier server-only)
+- Code: `functions/index.js` (PayPal section) · `functions/billing.js` · `functions/guards.js` (cooldown) · `src/api/billing.js` (client `createSubscription` — Plan B PR-B — + `cancelSubscription` — Plan B PR-C1 — wrappers) · `src/components/Login.jsx` + `src/hooks/useUpgrade.js` + `src/CryptoIdea.jsx` (upgrade/downgrade UI; PR-C1 routes the downgrade handlers through `cancelSubscription`) · `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` (webhook-confirmed `/pro-success`) · `firestore.rules` (subscription/tier server-only)
 
 ### User settings / account (profile, security, GDPR)
 - Docs: **[`USER-SETTINGS.md`](product/USER-SETTINGS.md)** · [`USER-SETTINGS-README.md`](product/USER-SETTINGS-README.md) · [`USER-CREATION.md`](product/USER-CREATION.md)
