@@ -51,9 +51,11 @@ describe("Journal tab (extracted, via AppContext)", () => {
   });
 
   it("shows the corrected privacy note (thesis feeds the AI), not the old wording", () => {
-    provide({ portfolio: [withThesis] });
-    expect(screen.queryByText(/private to your account/)).toBeNull();
-    expect(screen.getByText(/Your thesis helps the AI give you better Research & Ask/)).toBeInTheDocument();
+    // CRYP-105 (AC9): the footer is now the honest privacy line — it names WHO can see
+    // the journal (you + the CryptoIdea team) and drops the false "feeds the AI" claim.
+    const { container } = provide({ portfolio: [withThesis] });
+    expect(screen.getByText("Your journal is visible only to you and the CryptoIdea team.")).toBeInTheDocument();
+    expect(container.textContent).not.toContain("helps the AI");
   });
 
   it("opens the add-thesis overlay and saves a new thesis via addThesis(coinId, …)", () => {
@@ -236,5 +238,57 @@ describe("Journal tab (extracted, via AppContext)", () => {
     expect(screen.getByText(/● LIVE/)).toBeInTheDocument();
     fireEvent.click(screen.getByText("PREMIUM"));
     expect(setScreen).toHaveBeenCalledWith("account");
+  });
+
+  // CRYP-105 (AC8): the Add-thesis callout drops the false "powers your Research & Ask"
+  // claim for the honest "you'll know exactly why you bought" copy (matching Search's).
+  it("CRYP-105: the Add-thesis callout uses honest copy (no 'powers your Research')", () => {
+    const { container } = provide({ portfolio: [noThesis] });
+    fireEvent.click(screen.getByText("Add thesis"));   // open the Add-thesis overlay
+    expect(
+      screen.getByText("Your thesis lives with this coin. When the market drops, you'll know exactly why you bought — and whether that reason still holds.")
+    ).toBeInTheDocument();
+    expect(container.textContent).not.toContain("powers your Research");
+  });
+
+  // CRYP-105 (AC6): with coins but no theses the "No thesis yet" empty-state renders as
+  // a .j-none pill card; it disappears the moment any coin carries a thesis.
+  it("CRYP-105: 'No thesis yet' renders as a .j-none pill only when no coin has a thesis", () => {
+    const noneYet = provide({ portfolio: [noThesis] });        // a coin, but no thesis
+    const pill = noneYet.container.querySelector(".j-none");
+    expect(pill).not.toBeNull();
+    expect(pill.textContent).toMatch(/No thesis yet/);
+
+    const hasOne = provide({ portfolio: [withThesis] });        // a thesis exists → no pill
+    expect(hasOne.container.querySelector(".j-none")).toBeNull();
+  });
+
+  // CRYP-105 (AC5): revealing the two-step delete confirm scrolls it into view. jsdom
+  // does not implement scrollIntoView at all, so vi.spyOn(prototype) can't hook a
+  // missing method — install the mock directly on the prototype and restore it after.
+  it("CRYP-105: revealing the delete-confirm scrolls it into view", () => {
+    const orig = HTMLElement.prototype.scrollIntoView;   // undefined under jsdom
+    const spy = vi.fn();
+    HTMLElement.prototype.scrollIntoView = spy;
+    try {
+      provide({ portfolio: [withThesis] });
+      fireEvent.click(screen.getByText("Bitcoin"));        // open detail
+      fireEvent.click(screen.getByText("Delete thesis"));  // step 1: reveal confirm
+      expect(screen.getByText("Yes, delete thesis")).toBeInTheDocument();
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      if (orig) HTMLElement.prototype.scrollIntoView = orig;
+      else delete HTMLElement.prototype.scrollIntoView;
+    }
+  });
+
+  // CRYP-105 (AC2): the detail overlay shows the coin name ONCE — the Modal title is
+  // dropped so it no longer duplicates the .bj-coin-name in the detail head.
+  it("CRYP-105: the detail overlay shows the coin name once (no Modal title)", () => {
+    const { container } = provide({ portfolio: [withThesis] });
+    fireEvent.click(screen.getByText("Bitcoin"));   // open detail
+    expect(container.querySelector(".bj-coin-name").textContent).toBe("Bitcoin");
+    const title = container.querySelector(".cm-title");
+    expect(title === null || !title.textContent.includes("Bitcoin")).toBe(true);
   });
 });
