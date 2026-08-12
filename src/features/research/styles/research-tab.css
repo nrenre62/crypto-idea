@@ -250,7 +250,7 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .prompt:hover{background:rgba(255,255,255,.15)}
 
 /* R13-1: readable-muted in light too (--ink-soft flips per theme; dark override removed). */
-.research-root .disclaimer{font-size:11px;color:var(--ink-soft);line-height:1.55;padding:18px 6px 92px;text-align:center}
+.research-root .disclaimer{font-size:14px;color:var(--ink-soft);line-height:1.55;padding:18px 6px 92px;text-align:center}
 
 .research-root .empty-state{text-align:center;padding:42px 20px;color:var(--ink-soft)}
 .research-root .empty-ic{width:56px;height:56px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:24px;margin:0 auto 14px}

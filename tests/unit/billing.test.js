@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  planTier, activationPatch, salePatch, cancellationPatch,
+  planTier, planIdFor, paypalBaseFor, activationPatch, salePatch, cancellationPatch,
   cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
   billingStatusOf,
 } from "../../functions/billing.js";
@@ -8,6 +8,8 @@ import {
 // BL-1b/BL-1f (D6 + ERRORS.md B8): the PayPal webhook / cancellation / revenue
 // decisions are pure and dependency-injected — unit-tested here without emulators.
 const IDS = { proPlanId: "P-PRO", premiumPlanId: "P-PREM" };
+// Plan B / H6: the four plan ids (pro/premium × monthly/yearly).
+const IDS4 = { proMonthly: "P-PRO-M", proYearly: "P-PRO-Y", premiumMonthly: "P-PREM-M", premiumYearly: "P-PREM-Y" };
 
 describe("billing.planTier (B8: plan_id → tier mapping)", () => {
   it("maps each configured plan id to its tier", () => {
@@ -18,6 +20,59 @@ describe("billing.planTier (B8: plan_id → tier mapping)", () => {
     expect(planTier("P-OTHER", IDS)).toBeNull();
     expect(planTier(undefined, IDS)).toBeNull();
     expect(planTier("P-PRO", { proPlanId: "", premiumPlanId: "" })).toBeNull();
+  });
+});
+
+describe("billing.planIdFor (H6: pick the plan id by tier × billing cycle)", () => {
+  it("selects the right plan id for each of the four tier×cycle combinations", () => {
+    expect(planIdFor("pro", "monthly", IDS4)).toBe("P-PRO-M");
+    expect(planIdFor("pro", "yearly", IDS4)).toBe("P-PRO-Y");
+    expect(planIdFor("premium", "monthly", IDS4)).toBe("P-PREM-M");
+    expect(planIdFor("premium", "yearly", IDS4)).toBe("P-PREM-Y");
+  });
+  it("the H6 fix: a yearly buyer is NEVER handed the monthly plan id (the mischarge bug)", () => {
+    expect(planIdFor("pro", "yearly", IDS4)).not.toBe(IDS4.proMonthly);
+    expect(planIdFor("premium", "yearly", IDS4)).not.toBe(IDS4.premiumMonthly);
+  });
+  it("returns null for an unknown tier or cycle — the caller must NOT charge", () => {
+    expect(planIdFor("vip", "monthly", IDS4)).toBeNull();
+    expect(planIdFor("pro", "weekly", IDS4)).toBeNull();
+    expect(planIdFor(undefined, undefined, IDS4)).toBeNull();
+  });
+  it("returns null when the matched id is missing/unconfigured (fail safe, no bad checkout)", () => {
+    expect(planIdFor("pro", "yearly", { proMonthly: "P-PRO-M" })).toBeNull();
+    expect(planIdFor("premium", "monthly", {})).toBeNull();
+    expect(planIdFor("pro", "monthly", null)).toBeNull();
+  });
+});
+
+describe("billing.planTier (H6: reverse-map ALL FOUR plan ids back to a tier)", () => {
+  it("maps a yearly OR monthly plan id back to its tier (webhook activation)", () => {
+    expect(planTier("P-PRO-M", IDS4)).toBe("pro");
+    expect(planTier("P-PRO-Y", IDS4)).toBe("pro");
+    expect(planTier("P-PREM-M", IDS4)).toBe("premium");
+    expect(planTier("P-PREM-Y", IDS4)).toBe("premium");
+  });
+  it("still supports the legacy 2-id shape (proPlanId/premiumPlanId)", () => {
+    expect(planTier("P-PRO", IDS)).toBe("pro");
+    expect(planTier("P-PREM", IDS)).toBe("premium");
+  });
+  it("an unknown id → null (the webhook leaves tier untouched)", () => {
+    expect(planTier("P-NOPE", IDS4)).toBeNull();
+  });
+});
+
+describe("billing.paypalBaseFor (G7: sandbox ↔ live PayPal base URL)", () => {
+  it("returns the SANDBOX host only for an explicit 'sandbox' env (case/space tolerant)", () => {
+    expect(paypalBaseFor("sandbox")).toBe("https://api-m.sandbox.paypal.com");
+    expect(paypalBaseFor("SANDBOX")).toBe("https://api-m.sandbox.paypal.com");
+    expect(paypalBaseFor(" sandbox ")).toBe("https://api-m.sandbox.paypal.com");
+  });
+  it("defaults to LIVE for anything else (unset, 'live', junk) — sandbox must be opt-in", () => {
+    expect(paypalBaseFor("live")).toBe("https://api-m.paypal.com");
+    expect(paypalBaseFor(undefined)).toBe("https://api-m.paypal.com");
+    expect(paypalBaseFor("")).toBe("https://api-m.paypal.com");
+    expect(paypalBaseFor("prod")).toBe("https://api-m.paypal.com");
   });
 });
 

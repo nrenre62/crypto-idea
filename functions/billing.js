@@ -15,14 +15,49 @@
 
 const GRACE_MS = 7 * 24 * 3600 * 1000;   // U12: payment-failure grace before the drop
 
+// G7 (Plan B): the two PayPal API hosts. Sandbox must be OPT-IN — the default is
+// live, so a missing/unknown PAYPAL_ENV can never accidentally point real checkout
+// traffic at the sandbox (or vice-versa in the safe direction).
+const PAYPAL_LIVE_BASE = "https://api-m.paypal.com";
+const PAYPAL_SANDBOX_BASE = "https://api-m.sandbox.paypal.com";
+
 function toMs(v) {
   return typeof v === "number" ? v : (v ? Date.parse(v) : NaN);
 }
 
-function planTier(planId, { proPlanId, premiumPlanId }) {
-  if (planId && premiumPlanId && planId === premiumPlanId) return "premium";
-  if (planId && proPlanId && planId === proPlanId) return "pro";
+// Reverse-map a PayPal plan_id → its tier. Accepts BOTH shapes: the H6 four-id set
+// ({proMonthly, proYearly, premiumMonthly, premiumYearly}) AND the legacy two-id set
+// ({proPlanId, premiumPlanId}), so the webhook maps a Pro-YEARLY activation to "pro"
+// just as it did the single monthly id. Empty/missing ids are ignored; unknown → null
+// (the caller must then leave tier untouched — never guess).
+function planTier(planId, ids) {
+  if (!planId || !ids) return null;
+  const premium = [ids.premiumPlanId, ids.premiumMonthly, ids.premiumYearly].filter(Boolean);
+  const pro = [ids.proPlanId, ids.proMonthly, ids.proYearly].filter(Boolean);
+  if (premium.includes(planId)) return "premium";
+  if (pro.includes(planId)) return "pro";
   return null;
+}
+
+// H6 (Plan B): pick the PayPal plan id for a tier × billing cycle. Fixes the bug where
+// a yearly buyer was handed the monthly plan id (a mischarge). Strict: only pro/premium
+// and monthly/yearly are valid, and a missing/unconfigured id returns null so the caller
+// fails the checkout safely rather than charging the wrong (or no) plan. `ids` is the flat
+// four-id set {proMonthly, proYearly, premiumMonthly, premiumYearly}.
+function planIdFor(tier, cycle, ids) {
+  if (!ids) return null;
+  const t = tier === "pro" || tier === "premium" ? tier : null;
+  const c = cycle === "monthly" || cycle === "yearly" ? cycle : null;
+  if (!t || !c) return null;
+  const key = t + (c === "yearly" ? "Yearly" : "Monthly");
+  return ids[key] || null;
+}
+
+// G7 (Plan B): which PayPal host to talk to. Sandbox ONLY for an explicit "sandbox"
+// (case/space tolerant); everything else — unset, "live", junk — defaults to LIVE, so
+// the sandbox is strictly opt-in and can never be reached by a misconfigured env.
+function paypalBaseFor(env) {
+  return String(env || "").trim().toLowerCase() === "sandbox" ? PAYPAL_SANDBOX_BASE : PAYPAL_LIVE_BASE;
 }
 
 // BILLING.SUBSCRIPTION.ACTIVATED → user-doc patch. Unknown/missing plan_id →
@@ -161,7 +196,7 @@ function billingStatusOf(userData) {
 }
 
 module.exports = {
-  planTier, activationPatch, salePatch, cancellationPatch,
+  planTier, planIdFor, paypalBaseFor, activationPatch, salePatch, cancellationPatch,
   cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
   billingStatusOf,
 };

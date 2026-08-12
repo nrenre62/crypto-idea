@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP } from "../utils/format.js";
 import { FUNNEL_FIELDS, FUNNEL_BRIDGE } from "../data/journal-funnel.js";
@@ -25,8 +25,8 @@ const STATUS = {
   challenged: { cls: "j-challenged", label: "Challenged", dot: "🔴" },
 };
 
-// One honest line: the journal is private to the user, AND the thesis feeds the AI.
-const JOURNAL_NOTE = "Only you can see your journal. Your thesis helps the AI give you better Research & Ask answers.";
+// One honest line: the journal is private — only the user and the CryptoIdea team can see it.
+const JOURNAL_NOTE = "Your journal is visible only to you and the CryptoIdea team.";
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -110,6 +110,9 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
   // §J2 — delete the thesis (two-step confirm). The coin/holding stays.
   const [confirmDel, setConfirmDel] = useState(false);
   const del = async () => { if (await onDelete()) onClose(); };
+  // CRYP-105 (#5): reveal the confirm block into view (it sits at the bottom of a long form).
+  const confirmRef = useRef(null);
+  useEffect(() => { if (confirmDel) confirmRef.current?.scrollIntoView?.({ block: "nearest" }); }, [confirmDel]);
 
   // R8-3 — open the read-only Breakdown popup.
   const [reading, setReading] = useState(false);
@@ -135,8 +138,8 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
   return (
     // R15-2: shared centered-card Modal (editable text inside → no scrim-tap-close).
     // R24-3: the X routes through closeDetail so in-progress work is never lost.
-    <Modal title={coin.name} onClose={closeDetail} size="md" dismissOnScrim={false}>
-        <div className="bj-coin-head">
+    <Modal title={null} onClose={closeDetail} size="md" dismissOnScrim={false}>
+        <div className="bj-coin-head bj-sticky">
           <CI thumb={coin.thumb} symbol={coin.symbol} size={40} />
           <div>
             <div className="bj-coin-name">{coin.name}</div>
@@ -206,11 +209,11 @@ function JournalDetail({ coin, onReview, onSaveFunnel, onSaveThesis, onDelete, o
 
         <div className="j-delete-wrap">
           {confirmDel ? (
-            <>
+            <div ref={confirmRef} className="j-del-actions">
               <div className="j-del-confirm">Delete this thesis? Your coin stays in the portfolio — only the thesis is removed.</div>
               <button className="priv-btn danger-solid" onClick={del}>Yes, delete thesis</button>
               <button className="btn-ghost" onClick={() => setConfirmDel(false)}>Keep it</button>
-            </>
+            </div>
           ) : (
             <button className="j-delete-btn" onClick={() => setConfirmDel(true)}>Delete thesis</button>
           )}
@@ -243,7 +246,7 @@ function AddThesis({ coin, onSave, onClose }) {
     <Modal title="Add your thesis" onClose={closeWithSave} size="md" dismissOnScrim={false}>
         <div className="bj-callout">
           <div className="bjc-label">Write it down while the conviction is fresh</div>
-          <div className="bjc-text">Your thesis lives with this coin and powers your Research &amp; Ask. When the market drops, you'll know exactly why you bought — and whether that reason still holds.</div>
+          <div className="bjc-text">Your thesis lives with this coin. When the market drops, you'll know exactly why you bought — and whether that reason still holds.</div>
         </div>
         <div className="bj-coin-head">
           <CI thumb={coin.thumb} symbol={coin.symbol} size={40} />
@@ -330,7 +333,7 @@ export function Journal() {
           <>
             {needs.length > 0 && (
               <div className="nt-sec">
-                <div className="sec-label"><h2>Needs a thesis ({needs.length})</h2></div>
+                <div className="sec-label j-sec"><h2>Needs a thesis ({needs.length})</h2></div>
                 {needs.map((c) => (
                   <div key={c.id} className="nt-row">
                     {/* R25: icon opens Coin info (overlay) */}
@@ -347,7 +350,7 @@ export function Journal() {
 
             {entries.length > 0 ? (
               <>
-                {needs.length > 0 && <div className="sec-label"><h2>Your theses ({entries.length})</h2></div>}
+                {needs.length > 0 && <div className="sec-label j-sec"><h2>Your theses ({entries.length})</h2></div>}
                 <div className="grid-auto j-grid">
                 {entries.map((c) => {
                   // R24-2: a partial thesis shows the derived yellow "Incomplete" pill
@@ -374,9 +377,7 @@ export function Journal() {
                 </div>
               </>
             ) : (
-              <div className="empty-p" style={{ textAlign: "center", padding: "20px 24px" }}>
-                No thesis yet — tap “Add thesis” above to start your journal.
-              </div>
+              <div className="card j-none">No thesis yet — tap “Add thesis” above to start your journal.</div>
             )}
             <div className="disclaimer">{JOURNAL_NOTE}</div>
           </>

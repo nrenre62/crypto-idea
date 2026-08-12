@@ -78,7 +78,16 @@ Full as-built spec: `DESIGN-PASS.md` (Round 35).
 
 ---
 
-## JOURNAL-POLISH. Journal/thesis type-scale + floating coin header + honest disclaimers  (🟩 GREEN — locked 2026-08-09 · design + honest-copy · founder interview 2026-08-09)
+## JOURNAL-POLISH. Journal/thesis type-scale + floating coin header + honest disclaimers  (✅ BUILT 2026-08-12 · CRYP-105 · design + honest-copy · founder interview 2026-08-09)
+
+**As-built (2026-08-12, CRYP-105):** all 9 locked items shipped (design + copy only, dark-safe, no new
+`@media`); unit 1105/1105 green, reviews SAFE/CONSISTENT. Two conservative scoping calls vs the raw plan:
+(#7) the `.sec-label` heading bump was **scoped to Journal via a new `.j-sec` modifier** so Search's
+"Trending" heading keeps its size; and (#1) unifying the base `.disclaimer` to 14px also lifts the Learn
+*in-lesson* disclaimer (benign — all legal copy now reads at one size), and the `disclaimer-lg` class was
+**retired** (Portfolio inherits the base 14px). Red-test checkpoint `bb21b9b`; build commit + PR filled in
+by the integrator at merge. Docs swept: `docs/design/DESIGN-PASS.md` (Round 36), this block (status),
+`docs/design/DESIGN-REVAMP.md` (false thesis→AI "locked wording" reconciled as superseded).
 
 **Founder ask (2026-08-09, plain-chat interview + screenshots):** tighten the Journal/thesis surfaces
 (type sizes, the duplicated coin name, the delete-confirm visibility, empty-state) AND fix two **false**
@@ -123,8 +132,8 @@ responsive, no new `@media`, no-names guard clean.
   `.sec-label h2` 16px (#7); `.bjc-label` 16px / `.bjc-text` 14px (#8).
 - `src/features/research/styles/research-tab.css` — the Research `.disclaimer` → 14px if it's the tab footer
   (confirm during build; keep `.research-root`-scoped).
-- Docs: `docs/design/DESIGN-PASS.md` (round entry), this log (status), `CLAUDE.md` if the JOURNAL note copy
-  is referenced.
+- Docs: `docs/design/DESIGN-PASS.md` (round entry), this log (status), `docs/design/DESIGN-REVAMP.md`
+  (reconcile the false thesis→AI "locked wording"), `CLAUDE.md` if the JOURNAL note copy is referenced.
 
 **Honesty note (why #8/#9 matter):** CLAUDE.md's Research section states the thesis-→-AI link is **Wave B,
 not yet wired** — so the current "powers your Research & Ask" / "helps the AI" copy is false today. When the
@@ -3327,7 +3336,11 @@ idle before believing it.
 **Phase 2 — secrets & build**
 - [ ] Fill `.env` with the six `VITE_FIREBASE_*` values (the deploy guard now enforces this).
 - [ ] Fill `functions/.env`: `APP_URL`, `COINGECKO_DEMO_KEY` (**env var, not admin Settings** — only
-      the env var unlocks `days=max` history), and PayPal plan IDs if launching paid tiers.
+      the env var unlocks `days=max` history), and if launching paid tiers the four PayPal plan IDs
+      (`PAYPAL_PRO_MONTHLY_PLAN_ID`, `PAYPAL_PRO_YEARLY_PLAN_ID`, `PAYPAL_PREMIUM_MONTHLY_PLAN_ID`,
+      `PAYPAL_PREMIUM_YEARLY_PLAN_ID` — legacy `PAYPAL_PLAN_ID`/`PAYPAL_PREMIUM_PLAN_ID` remain the
+      monthly fallback) plus `PAYPAL_ENV=sandbox|live` (default `live`; set `sandbox` to run the
+      now-reachable sandbox→live e2e before charging a live card).
 
 **Phase 3 — deploy**
 - [ ] Rules + storage first, then `functions:api,paypalWebhook`, then everything.
@@ -3430,8 +3443,9 @@ Dark mode preserved; KISS, no new deps.
 **Founder review locked 2026-06-26** (full per-screen decisions in [`DESIGN-REVAMP.md`](../design/DESIGN-REVAMP.md) §7).
 Locked wording: drop "held" → just the amount (`0.52 BTC`); Journal labels **Intact/Review/Challenged**;
 Journal note → "Only you can see your journal. Your thesis helps the AI give you better Research & Ask
-answers."; **remove the "Prices updating live" line** (both widths). Guardrail: design-only — keep all
-settings/words/functions unless §7 says otherwise.
+answers." *(superseded by JOURNAL-POLISH / CRYP-105, 2026-08-12 — the thesis→AI link is Wave-B / not
+wired; copy corrected to drop the AI claim)*; **remove the "Prices updating live" line** (both widths).
+Guardrail: design-only — keep all settings/words/functions unless §7 says otherwise.
 
 - [x] **D-1** Portfolio value summary card (gain line + INVESTED/24H/ASSETS cluster) **+ removed live line**
   (commit `455f17c`). New `portfolio24hPct` helper; `.value-card` flex (desktop-right / mobile-row); 240/240
@@ -3452,7 +3466,8 @@ settings/words/functions unless §7 says otherwise.
   the mobile nav bar (now `--bar-bg` theme var), and `pnl-row.dn`/`limit-banner.warn` hardcoded light
   tints → tokens. Verified in browser.
 - [x] **D-7** Journal new design (commit `8cc0223`): short labels Intact/Review/Challenged; corrected note
-  (thesis feeds the AI); **"Needs a thesis" section + add-thesis-later** via a new `addThesis` handler →
+  (thesis feeds the AI) *(superseded by JOURNAL-POLISH / CRYP-105, 2026-08-12 — thesis→AI link is
+  Wave-B/not-wired; copy corrected)*; **"Needs a thesis" section + add-thesis-later** via a new `addThesis` handler →
   `updateCoinJournal` (no schema change). 248/248 unit green; browser-verified (write a thesis → coin moves
   needs→theses).
 - [x] **D-8** Research/Coins **desktop-only richer card** (commit `bd034b5`): cost·now·P&L·**30d** + full
