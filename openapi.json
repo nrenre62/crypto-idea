@@ -595,6 +595,93 @@
         ]
       }
     },
+    "/scheduleProDowngrade": {
+      "post": {
+        "operationId": "scheduleProDowngrade",
+        "summary": "Schedule a future-start Pro downgrade for a Premium user (Plan B PR-C2)",
+        "description": "Callable. A Premium user schedules a REAL future-start PayPal Pro subscription that first-charges when Premium ends (start_time == the premium period end), so the account lands directly on Pro with a real payment — no early tier drop, no double-charge. Server-authoritative + fail-closed: paused by the paidPlansEnabled master switch (which takes precedence over the checkout kill-switch); refuses a non-premium or already-scheduled caller; 60s per-uid cooldown. Acts on context.auth.uid only. Returns the PayPal approval URL (the client redirects); the schedule is PENDING until the scheduled sub's ACTIVATED webhook confirms payment.",
+        "tags": [
+          "Billing"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleProDowngradeEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Approval URL to redirect the user to (null in the DEV/emulator branch).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleProDowngradeResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument (unknown field) / failed-precondition (paused, checkout unavailable, not premium, already scheduled, plan not configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "resource-exhausted — cooldown active.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (PayPal error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
     "/cancelSubscription": {
       "post": {
         "operationId": "cancelSubscription",
@@ -3908,6 +3995,51 @@
         "additionalProperties": false
       },
       "CreateSubscriptionResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "approvalUrl": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 2048,
+                "pattern": "^$|^https?://\\S+$"
+              },
+              "subscriptionId": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "ScheduleProDowngradeEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "billing": {
+                "type": "string",
+                "enum": [
+                  "monthly",
+                  "yearly"
+                ],
+                "description": "Billing cycle for the scheduled Pro sub. Defaults to monthly.",
+                "maxLength": 1024
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "ScheduleProDowngradeResultEnvelope": {
         "type": "object",
         "properties": {
           "result": {

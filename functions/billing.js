@@ -117,6 +117,10 @@ function cancelRequestPatch(userData, downgradeTo, nowMs) {
 //  - cancelled + endDate passed → tier "free". Target "free" clears the marker;
 //    target "pro" KEEPS it (the client's R29 re-checkout popup owns the landing —
 //    an approved Pro payment arrives as a fresh ACTIVATED webhook).
+//  - PR-C2 (future-start Pro pre-auth): a `scheduledPro` marker reaching endDate is
+//    the MONEY FLIP. Approved → a clean payment-backed Pro (the live sub id becomes
+//    the Pro sub, the marker is cleared). NOT approved by period end → fail-closed to
+//    FREE (never grant Pro without a PayPal-confirmed payment).
 //  - paymentFailed + 7-day grace elapsed → tier "free", marker cleared
 //    (tierBeforeFailure stays on the doc for recovery via salePatch).
 function subscriptionSweepPatch(userData, nowMs) {
@@ -132,12 +136,65 @@ function subscriptionSweepPatch(userData, nowMs) {
     return { tier: "free", subscription: null };
   }
   if (sub.cancelled && sub.endDate && nowMs >= toMs(sub.endDate)) {
+    // PR-C2: a real future-start Pro sub was scheduled. This wins over the legacy
+    // downgradeTo:"pro" keep-marker branch below.
+    const sched = sub.scheduledPro;
+    if (sched && sched.subId) {
+      if (sched.approved) {
+        return { tier: "pro", paypalSubscriptionId: sched.subId, billingCycle: sched.billing || "monthly", subscription: null };
+      }
+      return { tier: "free", subscription: null };               // fail-closed: no approval → no Pro
+    }
     if (sub.downgradeTo === "pro") {
-      return tier === "free" ? null : { tier: "free" };          // keep the marker
+      return tier === "free" ? null : { tier: "free" };          // keep the marker (legacy R29)
     }
     return tier === "free" ? { subscription: null } : { tier: "free", subscription: null };
   }
   return null;
+}
+
+// PR-C2 (future-start Pro pre-authorization) — schedule the Pro downgrade. Returns the
+// marker patch that records a REAL future-start PayPal Pro subscription as PENDING
+// (approved:false — only the scheduled sub's ACTIVATED webhook flips it true). This is a
+// SCHEDULE, not a switch: `tier` and the live `paypalSubscriptionId` are left UNTOUCHED
+// (stay premium) so no early tier drop can happen — the daily sweep performs the flip at
+// endDate. The cancel-at-period-end marker lands on "pro"; endDate == the Pro sub's
+// start_time (the premium period end). Preserves prior subscription fields (...prev).
+function scheduleProMarkerPatch(userData, scheduled, nowMs) {
+  const d = userData || {};
+  const sub = d.subscription || {};
+  const s = scheduled || {};
+  return {
+    subscription: {
+      ...sub,
+      cancelled: true,
+      cancelledAt: nowMs,
+      downgradeTo: "pro",
+      endDate: s.startDate,
+      scheduledPro: { subId: s.subId, billing: s.billing, startDate: s.startDate, approved: false },
+    },
+  };
+}
+
+// PR-C2 — the scheduled Pro sub's BILLING.SUBSCRIPTION.ACTIVATED webhook. When the
+// activating subscription IS the scheduled Pro sub (resource.id === scheduledPro.subId),
+// this is DEFERRED: mark scheduledPro.approved=true (the payment-approval proof) WITHOUT
+// flipping tier or overwriting the live sub id — the account stays premium until the sweep
+// flips it at endDate — and name the still-running PREMIUM sub for the caller to cancel now
+// that the future Pro is approved (so the two never overlap-bill). Fail-closed: a normal
+// (non-scheduled) activation, or a doc with no scheduledPro, is NOT deferred and the caller
+// runs the usual activationPatch.
+function scheduledActivationDecision(userData, resource, nowMs) {
+  const d = userData || {};
+  const sub = d.subscription || {};
+  const sched = sub.scheduledPro;
+  const resId = resource && resource.id;
+  if (!sched || !sched.subId || resId !== sched.subId) return { deferred: false };
+  return {
+    deferred: true,
+    patch: { subscription: { ...sub, scheduledPro: { ...sched, approved: true } } },
+    cancelPremiumSubId: d.paypalSubscriptionId || null,
+  };
 }
 
 // R31-6: un-suspending an account extends its subscription's endDate by the suspension
@@ -199,4 +256,6 @@ module.exports = {
   planTier, planIdFor, paypalBaseFor, activationPatch, salePatch, cancellationPatch,
   cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
   billingStatusOf,
+  // PR-C2 (future-start Pro pre-authorization)
+  scheduleProMarkerPatch, scheduledActivationDecision,
 };

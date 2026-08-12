@@ -20,7 +20,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, updateUserSettings, CONSENT_VERSION } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier, reconcileMyCounters as apiReconcileMyCounters, resolveRecheckout as apiResolveRecheckout, reactivateSubscription as apiReactivateSubscription, chooseFreePlan as apiChooseFreePlan } from "./api/account.js";
-import { cancelSubscription as apiCancelSubscription } from "./api/billing.js";
+import { cancelSubscription as apiCancelSubscription, scheduleProDowngrade as apiScheduleProDowngrade } from "./api/billing.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import { CSV_BOM } from "./utils/csv.js";
 import {
@@ -130,11 +130,15 @@ export default function CryptoIdea(){
   const[upgradeBilling,setUpgradeBilling]=useState("yearly");
   const[downgradeTo,setDowngradeTo]=useState(null);  // null | "free" | "pro"
   const[showDowngradeChooser,setShowDowngradeChooser]=useState(false);  // R29-1: Premium picks Pro or Starter
-  // PR-C1: the Premium-downgrade chooser is a two-step flow — pick (select a target) → warn
-  // (what you'll lose) → Confirm, which schedules the server cancellation. The old up-front
-  // "approve the Pro payment now" cycle step was removed (period-end re-checkout takes it).
-  const[dgStep,setDgStep]=useState("pick");   // pick | warn
+  // PR-C2: the Premium-downgrade chooser flow — pick (select a target) → warn (what you'll
+  // lose). Starter ends in Confirm (schedules the server cancellation to free). Pro reinstates
+  // a REAL approve step: Continue → cycle (pick a billing cycle) → "Pay with PayPal", which
+  // schedules a genuine future-start Pro sub (scheduleProDowngrade) and, in prod, redirects to
+  // PayPal's approval URL. (PR-C1 had collapsed the Pro branch to a plain Confirm interim.)
+  const[dgStep,setDgStep]=useState("pick");   // pick | warn | cycle
   const[dgSel,setDgSel]=useState(null);       // "pro" | "free" — the selected downgrade target
+  const[dgCycle,setDgCycle]=useState("monthly");  // scheduled-Pro billing cycle (chooser default; upgradeBilling defaults yearly elsewhere)
+  const[dgPayErr,setDgPayErr]=useState("");   // PR-C2: the scheduled-Pro approval error surface (mirrors Login's payErr)
   const[showWelcome,setShowWelcome]=useState(null);  // null | "free" | "pro" | "premium"
   const[showPaymentFailedSim,setShowPaymentFailedSim]=useState(false);
   // DI-2: a persistent portfolio-load failure surfaces a Retry screen instead of
@@ -581,17 +585,38 @@ export default function CryptoIdea(){
   };
   // R31-3: open the multi-step Premium-downgrade chooser (reset to the pick step). Also
   // reopened from the pending notice to change the choice.
-  const openDowngradeChooser=()=>{setDgStep("pick");setDgSel(null);setShowDowngradeChooser(true);};
+  const openDowngradeChooser=()=>{setDgStep("pick");setDgSel(null);setDgCycle("monthly");setDgPayErr("");setShowDowngradeChooser(true);};
   // PR-C1: finalize a downgrade choice through the server callable (no client-forged marker,
   // no fabricated endDate). Returns true on success so the caller shows its toast only then.
   const finalizeDowngrade=async(target)=>{
     try{ await apiCancelSubscription({downgradeTo:target}); setShowDowngradeChooser(false); return true; }
     catch(e){ showErr((e&&e.message)||"Couldn't schedule the downgrade. Please try again."); return false; }
   };
+  // PR-C2: the reinstated Premium→Pro approve step. Schedule a REAL future-start Pro sub via the
+  // server callable (server acts on the caller's uid + writes subscription.scheduledPro). In PROD
+  // the server returns a PayPal approval URL and we redirect the browser to it; in DEV/emulator
+  // there is no PayPal, so the callable writes the marker and returns no url — close the chooser
+  // and rely on watchUserDoc to sync scheduledPro back. NO client-forged tier/marker write.
+  const scheduleProPay=async()=>{
+    setDgPayErr("");
+    try{
+      const res=await apiScheduleProDowngrade({billing:dgCycle});
+      if(import.meta.env.DEV){
+        setShowDowngradeChooser(false);
+        showErr("Pro scheduled — you'll keep full Premium access until your paid period ends, then Pro.");
+      }else if(res&&res.approvalUrl){
+        window.location.assign(res.approvalUrl);
+      }else{
+        throw new Error("Couldn't start the Pro approval. Please try again.");
+      }
+    }catch(e){
+      setDgPayErr((e&&e.message)||"Couldn't schedule Pro. Please try again.");
+    }
+  };
   // R29-2/R31-3: un-cancel a pending downgrade — the subscription resumes AND any scheduled
-  // future-start Pro sub (proApproved) is cancelled with it.
+  // future-start Pro sub (scheduledPro) is cancelled with it.
   const keepPlan=async()=>{
-    const{cancelled:_c,downgradeTo:_d,proApproved:_pa,proBilling:_pb,...rest}=user?.subscription||{};
+    const{cancelled:_c,downgradeTo:_d,scheduledPro:_sp,proApproved:_pa,proBilling:_pb,...rest}=user?.subscription||{};
     const updated={...user,subscription:{...rest,cancelled:false}};
     // PR-C1: the useAuthSession auto-save effect persists this single state change — no
     // second saveProfile here (that would double-write ci-profile-<uid>).
@@ -600,11 +625,12 @@ export default function CryptoIdea(){
     // best-effort locally where there may be no server subscription yet).
     try{await apiReactivateSubscription();}catch(_e){}
   };
-  // R31-3: the R29-3 period-end re-checkout popup is RETIRED for the new flow — a Premium→Pro
-  // downgrade approves the Pro payment up-front (proApproved), so it lands directly on Pro at
-  // period end (checkSubscriptionStatus). This stays only as a fallback for any LEGACY marker
-  // (cancelled + downgradeTo:pro WITHOUT proApproved) written before R31-3.
-  const recheckoutDue=!!(user&&(user.tier||"free")==="free"&&user.subscription&&user.subscription.cancelled&&user.subscription.downgradeTo==="pro"&&!user.subscription.proApproved);
+  // PR-C2: the R29-3 period-end re-checkout popup is RETIRED for the new flow — a Premium→Pro
+  // downgrade schedules a REAL future-start Pro sub (subscription.scheduledPro), so the account
+  // lands directly on Pro via the server sweep at period end and NEVER needs the manual
+  // re-checkout. This stays only as a fallback for a LEGACY marker (cancelled + downgradeTo:pro
+  // with NO scheduledPro) written before PR-C2.
+  const recheckoutDue=!!(user&&(user.tier||"free")==="free"&&user.subscription&&user.subscription.cancelled&&user.subscription.downgradeTo==="pro"&&!user.subscription.scheduledPro);
   const declineProRecheckout=async()=>{
     // DI-4 (D3): no trim — over-limit data is KEPT and grey-locked, never deleted.
     const updated={...user,subscription:null};
@@ -943,20 +969,22 @@ export default function CryptoIdea(){
     const target=dueDowngrade(u.subscription,new Date());
     if(!target)return u;
     if(target==="pro"){
-      // PR-C1: DEAD legacy branch until PR-C2. Nothing sets `proApproved` anymore (the
-      // up-front approve step was removed), so this never fires today — PR-C2 repoints
-      // checkSubscriptionStatus at the server-synced marker. Kept as an inert fallback.
-      // R31-3 (legacy): the Premium→Pro payment was approved UP-FRONT (proApproved), so at
-      // the period end the account landed DIRECTLY on Pro — a fresh Pro subscription — with
-      // no re-checkout popup.
-      if(u.subscription.proApproved){
-        const billing=u.subscription.proBilling||"monthly";
-        const updated={...u,tier:"pro",subscription:{billing,startDate:new Date().toISOString(),endDate:calcEndDate(billing),cancelled:false}};
-        await saveProfile(updated);
-        await persistTierDev("pro");
-        return updated;
+      // PR-C2: a Premium→Pro downgrade scheduled a REAL future-start Pro sub (scheduledPro). At
+      // the period end the SERVER sweep activates it and flips the tier to Pro (a payment-backed
+      // Pro sub); the client only READS that via watchUserDoc and must NEVER fabricate a paid tier
+      // in prod. In DEV/emulator there is no sweep, so simulate the flip so the local end state
+      // matches prod (mirrors how the old proApproved branch behaved, keyed off scheduledPro).
+      if(u.subscription.scheduledPro){
+        if(import.meta.env.DEV){
+          const billing=u.subscription.scheduledPro.billing||"monthly";
+          const updated={...u,tier:"pro",subscription:{billing,startDate:new Date().toISOString(),endDate:calcEndDate(billing),cancelled:false}};
+          await saveProfile(updated);
+          await persistTierDev("pro");
+          return updated;
+        }
+        return u;   // PROD: the server sweep + watchUserDoc own the flip — don't forge a tier here
       }
-      // Fallback for a LEGACY marker (no proApproved) — drop to Starter NOW and keep the
+      // Fallback for a LEGACY marker (no scheduledPro) — drop to Starter NOW and keep the
       // marker so the (retired) re-checkout popup can still resolve it. Data is KEPT (DI-4).
       if((u.tier||"free")==="free")return u;   // already flipped — still awaiting the decision
       const updated={...u,tier:"free"};
@@ -1087,10 +1115,11 @@ export default function CryptoIdea(){
     {screen==="login"&&<Login/>}
     {screen==="forgotPass"&&<ForgotPass/>}
     {screen==="contact"&&<Contact/>}
-    {/* PR-C1: the Premium-downgrade chooser is a TWO-STEP flow — pick (select a target) →
-        warn (what you'll lose) → Confirm, which routes through the server cancelSubscription
-        callable. Data is KEPT (DI-4); no welcome screen for downgrades. The old up-front
-        "approve the Pro payment now" cycle step was removed (period-end re-checkout takes it). */}
+    {/* PR-C2: the Premium-downgrade chooser flow — pick (select a target) → warn (what you'll
+        lose). Starter ends in Confirm (server cancelSubscription → free). Pro reinstates a REAL
+        approve step: Continue → cycle (pick a billing cycle) → "Pay with PayPal", which schedules
+        a genuine future-start Pro sub (scheduleProDowngrade) and, in prod, redirects to PayPal's
+        approval URL. Data is KEPT (DI-4); no welcome screen for downgrades. */}
     {showDowngradeChooser&&(()=>{
       const proP=(site.plans&&site.plans.pro&&site.plans.pro.price!=null)?site.plans.pro.price:9.99;
       const chEnd=user?.subscription?.endDate||calcEndDate(user?.subscription?.billing||"monthly");
@@ -1112,11 +1141,40 @@ export default function CryptoIdea(){
           <div className="sub-sub" style={{textAlign:"center",marginTop:12}}>Your Premium access continues until {fmtDate(chEnd)} either way.</div>
           <button className="btn-primary" style={{marginTop:14,opacity:dgSel?1:0.5}} disabled={!dgSel} onClick={()=>dgSel&&setDgStep("warn")}>Continue</button>
         </Modal>);
-      // ── Step 2: "what you'll lose" warning (both targets) → Confirm schedules the server
-      //    cancellation. PR-C1 removed the Pro-only up-front "approve the payment now" step:
-      //    Premium→Pro just schedules the downgrade; the period-end re-checkout takes the
-      //    real Pro payment. Toasts are date-free (the real endDate renders from the synced
-      //    server marker — never a client-fabricated number, even briefly). ──
+      // ── Step 3 (PR-C2, Pro only): the reinstated approve step — pick a billing cycle, then
+      //    "Pay with PayPal" schedules a REAL future-start Pro sub (scheduleProDowngrade). PROD
+      //    redirects to PayPal's approval URL; DEV writes the scheduledPro marker + closes. The
+      //    tier is never written client-side — the webhook + sweep own it (PR-B invariant). ──
+      if(dgStep==="cycle"){
+        const _pp=(site.plans&&site.plans.pro)||{};
+        const monthlyP=_pp.price!=null?_pp.price:9.99;
+        const yearlyP=_pp.priceYear!=null?_pp.priceYear:99.99;
+        const yearlyM=(yearlyP/12).toFixed(2);
+        return(
+          <Modal size="sm" title="Approve your Pro payment" onClose={closeChooser}>
+            <div className="sub-sub" style={{textAlign:"center",marginBottom:12}}>Select your billing cycle</div>
+            <div className="plan-col">
+              <div onClick={()=>setDgCycle("monthly")} className={"cycle-card"+(dgCycle==="monthly"?" on":"")}>
+                <div><div className="cycle-name">Monthly</div><div className="cycle-sub">Billed every month</div></div>
+                <div className="cycle-price">${monthlyP}<span className="cycle-per">/mo</span></div>
+              </div>
+              <div onClick={()=>setDgCycle("yearly")} className={"cycle-card"+(dgCycle==="yearly"?" on":"")}>
+                <div><div className="cycle-name">Yearly</div><div className="cycle-sub">${yearlyM}/mo · billed annually</div></div>
+                <div className="cycle-price">${yearlyP}<span className="cycle-per">/yr</span></div>
+              </div>
+              <button onClick={scheduleProPay} className="paypal-btn">
+                Pay with <span style={{fontStyle:"italic",fontWeight:800}}>Pay<span style={{color:"#253B80"}}>Pal</span></span>
+              </button>
+              {dgPayErr&&<div className="auth-err" role="alert" style={{color:"#FF3B30",fontSize:12,textAlign:"center",marginTop:8}}>{dgPayErr}</div>}
+              <div className="sub-sub" style={{fontSize:11,textAlign:"center",marginTop:8,lineHeight:1.6}}>You approve your Pro payment now; it first charges when your Premium period ends on {fmtDate(chEnd)}. {REFUND}</div>
+              <button onClick={()=>setDgStep("warn")} className="back-link">← Back</button>
+            </div>
+          </Modal>);
+      }
+      // ── Step 2: "what you'll lose" warning. Starter ends in Confirm (server cancelSubscription
+      //    → free). Pro continues to the reinstated approve step (cycle) — PR-C2 restores the real
+      //    future-start Pro sub, replacing PR-C1's plain-Confirm interim. Toasts are date-free (the
+      //    real endDate renders from the synced server marker — never a client-fabricated number). ──
       const targetLabel=dgSel==="free"?"Starter":"Pro";
       const tb=PLAN_BENEFITS[dgSel==="free"?"free":"pro"];
       return(
@@ -1126,11 +1184,13 @@ export default function CryptoIdea(){
             <div style={{fontSize:11,fontWeight:700,color:"#F59E0B",marginBottom:8}}>{targetLabel.toUpperCase()} LIMITS</div>
             <div style={{fontSize:12,color:"#92400E",lineHeight:1.7}}>{tb.limits.map((l,i)=>(<div key={i}>• {l}</div>))}</div>
           </div>
-          {dgSel==="pro"&&<div style={{fontSize:12,color:c.dim,lineHeight:1.6,marginBottom:14}}>You'll set up Pro payment when your Premium period ends.</div>}
+          {dgSel==="pro"&&<div style={{fontSize:12,color:c.dim,lineHeight:1.6,marginBottom:14}}>Next, approve your Pro payment. Your Pro plan starts when your Premium period ends.</div>}
           <div style={{fontSize:11,color:c.dim,textAlign:"center",lineHeight:1.6,marginBottom:14}}>Premium access continues until {fmtDate(chEnd)}. {REFUND}</div>
           <div style={{display:"flex",gap:10}}>
             <button onClick={()=>setDgStep("pick")} style={{flex:1,padding:"14px",borderRadius:14,border:"1px solid #E8E8ED",background:"#fff",color:c.txt,fontSize:14,fontWeight:600,cursor:"pointer"}}>Back</button>
-            <button onClick={async()=>{ if(await finalizeDowngrade(dgSel==="free"?"free":"pro")) showErr(dgSel==="free" ? "Downgrade scheduled — you'll keep full Premium access until your paid period ends, then Starter." : "Downgrade scheduled — you'll keep full Premium access until your paid period ends, then Pro."); }} style={{flex:1,padding:"14px",borderRadius:14,border:"none",background:c.red,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>Confirm</button>
+            {dgSel==="pro"
+              ? <button onClick={()=>setDgStep("cycle")} style={{flex:1,padding:"14px",borderRadius:14,border:"none",background:c.ac,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>Continue</button>
+              : <button onClick={async()=>{ if(await finalizeDowngrade("free")) showErr("Downgrade scheduled — you'll keep full Premium access until your paid period ends, then Starter."); }} style={{flex:1,padding:"14px",borderRadius:14,border:"none",background:c.red,color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>Confirm</button>}
           </div>
         </Modal>);
     })()}
