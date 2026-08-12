@@ -3,10 +3,13 @@ import {
   planTier, planIdFor, paypalBaseFor, activationPatch, salePatch, cancellationPatch,
   cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
   billingStatusOf,
-  // Plan B PR-C2 (future-start Pro pre-authorization) — these three do not exist yet, so a
-  // missing named import resolves to `undefined` and the calls below throw "not a function":
-  // red for the right reason (the pure decisions have not been written).
+  // Plan B PR-C2 (future-start Pro pre-authorization).
   scheduleProMarkerPatch, scheduledActivationDecision,
+  // Plan B PR-C2 SECURITY FIX (eager-cancel Premium on Pro downgrade) — `keepPlanPatch` is the
+  // NEW pure "Keep my plan" decision the fix introduces. It does not exist yet, so the missing
+  // named import resolves to `undefined` and the calls below throw "not a function": red for the
+  // right reason (the fix has not been written).
+  keepPlanPatch,
 } from "../../functions/billing.js";
 
 // BL-1b/BL-1f (D6 + ERRORS.md B8): the PayPal webhook / cancellation / revenue
@@ -273,6 +276,9 @@ describe("billing.scheduleProMarkerPatch (PR-C2: schedule the future-start Pro s
     tier: "premium", paypalSubscriptionId: "I-PREM",
     subscription: { billing: "monthly", startDate: "2026-05-01", endDate: "2026-09-01T00:00:00.000Z", cancelled: false },
   });
+  // Eager-cancel regression guard: the marker's endDate == the scheduled Pro's start_time is the
+  // structural handoff — Premium is cancelled at schedule time, the Pro sub first-charges exactly
+  // at endDate, so there is no overlap window to double-charge.
   it("stamps a pending scheduledPro marker (approved:false) with the Pro start == the premium period end", () => {
     const p = scheduleProMarkerPatch(premium(),
       { subId: "I-PRO", billing: "yearly", startDate: "2026-09-01T00:00:00.000Z" }, 5000);
@@ -307,7 +313,7 @@ describe("billing.scheduledActivationDecision (PR-C2: the scheduled Pro sub's AC
       scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: false },
     },
   });
-  it("the scheduled Pro sub approving → deferred: marks approved, keeps the marker, does NOT flip tier or the live id, names the premium sub to cancel", () => {
+  it("PR-C2 security fix: the scheduled Pro sub approving → deferred (marks approved, keeps the marker, no tier/live-id flip) and NO LONGER names a Premium sub to cancel — the eager-cancel left the webhook", () => {
     const d = scheduledActivationDecision(scheduled(), { id: "I-PRO", plan_id: "P-PRO-M" }, 9000);
     expect(d.deferred).toBe(true);
     // the payment-approval proof: scheduledPro.approved becomes true, the downgrade marker preserved
@@ -318,8 +324,12 @@ describe("billing.scheduledActivationDecision (PR-C2: the scheduled Pro sub's AC
     // NOT yet a Pro account: tier must not flip to pro, and the live sub id must not become the Pro id
     expect(d.patch.tier).not.toBe("pro");
     expect(d.patch.paypalSubscriptionId).not.toBe("I-PRO");
-    // the still-running premium sub is what the caller cancels now that the future Pro is approved
-    expect(d.cancelPremiumSubId).toBe("I-PREM");
+    // SECURITY FIX (eager-cancel): the Premium PayPal sub is cancelled at SCHEDULE time now — a
+    // LAZY cancel here (best-effort, unreconciled) was the [MED] double-charge / bill-forever
+    // window. So the webhook decision must NOT carry a Premium sub id to cancel any more.
+    // (Spec change, not a weakening: the old `cancelPremiumSubId === "I-PREM"` assertion ENCODED
+    // the lazy-cancel bug that shipped.)
+    expect("cancelPremiumSubId" in d).toBe(false);
   });
   it("a normal (non-scheduled) activation → not deferred (the caller runs the usual activationPatch)", () => {
     expect(scheduledActivationDecision(scheduled(), { id: "I-SOMETHING-ELSE", plan_id: "P-PRO-M" }, 1))
@@ -332,7 +342,56 @@ describe("billing.scheduledActivationDecision (PR-C2: the scheduled Pro sub's AC
   });
 });
 
+// ══════════════════════════════════════════════════════════════════════════════════
+// Plan B PR-C2 SECURITY FIX — eager-cancel the Premium sub on a Pro downgrade.
+//
+// Security review of the lazy-cancel impl found a [HIGH]: "Keep my plan" AFTER the scheduled
+// Pro is approved was reactivating a terminally-cancelled Premium sub → premium access with no
+// live subscription (a paywall bypass). The fix cancels the Premium sub at SCHEDULE time and
+// makes "Keep my plan" fail-closed: it CANCELS the scheduled Pro and lets the account lapse to
+// free at period end (route the user to re-subscribe), rather than forging the cancellation off.
+// `keepPlanPatch(userData, nowMs)` is the pure decision behind the reactivateSubscription
+// callable, testable here with no emulator.
+// ══════════════════════════════════════════════════════════════════════════════════
+describe("billing.keepPlanPatch (PR-C2 security fix: 'Keep my plan' is fail-closed, never a premium-forever un-cancel)", () => {
+  const scheduled = () => ({
+    tier: "premium", paypalSubscriptionId: "I-PREM",
+    subscription: {
+      cancelled: true, cancelledAt: 100, downgradeTo: "pro", endDate: "2026-09-01T00:00:00.000Z",
+      scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: true },
+    },
+  });
+  it("a scheduledPro doc → cancel-to-FREE (cancel stays true, scheduledPro cleared, endDate kept), and names the scheduled Pro sub to cancel", () => {
+    const { patch, cancelProSubId } = keepPlanPatch(scheduled(), 9000);
+    // THE HIGH-bug guard: keep must NOT reinstate a terminally-cancelled Premium sub. The Premium
+    // PayPal sub is already gone (eager-cancel at schedule time), so cancelled STAYS true and the
+    // target becomes free — never a premium-forever `cancelled:false`.
+    expect(patch.subscription.cancelled).toBe(true);
+    expect(patch.subscription.cancelled).not.toBe(false);
+    expect(patch.subscription.downgradeTo).toBe("free");
+    // the scheduled future-start Pro sub is dropped from the marker …
+    expect(patch.subscription.scheduledPro).toBeUndefined();
+    // … and its id is what the caller cancels at PayPal.
+    expect(cancelProSubId).toBe("I-PRO");
+    // access continues to the period end — endDate preserved, tier left alone (the sweep flips it).
+    expect(patch.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
+    expect("tier" in patch).toBe(false);
+  });
+  it("a LEGACY pending cancel (no scheduledPro) → a plain un-cancel; the legacy Premium sub stays live, nothing to cancel", () => {
+    const legacy = {
+      tier: "premium", paypalSubscriptionId: "I-PREM",
+      subscription: { cancelled: true, cancelledAt: 100, downgradeTo: "pro", endDate: "2026-09-01T00:00:00.000Z" },
+    };
+    const { patch, cancelProSubId } = keepPlanPatch(legacy, 9000);
+    expect(patch.subscription.cancelled).toBe(false);   // resume premium (the R29-2 legacy path)
+    expect(cancelProSubId).toBeNull();
+  });
+});
+
 describe("billing.subscriptionSweepPatch (PR-C2: the future-start Pro pre-auth money flip)", () => {
+  // Eager-cancel regression guard: an APPROVED schedule already had its Premium sub cancelled at
+  // schedule time, so this flip to a payment-backed Pro (marker cleared) is the STRUCTURAL
+  // no-double-charge proof — the two subs never overlap-bill.
   it("an APPROVED scheduled Pro at period end → a clean payment-backed Pro (live id = the Pro sub, marker cleared)", () => {
     const p = subscriptionSweepPatch({
       tier: "premium", paypalSubscriptionId: "I-PREM",
@@ -353,6 +412,9 @@ describe("billing.subscriptionSweepPatch (PR-C2: the future-start Pro pre-auth m
     }, Date.parse("2026-07-03"));
     expect(p).toEqual({ tier: "pro", paypalSubscriptionId: "I-PRO", billingCycle: "monthly", subscription: null });
   });
+  // Eager-cancel regression guard (abandonment-is-safe): the Premium sub was ALREADY cancelled at
+  // schedule time, so an abandoned (never-approved) schedule can never keep billing Premium — it
+  // simply lapses to free here. This is the [MED] bill-forever fix's downstream invariant.
   it("fail-closed: an UNAPPROVED scheduled Pro at period end drops to FREE — no approval, no Pro", () => {
     const p = subscriptionSweepPatch({
       tier: "premium",

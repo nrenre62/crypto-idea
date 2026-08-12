@@ -565,6 +565,45 @@ test("PR-C2: an authorized premium caller reaches PAST the gates (schedule writt
   }
 });
 
+// ── Plan B PR-C2 · SECURITY FIX — eager-cancel Premium; "Keep my plan" is fail-closed ──
+// The lazy-cancel impl let reactivateSubscription reactivate a terminally-cancelled Premium sub
+// on a scheduled-Pro marker → premium access with no live subscription (a [HIGH] paywall bypass).
+// The fix cancels Premium at SCHEDULE time, so "Keep my plan" can NOT reinstate it: it must
+// cancel the SCHEDULED Pro sub, KEEP the cancellation (target free), and let the account lapse at
+// endDate (routing the user to re-subscribe). This is the callable-BODY regression test (the only
+// tier that runs the body). Runs in CI — the functions emulator can't boot in the authoring
+// sandbox. RED today: reactivateSubscription writes `{...rest, cancelled:false}` (drops the
+// cancel + downgradeTo), so `after.subscription.cancelled` is false, not true.
+
+test("PR-C2 (security): reactivateSubscription on a scheduled-Pro marker is fail-closed — drops the schedule, KEEPS the cancel, never premium-forever", async () => {
+  const email = `c2_keep_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  // A premium user mid-window with an APPROVED scheduled future-start Pro sub. The Premium PayPal
+  // sub was already terminally cancelled at schedule time (eager-cancel), so "Keep my plan"
+  // cannot reinstate it — it must cancel the scheduled Pro and let the account lapse to free.
+  await db.collection("users").doc(uid).set({
+    email, name: "C2Keep", tier: "premium", paypalSubscriptionId: "I-PREM",
+    subscription: {
+      cancelled: true, cancelledAt: 100, downgradeTo: "pro", endDate: "2027-01-01T00:00:00.000Z",
+      scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2027-01-01T00:00:00.000Z", approved: true },
+    },
+  }, { merge: true });
+  const token = await idTokenFor(email);
+
+  const res = await callAs("reactivateSubscription", token, {});
+  assert.strictEqual(res.status, 200, `reactivateSubscription failed: ${JSON.stringify(res.body)}`);
+
+  const after = await userDoc(uid);
+  // The scheduled Pro is dropped from the marker (its PayPal sub is being cancelled).
+  assert.strictEqual(after.subscription.scheduledPro, undefined, "the scheduled Pro must be dropped from the marker");
+  // THE [HIGH]-bug regression: the cancel is NOT reversed to a premium-forever sub — cancelled
+  // STAYS true and the target is free, so the account lapses at endDate.
+  assert.strictEqual(after.subscription.cancelled, true, "keep must NOT reinstate a terminally-cancelled Premium (cancelled stays true)");
+  assert.strictEqual(after.subscription.downgradeTo, "free", "keep on a scheduled-Pro marker is fail-closed to free");
+  // Access continues to the period end — tier stays premium; the daily sweep drops it at endDate.
+  assert.strictEqual(after.tier, "premium", "tier stays premium — access continues to endDate, the sweep drops it");
+});
+
 // ── ADMIN-SEP · CRYP-103 · admin/user separation + owner-only admin roster (PR1: Parts A + B) ──
 // Founder ask: an admin account (owner OR manager) must NEVER appear as a normal user.
 // The exclusion + the roster are SERVER-enforced and key off the Firebase custom claim

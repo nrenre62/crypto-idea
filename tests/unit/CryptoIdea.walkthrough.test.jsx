@@ -468,6 +468,37 @@ describe("User walkthrough — all functions", () => {
     expect(screen.getByText("Downgrade")).toBeInTheDocument();
   });
 
+  // PR-C2 SECURITY FIX: "Keep my plan" on a SCHEDULED-Pro marker (subscription.scheduledPro
+  // present) can NOT resume Premium — the Premium PayPal sub was terminally cancelled at schedule
+  // time (eager-cancel). So the client must be fail-closed: it still calls the server
+  // (reactivateSubscription cancels the scheduled Pro + keeps the cancel-to-free), and it must
+  // NEVER forge an optimistic `cancelled:false` into state — that was the [HIGH] paywall bypass
+  // (Premium shown as a healthy, "renews on" subscription with no live sub behind it).
+  // The exact re-subscribe CTA is a client-builder hand-off (this pins the security invariant:
+  // no premium-forever illusion). RED today: keepPlan unconditionally sets cancelled:false, so
+  // the misleading "renews on" note appears and the cache carries subscription.cancelled=false.
+  // The legacy R29-2 keep-my-plan test above (no scheduledPro → plain un-cancel) stays GREEN.
+  it("PR-C2: Keep-my-plan on a scheduled-Pro marker calls the server, shows NO premium-forever 'renews on', and never forges cancelled:false", async () => {
+    loginPremium(premiumSub({ endDate: "2099-01-01", cancelled: true, downgradeTo: "pro",
+      scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2099-01-01", approved: true } }));
+    render(<CryptoIdea />);
+    await screen.findByText(/My Assets/i);
+    fireEvent.click(screen.getByText("PREMIUM"));
+    await screen.findByText("Plan usage");
+    fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+    expect(screen.getByText(/access ends on/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Keep my plan"));
+    // The server does the real fail-closed work (cancel the scheduled Pro; keep the cancel).
+    await waitFor(() => expect(reactivateMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText(/access ends on/i)).toBeNull());
+    // Honest outcome: keep on a scheduled-Pro marker must NOT falsely present Premium as a
+    // healthy, continuing subscription — the "renews on" note is the premium-forever bypass.
+    expect(screen.queryByText(/renews on/i)).toBeNull();
+    // …and it must never forge an optimistic cancelled:false into the cached profile.
+    const cached = JSON.parse(localStorage.getItem("ci-profile-u1") || "{}");
+    expect(cached?.subscription?.cancelled).not.toBe(false);
+  });
+
   it("R29-3/DI-4: a lapsed Premium→Pro lands on Starter and KEEPS the over-limit data (no trim)", async () => {
     loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
     getPortfolios.mockResolvedValue({ success: true,
