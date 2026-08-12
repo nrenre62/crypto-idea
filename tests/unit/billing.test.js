@@ -3,6 +3,10 @@ import {
   planTier, planIdFor, paypalBaseFor, activationPatch, salePatch, cancellationPatch,
   cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
   billingStatusOf,
+  // Plan B PR-C2 (future-start Pro pre-authorization) — these three do not exist yet, so a
+  // missing named import resolves to `undefined` and the calls below throw "not a function":
+  // red for the right reason (the pure decisions have not been written).
+  scheduleProMarkerPatch, scheduledActivationDecision,
 } from "../../functions/billing.js";
 
 // BL-1b/BL-1f (D6 + ERRORS.md B8): the PayPal webhook / cancellation / revenue
@@ -245,5 +249,124 @@ describe("billing.billingStatusOf (ADMIN-1: derive status from persisted fields)
   it("a failed payment (or PayPal SUSPENDED) is 'past_due' — and OUTRANKS cancelled (most urgent first)", () => {
     expect(billingStatusOf({ tier: "pro", subscription: { paymentFailed: true } })).toBe("past_due");
     expect(billingStatusOf({ tier: "premium", subscription: { paymentFailed: true, cancelled: true } })).toBe("past_due");
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════
+// Plan B PR-C2 — real future-start Pro pre-authorization (founder-approved at G2, Option C)
+//
+// When a Premium user downgrades to Pro, the server schedules a REAL future-start PayPal
+// Pro subscription that first-charges when Premium ends, so the account lands directly on
+// Pro with a real payment (replacing PR-C1's honest period-end re-checkout interim). It is
+// server-authoritative and fail-closed: never early-drops Premium, never grants Pro without
+// PayPal-confirmed approval, never double-charges. The server-written marker shape:
+//   subscription: { ...prev, cancelled:true, cancelledAt, downgradeTo:"pro",
+//                   endDate:<premium period end ISO == the Pro sub start_time>,
+//                   scheduledPro:{ subId, billing, startDate:<ISO == endDate>, approved } }
+// During the window `tier` stays "premium" and `paypalSubscriptionId` stays the PREMIUM id;
+// scheduledPro.approved is flipped true ONLY by the scheduled sub's ACTIVATED webhook.
+// These pure decisions are unit-testable with no emulator, exactly like the rest of billing.js.
+// ══════════════════════════════════════════════════════════════════════════════════
+
+describe("billing.scheduleProMarkerPatch (PR-C2: schedule the future-start Pro sub — PENDING, not yet approved)", () => {
+  const premium = () => ({
+    tier: "premium", paypalSubscriptionId: "I-PREM",
+    subscription: { billing: "monthly", startDate: "2026-05-01", endDate: "2026-09-01T00:00:00.000Z", cancelled: false },
+  });
+  it("stamps a pending scheduledPro marker (approved:false) with the Pro start == the premium period end", () => {
+    const p = scheduleProMarkerPatch(premium(),
+      { subId: "I-PRO", billing: "yearly", startDate: "2026-09-01T00:00:00.000Z" }, 5000);
+    expect(p.subscription.scheduledPro).toEqual({
+      subId: "I-PRO", billing: "yearly", startDate: "2026-09-01T00:00:00.000Z", approved: false,
+    });
+    // the cancel-at-period-end marker landing on Pro; endDate == the scheduled Pro start_time
+    expect(p.subscription.cancelled).toBe(true);
+    expect(p.subscription.cancelledAt).toBe(5000);
+    expect(p.subscription.downgradeTo).toBe("pro");
+    expect(p.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
+  });
+  it("leaves `tier` premium and the LIVE `paypalSubscriptionId` on the premium sub (a schedule, not a switch)", () => {
+    const p = scheduleProMarkerPatch(premium(),
+      { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
+    expect("tier" in p).toBe(false);                       // tier untouched → stays premium
+    expect("paypalSubscriptionId" in p).toBe(false);       // still the premium sub id until the sweep
+  });
+  it("preserves the prior subscription fields (spread ...prev)", () => {
+    const p = scheduleProMarkerPatch(premium(),
+      { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
+    expect(p.subscription.billing).toBe("monthly");
+    expect(p.subscription.startDate).toBe("2026-05-01");
+  });
+});
+
+describe("billing.scheduledActivationDecision (PR-C2: the scheduled Pro sub's ACTIVATED webhook)", () => {
+  const scheduled = () => ({
+    tier: "premium", paypalSubscriptionId: "I-PREM",
+    subscription: {
+      cancelled: true, cancelledAt: 100, downgradeTo: "pro", endDate: "2026-09-01T00:00:00.000Z",
+      scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: false },
+    },
+  });
+  it("the scheduled Pro sub approving → deferred: marks approved, keeps the marker, does NOT flip tier or the live id, names the premium sub to cancel", () => {
+    const d = scheduledActivationDecision(scheduled(), { id: "I-PRO", plan_id: "P-PRO-M" }, 9000);
+    expect(d.deferred).toBe(true);
+    // the payment-approval proof: scheduledPro.approved becomes true, the downgrade marker preserved
+    expect(d.patch.subscription.scheduledPro.approved).toBe(true);
+    expect(d.patch.subscription.cancelled).toBe(true);
+    expect(d.patch.subscription.downgradeTo).toBe("pro");
+    expect(d.patch.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
+    // NOT yet a Pro account: tier must not flip to pro, and the live sub id must not become the Pro id
+    expect(d.patch.tier).not.toBe("pro");
+    expect(d.patch.paypalSubscriptionId).not.toBe("I-PRO");
+    // the still-running premium sub is what the caller cancels now that the future Pro is approved
+    expect(d.cancelPremiumSubId).toBe("I-PREM");
+  });
+  it("a normal (non-scheduled) activation → not deferred (the caller runs the usual activationPatch)", () => {
+    expect(scheduledActivationDecision(scheduled(), { id: "I-SOMETHING-ELSE", plan_id: "P-PRO-M" }, 1))
+      .toEqual({ deferred: false });
+  });
+  it("fail-closed: a doc with no scheduledPro is never deferred", () => {
+    expect(scheduledActivationDecision({ tier: "premium", subscription: { cancelled: true, downgradeTo: "pro" } }, { id: "I-PRO" }, 1).deferred).toBe(false);
+    expect(scheduledActivationDecision({}, { id: "I-PRO" }, 1).deferred).toBe(false);
+    expect(scheduledActivationDecision(null, { id: "I-PRO" }, 1).deferred).toBe(false);
+  });
+});
+
+describe("billing.subscriptionSweepPatch (PR-C2: the future-start Pro pre-auth money flip)", () => {
+  it("an APPROVED scheduled Pro at period end → a clean payment-backed Pro (live id = the Pro sub, marker cleared)", () => {
+    const p = subscriptionSweepPatch({
+      tier: "premium", paypalSubscriptionId: "I-PREM",
+      subscription: {
+        cancelled: true, downgradeTo: "pro", endDate: "2026-06-01",
+        scheduledPro: { subId: "I-PRO", billing: "yearly", startDate: "2026-06-01", approved: true },
+      },
+    }, Date.parse("2026-07-03"));
+    expect(p).toEqual({ tier: "pro", paypalSubscriptionId: "I-PRO", billingCycle: "yearly", subscription: null });
+  });
+  it("defaults billingCycle to monthly when the approved schedule omits it", () => {
+    const p = subscriptionSweepPatch({
+      tier: "premium",
+      subscription: {
+        cancelled: true, downgradeTo: "pro", endDate: "2026-06-01",
+        scheduledPro: { subId: "I-PRO", approved: true },
+      },
+    }, Date.parse("2026-07-03"));
+    expect(p).toEqual({ tier: "pro", paypalSubscriptionId: "I-PRO", billingCycle: "monthly", subscription: null });
+  });
+  it("fail-closed: an UNAPPROVED scheduled Pro at period end drops to FREE — no approval, no Pro", () => {
+    const p = subscriptionSweepPatch({
+      tier: "premium",
+      subscription: {
+        cancelled: true, downgradeTo: "pro", endDate: "2026-06-01",
+        scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2026-06-01", approved: false },
+      },
+    }, Date.parse("2026-07-03"));
+    expect(p).toEqual({ tier: "free", subscription: null });
+  });
+  // Regression guard — the legacy pro-target keep-marker branch (no scheduledPro) is UNCHANGED
+  // from R29: flip to free but KEEP the marker for the (interim) re-checkout. This must stay green.
+  it("regression: a legacy pro-target marker with NO scheduledPro still flips to free and KEEPS the marker", () => {
+    const p = subscriptionSweepPatch({ tier: "premium", subscription: { cancelled: true, downgradeTo: "pro", endDate: "2026-06-01" } }, Date.parse("2026-07-03"));
+    expect(p).toEqual({ tier: "free" });
   });
 });

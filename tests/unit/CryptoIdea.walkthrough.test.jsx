@@ -61,10 +61,17 @@ vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn().mockResolve
 // localStorage. Mock the api seams so we can assert the callable is invoked with the
 // right target and that no client-forged marker is written. (Same hoisted-vi.mock
 // precedent as Login.test's createSubscription seam.)
-const { cancelSubscriptionMock } = vi.hoisted(() => ({ cancelSubscriptionMock: vi.fn() }));
+// Plan B PR-C2 adds scheduleProDowngrade — a Premium→Pro downgrade schedules a REAL
+// future-start Pro PayPal sub (server returns an approvalUrl the client redirects to),
+// REPLACING PR-C1's cancelSubscription({downgradeTo:"pro"}) interim. Spy it so we can
+// assert the client calls it (and no longer forges the cancel).
+const { cancelSubscriptionMock, scheduleProDowngradeMock } = vi.hoisted(() => ({
+  cancelSubscriptionMock: vi.fn(), scheduleProDowngradeMock: vi.fn(),
+}));
 vi.mock("../../src/api/billing.js", () => ({
   createSubscription: vi.fn(),
   cancelSubscription: cancelSubscriptionMock,
+  scheduleProDowngrade: scheduleProDowngradeMock,
 }));
 // account.js keeps its real functions (devSetMyTier/reconcileMyCounters/chooseFreePlan are
 // harmlessly no-op'd through the already-mocked httpsCallable, exactly as before) but the
@@ -372,37 +379,80 @@ describe("User walkthrough — all functions", () => {
     expect(cached?.subscription?.cancelled).not.toBe(true);
   });
 
-  // Plan B PR-C1 (rewrite — REPLACES "downgrade to Pro APPROVES the payment now"): the fake
-  // up-front "Approve your Pro payment" cycle step is REMOVED. Premium→Pro now just schedules
-  // cancelSubscription({downgradeTo:"pro"}); the existing period-end re-checkout takes the real
-  // payment. This is an authorized spec change (founder-locked at G2), not a weakening.
-  it("premium → Pro downgrade schedules a server cancellation; the fake up-front approve step is gone", async () => {
-    cancelSubscriptionMock.mockReset();
-    cancelSubscriptionMock.mockResolvedValue({ success: true, downgradeTo: "pro", endDate: "2099-01-01T00:00:00.000Z" });
-    loginPremium(premiumSub());
+  // Plan B PR-C2 (rewrite — REPLACES the PR-C1 interim "just schedule cancelSubscription({
+  // downgradeTo:'pro'})"): a Premium→Pro downgrade now reinstates a REAL approve step — the Pro
+  // flow shows a billing-cycle/approve screen whose PayPal button calls scheduleProDowngrade({
+  // billing}) and redirects the browser to the returned approvalUrl (a genuine future-start Pro
+  // sub), and NEVER calls cancelSubscription({downgradeTo:"pro"}). Founder-locked at G2 (Option C).
+  //
+  // ASSUMED PR-C2 UI (the contract the client-builder implements to — flagged for hand-off):
+  //   chooser "Downgrade to which plan?" → select "Pro" → Continue → warn "Switch to Pro?" →
+  //   Continue (the reinstated onward CTA the PR-C1 comment says it removed) → cycle step
+  //   "Select your billing cycle" → "Pay with" PayPal button → scheduleProDowngrade → redirect.
+  // PROD path (import.meta.env.DEV=false) does the redirect; DEV keeps a simulated path (PR-B).
+  it("PR-C2: premium → Pro reinstates a REAL approve step — scheduleProDowngrade + PayPal redirect, no cancelSubscription forge", async () => {
+    vi.stubEnv("DEV", false);
+    const origLocation = window.location;
+    const assignSpy = vi.fn();
+    // jsdom's window.location.assign isn't spyable; swap the whole location (PR-B pattern).
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign: assignSpy, href: "http://localhost/", origin: "http://localhost" },
+    });
+    try {
+      scheduleProDowngradeMock.mockReset();
+      scheduleProDowngradeMock.mockResolvedValue({ approvalUrl: "https://paypal/x", subscriptionId: "I-PRO" });
+      cancelSubscriptionMock.mockReset();
+      cancelSubscriptionMock.mockResolvedValue({ success: true, downgradeTo: "pro", endDate: "2099-01-01T00:00:00.000Z" });
+      loginPremium(premiumSub());
+      render(<CryptoIdea />);
+      await screen.findByText(/My Assets/i);
+      fireEvent.click(screen.getByText("PREMIUM"));
+      await screen.findByText("Plan usage");
+      fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
+      fireEvent.click(screen.getByText("Downgrade"));
+      await screen.findByText("Downgrade to which plan?");
+      fireEvent.click(screen.getByText("Pro"));
+      fireEvent.click(screen.getByText("Continue"));
+      await screen.findByText(/Switch to Pro\?/);
+      // PR-C2 reinstates the onward step to the payment-approval screen (RED today: the PR-C1
+      // warn step terminates in a plain "Confirm" — there is no second "Continue").
+      fireEvent.click(screen.getByText("Continue"));
+      // …the reinstated billing-cycle/approve screen → its PayPal button schedules the REAL
+      // future-start Pro sub and redirects to the returned approvalUrl.
+      const pay = await screen.findByText(/Pay with/i);
+      fireEvent.click(pay.closest("button"));
+      // the selected cycle flows through as {billing:"monthly"|"yearly"}; assert the SHAPE,
+      // not a specific default (the scheduled-Pro cycle default is a client-builder choice).
+      await waitFor(() => expect(scheduleProDowngradeMock).toHaveBeenCalledWith(
+        expect.objectContaining({ billing: expect.stringMatching(/^(monthly|yearly)$/) })));
+      await waitFor(() => expect(assignSpy).toHaveBeenCalledWith("https://paypal/x"));
+      // the PR-C1 interim is gone: the Pro downgrade must NOT forge a cancel-to-Pro anymore.
+      expect(cancelSubscriptionMock).not.toHaveBeenCalledWith({ downgradeTo: "pro" });
+      // and no tier is written client-side (the webhook + sweep own it, PR-B invariant).
+      const cached = JSON.parse(localStorage.getItem("ci-profile-u1") || "{}");
+      expect(cached?.tier).not.toBe("pro");
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: origLocation });
+      vi.unstubAllEnvs();
+    }
+  });
+
+  // PR-C2: once a future-start Pro sub is scheduled (subscription.scheduledPro present), the
+  // account lands directly on Pro via the server sweep at period end — it NEVER needs the manual
+  // "Your Premium period has ended → Approve Pro payment" re-checkout modal. So that forced modal
+  // must be SUPPRESSED whenever scheduledPro exists. RED today: recheckoutDue keys off cancelled
+  // + downgradeTo:"pro" + !proApproved and ignores scheduledPro, so with a lapsed pro marker the
+  // modal still shows.
+  it("PR-C2: a scheduled future-start Pro (scheduledPro set) suppresses the period-end re-checkout modal", async () => {
+    loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro",
+      scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2026-06-01", approved: true } }));
+    getPortfolios.mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] });
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
-    fireEvent.click(screen.getByText("PREMIUM"));
-    await screen.findByText("Plan usage");
-    fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
-    fireEvent.click(screen.getByText("Downgrade"));
-    await screen.findByText("Downgrade to which plan?");
-    // select Pro → Continue → the "what you'll lose" warning
-    fireEvent.click(screen.getByText("Pro"));
-    fireEvent.click(screen.getByText("Continue"));
-    expect(await screen.findByText(/Switch to Pro\?/)).toBeInTheDocument();
-    // PR-C1 removes the fake up-front "Approve your Pro payment" cycle step: the warn step no
-    // longer has an onward "Continue" to a payment-approval screen — it terminates in a plain
-    // Confirm that schedules the REAL server cancellation to Pro.
-    expect(screen.queryByText("Continue")).toBeNull();   // RED today: the Pro warn step shows "Continue" → cycle
-    fireEvent.click(screen.getByText("Confirm"));
-    await waitFor(() => expect(cancelSubscriptionMock).toHaveBeenCalledWith({ downgradeTo: "pro" }));
-    // the removed fake-approve UI never appears, and no proApproved / cancelled is forged.
-    expect(screen.queryByText(/Approve your Pro payment/i)).toBeNull();
-    expect(screen.queryByText(/payment approved/i)).toBeNull();
-    const cached = JSON.parse(localStorage.getItem("ci-profile-u1") || "{}");
-    expect(cached?.subscription?.proApproved).toBeUndefined();
-    expect(cached?.subscription?.cancelled).not.toBe(true);
+    // Let the async subscription check run (it flips tier / would raise the modal).
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
   });
 
   it("R29-2: Keep-my-plan un-cancels a pending downgrade (notice gone, Downgrade back)", async () => {
