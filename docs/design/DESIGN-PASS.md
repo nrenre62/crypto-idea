@@ -2185,3 +2185,62 @@ research-tab.css` (`.research-stickyhead`), `src/CryptoIdea.jsx` (the shell `.av
 `src/features/research/components/ResearchTab.jsx` (the `.research-stickyhead` wrapper). No
 `firestore.rules`, no functions, no openapi surface; no new dependency; no new hex/token. Light stays
 structurally unchanged; dark flips via `--paper`.
+
+## Round 36 — Journal/thesis type-scale + floating coin header + honest disclaimers (2026-08-12, BUILT · CRYP-105)
+
+Founder ask (2026-08-09, plain-chat interview + screenshots): tighten the Journal/thesis surfaces
+(type sizes, the duplicated coin name, delete-confirm visibility, empty-state) AND fix two **false**
+copy claims — the thesis does NOT currently feed the AI/Research (the link is Wave-B / not wired,
+`AI_PROXY_LIVE=false`), and the journal is NOT "only you" (an owner-admin can view a thesis per account
+via the audited `viewUserAsAdmin`). **Design + copy only; handlers/state/routing unchanged.** Dark-safe
+(token-based), responsive, **no new `@media`**, no-names guard clean. Interview decisions locked in
+§JOURNAL-POLISH of [`NEXT-STEPS.md`](../product/NEXT-STEPS.md).
+
+**R36-1 · Footer disclaimers → 14px + Search gains one.** The base `.disclaimer` was unified to **14px**
+(each tab keeps its own line — text not merged) and **`.disclaimer-lg` was retired** (Portfolio inherits
+the base). **Search** had no disclaimer → gained "Prices via CoinGecko · Not financial advice" at 14px.
+Scope note: unifying the base rule also lifts the Learn *in-lesson* disclaimer to 14px (benign — all legal
+copy now reads at one size).
+
+**R36-2 · Question type-scale.** `.q-label` (thesis headline, e.g. "Why are you buying this?") → **16px**;
+`.q-sub` (description) → **14px**.
+
+**R36-3 · Drop the duplicate coin name in the thesis overlay.** `JournalDetail` rendered the coin name in
+`<Modal title={coin.name}>` AND again in `.bj-coin-head` beside the logo. The Modal title is now `null`;
+the logo+name row is the single name.
+
+**R36-4 · Floating (sticky) coin header in the thesis overlay.** The `.bj-coin-head` logo+name row pins via
+a scoped **`.bj-sticky`** wrapper (JournalDetail only, `background:var(--paper-2)`); content scrolls under
+it, the Modal X stays. Pairs with R36-3.
+
+**R36-5 · Delete-thesis confirm scrolls into view.** When `confirmDel` opens, a `useRef` + `useEffect`
+scrolls the two buttons into view (they rendered below the fold in the long modal), with an **8px gap**
+between "Yes, delete thesis" and "Keep it".
+
+**R36-6 · "No thesis yet" empty state → card/pill.** The bare "No thesis yet — tap 'Add thesis' above…"
+line is wrapped in a **`.j-none`** card/pill at **16px** (auto-hides once a thesis exists).
+
+**R36-7 · Journal section headings → 16px (Journal-scoped).** "Needs a thesis (N)" and "Your theses (N)"
+bump to **16px** via a Journal-scoped **`.j-sec`** modifier — deliberately NOT the shared `.sec-label h2`,
+so Search's "Trending" heading is unchanged.
+
+**R36-8 · AddThesis callout — honest copy + type-scale.** `.bjc-label` → **16px**, `.bjc-text` → **14px**,
+and the false AI claim is dropped: the callout now reads *"Your thesis lives with this coin. When the
+market drops, you'll know exactly why you bought — and whether that reason still holds."* (removes "and
+powers your Research & Ask").
+
+**R36-9 · Honest Journal footer note (`JOURNAL_NOTE`).** Corrected to the truth:
+*"Your journal is visible only to you and the CryptoIdea team."* — no AI claim, and honest that an
+owner-admin can view it (matches the audited owner-only `viewUserAsAdmin`).
+
+**Honesty note.** The AI phrasing (#8/#9) may be reinstated **only** in the increment that actually wires
+the Wave-B proxy to consume journal context (flips `AI_PROXY_LIVE`) — until then the shipped copy must not
+claim the thesis feeds the AI. This round also supersedes the DESIGN-REVAMP §7 "locked wording" that
+mandated the old AI copy.
+
+**Status:** ✅ BUILT 2026-08-12 (CRYP-105). Design + copy only; unit 1105/1105, reviews SAFE/CONSISTENT.
+`src/components/Journal.jsx` (`JOURNAL_NOTE`, `AddThesis` callout, `Modal title={null}`, sticky wiring,
+delete-confirm `useRef`/`useEffect`, empty-state pill), `src/components/Search.jsx` (footer disclaimer),
+`src/styles/app.css` (the type-scale + `.j-sec`/`.j-none`/`.bj-sticky` rules, `.disclaimer` unification,
+`disclaimer-lg` retirement). No `firestore.rules`, no functions, no openapi surface; no new dependency; no
+new `@media`. Dark-safe via tokens.

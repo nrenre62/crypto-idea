@@ -201,6 +201,13 @@ existing functionality into each redesigned screen; **drop nothing**.
 - **Journal note** (replaces the false "private to your account"):
   **"Only you can see your journal. Your thesis helps the AI give you better Research & Ask answers."**
   (The thesis **is** shared with the AI for Research/Ask — copy must be honest about it.)
+  > **⚠️ SUPERSEDED by JOURNAL-POLISH / CRYP-105 (2026-08-12).** This "locked wording" was **false** and
+  > has been corrected — do NOT re-lock it from this file. The thesis→AI link is **Wave-B / NOT yet wired**
+  > (`AI_PROXY_LIVE=false`), so shipped copy must NOT claim the thesis feeds the AI. The honest note now
+  > reads **"Your journal is visible only to you and the CryptoIdea team."** (no AI claim; honest that an
+  > owner-admin can view it via the audited `viewUserAsAdmin`), and the AddThesis callout drops "and powers
+  > your Research & Ask". The AI phrasing may be reinstated **only** in the increment that actually wires the
+  > proxy to consume journal context (flips `AI_PROXY_LIVE`). See `DESIGN-PASS.md` Round 36.
 - **Remove the "Prices updating live" line** on **both** mobile & desktop — the ● LIVE badge already says it.
 
 ### Mobile — per screen
@@ -234,6 +241,9 @@ existing functionality into each redesigned screen; **drop nothing**.
 - **Research Coins** stays a read-only mirror of the active portfolio (add in Portfolio → shows in Research;
   no delete in Research). Verify end-to-end (D-8).
 - Journal thesis is **shared with the AI** (Research/Ask) by design — reflect in copy, not just the note line.
+  > **⚠️ SUPERSEDED by JOURNAL-POLISH / CRYP-105 (2026-08-12).** Not true today: the thesis→AI link is
+  > **Wave-B / NOT wired** (`AI_PROXY_LIVE=false`). Copy must NOT claim the thesis feeds the AI until the
+  > increment that wires the proxy to consume journal context. See the note above + `DESIGN-PASS.md` Round 36.
 
 ---
 

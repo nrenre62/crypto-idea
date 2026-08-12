@@ -108,6 +108,8 @@ export function Search() {
         </>
       )}
 
+      <div className="disclaimer">Prices via CoinGecko · Not financial advice</div>
+
       {journalFor && (
         // R15-2: shared centered-card Modal (text-entry form → no scrim-tap-close).
         <Modal title={`Before you add ${journalFor.name}…`} onClose={closeOverlay} size="md" dismissOnScrim={false}>
