@@ -600,3 +600,60 @@ test("CRYP-103: a no-role admin is refused the manager WRITE surface but keeps R
   const read = await callAs("getStats", legacyToken, {});
   assert.strictEqual(read.status, 200, `a no-role admin must keep the shared READ surface: ${JSON.stringify(read.body)}`);
 });
+
+// ── ADMIN-6 · Settings password (owner-only 2nd lock) — callable BODY behavior ──
+// The only tier that runs the bodies (session-bound unlock, rate-limit, fresh-config gate).
+// Placed LAST and cleaned up, because they set config/app.settingsAuth — every saveConfig
+// test above runs in the bootstrap (no-password) path and must stay unaffected. Confirmed
+// against functions/index.js: setSettingsPassword/unlockSettings are assertOwner-gated, and
+// getAdminConfig/saveConfig gate on assertOwner + assertSettingsUnlocked (session-bound).
+
+test("ADMIN-6: setSettingsPassword + unlockSettings are owner-only (a manager is refused at the body)", async () => {
+  const mgrEmail = `a6_mgr_${stamp}@example.com`;
+  await makeUser(mgrEmail, { admin: true, role: "manager" });
+  const mgrToken = await idTokenFor(mgrEmail);
+  const s1 = await callAs("setSettingsPassword", mgrToken, { next: "SettingsPw12345" });
+  assert.strictEqual(s1.status, 403, `a manager must be refused setSettingsPassword, got ${s1.status}: ${JSON.stringify(s1.body)}`);
+  const s2 = await callAs("unlockSettings", mgrToken, { password: "SettingsPw12345" });
+  assert.strictEqual(s2.status, 403, `a manager must be refused unlockSettings, got ${s2.status}: ${JSON.stringify(s2.body)}`);
+});
+
+test("ADMIN-6: set → same-session saveConfig works; the unlock is session-bound; wrong password refused", async () => {
+  const ownerUid = (await auth.getUserByEmail(OWNER_EMAIL)).uid;
+  const token = await idTokenFor(OWNER_EMAIL);
+  const SPW = "SettingsPw12345";
+  // Clean slate: no Settings password, no stale unlock.
+  await db.doc("config/app").set({ settingsAuth: FieldValue.delete() }, { merge: true });
+  await db.doc(`settingsUnlock/${ownerUid}`).delete().catch(() => {});
+  try {
+    // First-time set — bootstrap path (the fresh login token satisfies requireFreshAuth).
+    const set = await callAs("setSettingsPassword", token, { next: SPW });
+    assert.strictEqual(set.status, 200, `set failed: ${JSON.stringify(set.body)}`);
+    // The set granted a SESSION-BOUND unlock, so saveConfig with the SAME token succeeds.
+    const ok = await callAs("saveConfig", token, { flags: { maintenance: false, signupsEnabled: true } });
+    assert.strictEqual(ok.status, 200, `saveConfig with the granted unlock should succeed: ${JSON.stringify(ok.body)}`);
+
+    // SEC-review #1: tamper the unlock doc's authTime so it no longer matches this token's
+    // session → the unlock must NOT authorize (settings-locked = failed-precondition, HTTP 400).
+    // This is the regression the fix closes: a uid-scoped unlock rode by another session.
+    const stored = (await db.doc(`settingsUnlock/${ownerUid}`).get()).data() || {};
+    await db.doc(`settingsUnlock/${ownerUid}`).set({ ...stored, authTime: 1 }, { merge: true });
+    const locked = await callAs("saveConfig", token, { flags: { maintenance: false, signupsEnabled: true } });
+    assert.strictEqual(locked.status, 400, `a session-mismatched unlock must not authorize saveConfig, got ${locked.status}: ${JSON.stringify(locked.body)}`);
+    assert.match(JSON.stringify(locked.body), /settings-locked/, "should report settings-locked");
+
+    // A wrong password is refused (permission-denied → 403).
+    const bad = await callAs("unlockSettings", token, { password: "WrongPassword99" });
+    assert.strictEqual(bad.status, 403, `a wrong Settings password must be refused, got ${bad.status}: ${JSON.stringify(bad.body)}`);
+
+    // The correct password re-unlocks THIS session, and saveConfig works again.
+    const unlock = await callAs("unlockSettings", token, { password: SPW });
+    assert.strictEqual(unlock.status, 200, `unlock with the correct password should succeed: ${JSON.stringify(unlock.body)}`);
+    const ok2 = await callAs("saveConfig", token, { flags: { maintenance: false, signupsEnabled: true } });
+    assert.strictEqual(ok2.status, 200, `saveConfig after a real unlock should succeed: ${JSON.stringify(ok2.body)}`);
+  } finally {
+    // Restore the no-password state so nothing else sees a Settings lock.
+    await db.doc("config/app").set({ settingsAuth: FieldValue.delete() }, { merge: true });
+    await db.doc(`settingsUnlock/${ownerUid}`).delete().catch(() => {});
+  }
+});

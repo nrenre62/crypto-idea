@@ -52,7 +52,9 @@ export const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "S
   // ADMIN-4 growth metrics
   captureStatsSnapshot: "Captured a stats snapshot",
   // ADMIN-5 team-scale & support
-  viewUserAsAdmin: "Viewed a user's data", saveUserNote: "Edited a private note" };
+  viewUserAsAdmin: "Viewed a user's data", saveUserNote: "Edited a private note",
+  // ADMIN-6 Settings password (the password itself is NEVER audited — only the event)
+  setSettingsPassword: "Set the Settings password", settingsUnlock: "Unlocked Settings", settingsUnlockFailed: "Failed Settings-password unlock" };
 
 /* ═══ ADMIN-JOBS — friendly labels + hover/focus tooltip for the Overview status strip ═══
    Each scheduled job appears by a human label instead of its raw JS name, with a custom
@@ -198,6 +200,7 @@ const SI = {
   analytics:   <SVG strokeWidth="1.8"><path d="M4 19h16" /><path d="M6 19v-6M11 19V6M16 19v-9" /></SVG>,
   access:      <SVG strokeWidth="1.8"><path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z" /><path d="M9 12l2 2 4-4" /></SVG>,
   announce:    <SVG strokeWidth="1.8"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z" /><path d="M15.5 8.5a4 4 0 0 1 0 7" /></SVG>,
+  lock:        <SVG strokeWidth="1.8"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></SVG>,
 };
 // A tappable category row (drills into a detail view).
 function NavRow({ icon, label, value, muted, onClick }) {
@@ -364,6 +367,8 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
     trashUser, signOutUser, emptyTrash,
     role, roleLoaded, isOwner, unlocked,
     unlockPrompt, unlockPass, setUnlockPass, unlockErr, submitUnlock, cancelUnlock,
+    // ADMIN-6 — the owner-only Settings password (set/change).
+    settingsPwSet, settingsPwAt, settingsPwMsg, setSettingsPwMsg, saveSettingsPassword,
     grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound,
     grantMsg, setGrantWarn, grantWarn, grantLookup, setManager,
     admins, adminsLoading, adminsMsg, loadAdmins,
@@ -375,6 +380,9 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
   // ADMIN-D: which Settings screen is showing — "home" or a detail drill-in.
   // Local to the component (no router), exactly like Account.jsx's `view`.
   const [settingsView, setSettingsView] = useState("home");
+  // ADMIN-6: the Settings-password set/change form draft (never persisted anywhere but
+  // this input; cleared on a successful save).
+  const [spwForm, setSpwForm] = useState({ current: "", next: "", confirm: "" });
   // AUTH-DUP (Part B): whether the duplicate-email card's account list is expanded.
   const [dupOpen, setDupOpen] = useState(false);
 
@@ -1130,7 +1138,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
           const anaSummary = [analytics.ga4 && "GA4", analytics.plausible && "Plausible", legal.termlyUuid && "Termly"].filter(Boolean).join(" · ");
           const keysSet = [setFlags.coingecko, !!keys.paypalClientId, setFlags.paypalSecret, !!keys.paypalWebhookId].filter(Boolean).length;
           const back = () => setSettingsView("home");
-          const titles = { apiKeys:"API keys", email:"Email & integrations", plans:"Plans & pricing", ai:"AI", analytics:"Analytics & legal", access:"Admin access", announcement:"Announcement banner" };
+          const titles = { apiKeys:"API keys", email:"Email & integrations", plans:"Plans & pricing", ai:"AI", analytics:"Analytics & legal", access:"Admin access", announcement:"Announcement banner", password:"Settings password" };
           return (
           <div>
             {/* Home = the Configuration summary + the global switches + a row per
@@ -1184,6 +1192,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   <NavRow icon={SI.ai} label="AI" value={setFlags.anthropicKey ? "Key saved" : "Reserved"} muted={!setFlags.anthropicKey} onClick={() => setSettingsView("ai")} />
                   <NavRow icon={SI.analytics} label="Analytics & legal" value={anaSummary || "Off"} onClick={() => setSettingsView("analytics")} />
                   <NavRow icon={SI.announce} label="Announcement banner" value={announcement.active ? "On · " + announcement.level : (announcement.text ? "Draft" : "Off")} muted={!announcement.active} onClick={() => setSettingsView("announcement")} />
+                  <NavRow icon={SI.lock} label="Settings password" value={settingsPwSet ? "Set" : "Not set"} muted={!settingsPwSet} onClick={() => { setSettingsPwMsg(""); setSettingsView("password"); }} />
                   <NavRow icon={SI.access} label="Admin access" onClick={() => setSettingsView("access")} />
                 </div>
 
@@ -1363,6 +1372,38 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   </div>
                   <button className="acct-btn accent" onClick={saveConfig}>Save announcement</button>
                   <div className="set-foot">The message is <b>public</b> once active. Turning it off (or clearing the text) removes it for everyone.</div>
+              </>)}
+
+              {/* ── SETTINGS PASSWORD (ADMIN-6, owner-only) — the SECOND lock on this
+                   screen. Set it once, then unlock Settings with it (a live unlock lasts
+                   ~10 min). Changing it needs the current password; setting the first one
+                   needs a fresh login re-auth (the unlock modal handles that prompt). The
+                   password is scrypt-hashed server-side and never leaves the server. ── */}
+              {settingsView === "password" && (<>
+                  <div className="card-sub">
+                    A second password that guards this Settings screen — so even a stolen admin login can’t read or change your API keys without it. {settingsPwSet
+                      ? <>It’s <b>set</b>{settingsPwAt ? <> · last changed {new Date(settingsPwAt).toLocaleDateString()}</> : null}.</>
+                      : <>Not set yet — the screen falls back to a login re-auth until you set one.</>}
+                  </div>
+                  <form onSubmit={async e => { e.preventDefault(); const ok = await saveSettingsPassword(spwForm); if (ok) setSpwForm({ current: "", next: "", confirm: "" }); }}>
+                    {settingsPwSet && (<>
+                      <label className="acct-label">Current Settings password</label>
+                      <input type="password" className="field-input" autoComplete="current-password" aria-label="Current Settings password" value={spwForm.current}
+                        onChange={e => setSpwForm({ ...spwForm, current: e.target.value })} />
+                    </>)}
+                    <label className="acct-label">{settingsPwSet ? "New Settings password" : "Settings password"}</label>
+                    <input type="password" className="field-input" autoComplete="new-password" aria-label={settingsPwSet ? "New Settings password" : "Settings password"} value={spwForm.next}
+                      onChange={e => setSpwForm({ ...spwForm, next: e.target.value })} />
+                    <label className="acct-label">Confirm new password</label>
+                    <input type="password" className="field-input" autoComplete="new-password" aria-label="Confirm new password" value={spwForm.confirm}
+                      onChange={e => setSpwForm({ ...spwForm, confirm: e.target.value })} />
+                    <div className="adm-hint" style={{ marginTop: 4 }}>At least 12 characters, with an uppercase letter, a lowercase letter, and a number.</div>
+                    {settingsPwMsg && <div className="adm-hint" style={{ marginTop: 8 }}>{settingsPwMsg}</div>}
+                    <button type="submit" className="acct-btn accent" disabled={busy} style={{ marginTop: 12 }}>
+                      {busy ? "Saving…" : (settingsPwSet ? "Change password" : "Set password")}
+                    </button>
+                  </form>
+                  <div className="set-foot">Locked out? An owner can clear this password with the <code>clear-settings-password</code> service-account script, reverting Settings to a login re-auth.</div>
               </>)}
 
               {/* ── ADMIN ACCESS (ADMIN-D3, owner-only) — folded in from the old top-level
@@ -1601,19 +1642,25 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
         </div>
       </div>
 
-      {/* ADMIN-SEC step-up prompt. Raised only when the SERVER refuses a sensitive call
-          with reauth-required — never on a client timer alone. That ordering is what
-          makes tampering with the timer pointless and a clock drift non-fatal. */}
-      {unlockPrompt && (
+      {/* ADMIN-SEC / ADMIN-6 step-up prompt. Raised only when the SERVER refuses a
+          sensitive call — never on a client timer alone. The `mode` says WHICH factor
+          the server asked for: "settings" = the Settings password (ADMIN-6), "login" =
+          the account password (the bootstrap re-auth before a Settings password is set).
+          That ordering is what makes tampering with the timer pointless. */}
+      {unlockPrompt && (() => {
+        const settingsMode = unlockPrompt.mode === "settings";
+        return (
         <div className="adm-scrim">
           <form className="adm-modal" onSubmit={e => { e.preventDefault(); submitUnlock(); }}>
             <div className="adm-modal-head">
-              <div className="mh">Confirm your password</div>
+              <div className="mh">{settingsMode ? "Enter your Settings password" : "Confirm your password"}</div>
               <button type="button" className="adm-modal-x" aria-label="Close" onClick={cancelUnlock}>×</button>
             </div>
-            <div className="mp">Settings, API keys, plans and admin access need a recent password confirmation. This keeps them unlocked for about 10 minutes.</div>
+            <div className="mp">{settingsMode
+              ? "This Settings screen is protected by your Settings password. Entering it unlocks Settings for about 10 minutes."
+              : "Settings, API keys, plans and admin access need a recent password confirmation. This keeps them unlocked for about 10 minutes."}</div>
             <input className="field-input" type="password" value={unlockPass} onChange={e => setUnlockPass(e.target.value)} autoFocus
-              placeholder="Owner password" autoComplete="current-password" style={unlockErr ? { borderColor:"var(--sr)" } : undefined} />
+              placeholder={settingsMode ? "Settings password" : "Owner password"} autoComplete="current-password" style={unlockErr ? { borderColor:"var(--sr)" } : undefined} />
             {unlockErr && <div style={{ fontSize:11, color:"var(--sr)", marginTop:6 }}>{unlockErr}</div>}
             <div className="adm-actions" style={{ marginTop:14 }}>
               <button type="button" className="adm-btn" onClick={cancelUnlock}>Cancel</button>
@@ -1621,7 +1668,8 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
             </div>
           </form>
         </div>
-      )}
+        );
+      })()}
 
       {/* ADMIN-5: read-only "view as" viewer. A support snapshot the server assembled —
           the panel never authenticated as the user, and NOTHING here can mutate data.

@@ -1124,7 +1124,24 @@ users untouched; Starter tag; reversible).
 
 ---
 
-## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (📋 PLAN — 2026-08-01; NOT built)
+## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (🔨 BUILDING — PR1 done 2026-08-12; 3-PR delivery)
+
+> **Build status (2026-08-12, founder go "Do the admin-6" + "Do 3 PR"):** delivering as **3 PRs**:
+> - **PR1 — core (BUILT, this branch `claude/admin-6-settings-password`):** pieces #1–#5 + #7 + the lockout
+>   script. `functions/settings-auth.js` (pure scrypt/strength/token core, 14 unit tests) · the two new
+>   owner-gated callables `setSettingsPassword` + `unlockSettings` · `assertSettingsUnlocked` gate + the
+>   `getAdminConfig`/`saveConfig` gate swap (`assertFreshOwner` → `assertOwner` + `assertSettingsUnlocked`,
+>   with a **bootstrap fallback to step-up re-auth** while no password is set) · 2 server-only rules denies
+>   (`settingsUnlock`, `settingsPwReset`) · client unlock repurposed to be factor-aware (settings vs login
+>   bootstrap) + a "Settings password" set/change section in admin Settings · `functions/scripts/clear-settings-password.js`
+>   (service-account lockout escape hatch) · openapi + gate-coverage/audit-labels/rules/manager-regression tests.
+> - **PR2 — emailed reset (piece #6, NEXT):** `sendMail.js` seam (dev logs the link / prod sends via
+>   **DreamHost SMTP + nodemailer**) · `requestSettingsPwReset` + `completeSettingsPwReset` (single-use hashed
+>   token) · owner-only reset page (`?reset=<token>` on `admin.html`, ~45-min link, owner signed-in).
+> - **PR3 — admin login "Forgot password?" (founder addition 2026-08-12):** a login-page reset for BOTH
+>   owner AND manager via Firebase-native `sendPasswordResetEmail` (recovers the LOGIN password, not the
+>   Settings password; zero SMTP, email-matches, reveals nothing). This is the flow the founder described.
+> TTLs confirmed safe by founder: **10-min** unlock, **45-min** reset link.
 
 Founder ask (2026-08-01): add a **dedicated password for the admin Settings area** — a second lock,
 separate from the admin login password. The "Confirm your password" popup that guards Settings should

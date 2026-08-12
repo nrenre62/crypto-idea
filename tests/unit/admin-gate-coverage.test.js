@@ -53,9 +53,17 @@ const MATRIX = {
   adminSignOutUser: "assertManager",
   // owner only
   deleteUser: "assertOwner",
+  // ADMIN-6: Settings config now sits behind assertOwner + the settings-password unlock
+  // (assertSettingsUnlocked, which itself falls back to step-up re-auth when no settings
+  // password is set yet). The GATE_CALL regex keys off assertOwner(context), so these read
+  // as owner-gated; the second unlock factor is verified by the integration probes.
+  getAdminConfig: "assertOwner",
+  saveConfig: "assertOwner",
+  // ADMIN-6: set/change the Settings password, and unlock the Settings screen with it.
+  // Owner-only (managers have no Settings screen); the unlock factor is enforced inside.
+  setSettingsPassword: "assertOwner",
+  unlockSettings: "assertOwner",
   // owner only + step-up re-auth
-  getAdminConfig: "assertFreshOwner",
-  saveConfig: "assertFreshOwner",
   setManagerRole: "assertFreshOwner",
 };
 
@@ -138,6 +146,16 @@ describe("ADMIN-SEC gate coverage (functions/index.js)", () => {
   it("the two erasure paths treat owners as protected, not merely manager-blocked", () => {
     for (const fn of ["adminTrashUser", "deleteUser"]) {
       expect(bodyOf(fn)).toContain('assertTargetAllowed(uid, callerRole, "protected")');
+    }
+  });
+
+  it("ADMIN-6: the Settings config callables carry the second-lock unlock gate", () => {
+    // getAdminConfig/saveConfig read as assertOwner in the MATRIX (that's what GATE_CALL keys
+    // off), but the ACTUAL second factor is assertSettingsUnlocked. Without this, a future edit
+    // could delete that line and both this suite AND admin-0-guards would stay green while the
+    // Settings screen lost its 2nd lock (SEC-review #4). Pin its presence explicitly.
+    for (const fn of ["getAdminConfig", "saveConfig"]) {
+      expect(bodyOf(fn), `${fn} must call assertSettingsUnlocked`).toContain("assertSettingsUnlocked(context)");
     }
   });
 });

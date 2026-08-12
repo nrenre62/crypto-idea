@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser, viewUserAsAdmin, getUserNote, saveUserNote } from "../api/admin.js";
+import { getStats, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser, viewUserAsAdmin, getUserNote, saveUserNote, setSettingsPassword, unlockSettings } from "../api/admin.js";
 import { getAdminRole, reauthAdmin } from "../api/admin-auth.js";
 // ADMIN-5: per-operator saved Users-tab filter presets (localStorage, pure util).
 import { loadViews, persistViews, addView, removeView } from "../utils/admin-views.js";
@@ -10,6 +10,19 @@ const UNLOCK_MS = 10 * 60 * 1000;
 // Returned by withUnlock when the owner dismisses the password prompt, so callers
 // can tell "cancelled" apart from "succeeded".
 const CANCELLED = Symbol("unlock-cancelled");
+
+// ADMIN-6: client mirror of settings-auth.checkStrength — the RULES only, never the
+// scrypt crypto (that stays server-side; importing functions/settings-auth.js into the
+// browser bundle would pull node:crypto). Advisory UX; the server floor is authoritative.
+// Returns the first failing message, or "" when acceptable.
+function settingsPwHint(pw) {
+  const s = typeof pw === "string" ? pw : "";
+  if (s.length < 12) return "Settings password must be at least 12 characters.";
+  if (!/[A-Z]/.test(s)) return "Add an uppercase letter (A-Z).";
+  if (!/[a-z]/.test(s)) return "Add a lowercase letter (a-z).";
+  if (!/[0-9]/.test(s)) return "Add a number (0-9).";
+  return "";
+}
 
 // ADMIN-3: how deep the audit fetch goes. The first load asks for AUDIT_PAGE_LIMIT;
 // "Load more" re-fetches at AUDIT_MAX_LIMIT, which mirrors listAudit's server-side
@@ -75,18 +88,33 @@ export function useAdminDashboard() {
     return () => clearInterval(t);
   }, [unlockedUntil]);
 
-  const askPassword = () => new Promise((resolve) => {
+  // ADMIN-6: the prompt now carries a `mode` — "settings" asks for the Settings
+  // password (unlockSettings), "login" asks for the account password (reauthAdmin,
+  // the pre-ADMIN-6 bootstrap when no Settings password is set yet).
+  const askPassword = (mode = "login") => new Promise((resolve) => {
     setUnlockErr(""); setUnlockPass("");
-    setUnlockPrompt({ onDone: resolve });
+    setUnlockPrompt({ onDone: resolve, mode });
   });
 
   const submitUnlock = async () => {
     setBusy(true); setUnlockErr("");
-    const res = await reauthAdmin(unlockPass);
-    setBusy(false);
-    if (!res.success) { setUnlockErr(res.error || "Incorrect password"); return; }
-    setUnlockedUntil(Date.now() + UNLOCK_MS); setUnlockNow(Date.now());
-    setUnlockPass("");
+    const mode = (unlockPrompt && unlockPrompt.mode) || "login";
+    try {
+      if (mode === "settings") {
+        // Settings password → the server records the unlock; mirror it locally for the
+        // padlock UX. unlockSettings THROWS on a wrong password / exhausted budget.
+        const res = await unlockSettings(unlockPass);
+        setUnlockedUntil((res && res.until) || (Date.now() + UNLOCK_MS));
+      } else {
+        // Bootstrap (no Settings password yet) → the original login step-up re-auth.
+        const res = await reauthAdmin(unlockPass);
+        if (!res.success) { setUnlockErr(res.error || "Incorrect password"); setBusy(false); return; }
+        setUnlockedUntil(Date.now() + UNLOCK_MS);
+      }
+    } catch (e) {
+      setUnlockErr((e && e.message) || "Incorrect password"); setBusy(false); return;
+    }
+    setBusy(false); setUnlockNow(Date.now()); setUnlockPass("");
     const done = unlockPrompt && unlockPrompt.onDone;
     setUnlockPrompt(null);
     if (done) done(true);
@@ -98,19 +126,26 @@ export function useAdminDashboard() {
     if (done) done(false);
   };
 
-  const isReauthError = (e) => {
+  // Which unlock factor the server is asking for. ADMIN-6 added `settings-locked`
+  // (the Settings password); `reauth-required` stays the login-password bootstrap.
+  // Anything else is a real error to surface, not an unlock prompt.
+  const unlockModeFor = (e) => {
     const msg = (e && e.message) || "";
-    return msg.includes("reauth-required");
+    if (msg.includes("settings-locked")) return "settings";
+    if (msg.includes("reauth-required")) return "login";
+    return null;
   };
 
-  // Run `fn`; if the server demands a fresh password, prompt and retry exactly once.
-  // Returns CANCELLED if the owner dismissed the prompt, so callers don't report
-  // success for something that never ran. `fn` must NOT swallow its own errors.
+  // Run `fn`; if the server demands a password (either factor), prompt for the RIGHT
+  // one and retry exactly once. Returns CANCELLED if the owner dismissed the prompt, so
+  // callers don't report success for something that never ran. `fn` must NOT swallow
+  // its own errors.
   const withUnlock = async (fn) => {
     try { return await fn(); }
     catch (e) {
-      if (!isReauthError(e)) throw e;
-      const ok = await askPassword();
+      const mode = unlockModeFor(e);
+      if (!mode) throw e;
+      const ok = await askPassword(mode);
       if (!ok) return CANCELLED;
       return await fn();
     }
@@ -157,6 +192,11 @@ export function useAdminDashboard() {
   // the full Settings save; the instant toggles (saveControls/saveFeature) omit it, so
   // the server KEEPS the stored banner (announcement.js cleanAnnouncement).
   const [announcement, setAnnouncement] = useState({ text: "", level: "info", active: false });
+  // ADMIN-6: whether the owner-only Settings password is set (drives set-vs-change UI)
+  // + when it last changed, and a status line for the set/change form.
+  const [settingsPwSet, setSettingsPwSet] = useState(false);
+  const [settingsPwAt, setSettingsPwAt] = useState(null);
+  const [settingsPwMsg, setSettingsPwMsg] = useState("");
 
   // Pre-fill the Settings form from the saved config (secrets are never returned —
   // only whether they're set), so you can SEE what's configured and persisted.
@@ -184,7 +224,35 @@ export function useAdminDashboard() {
       // ADMIN-5: the announcement draft (getAdminConfig returns it even when inactive).
       setAnnouncement({ text: (d.announcement && d.announcement.text) || "", level: (d.announcement && d.announcement.level) || "info", active: !!(d.announcement && d.announcement.active) });
       setCfgAt(d.updatedAt || null);
+      // ADMIN-6: is a Settings password set? (never the hash — just the flag + when.)
+      setSettingsPwSet(!!(d.settingsAuth && d.settingsAuth.set));
+      setSettingsPwAt((d.settingsAuth && d.settingsAuth.updatedAt) || null);
     } catch (e) { /* function not deployed yet (dev): leave the form empty */ }
+  };
+
+  // ADMIN-6: set OR change the owner-only Settings password. `current` is ignored on a
+  // first-time set — the server requires a fresh login re-auth instead, which withUnlock
+  // satisfies by prompting for the LOGIN password (reauth-required) and retrying. On a
+  // change the server verifies `current` (or a live unlock). Returns true on success.
+  const saveSettingsPassword = async ({ current = "", next = "", confirm = "" }) => {
+    setSettingsPwMsg("");
+    if (next !== confirm) { setSettingsPwMsg("The two new-password fields don't match."); return false; }
+    const hint = settingsPwHint(next);
+    if (hint) { setSettingsPwMsg(hint); return false; }
+    const wasSet = settingsPwSet;
+    setBusy(true);
+    try {
+      const r = await withUnlock(() => setSettingsPassword(next, current));
+      if (r === CANCELLED) { setBusy(false); setSettingsPwMsg("Cancelled — not changed."); return false; }
+      await loadConfig();
+      setBusy(false);
+      setSettingsPwMsg(wasSet ? "Settings password changed ✓" : "Settings password set ✓");
+      return true;
+    } catch (e) {
+      setBusy(false);
+      setSettingsPwMsg((e && e.message) || "Could not save the Settings password.");
+      return false;
+    }
   };
   const saveConfig = async () => {
     setSavedMsg("Saving…");
@@ -335,9 +403,13 @@ export function useAdminDashboard() {
     getAdminRole({ force: true }).then((r) => {
       if (!alive) return;
       setRole(r); setRoleLoaded(true);
-      // Sign-in itself sets a fresh auth_time, so an owner opening the panel is already
-      // inside the step-up window — no password prompt just to view Settings.
-      if (r === "owner") { setUnlockedUntil(Date.now() + UNLOCK_MS); loadConfig(); }
+      // ADMIN-6: NO optimistic client unlock anymore — the server is authoritative
+      // (the settings-unlock doc + the step-up fallback), so a client flag that
+      // pretends "unlocked" would only ever disagree with it. loadConfig drives the
+      // real prompt: with no Settings password set it succeeds silently on a fresh
+      // login (the step-up fallback); with one set it raises the Settings-password
+      // prompt if the ~10-min server unlock has lapsed.
+      if (r === "owner") loadConfig();
     });
     return () => { alive = false; };
   }, []);
@@ -617,6 +689,8 @@ export function useAdminDashboard() {
     controls, setControls, analytics, setAnalytics, legal, setLegal, plans, setPlans,
     // ADMIN-5 — announcement banner draft.
     announcement, setAnnouncement,
+    // ADMIN-6 — the owner-only Settings password (set/change).
+    settingsPwSet, settingsPwAt, settingsPwMsg, setSettingsPwMsg, saveSettingsPassword,
     lookupEmail, setLookupEmail, found, setFound, lookupMsg, setLookupMsg, actionMsg, setActionMsg,
     confirmDelete, setConfirmDelete, busy, setBusy,
     confirmTrash, setConfirmTrash, confirmEmpty, setConfirmEmpty,

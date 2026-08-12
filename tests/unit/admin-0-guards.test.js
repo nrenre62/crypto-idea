@@ -33,7 +33,9 @@ describe("ADMIN-0 · the admin gates are ASYNC — every call site must await", 
   // Includes the async TARGET guards (assertTargetAllowed / assertTargetNotAdmin, CRYP-103b):
   // a missing await on those silently skips owner-protection / the admin-target refusal — the
   // same invisible failure mode as the role gates. `Target\w+` also pins any future assertTarget*.
-  const CALL = /\bassert(?:Admin|Manager|Owner|FreshOwner|Target\w+)\s*\(/;
+  // ADMIN-6: assertSettingsUnlocked is the Settings-password second lock — a dropped await
+  // there would silently open getAdminConfig/saveConfig, so it is pinned here too (SEC-review #4).
+  const CALL = /\bassert(?:Admin|Manager|Owner|FreshOwner|SettingsUnlocked|Target\w+)\s*\(/;
 
   const callSites = CODE.split("\n")
     .map((line, i) => ({ line, n: i + 1 }))
@@ -47,7 +49,7 @@ describe("ADMIN-0 · the admin gates are ASYNC — every call site must await", 
 
   it("every assert* call site is awaited (role gates AND the target guards)", () => {
     const missing = callSites
-      .filter(({ line }) => !/await\s+assert(?:Admin|Manager|Owner|FreshOwner|Target\w+)\s*\(/.test(line))
+      .filter(({ line }) => !/await\s+assert(?:Admin|Manager|Owner|FreshOwner|SettingsUnlocked|Target\w+)\s*\(/.test(line))
       .map(({ line, n }) => `functions/index.js:${n}: ${line.trim()}`);
     expect(missing, `Un-awaited admin gate(s) — the callable would run UNGATED:\n${missing.join("\n")}`).toEqual([]);
   });

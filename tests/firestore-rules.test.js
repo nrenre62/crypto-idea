@@ -125,6 +125,29 @@ test("adminNotes is unreadable and unwritable by clients — including admins an
   await assertFails(setDoc(doc(adminDb(), "adminNotes", "alice"), { note: "via devtools" }));
 });
 
+// ADMIN-6: the Settings-password machinery is server-only. settingsUnlock/{uid} is the
+// short-lived unlock marker the assertSettingsUnlocked gate reads — a client-writable
+// unlock doc would be a FULL bypass of the second lock. settingsPwReset/{hash} is the
+// single-use hashed reset-token ledger — client access would let an attacker forge or
+// replay a reset. Neither may be read or written by any client, admin token included.
+test("settingsUnlock and settingsPwReset are server-only — no client, not even an admin", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "settingsUnlock", "alice"), { until: 9_999_999_999_999 });
+    await setDoc(doc(db, "settingsPwReset", "abc123hash"), { uid: "alice", used: false, expires: 9_999_999_999_999 });
+  });
+  // A client cannot forge an unlock for itself…
+  await assertFails(getDoc(doc(aliceDb(), "settingsUnlock", "alice")));
+  await assertFails(setDoc(doc(aliceDb(), "settingsUnlock", "alice"), { until: 9_999_999_999_999 }));
+  await assertFails(deleteDoc(doc(aliceDb(), "settingsUnlock", "alice")));
+  // …nor read/forge/replay a reset token.
+  await assertFails(getDoc(doc(aliceDb(), "settingsPwReset", "abc123hash")));
+  await assertFails(setDoc(doc(aliceDb(), "settingsPwReset", "evil"), { uid: "alice", used: false }));
+  // The blanket admin-owner write over user docs must NOT reach these collections.
+  await assertFails(getDoc(doc(adminDb(), "settingsUnlock", "alice")));
+  await assertFails(setDoc(doc(adminDb(), "settingsUnlock", "alice"), { until: 9_999_999_999_999 }));
+  await assertFails(getDoc(doc(adminDb(), "settingsPwReset", "abc123hash")));
+});
+
 // ADMIN-4: `joined` is the signup date shown in the admin Users list and the users
 // CSV export, and it is immutable after create — so an unvalidated create was a
 // one-shot chance to claim any signup date, permanently. (This is also why growth

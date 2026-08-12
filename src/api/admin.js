@@ -161,3 +161,19 @@ export async function getAdminConfig() {
 export async function saveConfig(payload) {
   await httpsCallable(functions, "saveConfig")(payload);
 }
+
+// ADMIN-6: set OR change the owner-only Settings password (the 2nd lock on this screen).
+// First-time set needs a recent login re-auth (server-enforced); a change needs the
+// current password or a live unlock. `current` is optional (ignored on first set).
+// The plaintext never persists — it's scrypt-hashed server-side. Throws on failure.
+export async function setSettingsPassword(next, current = "") {
+  await httpsCallable(functions, "setSettingsPassword")({ next, current });
+}
+
+// ADMIN-6: unlock the Settings screen with the Settings password. On success the server
+// records a short-lived unlock; returns { until } (ms). Throws on a wrong password
+// (permission-denied) or when the daily attempt budget is exhausted (resource-exhausted).
+export async function unlockSettings(password) {
+  const res = await httpsCallable(functions, "unlockSettings")({ password });
+  return res.data || {};
+}

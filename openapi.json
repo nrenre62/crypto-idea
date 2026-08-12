@@ -2412,8 +2412,8 @@
     "/getAdminConfig": {
       "post": {
         "operationId": "getAdminConfig",
-        "summary": "Read saved app config to pre-fill Settings (owner, step-up)",
-        "description": "Callable, owner-only, and only with a password re-auth within the last ~600s (server flag `config/app.flags.stepUpReauth`, default on). Secrets are returned as boolean set-flags ONLY (e.g. `secretSet`, `apiKeySet`, `anthropicKeySet`) — the secret values never leave the server.",
+        "summary": "Read saved app config to pre-fill Settings (owner + Settings-password unlock)",
+        "description": "Callable, owner-only, and behind the ADMIN-6 Settings-password unlock (`assertSettingsUnlocked`). Once a Settings password is set (`config/app.settingsAuth`), the caller must hold a live server-tracked unlock (`unlockSettings`, ~10 min) or the call fails `settings-locked`. Before any Settings password is set it falls back to the pre-ADMIN-6 step-up re-auth (recent password re-auth, `config/app.flags.stepUpReauth`, default on). Secrets are returned as boolean set-flags ONLY (e.g. `secretSet`, `apiKeySet`, `anthropicKeySet`, and `settingsAuth.set`) — the secret values and the scrypt hash never leave the server.",
         "tags": [
           "Admin"
         ],
@@ -2449,7 +2449,7 @@
             }
           },
           "403": {
-            "description": "permission-denied — owners only, or the step-up password re-auth is missing/stale.",
+            "description": "permission-denied — owners only. (A missing Settings-password unlock is reported as `failed-precondition` `settings-locked`, or `reauth-required` in the pre-password bootstrap.)",
             "content": {
               "application/json": {
                 "schema": {
@@ -2479,8 +2479,8 @@
     "/saveConfig": {
       "post": {
         "operationId": "saveConfig",
-        "summary": "Save app config / API keys (owner, step-up)",
-        "description": "Callable, owner-only, and only with a password re-auth within the last ~600s (server flag `config/app.flags.stepUpReauth`, default on). Writes the locked `config/app` doc. A blank secret field keeps the saved value (`keep()` idiom); secrets are never echoed back. Clients can never read `config/app` (Firestore rules deny all access).",
+        "summary": "Save app config / API keys (owner + Settings-password unlock)",
+        "description": "Callable, owner-only, and behind the ADMIN-6 Settings-password unlock (`assertSettingsUnlocked`; a live `unlockSettings` within ~10 min once a Settings password is set, else the step-up re-auth bootstrap). Writes the locked `config/app` doc. A blank secret field keeps the saved value (`keep()` idiom); secrets are never echoed back. `settingsAuth` is NOT written here (owned by the set/change/reset callables) — the `{merge:true}` write preserves it. Clients can never read `config/app` (Firestore rules deny all access).",
         "tags": [
           "Admin"
         ],
@@ -2516,7 +2516,161 @@
             }
           },
           "403": {
-            "description": "permission-denied — owners only, or the step-up password re-auth is missing/stale.",
+            "description": "permission-denied — owners only. (A missing Settings-password unlock is reported as `failed-precondition` `settings-locked`, or `reauth-required` in the pre-password bootstrap.)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
+    "/setSettingsPassword": {
+      "post": {
+        "operationId": "setSettingsPassword",
+        "summary": "Set or change the owner-only Settings password (ADMIN-6)",
+        "description": "Callable, owner-only. Sets the SECOND lock on the Settings screen (scrypt-hashed server-side; the plaintext is never stored or echoed). Setting the FIRST password requires a recent login re-auth (step-up); changing an existing one requires the current password or a live unlock. On success a fresh ~10-min unlock is granted. The event is audited (`setSettingsPassword`) but the password never is.",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSettingsPasswordEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Set or changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument — the new password fails the strength floor (min 12 incl. upper+lower+number), or an unexpected field was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — owners only; or (on a change) the current password is wrong and there is no live unlock; or (on a first set) the step-up re-auth is missing/stale (`reauth-required`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
+    "/unlockSettings": {
+      "post": {
+        "operationId": "unlockSettings",
+        "summary": "Unlock the Settings screen with the Settings password (ADMIN-6)",
+        "description": "Callable, owner-only. Verifies the Settings password server-side (constant-time) and, on success, writes the short-lived server-tracked unlock (`settingsUnlock/{uid}`, ~10 min) that `getAdminConfig`/`saveConfig` require. Rate-limited per-uid/day to bound guessing; only FAILED attempts are audited (`settingsUnlockFailed`).",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlockSettingsEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Unlocked — returns the unlock expiry (`until`, ms epoch).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnlockSettingsResultEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — owners only, or the Settings password is incorrect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "resource-exhausted — too many unlock attempts today (per-uid daily cap).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2874,7 +3028,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "The signed-in user's Firebase ID token. The Firebase callable SDK sends it as `Authorization: Bearer <idToken>`; the function verifies it server-side and reads `context.auth.uid`. Admin operations additionally require the verified `{admin:true}` custom claim on that token, plus the `role` it carries (`owner` or `manager`). Owner-only operations also require a password re-auth within the last ~600s — a server flag (`config/app.flags.stepUpReauth`, default on) can disable that step-up."
+        "description": "The signed-in user's Firebase ID token. The Firebase callable SDK sends it as `Authorization: Bearer <idToken>`; the function verifies it server-side and reads `context.auth.uid`. Admin operations additionally require the verified `{admin:true}` custom claim on that token, plus the `role` it carries (`owner` or `manager`). Owner-only operations may additionally require a step-up password re-auth within the last ~600s (`setManagerRole`, and the pre-password bootstrap for Settings — server flag `config/app.flags.stepUpReauth`, default on) OR the ADMIN-6 Settings-password unlock (`getAdminConfig`/`saveConfig`, once a Settings password is set). See each operation's description."
       },
       "PayPalWebhookSignature": {
         "type": "apiKey",
@@ -3366,6 +3520,86 @@
         "properties": {
           "result": {
             "$ref": "#/components/schemas/SuccessResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetSettingsPasswordEnvelope": {
+        "type": "object",
+        "description": "ADMIN-6: set or change the owner-only Settings password.",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "next": {
+                "type": "string",
+                "minLength": 12,
+                "maxLength": 200,
+                "description": "The new Settings password (sent over TLS; scrypt-hashed server-side, never stored or echoed). Server floor: min 12 incl. upper+lower+number."
+              },
+              "current": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "The current Settings password — required to CHANGE an existing one unless a live unlock is held; ignored on a first-time set."
+              }
+            },
+            "required": [
+              "next"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "UnlockSettingsEnvelope": {
+        "type": "object",
+        "description": "ADMIN-6: unlock the Settings screen with the Settings password.",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "password": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "The Settings password to unlock with."
+              }
+            },
+            "required": [
+              "password"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "UnlockSettingsResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "until": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0,
+                "maximum": 1000000000000000,
+                "description": "Unlock expiry (ms since epoch)."
+              }
+            },
+            "required": [
+              "success",
+              "until"
+            ],
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -4427,6 +4661,23 @@
                 "properties": {
                   "anthropicKeySet": {
                     "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "settingsAuth": {
+                "type": "object",
+                "description": "ADMIN-6. Whether a Settings password is set, and when it last changed — the scrypt hash/salt NEVER leave the server.",
+                "properties": {
+                  "set": {
+                    "type": "boolean"
+                  },
+                  "updatedAt": {
+                    "type": "integer",
+                    "format": "int64",
+                    "nullable": true,
+                    "minimum": 0,
+                    "maximum": 1000000000000000
                   }
                 },
                 "additionalProperties": false
