@@ -1,26 +1,14 @@
 import { useState } from "react";
 import { useApp } from "../hooks/app-context.js";
 import { Ic, Logo } from "./ui.jsx";
+import { createSubscription } from "../api/billing.js";
+import { PLAN_BENEFITS } from "../data/plan-benefits.js";
 
-// R28-2: ONE source of truth for what each tier promises — consumed by BOTH the
-// plan-picker cards and the welcome/success screen, so they cannot drift. Honest
-// framing: same product, more room — every tier gets all features (live prices,
-// P/L, Journal, Research, Learn); tiers differ by capacity, and Premium adds the
-// real priority-email-support promise (the untrue "Custom limits" was dropped).
-export const PLAN_BENEFITS = {
-  free: {
-    limits: ["3 portfolios", "30 coins per portfolio", "300 transactions per coin"],
-    feature: "All features included — live prices, P/L, Journal, Research, Learn",
-  },
-  pro: {
-    limits: ["6 portfolios", "100 coins per portfolio", "1,000 transactions per coin"],
-    feature: "All features included — live prices, P/L, Journal, Research, Learn",
-  },
-  premium: {
-    limits: ["15 portfolios", "200 coins per portfolio", "2,000 transactions per coin"],
-    feature: "All features included + priority email support",
-  },
-};
+// R28-2: ONE source of truth for what each tier promises — now lives in
+// ../data/plan-benefits.js (so the standalone /pro-success page can read it without
+// pulling Login into its chunk). Re-exported here for existing importers (Login.test,
+// the welcome screen) so nothing drifts.
+export { PLAN_BENEFITS };
 // R28-1: tier order for the picker's current/upgrade/included card states.
 const TIER_RANK = { free: 0, pro: 1, premium: 2 };
 
@@ -35,13 +23,16 @@ const TIER_RANK = { free: 0, pro: 1, premium: 2 };
 export function Login({ popup }) {
   const {
     showPlan, showWelcome, upgradeStep, setUpgradeStep, upgradeFlow, setUpgradeFlow,
-    setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user, setUser,
-    saveProfile, persistTierDev, calcEndDate, reloadPortfolios, setScreen, authMode, setAuthMode, authErr, setAuthErr,
+    setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user,
+    persistTierDev, reloadPortfolios, setScreen, authMode, setAuthMode, authErr, setAuthErr,
     authName, setAuthName, authEmail, setAuthEmail, authPass, setAuthPass, handleAuth, authBusy, site,
     authAgreeTerms, setAuthAgreeTerms, authAgreePrivacy, setAuthAgreePrivacy,
     authAgreeMarketing, setAuthAgreeMarketing, planChosen, chooseFree, choosingPlan,
   } = useApp();
   const [showPass,setShowPass]=useState(false);
+  // Plan B PR-B: a checkout error surface for the billing step (a server refusal — paused /
+  // checkout-off / already on this plan — or a network failure), separate from the auth error.
+  const [payErr,setPayErr]=useState("");
   // R31-1: only render the plan picker/upgrade flow for a LIVE session. If the
   // session died mid-flow (e.g. a token revoke), `showPlan` may still be true for a
   // tick before the overlay is cleared — without this guard the picker would paint
@@ -99,34 +90,40 @@ export function Login({ popup }) {
             <div className="cycle-price">${yearlyP}<span className="cycle-per">/yr</span></div>
           </div>
           <button onClick={async()=>{
+            setPayErr("");
             setUpgradeStep("processing");
-            setTimeout(async()=>{
-              const newTier=upgradeFlow;
-              const endDate=calcEndDate(upgradeBilling);
-              const updated={...user,tier:newTier,subscription:{billing:upgradeBilling,startDate:new Date().toISOString(),endDate,cancelled:false}};
-              setUser(updated);
-              await saveProfile(updated);
-              // DEV (Round 17): persist the tier to the DB so the portfolio cap becomes
-              // real locally (no PayPal webhook in the emulator). No-op in prod builds.
-              await persistTierDev(newTier);
-              // DI-4 (D3): no trim — an UPGRADE only raises caps (existing data already
-              // fits and simply unlocks), and downgrades keep + grey-lock data, never delete it.
-              // ONBOARD-GATE: a completed paid choice records the choice server-side (the PayPal
-              // webhook sets planChosen; devSetMyTier does the same locally). The derived
-              // planChosen (tier != "free") clears the gate here immediately — no client write.
-              // Load the server-created default portfolio (devSetMyTier/webhook run
-              // ensureDefaultPortfolio), so a just-onboarded paid user isn't stranded on an empty
-              // list until reload (mirrors the free path's reloadPortfolios).
-              if(reloadPortfolios)await reloadPortfolios();
-              setShowWelcome(newTier);
-              setUpgradeStep("welcome");
-            },2000);
+            try{
+              if(import.meta.env.DEV){
+                // DEV/emulator: there is no PayPal. Set the tier SERVER-SIDE via the
+                // emulator-gated devSetMyTier (persistTierDev), which also creates the default
+                // portfolio; watchUserDoc then live-syncs the real tier in. No client-forged
+                // tier write — the DEV path matches prod's server-authoritative model.
+                await persistTierDev(upgradeFlow);
+                if(reloadPortfolios)await reloadPortfolios();   // load the server-created default portfolio
+                setShowWelcome(upgradeFlow);
+                setUpgradeStep("welcome");
+              }else{
+                // PROD: the real PayPal checkout. The server picks the plan by tier × cycle
+                // (H6) and returns an approval URL; redirect the browser to it. The tier is set
+                // by the PayPal webhook and live-synced by watchUserDoc — NEVER written here.
+                // On return, /pro-success watches the user doc until the webhook confirms.
+                const res=await createSubscription({plan:upgradeFlow,billing:upgradeBilling});
+                if(res&&res.approvalUrl){window.location.assign(res.approvalUrl);}
+                else{throw new Error("Couldn't start checkout. Please try again.");}
+              }
+            }catch(e){
+              // The server's failed-precondition messages are already human-friendly
+              // (paused / checkout off / already on this plan / plan not configured).
+              setPayErr((e&&e.message)||"Couldn't start checkout. Please try again.");
+              setUpgradeStep("billing");   // back to the cycle step so the user can retry
+            }
           }} className="paypal-btn">
             Pay with <span style={{fontStyle:"italic",fontWeight:800}}>Pay<span style={{color:"#253B80"}}>Pal</span></span>
           </button>
+          {payErr&&<div className="auth-err" role="alert" style={{color:"#FF3B30",fontSize:12,textAlign:"center",marginTop:8}}>{payErr}</div>}
           {/* R31-4: the transparent no-refund line — the buy/cycle step had none. */}
           <div className="auth-sub" style={{fontSize:11,textAlign:"center",marginTop:8}}>No refunds. Your subscription stays active until the end of the paid period.</div>
-          <button onClick={()=>{setUpgradeFlow(null);setUpgradeStep("pickPlan")}} className="back-link">← Back to plans</button>
+          <button onClick={()=>{setPayErr("");setUpgradeFlow(null);setUpgradeStep("pickPlan")}} className="back-link">← Back to plans</button>
         </div>
       </>);
     }

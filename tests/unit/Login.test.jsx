@@ -1,7 +1,13 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { AppContext } from "../../src/hooks/app-context.js";
 import { Login } from "../../src/components/Login.jsx";
+
+// Plan B PR-B: the buy button calls the real createSubscription callable (server picks
+// the plan by tier × cycle and returns a PayPal approvalUrl). Mock the api seam so the
+// checkout test never hits Firebase.
+const { createSubscriptionMock } = vi.hoisted(() => ({ createSubscriptionMock: vi.fn() }));
+vi.mock("../../src/api/billing.js", () => ({ createSubscription: createSubscriptionMock }));
 
 // Login holds the auth form, the post-registration plan picker, and the upgrade/
 // billing flow (showPlan). The smoke test covers the basic logged-out form; here we
@@ -269,6 +275,76 @@ describe("Login screen (extracted, via AppContext)", () => {
         expect(screen.getByText("Choose Premium")).toBeInTheDocument();
         unmount();
       }
+    });
+  });
+
+  /* ── Plan B PR-B: the real PayPal checkout wiring. The buy button used to be a
+     fake setTimeout that wrote the tier straight to localStorage; now PROD calls
+     createSubscription and redirects to PayPal (tier is set server-side by the
+     webhook + live-synced by watchUserDoc), while DEV keeps the emulator path
+     (devSetMyTier). The invariant under test: no client tier write in prod. ── */
+  describe("Plan B PR-B — real PayPal checkout (no client-forged tier)", () => {
+    const billingCtx = (extra) => ({
+      showPlan: true, upgradeStep: "billing", upgradeFlow: "pro", upgradeBilling: "yearly",
+      user: { uid: "u1", name: "T", tier: "free" },
+      setUpgradeStep: vi.fn(), setShowWelcome: vi.fn(), setUser: vi.fn(), saveProfile: vi.fn(),
+      persistTierDev: vi.fn(), reloadPortfolios: vi.fn(), calcEndDate: vi.fn(() => "2027-01-01"),
+      ...extra,
+    });
+    let assignSpy;
+    const origLocation = window.location;
+    beforeEach(() => {
+      createSubscriptionMock.mockReset();
+      // jsdom's window.location.assign isn't spyable (non-configurable), so replace the
+      // whole location with a stub carrying a mock assign for the duration of each test.
+      assignSpy = vi.fn();
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { assign: assignSpy, href: "http://localhost/", origin: "http://localhost" },
+      });
+    });
+    afterEach(() => {
+      Object.defineProperty(window, "location", { configurable: true, value: origLocation });
+      vi.unstubAllEnvs();
+    });
+    const clickPay = () => fireEvent.click(screen.getByText(/Pay with/i).closest("button"));
+
+    it("PROD: clicking Pay calls createSubscription({plan,billing}) and redirects to approvalUrl — NO client tier write", async () => {
+      vi.stubEnv("DEV", false);
+      createSubscriptionMock.mockResolvedValue({ approvalUrl: "https://www.paypal.com/approve/abc", subscriptionId: "S1" });
+      const ctx = billingCtx();
+      provide(ctx);
+      clickPay();
+      await waitFor(() => expect(createSubscriptionMock).toHaveBeenCalledWith({ plan: "pro", billing: "yearly" }));
+      await waitFor(() => expect(assignSpy).toHaveBeenCalledWith("https://www.paypal.com/approve/abc"));
+      // the webhook + watchUserDoc own the tier — the client must never write it in prod
+      expect(ctx.setUser).not.toHaveBeenCalled();
+      expect(ctx.saveProfile).not.toHaveBeenCalled();
+      expect(ctx.persistTierDev).not.toHaveBeenCalled();
+    });
+
+    it("PROD: a failed createSubscription shows the server message and returns to the billing step (no redirect, no tier write)", async () => {
+      vi.stubEnv("DEV", false);
+      createSubscriptionMock.mockRejectedValue({ code: "functions/failed-precondition", message: "New subscriptions are paused right now." });
+      const ctx = billingCtx();
+      provide(ctx);
+      clickPay();
+      await waitFor(() => expect(screen.getByText(/paused right now/i)).toBeInTheDocument());
+      expect(assignSpy).not.toHaveBeenCalled();
+      expect(ctx.setUser).not.toHaveBeenCalled();
+      expect(ctx.saveProfile).not.toHaveBeenCalled();
+      expect(ctx.setUpgradeStep).toHaveBeenLastCalledWith("billing");   // back to the cycle step to retry
+    });
+
+    it("DEV: keeps the emulator path — persistTierDev sets the tier server-side, createSubscription is NOT called, no redirect", async () => {
+      vi.stubEnv("DEV", true);
+      const ctx = billingCtx();
+      provide(ctx);
+      clickPay();
+      await waitFor(() => expect(ctx.persistTierDev).toHaveBeenCalledWith("pro"));
+      expect(createSubscriptionMock).not.toHaveBeenCalled();
+      expect(assignSpy).not.toHaveBeenCalled();
+      await waitFor(() => expect(ctx.setShowWelcome).toHaveBeenCalledWith("pro"));   // welcome for the purchased tier
     });
   });
 

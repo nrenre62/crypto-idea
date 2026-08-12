@@ -26,7 +26,10 @@ src/
   - `api/` — Firebase data layer (`firebase.config.js`, `firebase-auth.js`,
     `firebase-database.js`) + the backend `/api/*` fetches: `coingecko.js`
     (`fetchPrices`, `searchCoins`) and `config.js` (`fetchSiteConfig`). `CryptoIdea.jsx`
-    no longer calls `fetch()` directly.
+    no longer calls `fetch()` directly. The callable wrappers `account.js`, `admin.js`,
+    `admin-auth.js` and **`billing.js`** (Plan B PR-B — `createSubscription({plan, billing})`)
+    keep `httpsCallable` out of components: `Login.jsx`'s buy button imports `api/billing.js`,
+    never the SDK directly.
   - `utils/` — `format.js` (pure formatters: `fmtP`, `fmtMc`, `fmtPct`, `uid`, `fmtDT`,
     `timeBetween`), `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
     price model `getHistoricalPrice`), and `theme.js` (visual tokens `c`, `inp_s`,
@@ -35,9 +38,18 @@ src/
     watch + profile save; owns `user`/`dataLoaded`), `usePortfolios()` (owns `portfolios`/
     `activePortId` + `portfolio`/`setPortfolio`), `useUpgrade({portfolios,setPortfolios})`
     (tier-limit logic: `calcEndDate`/`getTrimImpact`/`trimToTier` + the `TIER_LIMITS` table),
-    and `app-context.js` (`AppContext` + `useApp()`).
+    **`useProSuccess()`** (Plan B PR-B — read-only: watches the caller's own user doc via
+    `api/firebase-database.js` `watchUserDoc` and resolves the `/pro-success` page's waiting /
+    confirmed / timeout / signed-out state; mutates nothing), and `app-context.js`
+    (`AppContext` + `useApp()`).
+  - `data/` — static reference/content modules (no React, no I/O): Learn content (`learn-content.js`
+    + `learn/`), `journal-funnel.js`, `mock-conviction.js`, and **`plan-benefits.js`** (Plan B PR-B —
+    the single `PLAN_BENEFITS` source for the plan-picker cards, welcome screen and the standalone
+    `/pro-success` page; extracted out of `Login.jsx`, which now re-exports it, so `/pro-success`
+    doesn't pull Login into its chunk).
   - `utils/storage.js` — `db` key/value wrapper over `localStorage` (JSON, error-swallowing; cleared on logout).
-  - `components/` — standalone page UIs (`education-page.jsx`, `pro-success.jsx`,
+  - `components/` — standalone page UIs (`education-page.jsx`, `pro-success.jsx` — post-PR-B it holds
+    presentation only, reading `hooks/useProSuccess.js` + `data/plan-benefits.js`, no fetch/SDK,
     `admin-dashboard.jsx`); shared primitives `ui.jsx` (`Ic`, `CI`, `hdr`) + `StatusDot.jsx`;
     and extracted screens `Loading.jsx`, `ForgotPass.jsx`, `Contact.jsx`, `Search.jsx`, `AddEntry.jsx`, `CoinInfo.jsx`, `Detail.jsx`, `Portfolio.jsx`+`PortfolioBar.jsx`, `Account.jsx`, `Login.jsx` (**all screens now extracted**). `src/` root now holds only the
     Vite entries (`main.jsx`, `admin-main.jsx`) and the main app shell `CryptoIdea.jsx`.

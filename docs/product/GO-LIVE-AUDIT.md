@@ -104,6 +104,19 @@ always lands in a *new* database — not something to learn at 2am), and disclos
 `privacy.html` alongside the existing audit-retention block. Match the number to the real `--retention`.
 
 ### B4 · Checkout is a 2-second fake — no user can pay
+> **✅ BUY PATH FIXED 2026-08-12 (Plan B PR-B, branch `claude/plan-b-pr-b-checkout`):** the fake
+> `setTimeout` in `src/components/Login.jsx` is gone. PROD now calls the new
+> `createSubscription({plan, billing})` callable (via the new `src/api/billing.js` wrapper — the
+> billing gap below) and redirects the browser to the PayPal **`approvalUrl`**; the tier is set
+> **server-side by the PayPal webhook** and live-synced into the app by the existing `watchUserDoc`.
+> There is **no client tier write in prod** (`setUser({tier})` / `saveProfile` / `calcEndDate` were
+> dropped from the buy component). DEV keeps the emulator path (`persistTierDev` → `devSetMyTier`),
+> which is also server-authoritative. `/pro-success` was rebuilt to render the **actual purchased
+> tier** and only claim success once the webhook confirms (new read-only `src/hooks/useProSuccess.js`
+> watching the caller's own user doc: waiting / confirmed / timeout / signed-out). **Residual:**
+> `confirmDowngrade` / `finalizeDowngrade` still only touch localStorage — that's the **downgrade/
+> cancel** path, deferred to **Plan B PR-C**. The historical finding below is kept for context.
+
 `src/components/Login.jsx` fakes payment with `setTimeout(…, 2000)`, writes the tier to
 **localStorage**, and calls a function that is a hard no-op in production. `src/api/` has no billing
 wrapper at all: `createSubscription` and `cancelSubscription` are called from nowhere.
@@ -122,6 +135,9 @@ Pro action hits `permission-denied` from the rules. The entire hardened billing 
   replace the `setTimeout` with `createSubscription` → redirect to `approvalUrl` → let the ACTIVATED
   webhook set the tier **server-side**. Never `setUser({tier})` locally again. Same for
   `confirmDowngrade` / `finalizeDowngrade`, which also only touch localStorage. Then H6 below.
+  **↳ BUY-path done (Plan B PR-B, 2026-08-12):** `src/api/billing.js` + the `createSubscription` →
+  `approvalUrl` redirect are shipped and the local tier write is gone; only `confirmDowngrade` /
+  `finalizeDowngrade` (the downgrade/cancel path) remain localStorage-only, deferred to **PR-C**.
 
 ✅ **PayPal sandbox is now available (Plan B PR-A).** `PAYPAL_ENV=sandbox` switches the API base to
 `https://api-m.sandbox.paypal.com` (default `live`) via pure `billing.paypalBaseFor(env)`, so the
@@ -159,7 +175,7 @@ versions on login, so the re-acceptance mechanism is inert.
 | **H1** | **App Check is decoration.** `appCheckOk` exists, is unit-tested, and has **zero call sites**. | Enable enforcement in the **Console only** — for v1 callables it applies platform-side before your handler runs. **Do NOT wire `appCheckOk` into the callables**; it is redundant and adds a second lockout surface. **Order matters:** set `VITE_RECAPTCHA_SITE_KEY` → build → deploy → watch "unverified" fall to ~0 → *then* enforce. Reversed, you lock out 100% of users. |
 | **H4** | **PayPal webhook failures are invisible** — a wrong `PAYPAL_WEBHOOK_ID` makes 100% of events 401 silently, and the ID differs between sandbox and live. | Covered by the H3 alert below. Plus: after deploy use "Send test event" and confirm a doc lands in `webhookEvents`. |
 | **H3-alert** | The Phase-0 rethrow makes failures *visible*; nothing yet *tells you*. | One Cloud Logging alert: `resource.labels.function_name=("refreshPrices" OR "refreshUniverseDaily" OR "purgeOldAudit" OR "purgeExpiredTrash" OR "enforceSubscriptionPeriods" OR "paypalWebhook") AND severity>=ERROR`. Uses platform labels, not log text, so it cannot rot. |
-| **H6** | **Yearly and monthly checkout send the same PayPal plan ID**, while the UI sells two prices and revenue is booked as `priceYear/12`. Annual buyers get billed monthly. | **CODE HALF DONE (Plan B PR-A):** four plan IDs (`PAYPAL_{PRO,PREMIUM}_{MONTHLY,YEARLY}_PLAN_ID`), pure `billing.planIdFor(tier, cycle, ids)` selecting by tier **and** cycle, and the yearly-plan-id unit case all exist. **Remaining:** the client checkout wiring (Path B / B4) that passes the chosen cycle into `createSubscription`. |
+| **H6** | **Yearly and monthly checkout send the same PayPal plan ID**, while the UI sells two prices and revenue is booked as `priceYear/12`. Annual buyers get billed monthly. | **✅ CODE FIXED — both halves in.** **Server (Plan B PR-A):** four plan IDs (`PAYPAL_{PRO,PREMIUM}_{MONTHLY,YEARLY}_PLAN_ID`) + pure `billing.planIdFor(tier, cycle, ids)` selecting by tier **and** cycle + the yearly-plan-id unit case. **Client (Plan B PR-B):** the buy button calls `createSubscription({plan, billing})` and **passes the chosen cycle**. So an annual buyer is now charged the yearly plan. **Remaining:** the live PayPal **sandbox e2e** (`PAYPAL_ENV=sandbox`, go-live verify). |
 | **H8** | **No React error boundary** — a render throw gives users a white page and you are never told. | ~30-line class component wrapping the tree in `main.jsx` and `admin-main.jsx`. **Skip the chunk-404 auto-reload** the naive version suggests — `sw-register.js` already reloads on SW update. |
 | **Auth polish** | Verification/reset emails have no `actionCodeSettings`, so users land on the bare Firebase handler with no way back. Default templates come from `noreply@<project>.firebaseapp.com` — the most phishing-looking thing a new user sees. | Two-line fix mirroring the correct pattern already used elsewhere; set sender name/subject/reply-to in Console → Authentication → Templates. |
 
