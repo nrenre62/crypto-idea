@@ -23,8 +23,8 @@ const TIER_RANK = { free: 0, pro: 1, premium: 2 };
 export function Login({ popup }) {
   const {
     showPlan, showWelcome, upgradeStep, setUpgradeStep, upgradeFlow, setUpgradeFlow,
-    setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user, setUser,
-    saveProfile, persistTierDev, calcEndDate, reloadPortfolios, setScreen, authMode, setAuthMode, authErr, setAuthErr,
+    setShowPlan, setShowWelcome, upgradeBilling, setUpgradeBilling, user,
+    persistTierDev, reloadPortfolios, setScreen, authMode, setAuthMode, authErr, setAuthErr,
     authName, setAuthName, authEmail, setAuthEmail, authPass, setAuthPass, handleAuth, authBusy, site,
     authAgreeTerms, setAuthAgreeTerms, authAgreePrivacy, setAuthAgreePrivacy,
     authAgreeMarketing, setAuthAgreeMarketing, planChosen, chooseFree, choosingPlan,
