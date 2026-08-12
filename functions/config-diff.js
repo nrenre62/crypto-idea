@@ -20,6 +20,7 @@ const SECRET_PATHS = new Set([
   "coingecko",          // CoinGecko API key
   "paypal.secret",      // PayPal REST secret
   "email.apiKey",       // transactional-email provider key
+  "email.smtpPass",     // ADMIN-6 PR2: DreamHost SMTP password (Settings-password reset email)
   "ai.anthropicKey",    // Anthropic key for the Wave-B AI proxy
   // ADMIN-2. A Sentry DSN is a write-only ingest URL, not a credential — but the rule
   // above is deliberately MECHANICAL (keep()-guarded ⇒ redacted), and keeping it that

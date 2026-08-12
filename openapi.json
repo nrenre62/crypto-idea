@@ -2697,6 +2697,180 @@
         ]
       }
     },
+    "/requestSettingsPwReset": {
+      "post": {
+        "operationId": "requestSettingsPwReset",
+        "summary": "Email a Settings-password reset link (ADMIN-6 PR2)",
+        "description": "Callable, owner-only. The recovery path for a forgotten Settings password. Generates a single-use token, stores it HASHED (only the sha256 is persisted; the raw token exists only in the email), and mails the link to the OWNER'S OWN verified address (`context.auth.token.email` — never a body value, so the reset can't be redirected). Fails `failed-precondition` when no Settings password is set to reset. Per-uid/day rate-limited. In dev / without SMTP configured the link is logged, not sent.",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reset link sent (or logged in dev).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument — an unexpected field was sent; OR `failed-precondition` (no Settings password is set to reset). Both map to HTTP 400.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — owners only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "resource-exhausted — too many reset requests today (per-uid daily cap).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
+    "/completeSettingsPwReset": {
+      "post": {
+        "operationId": "completeSettingsPwReset",
+        "summary": "Complete a Settings-password reset with the emailed token (ADMIN-6 PR2)",
+        "description": "Callable, owner-only. Redeems the single-use reset token (looked up by its hash) and installs the new password in one transaction, so a token can be redeemed at most once. The token is bound to the uid that requested it — a different owner can't redeem it. Fails `permission-denied` when the link is invalid, used, expired, or belongs to a different account; `invalid-argument` when the new password fails the strength floor (min 12 incl. upper+lower+number). On success a fresh ~10-min unlock is granted. The event is audited (`settingsPwResetCompleted`) but the password never is.",
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteSettingsPwResetEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reset — the new Settings password is active and the caller holds a fresh unlock.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument — the new password fails the strength floor, or an unexpected field was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated — missing, invalid, or expired ID token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "permission-denied — owners only, or the reset link is invalid / used / expired / belongs to a different account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "resource-exhausted — too many attempts today (per-uid daily cap).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
     "/paypalWebhook": {
       "post": {
         "operationId": "paypalWebhook",
@@ -3602,6 +3776,38 @@
             "additionalProperties": false
           }
         },
+        "additionalProperties": false
+      },
+      "CompleteSettingsPwResetEnvelope": {
+        "type": "object",
+        "description": "ADMIN-6 PR2: redeem an emailed Settings-password reset token and set the new password.",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[a-f0-9]*$",
+                "description": "The single-use reset token from the emailed link (hex; looked up server-side by its sha256 hash)."
+              },
+              "next": {
+                "type": "string",
+                "minLength": 12,
+                "maxLength": 200,
+                "description": "The new Settings password (sent over TLS; scrypt-hashed server-side, never stored or echoed). Server floor: min 12 incl. upper+lower+number."
+              }
+            },
+            "required": [
+              "token",
+              "next"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
         "additionalProperties": false
       },
       "UidEnvelope": {
@@ -4620,6 +4826,31 @@
                     "type": "string",
                     "maxLength": 512,
                     "pattern": "^[\\x21-\\x7E]*$"
+                  },
+                  "smtpHost": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "pattern": "^[\\x21-\\x7E]*$",
+                    "description": "ADMIN-6 PR2. DreamHost SMTP host for the Settings-password reset email."
+                  },
+                  "smtpPort": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "description": "SMTP port (defaults to 587)."
+                  },
+                  "smtpSecure": {
+                    "type": "boolean",
+                    "description": "Implicit TLS (true on port 465; STARTTLS on 587 is false)."
+                  },
+                  "smtpUser": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "pattern": "^[\\x21-\\x7E]*$"
+                  },
+                  "smtpPassSet": {
+                    "type": "boolean",
+                    "description": "ADMIN-6 PR2. Whether an SMTP password is stored — the value is NEVER returned to a client."
                   }
                 },
                 "additionalProperties": false
@@ -4788,6 +5019,34 @@
                     "type": "string",
                     "maxLength": 512,
                     "pattern": "^[\\x21-\\x7E]*$"
+                  },
+                  "smtpHost": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "pattern": "^[\\x21-\\x7E]*$",
+                    "description": "ADMIN-6 PR2. DreamHost SMTP host for the Settings-password reset email."
+                  },
+                  "smtpPort": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "description": "SMTP port (defaults to 587 when blank/invalid)."
+                  },
+                  "smtpSecure": {
+                    "type": "boolean",
+                    "description": "Implicit TLS (true on port 465; STARTTLS on 587 is false)."
+                  },
+                  "smtpUser": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "pattern": "^[\\x21-\\x7E]*$"
+                  },
+                  "smtpPass": {
+                    "type": "string",
+                    "format": "password",
+                    "maxLength": 512,
+                    "pattern": "^[\\x21-\\x7E]*$",
+                    "description": "ADMIN-6 PR2 SMTP password. keep()-guarded: blank KEEPS the stored value; never echoed back."
                   }
                 },
                 "additionalProperties": false

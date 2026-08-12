@@ -26,6 +26,8 @@ const admin = requireFromFunctions("firebase-admin");
 // admin.firestore() forms). Resolve them from functions/node_modules too.
 const { getAuth } = requireFromFunctions("firebase-admin/auth");
 const { getFirestore, FieldValue } = requireFromFunctions("firebase-admin/firestore");
+// ADMIN-6 PR2: the pure crypto core, to craft/redeem reset tokens deterministically.
+const settingsAuthMod = requireFromFunctions("./settings-auth.js");
 
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || "demo-crypto-idea";
 // `firebase emulators:exec` exports the auth/firestore hosts, but not the functions port.
@@ -655,5 +657,89 @@ test("ADMIN-6: set → same-session saveConfig works; the unlock is session-boun
     // Restore the no-password state so nothing else sees a Settings lock.
     await db.doc("config/app").set({ settingsAuth: FieldValue.delete() }, { merge: true });
     await db.doc(`settingsUnlock/${ownerUid}`).delete().catch(() => {});
+  }
+});
+
+// ── ADMIN-6 PR2 · emailed Settings-password reset — callable BODY behavior ──
+// requestSettingsPwReset + completeSettingsPwReset SHARE one per-uid/day budget (key
+// "settingsPwReset", limit 5), so each test clears that budget doc first to stay under it.
+// The raw token never leaves the server (it's emailed/logged, not returned), so the redeem
+// tests CRAFT the ledger doc directly via the pure hashToken — exactly what the server stores.
+const RESET_DAY = new Date(stamp).toISOString().slice(0, 10);
+async function clearResetBudget(uid) {
+  // request + complete use SEPARATE per-uid/day budget keys (SEC-review #2) — clear both.
+  await db.doc(`rateLimits/${uid}__settingsPwReset__${RESET_DAY}`).delete().catch(() => {});
+  await db.doc(`rateLimits/${uid}__settingsPwComplete__${RESET_DAY}`).delete().catch(() => {});
+}
+
+test("ADMIN-6 PR2: the reset callables are owner-only (a manager is refused at the body)", async () => {
+  const mgrEmail = `a6r_mgr_${stamp}@example.com`;
+  await makeUser(mgrEmail, { admin: true, role: "manager" });
+  const mgrToken = await idTokenFor(mgrEmail);
+  const r1 = await callAs("requestSettingsPwReset", mgrToken, {});
+  assert.strictEqual(r1.status, 403, `a manager must be refused requestSettingsPwReset, got ${r1.status}: ${JSON.stringify(r1.body)}`);
+  const r2 = await callAs("completeSettingsPwReset", mgrToken, { token: "x", next: "NewSettingsPw123" });
+  assert.strictEqual(r2.status, 403, `a manager must be refused completeSettingsPwReset, got ${r2.status}: ${JSON.stringify(r2.body)}`);
+});
+
+test("ADMIN-6 PR2: requestSettingsPwReset needs a password to exist, then mints a hashed uid-bound ledger doc", async () => {
+  const ownerUid = (await auth.getUserByEmail(OWNER_EMAIL)).uid;
+  const token = await idTokenFor(OWNER_EMAIL);
+  await clearResetBudget(ownerUid);
+  await db.doc("config/app").set({ settingsAuth: FieldValue.delete() }, { merge: true });
+  try {
+    // No Settings password → failed-precondition (HTTP 400).
+    const none = await callAs("requestSettingsPwReset", token, {});
+    assert.strictEqual(none.status, 400, `no Settings password → failed-precondition, got ${none.status}: ${JSON.stringify(none.body)}`);
+    // Set one, then a request succeeds and writes an unused, uid-bound ledger doc.
+    const rec = settingsAuthMod.hashPassword("SettingsPw12345");
+    await db.doc("config/app").set({ settingsAuth: { ...rec, updatedAt: Date.now(), updatedBy: ownerUid } }, { merge: true });
+    const ok = await callAs("requestSettingsPwReset", token, {});
+    assert.strictEqual(ok.status, 200, `request should succeed: ${JSON.stringify(ok.body)}`);
+    const snap = await db.collection("settingsPwReset").where("uid", "==", ownerUid).get();
+    assert.ok(snap.docs.some((d) => d.data().used === false), "an unused settingsPwReset ledger doc should exist for the owner");
+  } finally {
+    await db.doc("config/app").set({ settingsAuth: FieldValue.delete() }, { merge: true });
+    const gone = await db.collection("settingsPwReset").where("uid", "==", ownerUid).get();
+    await Promise.all(gone.docs.map((d) => d.ref.delete()));
+  }
+});
+
+test("ADMIN-6 PR2: completeSettingsPwReset redeems a token once, bound to the owner, honoring expiry", async () => {
+  const ownerUid = (await auth.getUserByEmail(OWNER_EMAIL)).uid;
+  const token = await idTokenFor(OWNER_EMAIL);
+  const NEW = "ResetSettingsPw9";
+  const rawOk = `a6r_ok_${stamp}`, rawExpired = `a6r_exp_${stamp}`, rawOther = `a6r_other_${stamp}`;
+  const mk = (raw, over) => db.doc(`settingsPwReset/${settingsAuthMod.hashToken(raw)}`).set({ uid: ownerUid, expires: Date.now() + 60000, used: false, createdAt: Date.now(), ...over });
+  await clearResetBudget(ownerUid);
+  await db.doc("config/app").set({ settingsAuth: FieldValue.delete() }, { merge: true });
+  try {
+    // A valid token installs the new password (settingsAuth set + verifies) and burns the token.
+    await mk(rawOk);
+    const done = await callAs("completeSettingsPwReset", token, { token: rawOk, next: NEW });
+    assert.strictEqual(done.status, 200, `complete should succeed: ${JSON.stringify(done.body)}`);
+    const cfg = (await db.doc("config/app").get()).data();
+    assert.ok(cfg.settingsAuth && cfg.settingsAuth.hash, "the new Settings password hash must be installed");
+    assert.ok(settingsAuthMod.verifyPassword(NEW, cfg.settingsAuth), "the installed hash must verify the new password");
+    const usedDoc = (await db.doc(`settingsPwReset/${settingsAuthMod.hashToken(rawOk)}`).get()).data();
+    assert.strictEqual(usedDoc.used, true, "the redeemed token must be marked used");
+
+    // Reusing the same token → refused (single-use).
+    const reuse = await callAs("completeSettingsPwReset", token, { token: rawOk, next: NEW });
+    assert.strictEqual(reuse.status, 403, `a used token must be refused, got ${reuse.status}: ${JSON.stringify(reuse.body)}`);
+    // An expired token → refused.
+    await mk(rawExpired, { expires: Date.now() - 1000 });
+    const expired = await callAs("completeSettingsPwReset", token, { token: rawExpired, next: NEW });
+    assert.strictEqual(expired.status, 403, `an expired token must be refused, got ${expired.status}: ${JSON.stringify(expired.body)}`);
+    // A token bound to a DIFFERENT uid → refused.
+    await mk(rawOther, { uid: "someone-else" });
+    const other = await callAs("completeSettingsPwReset", token, { token: rawOther, next: NEW });
+    assert.strictEqual(other.status, 403, `a token bound to another uid must be refused, got ${other.status}: ${JSON.stringify(other.body)}`);
+  } finally {
+    await db.doc("config/app").set({ settingsAuth: FieldValue.delete() }, { merge: true });
+    await db.doc(`settingsUnlock/${ownerUid}`).delete().catch(() => {});
+    for (const raw of [rawOk, rawExpired, rawOther]) {
+      await db.doc(`settingsPwReset/${settingsAuthMod.hashToken(raw)}`).delete().catch(() => {});
+    }
   }
 });

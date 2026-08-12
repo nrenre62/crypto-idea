@@ -76,6 +76,10 @@ vi.mock("../../src/api/admin.js", () => ({
   // the unlock/save handlers (the ADMIN-2/ADMIN-4 mock-gap lesson).
   setSettingsPassword: vi.fn(() => Promise.resolve()),
   unlockSettings: vi.fn(() => Promise.resolve({ success: true, until: 1_700_000_600_000 })),
+  // ADMIN-6 PR2: emailed Settings-password reset. The hook imports both, so a missing mock
+  // would leave the wrapper undefined and crash the request/complete handlers.
+  requestSettingsPwReset: vi.fn(() => Promise.resolve({ success: true })),
+  completeSettingsPwReset: vi.fn(() => Promise.resolve({ success: true })),
 }));
 
 // ADMIN-SEC: the dashboard now resolves its own role from the verified custom claims.
@@ -87,7 +91,7 @@ vi.mock("../../src/api/admin-auth.js", () => ({
 }));
 
 import AdminDashboard, { JOB_META } from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser, setSettingsPassword, unlockSettings } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser, setSettingsPassword, unlockSettings, requestSettingsPwReset, completeSettingsPwReset } from "../../src/api/admin.js";
 import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
 describe("admin-dashboard", () => {
@@ -380,6 +384,17 @@ describe("admin-dashboard", () => {
     await screen.findByText(/Signed in as a/);
     expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Settings password/ })).toBeNull();
+  });
+
+  it("ADMIN-6 PR2: with a Settings password set, the owner can email themselves a reset link", async () => {
+    // A password IS set (settingsAuth.set) → the "Email me a reset link" button shows.
+    getAdminConfig.mockResolvedValueOnce({ settingsAuth: { set: true, updatedAt: 1 } });
+    render(<AdminDashboard />);   // default role = owner
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Settings password/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Email me a reset link" }));
+    await waitFor(() => expect(requestSettingsPwReset).toHaveBeenCalled());
+    expect(await screen.findByText(/Check your admin email/i)).toBeInTheDocument();
   });
 
   it("R31-5: Delete account → type DELETE → move to trash (never a hard delete from the card)", async () => {

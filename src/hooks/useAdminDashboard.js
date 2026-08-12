@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getStats, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser, viewUserAsAdmin, getUserNote, saveUserNote, setSettingsPassword, unlockSettings } from "../api/admin.js";
+import { getStats, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, lookupUser, setUserTier, setPremiumLimits, suspendUser, deleteUser, restoreUser, getAdminConfig, saveConfig as saveConfigFn, setManagerRole, adminTrashUser, adminSignOutUser, viewUserAsAdmin, getUserNote, saveUserNote, setSettingsPassword, unlockSettings, requestSettingsPwReset } from "../api/admin.js";
 import { getAdminRole, reauthAdmin } from "../api/admin-auth.js";
 // ADMIN-5: per-operator saved Users-tab filter presets (localStorage, pure util).
 import { loadViews, persistViews, addView, removeView } from "../utils/admin-views.js";
@@ -154,10 +154,14 @@ export function useAdminDashboard() {
 
   // Settings forms (saved via the admin-only saveConfig Cloud Function).
   const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "", anthropicKey: "", sentryDsn: "" });
-  const [mail, setMail] = useState({ provider: "none", apiKey: "", apiUrl: "", fromEmail: "", listId: "" });
+  // ADMIN-6 PR2: the SMTP fields (smtpHost/smtpPort/smtpSecure/smtpUser/smtpPass) power the
+  // DreamHost transactional send that emails the Settings-password reset link. They ride the
+  // same `email: mail` save path — smtpPass is a secret (blank keeps the saved value, mirrored
+  // by setFlags.smtpPass exactly like the provider apiKey).
+  const [mail, setMail] = useState({ provider: "none", apiKey: "", apiUrl: "", fromEmail: "", listId: "", smtpHost: "", smtpPort: 587, smtpSecure: false, smtpUser: "", smtpPass: "" });
   const [savedMsg, setSavedMsg] = useState("");
   // Which secrets are already saved (so the form shows "saved" without exposing them).
-  const [setFlags, setSetFlags] = useState({ coingecko: false, paypalSecret: false, apiKey: false, anthropicKey: false, sentryDsn: false });
+  const [setFlags, setSetFlags] = useState({ coingecko: false, paypalSecret: false, apiKey: false, smtpPass: false, anthropicKey: false, sentryDsn: false });
   const [cfgAt, setCfgAt] = useState(null);
   // Public app controls (maintenance mode, signups on/off) + the ADMIN-2 per-feature
   // kill-switches. `features` lives INSIDE controls because every saveConfig call sends
@@ -205,8 +209,11 @@ export function useAdminDashboard() {
       const d = await withUnlock(() => getAdminConfig());
       if (!d || d === CANCELLED) return;
       setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "", anthropicKey: "", sentryDsn: "" });
-      setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "" });
-      setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet), anthropicKey: !!(d.ai && d.ai.anthropicKeySet), sentryDsn: !!(d.sentry && d.sentry.dsnSet) });
+      setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "",
+        // ADMIN-6 PR2: DreamHost SMTP for the reset email. smtpPass is a secret — never
+        // returned, so it stays blank; setFlags.smtpPass below carries the "saved" flag.
+        smtpHost: d.email?.smtpHost || "", smtpPort: (d.email && d.email.smtpPort != null) ? d.email.smtpPort : 587, smtpSecure: !!(d.email && d.email.smtpSecure), smtpUser: d.email?.smtpUser || "", smtpPass: "" });
+      setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet), smtpPass: !!(d.email && d.email.smtpPassSet), anthropicKey: !!(d.ai && d.ai.anthropicKeySet), sentryDsn: !!(d.sentry && d.sentry.dsnSet) });
       const ff = (d.flags && d.flags.features) || {};
       setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false),
         // CRYP-101: ON unless the server says exactly false — a missing key reads as
@@ -252,6 +259,18 @@ export function useAdminDashboard() {
       setBusy(false);
       setSettingsPwMsg((e && e.message) || "Could not save the Settings password.");
       return false;
+    }
+  };
+  // ADMIN-6 PR2: email the owner a single-use reset link (to their own account email).
+  // The token is bound server-side to the caller's uid, so the recipient still has to be
+  // signed in as the owner to complete it. Reuses settingsPwMsg for the status line.
+  const requestSettingsResetLink = async () => {
+    setSettingsPwMsg("");
+    try {
+      await requestSettingsPwReset();
+      setSettingsPwMsg("Check your admin email for a reset link (valid ~45 minutes).");
+    } catch (e) {
+      setSettingsPwMsg((e && e.message) || "Could not send the reset email.");
     }
   };
   const saveConfig = async () => {
@@ -689,8 +708,8 @@ export function useAdminDashboard() {
     controls, setControls, analytics, setAnalytics, legal, setLegal, plans, setPlans,
     // ADMIN-5 — announcement banner draft.
     announcement, setAnnouncement,
-    // ADMIN-6 — the owner-only Settings password (set/change).
-    settingsPwSet, settingsPwAt, settingsPwMsg, setSettingsPwMsg, saveSettingsPassword,
+    // ADMIN-6 — the owner-only Settings password (set/change) + PR2 emailed reset.
+    settingsPwSet, settingsPwAt, settingsPwMsg, setSettingsPwMsg, saveSettingsPassword, requestSettingsResetLink,
     lookupEmail, setLookupEmail, found, setFound, lookupMsg, setLookupMsg, actionMsg, setActionMsg,
     confirmDelete, setConfirmDelete, busy, setBusy,
     confirmTrash, setConfirmTrash, confirmEmpty, setConfirmEmpty,
