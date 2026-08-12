@@ -123,9 +123,12 @@ Pro action hits `permission-denied` from the rules. The entire hardened billing 
   webhook set the tier **server-side**. Never `setUser({tier})` locally again. Same for
   `confirmDowngrade` / `finalizeDowngrade`, which also only touch localStorage. Then H6 below.
 
-⚠️ **Path B has no sandbox.** `PAYPAL_BASE` is hardcoded to `https://api-m.paypal.com` with no
-sandbox branch, so the mandatory end-to-end test is a **real charge on your own card** that you
-refund by hand. Budget for it.
+✅ **PayPal sandbox is now available (Plan B PR-A).** `PAYPAL_ENV=sandbox` switches the API base to
+`https://api-m.sandbox.paypal.com` (default `live`) via pure `billing.paypalBaseFor(env)`, so the
+mandatory end-to-end test can run against sandbox instead of a **real charge on your own card**.
+⚠️ One caveat before trusting it — see the §4 backlog note: `getPayPalToken`/`verifyPayPalWebhook`
+prefer the `config/app` doc's PayPal creds over env, so live creds in the config doc could still
+override a sandbox env. Verify creds source before the sandbox e2e.
 
 ### B5 · Privacy Policy and Terms are unpublished placeholders
 Both pages say the document "is being finalized" and the Termly embed bails silently when the doc ID
@@ -156,7 +159,7 @@ versions on login, so the re-acceptance mechanism is inert.
 | **H1** | **App Check is decoration.** `appCheckOk` exists, is unit-tested, and has **zero call sites**. | Enable enforcement in the **Console only** — for v1 callables it applies platform-side before your handler runs. **Do NOT wire `appCheckOk` into the callables**; it is redundant and adds a second lockout surface. **Order matters:** set `VITE_RECAPTCHA_SITE_KEY` → build → deploy → watch "unverified" fall to ~0 → *then* enforce. Reversed, you lock out 100% of users. |
 | **H4** | **PayPal webhook failures are invisible** — a wrong `PAYPAL_WEBHOOK_ID` makes 100% of events 401 silently, and the ID differs between sandbox and live. | Covered by the H3 alert below. Plus: after deploy use "Send test event" and confirm a doc lands in `webhookEvents`. |
 | **H3-alert** | The Phase-0 rethrow makes failures *visible*; nothing yet *tells you*. | One Cloud Logging alert: `resource.labels.function_name=("refreshPrices" OR "refreshUniverseDaily" OR "purgeOldAudit" OR "purgeExpiredTrash" OR "enforceSubscriptionPeriods" OR "paypalWebhook") AND severity>=ERROR`. Uses platform labels, not log text, so it cannot rot. |
-| **H6** | **Yearly and monthly checkout send the same PayPal plan ID**, while the UI sells two prices and revenue is booked as `priceYear/12`. Annual buyers get billed monthly. | **Path B only.** Four plans, select by tier **and** cycle, plus a yearly-plan-id unit case. |
+| **H6** | **Yearly and monthly checkout send the same PayPal plan ID**, while the UI sells two prices and revenue is booked as `priceYear/12`. Annual buyers get billed monthly. | **CODE HALF DONE (Plan B PR-A):** four plan IDs (`PAYPAL_{PRO,PREMIUM}_{MONTHLY,YEARLY}_PLAN_ID`), pure `billing.planIdFor(tier, cycle, ids)` selecting by tier **and** cycle, and the yearly-plan-id unit case all exist. **Remaining:** the client checkout wiring (Path B / B4) that passes the chosen cycle into `createSubscription`. |
 | **H8** | **No React error boundary** — a render throw gives users a white page and you are never told. | ~30-line class component wrapping the tree in `main.jsx` and `admin-main.jsx`. **Skip the chunk-404 auto-reload** the naive version suggests — `sw-register.js` already reloads on SW update. |
 | **Auth polish** | Verification/reset emails have no `actionCodeSettings`, so users land on the bare Firebase handler with no way back. Default templates come from `noreply@<project>.firebaseapp.com` — the most phishing-looking thing a new user sees. | Two-line fix mirroring the correct pattern already used elsewhere; set sender name/subject/reply-to in Console → Authentication → Templates. |
 
@@ -216,9 +219,12 @@ the new `.githooks/pre-push` hook uses.
 - `days=max` is gated on the **env var** `CG_KEY` while `cgHeaders()` prefers the admin-Settings
   value — so pasting the CoinGecko key into Settings lifts rate limits but leaves DCA history
   silently clamped to 365 days. **Put the key in `functions/.env`.** (`.env.example` now says so.)
-- No sandbox path for PayPal. Env-izing `PAYPAL_BASE` is not a one-liner: the token and webhook
-  helpers prefer the Firestore config doc over env, so a live `config/app` would silently override
-  sandbox creds. Needs a separate staging project.
+- PayPal sandbox base URL: **DONE (Plan B PR-A)** — `PAYPAL_ENV=sandbox` selects
+  `https://api-m.sandbox.paypal.com` via pure `billing.paypalBaseFor(env)` (default `live`). Residual
+  caveat: `getPayPalToken`/`verifyPayPalWebhook` still **prefer the `config/app` doc's PayPal creds
+  over env**, so live client/secret in the config doc would override a sandbox env and you'd hit live
+  with a sandbox base URL. Before a sandbox e2e, verify the creds source (clear the config-doc PayPal
+  creds or use a separate staging project) so both base URL **and** creds are sandbox.
 - "No refunds" is unenforceable against EU/UK consumers — soften to "…except where required by law"
   at **four** sites (one is a hardcoded literal outside the shared `REFUND` const — easy to miss).
 - Do not set the GA4 ID unless `termlyUuid` is set **and** the cookie banner is on — the auto-blocker

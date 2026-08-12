@@ -104,7 +104,7 @@ wins in a conflict) is **bold**.
 - Code: `functions/index.js` (`aiMonthlyCents` in `DEFAULT_PLANS`) · `functions/guards.js` (`consumeDailyBudget`)
 
 ### Billing / PayPal (subscription lifecycle, webhook)
-- Docs: **[`BILLING.md`](decisions/BILLING.md)** · [`PRICING.md`](decisions/PRICING.md) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) D5/D6 · `openapi.json`
+- Docs: **[`BILLING.md`](decisions/BILLING.md)** · [`PRICING.md`](decisions/PRICING.md) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) D5/D6 · [`GO-LIVE-AUDIT.md`](product/GO-LIVE-AUDIT.md) · [`NEXT-STEPS.md`](product/NEXT-STEPS.md) §4 · `openapi.json` · `functions/.env.example` (PayPal deploy env-var contract: plan IDs + `PAYPAL_ENV`)
 - Code: `functions/index.js` (PayPal section) · `functions/billing.js` · `functions/guards.js` (cooldown) · `src/components/Login.jsx` + `src/hooks/useUpgrade.js` (upgrade/downgrade UI) · `firestore.rules` (subscription/tier server-only)
 
 ### User settings / account (profile, security, GDPR)

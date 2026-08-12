@@ -3315,7 +3315,11 @@ idle before believing it.
 **Phase 2 — secrets & build**
 - [ ] Fill `.env` with the six `VITE_FIREBASE_*` values (the deploy guard now enforces this).
 - [ ] Fill `functions/.env`: `APP_URL`, `COINGECKO_DEMO_KEY` (**env var, not admin Settings** — only
-      the env var unlocks `days=max` history), and PayPal plan IDs if launching paid tiers.
+      the env var unlocks `days=max` history), and if launching paid tiers the four PayPal plan IDs
+      (`PAYPAL_PRO_MONTHLY_PLAN_ID`, `PAYPAL_PRO_YEARLY_PLAN_ID`, `PAYPAL_PREMIUM_MONTHLY_PLAN_ID`,
+      `PAYPAL_PREMIUM_YEARLY_PLAN_ID` — legacy `PAYPAL_PLAN_ID`/`PAYPAL_PREMIUM_PLAN_ID` remain the
+      monthly fallback) plus `PAYPAL_ENV=sandbox|live` (default `live`; set `sandbox` to run the
+      now-reachable sandbox→live e2e before charging a live card).
 
 **Phase 3 — deploy**
 - [ ] Rules + storage first, then `functions:api,paypalWebhook`, then everything.
