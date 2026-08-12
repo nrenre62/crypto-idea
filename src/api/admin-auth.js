@@ -7,7 +7,7 @@
  * dashboard's data access goes through `api/admin.js`, whose callables run on the
  * admin app's Functions instance and carry the admin's own token.
  */
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from "firebase/auth";
 import { adminAuth } from "./firebase.admin.config.js";
 
 // The admin's live Auth object (email shown in the header, current-user checks).
@@ -71,6 +71,35 @@ export async function reauthAdmin(password) {
     return { success: true };
   } catch (error) {
     return { success: false, error: adminErrorMessage(error.code) };
+  }
+}
+
+/**
+ * ADMIN-6 PR3 — reset the admin LOGIN password (NOT the Settings password).
+ *
+ * Works for BOTH owner and manager — it's Firebase-native, so it actually mails a reset
+ * link to ANY registered account with that address. That is fine: resetting a login
+ * password never grants admin (the `{admin:true}` claim is separate and unaffected).
+ *
+ * NO ENUMERATION: we must never let the /admin page reveal which addresses are admins.
+ * Firebase's own email-enumeration protection already makes sendPasswordResetEmail
+ * silent for an unknown address; we additionally swallow an explicit `user-not-found`
+ * and report the SAME generic success, so the caller can only ever show "if that email
+ * has an account, a link is on its way." Runs on the isolated `adminAuth` instance, and
+ * `continueUrl` lands the user back on /admin after they reset.
+ */
+export async function adminResetPassword(email) {
+  const clean = (email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return { success: false, error: "Enter a valid email address" };
+  const origin = (typeof window !== "undefined" && window.location) ? window.location.origin : "";
+  const actionCodeSettings = origin ? { url: origin + "/admin" } : undefined;
+  try {
+    await sendPasswordResetEmail(adminAuth, clean, actionCodeSettings);
+    return { success: true };
+  } catch (error) {
+    // Report a not-found the SAME as success — never leak which emails exist/are admins.
+    if (error && error.code === "auth/user-not-found") return { success: true };
+    return { success: false, error: adminErrorMessage(error && error.code) };
   }
 }
 

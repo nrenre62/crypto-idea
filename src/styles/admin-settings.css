@@ -549,3 +549,6 @@
 .ci-app .adm-auth-err { padding:10px; background:var(--sr-s); color:var(--sr); border-radius:10px; font-size:12px; text-align:center; }
 .ci-app .adm-auth-denied { padding:10px; background:color-mix(in srgb,var(--amber) 12%,#fff); border:1px solid color-mix(in srgb,var(--amber) 40%,transparent); color:#8a6414; border-radius:10px; font-size:12px; text-align:center; line-height:1.5; }
 .ci-app .adm-auth-loading { color:var(--ink-faint); font-size:14px; }
+/* ADMIN-6 PR3: the "Forgot password?" / "Back to sign in" text links on the login screen. */
+.ci-app .adm-auth-link { background:none; border:none; color:var(--accent,#0a6b4d); font-family:var(--body); font-size:13px; font-weight:600; cursor:pointer; padding:4px; text-align:center; }
+.ci-app .adm-auth-link:hover { text-decoration:underline; }

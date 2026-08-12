@@ -1137,7 +1137,7 @@ users untouched; Starter tag; reversible).
 >   (service-account lockout escape hatch). Security-review hardening folded in: the unlock is **bound to the
 >   login session's `auth_time`**, the change-path shares the unlock rate-limit, the `hasPw` gate reads config
 >   **fresh**, and successful unlocks are audited.
-> - **PR2 — emailed reset (piece #6, BUILT, branch `claude/admin-6-email-reset`):** `functions/sendMail.js`
+> - **PR2 — emailed reset (piece #6, MERGED, PR #69, squash `abc4d5f`):** `functions/sendMail.js`
 >   seam (pure `smtpConfigOf` + `sendMail` — dev/emulator logs the link, prod lazy-requires **nodemailer** and
 >   sends via **DreamHost SMTP**) · `requestSettingsPwReset` (mails a single-use HASHED token to the owner's
 >   OWN verified email — no body address, so no redirection) + `completeSettingsPwReset` (transactional
@@ -1146,10 +1146,14 @@ users untouched; Starter tag; reversible).
 >   `smtpPassSet`) · an "Email me a reset link" button on the Settings-password screen · owner-only reset page
 >   `SettingsPwReset.jsx` at `?reset=<token>` on `admin.html` (~45-min link, owner signed-in) · openapi +
 >   sendMail/gate-coverage/config-diff/audit-labels unit tests + reset-flow integration tests (CI tier).
-> - **PR3 — admin login "Forgot password?" (founder addition 2026-08-12):** a login-page reset for BOTH
->   owner AND manager via Firebase-native `sendPasswordResetEmail` (recovers the LOGIN password, not the
->   Settings password; zero SMTP, email-matches, reveals nothing). This is the flow the founder described.
-> TTLs confirmed safe by founder: **10-min** unlock, **45-min** reset link.
+> - **PR3 — admin login "Forgot password?" (BUILT, branch `claude/admin-login-forgot-password`):** a
+>   login-page reset for BOTH owner AND manager via Firebase-native `sendPasswordResetEmail` on the
+>   isolated `adminAuth` instance (recovers the LOGIN password, not the Settings password; zero SMTP;
+>   `continueUrl` → `/admin`). `src/api/admin-auth.js` `adminResetPassword` (lower-cases, swallows
+>   `user-not-found` → generic success so the page **can't enumerate** which emails are admins) + a
+>   "Forgot password?" sub-view on the `admin-main.jsx` login screen + one `.adm-auth-link` class. This is
+>   the flow the founder described. Unit-tested (`tests/unit/admin-auth.test.js`).
+> TTLs confirmed safe by founder: **10-min** unlock, **45-min** reset link. **All 3 PRs complete when PR3 merges.**
 
 Founder ask (2026-08-01): add a **dedicated password for the admin Settings area** — a second lock,
 separate from the admin login password. The "Confirm your password" popup that guards Settings should

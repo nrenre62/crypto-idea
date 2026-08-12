@@ -20,7 +20,7 @@ import "./styles/admin-settings.css";
 // R31-1: the admin app authenticates on its OWN named Firebase instance (adminAuth),
 // isolated from the user app's session — signing in/out here can never end a user's
 // session in another tab (fixes ERRORS §A5). See api/firebase.admin.config.js.
-import { onAdminAuthChange, adminLogin, adminLogout, adminAuth } from "./api/admin-auth.js";
+import { onAdminAuthChange, adminLogin, adminLogout, adminAuth, adminResetPassword } from "./api/admin-auth.js";
 import AdminDashboard from "./components/admin-dashboard.jsx";
 import SettingsPwReset from "./components/SettingsPwReset.jsx"; // ADMIN-6 PR2: emailed reset page
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx"; // H8: no white screen on a render throw
@@ -36,6 +36,9 @@ function AdminApp() {
   const [pass, setPass] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  // ADMIN-6 PR3: the login-page "Forgot password?" reset sub-view (LOGIN password, both roles).
+  const [resetMode, setResetMode] = useState(false);
+  const [resetMsg, setResetMsg] = useState("");
 
   useEffect(() => onAdminAuthChange(async (user) => {
     if (!user) { setPhase("login"); return; }
@@ -60,6 +63,18 @@ function AdminApp() {
   };
 
   const signOut = async () => { setErr(""); await adminLogout(); setPhase("login"); };
+
+  // ADMIN-6 PR3: email a LOGIN-password reset link (owner OR manager). The message is
+  // GENERIC either way — the flow never reveals whether the address is an admin.
+  const sendReset = async (e) => {
+    e.preventDefault();
+    setResetMsg(""); setBusy(true);
+    const res = await adminResetPassword(email);
+    setBusy(false);
+    setResetMsg(res.success
+      ? "If that email has an admin account, a password-reset link is on its way. Check your inbox (and spam)."
+      : (res.error || "Could not send the reset email."));
+  };
 
   if (phase === "loading") return (
     <div className="ci-app adm-auth-wrap">
@@ -107,6 +122,22 @@ function AdminApp() {
     );
   }
 
+  // ADMIN-6 PR3: the "Forgot password?" reset sub-view (LOGIN password — owner OR manager).
+  if (resetMode) {
+    return (
+      <div className="ci-app adm-auth-wrap">
+        <form onSubmit={sendReset} className="adm-auth-card">
+          {logo}
+          <div className="adm-auth-denied">Enter your admin email — we'll send a link to reset your sign-in password.</div>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@email.com" autoComplete="email" inputMode="email" className="field-input" />
+          {resetMsg && <div className="adm-auth-denied">{resetMsg}</div>}
+          <button type="submit" disabled={busy} className="adm-auth-btn">{busy ? "Sending…" : "Send reset link"}</button>
+          <button type="button" className="adm-auth-link" onClick={() => { setResetMode(false); setResetMsg(""); }}>Back to sign in</button>
+        </form>
+      </div>
+    );
+  }
+
   // login
   return (
     <div className="ci-app adm-auth-wrap">
@@ -116,6 +147,7 @@ function AdminApp() {
         <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Password" autoComplete="current-password" className="field-input" />
         {err && <div className="adm-auth-err">{err}</div>}
         <button type="submit" disabled={busy} className="adm-auth-btn">{busy ? "Signing in…" : "Sign in"}</button>
+        <button type="button" className="adm-auth-link" onClick={() => { setResetMode(true); setErr(""); setResetMsg(""); }}>Forgot password?</button>
       </form>
     </div>
   );
