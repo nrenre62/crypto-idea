@@ -63,6 +63,11 @@ const MATRIX = {
   // Owner-only (managers have no Settings screen); the unlock factor is enforced inside.
   setSettingsPassword: "assertOwner",
   unlockSettings: "assertOwner",
+  // ADMIN-6 PR2: emailed Settings-password reset — request a link (owner's own email) and
+  // complete it with a single-use token. Owner-only; the owner must be signed in (the token
+  // is bound to their uid), so a leaked link alone can't reset the password.
+  requestSettingsPwReset: "assertOwner",
+  completeSettingsPwReset: "assertOwner",
   // owner only + step-up re-auth
   setManagerRole: "assertFreshOwner",
 };
