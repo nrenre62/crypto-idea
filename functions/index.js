@@ -46,6 +46,7 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 // and the pure PayPal-billing decision logic — both dependency-injected + unit-tested.
 const { checkCooldown, consumeDailyBudget } = require("./guards.js");
 const guards = require("./guards.js");   // ADMIN-SEC role gates (requireOwner/requireFreshAuth/roleOf)
+const settingsAuth = require("./settings-auth.js");   // ADMIN-6 Settings-password crypto core
 const billing = require("./billing.js");
 // C-R2b (C14): trim the universe's lowest-rank tail instead of hitting the 1 MiB doc cap.
 const { trimUniverse } = require("./universe-utils.js");
@@ -131,6 +132,12 @@ function denied(reason) {
     // wrong instead of looping them through a control that can never succeed.
     return new functions.https.HttpsError("failed-precondition", "mfa-required: this admin account must sign in with two-factor authentication.");
   }
+  if (reason === "settings-locked") {
+    // ADMIN-6. A distinct code from reauth-required: the client re-prompts for the
+    // SETTINGS password (not the login password), so the two must not be confused —
+    // exactly the reauth/mfa split above, for the same reason.
+    return new functions.https.HttpsError("failed-precondition", "settings-locked: enter your Settings password to continue.");
+  }
   return new functions.https.HttpsError("permission-denied", "Admins only.");
 }
 
@@ -172,6 +179,55 @@ async function assertFreshOwner(context) {
   const d = guards.requireFreshAuth(context, { enforce });
   if (!d.ok) throw denied(d.reason);
   return role;
+}
+
+// ADMIN-6: the Settings-password unlock gate — the SECOND lock on the owner-only
+// Settings screen, layered on top of assertOwner (call assertOwner FIRST). The unlock
+// is SERVER-tracked in a server-only settingsUnlock/{uid} doc (read directly, NOT via
+// getConfig's 5-min cache — an unlock must take effect and expire promptly), so the
+// client's countdown is UX only and can't grant access on its own.
+//
+// Bootstrap (chicken-and-egg): until a Settings password is SET (config/app.settingsAuth
+// absent), there is nothing to unlock with — so we fall back to the pre-ADMIN-6 control,
+// step-up login re-auth (respecting the same stepUpReauth console flag). Once a password
+// exists, an owner without a live unlock gets `settings-locked` and the client prompts for
+// the Settings password. The `clear-settings-password.js` service-account script deletes
+// settingsAuth to force this bootstrap path back on — the lockout escape hatch.
+async function assertSettingsUnlocked(context) {
+  const cfg = await readConfigFresh();
+  const hasPw = !!(cfg.settingsAuth && cfg.settingsAuth.hash);
+  if (!hasPw) {
+    // No Settings password yet → keep the app recoverable via login step-up.
+    const enforce = !(cfg.flags && cfg.flags.stepUpReauth === false);
+    const d = guards.requireFreshAuth(context, { enforce });
+    if (!d.ok) throw denied(d.reason);
+    return;
+  }
+  // Settings password IS set → require a LIVE unlock that is bound to THIS login session.
+  // Binding to the token's auth_time (SEC-review #1) is what stops a stolen token from a
+  // DIFFERENT or older session from riding the owner's active uid-scoped unlock — without
+  // it, the moment the real owner unlocks, any owner token for that uid would pass, which
+  // is weaker than the assertFreshOwner this replaced. The client timer stays UX-only; the
+  // doc is server-only (firestore.rules).
+  const uid = context.auth.uid;
+  const authTime = Number(context.auth.token && context.auth.token.auth_time) || 0;
+  let until = 0, boundAuth = null;
+  try {
+    const s = await db.doc(`settingsUnlock/${uid}`).get();
+    if (s.exists) { until = Number(s.data().until) || 0; boundAuth = s.data().authTime; }
+  } catch (e) { /* unreadable unlock doc → locked (fail closed) */ }
+  const sessionBound = authTime > 0 && Number(boundAuth) === authTime;
+  if (!(until > Date.now() && sessionBound)) throw denied("settings-locked");
+}
+
+// ADMIN-6: read config/app FRESH for an AUTHORIZATION decision (the Settings-password
+// gate / verify), bypassing getConfig's 5-min cache so a just-set password — or a
+// clear-settings-password recovery from a separate process — can't lag the gate
+// (SEC-review #3). Falls back to the cache ONLY on a transient read error, so a Firestore
+// blip degrades to availability rather than a false lockout.
+async function readConfigFresh() {
+  try { const s = await db.doc("config/app").get(); return (s.exists && s.data()) || {}; }
+  catch (e) { return await getConfig(); }
 }
 
 // Deny-by-default input shape: reject a callable whose `data` carries any top-level
@@ -1761,7 +1817,9 @@ exports.getSystemStatus = functions.https.onCall(async (data, context) => {
 // Secrets are NOT returned in full — only whether each is set — so the admin can
 // see what's configured and replace it without the secret reaching the client.
 exports.getAdminConfig = functions.https.onCall(async (data, context) => {
-  const callerRole = await assertFreshOwner(context);
+  // ADMIN-6: owner + the Settings-password unlock (replaces the step-up re-auth gate).
+  const callerRole = await assertOwner(context);
+  await assertSettingsUnlocked(context);
   assertNoUnknownKeys(data, []);
   let cfg = {};
   try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* ignore */ }
@@ -1782,6 +1840,9 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
     // BL-2d (D10): the reserved AI section — the key itself never leaves the server.
     ai: { anthropicKeySet: !!(cfg.ai && cfg.ai.anthropicKey) },
+    // ADMIN-6: whether a Settings password is set (drives set-vs-change UI). The
+    // scrypt hash/salt NEVER leave the server — only this boolean + when it changed.
+    settingsAuth: { set: !!(cfg.settingsAuth && cfg.settingsAuth.hash), updatedAt: (cfg.settingsAuth && cfg.settingsAuth.updatedAt) || null },
     // ADMIN-5: the announcement-banner draft so the Settings form pre-fills. Unlike
     // /api/config (which hides an inactive one), the owner form always sees it.
     announcement: announce.sanitize(cfg.announcement),
@@ -1794,7 +1855,9 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
 // to the LOCKED config/app Firestore doc that the proxy + PayPal functions read.
 // Clients can never read this doc (firestore.rules deny all access to /config).
 exports.saveConfig = functions.https.onCall(async (data, context) => {
-  const callerRole = await assertFreshOwner(context);
+  // ADMIN-6: owner + the Settings-password unlock (replaces the step-up re-auth gate).
+  const callerRole = await assertOwner(context);
+  await assertSettingsUnlocked(context);
   assertNoUnknownKeys(data, ["keys", "email", "flags", "analytics", "legal", "plans", "announcement"]);
   const k = (data && data.keys) || {};
   const m = (data && data.email) || {};
@@ -1859,6 +1922,10 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
     announcement: announce.cleanAnnouncement(data && data.announcement, existing.announcement),
     updatedAt: Date.now(),
   };
+  // ADMIN-6: settingsAuth is deliberately NOT written here — it is owned by the
+  // set/change/reset callables. The set() below is {merge:true} and cfg omits the
+  // key, so the stored Settings-password record is preserved untouched (and stays out
+  // of this save's audit diff, which is correct — password changes audit separately).
   // ADMIN-3: record WHAT changed, not just that a save happened, so a bad edit can be
   // inspected (and reversed by hand) from the audit log. `existing` was already read
   // above for the keep() idiom, so this costs no extra read. Secret VALUES never reach
@@ -1869,6 +1936,98 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   _features = null; // ADMIN-2: ditto for the switches — a flip must not wait out its own TTL
   await writeAudit(context, "saveConfig", { details: changeSummary });
   return { success: true };
+});
+
+// ─── ADMIN-6: set / change the Settings password (owner only) ───
+// The SECOND lock on the owner-only Settings screen. To CHANGE an existing password
+// the caller must prove control — a live unlock OR the current password. To SET the
+// FIRST one (bootstrap) they must have a recent login re-auth (assertFreshOwner's
+// control), so a hijacked-but-stale session can't silently install a Settings lock and
+// wall the real owner out. The plaintext is hashed with scrypt and NEVER stored/echoed.
+exports.setSettingsPassword = functions.https.onCall(async (data, context) => {
+  await assertOwner(context);
+  assertNoUnknownKeys(data, ["current", "next"]);
+  const uid = context.auth.uid;
+  const authTime = Number(context.auth.token && context.auth.token.auth_time) || 0;
+  const next = (data && data.next) || "";
+  const cfg = await readConfigFresh();
+  const existingRec = (cfg.settingsAuth) || null;
+  const hasPw = !!(existingRec && existingRec.hash);
+
+  if (hasPw) {
+    // Changing an existing password: a SESSION-BOUND live unlock (same rule as
+    // assertSettingsUnlocked — a stale/stolen token must not ride a uid-scoped unlock,
+    // SEC-review #1) OR the correct current password.
+    let unlocked = false;
+    try {
+      const s = await db.doc(`settingsUnlock/${uid}`).get();
+      unlocked = s.exists && Number(s.data().until) > Date.now() && authTime > 0 && Number(s.data().authTime) === authTime;
+    } catch (e) { /* treat unreadable as not-unlocked */ }
+    if (!unlocked) {
+      // Verifying the current password is a guessing / scrypt-CPU oracle. Bound it with the
+      // SAME per-uid daily budget as unlockSettings, so guesses can't be split across the
+      // two endpoints to double the budget (SEC-review #2). A denied budget consumes nothing.
+      const budget = await consumeDailyBudget(db, { uid, key: "settingsUnlock", limit: 30 });
+      if (!budget.allowed) {
+        throw new functions.https.HttpsError("resource-exhausted", "Too many attempts today. Try again tomorrow.");
+      }
+      if (!settingsAuth.verifyPassword((data && data.current) || "", existingRec)) {
+        throw new functions.https.HttpsError("permission-denied", "Enter your current Settings password to change it.");
+      }
+    }
+  } else {
+    // First-time set: require a recent login re-auth (same control as step-up Settings).
+    const enforce = !(cfg.flags && cfg.flags.stepUpReauth === false);
+    const d = guards.requireFreshAuth(context, { enforce });
+    if (!d.ok) throw denied(d.reason);
+  }
+
+  const strength = settingsAuth.checkStrength(next);
+  if (!strength.ok) throw new functions.https.HttpsError("invalid-argument", strength.reason);
+
+  const rec = settingsAuth.hashPassword(next);
+  await db.doc("config/app").set(
+    { settingsAuth: { ...rec, updatedAt: Date.now(), updatedBy: uid } },
+    { merge: true },
+  );
+  _cfg = null; // the unlock gate reads settingsAuth — don't serve a stale "no password" view
+  // The caller just proved control, so grant a fresh session-bound unlock — no immediate
+  // re-prompt. Bound to this token's auth_time so only this login session can use it.
+  await db.doc(`settingsUnlock/${uid}`).set({ until: Date.now() + settingsAuth.UNLOCK_MS, at: Date.now(), authTime });
+  // Audit the fact, never the password (details is "set" or "changed" only).
+  await writeAudit(context, "setSettingsPassword", { details: hasPw ? "changed" : "set" });
+  return { success: true };
+});
+
+// ─── ADMIN-6: unlock the Settings screen with the Settings password (owner only) ───
+// Verifies the password server-side and writes the short-lived settingsUnlock/{uid}
+// marker that assertSettingsUnlocked checks. Rate-limited per uid/day to bound guessing;
+// only FAILED attempts are audited (a successful unlock would just be noise).
+exports.unlockSettings = functions.https.onCall(async (data, context) => {
+  await assertOwner(context);
+  assertNoUnknownKeys(data, ["password"]);
+  const uid = context.auth.uid;
+  const budget = await consumeDailyBudget(db, { uid, key: "settingsUnlock", limit: 30 });
+  if (!budget.allowed) {
+    throw new functions.https.HttpsError("resource-exhausted", "Too many unlock attempts today. Try again tomorrow.");
+  }
+  const cfg = await readConfigFresh();
+  const rec = cfg.settingsAuth || null;
+  if (!(rec && rec.hash)) {
+    throw new functions.https.HttpsError("failed-precondition", "No Settings password is set yet.");
+  }
+  if (!settingsAuth.verifyPassword((data && data.password) || "", rec)) {
+    await writeAudit(context, "settingsUnlockFailed", {});
+    throw new functions.https.HttpsError("permission-denied", "Incorrect Settings password.");
+  }
+  const until = Date.now() + settingsAuth.UNLOCK_MS;
+  // SEC-review #1: bind the unlock to THIS login session's auth_time, so a stolen token
+  // from another/older session can't ride it. SEC-review #5: audit the successful unlock
+  // (who opened the API-key screen, and when) — never the password.
+  const authTime = Number(context.auth.token && context.auth.token.auth_time) || 0;
+  await db.doc(`settingsUnlock/${uid}`).set({ until, at: Date.now(), authTime });
+  await writeAudit(context, "settingsUnlock", {});
+  return { success: true, until };
 });
 
 // ═════════════════════════════════════════════════════════════

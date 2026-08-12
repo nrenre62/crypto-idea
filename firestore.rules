@@ -122,6 +122,20 @@ service cloud.firestore {
     match /adminNotes/{document=**} {
       allow read, write: if false;
     }
+    // ADMIN-6: the Settings-password machinery. Both server-only, written ONLY by the
+    // Admin SDK inside the owner-gated callables (setSettingsPassword / unlockSettings /
+    // the emailed-reset callables).
+    //  · settingsUnlock/{uid}      — the short-lived unlock marker assertSettingsUnlocked
+    //                                reads. A client-writable unlock doc is a FULL bypass
+    //                                of the second lock, so it must never be client-set.
+    //  · settingsPwReset/{hash}    — the single-use HASHED reset-token ledger. Client
+    //                                access would let an attacker forge or replay a reset.
+    match /settingsUnlock/{document=**} {
+      allow read, write: if false;
+    }
+    match /settingsPwReset/{document=**} {
+      allow read, write: if false;
+    }
 
     // ─── Onboard gate (ONBOARD-GATE) ───
     // Has this user RECORDED a plan choice? The server-only `planChosen` flag (set by the

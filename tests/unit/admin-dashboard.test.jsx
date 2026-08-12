@@ -71,6 +71,11 @@ vi.mock("../../src/api/admin.js", () => ({
   })),
   getUserNote: vi.fn(() => Promise.resolve({ note: "", updatedAt: null, updatedByEmail: "" })),
   saveUserNote: vi.fn(() => Promise.resolve()),
+  // ADMIN-6: Settings password. Mocked even for tests that don't assert on them — the
+  // hook now imports both, so a missing mock would leave the wrapper undefined and crash
+  // the unlock/save handlers (the ADMIN-2/ADMIN-4 mock-gap lesson).
+  setSettingsPassword: vi.fn(() => Promise.resolve()),
+  unlockSettings: vi.fn(() => Promise.resolve({ success: true, until: 1_700_000_600_000 })),
 }));
 
 // ADMIN-SEC: the dashboard now resolves its own role from the verified custom claims.
@@ -82,7 +87,7 @@ vi.mock("../../src/api/admin-auth.js", () => ({
 }));
 
 import AdminDashboard, { JOB_META } from "../../src/components/admin-dashboard.jsx";
-import { getStats, getAdminConfig, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser } from "../../src/api/admin.js";
+import { getStats, getAdminConfig, listUsers, listAdmins, listAudit, listWebhookEvents, findDuplicateEmails, listDailyStats, captureStatsSnapshot, getSystemStatus, deleteUser, setManagerRole, adminTrashUser, adminSignOutUser, lookupUser, saveConfig, viewUserAsAdmin, getUserNote, saveUserNote, setUserTier, suspendUser, setSettingsPassword, unlockSettings } from "../../src/api/admin.js";
 import { getAdminRole, reauthAdmin } from "../../src/api/admin-auth.js";
 
 describe("admin-dashboard", () => {
@@ -326,6 +331,55 @@ describe("admin-dashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
     await waitFor(() => expect(reauthAdmin).toHaveBeenCalledWith("hunter2"));
     await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(2));   // retried after unlocking
+  });
+
+  /* ═══ ADMIN-6 — the owner-only Settings password (2nd lock) ═══ */
+
+  it("ADMIN-6: a server settings-locked demand raises the SETTINGS-password prompt and retries via unlockSettings", async () => {
+    // Distinct from reauth-required: the server asks for the SETTINGS password, so the
+    // modal must offer that factor (unlockSettings), not the login re-auth (reauthAdmin).
+    saveConfig.mockRejectedValueOnce(new Error("settings-locked: enter your Settings password to continue."));
+    render(<AdminDashboard />);
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: /API keys/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save keys" }));
+    // Settings-mode copy — NOT the login "Confirm your password" prompt.
+    await screen.findByText("Enter your Settings password");
+    fireEvent.change(screen.getByPlaceholderText("Settings password"), { target: { value: "SettingsPw12345" } });
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    await waitFor(() => expect(unlockSettings).toHaveBeenCalledWith("SettingsPw12345"));
+    expect(reauthAdmin).not.toHaveBeenCalled();                        // wrong factor never used
+    await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(2));  // retried after unlocking
+  });
+
+  it("ADMIN-6: the owner can set a Settings password (validates the confirm, then calls setSettingsPassword)", async () => {
+    render(<AdminDashboard />);   // default getAdminConfig {} → no Settings password yet
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: /Settings password/ }));
+    // First-time set → there is no "current password" field.
+    expect(screen.queryByLabelText("Current Settings password")).toBeNull();
+
+    // A mismatched confirm is refused client-side, before the server is touched.
+    fireEvent.change(screen.getByLabelText("Settings password"), { target: { value: "SettingsPw12345" } });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), { target: { value: "different99XYZ" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set password" }));
+    expect(await screen.findByText(/don.t match/i)).toBeInTheDocument();
+    expect(setSettingsPassword).not.toHaveBeenCalled();
+
+    // Matching + strong → persisted (current is empty on a first set).
+    fireEvent.change(screen.getByLabelText("Confirm new password"), { target: { value: "SettingsPw12345" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set password" }));
+    await waitFor(() => expect(setSettingsPassword).toHaveBeenCalledWith("SettingsPw12345", ""));
+  });
+
+  it("ADMIN-6: the Settings password screen is owner-only — a manager never reaches it", async () => {
+    // It lives inside owner-only Settings; a manager sees no Settings tab at all, so the
+    // 2nd lock's set/change UI is unreachable for them (server also refuses, assertOwner).
+    getAdminRole.mockResolvedValueOnce("manager");
+    render(<AdminDashboard />);
+    await screen.findByText(/Signed in as a/);
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Settings password/ })).toBeNull();
   });
 
   it("R31-5: Delete account → type DELETE → move to trash (never a hard delete from the card)", async () => {

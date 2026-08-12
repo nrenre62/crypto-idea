@@ -148,4 +148,14 @@ describe("ADMIN-SEC gate coverage (functions/index.js)", () => {
       expect(bodyOf(fn)).toContain('assertTargetAllowed(uid, callerRole, "protected")');
     }
   });
+
+  it("ADMIN-6: the Settings config callables carry the second-lock unlock gate", () => {
+    // getAdminConfig/saveConfig read as assertOwner in the MATRIX (that's what GATE_CALL keys
+    // off), but the ACTUAL second factor is assertSettingsUnlocked. Without this, a future edit
+    // could delete that line and both this suite AND admin-0-guards would stay green while the
+    // Settings screen lost its 2nd lock (SEC-review #4). Pin its presence explicitly.
+    for (const fn of ["getAdminConfig", "saveConfig"]) {
+      expect(bodyOf(fn), `${fn} must call assertSettingsUnlocked`).toContain("assertSettingsUnlocked(context)");
+    }
+  });
 });
