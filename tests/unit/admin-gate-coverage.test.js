@@ -53,9 +53,17 @@ const MATRIX = {
   adminSignOutUser: "assertManager",
   // owner only
   deleteUser: "assertOwner",
+  // ADMIN-6: Settings config now sits behind assertOwner + the settings-password unlock
+  // (assertSettingsUnlocked, which itself falls back to step-up re-auth when no settings
+  // password is set yet). The GATE_CALL regex keys off assertOwner(context), so these read
+  // as owner-gated; the second unlock factor is verified by the integration probes.
+  getAdminConfig: "assertOwner",
+  saveConfig: "assertOwner",
+  // ADMIN-6: set/change the Settings password, and unlock the Settings screen with it.
+  // Owner-only (managers have no Settings screen); the unlock factor is enforced inside.
+  setSettingsPassword: "assertOwner",
+  unlockSettings: "assertOwner",
   // owner only + step-up re-auth
-  getAdminConfig: "assertFreshOwner",
-  saveConfig: "assertFreshOwner",
   setManagerRole: "assertFreshOwner",
 };
 
