@@ -617,17 +617,29 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
   new gate); ② enable **App Check** enforcement platform-side in the Firebase console for `chooseFreePlan`
   / `createSubscription` (per-service, no code/flag). Until then "no bot" rests on the rules gate +
   per-uid rate limit; App Check enforcement lands at launch.
-- **⚠️ Go-live blocker surfaced by the adversarial review (paid path + gate):** the client's PayPal
-  button ([Login.jsx](../../src/components/Login.jsx) billing step) is still the **pre-go-live
-  simulation** — it optimistically `setUser({tier})` and never calls `createSubscription`. Because the
-  gate derives `planChosen` from `tier!=="free"`, a *forced* (un-chosen) user who picks a PAID plan
-  clears the gate on the OPTIMISTIC tier. **In DEV this is correct** (`devSetMyTier` records
-  `planChosen`+tier server-side, so client and server agree). **In a real deploy the paid path MUST record
-  the choice server-side (the PayPal webhook already sets `planChosen`) AND the client must gate on the
-  server-confirmed choice, not an optimistic tier** — otherwise the gate clears while `firestore.rules`
-  still denies all data (a broken empty state; recovers on reload, but a transient profile-load failure
-  keeps the cached tier). This rides with the existing **real-PayPal go-live blocker** (BILLING.md) — the
-  free path is fully server-enforced today; the paid path is DEV-correct and completed by the PayPal work.
+- **⚠️ Go-live blocker surfaced by the adversarial review (paid path + gate) — ✅ RESOLVED (Plan B
+  PR-B, 2026-08-12, branch `claude/plan-b-pr-b-checkout`):** the client's PayPal button
+  ([Login.jsx](../../src/components/Login.jsx) billing step) was the **pre-go-live simulation** — it
+  optimistically `setUser({tier})` and never called `createSubscription`. **PR-B replaced it with the
+  real flow:** PROD calls `createSubscription({plan, billing})` (via the new [`src/api/billing.js`](../../src/api/billing.js))
+  and redirects to the PayPal `approvalUrl`; the tier is set **only** by the webhook and live-synced by
+  `watchUserDoc` — there is no client tier write in prod (the buy component dropped
+  `setUser`/`saveProfile`/`calcEndDate`). So a *forced* (un-chosen) user who picks a PAID plan now
+  clears the gate on the **server-confirmed** tier, not an optimistic one. DEV keeps the emulator
+  `persistTierDev` → `devSetMyTier` path (also server-authoritative). Historical note (still true):
+  the free path was already fully server-enforced.
+- **📌 Plan B billing — status & what's next (as of this PR-B branch):** **PR-B** (client: real
+  checkout wiring + honest webhook-confirmed [`/pro-success`](../../src/components/pro-success.jsx)
+  via [`useProSuccess`](../../src/hooks/useProSuccess.js), + `PLAN_BENEFITS` extracted to
+  [`src/data/plan-benefits.js`](../../src/data/plan-benefits.js)) **done (2026-08-12,** branch
+  `claude/plan-b-pr-b-checkout`**)**. The buy button now passes the chosen cycle through
+  `createSubscription({plan, billing})`. ⚠️ **PR-A** (server: four plan IDs + `planIdFor(tier,
+  cycle, ids)`, the real **H6** fix) is on its own branch and is **NOT merged into master or this
+  branch** — until it lands the server still selects the plan by **tier only**, so an annual buyer
+  is still sent to the monthly plan (client already sends the cycle, so it's PR-A-ready). **PR-C**
+  (next): move the cancel/downgrade handlers (`confirmDowngrade` / `finalizeDowngrade`) off
+  localStorage onto the `cancelSubscription` callable — the ONE remaining client-forged billing
+  piece (see GO-LIVE-AUDIT B4 residual). Live PayPal sandbox e2e still verifies at go-live.
 
 ---
 

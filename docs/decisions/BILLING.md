@@ -37,7 +37,9 @@ Two readers: (1) **future me** — to safely change billing without re-deriving 
 | `getStats` (admin callable) | `functions/index.js` | Net-revenue reporting (gross − PayPal fees, per billing cycle). |
 | **Pure billing decisions** | `functions/billing.js` | All the branch logic (plan→tier, patches, sweep, revenue) — no Firebase, fully unit-tested. |
 | Guards | `functions/guards.js` | Per-uid cooldown on `createSubscription` (anti double-charge). |
-| Upgrade/downgrade UI | `src/components/Login.jsx`, `src/hooks/useUpgrade.js` | Plan picker, R29 downgrade chooser, period-end re-checkout. |
+| Billing api wrapper | `src/api/billing.js` | Client `createSubscription({plan, billing})` wrapper (Plan B PR-B) — components never call `httpsCallable` directly. Returns the approval URL for the buy button to redirect to. |
+| Upgrade/downgrade UI | `src/components/Login.jsx`, `src/hooks/useUpgrade.js` | Plan picker, R29 downgrade chooser, period-end re-checkout. **PR-B:** the PROD buy button calls `createSubscription` → redirects to the PayPal `approvalUrl` (no client tier write; DEV keeps the emulator `persistTierDev` path). |
+| Success page | `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` | The `/pro-success` PayPal-return page (Plan B PR-B). Read-only: `useProSuccess` watches the caller's own user doc and only claims success once the webhook has written a paid tier; renders the **actual** purchased tier (waiting / confirmed / timeout / signed-out). |
 
 **Why `billing.js` is separate:** every decision (which tier a `plan_id` maps to, what a
 cancellation writes, whether the sweep flips someone today, how revenue is counted) is a **pure
@@ -60,6 +62,15 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 
 > The tier is set by the **webhook**, from PayPal's `plan_id` — never by the client, and never
 > hardcoded (a Premium purchase lands as `premium`, a fix from the original hardcoded `"pro"`).
+
+> **Client wiring is live (Plan B PR-B, 2026-08-12).** The buy button really performs step 1 above:
+> in PROD it calls `createSubscription` (via `src/api/billing.js`) and redirects to the returned
+> `approvalUrl` — the earlier 2-second `setTimeout` demo that wrote the tier to localStorage is gone,
+> and there is **no client tier write in prod** (the buy component dropped `setUser`/`saveProfile`/
+> `calcEndDate`). On return, `/pro-success` watches the caller's own user doc and confirms only once
+> the webhook has set the paid tier (`watchUserDoc`), rendering the actual purchased tier. DEV keeps
+> the emulator `persistTierDev` → `devSetMyTier` path (also server-authoritative). The remaining
+> localStorage-only piece — the cancel/downgrade handlers — is deferred to **Plan B PR-C**.
 
 ### 3.2 Recurring payments
 - Each renewal fires **`PAYMENT.SALE.COMPLETED`**. A sale carries **no `plan_id`**, so it *never*
@@ -204,10 +215,12 @@ Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyP
 1. `cd functions && npm install`, then `firebase deploy --only functions`.
 2. Create the PayPal **subscription plans** in the PayPal dashboard; put their plan IDs in
    `functions/.env` (`PAYPAL_PLAN_ID`, `PAYPAL_PREMIUM_PLAN_ID`).
-   > ⚠️ **Known gap (audit H6, not yet fixed):** the UI sells monthly **and** yearly, but
-   > `createSubscription` never consults the billing cycle — there are only two plan IDs, so an
-   > annual buyer is sent to the MONTHLY plan while revenue is booked as `priceYear/12`.
-   > Launching paid tiers requires **four** plans + selecting by tier *and* cycle. See
+   > **H6 (annual billing cycle) — two halves:** the UI sells monthly **and** yearly. The client now
+   > *sends* the chosen cycle (`createSubscription({plan, billing})`, **Plan B PR-B**). Selecting the
+   > PayPal plan by tier **and** cycle server-side — four plan IDs + `billing.planIdFor` + a
+   > yearly-plan-id unit case, so an annual buyer is charged the yearly plan — is **Plan B PR-A**
+   > (which also replaces the two `PAYPAL_PLAN_ID`/`PAYPAL_PREMIUM_PLAN_ID` names above with the four
+   > `PAYPAL_{PRO,PREMIUM}_{MONTHLY,YEARLY}_PLAN_ID`). See
    > [`GO-LIVE-AUDIT.md`](../product/GO-LIVE-AUDIT.md) §3 H6.
 3. Set `PAYPAL_CLIENT_ID` / `PAYPAL_SECRET` (env **or** admin Settings) and `APP_URL`.
 4. PayPal Dashboard → **Webhooks → Add** the EXACT URL the deploy printed —

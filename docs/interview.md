@@ -91,12 +91,12 @@ wins in a conflict) is **bold**.
 
 ### Pricing / plans (prices, annual, AI $ budget)
 - Docs: **[`PRICING.md`](decisions/PRICING.md)** · [`BILLING.md`](decisions/BILLING.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #19/#20/#21 · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) (AI budget) · [`ai-tool-policy.md`](planning/ai-tool-policy.md)
-- Code: `functions/index.js` (`DEFAULT_PLANS`, `mergePlans`, `getStats`) · `functions/billing.js` (`computeRevenue`) · `src/hooks/useAdminDashboard.js` (`DEFAULT_PLANS`) · `src/components/Login.jsx` (`PLAN_BENEFITS`) · `index.html` (landing plan cards)
+- Code: `functions/index.js` (`DEFAULT_PLANS`, `mergePlans`, `getStats`) · `functions/billing.js` (`computeRevenue`) · `src/hooks/useAdminDashboard.js` (`DEFAULT_PLANS`) · `src/data/plan-benefits.js` (`PLAN_BENEFITS` — re-exported by `src/components/Login.jsx`; also read by `src/components/pro-success.jsx`) · `index.html` (landing plan cards)
 - `README.md` (Tier Limits table)
 
 ### Tier limits (portfolios / coins / tx caps)
 - Enforcement: **`firestore.rules`** (`configuredLimit` / `maxPortfolios` / `maxCoins` / `maxTx`) · `firestore.indexes.json` (tx-collection-group index exemptions — storage lever, PLAN-LIMITS-MAX #12)
-- Code: `functions/index.js` (`DEFAULT_PLANS`) · `src/hooks/useUpgrade.js` (`TIER_LIMITS`, `limitsForTier`) · `src/hooks/useAdminDashboard.js` · `src/components/Login.jsx` (`PLAN_BENEFITS`)
+- Code: `functions/index.js` (`DEFAULT_PLANS`) · `src/hooks/useUpgrade.js` (`TIER_LIMITS`, `limitsForTier`) · `src/hooks/useAdminDashboard.js` · `src/data/plan-benefits.js` (`PLAN_BENEFITS` — re-exported by `src/components/Login.jsx`)
 - Docs: `README.md` (Tier Limits) · [`PRICING.md`](decisions/PRICING.md) · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #19/#20
 
 ### AI budget / usage (`aiMonthlyCents`, "~N/day")
@@ -105,7 +105,7 @@ wins in a conflict) is **bold**.
 
 ### Billing / PayPal (subscription lifecycle, webhook)
 - Docs: **[`BILLING.md`](decisions/BILLING.md)** · [`PRICING.md`](decisions/PRICING.md) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) D5/D6 · `openapi.json`
-- Code: `functions/index.js` (PayPal section) · `functions/billing.js` · `functions/guards.js` (cooldown) · `src/components/Login.jsx` + `src/hooks/useUpgrade.js` (upgrade/downgrade UI) · `firestore.rules` (subscription/tier server-only)
+- Code: `functions/index.js` (PayPal section) · `functions/billing.js` · `functions/guards.js` (cooldown) · `src/api/billing.js` (client `createSubscription` wrapper — Plan B PR-B) · `src/components/Login.jsx` + `src/hooks/useUpgrade.js` (upgrade/downgrade UI) · `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` (webhook-confirmed `/pro-success`) · `firestore.rules` (subscription/tier server-only)
 
 ### User settings / account (profile, security, GDPR)
 - Docs: **[`USER-SETTINGS.md`](product/USER-SETTINGS.md)** · [`USER-SETTINGS-README.md`](product/USER-SETTINGS-README.md) · [`USER-CREATION.md`](product/USER-CREATION.md)
