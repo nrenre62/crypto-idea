@@ -236,6 +236,9 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 .ci-app .card { background:var(--paper-2); border:1px solid var(--line-2); border-radius:var(--radius); padding:18px; margin-bottom:16px; box-shadow:var(--sh-sm); }
 .ci-app .sec-label { display:flex; align-items:center; justify-content:space-between; margin:0 2px 12px; }
 .ci-app .sec-label h2 { font-size:11.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); }
+/* CRYP-105 (#7): Journal-only — grow just the two Journal section headings (keeps the
+   shared uppercase + letter-spacing above); Search's "Trending" stays at the base size. */
+.ci-app .j-sec h2 { font-size:16px; }
 .ci-app .sec-link { font-size:13px; font-weight:600; color:var(--accent); cursor:pointer; }
 .ci-app .btn-primary { display:block; width:100%; padding:14px; background:var(--ink); color:var(--paper); border:0; border-radius:var(--radius-sm); font-family:var(--body); font-size:15px; font-weight:700; cursor:pointer; text-align:center; transition:opacity .2s var(--ease); }
 .ci-app .btn-primary:hover { opacity:.88; }
@@ -243,9 +246,7 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
 /* R13-1: legal disclaimer was too faint in light mode — lift to the readable muted
    token (--ink-soft flips per theme, so it reads right in both; the dark override below
    is now redundant and was removed). */
-.ci-app .disclaimer { font-size:11px; color:var(--ink-soft); line-height:1.55; padding:14px 6px 0; text-align:center; }
-/* Portfolio footer disclaimer only — a touch larger than the shared 11px (grep-before-bump: .disclaimer is also used in Learn/Journal/Research). */
-.ci-app .disclaimer.disclaimer-lg { font-size:13px; }
+.ci-app .disclaimer { font-size:14px; color:var(--ink-soft); line-height:1.55; padding:14px 6px 0; text-align:center; }
 
 /* ── Empty state ──────────────────────────────────────── */
 .ci-app .empty-state { text-align:center; padding:48px 24px; }
@@ -844,11 +845,14 @@ html[data-theme="dark"] .ann-banner.lvl-critical { background:#2e1513; color:#f0
    retired — every popup now uses the shared <Modal> / .cm-* card. The inner-content
    classes below — .journal-q, .bj-*, .lesson-*, .quiz-* — are still used inside modals.) */
 .ci-app .bj-coin-head { display:flex; align-items:center; gap:12px; margin-bottom:20px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+/* CRYP-105 (#4): the detail head pins under the Modal X as the thesis form scrolls;
+   paper-2 (the modal card colour) so scrolled content can't bleed through. Dark-safe token. */
+.ci-app .bj-sticky { position:sticky; top:0; z-index:1; background:var(--paper-2); }
 .ci-app .bj-coin-name { font-weight:700; font-size:17px; }
 .ci-app .bj-coin-price { font-size:13px; color:var(--ink-faint); margin-top:2px; }
 .ci-app .journal-q { margin-bottom:20px; }
-.ci-app .journal-q .q-label { font-size:12.5px; font-weight:700; color:var(--ink); margin-bottom:6px; }
-.ci-app .journal-q .q-sub { font-size:11.5px; color:var(--ink-faint); margin-bottom:9px; line-height:1.4; }
+.ci-app .journal-q .q-label { font-size:16px; font-weight:700; color:var(--ink); margin-bottom:6px; }
+.ci-app .journal-q .q-sub { font-size:14px; color:var(--ink-faint); margin-bottom:9px; line-height:1.4; }
 .ci-app .journal-q textarea { width:100%; border:1px solid var(--line-strong); border-radius:var(--radius-xs); padding:12px; font-family:var(--body); font-size:13.5px; color:var(--ink); background:var(--paper-3); resize:none; outline:none; line-height:1.55; height:88px; }
 .ci-app .journal-q textarea:focus { border-color:var(--accent); background:var(--paper-2); }
 /* §J — thesis validation error + edit/delete affordances (dark-safe via --sr/--accent-ink) */
@@ -859,10 +863,15 @@ html[data-theme="dark"] .ann-banner.lvl-critical { background:#2e1513; color:#f0
 .ci-app .j-delete-wrap { margin-top:22px; padding-top:16px; border-top:1px solid var(--line); }
 .ci-app .j-delete-btn { width:100%; padding:11px; border-radius:12px; border:1px solid color-mix(in srgb, var(--sr) 32%, transparent); background:transparent; color:var(--sr); font-family:var(--body); font-size:13px; font-weight:700; cursor:pointer; }
 .ci-app .j-del-confirm { font-size:13px; color:var(--ink-soft); line-height:1.5; margin-bottom:10px; text-align:center; }
+/* CRYP-105 (#5): 8px between the two confirm buttons ("Yes, delete thesis" clears its
+   .priv-btn margin-bottom, so this margin-top is the only gap). */
+.ci-app .j-del-actions .btn-ghost { margin-top:8px; }
+/* CRYP-105 (#6): "No thesis yet" empty-state rides the .card chrome as a centred pill. */
+.ci-app .j-none { font-size:16px; text-align:center; }
 .ci-app .bj-note { font-size:11px; color:var(--ink-faint); line-height:1.5; text-align:center; margin:12px 0 18px; }
 .ci-app .bj-callout { background:rgba(247,147,26,.08); border:1px solid rgba(247,147,26,.2); border-radius:13px; padding:13px; margin-bottom:18px; }
-.ci-app .bj-callout .bjc-label { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#c97d12; margin-bottom:3px; }
-.ci-app .bj-callout .bjc-text { font-size:13px; color:var(--ink-soft); line-height:1.5; }
+.ci-app .bj-callout .bjc-label { font-size:16px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#c97d12; margin-bottom:3px; }
+.ci-app .bj-callout .bjc-text { font-size:14px; color:var(--ink-soft); line-height:1.5; }
 .ci-app .ov-btn-gap { margin-bottom:10px; }
 .ci-app .lesson-title { font-family:var(--display); font-size:22px; font-weight:500; margin-bottom:18px; line-height:1.25; letter-spacing:-.02em; }
 .ci-app .lesson-body { font-size:14.5px; line-height:1.75; color:var(--ink-soft); }

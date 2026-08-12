@@ -140,7 +140,7 @@ export function Portfolio() {
           })}
         </div>
       )}
-      <div className="disclaimer disclaimer-lg">Prices via CoinGecko · Not financial advice</div>
+      <div className="disclaimer">Prices via CoinGecko · Not financial advice</div>
     </div>
   );
 }

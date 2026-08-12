@@ -94,6 +94,13 @@ describe("Search — Buy-Journal capture", () => {
     fireEvent.click(screen.getByText("PRO"));
     expect(setScreen).toHaveBeenCalledWith("account");
   });
+
+  // CRYP-105 (AC1): the Search tab carries a standing "prices + not advice" disclaimer,
+  // matching the Portfolio tab's honest footer.
+  it("CRYP-105: the Search tab shows the prices/advice disclaimer", () => {
+    provide({});
+    expect(screen.getByText("Prices via CoinGecko · Not financial advice")).toBeInTheDocument();
+  });
 });
 
 // DP-6 — the empty search box shows a TRENDING list of coins to add.
