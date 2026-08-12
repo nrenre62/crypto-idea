@@ -505,6 +505,19 @@
   live callable. The admin *gate* is covered by `tests/unit/admin-gate-coverage.test.js`, and the same
   `customClaims.admin === true` claim-skip is separately proven end-to-end by the passing `listUsers`/`getStats`
   ADMIN-SEP callable tests. Do NOT re-add an `importUsers`-based duplicate-email fixture — it will fail in CI. ℹ️ (CRYP-103)
+- **C8 · Downgrade is now server-authoritative — a `devSetMyTier` account gets "No active subscription"
+  on Confirm-Downgrade, by design.** Plan B **PR-C1** (2026-08-12, `9b68276`) removed the last
+  **client-forged** billing write: `confirmDowngrade` / `finalizeDowngrade` in `src/CryptoIdea.jsx` now
+  `await` the real `cancelSubscription({downgradeTo})` callable (via `src/api/billing.js`) instead of
+  forging `{cancelled, downgradeTo}` into state + the localStorage profile cache — `watchUserDoc` brings
+  the **server-written** marker back and the confirmation toasts are date-free. **DEV caveat:** the
+  server `cancelSubscription` throws `failed-precondition` ("No active subscription") when the caller's
+  user doc has no `paypalSubscriptionId`. A **local dev** account tier-set via `devSetMyTier`
+  (`pro@`/`premium@test.com` — no real PayPal sub) therefore surfaces that error toast on
+  Confirm-Downgrade, where the old local forge used to succeed. This is the intended server-authoritative
+  behaviour, **not a regression** — the emulator has no PayPal subscription to cancel. **Resolution:**
+  Plan B **PR-C2** adds a `FUNCTIONS_EMULATOR` dev-split that restores local downgrade testing (alongside
+  the real future-start Pro pre-auth). Canonical: [`BILLING.md`](../decisions/BILLING.md) §3.3. ℹ️ (PR-C1)
 
 ---
 
