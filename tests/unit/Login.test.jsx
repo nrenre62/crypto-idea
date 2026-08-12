@@ -292,11 +292,21 @@ describe("Login screen (extracted, via AppContext)", () => {
       ...extra,
     });
     let assignSpy;
+    const origLocation = window.location;
     beforeEach(() => {
       createSubscriptionMock.mockReset();
-      assignSpy = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+      // jsdom's window.location.assign isn't spyable (non-configurable), so replace the
+      // whole location with a stub carrying a mock assign for the duration of each test.
+      assignSpy = vi.fn();
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { assign: assignSpy, href: "http://localhost/", origin: "http://localhost" },
+      });
     });
-    afterEach(() => { assignSpy.mockRestore(); vi.unstubAllEnvs(); });
+    afterEach(() => {
+      Object.defineProperty(window, "location", { configurable: true, value: origLocation });
+      vi.unstubAllEnvs();
+    });
     const clickPay = () => fireEvent.click(screen.getByText(/Pay with/i).closest("button"));
 
     it("PROD: clicking Pay calls createSubscription({plan,billing}) and redirects to approvalUrl — NO client tier write", async () => {
