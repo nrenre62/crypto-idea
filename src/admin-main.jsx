@@ -22,6 +22,7 @@ import "./styles/admin-settings.css";
 // session in another tab (fixes ERRORS §A5). See api/firebase.admin.config.js.
 import { onAdminAuthChange, adminLogin, adminLogout, adminAuth } from "./api/admin-auth.js";
 import AdminDashboard from "./components/admin-dashboard.jsx";
+import { ErrorBoundary } from "./components/ErrorBoundary.jsx"; // H8: no white screen on a render throw
 
 // ADMIN-UI-1 (2026-07-25): the sign-in / denied / loading screens are now on the
 // .ci-app paper design (green logo tile), replacing the old off-brand purple
@@ -115,5 +116,5 @@ function AdminApp() {
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode><AdminApp /></React.StrictMode>
+  <React.StrictMode><ErrorBoundary><AdminApp /></ErrorBoundary></React.StrictMode>
 );

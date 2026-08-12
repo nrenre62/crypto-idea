@@ -10,6 +10,7 @@
 import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import "./styles/app.css"; // app design system (scoped under .ci-app)
+import { ErrorBoundary } from "./components/ErrorBoundary.jsx"; // H8: no white screen on a render throw
 
 // Every route is code-split. The initial download is just this tiny entry + React,
 // so the loading shell paints immediately; the heavy app code AND the Firebase SDK
@@ -45,8 +46,12 @@ function Router() {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <Suspense fallback={<Loading />}>
-      <Router />
-    </Suspense>
+    {/* H8: the boundary wraps Suspense so it catches BOTH a lazy-chunk load failure and a
+        render throw in the loaded route — either way the user sees a recoverable screen. */}
+    <ErrorBoundary>
+      <Suspense fallback={<Loading />}>
+        <Router />
+      </Suspense>
+    </ErrorBoundary>
   </React.StrictMode>
 );
