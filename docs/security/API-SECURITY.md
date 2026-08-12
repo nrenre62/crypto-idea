@@ -146,7 +146,7 @@ The only inbound write **not gated by a Firebase user login** — it is authenti
 
 ### Where secrets live
 1. **Primary:** the locked `config/app` Firestore doc, written by `saveConfig` (Admin SDK). [`firestore.rules`](../../firestore.rules) denies **all** client read/write to `/config/**`. Holds: CoinGecko key, PayPal client/secret/webhook, email-provider key, Anthropic key (reserved for Wave B).
-2. **Fallback / deploy-time:** `functions/.env` (git-ignored). Only source for the PayPal plan IDs + `APP_URL`.
+2. **Fallback / deploy-time:** `functions/.env` (git-ignored). Only source for the PayPal plan IDs, `PAYPAL_ENV` (`sandbox|live`, non-secret) + `APP_URL`.
 
 ### The set-flag / keep() idiom (never echo a secret)
 - **`getAdminConfig`** returns secrets as **booleans only** — `secretSet`, `apiKeySet`, `anthropicKeySet`, `coingeckoSet`. The value never leaves the server.

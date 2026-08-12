@@ -15,7 +15,7 @@ Two readers: (1) **future me** — to safely change billing without re-deriving 
 |---|---|---|---|
 | Monthly | $0 | $9.99 | $49.99 |
 | Annual (2 months free) | $0 | $99.99 | $499.99 |
-| PayPal plan | — | `PAYPAL_PLAN_ID` | `PAYPAL_PREMIUM_PLAN_ID` |
+| PayPal plans (monthly / yearly) | — | `PAYPAL_PRO_MONTHLY_PLAN_ID` / `PAYPAL_PRO_YEARLY_PLAN_ID` | `PAYPAL_PREMIUM_MONTHLY_PLAN_ID` / `PAYPAL_PREMIUM_YEARLY_PLAN_ID` |
 
 - **Only Pro and Premium are paid.** Starter is free-forever, no card, no PayPal object.
 - **Access continues to the end of the paid period** on cancel/downgrade — never an instant cut-off.
@@ -149,15 +149,19 @@ no tier limits here. Full plan + acceptance: [NEXT-STEPS.md](../product/NEXT-STE
 ### HTTP vs HTTPS
 **All billing traffic is HTTPS in production.** Every function is `functions.https.*`; the webhook
 is `https://<region>-<project>.cloudfunctions.net/paypalWebhook`; PayPal is called at
-`https://api-m.paypal.com`; redirects use `https://<app>.web.app`. The **only** `http://` anywhere
-is the **local Firebase emulator** (`http://localhost:5001/...` in `openapi.json`) — it serves on
-localhost only, is never exposed to the network, and needs no TLS. It is not a production surface.
+`https://api-m.paypal.com` by default, or `https://api-m.sandbox.paypal.com` when the env var
+`PAYPAL_ENV=sandbox` is set (default `live`; the base is chosen by pure `billing.paypalBaseFor(env)`).
+This makes §8 step 5's sandbox→live end-to-end test **actually wireable** — flip `PAYPAL_ENV=sandbox`
+to exercise a full checkout against PayPal sandbox before charging a live card. Redirects use
+`https://<app>.web.app`. The **only** `http://` anywhere is the **local Firebase emulator**
+(`http://localhost:5001/...` in `openapi.json`) — it serves on localhost only, is never exposed to
+the network, and needs no TLS. It is not a production surface.
 
 ---
 
 ## 5. Secrets & configuration
 
-PayPal needs five values. **Primary source = the locked `config/app` Firestore doc** (set from the
+PayPal needs seven values. **Primary source = the locked `config/app` Firestore doc** (set from the
 Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyPayPalWebhook`).
 **Fallback = environment variables** (`functions/.env`, git-ignored, or the deploy env).
 
@@ -166,8 +170,12 @@ Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyP
 | Client ID | `clientId` | `PAYPAL_CLIENT_ID` | Public-ish, but kept server-side. |
 | Secret | `secret` (write-only; `keep()` idiom) | `PAYPAL_SECRET` | **Never** returned to a client (`getAdminConfig` exposes only `secretSet: true/false`). |
 | Webhook ID | `webhookId` | `PAYPAL_WEBHOOK_ID` | Required — verification fails closed without it. |
-| Pro plan ID | — (env only) | `PAYPAL_PLAN_ID` | Plan IDs + `APP_URL` are **env-only**, not in the config doc. |
-| Premium plan ID | — (env only) | `PAYPAL_PREMIUM_PLAN_ID` | |
+| Pro plan IDs | — (env only) | `PAYPAL_PRO_MONTHLY_PLAN_ID` / `PAYPAL_PRO_YEARLY_PLAN_ID` | Plan IDs + `APP_URL` + `PAYPAL_ENV` are **env-only**, not in the config doc. Legacy `PAYPAL_PLAN_ID` still works as the Pro **monthly** fallback (back-compat). |
+| Premium plan IDs | — (env only) | `PAYPAL_PREMIUM_MONTHLY_PLAN_ID` / `PAYPAL_PREMIUM_YEARLY_PLAN_ID` | Legacy `PAYPAL_PREMIUM_PLAN_ID` still works as the Premium **monthly** fallback (back-compat). |
+
+- Four plan IDs (tier × cycle) are selected by pure `billing.planIdFor(tier, cycle, ids)`, so a
+  yearly buyer is charged the yearly plan (the H6 mischarge fix — see §8). `PAYPAL_ENV=sandbox|live`
+  (default `live`, sandbox strictly opt-in) picks the API base URL via `billing.paypalBaseFor(env)`.
 
 - **The secret is never logged or echoed.** The admin "Settings" save uses the `keep()` idiom: a
   blank field keeps the stored secret rather than clearing it.
@@ -202,12 +210,15 @@ Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyP
 ## 8. Go-live checklist
 
 1. `cd functions && npm install`, then `firebase deploy --only functions`.
-2. Create the PayPal **subscription plans** in the PayPal dashboard; put their plan IDs in
-   `functions/.env` (`PAYPAL_PLAN_ID`, `PAYPAL_PREMIUM_PLAN_ID`).
-   > ⚠️ **Known gap (audit H6, not yet fixed):** the UI sells monthly **and** yearly, but
-   > `createSubscription` never consults the billing cycle — there are only two plan IDs, so an
-   > annual buyer is sent to the MONTHLY plan while revenue is booked as `priceYear/12`.
-   > Launching paid tiers requires **four** plans + selecting by tier *and* cycle. See
+2. Create the **four** PayPal **subscription plans** (Pro/Premium × monthly/yearly) in the PayPal
+   dashboard; put their plan IDs in `functions/.env` (`PAYPAL_PRO_MONTHLY_PLAN_ID`,
+   `PAYPAL_PRO_YEARLY_PLAN_ID`, `PAYPAL_PREMIUM_MONTHLY_PLAN_ID`, `PAYPAL_PREMIUM_YEARLY_PLAN_ID`;
+   the legacy `PAYPAL_PLAN_ID` / `PAYPAL_PREMIUM_PLAN_ID` still serve as the monthly fallbacks). Set
+   `PAYPAL_ENV=sandbox` while testing, `live` (or unset) for production.
+   > ✅ **H6 mischarge FIXED on the code side:** four plan IDs exist and pure
+   > `billing.planIdFor(tier, cycle, ids)` selects by tier *and* cycle, so a yearly buyer is charged
+   > the yearly plan. The one remaining piece is the **client checkout wiring** (Path B / B4) that
+   > passes the chosen cycle through to `createSubscription`. See
    > [`GO-LIVE-AUDIT.md`](../product/GO-LIVE-AUDIT.md) §3 H6.
 3. Set `PAYPAL_CLIENT_ID` / `PAYPAL_SECRET` (env **or** admin Settings) and `APP_URL`.
 4. PayPal Dashboard → **Webhooks → Add** the EXACT URL the deploy printed —
