@@ -54,7 +54,9 @@ export const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "S
   // ADMIN-5 team-scale & support
   viewUserAsAdmin: "Viewed a user's data", saveUserNote: "Edited a private note",
   // ADMIN-6 Settings password (the password itself is NEVER audited — only the event)
-  setSettingsPassword: "Set the Settings password", settingsUnlock: "Unlocked Settings", settingsUnlockFailed: "Failed Settings-password unlock" };
+  setSettingsPassword: "Set the Settings password", settingsUnlock: "Unlocked Settings", settingsUnlockFailed: "Failed Settings-password unlock",
+  // ADMIN-6 PR2: emailed Settings-password reset (request a link + complete it via token)
+  settingsPwResetRequested: "Requested a Settings-password reset", settingsPwResetCompleted: "Completed a Settings-password reset" };
 
 /* ═══ ADMIN-JOBS — friendly labels + hover/focus tooltip for the Overview status strip ═══
    Each scheduled job appears by a human label instead of its raw JS name, with a custom
@@ -367,8 +369,8 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
     trashUser, signOutUser, emptyTrash,
     role, roleLoaded, isOwner, unlocked,
     unlockPrompt, unlockPass, setUnlockPass, unlockErr, submitUnlock, cancelUnlock,
-    // ADMIN-6 — the owner-only Settings password (set/change).
-    settingsPwSet, settingsPwAt, settingsPwMsg, setSettingsPwMsg, saveSettingsPassword,
+    // ADMIN-6 — the owner-only Settings password (set/change) + PR2 emailed reset.
+    settingsPwSet, settingsPwAt, settingsPwMsg, setSettingsPwMsg, saveSettingsPassword, requestSettingsResetLink,
     grantEmail, setGrantEmail, grantEmail2, setGrantEmail2, grantFound,
     grantMsg, setGrantWarn, grantWarn, grantLookup, setManager,
     admins, adminsLoading, adminsMsg, loadAdmins,
@@ -1253,7 +1255,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     ["API key","apiKey","provider API key"],
                     ["API URL (ActiveCampaign only)","apiUrl","https://youracct.api-us1.com"],
                     ["List / Campaign ID","listId","list or campaign id"],
-                    ["From email (reserved — live with BL-5 transactional email)","fromEmail","hello@yourdomain.com"],
+                    ["From email (also the SMTP sender for admin emails)","fromEmail","hello@yourdomain.com"],
                   ].map(([label,key,ph]) => (
                     <div key={key}>
                       <label className="acct-label">{label}</label>
@@ -1262,6 +1264,32 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                         onChange={e => setMail({ ...mail, [key]: e.target.value })} />
                     </div>
                   ))}
+                  {/* ── ADMIN-6 PR2: SMTP (DreamHost) — sends the Settings-password reset email.
+                       smtpPass is a secret: blank keeps the saved value (mirrors the apiKey field
+                       via setFlags.smtpPass). The From email above is the SMTP sender. ── */}
+                  <div className="adm-scr-section">
+                    <div className="card-sub">SMTP (transactional email) — sends the Settings-password reset link. DreamHost: host <code>smtp.dreamhost.com</code>, port 587 (or 465 with SSL on).</div>
+                    <label className="acct-label">SMTP host</label>
+                    <input className="field-input" type="text" value={mail.smtpHost} placeholder="smtp.dreamhost.com"
+                      onChange={e => setMail({ ...mail, smtpHost: e.target.value })} />
+                    <label className="acct-label">SMTP port</label>
+                    <input className="field-input" type="number" min="0" value={mail.smtpPort}
+                      onChange={e => setMail({ ...mail, smtpPort: e.target.value === "" ? "" : Number(e.target.value) })} />
+                    <label className="acct-label">SMTP username</label>
+                    <input className="field-input" type="text" value={mail.smtpUser} placeholder="you@cryptoidea.app"
+                      onChange={e => setMail({ ...mail, smtpUser: e.target.value })} />
+                    <label className="acct-label">SMTP password</label>
+                    <input className="field-input" type="password" value={mail.smtpPass}
+                      placeholder={setFlags.smtpPass ? "•••••••• saved — leave blank to keep" : "SMTP password"}
+                      onChange={e => setMail({ ...mail, smtpPass: e.target.value })} />
+                    <div className="ctrl-line" style={{ marginTop: 12 }}>
+                      <div>
+                        <div className="cl-label">Use SSL (port 465)</div>
+                        <div className="cl-hint">Leave off for STARTTLS on port 587.</div>
+                      </div>
+                      <Switch checked={mail.smtpSecure} onChange={() => setMail({ ...mail, smtpSecure: !mail.smtpSecure })} />
+                    </div>
+                  </div>
                   <button className="acct-btn accent" onClick={saveConfig}>Save email settings</button>
               </>)}
 
@@ -1403,7 +1431,15 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                       {busy ? "Saving…" : (settingsPwSet ? "Change password" : "Set password")}
                     </button>
                   </form>
-                  <div className="set-foot">Locked out? An owner can clear this password with the <code>clear-settings-password</code> service-account script, reverting Settings to a login re-auth.</div>
+                  {/* ADMIN-6 PR2: forgot it? Email the owner a single-use reset link (to their
+                      own account email). Only shown once a password is set — there's nothing to
+                      reset until then, and the first set is a login re-auth. */}
+                  {settingsPwSet && (
+                    <button type="button" className="acct-btn" disabled={busy} onClick={requestSettingsResetLink} style={{ marginTop: 10 }}>
+                      Email me a reset link
+                    </button>
+                  )}
+                  <div className="set-foot">Forgot it? Use “Email me a reset link” above to get a single-use link at your admin email. Locked out of email too? An owner can clear this password with the <code>clear-settings-password</code> service-account script, reverting Settings to a login re-auth.</div>
               </>)}
 
               {/* ── ADMIN ACCESS (ADMIN-D3, owner-only) — folded in from the old top-level

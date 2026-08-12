@@ -1127,17 +1127,25 @@ users untouched; Starter tag; reversible).
 ## ADMIN-6. Separate Settings password (owner-only 2nd lock) + emailed-link reset  (🔨 BUILDING — PR1 done 2026-08-12; 3-PR delivery)
 
 > **Build status (2026-08-12, founder go "Do the admin-6" + "Do 3 PR"):** delivering as **3 PRs**:
-> - **PR1 — core (BUILT, this branch `claude/admin-6-settings-password`):** pieces #1–#5 + #7 + the lockout
+> - **PR1 — core (MERGED, PR #68, squash `529c131`):** pieces #1–#5 + #7 + the lockout
 >   script. `functions/settings-auth.js` (pure scrypt/strength/token core, 14 unit tests) · the two new
 >   owner-gated callables `setSettingsPassword` + `unlockSettings` · `assertSettingsUnlocked` gate + the
 >   `getAdminConfig`/`saveConfig` gate swap (`assertFreshOwner` → `assertOwner` + `assertSettingsUnlocked`,
 >   with a **bootstrap fallback to step-up re-auth** while no password is set) · 2 server-only rules denies
 >   (`settingsUnlock`, `settingsPwReset`) · client unlock repurposed to be factor-aware (settings vs login
 >   bootstrap) + a "Settings password" set/change section in admin Settings · `functions/scripts/clear-settings-password.js`
->   (service-account lockout escape hatch) · openapi + gate-coverage/audit-labels/rules/manager-regression tests.
-> - **PR2 — emailed reset (piece #6, NEXT):** `sendMail.js` seam (dev logs the link / prod sends via
->   **DreamHost SMTP + nodemailer**) · `requestSettingsPwReset` + `completeSettingsPwReset` (single-use hashed
->   token) · owner-only reset page (`?reset=<token>` on `admin.html`, ~45-min link, owner signed-in).
+>   (service-account lockout escape hatch). Security-review hardening folded in: the unlock is **bound to the
+>   login session's `auth_time`**, the change-path shares the unlock rate-limit, the `hasPw` gate reads config
+>   **fresh**, and successful unlocks are audited.
+> - **PR2 — emailed reset (piece #6, BUILT, branch `claude/admin-6-email-reset`):** `functions/sendMail.js`
+>   seam (pure `smtpConfigOf` + `sendMail` — dev/emulator logs the link, prod lazy-requires **nodemailer** and
+>   sends via **DreamHost SMTP**) · `requestSettingsPwReset` (mails a single-use HASHED token to the owner's
+>   OWN verified email — no body address, so no redirection) + `completeSettingsPwReset` (transactional
+>   single-use redeem, uid-bound, expiry-checked → installs the new scrypt hash + grants a session-bound
+>   unlock) · SMTP config fields on the admin Email settings screen (`smtpPass` via `keep()`, returned only as
+>   `smtpPassSet`) · an "Email me a reset link" button on the Settings-password screen · owner-only reset page
+>   `SettingsPwReset.jsx` at `?reset=<token>` on `admin.html` (~45-min link, owner signed-in) · openapi +
+>   sendMail/gate-coverage/config-diff/audit-labels unit tests + reset-flow integration tests (CI tier).
 > - **PR3 — admin login "Forgot password?" (founder addition 2026-08-12):** a login-page reset for BOTH
 >   owner AND manager via Firebase-native `sendPasswordResetEmail` (recovers the LOGIN password, not the
 >   Settings password; zero SMTP, email-matches, reveals nothing). This is the flow the founder described.

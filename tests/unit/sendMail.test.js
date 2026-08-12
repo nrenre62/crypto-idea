@@ -30,13 +30,36 @@ describe("sendMail.smtpConfigOf (pure SMTP config extraction)", () => {
   });
 });
 
-describe("sendMail.sendMail (dev / no-SMTP seam)", () => {
-  it("logs the message (incl. the link) and returns {logged:true} without sending when no SMTP is configured", async () => {
+describe("sendMail.sendMail (seam)", () => {
+  it("under the emulator, logs the full message incl. the link and returns {logged:true}", async () => {
+    const prev = process.env.FUNCTIONS_EMULATOR;
+    process.env.FUNCTIONS_EMULATOR = "true";
     const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-    const res = await sendMail({ to: "owner@cryptoidea.app", subject: "Reset", text: "https://cryptoidea.app/admin?reset=THE-TOKEN" }, {});
-    expect(res).toEqual({ logged: true });
-    expect(spy).toHaveBeenCalled();
-    expect(spy.mock.calls.flat().join(" ")).toContain("THE-TOKEN");
-    spy.mockRestore();
+    try {
+      const res = await sendMail({ to: "owner@cryptoidea.app", subject: "Reset", text: "https://cryptoidea.app/admin?reset=THE-TOKEN" }, {});
+      expect(res).toEqual({ logged: true });
+      expect(spy.mock.calls.flat().join(" ")).toContain("THE-TOKEN");   // dev needs the link to complete the flow
+    } finally {
+      if (prev === undefined) delete process.env.FUNCTIONS_EMULATOR; else process.env.FUNCTIONS_EMULATOR = prev;
+      spy.mockRestore();
+    }
+  });
+
+  // SEC-review #1: in a DEPLOYED env with no SMTP configured, the reset TOKEN must never
+  // reach the logs — a redacted marker only.
+  it("in deployed prod with NO SMTP, does NOT log the token and reports notConfigured", async () => {
+    const prev = process.env.FUNCTIONS_EMULATOR;
+    delete process.env.FUNCTIONS_EMULATOR;
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const res = await sendMail({ to: "owner@cryptoidea.app", subject: "Reset", text: "https://cryptoidea.app/admin?reset=SECRET-TOKEN" }, {});
+      expect(res).toMatchObject({ logged: true, notConfigured: true });
+      const allOutput = [...logSpy.mock.calls, ...warnSpy.mock.calls].flat().join(" ");
+      expect(allOutput).not.toContain("SECRET-TOKEN");
+    } finally {
+      if (prev === undefined) delete process.env.FUNCTIONS_EMULATOR; else process.env.FUNCTIONS_EMULATOR = prev;
+      logSpy.mockRestore(); warnSpy.mockRestore();
+    }
   });
 });

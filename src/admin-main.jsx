@@ -22,6 +22,7 @@ import "./styles/admin-settings.css";
 // session in another tab (fixes ERRORS §A5). See api/firebase.admin.config.js.
 import { onAdminAuthChange, adminLogin, adminLogout, adminAuth } from "./api/admin-auth.js";
 import AdminDashboard from "./components/admin-dashboard.jsx";
+import SettingsPwReset from "./components/SettingsPwReset.jsx"; // ADMIN-6 PR2: emailed reset page
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx"; // H8: no white screen on a render throw
 
 // ADMIN-UI-1 (2026-07-25): the sign-in / denied / loading screens are now on the
@@ -70,6 +71,11 @@ function AdminApp() {
   );
 
   if (phase === "ok") {
+    // ADMIN-6 PR2: an emailed reset link (/admin?reset=<token>) opens the standalone
+    // reset page instead of the dashboard, but ONLY for a verified signed-in admin — the
+    // token is bound server-side to the owner's uid, so a signed-out visitor hits the
+    // normal login first and a non-owner just gets permission-denied on submit.
+    if (new URLSearchParams(window.location.search).get("reset")) return <SettingsPwReset />;
     // ADMIN-UI-1: the whole persistent chrome (bar → H1 → tabs) lives inside
     // AdminDashboard as ONE .ci-app paper layout — no more colliding outer <header>.
     // We just hand it the signed-in email + the sign-out handler.

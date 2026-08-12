@@ -177,3 +177,18 @@ export async function unlockSettings(password) {
   const res = await httpsCallable(functions, "unlockSettings")({ password });
   return res.data || {};
 }
+
+// ADMIN-6 PR2: email the owner a single-use Settings-password reset link (to the owner's
+// own account email; the token is bound server-side to the caller's uid). Fire-and-forget
+// — the server sends the mail and audits the request. Throws on failure.
+export async function requestSettingsPwReset() {
+  await httpsCallable(functions, "requestSettingsPwReset")({});
+}
+
+// ADMIN-6 PR2: complete a Settings-password reset — swap a single-use token for a new
+// password. `next` is the plaintext (scrypt-hashed server-side, never persisted raw).
+// Returns the callable's result ({ success } or an error is thrown).
+export async function completeSettingsPwReset(token, next) {
+  const res = await httpsCallable(functions, "completeSettingsPwReset")({ token, next });
+  return res.data || {};
+}

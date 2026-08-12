@@ -47,6 +47,7 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { checkCooldown, consumeDailyBudget } = require("./guards.js");
 const guards = require("./guards.js");   // ADMIN-SEC role gates (requireOwner/requireFreshAuth/roleOf)
 const settingsAuth = require("./settings-auth.js");   // ADMIN-6 Settings-password crypto core
+const { sendMail } = require("./sendMail.js");         // ADMIN-6 PR2: outbound-email seam (lazy nodemailer)
 const billing = require("./billing.js");
 // C-R2b (C14): trim the universe's lowest-rank tail instead of hitting the 1 MiB doc cap.
 const { trimUniverse } = require("./universe-utils.js");
@@ -1827,7 +1828,8 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
   return {
     coingeckoSet: !!cfg.coingecko,
     paypal: { clientId: pp.clientId || "", secretSet: !!pp.secret, webhookId: pp.webhookId || "" },
-    email: { provider: em.provider || "none", apiKeySet: !!em.apiKey, apiUrl: em.apiUrl || "", fromEmail: em.fromEmail || "", listId: em.listId || "" },
+    // ADMIN-6 PR2: SMTP settings pre-fill the form; smtpPass returns as a boolean set-flag ONLY.
+    email: { provider: em.provider || "none", apiKeySet: !!em.apiKey, apiUrl: em.apiUrl || "", fromEmail: em.fromEmail || "", listId: em.listId || "", smtpHost: em.smtpHost || "", smtpPort: em.smtpPort || 587, smtpSecure: em.smtpSecure === true, smtpUser: em.smtpUser || "", smtpPassSet: !!em.smtpPass },
     // ADMIN-0: requireAdminMfa is OFF unless config says exactly true — nothing can
     // satisfy the gate until Identity Platform MFA is enabled, so an absent flag
     // must not read as "on".
@@ -1900,6 +1902,16 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
       apiUrl: String(m.apiUrl || ""),
       fromEmail: String(m.fromEmail || ""),
       listId: String(m.listId || ""),
+      // ADMIN-6 PR2: DreamHost SMTP for the emailed Settings-password reset. smtpPass is
+      // a secret — keep()-guarded (blank keeps the saved value; never echoed to a client;
+      // registered as a SECRET_PATH in config-diff.js so its value never reaches the log).
+      smtpHost: String(m.smtpHost || ""),
+      // Clamp+round to a valid TCP port so the stored value honors openapi's 1..65535
+      // integer bound (api-contract #2); a blank/NaN/out-of-range value falls back to 587.
+      smtpPort: Math.min(65535, Math.max(1, Math.round(Number(m.smtpPort)) || 587)),
+      smtpSecure: m.smtpSecure === true,
+      smtpUser: String(m.smtpUser || ""),
+      smtpPass: keep(m.smtpPass, exEm.smtpPass),
     },
     flags,
     plans: mergePlans((data && data.plans) || existing.plans),
@@ -2028,6 +2040,95 @@ exports.unlockSettings = functions.https.onCall(async (data, context) => {
   await db.doc(`settingsUnlock/${uid}`).set({ until, at: Date.now(), authTime });
   await writeAudit(context, "settingsUnlock", {});
   return { success: true, until };
+});
+
+// ─── ADMIN-6 PR2: request an emailed Settings-password reset (owner only) ───
+// The recovery path when the Settings password is forgotten. A single-use token is
+// generated, stored HASHED (only the sha256 in Firestore — the raw token exists only in
+// the email), and mailed to the OWNER'S OWN verified address (context.auth.token.email,
+// NEVER a body value — so a caller can't redirect the reset elsewhere). Per-uid/day
+// rate-limited to bound abuse. In dev / without SMTP configured the link is logged
+// instead of sent (see sendMail.js), so the flow is completable locally.
+exports.requestSettingsPwReset = functions.https.onCall(async (data, context) => {
+  await assertOwner(context);
+  assertNoUnknownKeys(data, []);
+  const uid = context.auth.uid;
+  const budget = await consumeDailyBudget(db, { uid, key: "settingsPwReset", limit: 5 });
+  if (!budget.allowed) {
+    throw new functions.https.HttpsError("resource-exhausted", "Too many reset requests today. Try again tomorrow.");
+  }
+  const cfg = await readConfigFresh();
+  if (!(cfg.settingsAuth && cfg.settingsAuth.hash)) {
+    throw new functions.https.HttpsError("failed-precondition", "No Settings password is set to reset.");
+  }
+  const { token, tokenHash } = settingsAuth.generateToken();
+  // Store only the HASH + a single-use marker, keyed by the hash. A DB read can't replay
+  // the reset because the raw token never touches Firestore.
+  await db.doc(`settingsPwReset/${tokenHash}`).set({
+    uid,
+    expires: Date.now() + settingsAuth.RESET_MS,
+    used: false,
+    createdAt: Date.now(),
+  });
+  const to = (context.auth.token && context.auth.token.email) || "";
+  const link = `${APP_URL}/admin?reset=${token}`;
+  await sendMail({
+    to,
+    subject: "Reset your CryptoIdea Settings password",
+    text:
+      "A reset was requested for your CryptoIdea Settings password.\n\n" +
+      "Open this link to choose a new one (valid ~45 minutes):\n" +
+      link + "\n\n" +
+      "If you didn't request this, you can safely ignore this email — your Settings password stays unchanged.",
+  }, cfg);
+  await writeAudit(context, "settingsPwResetRequested", {});
+  return { success: true };
+});
+
+// ─── ADMIN-6 PR2: complete the Settings-password reset with the emailed token (owner only) ───
+// Consumes the single-use token and installs the new password in ONE transaction, so a
+// token can be redeemed at most once even under a concurrent double-submit (the
+// idempotency analog). The token is bound to the uid that requested it — a different
+// owner can't redeem it. On success a fresh session-bound unlock is granted so the owner
+// isn't immediately re-prompted.
+exports.completeSettingsPwReset = functions.https.onCall(async (data, context) => {
+  await assertOwner(context);
+  assertNoUnknownKeys(data, ["token", "next"]);
+  const uid = context.auth.uid;
+  const next = (data && data.next) || "";
+  // Free, cheap strength check first (a mistyped/weak password shouldn't spend budget).
+  const strength = settingsAuth.checkStrength(next);
+  if (!strength.ok) throw new functions.https.HttpsError("invalid-argument", strength.reason);
+  // SEC-review #2: a SEPARATE budget key from requestSettingsPwReset, so a run of failed
+  // completes can never exhaust the request budget and lock the owner out of asking for a
+  // fresh link. Bounds the per-call scrypt cost; guessing isn't the driver (256-bit token,
+  // owner-gated). Consumed only after the strength check passes.
+  const budget = await consumeDailyBudget(db, { uid, key: "settingsPwComplete", limit: 10 });
+  if (!budget.allowed) {
+    throw new functions.https.HttpsError("resource-exhausted", "Too many attempts today. Try again tomorrow.");
+  }
+  const tokenHash = settingsAuth.hashToken((data && data.token) || "");
+  // Hash the new password BEFORE the transaction — scrypt is CPU-heavy and a transaction
+  // body should stay short (Firestore may retry it on contention).
+  const rec = settingsAuth.hashPassword(next);
+  const ref = db.doc(`settingsPwReset/${tokenHash}`);
+  await db.runTransaction(async (t) => {
+    // All reads before writes.
+    const s = await t.get(ref);
+    if (!s.exists) throw new functions.https.HttpsError("permission-denied", "This reset link is invalid or has expired.");
+    const r = s.data() || {};
+    if (r.used) throw new functions.https.HttpsError("permission-denied", "This reset link has already been used.");
+    if (Number(r.expires) < Date.now()) throw new functions.https.HttpsError("permission-denied", "This reset link has expired.");
+    if (r.uid !== context.auth.uid) throw new functions.https.HttpsError("permission-denied", "This reset link belongs to a different account.");
+    t.update(ref, { used: true, usedAt: Date.now() });
+    t.set(db.doc("config/app"), { settingsAuth: { ...rec, updatedAt: Date.now(), updatedBy: uid } }, { merge: true });
+  });
+  _cfg = null; // the unlock gate reads settingsAuth — don't serve a stale "no password" view
+  // Grant a fresh session-bound unlock so the owner lands straight in Settings.
+  const authTime = Number(context.auth.token && context.auth.token.auth_time) || 0;
+  await db.doc(`settingsUnlock/${uid}`).set({ until: Date.now() + settingsAuth.UNLOCK_MS, at: Date.now(), authTime });
+  await writeAudit(context, "settingsPwResetCompleted", {});
+  return { success: true };
 });
 
 // ═════════════════════════════════════════════════════════════
