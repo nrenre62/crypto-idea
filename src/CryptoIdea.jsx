@@ -616,6 +616,23 @@ export default function CryptoIdea(){
   // R29-2/R31-3: un-cancel a pending downgrade — the subscription resumes AND any scheduled
   // future-start Pro sub (scheduledPro) is cancelled with it.
   const keepPlan=async()=>{
+    // PR-C2 SECURITY FIX (fail-closed): a Premium→Pro downgrade EAGER-CANCELS the Premium PayPal
+    // sub at schedule time, so "Keep my plan" on a scheduled-Pro marker can NOT resume Premium —
+    // there is no live subscription left to un-cancel. The old optimistic cancelled:false forge
+    // painted Premium as a healthy "renews on" sub with nothing behind it (the [HIGH] paywall-
+    // bypass illusion). So for a scheduled-Pro marker we never forge cancelled:false: the server
+    // cancels the scheduled Pro + keeps the cancel-to-free marker (Premium runs to period end,
+    // then Starter), and watchUserDoc syncs that corrected "then Starter" marker back. To
+    // continue on Premium the user re-subscribes (Account's "Re-subscribe to Premium" CTA →
+    // the existing Premium checkout). Drop the now-defunct scheduled-Pro marker optimistically so
+    // the misleading "ends on … then Pro" notice clears while the real marker arrives.
+    if(user?.subscription?.scheduledPro){
+      setUser(u=>u?{...u,subscription:null}:u);
+      try{await apiReactivateSubscription();}catch(_e){}
+      return;
+    }
+    // Legacy marker (a plain pending cancel, no scheduledPro): the live sub is still active until
+    // period end, so an optimistic un-cancel is honest (R29-2).
     const{cancelled:_c,downgradeTo:_d,scheduledPro:_sp,proApproved:_pa,proBilling:_pb,...rest}=user?.subscription||{};
     const updated={...user,subscription:{...rest,cancelled:false}};
     // PR-C1: the useAuthSession auto-save effect persists this single state change — no

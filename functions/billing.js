@@ -180,10 +180,13 @@ function scheduleProMarkerPatch(userData, scheduled, nowMs) {
 // activating subscription IS the scheduled Pro sub (resource.id === scheduledPro.subId),
 // this is DEFERRED: mark scheduledPro.approved=true (the payment-approval proof) WITHOUT
 // flipping tier or overwriting the live sub id — the account stays premium until the sweep
-// flips it at endDate — and name the still-running PREMIUM sub for the caller to cancel now
-// that the future Pro is approved (so the two never overlap-bill). Fail-closed: a normal
-// (non-scheduled) activation, or a doc with no scheduledPro, is NOT deferred and the caller
-// runs the usual activationPatch.
+// flips it at endDate. Fail-closed: a normal (non-scheduled) activation, or a doc with no
+// scheduledPro, is NOT deferred and the caller runs the usual activationPatch.
+//
+// PR-C2 SECURITY FIX (eager-cancel): the Premium PayPal sub is cancelled at SCHEDULE time
+// now (scheduleProDowngrade, CHECKED), so this webhook decision NO LONGER carries a
+// `cancelPremiumSubId` — a lazy best-effort cancel here was the double-charge / bill-forever
+// window. Return only { deferred, patch }.
 function scheduledActivationDecision(userData, resource, nowMs) {
   const d = userData || {};
   const sub = d.subscription || {};
@@ -193,8 +196,41 @@ function scheduledActivationDecision(userData, resource, nowMs) {
   return {
     deferred: true,
     patch: { subscription: { ...sub, scheduledPro: { ...sched, approved: true } } },
-    cancelPremiumSubId: d.paypalSubscriptionId || null,
   };
+}
+
+// PR-C2 SECURITY FIX — "Keep my plan" (the reactivateSubscription callable), fail-closed.
+// The Premium PayPal sub was cancelled at SCHEDULE time (eager-cancel), so a scheduled-Pro
+// downgrade CANNOT be un-cancelled back to premium-forever (that terminally-cancelled sub is
+// gone — reactivating it would be a paywall bypass, the [HIGH] bug). Two paths:
+//   • scheduledPro present → cancel-to-FREE marker: keep `cancelled:true` (the sweep still
+//     drops them at endDate), target "free", DROP the scheduledPro from the marker, and hand
+//     back its subId so the caller cancels the future Pro sub at PayPal. `tier` is NOT set —
+//     paid access continues to endDate; the sweep flips it. NEVER `cancelled:false`.
+//   • legacy pending cancel (no scheduledPro) → the legacy Premium sub is still live, so a
+//     plain un-cancel (`cancelled:false`) is correct (the R29-2 behavior); nothing to cancel.
+function keepPlanPatch(userData, nowMs) {
+  const d = userData || {};
+  const sub = d.subscription || {};
+  if (sub.scheduledPro && sub.scheduledPro.subId) {
+    const cancelProSubId = sub.scheduledPro.subId;
+    const { scheduledPro, ...prev } = sub;
+    return {
+      patch: {
+        subscription: {
+          ...prev,
+          cancelled: true,             // fail-closed: never a premium-forever un-cancel
+          cancelledAt: nowMs,
+          downgradeTo: "free",
+          endDate: prev.endDate || null,
+        },
+      },
+      cancelProSubId,
+    };
+  }
+  // Legacy pending cancel (no scheduledPro): the Premium sub is still live → un-cancel it.
+  const { cancelled, downgradeTo, cancelledAt, scheduledPro, ...rest } = sub;
+  return { patch: { subscription: { ...rest, cancelled: false } }, cancelProSubId: null };
 }
 
 // R31-6: un-suspending an account extends its subscription's endDate by the suspension
@@ -258,4 +294,6 @@ module.exports = {
   billingStatusOf,
   // PR-C2 (future-start Pro pre-authorization)
   scheduleProMarkerPatch, scheduledActivationDecision,
+  // PR-C2 SECURITY FIX (eager-cancel Premium; fail-closed "Keep my plan")
+  keepPlanPatch,
 };

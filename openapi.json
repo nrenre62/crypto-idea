@@ -753,7 +753,7 @@
       "post": {
         "operationId": "reactivateSubscription",
         "summary": "Un-cancel a pending downgrade (\"Keep my plan\")",
-        "description": "Callable. Clears the caller's own cancellation marker so the paid tier continues.",
+        "description": "Callable. Clears the caller's own cancellation marker so the paid tier continues. PR-C2 security fix: on a scheduled-Pro downgrade the Premium sub was already cancelled at schedule time, so this reverts to a fail-closed cancel-to-free marker (access to period end, then the sweep drops it) and cancels the scheduled Pro sub — it never reinstates the terminally-cancelled Premium sub.",
         "tags": [
           "Billing"
         ],
