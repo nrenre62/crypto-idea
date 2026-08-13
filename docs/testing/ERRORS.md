@@ -516,8 +516,37 @@
   (`pro@`/`premium@test.com` — no real PayPal sub) therefore surfaces that error toast on
   Confirm-Downgrade, where the old local forge used to succeed. This is the intended server-authoritative
   behaviour, **not a regression** — the emulator has no PayPal subscription to cancel. **Resolution:**
-  Plan B **PR-C2** adds a `FUNCTIONS_EMULATOR` dev-split that restores local downgrade testing (alongside
-  the real future-start Pro pre-auth). Canonical: [`BILLING.md`](../decisions/BILLING.md) §3.3. ℹ️ (PR-C1)
+  Plan B **PR-C2** (2026-08-13, branch `claude/plan-b-pr-c2-pro-preauth`, `1dee0b4`) **shipped** a
+  `FUNCTIONS_EMULATOR` dev-split in `scheduleProDowngrade` that restores local **Premium→Pro** downgrade
+  testing (see C9). Canonical: [`BILLING.md`](../decisions/BILLING.md) §3.3. ℹ️ (PR-C1)
+- **C9 · Plan B PR-C2 future-start Pro pre-auth — four billing findings closed + two residuals gated
+  before paid plans.** The Premium→Pro downgrade now creates a REAL future-start PayPal Pro subscription
+  (first-charges when Premium ends) via the new `scheduleProDowngrade` callable; the security review found
+  and the PR (2026-08-13, branch `claude/plan-b-pr-c2-pro-preauth`, `1dee0b4`) **closed** four issues, all
+  **verified against the emulator** (`tests/functions-callable.test.js` + `tests/unit/billing.test.js`):
+  - **(a) [MED] abandonment overcharge** — a scheduled Pro sub with the Premium sub still live would
+    double-bill if the user never finished. **CLOSED** by the **eager schedule-time Premium-cancel**
+    (`scheduleProDowngrade` cancels the Premium PayPal sub, *checked*, when it writes the marker).
+  - **(b) [MED] double-charge** — **CLOSED** by the checked cancel + **void-and-throw** ordering (a Premium
+    cancel failure voids the just-created Pro sub and throws, no marker) and the future `start_time` that
+    defers the Pro sub's first charge; the Pro sub stays `APPROVAL_PENDING` and can't charge until approved.
+  - **(c) [HIGH] "Keep my plan" paywall bypass** — the old `reactivateSubscription` forged `cancelled:false`,
+    leaving a paid tier with **no live PayPal sub** that the sweep never downgrades = **free Premium forever**.
+    Reachable via a double keep-my-plan **and** via a plain Premium→Starter cancel + one keep-my-plan (the
+    latter **pre-existing in merged code**). **CLOSED** by making `keepPlanPatch` **fail-closed** — it never
+    writes `cancelled:false`; it re-affirms the cancellation (access to `endDate`, then the sweep drops to
+    free), cancels any scheduled Pro sub, and the client routes to re-subscribe.
+  - **(d) [LOW] healthy-sub self-cancel** via the raw `reactivateSubscription` callable — **CLOSED** by a
+    `!sub.cancelled` **no-op guard** in `keepPlanPatch`.
+  - **Two residuals are NOT fixed here — recorded as GO-LIVE GATES in BOTH
+    [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §Plan B (PR-C3) and
+    [`GO-LIVE-AUDIT.md`](../product/GO-LIVE-AUDIT.md), dormant while `paidPlansEnabled=false`:**
+    **(1) [MED] fail-open ordering** — the eager Premium-cancel happens *before* the Firestore marker write,
+    so a rare, non-adversarial marker-write failure after a successful cancel leaves premium-with-no-billing;
+    fix = **marker-first ordering** or a reconciliation sweep. **(2) seamless re-subscribe (PR-C3)** — the
+    "Re-subscribe to Premium" CTA routes via `startUpgrade("premium")`, which no-ops while `tier==="premium"`
+    (same-tier guard), so it is inert during the cancelled-but-not-lapsed window; fix = a **future-start
+    Premium re-subscribe**. Canonical: [`BILLING.md`](../decisions/BILLING.md) §3.3. ℹ️ (PR-C2)
 
 ---
 
