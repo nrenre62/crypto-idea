@@ -115,13 +115,27 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 > `checkout` kill-switch → premium-only → not-already-scheduled → 60s cooldown), then:
 > 1. creates the future-start Pro sub (it stays `APPROVAL_PENDING` — it cannot charge — until the user
 >    approves it);
-> 2. **eagerly CANCELS the Premium PayPal sub at schedule time**, *checked* (an OK response OR an
->    already-inactive `422` is success). **On any cancel failure it voids the just-created Pro sub and
->    throws — no marker is written, the account stays fully premium** (fully reversible);
-> 3. writes the server-only marker `subscription.scheduledPro {subId, billing, startDate, approved:false}`
->    (`tier` stays premium; `cancelled:true`, `downgradeTo:"pro"`, `endDate = startDate`), audits it, and
->    returns `{approvalUrl, subscriptionId}`. The client redirects to `approvalUrl` (PROD) or, in DEV
+> 2. **writes the marker FIRST (marker-first, PR-C3a)** — the server-only marker
+>    `subscription.scheduledPro {subId, billing, startDate, approved:false}` (`tier` stays premium;
+>    `cancelled:true`, `downgradeTo:"pro"`, `endDate = startDate`) carrying a **transient `cancelPending`
+>    breadcrumb** = the live Premium sub id still needing cancellation, persisted **before** the
+>    irreversible Premium cancel so a crash between the two is always recoverable (never
+>    premium-with-no-billing). A marker-write failure here voids the just-created Pro sub and throws —
+>    Premium is fully live and untouched (fully reversible);
+> 3. **then eagerly CANCELS the Premium PayPal sub**, *checked* and three-way (PR-C3a): **CONFIRMED**
+>    (an OK response OR an already-inactive `422` → drain the `cancelPending` breadcrumb with a targeted
+>    `FieldValue.delete()`), **AMBIGUOUS** (a network throw OR a PayPal 5xx → leave the breadcrumb for
+>    the daily reconcile-drain to confirm/finish), **DEFINITIVE** (a 4xx → roll the marker fully back to
+>    the exact pre-schedule premium state so the user can retry, "no changes were made"). It then audits
+>    and returns `{approvalUrl, subscriptionId}`. The client redirects to `approvalUrl` (PROD) or, in DEV
 >    (`FUNCTIONS_EMULATOR`), skips PayPal entirely and just writes the mark.
+>
+> **The daily `enforceSubscriptionPeriods` sweep gained a per-user reconcile-drain (PR-C3a):** when a
+> `cancelPending` breadcrumb is present it retries the Premium cancel and clears the breadcrumb **only on
+> a confirmed cancel** (a 5xx never erases an unconfirmed cancel — leave it, the next sweep retries), so a
+> schedule that died between the marker write and the Premium cancel always finishes. Pure helpers:
+> `scheduleProMarkerPatch` now stamps `cancelPending`; `pendingCancelSubId` reads it; `keepPlanPatch`
+> intentionally **preserves** `cancelPending` (fail-closed — the drain still finishes the Premium cancel).
 >
 > The Pro sub's own **`BILLING.SUBSCRIPTION.ACTIVATED`** webhook (when `resource.id === scheduledPro.subId`)
 > is **deferred**: it only flips `scheduledPro.approved = true` (payment proof) — it does **not** flip the
@@ -146,16 +160,17 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 > test the Premium→Pro downgrade locally again — the PR-C1 "No active subscription" DEV caveat
 > ([ERRORS.md](../testing/ERRORS.md) §C8) is resolved for this path.
 >
-> **Two residuals gate paid plans (recorded in [NEXT-STEPS.md](../product/NEXT-STEPS.md) §Plan B and
-> [GO-LIVE-AUDIT.md](../product/GO-LIVE-AUDIT.md)) — NOT bugs to fix now, dormant while paid plans are OFF:**
-> 1. **[MED] fail-open ordering** — the eager Premium-cancel happens *before* the Firestore marker write,
->    so a rare, non-adversarial marker-write failure after a successful cancel leaves premium-with-no-billing.
->    Fix before paid plans: **marker-first ordering** (persist the scheduled intent before the irreversible
->    PayPal cancel) or a reconciliation sweep.
-> 2. **Seamless re-subscribe (PR-C3)** — the Account "Re-subscribe to Premium" CTA currently routes via
->    `startUpgrade("premium")`, which **no-ops while `tier==="premium"`** (the same-tier guard), so it is
->    inert during the cancelled-but-not-lapsed window. The real fix is a **future-start Premium re-subscribe**
->    (mirror the Pro machinery, generalized to carry the tier) — **PR-C3**, gated before paid plans.
+> **The two PR-C2 residuals were gated before paid plans (recorded in
+> [NEXT-STEPS.md](../product/NEXT-STEPS.md) §Plan B and [GO-LIVE-AUDIT.md](../product/GO-LIVE-AUDIT.md)):**
+> 1. **[MED] fail-open ordering — ✅ CLOSED by PR-C3a** (2026-08-13, `claude/plan-b-pr-c3a-marker-reconcile`):
+>    the eager Premium-cancel used to happen *before* the Firestore marker write. It is now **marker-first**
+>    (the `scheduledPro` marker + `cancelPending` breadcrumb is written before the irreversible cancel) with a
+>    daily **reconcile-drain** that finishes any un-cleared cancel — see the flow above.
+> 2. **Seamless re-subscribe (PR-C3b) — STILL OPEN, the remaining pre-paid-plans gate.** The Account
+>    "Re-subscribe to Premium" CTA currently routes via `startUpgrade("premium")`, which **no-ops while
+>    `tier==="premium"`** (the same-tier guard), so it is inert during the cancelled-but-not-lapsed window.
+>    The real fix is a **future-start Premium re-subscribe** (mirror the Pro machinery, generalized to carry
+>    the tier) — **PR-C3b**, gated before paid plans.
 >
 > **Verification:** the full Premium→Pro round-trip (cancel-access timing; future-start `ACTIVATED` timing)
 > verifies against the go-live PayPal **sandbox e2e** (§8.5).
@@ -319,10 +334,12 @@ Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyP
    at `start_time`, deferred to `scheduledPro.approved`, and the sweep flips to Pro at `endDate`).
 6. **PR-C2 pre-paid-plans gates (must land before `paidPlansEnabled` is turned on** — also recorded in
    [NEXT-STEPS.md](../product/NEXT-STEPS.md) §Plan B and [GO-LIVE-AUDIT.md](../product/GO-LIVE-AUDIT.md)):
-   (a) **marker-first ordering** in `scheduleProDowngrade` — persist the scheduled marker *before* the
-   irreversible eager Premium-cancel (or add a reconciliation sweep), closing the [MED] fail-open window;
-   (b) **seamless re-subscribe (PR-C3)** — a future-start Premium re-subscribe so the "Re-subscribe to
-   Premium" CTA works during the cancelled-but-not-lapsed window (today it no-ops on the same-tier guard).
+   (a) **marker-first ordering** in `scheduleProDowngrade` — ✅ **DONE (PR-C3a)**: the scheduled marker +
+   `cancelPending` breadcrumb is written *before* the irreversible eager Premium-cancel, with a daily
+   reconcile-drain closing the [MED] fail-open window;
+   (b) **seamless re-subscribe (PR-C3b)** — ⏳ **remaining**: a future-start Premium re-subscribe so the
+   "Re-subscribe to Premium" CTA works during the cancelled-but-not-lapsed window (today it no-ops on the
+   same-tier guard).
 7. Confirm `App Check` / abuse gates per [BACKEND-ADMIN-DECISIONS.md](BACKEND-ADMIN-DECISIONS.md)
    D4/D5 before public launch.
 
@@ -345,8 +362,10 @@ subscription: {
   scheduledPro: {                         // PR-C2 future-start Pro pre-auth (Premium→Pro)
     subId, billing, startDate,            //   the real future-start PayPal Pro sub
     approved                              //   false until its ACTIVATED webhook proves payment
-  }
-}
+  },
+  cancelPending                           // PR-C3a marker-first breadcrumb: the live Premium sub id
+}                                         //   still needing cancellation, written BEFORE the eager
+                                          //   Premium cancel; drained by the sweep on a confirmed cancel
 ```
 
 All of the above are **server-authoritative** — `firestore.rules` forbids the owner from writing them.

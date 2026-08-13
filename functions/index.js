@@ -527,21 +527,26 @@ async function getPayPalToken() {
   return data.access_token;
 }
 
-// PR-C2: cancel a PayPal subscription — best-effort + idempotent. Cancelling an
-// already-cancelled sub is a no-op/tolerated (PayPal returns 4xx), so a cancel error
-// NEVER fails the caller: the money-critical state (the approval marker / the user's
-// decision) is already persisted, and the daily sweep owns the tier flip. Guarded by
-// FUNCTIONS_EMULATOR — no PayPal round-trip locally.
+// PR-C2/C3a: cancel a PayPal subscription — best-effort + idempotent, and RETURNS a
+// boolean confirmed-success so a caller that needs to KNOW (the reconcile-drain) can
+// tell a real cancel from a PayPal 5xx. The contract stays non-throwing: fire-and-forget
+// callers ignore the return, but the drain gates the breadcrumb clear on `true` so an
+// unconfirmed cancel is never erased (re-opening premium-with-no-billing). Cancelling an
+// already-cancelled sub is tolerated (PayPal returns 422 = already inactive → success).
+// FUNCTIONS_EMULATOR = no PayPal round-trip locally → treated as success (moot for the
+// PROD-only drain; keeps fire-and-forget DEV callers happy).
 async function cancelPayPalSubscription(subscriptionId, reason) {
-  if (!subscriptionId || process.env.FUNCTIONS_EMULATOR) return;
+  if (!subscriptionId) return false;
+  if (process.env.FUNCTIONS_EMULATOR) return true;
   try {
     const token = await getPayPalToken();
-    await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions/${subscriptionId}/cancel`, {
+    const cancelResp = await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions/${subscriptionId}/cancel`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ reason: reason || "Superseded by scheduled downgrade" }),
     });
-  } catch (e) { console.warn("cancelPayPalSubscription: non-fatal error:", e && e.message); }
+    return cancelResp.ok || cancelResp.status === 422;   // 204 cancelled / 422 already-inactive = success
+  } catch (e) { console.warn("cancelPayPalSubscription: non-fatal error:", e && e.message); return false; }
 }
 
 // PR-C2: a defensive period-end fallback for the emulator DEV split — the future Pro
@@ -677,6 +682,12 @@ exports.scheduleProDowngrade = functions.https.onCall(async (data, context) => {
   const planId = billing.planIdFor("pro", billingCycle, PLAN_IDS);
   let startDate = (cur.subscription && cur.subscription.endDate) || null;
   let subId, approvalUrl = null;
+  // PR-C3a marker-first: the live Premium sub id still needing cancellation. Set only in the
+  // PROD branch (DEV has no real sub) and carried into the marker BEFORE the irreversible
+  // Premium cancel, so a crash between the two leaves a durable recovery breadcrumb the sweep
+  // drains. `if (cancelSubId)` below == PROD-only (in DEV it stays null → nothing at PayPal).
+  let cancelSubId = null;
+  let token = null;
 
   if (process.env.FUNCTIONS_EMULATOR) {
     // DEV split: no PayPal round-trip in the emulator. Resolve the period end from the
@@ -688,7 +699,7 @@ exports.scheduleProDowngrade = functions.https.onCall(async (data, context) => {
     if (!planId) throw new functions.https.HttpsError("failed-precondition", "Plan not configured.");
     const premiumSubId = cur.paypalSubscriptionId;
     if (!premiumSubId) throw new functions.https.HttpsError("failed-precondition", "No active subscription to schedule from.");
-    const token = await getPayPalToken();
+    token = await getPayPalToken();
     // Resolve the premium period end (PayPal's next_billing_time; fall back to endDate).
     try {
       const subResp = await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions/${premiumSubId}`, {
@@ -723,39 +734,67 @@ exports.scheduleProDowngrade = functions.https.onCall(async (data, context) => {
     if (!subId) throw new functions.https.HttpsError("internal", "PayPal did not return a subscription id.");
     const approve = result.links && result.links.find((l) => l.rel === "approve");
     approvalUrl = approve ? approve.href : null;
+    // PR-C3a: record the Premium sub as the pending cancel; it is cancelled AFTER the marker.
+    cancelSubId = premiumSubId;
+  }
 
-    // PR-C2 SECURITY FIX (eager-cancel): cancel the Premium sub NOW, CHECKED — not the
-    // swallow-everything helper. This closes the double-charge window: Premium stops billing
-    // and the Pro sub (still APPROVAL_PENDING) can't charge until the user approves it. Treat
-    // an OK response OR an already-inactive sub (422) as success. On any failure/throw, void
-    // the just-created (un-approved) Pro sub and throw — NO marker is written, the user stays
-    // fully premium (fully reversible, no changes made).
+  // PR-C3a marker-first write. Persist the PENDING marker (approved:false) carrying the
+  // `cancelPending` breadcrumb BEFORE cancelling Premium — so a crash between the two never
+  // strands a premium account with a cancelled Premium sub and no marker (Finding #3, the
+  // [MED] fail-open). tier stays premium; the live sub id stays the premium sub until the
+  // sweep flips it at endDate. A write failure here means Premium is still fully live and
+  // untouched (fully reversible) → void the just-created (un-approved) Pro sub and surface.
+  const patch = billing.scheduleProMarkerPatch(cur, { subId, billing: billingCycle, startDate, cancelSubId }, Date.now());
+  try {
+    await userRef.set(patch, { merge: true });
+  } catch (e) {
+    if (cancelSubId) await cancelPayPalSubscription(subId, "Rollback: schedule marker write failed");
+    throw new functions.https.HttpsError("internal", "Couldn't schedule the downgrade — please try again.");
+  }
+
+  // PR-C3a: PROD-only Premium cancel, AFTER the marker (CHECKED). The marker breadcrumb is now
+  // durable, so a crash here is recoverable — the daily reconcile-drain finishes the cancel. Three
+  // outcomes, distinguishing a DEFINITIVE failure (retryable) from an AMBIGUOUS one (reconciled):
+  if (cancelSubId) {
+    let cancelResp;
     try {
-      const cancelResp = await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions/${premiumSubId}/cancel`, {
+      cancelResp = await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions/${cancelSubId}/cancel`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ reason: "Superseded by scheduled Pro downgrade" }),
       });
-      if (!cancelResp.ok && cancelResp.status !== 422) {   // 204 = cancelled; 422 = already inactive
-        throw new Error(`PayPal cancel returned ${cancelResp.status}`);
-      }
-    } catch (e) {
-      await cancelPayPalSubscription(subId, "Rollback: Premium cancel failed");   // void the pending Pro sub
-      throw new functions.https.HttpsError("internal", "Couldn't cancel your current Premium subscription — no changes were made.");
+    } catch (netErr) {
+      // AMBIGUOUS: network/timeout — the cancel MAY have succeeded. Leave the marker (cancelPending
+      // set) so the daily reconcile-drain confirms/finishes it (never premium-with-no-billing). Void
+      // the pending Pro sub (no double charge); return no approvalUrl.
+      await cancelPayPalSubscription(subId, "Rollback: Premium cancel network error");
+      throw new functions.https.HttpsError("unavailable", "We couldn't confirm the change with PayPal — it'll be reconciled automatically. Please check back shortly.");
+    }
+    if (cancelResp.ok || cancelResp.status === 422) {   // 204 = cancelled; 422 = already inactive
+      // Confirmed cancelled → drain the recovery breadcrumb via a TARGETED nested delete (clobber-safe:
+      // a concurrent webhook write to any other subscription.* field in the window survives, unlike a
+      // whole-map rewrite from this stale snapshot). Modular FieldValue — admin.firestore.FieldValue is
+      // undefined in the emulator (see the import note at the top of this file).
+      await userRef.update({ "subscription.cancelPending": FieldValue.delete() });
+    } else if (cancelResp.status >= 500) {
+      // AMBIGUOUS: a 5xx does NOT throw, but the cancel may still have gone through server-side. Treat it
+      // exactly like the network-error case — leave the marker (cancelPending set) for the daily
+      // reconcile-drain to confirm/finish (never premium-with-no-billing). Void the pending Pro sub
+      // (no double charge); return no approvalUrl.
+      await cancelPayPalSubscription(subId, "Rollback: Premium cancel 5xx");
+      throw new functions.https.HttpsError("unavailable", "We couldn't confirm the change with PayPal — it'll be reconciled automatically. Please check back shortly.");
+    } else {
+      // DEFINITIVE failure (a 4xx — PayPal rejected the cancel request outright, so Premium is still live).
+      // Fully ROLL BACK the marker so the account returns to its exact pre-schedule premium state and the
+      // user can retry (preserves PR-C2's fully-reversible property; the scheduledPro guard no longer
+      // strands the account fail-closed to free). Void the pending Pro sub (no double charge).
+      // update() REPLACES the subscription field wholesale (drops the marker).
+      await cancelPayPalSubscription(subId, "Rollback: Premium cancel failed");
+      await userRef.update({ subscription: cur.subscription ?? FieldValue.delete() });
+      throw new functions.https.HttpsError("internal", "Couldn't cancel your current Premium subscription — no changes were made. Please try again.");
     }
   }
 
-  // Persist the PENDING marker (approved:false). tier stays premium; the live sub id
-  // stays the premium sub until the sweep flips it at endDate. Wrapped: a write failure
-  // voids the just-created Pro sub so we never leave a charge-later Pro sub with no server
-  // record, and surfaces the failure (best-effort void; emulator no-ops).
-  const patch = billing.scheduleProMarkerPatch(cur, { subId, billing: billingCycle, startDate }, Date.now());
-  try {
-    await userRef.set(patch, { merge: true });
-  } catch (e) {
-    await cancelPayPalSubscription(subId, "Rollback: schedule marker write failed");
-    throw new functions.https.HttpsError("internal", "Couldn't schedule the downgrade — please try again.");
-  }
   await writeAudit(context, "scheduleProDowngrade", { targetUid: userId, details: `billing=${billingCycle} start=${startDate}` });
   return { approvalUrl, subscriptionId: subId };
 });
@@ -2716,6 +2755,17 @@ exports.enforceSubscriptionPeriods = SCHEDULED.pubsub.schedule("every 24 hours")
   const snap = await db.collection("users").get();
   for (const d of snap.docs) {
     try {
+      // C3a reconcile-drain: a marker-first schedule that died between marker-write and Premium-cancel
+      // leaves a `cancelPending` breadcrumb. Finish that cancel so the account never bills Premium while
+      // swept to a lower tier. Idempotent (cancelling an already-cancelled sub is a no-op / 422); emulator
+      // no-op. Clear the breadcrumb ONLY on a CONFIRMED cancel — a PayPal 5xx must not erase an
+      // unconfirmed cancel (that would re-open premium-with-no-billing); leave it and the next sweep retries.
+      const pending = billing.pendingCancelSubId(d.data());
+      if (pending) {
+        const ok = await cancelPayPalSubscription(pending, "reconcile: drain pending Premium cancel");
+        if (ok) await d.ref.update({ "subscription.cancelPending": FieldValue.delete() });
+        // if !ok: leave cancelPending set — the next daily sweep retries (never erase an unconfirmed cancel).
+      }
       const patch = billing.subscriptionSweepPatch(d.data(), Date.now());
       if (patch) {
         await d.ref.set(patch, { merge: true });

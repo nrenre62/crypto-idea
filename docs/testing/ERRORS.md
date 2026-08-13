@@ -538,15 +538,27 @@
     free), cancels any scheduled Pro sub, and the client routes to re-subscribe.
   - **(d) [LOW] healthy-sub self-cancel** via the raw `reactivateSubscription` callable — **CLOSED** by a
     `!sub.cancelled` **no-op guard** in `keepPlanPatch`.
-  - **Two residuals are NOT fixed here — recorded as GO-LIVE GATES in BOTH
-    [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §Plan B (PR-C3) and
+  - **Two residuals were gated as GO-LIVE GATES in BOTH
+    [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §Plan B and
     [`GO-LIVE-AUDIT.md`](../product/GO-LIVE-AUDIT.md), dormant while `paidPlansEnabled=false`:**
-    **(1) [MED] fail-open ordering** — the eager Premium-cancel happens *before* the Firestore marker write,
-    so a rare, non-adversarial marker-write failure after a successful cancel leaves premium-with-no-billing;
-    fix = **marker-first ordering** or a reconciliation sweep. **(2) seamless re-subscribe (PR-C3)** — the
-    "Re-subscribe to Premium" CTA routes via `startUpgrade("premium")`, which no-ops while `tier==="premium"`
-    (same-tier guard), so it is inert during the cancelled-but-not-lapsed window; fix = a **future-start
-    Premium re-subscribe**. Canonical: [`BILLING.md`](../decisions/BILLING.md) §3.3. ℹ️ (PR-C2)
+    **(1) [MED] fail-open ordering — ✅ CLOSED by Plan B PR-C3a** (2026-08-13, branch
+    `claude/plan-b-pr-c3a-marker-reconcile`, `c58751e` red → `3a08d1a` impl → `f0525e0`/`9091f6f`
+    hardening). The eager Premium-cancel used to happen *before* the Firestore marker write, so a rare
+    marker-write failure after a successful cancel left premium-with-no-billing. C3a makes the write
+    **marker-first**: `scheduleProDowngrade` persists the `scheduledPro` marker carrying a transient
+    `cancelPending` breadcrumb (the live Premium sub id still needing cancellation) **before** the
+    irreversible Premium cancel, so a crash between the two is always recoverable. The checked cancel then
+    three-way branches — CONFIRMED (`ok`/`422` → drain the breadcrumb via a targeted
+    `FieldValue.delete()`), AMBIGUOUS (network throw **or a 5xx** → leave the marker for the daily
+    reconcile-drain), DEFINITIVE (a 4xx → roll the marker fully back to the pre-schedule premium state so
+    the user can retry, "no changes were made"). The daily `enforceSubscriptionPeriods` sweep gained a
+    per-user **reconcile-drain** that retries the Premium cancel and clears `cancelPending` **only on a
+    confirmed cancel** (a 5xx never erases an unconfirmed cancel — leave it, next sweep retries). Server-only,
+    no callable/rules/client change; dormant while `paidPlansEnabled=false`. **(2) seamless re-subscribe
+    (PR-C3b) — STILL OPEN** — the "Re-subscribe to Premium" CTA routes via `startUpgrade("premium")`, which
+    no-ops while `tier==="premium"` (same-tier guard), so it is inert during the cancelled-but-not-lapsed
+    window; fix = a **future-start Premium re-subscribe** (the remaining pre-paid-plans gate). Canonical:
+    [`BILLING.md`](../decisions/BILLING.md) §3.3. ℹ️ (PR-C2 → C3a)
 
 ---
 

@@ -562,6 +562,13 @@ test("PR-C2: an authorized premium caller reaches PAST the gates (schedule writt
     assert.ok(after.subscription && after.subscription.scheduledPro, "a written schedule must carry subscription.scheduledPro");
     assert.strictEqual(after.subscription.scheduledPro.approved, false, "a freshly scheduled Pro is PENDING (approved:false) until the webhook");
     assert.strictEqual(after.tier, "premium", "tier must stay premium during the scheduled window");
+    // PR-C3a (marker-first reconciliation): the marker now carries a `cancelPending` breadcrumb —
+    // the live Premium sub id still needing cancellation — written BEFORE Premium is cancelled so a
+    // mid-op crash never strands a premium account with no billing marker (Finding #3). In DEV/
+    // emulator there is no real Premium sub to cancel, so the breadcrumb is present but null. The
+    // key must EXIST (the shape is wired through the callable), and be null.
+    assert.ok("cancelPending" in after.subscription, "the marker-first schedule must carry the cancelPending breadcrumb key");
+    assert.strictEqual(after.subscription.cancelPending, null, "in DEV there is no Premium sub to cancel, so cancelPending is null");
   }
 });
 
