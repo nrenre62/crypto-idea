@@ -172,8 +172,30 @@ function scheduleProMarkerPatch(userData, scheduled, nowMs) {
       downgradeTo: "pro",
       endDate: s.startDate,
       scheduledPro: { subId: s.subId, billing: s.billing, startDate: s.startDate, approved: false },
+      // PR-C3a recovery breadcrumb: the live Premium sub id still needing cancellation.
+      // Written into the marker BEFORE the irreversible Premium cancel so a crash between
+      // the two never strands a premium account with no billing marker (Finding #3). The
+      // reconcile-drain in the daily sweep finishes any un-cleared cancel. null in DEV
+      // (no real Premium sub to cancel).
+      cancelPending: s.cancelSubId || null,
     },
   };
+}
+
+// PR-C3a recovery breadcrumb (read): the Premium sub id that a marker-first schedule wrote
+// BEFORE the irreversible Premium cancel and has not yet drained. null-safe → the daily sweep
+// only drains a cancel when this returns a truthy id.
+function pendingCancelSubId(userData) {
+  return (userData && userData.subscription && userData.subscription.cancelPending) || null;
+}
+
+// PR-C3a recovery breadcrumb (clear): the subscription map with ONLY `cancelPending` removed,
+// every other field preserved — called once the pending Premium cancel is drained. Null-safe
+// (a non-object comes back unchanged) so the sweep can re-run idempotently.
+function dropCancelPending(sub) {
+  if (!sub || typeof sub !== "object") return sub;
+  const { cancelPending, ...rest } = sub;
+  return rest;
 }
 
 // PR-C2 — the scheduled Pro sub's BILLING.SUBSCRIPTION.ACTIVATED webhook. When the
@@ -306,4 +328,6 @@ module.exports = {
   scheduleProMarkerPatch, scheduledActivationDecision,
   // PR-C2 SECURITY FIX (eager-cancel Premium; fail-closed "Keep my plan")
   keepPlanPatch,
+  // PR-C3a (marker-first reconciliation) — the cancelPending recovery breadcrumb
+  pendingCancelSubId, dropCancelPending,
 };
