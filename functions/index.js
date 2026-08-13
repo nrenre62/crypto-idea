@@ -649,7 +649,10 @@ exports.scheduleProDowngrade = functions.https.onCall(async (data, context) => {
   if (!paidPlansOn(paidCfg)) {
     throw new functions.https.HttpsError("failed-precondition", "New subscriptions are paused right now.");
   }
-  if (!(await featureOn("checkout"))) {
+  // Read the checkout kill-switch from the SAME fresh config, not the 60s-cached
+  // featureOn — an enforcement point must not lag its own switch, and the fresh
+  // read keeps this gate consistent with the paidPlansOn check just above.
+  if (!featureFlags.featureEnabled(paidCfg, "checkout")) {
     throw new functions.https.HttpsError("failed-precondition", "Checkout is temporarily unavailable. Please try again shortly.");
   }
   const userId = context.auth.uid;                 // the caller — NOT from the body
@@ -1748,7 +1751,11 @@ exports.reactivateSubscription = functions.https.onCall(async (data, context) =>
   const cur = snap.exists ? snap.data() : {};
   if (cur.subscription) {
     const { patch, cancelProSubId } = billing.keepPlanPatch(cur, Date.now());
-    await ref.set(patch, { merge: true });
+    // update() (not set-merge) REPLACES the subscription field wholesale, so dropping
+    // scheduledPro from the patch actually deletes it in Firestore — a {merge:true} set
+    // deep-merges the nested map and would preserve the old scheduledPro. No-op patch ({})
+    // → nothing to write.
+    if (patch.subscription) await ref.update({ subscription: patch.subscription });
     if (cancelProSubId) await cancelPayPalSubscription(cancelProSubId, "Scheduled downgrade cancelled by user");
   }
   await writeAudit(context, "reactivateSubscription", { targetUid: context.auth.uid });
