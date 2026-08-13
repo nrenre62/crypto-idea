@@ -33,16 +33,16 @@ Two readers: (1) **future me** — to safely change billing without re-deriving 
 | `createSubscription` (callable) | `functions/index.js` | Opens a PayPal checkout for the caller; returns the approval URL. |
 | `cancelSubscription` (callable) | `functions/index.js` | Cancels the caller's own sub at PayPal; marks period-end downgrade. |
 | `scheduleProDowngrade` (callable) | `functions/index.js` | **PR-C2 (Premium→Pro):** creates a REAL future-start PayPal Pro sub (first-charges when Premium ends) + **eagerly cancels** the Premium sub at schedule time; writes the tier-carrying `subscription.scheduledNext` marker (tier stays premium). A thin `tier:"pro"` caller of the shared `scheduleFutureStart` engine (PR-C3b-server). |
-| `resubscribePremium` (callable) | `functions/index.js` | **PR-C3b-server (seamless re-subscribe):** a cancelled-Premium user schedules a REAL future-start PayPal **Premium** sub (first-charges when the current period ends) so Premium continues seamlessly. Shares the `scheduleFutureStart` engine (`tier:"premium"`); precondition = a **cancelled Premium with NO pending `scheduledNext`** (requires a prior "Keep my plan"). **Server-only today** — the six client `scheduledPro` readers + the CTA are PR-C3b-client. |
+| `resubscribePremium` (callable) | `functions/index.js` | **PR-C3b-server (seamless re-subscribe):** a cancelled-Premium user schedules a REAL future-start PayPal **Premium** sub (first-charges when the current period ends) so Premium continues seamlessly. Shares the `scheduleFutureStart` engine (`tier:"premium"`); precondition = a **cancelled Premium with NO pending `scheduledNext`** (requires a prior "Keep my plan"). **Wired client-side in PR-C3b-client** — the `src/api/billing.js` wrapper, a confirm-gated "Re-subscribe to Premium" CTA + cycle picker, and the `scheduledNext \|\| scheduledPro` reader shim. |
 | `reactivateSubscription` (callable) | `functions/index.js` | "Keep my plan" — **fail-closed** (PR-C2): never un-cancels a dead sub; re-affirms the cancellation + cancels any scheduled future-start sub; the client routes the user to re-subscribe. |
 | `paypalWebhook` (HTTP) | `functions/index.js` | The only unauthenticated inbound write; signature-verified + idempotent. |
 | `enforceSubscriptionPeriods` (scheduled) | `functions/index.js` | Daily sweep that flips tiers once a period actually ends. |
 | `getStats` (admin callable) | `functions/index.js` | Net-revenue reporting (gross − PayPal fees, per billing cycle). |
 | **Pure billing decisions** | `functions/billing.js` | All the branch logic (plan→tier, patches, sweep, revenue) — no Firebase, fully unit-tested. **PR-C2** adds `scheduleProMarkerPatch`, `scheduledActivationDecision` and `keepPlanPatch`; **PR-C3b-server** renames the builder to `scheduleNextMarkerPatch` (writes the tier-carrying `scheduledNext`; the sweep / activation / keep-plan helpers read `scheduledNext`, with a **back-compat shim** so a legacy `scheduledPro` still resolves as tier `"pro"`). |
 | Guards | `functions/guards.js` | Per-uid cooldown on `createSubscription` / `scheduleProDowngrade` / `resubscribePremium` (anti double-charge / duplicate schedule). |
-| Billing api wrapper | `src/api/billing.js` | Client `createSubscription({plan, billing})` (Plan B PR-B), **`cancelSubscription({downgradeTo})`** (Plan B PR-C1) **and `scheduleProDowngrade({billing})`** (Plan B PR-C2) wrappers — components never call `httpsCallable` directly. `createSubscription` returns the approval URL for the buy button to redirect to; `cancelSubscription` schedules the caller's own period-end downgrade (server writes the marker); `scheduleProDowngrade` schedules a future-start Pro sub and returns `{approvalUrl, subscriptionId}`. |
-| Upgrade/downgrade UI | `src/components/Login.jsx`, `src/components/Account.jsx`, `src/hooks/useUpgrade.js`, `src/CryptoIdea.jsx` | Plan picker, R29 downgrade chooser, period-end re-checkout. **PR-B:** the PROD buy button calls `createSubscription` → redirects to the PayPal `approvalUrl` (no client tier write; DEV keeps the emulator `persistTierDev` path). **PR-C1:** the downgrade chooser's Confirm (`confirmDowngrade`/`finalizeDowngrade`) routes through `cancelSubscription` — no client-forged marker; `watchUserDoc` syncs the server marker back. **PR-C2:** the Premium→Pro branch adds the real approve step (`scheduleProPay` → `scheduleProDowngrade`; PayPal redirect in PROD, marker-write in DEV); "Keep my plan" (`keepPlan`) converged on the fail-closed route (no `cancelled:false` forge); Account shows an honest "Re-subscribe to Premium" CTA. |
-| Success page | `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` | The `/pro-success` PayPal-return page (Plan B PR-B). Read-only: `useProSuccess` watches the caller's own user doc and only claims success once the webhook has written a paid tier; renders the **actual** purchased tier (waiting / confirmed / timeout / signed-out). **PR-C2** reuses it for a `scheduledPro` marker → a "Pro starts when Premium ends" scheduled state. *(Client still reads `scheduledPro`; the `scheduledNext || scheduledPro` reader shim is PR-C3b-client — see the deploy-ordering constraint in §3.3.)* |
+| Billing api wrapper | `src/api/billing.js` | Client `createSubscription({plan, billing})` (Plan B PR-B), **`cancelSubscription({downgradeTo})`** (Plan B PR-C1), **`scheduleProDowngrade({billing})`** (Plan B PR-C2) **and `resubscribePremium({billing})`** (Plan B PR-C3b-client) wrappers — components never call `httpsCallable` directly. `createSubscription` returns the approval URL for the buy button to redirect to; `cancelSubscription` schedules the caller's own period-end downgrade (server writes the marker); `scheduleProDowngrade` schedules a future-start Pro sub, `resubscribePremium` a future-start Premium sub — each returns `{approvalUrl, subscriptionId}`. |
+| Upgrade/downgrade UI | `src/components/Login.jsx`, `src/components/Account.jsx`, `src/hooks/useUpgrade.js`, `src/CryptoIdea.jsx` | Plan picker, R29 downgrade chooser, period-end re-checkout. **PR-B:** the PROD buy button calls `createSubscription` → redirects to the PayPal `approvalUrl` (no client tier write; DEV keeps the emulator `persistTierDev` path). **PR-C1:** the downgrade chooser's Confirm (`confirmDowngrade`/`finalizeDowngrade`) routes through `cancelSubscription` — no client-forged marker; `watchUserDoc` syncs the server marker back. **PR-C2:** the Premium→Pro branch adds the real approve step (`scheduleProPay` → `scheduleProDowngrade`; PayPal redirect in PROD, marker-write in DEV); "Keep my plan" (`keepPlan`) converged on the fail-closed route (no `cancelled:false` forge); Account shows an honest "Re-subscribe to Premium" CTA. **PR-C3b-client:** that CTA (shown ONLY in the plain-cancelled state — `cancelled && no scheduledNext`, Keep-my-plan-first) opens a confirm modal with a monthly/yearly cycle picker that calls `resubscribePremium(cycle)`, and the six client `scheduledPro` readers now use the `scheduledNext \|\| scheduledPro` shim. |
+| Success page | `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` | The `/pro-success` PayPal-return page (Plan B PR-B). Read-only: `useProSuccess` watches the caller's own user doc and only claims success once the webhook has written a paid tier; renders the **actual** purchased tier (waiting / confirmed / timeout / signed-out). **PR-C2** reuses it for a scheduled marker → a "Pro starts when Premium ends" scheduled state. **PR-C3b-client** makes it tier-aware via the `scheduledNext \|\| scheduledPro` shim ("Pro starts when your Premium period ends" vs "Premium continues…"). |
 
 **Why `billing.js` is separate:** every decision (which tier a `plan_id` maps to, what a
 cancellation writes, whether the sweep flips someone today, how revenue is counted) is a **pure
@@ -169,31 +169,32 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 >    the eager Premium-cancel used to happen *before* the Firestore marker write. It is now **marker-first**
 >    (the `scheduledNext` marker + `cancelPending` breadcrumb is written before the irreversible cancel) with a
 >    daily **reconcile-drain** that finishes any un-cleared cancel — see the flow above.
-> 2. **Seamless re-subscribe (PR-C3b) — SERVER HALF ✅ DONE (PR-C3b-server, 2026-08-13,
->    `claude/plan-b-pr-c3b-server-resubscribe`); the CLIENT half (PR-C3b-client) is the remaining
->    pre-paid-plans gate.** The Pro machinery is now generalized to carry a target tier
->    (`scheduledNext.tier`) behind ONE shared `scheduleFutureStart` engine, and a new
+> 2. **Seamless re-subscribe (PR-C3b) — ✅ FULLY CLOSED (server = PR-C3b-server, client = PR-C3b-client,
+>    both 2026-08-13).** SERVER (`claude/plan-b-pr-c3b-server-resubscribe`): the Pro machinery is generalized
+>    to carry a target tier (`scheduledNext.tier`) behind ONE shared `scheduleFutureStart` engine, and a new
 >    **`resubscribePremium({billing})`** callable schedules a REAL future-start **Premium** sub for a
 >    cancelled-Premium user (first-charges when the current period ends, so Premium continues seamlessly).
 >    Its precondition is a **cancelled Premium with NO pending `scheduledNext`** — i.e. the user must have
 >    used **"Keep my plan" first** (founder rule: a still-pending scheduled downgrade is *refused*, never
 >    auto-cancelled). Same gate order as `scheduleProDowngrade` (fresh `paidPlansOn` master before
 >    `checkout`) + 60s cooldown + `assertNoUnknownKeys(["billing"])`; acts on `context.auth.uid`.
->    **Still OPEN = PR-C3b-client:** the Account "Re-subscribe to Premium" CTA currently routes via
->    `startUpgrade("premium")`, which **no-ops while `tier==="premium"`** (the same-tier guard) — the client
->    must swap to `resubscribePremium` behind a confirm-gated CTA + cycle picker, and the six client
->    `scheduledPro` readers gain the `scheduledNext || scheduledPro` shim (see the deploy-ordering constraint
->    below). Both land before paid plans.
+>    CLIENT (`claude/plan-b-pr-c3b-client-resubscribe`): the `src/api/billing.js` `resubscribePremium({billing})`
+>    wrapper + a `resubscribePremium(billing)` handler (DEV toast / PROD `approvalUrl` redirect) exposed on the
+>    Account ctx; the Account **"Re-subscribe to Premium" CTA now shows ONLY in the plain-cancelled state**
+>    (`cancelled && no scheduledNext` — **Keep-my-plan-first**, founder decision) and opens a **confirm modal
+>    with a monthly/yearly cycle picker** that calls `resubscribePremium(cycle)` (errors surfaced, not
+>    swallowed); the six client `scheduledPro` readers now use the `scheduledNext || scheduledPro` shim
+>    (tier-aware `recheckoutDue`, the DEV `checkSubscriptionStatus` flip, `useProSuccess`/`pro-success`).
+>    This completes the marker rename client-side.
 >
-> **⚠️ Deploy-ordering constraint (PR-C3b-server, from the security review).** The
-> `scheduledPro`→`scheduledNext` rename is **server-side**; the six CLIENT readers (`src/CryptoIdea.jsx`,
-> `src/components/Account.jsx`, `src/hooks/useProSuccess.js`, `src/api/billing.js`) still read `scheduledPro`
-> — that's PR-C3b-client's scope. This is **fail-safe** (no paywall bypass): the only client branch that ever
-> forged the tier *up* was gated on `scheduledPro`, which the server no longer writes, and the server tier is
-> authoritative (rules block client `tier`/`subscription` writes). But it is a real ordering constraint —
-> **PR-C3b-client (the `scheduledNext || scheduledPro` reader shim in all six sites) must deploy before/with
-> the PR-C3b-server rename reaching prod, and `paidPlansEnabled` must stay OFF until both land.** Never ship
-> the server rename + enable paid plans ahead of the client shim.
+> **✅ Deploy-ordering constraint RESOLVED (PR-C3b-client landed the client shim).** The
+> `scheduledPro`→`scheduledNext` rename was **server-side** (PR-C3b-server); the six CLIENT readers
+> (`src/CryptoIdea.jsx`, `src/components/Account.jsx`, `src/hooks/useProSuccess.js`, `src/api/billing.js`) now
+> read `scheduledNext || scheduledPro` (PR-C3b-client). It was always **fail-safe** (no paywall bypass): the
+> only client branch that ever forged the tier *up* was gated on `scheduledPro`, which the server no longer
+> writes, and the server tier is authoritative (rules block client `tier`/`subscription` writes). With both
+> halves merged the client shim is in place, so the ordering constraint is satisfied — **keep `paidPlansEnabled`
+> OFF until the founder's go-live** (the standing launch gate, unrelated to this now-closed constraint).
 >
 > **Verification:** the full Premium→Pro round-trip (cancel-access timing; future-start `ACTIVATED` timing)
 > verifies against the go-live PayPal **sandbox e2e** (§8.5).
@@ -360,14 +361,13 @@ Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyP
    (a) **marker-first ordering** in `scheduleProDowngrade` — ✅ **DONE (PR-C3a)**: the scheduled marker +
    `cancelPending` breadcrumb is written *before* the irreversible eager Premium-cancel, with a daily
    reconcile-drain closing the [MED] fail-open window;
-   (b) **seamless re-subscribe (PR-C3b)** — server half ✅ **DONE (PR-C3b-server)**: the tier-carrying
-   `scheduledNext` marker + the `resubscribePremium` callable; ⏳ **remaining = PR-C3b-client**, the
-   `scheduledNext || scheduledPro` reader shim + a confirm-gated "Re-subscribe to Premium" CTA (today it
-   no-ops on the same-tier guard);
-   (c) **deploy ordering (PR-C3b-server → client)** — PR-C3b-client (the `scheduledNext || scheduledPro`
-   client reader shim in all six sites) **must deploy before/with** the PR-C3b-server rename reaching prod,
-   and `paidPlansEnabled` **must stay OFF until both land** (the server stopped writing `scheduledPro`;
-   fail-safe, but never ship the server rename + enable paid plans ahead of the client shim).
+   (b) **seamless re-subscribe (PR-C3b)** — ✅ **FULLY CLOSED**: server (PR-C3b-server) = the tier-carrying
+   `scheduledNext` marker + the `resubscribePremium` callable; client (PR-C3b-client) = the `src/api/billing.js`
+   wrapper, the `scheduledNext || scheduledPro` reader shim in all six sites, and a confirm-gated
+   "Re-subscribe to Premium" CTA + monthly/yearly cycle picker (shown only in the plain-cancelled state);
+   (c) **deploy ordering (PR-C3b-server → client)** — ✅ **SATISFIED**: with PR-C3b-client merged the
+   `scheduledNext || scheduledPro` client reader shim is in place in all six sites, so the server rename is
+   safe to reach prod; **keep `paidPlansEnabled` OFF until the founder's go-live** (the standing launch gate).
 7. Confirm `App Check` / abuse gates per [BACKEND-ADMIN-DECISIONS.md](BACKEND-ADMIN-DECISIONS.md)
    D4/D5 before public launch.
 

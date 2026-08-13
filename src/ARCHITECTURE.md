@@ -38,8 +38,10 @@ src/
     `scheduleNextMarkerPatch` / `scheduledActivationDecision` / `keepPlanPatch`. **Plan B PR-C3b-server**
     generalized the marker to be tier-carrying (`subscription.scheduledNext {tier,…}`, renaming
     `scheduleProMarkerPatch`→`scheduleNextMarkerPatch` with a legacy-`scheduledPro`→"pro" shim) behind ONE
-    shared `scheduleFutureStart` engine, adding the new `resubscribePremium` callable (server-only; the
-    client `scheduledNext || scheduledPro` reader shim + CTA are the pending PR-C3b-client).
+    shared `scheduleFutureStart` engine, adding the new `resubscribePremium` callable. **Plan B PR-C3b-client**
+    then wired the client half: the `api/billing.js` `resubscribePremium` wrapper, the `scheduledNext ||
+    scheduledPro` reader shim across all six client sites, and a confirm-gated "Re-subscribe to Premium" CTA +
+    cycle picker in `Account.jsx` (paid plans stay gated OFF until launch).
   - `utils/` — `format.js` (pure formatters: `fmtP`, `fmtMc`, `fmtPct`, `uid`, `fmtDT`,
     `timeBetween`), `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
     price model `getHistoricalPrice`), and `theme.js` (visual tokens `c`, `inp_s`,
