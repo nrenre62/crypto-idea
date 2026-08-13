@@ -674,13 +674,33 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
   per-user **reconcile-drain** that clears `cancelPending` **only on a confirmed cancel**. New pure helper
   `pendingCancelSubId`; `scheduleProMarkerPatch` now stamps `cancelPending`; `keepPlanPatch` preserves it
   (fail-closed). Server-only; no callable/rules/client change; dormant while `paidPlansEnabled=false`.
-  **PR-C3b** (queued — the **last** pre-paid-plans gate): **seamless future-start Premium re-subscribe** —
-  mirror the Pro machinery generalized to carry the tier, so the "Re-subscribe to Premium" CTA works during
-  the cancelled-but-not-lapsed window (today it routes via `startUpgrade("premium")` and no-ops on the
-  same-tier guard). Dormant while `paidPlansEnabled=false` and **also recorded in
-  [`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md)** as a pre-paid-plans blocker so it can't be lost. Live PayPal
-  **sandbox e2e** still verifies the whole flow (incl. the PR-C2 cancel-access + future-start `ACTIVATED`
-  timing) at go-live.
+  **PR-C3b-server** (the **server half** of seamless future-start Premium re-subscribe) **done (2026-08-13,**
+  branch `claude/plan-b-pr-c3b-server-resubscribe`, `6c25f90`**):** the future-start marker is generalized to
+  carry a target tier — `subscription.scheduledPro` → **`scheduledNext {tier, subId, billing, startDate,
+  approved}`** (+ the C3a `cancelPending` breadcrumb) — the pure builder `scheduleProMarkerPatch` is renamed
+  **`scheduleNextMarkerPatch`**, and `subscriptionSweepPatch`/`scheduledActivationDecision`/`keepPlanPatch`
+  read `scheduledNext` with a **back-compat shim** so a legacy `scheduledPro` still resolves as tier "pro"
+  (fail-closed unchanged: a paid tier is granted only when `scheduledNext.approved===true`). A shared
+  `scheduleFutureStart` engine now backs two thin callables — `scheduleProDowngrade` (`tier:"pro"`, contract
+  unchanged) and the new **`resubscribePremium`** (`tier:"premium"`), whose precondition is a **cancelled
+  Premium with NO pending `scheduledNext`** (the user must have used "Keep my plan" first — founder decision);
+  same gate order (fresh `paidPlansOn` before `checkout`) + 60s cooldown + `assertNoUnknownKeys(["billing"])`.
+  `openapi.json` gains the `resubscribePremium` operation. **Server-only** — the six client
+  `subscription.scheduledPro` readers are unchanged (that's PR-C3b-client). Dormant while
+  `paidPlansEnabled=false`.
+  **PR-C3b-client** (queued — the **last** pre-paid-plans gate): the client half — swap the "Re-subscribe to
+  Premium" CTA off `startUpgrade("premium")` (which no-ops on the same-tier guard during the
+  cancelled-but-not-lapsed window) onto the new `resubscribePremium` callable behind a **confirm-gated CTA +
+  cycle picker**, and add the **`scheduledNext || scheduledPro` reader shim** to all six client sites
+  (`src/CryptoIdea.jsx`, `src/components/Account.jsx`, `src/hooks/useProSuccess.js`, `src/api/billing.js`).
+  **⚠️ Deploy ordering (from the security review):** the server rename stopped writing `scheduledPro`, so
+  **PR-C3b-client (the reader shim) must deploy before/with the PR-C3b-server rename reaching prod, and
+  `paidPlansEnabled` must stay OFF until both land** — fail-safe (no paywall bypass: the only client branch
+  that forged the tier *up* was gated on `scheduledPro`, which the server no longer writes, and the server
+  tier is authoritative), but a real ordering constraint. Dormant while `paidPlansEnabled=false` and **also
+  recorded in [`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md)** as a pre-paid-plans blocker so it can't be lost. Live
+  PayPal **sandbox e2e** still verifies the whole flow (incl. the PR-C2 cancel-access + future-start
+  `ACTIVATED` timing) at go-live.
 
 ---
 

@@ -555,10 +555,20 @@
     per-user **reconcile-drain** that retries the Premium cancel and clears `cancelPending` **only on a
     confirmed cancel** (a 5xx never erases an unconfirmed cancel — leave it, next sweep retries). Server-only,
     no callable/rules/client change; dormant while `paidPlansEnabled=false`. **(2) seamless re-subscribe
-    (PR-C3b) — STILL OPEN** — the "Re-subscribe to Premium" CTA routes via `startUpgrade("premium")`, which
-    no-ops while `tier==="premium"` (same-tier guard), so it is inert during the cancelled-but-not-lapsed
-    window; fix = a **future-start Premium re-subscribe** (the remaining pre-paid-plans gate). Canonical:
-    [`BILLING.md`](../decisions/BILLING.md) §3.3. ℹ️ (PR-C2 → C3a)
+    (PR-C3b) — SERVER HALF ✅ DONE (PR-C3b-server, 2026-08-13, branch
+    `claude/plan-b-pr-c3b-server-resubscribe`, `6c25f90`); CLIENT half (PR-C3b-client) is the remaining
+    pre-paid-plans gate.** The future-start machinery is generalized to carry a target tier
+    (`subscription.scheduledNext.tier`, renaming `scheduleProMarkerPatch`→`scheduleNextMarkerPatch`, with a
+    back-compat shim so a legacy `scheduledPro` still resolves as tier "pro") behind ONE shared
+    `scheduleFutureStart` engine, and a new **`resubscribePremium({billing})`** callable schedules a REAL
+    future-start Premium sub for a cancelled-Premium user (precondition = cancelled Premium with no pending
+    `scheduledNext` → "Keep my plan" first). ⏳ **STILL OPEN = PR-C3b-client:** the "Re-subscribe to Premium"
+    CTA still routes via `startUpgrade("premium")`, which no-ops while `tier==="premium"` (same-tier guard),
+    so it is inert during the cancelled-but-not-lapsed window — the client must swap to `resubscribePremium`
+    and add the `scheduledNext || scheduledPro` shim to the six client readers. **⚠️ Deploy ordering:** the
+    server no longer writes `scheduledPro`, so PR-C3b-client (the reader shim) must deploy before/with the
+    server rename reaching prod, and `paidPlansEnabled` must stay OFF until both land (fail-safe — no paywall
+    bypass — but a real ordering constraint). Canonical: [`BILLING.md`](../decisions/BILLING.md) §3.3. ℹ️ (PR-C2 → C3a → C3b-server)
 
 ---
 

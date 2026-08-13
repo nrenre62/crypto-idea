@@ -682,6 +682,93 @@
         ]
       }
     },
+    "/resubscribePremium": {
+      "post": {
+        "operationId": "resubscribePremium",
+        "summary": "Seamless future-start Premium re-subscribe for a cancelled-Premium user (Plan B PR-C3b-server)",
+        "description": "Callable. A CANCELLED-Premium user schedules a REAL future-start PayPal Premium subscription that first-charges when the current period ends, so Premium continues seamlessly with a real payment — no early tier drop, no double-charge. Shares one engine with scheduleProDowngrade; the marker is tier-carrying (subscription.scheduledNext.tier == \"premium\"). Server-authoritative + fail-closed: paused by the paidPlansEnabled master switch (which takes precedence over the checkout kill-switch); refuses a non-premium, a non-cancelled premium, or a caller who still has a pending scheduledNext downgrade (founder rule: re-subscribe requires a prior \"Keep my plan\" — the scheduled downgrade is NOT auto-cancelled); 60s per-uid cooldown. Acts on context.auth.uid only. Returns the PayPal approval URL (the client redirects); the schedule is PENDING until the scheduled sub's ACTIVATED webhook confirms payment.",
+        "tags": [
+          "Billing"
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResubscribePremiumEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Approval URL to redirect the user to (null in the DEV/emulator branch).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResubscribePremiumResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument (unknown field) / failed-precondition (paused, checkout unavailable, not a cancelled premium, a scheduled downgrade is still pending, plan not configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "resource-exhausted — cooldown active.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "internal (PayPal error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
     "/cancelSubscription": {
       "post": {
         "operationId": "cancelSubscription",
@@ -4040,6 +4127,51 @@
         "additionalProperties": false
       },
       "ScheduleProDowngradeResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "approvalUrl": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 2048,
+                "pattern": "^$|^https?://\\S+$"
+              },
+              "subscriptionId": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_-]*$"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResubscribePremiumEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "billing": {
+                "type": "string",
+                "enum": [
+                  "monthly",
+                  "yearly"
+                ],
+                "description": "Billing cycle for the scheduled Premium sub. Defaults to monthly.",
+                "maxLength": 1024
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResubscribePremiumResultEnvelope": {
         "type": "object",
         "properties": {
           "result": {

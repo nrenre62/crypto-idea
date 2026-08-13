@@ -3,8 +3,11 @@ import {
   planTier, planIdFor, paypalBaseFor, activationPatch, salePatch, cancellationPatch,
   cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
   billingStatusOf,
-  // Plan B PR-C2 (future-start Pro pre-authorization).
-  scheduleProMarkerPatch, scheduledActivationDecision,
+  // Plan B PR-C2 (future-start pre-authorization) → generalized by PR-C3b-server: the marker
+  // builder is RENAMED to the tier-carrying `scheduleNextMarkerPatch` (one marker, scheduledNext
+  // {tier,…}) so ONE engine backs both scheduleProDowngrade (tier "pro") and the new
+  // resubscribePremium (tier "premium"). `scheduledActivationDecision` reads scheduledNext too.
+  scheduleNextMarkerPatch, scheduledActivationDecision,
   // Plan B PR-C2 SECURITY FIX (eager-cancel Premium on Pro downgrade) — `keepPlanPatch` is the
   // NEW pure "Keep my plan" decision the fix introduces.
   keepPlanPatch,
@@ -263,84 +266,103 @@ describe("billing.billingStatusOf (ADMIN-1: derive status from persisted fields)
 // When a Premium user downgrades to Pro, the server schedules a REAL future-start PayPal
 // Pro subscription that first-charges when Premium ends, so the account lands directly on
 // Pro with a real payment (replacing PR-C1's honest period-end re-checkout interim). It is
-// server-authoritative and fail-closed: never early-drops Premium, never grants Pro without
-// PayPal-confirmed approval, never double-charges. The server-written marker shape:
+// server-authoritative and fail-closed: never early-drops Premium, never grants the next tier
+// without PayPal-confirmed approval, never double-charges. PR-C3b-server generalizes the marker
+// to carry a TARGET TIER — the server-written shape (RENAMED scheduledPro → scheduledNext):
 //   subscription: { ...prev, cancelled:true, cancelledAt, downgradeTo:"pro",
-//                   endDate:<premium period end ISO == the Pro sub start_time>,
-//                   scheduledPro:{ subId, billing, startDate:<ISO == endDate>, approved } }
+//                   endDate:<current period end ISO == the next sub start_time>,
+//                   scheduledNext:{ tier, subId, billing, startDate:<ISO == endDate>, approved } }
 // During the window `tier` stays "premium" and `paypalSubscriptionId` stays the PREMIUM id;
-// scheduledPro.approved is flipped true ONLY by the scheduled sub's ACTIVATED webhook.
+// scheduledNext.approved is flipped true ONLY by the scheduled sub's ACTIVATED webhook.
 // These pure decisions are unit-testable with no emulator, exactly like the rest of billing.js.
 // ══════════════════════════════════════════════════════════════════════════════════
 
-describe("billing.scheduleProMarkerPatch (PR-C2: schedule the future-start Pro sub — PENDING, not yet approved)", () => {
+describe("billing.scheduleNextMarkerPatch (PR-C2/C3b-server: schedule the future-start sub — PENDING, tier-carrying)", () => {
   const premium = () => ({
     tier: "premium", paypalSubscriptionId: "I-PREM",
     subscription: { billing: "monthly", startDate: "2026-05-01", endDate: "2026-09-01T00:00:00.000Z", cancelled: false },
   });
-  // Eager-cancel regression guard: the marker's endDate == the scheduled Pro's start_time is the
-  // structural handoff — Premium is cancelled at schedule time, the Pro sub first-charges exactly
-  // at endDate, so there is no overlap window to double-charge.
-  it("stamps a pending scheduledPro marker (approved:false) with the Pro start == the premium period end", () => {
-    const p = scheduleProMarkerPatch(premium(),
-      { subId: "I-PRO", billing: "yearly", startDate: "2026-09-01T00:00:00.000Z" }, 5000);
-    expect(p.subscription.scheduledPro).toEqual({
-      subId: "I-PRO", billing: "yearly", startDate: "2026-09-01T00:00:00.000Z", approved: false,
+  // Eager-cancel regression guard: the marker's endDate == the scheduled sub's start_time is the
+  // structural handoff — the live sub is cancelled at schedule time, the next sub first-charges
+  // exactly at endDate, so there is no overlap window to double-charge.
+  it("C3b-server: a PRO schedule stamps a pending scheduledNext marker carrying tier:'pro' (approved:false), start == the period end", () => {
+    const p = scheduleNextMarkerPatch(premium(),
+      { tier: "pro", subId: "I-PRO", billing: "yearly", startDate: "2026-09-01T00:00:00.000Z" }, 5000);
+    expect(p.subscription.scheduledNext).toEqual({
+      tier: "pro", subId: "I-PRO", billing: "yearly", startDate: "2026-09-01T00:00:00.000Z", approved: false,
     });
-    // the cancel-at-period-end marker landing on Pro; endDate == the scheduled Pro start_time
+    // the cancel-at-period-end marker; endDate == the scheduled sub's start_time
     expect(p.subscription.cancelled).toBe(true);
     expect(p.subscription.cancelledAt).toBe(5000);
-    expect(p.subscription.downgradeTo).toBe("pro");
+    expect(p.subscription.downgradeTo).toBe("pro");        // scheduleProDowngrade's contract is unchanged
     expect(p.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
+    // the OLD single-tier field is gone: one tier-carrying marker, no scheduledPro on a new write
+    expect(p.subscription.scheduledPro).toBeUndefined();
   });
-  it("leaves `tier` premium and the LIVE `paypalSubscriptionId` on the premium sub (a schedule, not a switch)", () => {
-    const p = scheduleProMarkerPatch(premium(),
-      { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
+  it("C3b-server: a PREMIUM re-subscribe schedule carries tier:'premium' (approved:false) — the SAME engine, a different target", () => {
+    const p = scheduleNextMarkerPatch(premium(),
+      { tier: "premium", subId: "I-PREM2", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 5000);
+    expect(p.subscription.scheduledNext.tier).toBe("premium");
+    expect(p.subscription.scheduledNext.subId).toBe("I-PREM2");
+    expect(p.subscription.scheduledNext.approved).toBe(false);
+    expect(p.subscription.cancelled).toBe(true);
+    expect(p.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
+    expect(p.subscription.scheduledPro).toBeUndefined();
+  });
+  it("leaves `tier` and the LIVE `paypalSubscriptionId` untouched (a schedule, not a switch)", () => {
+    const p = scheduleNextMarkerPatch(premium(),
+      { tier: "pro", subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
     expect("tier" in p).toBe(false);                       // tier untouched → stays premium
     expect("paypalSubscriptionId" in p).toBe(false);       // still the premium sub id until the sweep
   });
   it("preserves the prior subscription fields (spread ...prev)", () => {
-    const p = scheduleProMarkerPatch(premium(),
-      { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
+    const p = scheduleNextMarkerPatch(premium(),
+      { tier: "pro", subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
     expect(p.subscription.billing).toBe("monthly");
     expect(p.subscription.startDate).toBe("2026-05-01");
   });
 });
 
-describe("billing.scheduledActivationDecision (PR-C2: the scheduled Pro sub's ACTIVATED webhook)", () => {
-  const scheduled = () => ({
+describe("billing.scheduledActivationDecision (PR-C2/C3b-server: the scheduled sub's ACTIVATED webhook, tier-carrying)", () => {
+  const scheduled = (tier = "pro") => ({
     tier: "premium", paypalSubscriptionId: "I-PREM",
     subscription: {
       cancelled: true, cancelledAt: 100, downgradeTo: "pro", endDate: "2026-09-01T00:00:00.000Z",
-      scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: false },
+      scheduledNext: { tier, subId: "I-NEXT", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: false },
     },
   });
-  it("PR-C2 security fix: the scheduled Pro sub approving → deferred (marks approved, keeps the marker, no tier/live-id flip) and NO LONGER names a Premium sub to cancel — the eager-cancel left the webhook", () => {
-    const d = scheduledActivationDecision(scheduled(), { id: "I-PRO", plan_id: "P-PRO-M" }, 9000);
+  it("C3b-server: the scheduled sub approving → deferred (marks scheduledNext.approved, keeps the marker, no tier/live-id flip) and names NO Premium sub to cancel (eager-cancel left the webhook)", () => {
+    const d = scheduledActivationDecision(scheduled("pro"), { id: "I-NEXT", plan_id: "P-PRO-M" }, 9000);
     expect(d.deferred).toBe(true);
-    // the payment-approval proof: scheduledPro.approved becomes true, the downgrade marker preserved
-    expect(d.patch.subscription.scheduledPro.approved).toBe(true);
+    // the payment-approval proof: scheduledNext.approved becomes true, the marker preserved
+    expect(d.patch.subscription.scheduledNext.approved).toBe(true);
     expect(d.patch.subscription.cancelled).toBe(true);
     expect(d.patch.subscription.downgradeTo).toBe("pro");
     expect(d.patch.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
-    // NOT yet a Pro account: tier must not flip to pro, and the live sub id must not become the Pro id
+    // NOT yet on the new tier: tier must not flip, and the live sub id must not become the scheduled id
     expect(d.patch.tier).not.toBe("pro");
-    expect(d.patch.paypalSubscriptionId).not.toBe("I-PRO");
+    expect(d.patch.paypalSubscriptionId).not.toBe("I-NEXT");
     // SECURITY FIX (eager-cancel): the Premium PayPal sub is cancelled at SCHEDULE time now — a
-    // LAZY cancel here (best-effort, unreconciled) was the [MED] double-charge / bill-forever
-    // window. So the webhook decision must NOT carry a Premium sub id to cancel any more.
-    // (Spec change, not a weakening: the old `cancelPremiumSubId === "I-PREM"` assertion ENCODED
-    // the lazy-cancel bug that shipped.)
+    // LAZY cancel here was the [MED] double-charge / bill-forever window, so the webhook decision
+    // must NOT carry a Premium sub id to cancel.
     expect("cancelPremiumSubId" in d).toBe(false);
+  });
+  it("C3b-server: a PREMIUM re-subscribe's scheduled sub approving is also deferred on scheduledNext (tier carried through)", () => {
+    const d = scheduledActivationDecision(scheduled("premium"), { id: "I-NEXT", plan_id: "P-PREM-M" }, 9000);
+    expect(d.deferred).toBe(true);
+    expect(d.patch.subscription.scheduledNext.tier).toBe("premium");
+    expect(d.patch.subscription.scheduledNext.approved).toBe(true);
+    // still NOT flipped — the patch touches only the marker; the sweep does the flip at endDate
+    expect("tier" in d.patch).toBe(false);
   });
   it("a normal (non-scheduled) activation → not deferred (the caller runs the usual activationPatch)", () => {
     expect(scheduledActivationDecision(scheduled(), { id: "I-SOMETHING-ELSE", plan_id: "P-PRO-M" }, 1))
       .toEqual({ deferred: false });
   });
-  it("fail-closed: a doc with no scheduledPro is never deferred", () => {
-    expect(scheduledActivationDecision({ tier: "premium", subscription: { cancelled: true, downgradeTo: "pro" } }, { id: "I-PRO" }, 1).deferred).toBe(false);
-    expect(scheduledActivationDecision({}, { id: "I-PRO" }, 1).deferred).toBe(false);
-    expect(scheduledActivationDecision(null, { id: "I-PRO" }, 1).deferred).toBe(false);
+  it("fail-closed: a doc with no scheduledNext is never deferred", () => {
+    expect(scheduledActivationDecision({ tier: "premium", subscription: { cancelled: true, downgradeTo: "pro" } }, { id: "I-NEXT" }, 1).deferred).toBe(false);
+    expect(scheduledActivationDecision({}, { id: "I-NEXT" }, 1).deferred).toBe(false);
+    expect(scheduledActivationDecision(null, { id: "I-NEXT" }, 1).deferred).toBe(false);
   });
 });
 
@@ -355,15 +377,15 @@ describe("billing.scheduledActivationDecision (PR-C2: the scheduled Pro sub's AC
 // `keepPlanPatch(userData, nowMs)` is the pure decision behind the reactivateSubscription
 // callable, testable here with no emulator.
 // ══════════════════════════════════════════════════════════════════════════════════
-describe("billing.keepPlanPatch (PR-C2 security fix: 'Keep my plan' is fail-closed, never a premium-forever un-cancel)", () => {
+describe("billing.keepPlanPatch (PR-C2 security fix / C3b-server rename: 'Keep my plan' is fail-closed, never a premium-forever un-cancel)", () => {
   const scheduled = () => ({
     tier: "premium", paypalSubscriptionId: "I-PREM",
     subscription: {
       cancelled: true, cancelledAt: 100, downgradeTo: "pro", endDate: "2026-09-01T00:00:00.000Z",
-      scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: true },
+      scheduledNext: { tier: "pro", subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: true },
     },
   });
-  it("a scheduledPro doc → cancel-to-FREE (cancel stays true, scheduledPro cleared, endDate kept), and names the scheduled Pro sub to cancel", () => {
+  it("C3b-server: a scheduledNext doc → cancel-to-FREE (cancel stays true, scheduledNext cleared, endDate kept), and names the scheduled sub to cancel", () => {
     const { patch, cancelProSubId } = keepPlanPatch(scheduled(), 9000);
     // THE HIGH-bug guard: keep must NOT reinstate a terminally-cancelled Premium sub. The Premium
     // PayPal sub is already gone (eager-cancel at schedule time), so cancelled STAYS true and the
@@ -371,32 +393,32 @@ describe("billing.keepPlanPatch (PR-C2 security fix: 'Keep my plan' is fail-clos
     expect(patch.subscription.cancelled).toBe(true);
     expect(patch.subscription.cancelled).not.toBe(false);
     expect(patch.subscription.downgradeTo).toBe("free");
-    // the scheduled future-start Pro sub is dropped from the marker …
-    expect(patch.subscription.scheduledPro).toBeUndefined();
+    // the scheduled future-start sub is dropped from the marker …
+    expect(patch.subscription.scheduledNext).toBeUndefined();
     // … and its id is what the caller cancels at PayPal.
     expect(cancelProSubId).toBe("I-PRO");
     // access continues to the period end — endDate preserved, tier left alone (the sweep flips it).
     expect(patch.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
     expect("tier" in patch).toBe(false);
   });
-  // PR-C3a interaction: a scheduledPro marker may also carry the `cancelPending` breadcrumb (the live
-  // Premium sub id not yet drained). keepPlanPatch does `const { scheduledPro, ...prev } = sub`, so it
-  // strips ONLY scheduledPro and PRESERVES cancelPending into the keep-marker — which is CORRECT for the
+  // PR-C3a interaction: a scheduledNext marker may also carry the `cancelPending` breadcrumb (the live
+  // Premium sub id not yet drained). keepPlanPatch does `const { scheduledNext, ...prev } = sub`, so it
+  // strips ONLY scheduledNext and PRESERVES cancelPending into the keep-marker — which is CORRECT for the
   // fail-closed model: "keep my plan" never restores a live sub, so the daily reconcile-drain must still
-  // finish the Premium cancel. Pin that the breadcrumb survives (and the Pro sub is still named to cancel).
-  it("C3a: keepPlanPatch preserves the cancelPending breadcrumb so the drain still cancels Premium (fail-closed)", () => {
+  // finish the Premium cancel. Pin that the breadcrumb survives (and the scheduled sub is still named).
+  it("C3a/C3b-server: keepPlanPatch preserves the cancelPending breadcrumb so the drain still cancels the live sub (fail-closed)", () => {
     const doc = {
       tier: "premium", paypalSubscriptionId: "I-PREM",
       subscription: {
         cancelled: true, cancelledAt: 100, downgradeTo: "pro", endDate: "2026-09-01T00:00:00.000Z",
         cancelPending: "I-PREM",
-        scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: false },
+        scheduledNext: { tier: "pro", subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: false },
       },
     };
     const { patch, cancelProSubId } = keepPlanPatch(doc, 9000);
-    expect(patch.subscription.cancelPending).toBe("I-PREM");        // survives → the drain still finishes Premium cancel
-    expect("scheduledPro" in patch.subscription).toBe(false);       // only the schedule is stripped
-    expect(cancelProSubId).toBe("I-PRO");                           // the future Pro sub the caller cancels at PayPal
+    expect(patch.subscription.cancelPending).toBe("I-PREM");        // survives → the drain still finishes the cancel
+    expect("scheduledNext" in patch.subscription).toBe(false);      // only the schedule is stripped
+    expect(cancelProSubId).toBe("I-PRO");                           // the future sub the caller cancels at PayPal
   });
   // PR-C2 SECURITY FIX (spec correction): the OLD assertion here (`cancelled:false`) encoded the
   // [HIGH] paywall bypass. EVERY pending cancellation in this app already has a terminally-cancelled
@@ -406,7 +428,7 @@ describe("billing.keepPlanPatch (PR-C2 security fix: 'Keep my plan' is fail-clos
   // forever. "Keep my plan" on a legacy cancel-to-free marker must stay fail-closed: keep the
   // cancellation so the sweep still drops at endDate; the client routes the user to re-subscribe.
   // NEVER `cancelled:false`.
-  it("PR-C2 (security): a LEGACY cancel-to-FREE marker (no scheduledPro) is fail-closed — never un-cancels to premium-forever", () => {
+  it("PR-C2 (security): a LEGACY cancel-to-FREE marker (no scheduledNext) is fail-closed — never un-cancels to premium-forever", () => {
     const legacy = {
       tier: "premium", paypalSubscriptionId: "I-PREM",
       subscription: { cancelled: true, cancelledAt: 100, downgradeTo: "free", endDate: "2026-09-01T00:00:00.000Z" },
@@ -415,10 +437,10 @@ describe("billing.keepPlanPatch (PR-C2 security fix: 'Keep my plan' is fail-clos
     // the money proof: NEVER a premium-forever un-cancel — cancelled stays true/omitted so the
     // daily sweep still drops the account to free at endDate.
     expect(patch.subscription.cancelled).not.toBe(false);
-    expect(cancelProSubId).toBeNull();                 // no scheduled Pro sub to cancel
+    expect(cancelProSubId).toBeNull();                 // no scheduled sub to cancel
   });
-  // Trigger 1 from the security review — the DOUBLE "Keep my plan" click. A keep on a scheduled-Pro
-  // doc emits a {cancelled:true, downgradeTo:"free"} legacy-shaped marker (scheduledPro dropped); a
+  // Trigger 1 from the security review — the DOUBLE "Keep my plan" click. A keep on a scheduledNext
+  // doc emits a {cancelled:true, downgradeTo:"free"} legacy-shaped marker (scheduledNext dropped); a
   // SECOND click feeds that marker back through keepPlanPatch. It must NOT fall into a
   // `cancelled:false` un-cancel — fail-closed on every click, so a double-click can't reach the
   // paywall-bypass state either.
@@ -442,11 +464,65 @@ describe("billing.keepPlanPatch (PR-C2 security fix: 'Keep my plan' is fail-clos
   });
 });
 
-describe("billing.subscriptionSweepPatch (PR-C2: the future-start Pro pre-auth money flip)", () => {
-  // Eager-cancel regression guard: an APPROVED schedule already had its Premium sub cancelled at
-  // schedule time, so this flip to a payment-backed Pro (marker cleared) is the STRUCTURAL
+describe("billing.subscriptionSweepPatch (PR-C2/C3b-server: the future-start pre-auth money flip, tier-carrying)", () => {
+  // Eager-cancel regression guard: an APPROVED schedule already had its live sub cancelled at
+  // schedule time, so this flip to a payment-backed next tier (marker cleared) is the STRUCTURAL
   // no-double-charge proof — the two subs never overlap-bill.
-  it("an APPROVED scheduled Pro at period end → a clean payment-backed Pro (live id = the Pro sub, marker cleared)", () => {
+  it("C3b-server: an APPROVED scheduledNext{tier:'pro'} at period end → a clean payment-backed Pro (live id = the scheduled sub, marker cleared)", () => {
+    const p = subscriptionSweepPatch({
+      tier: "premium", paypalSubscriptionId: "I-PREM",
+      subscription: {
+        cancelled: true, downgradeTo: "pro", endDate: "2026-06-01",
+        scheduledNext: { tier: "pro", subId: "I-PRO", billing: "yearly", startDate: "2026-06-01", approved: true },
+      },
+    }, Date.parse("2026-07-03"));
+    expect(p).toEqual({ tier: "pro", paypalSubscriptionId: "I-PRO", billingCycle: "yearly", subscription: null });
+  });
+  it("C3b-server: an APPROVED scheduledNext{tier:'premium'} at period end → a SEAMLESS stay-premium (live id = the new Premium sub, marker cleared)", () => {
+    const p = subscriptionSweepPatch({
+      tier: "premium", paypalSubscriptionId: "I-PREM",
+      subscription: {
+        cancelled: true, endDate: "2026-06-01",
+        scheduledNext: { tier: "premium", subId: "I-PREM2", billing: "monthly", startDate: "2026-06-01", approved: true },
+      },
+    }, Date.parse("2026-07-03"));
+    expect(p).toEqual({ tier: "premium", paypalSubscriptionId: "I-PREM2", billingCycle: "monthly", subscription: null });
+  });
+  it("defaults billingCycle to monthly when the approved schedule omits it", () => {
+    const p = subscriptionSweepPatch({
+      tier: "premium",
+      subscription: {
+        cancelled: true, downgradeTo: "pro", endDate: "2026-06-01",
+        scheduledNext: { tier: "pro", subId: "I-PRO", approved: true },
+      },
+    }, Date.parse("2026-07-03"));
+    expect(p).toEqual({ tier: "pro", paypalSubscriptionId: "I-PRO", billingCycle: "monthly", subscription: null });
+  });
+  // Eager-cancel regression guard (abandonment-is-safe): the live sub was ALREADY cancelled at
+  // schedule time, so an abandoned (never-approved) schedule can never keep billing — it simply
+  // lapses to free here, for EITHER target tier. This is the [MED] bill-forever fix's invariant.
+  it("C3b-server: fail-closed — an UNAPPROVED scheduledNext at period end drops to FREE (either tier: no approval, no paid plan)", () => {
+    const pro = subscriptionSweepPatch({
+      tier: "premium",
+      subscription: {
+        cancelled: true, downgradeTo: "pro", endDate: "2026-06-01",
+        scheduledNext: { tier: "pro", subId: "I-PRO", billing: "monthly", startDate: "2026-06-01", approved: false },
+      },
+    }, Date.parse("2026-07-03"));
+    expect(pro).toEqual({ tier: "free", subscription: null });
+    const prem = subscriptionSweepPatch({
+      tier: "premium",
+      subscription: {
+        cancelled: true, endDate: "2026-06-01",
+        scheduledNext: { tier: "premium", subId: "I-PREM2", billing: "monthly", startDate: "2026-06-01", approved: false },
+      },
+    }, Date.parse("2026-07-03"));
+    expect(prem).toEqual({ tier: "free", subscription: null });
+  });
+  // Back-compat: a doc still carrying the OLD `scheduledPro` field (no migration — zero prod
+  // markers, but the shim keeps a legacy marker RESOLVING). Approved → resolves to Pro exactly
+  // as before. This must stay green through the rename.
+  it("C3b-server: back-compat — a LEGACY scheduledPro marker (no scheduledNext) still resolves, approved → Pro", () => {
     const p = subscriptionSweepPatch({
       tier: "premium", paypalSubscriptionId: "I-PREM",
       subscription: {
@@ -456,32 +532,9 @@ describe("billing.subscriptionSweepPatch (PR-C2: the future-start Pro pre-auth m
     }, Date.parse("2026-07-03"));
     expect(p).toEqual({ tier: "pro", paypalSubscriptionId: "I-PRO", billingCycle: "yearly", subscription: null });
   });
-  it("defaults billingCycle to monthly when the approved schedule omits it", () => {
-    const p = subscriptionSweepPatch({
-      tier: "premium",
-      subscription: {
-        cancelled: true, downgradeTo: "pro", endDate: "2026-06-01",
-        scheduledPro: { subId: "I-PRO", approved: true },
-      },
-    }, Date.parse("2026-07-03"));
-    expect(p).toEqual({ tier: "pro", paypalSubscriptionId: "I-PRO", billingCycle: "monthly", subscription: null });
-  });
-  // Eager-cancel regression guard (abandonment-is-safe): the Premium sub was ALREADY cancelled at
-  // schedule time, so an abandoned (never-approved) schedule can never keep billing Premium — it
-  // simply lapses to free here. This is the [MED] bill-forever fix's downstream invariant.
-  it("fail-closed: an UNAPPROVED scheduled Pro at period end drops to FREE — no approval, no Pro", () => {
-    const p = subscriptionSweepPatch({
-      tier: "premium",
-      subscription: {
-        cancelled: true, downgradeTo: "pro", endDate: "2026-06-01",
-        scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2026-06-01", approved: false },
-      },
-    }, Date.parse("2026-07-03"));
-    expect(p).toEqual({ tier: "free", subscription: null });
-  });
-  // Regression guard — the legacy pro-target keep-marker branch (no scheduledPro) is UNCHANGED
+  // Regression guard — the legacy pro-target keep-marker branch (no schedule at all) is UNCHANGED
   // from R29: flip to free but KEEP the marker for the (interim) re-checkout. This must stay green.
-  it("regression: a legacy pro-target marker with NO scheduledPro still flips to free and KEEPS the marker", () => {
+  it("regression: a legacy pro-target marker with NO schedule still flips to free and KEEPS the marker", () => {
     const p = subscriptionSweepPatch({ tier: "premium", subscription: { cancelled: true, downgradeTo: "pro", endDate: "2026-06-01" } }, Date.parse("2026-07-03"));
     expect(p).toEqual({ tier: "free" });
   });
@@ -498,33 +551,39 @@ describe("billing.subscriptionSweepPatch (PR-C2: the future-start Pro pre-auth m
 // C3a fixes it by writing the marker FIRST — carrying a `cancelPending` breadcrumb (the live
 // Premium sub id still needing cancellation) — THEN cancelling Premium, and draining any
 // un-finished cancel in the daily sweep. The pure decision layer gains a field + one reader:
-//   • scheduleProMarkerPatch also stamps `cancelPending: scheduled.cancelSubId || null`.
+//   • scheduleNextMarkerPatch also stamps `cancelPending: scheduled.cancelSubId || null`.
 //   • pendingCancelSubId(userData)  → subscription.cancelPending || null (null-safe).
 // The breadcrumb CLEAR is a targeted Firestore FieldValue.delete() at the two PROD drain sites
 // (clobber-safe vs a concurrent webhook write) — no pure strip helper. All pure → unit-testable.
 // ══════════════════════════════════════════════════════════════════════════════════
 
-describe("billing.scheduleProMarkerPatch (PR-C3a marker-first: carry the cancelPending breadcrumb)", () => {
+describe("billing.scheduleNextMarkerPatch (PR-C3a/C3b-server marker-first: carry the cancelPending breadcrumb)", () => {
   const premium = () => ({
     tier: "premium", paypalSubscriptionId: "I-PREM",
     subscription: { billing: "monthly", startDate: "2026-05-01", endDate: "2026-09-01T00:00:00.000Z", cancelled: false },
   });
-  it("C3a: stamps cancelPending = the live Premium sub id (the breadcrumb the reconcile-drain cancels), WITHOUT regressing the PR-C2 marker fields", () => {
-    const p = scheduleProMarkerPatch(premium(),
-      { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", cancelSubId: "I-PREM" }, 5000);
-    // the NEW breadcrumb: the Premium sub id still needing cancellation
+  it("C3a/C3b-server: stamps cancelPending = the live sub id (the breadcrumb the reconcile-drain cancels), WITHOUT regressing the scheduledNext marker fields", () => {
+    const p = scheduleNextMarkerPatch(premium(),
+      { tier: "pro", subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", cancelSubId: "I-PREM" }, 5000);
+    // the breadcrumb: the live sub id still needing cancellation
     expect(p.subscription.cancelPending).toBe("I-PREM");
-    // PR-C2 regression guard: the existing marker shape is unchanged
-    expect(p.subscription.scheduledPro).toEqual({
-      subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: false,
+    // regression guard: the tier-carrying marker shape is intact
+    expect(p.subscription.scheduledNext).toEqual({
+      tier: "pro", subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: false,
     });
     expect(p.subscription.cancelled).toBe(true);
     expect(p.subscription.downgradeTo).toBe("pro");
     expect(p.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
   });
-  it("C3a: cancelPending is null when no Premium sub id is supplied (DEV branch has none to cancel)", () => {
-    const p = scheduleProMarkerPatch(premium(),
-      { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
+  it("C3a/C3b-server: cancelPending is null when no live sub id is supplied (DEV branch has none to cancel)", () => {
+    const p = scheduleNextMarkerPatch(premium(),
+      { tier: "pro", subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
+    expect(p.subscription.cancelPending).toBeNull();
+  });
+  it("C3b-server: a PREMIUM re-subscribe also carries the cancelPending breadcrumb (null in DEV — Premium already terminally cancelled)", () => {
+    const p = scheduleNextMarkerPatch(premium(),
+      { tier: "premium", subId: "I-PREM2", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
+    expect(p.subscription.scheduledNext.tier).toBe("premium");
     expect(p.subscription.cancelPending).toBeNull();
   });
 });

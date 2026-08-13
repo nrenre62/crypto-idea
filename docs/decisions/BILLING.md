@@ -32,16 +32,17 @@ Two readers: (1) **future me** — to safely change billing without re-deriving 
 |---|---|---|
 | `createSubscription` (callable) | `functions/index.js` | Opens a PayPal checkout for the caller; returns the approval URL. |
 | `cancelSubscription` (callable) | `functions/index.js` | Cancels the caller's own sub at PayPal; marks period-end downgrade. |
-| `scheduleProDowngrade` (callable) | `functions/index.js` | **PR-C2 (Premium→Pro):** creates a REAL future-start PayPal Pro sub (first-charges when Premium ends) + **eagerly cancels** the Premium sub at schedule time; writes the `subscription.scheduledPro` marker (tier stays premium). |
-| `reactivateSubscription` (callable) | `functions/index.js` | "Keep my plan" — **fail-closed** (PR-C2): never un-cancels a dead sub; re-affirms the cancellation + cancels any scheduled Pro; the client routes the user to re-subscribe. |
+| `scheduleProDowngrade` (callable) | `functions/index.js` | **PR-C2 (Premium→Pro):** creates a REAL future-start PayPal Pro sub (first-charges when Premium ends) + **eagerly cancels** the Premium sub at schedule time; writes the tier-carrying `subscription.scheduledNext` marker (tier stays premium). A thin `tier:"pro"` caller of the shared `scheduleFutureStart` engine (PR-C3b-server). |
+| `resubscribePremium` (callable) | `functions/index.js` | **PR-C3b-server (seamless re-subscribe):** a cancelled-Premium user schedules a REAL future-start PayPal **Premium** sub (first-charges when the current period ends) so Premium continues seamlessly. Shares the `scheduleFutureStart` engine (`tier:"premium"`); precondition = a **cancelled Premium with NO pending `scheduledNext`** (requires a prior "Keep my plan"). **Server-only today** — the six client `scheduledPro` readers + the CTA are PR-C3b-client. |
+| `reactivateSubscription` (callable) | `functions/index.js` | "Keep my plan" — **fail-closed** (PR-C2): never un-cancels a dead sub; re-affirms the cancellation + cancels any scheduled future-start sub; the client routes the user to re-subscribe. |
 | `paypalWebhook` (HTTP) | `functions/index.js` | The only unauthenticated inbound write; signature-verified + idempotent. |
 | `enforceSubscriptionPeriods` (scheduled) | `functions/index.js` | Daily sweep that flips tiers once a period actually ends. |
 | `getStats` (admin callable) | `functions/index.js` | Net-revenue reporting (gross − PayPal fees, per billing cycle). |
-| **Pure billing decisions** | `functions/billing.js` | All the branch logic (plan→tier, patches, sweep, revenue) — no Firebase, fully unit-tested. **PR-C2** adds `scheduleProMarkerPatch`, `scheduledActivationDecision` and `keepPlanPatch`. |
-| Guards | `functions/guards.js` | Per-uid cooldown on `createSubscription` / `scheduleProDowngrade` (anti double-charge / duplicate schedule). |
+| **Pure billing decisions** | `functions/billing.js` | All the branch logic (plan→tier, patches, sweep, revenue) — no Firebase, fully unit-tested. **PR-C2** adds `scheduleProMarkerPatch`, `scheduledActivationDecision` and `keepPlanPatch`; **PR-C3b-server** renames the builder to `scheduleNextMarkerPatch` (writes the tier-carrying `scheduledNext`; the sweep / activation / keep-plan helpers read `scheduledNext`, with a **back-compat shim** so a legacy `scheduledPro` still resolves as tier `"pro"`). |
+| Guards | `functions/guards.js` | Per-uid cooldown on `createSubscription` / `scheduleProDowngrade` / `resubscribePremium` (anti double-charge / duplicate schedule). |
 | Billing api wrapper | `src/api/billing.js` | Client `createSubscription({plan, billing})` (Plan B PR-B), **`cancelSubscription({downgradeTo})`** (Plan B PR-C1) **and `scheduleProDowngrade({billing})`** (Plan B PR-C2) wrappers — components never call `httpsCallable` directly. `createSubscription` returns the approval URL for the buy button to redirect to; `cancelSubscription` schedules the caller's own period-end downgrade (server writes the marker); `scheduleProDowngrade` schedules a future-start Pro sub and returns `{approvalUrl, subscriptionId}`. |
 | Upgrade/downgrade UI | `src/components/Login.jsx`, `src/components/Account.jsx`, `src/hooks/useUpgrade.js`, `src/CryptoIdea.jsx` | Plan picker, R29 downgrade chooser, period-end re-checkout. **PR-B:** the PROD buy button calls `createSubscription` → redirects to the PayPal `approvalUrl` (no client tier write; DEV keeps the emulator `persistTierDev` path). **PR-C1:** the downgrade chooser's Confirm (`confirmDowngrade`/`finalizeDowngrade`) routes through `cancelSubscription` — no client-forged marker; `watchUserDoc` syncs the server marker back. **PR-C2:** the Premium→Pro branch adds the real approve step (`scheduleProPay` → `scheduleProDowngrade`; PayPal redirect in PROD, marker-write in DEV); "Keep my plan" (`keepPlan`) converged on the fail-closed route (no `cancelled:false` forge); Account shows an honest "Re-subscribe to Premium" CTA. |
-| Success page | `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` | The `/pro-success` PayPal-return page (Plan B PR-B). Read-only: `useProSuccess` watches the caller's own user doc and only claims success once the webhook has written a paid tier; renders the **actual** purchased tier (waiting / confirmed / timeout / signed-out). **PR-C2** reuses it for a `scheduledPro` marker → a "Pro starts when Premium ends" scheduled state. |
+| Success page | `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` | The `/pro-success` PayPal-return page (Plan B PR-B). Read-only: `useProSuccess` watches the caller's own user doc and only claims success once the webhook has written a paid tier; renders the **actual** purchased tier (waiting / confirmed / timeout / signed-out). **PR-C2** reuses it for a `scheduledPro` marker → a "Pro starts when Premium ends" scheduled state. *(Client still reads `scheduledPro`; the `scheduledNext || scheduledPro` reader shim is PR-C3b-client — see the deploy-ordering constraint in §3.3.)* |
 
 **Why `billing.js` is separate:** every decision (which tier a `plan_id` maps to, what a
 cancellation writes, whether the sweep flips someone today, how revenue is counted) is a **pure
@@ -89,12 +90,13 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 - The daily **`enforceSubscriptionPeriods`** sweep does the *actual* flip once `endDate` passes
   (pure `billing.subscriptionSweepPatch`):
   - target `"free"` → drop to Starter, clear the marker.
-  - target `"pro"` **with a `scheduledPro` marker** (PR-C2) → the **money flip**: an **approved**
-    schedule (`scheduledPro.approved === true`, the ACTIVATED-webhook proof of payment) flips to
-    `{tier:"pro", paypalSubscriptionId:<the scheduled sub id>, billingCycle}` and clears the marker;
-    an **unapproved** schedule is **fail-closed to `{tier:"free"}`** — a paid tier is **never** granted
-    without a PayPal-confirmed payment.
-  - target `"pro"` with **no `scheduledPro`** (legacy R29 marker) → drop to Starter **but keep the
+  - **with a `scheduledNext` marker** (PR-C2 / PR-C3b-server; a legacy `scheduledPro` is shimmed to
+    tier `"pro"`) → the **money flip**: an **approved** schedule (`scheduledNext.approved === true`, the
+    ACTIVATED-webhook proof of payment) flips to `{tier: scheduledNext.tier, paypalSubscriptionId:<the
+    scheduled sub id>, billingCycle}` — Pro **or** a seamless Premium re-subscribe — and clears the
+    marker; an **unapproved** schedule is **fail-closed to `{tier:"free"}`** — a paid tier is **never**
+    granted without a PayPal-confirmed payment.
+  - target `"pro"` with **no `scheduledNext`** (legacy R29 marker) → drop to Starter **but keep the
     marker**, so the app's **R29 re-checkout** popup can still take the real Pro payment (a fresh
     `ACTIVATED` webhook lands them on Pro) or continue on Starter.
 
@@ -115,8 +117,8 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 > `checkout` kill-switch → premium-only → not-already-scheduled → 60s cooldown), then:
 > 1. creates the future-start Pro sub (it stays `APPROVAL_PENDING` — it cannot charge — until the user
 >    approves it);
-> 2. **writes the marker FIRST (marker-first, PR-C3a)** — the server-only marker
->    `subscription.scheduledPro {subId, billing, startDate, approved:false}` (`tier` stays premium;
+> 2. **writes the marker FIRST (marker-first, PR-C3a)** — the server-only, **tier-carrying** marker
+>    `subscription.scheduledNext {tier, subId, billing, startDate, approved:false}` (`tier` stays premium;
 >    `cancelled:true`, `downgradeTo:"pro"`, `endDate = startDate`) carrying a **transient `cancelPending`
 >    breadcrumb** = the live Premium sub id still needing cancellation, persisted **before** the
 >    irreversible Premium cancel so a crash between the two is always recoverable (never
@@ -134,11 +136,12 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 > `cancelPending` breadcrumb is present it retries the Premium cancel and clears the breadcrumb **only on
 > a confirmed cancel** (a 5xx never erases an unconfirmed cancel — leave it, the next sweep retries), so a
 > schedule that died between the marker write and the Premium cancel always finishes. Pure helpers:
-> `scheduleProMarkerPatch` now stamps `cancelPending`; `pendingCancelSubId` reads it; `keepPlanPatch`
-> intentionally **preserves** `cancelPending` (fail-closed — the drain still finishes the Premium cancel).
+> `scheduleNextMarkerPatch` (renamed from `scheduleProMarkerPatch` in PR-C3b-server) now stamps
+> `cancelPending`; `pendingCancelSubId` reads it; `keepPlanPatch` intentionally **preserves** `cancelPending`
+> (fail-closed — the drain still finishes the live-sub cancel).
 >
-> The Pro sub's own **`BILLING.SUBSCRIPTION.ACTIVATED`** webhook (when `resource.id === scheduledPro.subId`)
-> is **deferred**: it only flips `scheduledPro.approved = true` (payment proof) — it does **not** flip the
+> The scheduled sub's own **`BILLING.SUBSCRIPTION.ACTIVATED`** webhook (when `resource.id === scheduledNext.subId`)
+> is **deferred**: it only flips `scheduledNext.approved = true` (payment proof) — it does **not** flip the
 > tier or overwrite the live sub id (the daily sweep owns that at `endDate`, see above). The old lazy
 > best-effort Premium-cancel that lived in the webhook is **gone** — cancelling at schedule time is what
 > closes the double-charge / bill-forever window.
@@ -164,13 +167,33 @@ emulator and the webhook/callables/sweep can't drift from what the tests assert.
 > [NEXT-STEPS.md](../product/NEXT-STEPS.md) §Plan B and [GO-LIVE-AUDIT.md](../product/GO-LIVE-AUDIT.md)):**
 > 1. **[MED] fail-open ordering — ✅ CLOSED by PR-C3a** (2026-08-13, `claude/plan-b-pr-c3a-marker-reconcile`):
 >    the eager Premium-cancel used to happen *before* the Firestore marker write. It is now **marker-first**
->    (the `scheduledPro` marker + `cancelPending` breadcrumb is written before the irreversible cancel) with a
+>    (the `scheduledNext` marker + `cancelPending` breadcrumb is written before the irreversible cancel) with a
 >    daily **reconcile-drain** that finishes any un-cleared cancel — see the flow above.
-> 2. **Seamless re-subscribe (PR-C3b) — STILL OPEN, the remaining pre-paid-plans gate.** The Account
->    "Re-subscribe to Premium" CTA currently routes via `startUpgrade("premium")`, which **no-ops while
->    `tier==="premium"`** (the same-tier guard), so it is inert during the cancelled-but-not-lapsed window.
->    The real fix is a **future-start Premium re-subscribe** (mirror the Pro machinery, generalized to carry
->    the tier) — **PR-C3b**, gated before paid plans.
+> 2. **Seamless re-subscribe (PR-C3b) — SERVER HALF ✅ DONE (PR-C3b-server, 2026-08-13,
+>    `claude/plan-b-pr-c3b-server-resubscribe`); the CLIENT half (PR-C3b-client) is the remaining
+>    pre-paid-plans gate.** The Pro machinery is now generalized to carry a target tier
+>    (`scheduledNext.tier`) behind ONE shared `scheduleFutureStart` engine, and a new
+>    **`resubscribePremium({billing})`** callable schedules a REAL future-start **Premium** sub for a
+>    cancelled-Premium user (first-charges when the current period ends, so Premium continues seamlessly).
+>    Its precondition is a **cancelled Premium with NO pending `scheduledNext`** — i.e. the user must have
+>    used **"Keep my plan" first** (founder rule: a still-pending scheduled downgrade is *refused*, never
+>    auto-cancelled). Same gate order as `scheduleProDowngrade` (fresh `paidPlansOn` master before
+>    `checkout`) + 60s cooldown + `assertNoUnknownKeys(["billing"])`; acts on `context.auth.uid`.
+>    **Still OPEN = PR-C3b-client:** the Account "Re-subscribe to Premium" CTA currently routes via
+>    `startUpgrade("premium")`, which **no-ops while `tier==="premium"`** (the same-tier guard) — the client
+>    must swap to `resubscribePremium` behind a confirm-gated CTA + cycle picker, and the six client
+>    `scheduledPro` readers gain the `scheduledNext || scheduledPro` shim (see the deploy-ordering constraint
+>    below). Both land before paid plans.
+>
+> **⚠️ Deploy-ordering constraint (PR-C3b-server, from the security review).** The
+> `scheduledPro`→`scheduledNext` rename is **server-side**; the six CLIENT readers (`src/CryptoIdea.jsx`,
+> `src/components/Account.jsx`, `src/hooks/useProSuccess.js`, `src/api/billing.js`) still read `scheduledPro`
+> — that's PR-C3b-client's scope. This is **fail-safe** (no paywall bypass): the only client branch that ever
+> forged the tier *up* was gated on `scheduledPro`, which the server no longer writes, and the server tier is
+> authoritative (rules block client `tier`/`subscription` writes). But it is a real ordering constraint —
+> **PR-C3b-client (the `scheduledNext || scheduledPro` reader shim in all six sites) must deploy before/with
+> the PR-C3b-server rename reaching prod, and `paidPlansEnabled` must stay OFF until both land.** Never ship
+> the server rename + enable paid plans ahead of the client shim.
 >
 > **Verification:** the full Premium→Pro round-trip (cancel-access timing; future-start `ACTIVATED` timing)
 > verifies against the go-live PayPal **sandbox e2e** (§8.5).
@@ -297,7 +320,7 @@ Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyP
 
 | Event | Effect |
 |---|---|
-| `BILLING.SUBSCRIPTION.ACTIVATED` | Set tier from `plan_id`; record `paypalSubscriptionId`. Unknown plan → record sub, leave tier. **PR-C2:** if the activating sub is a scheduled future-start Pro sub (`resource.id === scheduledPro.subId`), it is **deferred** — only mark `scheduledPro.approved=true` (tier stays premium; the sweep flips at `endDate`). |
+| `BILLING.SUBSCRIPTION.ACTIVATED` | Set tier from `plan_id`; record `paypalSubscriptionId`. Unknown plan → record sub, leave tier. **PR-C2 / PR-C3b-server:** if the activating sub is a scheduled future-start sub (`resource.id === scheduledNext.subId`), it is **deferred** — only mark `scheduledNext.approved=true` (tier stays premium; the sweep flips to `scheduledNext.tier` — Pro **or** a Premium re-subscribe — at `endDate`). |
 | `PAYMENT.SALE.COMPLETED` | Stamp `lastPayment`; restore `tierBeforeFailure` on a recovered account. |
 | `BILLING.SUBSCRIPTION.CANCELLED` | Mark cancelled + true `endDate`; sweep flips at period end. |
 | `BILLING.SUBSCRIPTION.SUSPENDED` | Mark `paymentFailed` + 7-day grace; sweep drops after grace. |
@@ -331,15 +354,20 @@ Admin dashboard → Settings; the server reads it in `getPayPalToken` / `verifyP
    failed-payment path, confirming the webhook lands and the sweep flips at period end. **PR-C2 adds
    two round-trips to this e2e:** the **Premium→Pro downgrade** — confirm the eager Premium-cancel
    timing (access continues to the period end) and the **future-start Pro `ACTIVATED`** timing (fires
-   at `start_time`, deferred to `scheduledPro.approved`, and the sweep flips to Pro at `endDate`).
+   at `start_time`, deferred to `scheduledNext.approved`, and the sweep flips to Pro at `endDate`).
 6. **PR-C2 pre-paid-plans gates (must land before `paidPlansEnabled` is turned on** — also recorded in
    [NEXT-STEPS.md](../product/NEXT-STEPS.md) §Plan B and [GO-LIVE-AUDIT.md](../product/GO-LIVE-AUDIT.md)):
    (a) **marker-first ordering** in `scheduleProDowngrade` — ✅ **DONE (PR-C3a)**: the scheduled marker +
    `cancelPending` breadcrumb is written *before* the irreversible eager Premium-cancel, with a daily
    reconcile-drain closing the [MED] fail-open window;
-   (b) **seamless re-subscribe (PR-C3b)** — ⏳ **remaining**: a future-start Premium re-subscribe so the
-   "Re-subscribe to Premium" CTA works during the cancelled-but-not-lapsed window (today it no-ops on the
-   same-tier guard).
+   (b) **seamless re-subscribe (PR-C3b)** — server half ✅ **DONE (PR-C3b-server)**: the tier-carrying
+   `scheduledNext` marker + the `resubscribePremium` callable; ⏳ **remaining = PR-C3b-client**, the
+   `scheduledNext || scheduledPro` reader shim + a confirm-gated "Re-subscribe to Premium" CTA (today it
+   no-ops on the same-tier guard);
+   (c) **deploy ordering (PR-C3b-server → client)** — PR-C3b-client (the `scheduledNext || scheduledPro`
+   client reader shim in all six sites) **must deploy before/with** the PR-C3b-server rename reaching prod,
+   and `paidPlansEnabled` **must stay OFF until both land** (the server stopped writing `scheduledPro`;
+   fail-safe, but never ship the server rename + enable paid plans ahead of the client shim).
 7. Confirm `App Check` / abuse gates per [BACKEND-ADMIN-DECISIONS.md](BACKEND-ADMIN-DECISIONS.md)
    D4/D5 before public launch.
 
@@ -359,13 +387,13 @@ subscription: {
   cancelled, cancelledAt, endDate,        // period-end downgrade
   downgradeTo: "free" | "pro",            // R29 choice (only Premium may pick "pro")
   paymentFailed, paymentFailedDate,       // 7-day grace
-  scheduledPro: {                         // PR-C2 future-start Pro pre-auth (Premium→Pro)
-    subId, billing, startDate,            //   the real future-start PayPal Pro sub
-    approved                              //   false until its ACTIVATED webhook proves payment
-  },
-  cancelPending                           // PR-C3a marker-first breadcrumb: the live Premium sub id
-}                                         //   still needing cancellation, written BEFORE the eager
-                                          //   Premium cancel; drained by the sweep on a confirmed cancel
+  scheduledNext: {                        // PR-C2 / PR-C3b-server future-start pre-auth (tier-carrying;
+    tier, subId, billing, startDate,      //   a legacy `scheduledPro` is shimmed to tier "pro")
+    approved                              //   the real future-start PayPal sub (Pro OR Premium re-subscribe);
+  },                                      //   approved:false until its ACTIVATED webhook proves payment
+  cancelPending                           // PR-C3a marker-first breadcrumb: the live sub id still needing
+}                                         //   cancellation, written BEFORE the eager cancel; drained by the
+                                          //   sweep on a confirmed cancel (null for a re-subscribe)
 ```
 
 All of the above are **server-authoritative** — `firestore.rules` forbids the owner from writing them.
