@@ -53,18 +53,25 @@ export default function ProSuccess() {
     );
   }
 
-  // PR-C2: a future-start Pro downgrade approval — the Pro sub is scheduled but tier stays
-  // premium until the period ends. Confirm the schedule honestly instead of "confirming payment."
+  // PR-C2 / PR-C3b: a future-start subscription approval — the scheduled sub is booked but the
+  // current tier stays premium until the period ends. Confirm the schedule honestly instead of
+  // "confirming payment", and vary the copy by the SCHEDULED tier: a Pro downgrade vs a seamless
+  // Premium re-subscribe (Premium access continues with no gap).
   if (status === "scheduled") {
+    const isPrem = tier === "premium";
     return (
       <Shell>
         <div style={{
           width: 72, height: 72, borderRadius: 36, background: c.ac + "12", color: c.ac,
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, margin: "0 auto 28px",
         }}>✓</div>
-        <h1 style={{ fontSize: 30, fontWeight: 200, letterSpacing: "-1px", marginBottom: 8 }}>Downgrade scheduled</h1>
+        <h1 style={{ fontSize: 30, fontWeight: 200, letterSpacing: "-1px", marginBottom: 8 }}>
+          {isPrem ? "Re-subscription scheduled" : "Downgrade scheduled"}
+        </h1>
         <p style={{ fontSize: 15, color: c.dim, lineHeight: 1.6, marginBottom: 28 }}>
-          Pro starts when your Premium period ends. You'll keep full Premium access until then — nothing changes today.
+          {isPrem
+            ? "Premium continues — your new subscription starts when the current period ends, so there's no gap in access. Nothing changes today."
+            : "Pro starts when your Premium period ends. You'll keep full Premium access until then — nothing changes today."}
         </p>
         <a href="/app" style={linkStyle}>Open CryptoIdea</a>
       </Shell>

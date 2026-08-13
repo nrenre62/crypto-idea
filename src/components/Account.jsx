@@ -124,7 +124,7 @@ function PortRow({ p }) {
 export function Account() {
   const {
     setScreen, user, isPremium, isPro, portfolios, maxPortfolios, maxCoinsPerPort,
-    maxTxPerCoin, aiMonthlyCents, portfolio, startUpgrade, startDowngrade, openDowngradeChooser, keepPlan, fmtDate, setActivePortId,
+    maxTxPerCoin, aiMonthlyCents, portfolio, startUpgrade, startDowngrade, openDowngradeChooser, keepPlan, resubscribePremium, fmtDate, setActivePortId,
     activePortId, deletePortfolio, newPortName, setNewPortName, addPortfolio,
     downloadMyData, downloadCsv, acctBusy, deleteMyAccount, delConfirm, setDelConfirm, acctMsg, logout,
     delPass, setDelPass, delType, setDelType, cancelDelete,
@@ -138,6 +138,20 @@ export function Account() {
   // existing subscriber's cancel/downgrade/manage flow stays (it gates on tier, not this).
   const paidPlansOn = site?.paidPlansEnabled !== false;
   const [view, setView] = useState("home");
+  // PR-C3b-client: the seamless Premium re-subscribe confirm modal (cycle picker). Local to
+  // Account — the founder's spec renders the picker in an isolated Account render, so this is
+  // NOT a CryptoIdea-level modal like the downgrade chooser. Confirming calls the ctx handler.
+  const [showResub, setShowResub] = useState(false);
+  const [reCycle, setReCycle] = useState("monthly");
+  const [resubErr, setResubErr] = useState("");
+  const openResubscribe = () => { setResubErr(""); setReCycle("monthly"); setShowResub(true); };
+  // PR-C3b-client: mirror scheduleProPay's error handling — a server refusal (failed-precondition /
+  // cooldown / auth) must surface, not fail silently; keep the modal open so the user can retry.
+  const confirmResubscribe = async () => {
+    setResubErr("");
+    try { await resubscribePremium(reCycle); setShowResub(false); }
+    catch (e) { setResubErr((e && e.message) || "Couldn't start re-subscription. Please try again."); }
+  };
   // CRYP-102: opening a settings drill-in (or returning home) resets scroll to the top
   // so the framed panel always starts at its sticky header, not the prior scroll offset.
   useEffect(() => { window.scrollTo(0, 0); }, [view]);
@@ -277,26 +291,37 @@ export function Account() {
             {/* Cancelled subscription — show end date + the R29-2 pending actions:
                 un-cancel any time before the end date; Premium can also change which
                 plan it lands on (reopens the R29-1 chooser). */}
-            {user?.subscription?.cancelled&&user?.subscription?.endDate&&(<>
+            {user?.subscription?.cancelled&&user?.subscription?.endDate&&(()=>{
+              // PR-C3b-client: read the future-start marker tier-aware — the renamed
+              // subscription.scheduledNext{tier} (Pro downgrade OR a seamless Premium re-subscribe),
+              // with a back-compat shim to the legacy subscription.scheduledPro (→ tier "pro").
+              const sched=user.subscription.scheduledNext||user.subscription.scheduledPro;
+              const schedTier=sched?(sched.tier||"pro"):null;
+              return(<>
               <div className="sub-note bad">
                 Your {user.tier==="premium"?"Premium":"Pro"} access ends on<br/>{fmtDate(user.subscription.endDate)}<br/>
                 <span className="sub-sub">Then your account will become {user.subscription.downgradeTo==="free"?"Starter":"Pro"}</span>
-                {/* PR-C2: a Premium→Pro downgrade schedules a REAL future-start Pro sub (scheduledPro) */}
-                {user.subscription.scheduledPro&&<span className="sub-sub" style={{display:"block",marginTop:4}}>Pro is scheduled ✓ — starts when your Premium period ends</span>}
+                {/* PR-C2: a Premium→Pro downgrade schedules a REAL future-start Pro sub */}
+                {schedTier==="pro"&&<span className="sub-sub" style={{display:"block",marginTop:4}}>Pro is scheduled ✓ — starts when your Premium period ends</span>}
                 {/* PR-C2 SECURITY FIX: Premium was cancelled when the Pro switch was scheduled, so
                     "Keep my plan" here can't resume Premium — it cancels the Pro switch and you
                     keep Premium only until the period ends, then Starter. Re-subscribe to continue. */}
-                {user.subscription.scheduledPro&&<span className="sub-sub" style={{display:"block",marginTop:4}}>This cancels the Pro switch — you keep Premium until {fmtDate(user.subscription.endDate)}, then Starter. Re-subscribe to stay on Premium.</span>}
+                {schedTier==="pro"&&<span className="sub-sub" style={{display:"block",marginTop:4}}>This cancels the Pro switch — you keep Premium until {fmtDate(user.subscription.endDate)}, then Starter. Re-subscribe to stay on Premium.</span>}
+                {/* PR-C3b: a seamless Premium re-subscribe (scheduledNext.tier="premium") — Premium
+                    access continues past the current period; "Keep my plan" cancels the re-subscribe. */}
+                {schedTier==="premium"&&<span className="sub-sub" style={{display:"block",marginTop:4}}>Premium re-subscription is scheduled ✓ — your Premium access continues from {fmtDate(user.subscription.endDate)}</span>}
+                {schedTier==="premium"&&<span className="sub-sub" style={{display:"block",marginTop:4}}>"Keep my plan" cancels the re-subscription — you'd keep Premium only until {fmtDate(user.subscription.endDate)}, then Starter.</span>}
               </div>
               <button onClick={keepPlan} className="acct-btn ghost">Keep my plan</button>
               {isPremium&&<button onClick={openDowngradeChooser} className="acct-btn ghost">Change downgrade choice</button>}
-              {/* PR-C2 SECURITY FIX (fail-closed): "Keep my plan" can't resume a cancelled Premium sub
-                  — the PayPal sub is already terminally cancelled (a scheduled-Pro downgrade eager-
-                  cancels Premium; a legacy cancel POSTs /cancel before marking). So for ANY cancelled
-                  Premium marker (scheduledPro OR legacy) the only honest way back onto Premium is a
-                  fresh subscription — route to the EXISTING Premium checkout (no new callable/route). */}
-              {paidPlansOn&&isPremium&&<button onClick={()=>startUpgrade("premium")} className="acct-btn prem">Re-subscribe to Premium</button>}
-            </>)}
+              {/* PR-C3b-client (fail-closed): the "Re-subscribe to Premium" CTA shows ONLY in the
+                  plain-cancelled Premium state (cancelled + NO scheduledNext). While a scheduledNext
+                  is pending the user must "Keep my plan" first (drops the marker), THEN re-subscribe.
+                  It opens a local cycle-picker confirm modal → ctx.resubscribePremium (a REAL future-
+                  start Premium sub), NOT the inert startUpgrade("premium") (a no-op while premium). */}
+              {paidPlansOn&&isPremium&&!sched&&<button onClick={openResubscribe} className="acct-btn prem">Re-subscribe to Premium</button>}
+              </>);
+            })()}
 
             {paidPlansOn&&!isPro&&<button onClick={()=>startUpgrade("pro")} className="acct-btn accent">Upgrade to Pro</button>}
             {paidPlansOn&&isPro&&!isPremium&&<button onClick={()=>startUpgrade("premium")} className="acct-btn prem">Upgrade to Premium</button>}
@@ -307,6 +332,36 @@ export function Account() {
             {isPro&&<div className="sub-sub" style={{textAlign:"center",marginTop:6}}>Cancel anytime · access continues until your paid period ends · no partial refunds.</div>}
             {/* Self-service billing (S9): deep-link to PayPal's hosted recurring-payments page */}
             {isPro&&<a href="https://www.paypal.com/myaccount/autopay/" target="_blank" rel="noopener noreferrer" className="acct-btn ghost pay-link">Update payment method ↗</a>}
+
+            {/* PR-C3b-client: the Premium re-subscribe confirm modal — a monthly/yearly cycle
+                picker (Premium prices) whose "Pay with PayPal" confirm calls ctx.resubscribePremium.
+                Reuses the shared <Modal> + the .cycle-card/.paypal-btn pattern (same as the downgrade
+                chooser); no new CSS. The modal IS the "ask a second time" + the picker. */}
+            {showResub&&(()=>{
+              const _pp=(site?.plans&&site.plans.premium)||{};
+              const monthlyP=_pp.price!=null?_pp.price:19.99;
+              const yearlyP=_pp.priceYear!=null?_pp.priceYear:199.99;
+              const yearlyM=(yearlyP/12).toFixed(2);
+              return(
+                <Modal size="sm" title="Re-subscribe to Premium?" onClose={()=>setShowResub(false)}>
+                  <div className="sub-sub" style={{textAlign:"center",marginBottom:12}}>Select your billing cycle</div>
+                  <div className="plan-col">
+                    <div onClick={()=>setReCycle("monthly")} className={"cycle-card"+(reCycle==="monthly"?" on":"")}>
+                      <div><div className="cycle-name">Monthly</div><div className="cycle-sub">Billed every month</div></div>
+                      <div className="cycle-price">${monthlyP}<span className="cycle-per">/mo</span></div>
+                    </div>
+                    <div onClick={()=>setReCycle("yearly")} className={"cycle-card"+(reCycle==="yearly"?" on":"")}>
+                      <div><div className="cycle-name">Yearly</div><div className="cycle-sub">${yearlyM}/mo · billed annually</div></div>
+                      <div className="cycle-price">${yearlyP}<span className="cycle-per">/yr</span></div>
+                    </div>
+                    <button onClick={confirmResubscribe} className="paypal-btn">
+                      Pay with <span style={{fontStyle:"italic",fontWeight:800}}>Pay<span style={{color:"#253B80"}}>Pal</span></span>
+                    </button>
+                    {resubErr&&<div className="auth-err" role="alert" style={{color:"#FF3B30",fontSize:12,textAlign:"center",marginTop:8}}>{resubErr}</div>}
+                  </div>
+                </Modal>
+              );
+            })()}
             </>);
           })()}
 

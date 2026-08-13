@@ -50,4 +50,21 @@ describe("ProSuccess page (PR-B G4)", () => {
     expect(screen.getByText(/still (processing|confirming)|taking a little longer|check back/i)).toBeInTheDocument();
     expect(screen.queryByText(/You're on (Pro|Premium)/)).toBeNull();
   });
+
+  // ── Plan B PR-C3b-client — tier-aware scheduled confirmation copy ──
+  // The scheduled state now carries the SCHEDULED tier: a Pro downgrade ("Pro starts when your
+  // Premium period ends") vs a seamless Premium re-subscribe ("Premium continues…"). Today the
+  // status==="scheduled" branch shows the Pro-downgrade copy regardless of tier.
+  it("PR-C3b-client: a scheduled PRO downgrade shows the Pro-scheduled copy", () => {
+    h.state = { status: "scheduled", tier: "pro" };
+    render(<ProSuccess />);
+    expect(screen.getByText(/pro starts when your premium period ends/i)).toBeInTheDocument();
+  });
+
+  it("PR-C3b-client: a scheduled PREMIUM re-subscribe shows a distinct 'Premium continues' copy, not the Pro downgrade copy", () => {
+    h.state = { status: "scheduled", tier: "premium" };
+    render(<ProSuccess />);
+    expect(screen.getByText(/premium continues/i)).toBeInTheDocument();
+    expect(screen.queryByText(/pro starts when your premium period ends/i)).toBeNull();
+  });
 });

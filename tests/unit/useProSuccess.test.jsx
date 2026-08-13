@@ -75,4 +75,32 @@ describe("useProSuccess (PR-B G4 — confirm the tier only after the webhook lan
     expect(h.authUnsub).toHaveBeenCalled();
     expect(h.docUnsub).toHaveBeenCalled();
   });
+
+  // ── Plan B PR-C3b-client — the tier-carrying scheduledNext reader shim ──
+  // C3b-server renamed the future-start marker to subscription.scheduledNext{tier}. The hook
+  // must read it tier-aware (`scheduledNext || scheduledPro`) so /pro-success confirms the RIGHT
+  // scheduled tier: a seamless Premium re-subscribe (tier "premium") vs a Pro downgrade (tier
+  // "pro"). Today the hook reads subscription.scheduledPro only and returns tier = server.tier
+  // (always "premium" until the sweep) — so the scheduledNext cases stay "waiting" and the legacy
+  // case reports the wrong tier.
+  it("PR-C3b-client: a scheduledNext PRO downgrade confirms 'scheduled' with the scheduled tier 'pro'", () => {
+    const { result } = renderHook(() => useProSuccess({ timeoutMs: 100000 }));
+    act(() => { h.authCb({ uid: "s1" }); });
+    act(() => { h.docCb({ tier: "premium", subscription: { cancelled: true, scheduledNext: { tier: "pro", subId: "I-PRO", approved: false } } }); });
+    expect(result.current).toMatchObject({ status: "scheduled", tier: "pro" });
+  });
+
+  it("PR-C3b-client: a scheduledNext PREMIUM re-subscribe confirms 'scheduled' with the scheduled tier 'premium'", () => {
+    const { result } = renderHook(() => useProSuccess({ timeoutMs: 100000 }));
+    act(() => { h.authCb({ uid: "s2" }); });
+    act(() => { h.docCb({ tier: "premium", subscription: { cancelled: true, scheduledNext: { tier: "premium", subId: "I-PREM", approved: false } } }); });
+    expect(result.current).toMatchObject({ status: "scheduled", tier: "premium" });
+  });
+
+  it("PR-C3b-client: a legacy scheduledPro marker still confirms 'scheduled', shimmed to tier 'pro'", () => {
+    const { result } = renderHook(() => useProSuccess({ timeoutMs: 100000 }));
+    act(() => { h.authCb({ uid: "s3" }); });
+    act(() => { h.docCb({ tier: "premium", subscription: { cancelled: true, scheduledPro: { subId: "I-PRO", billing: "monthly", approved: false } } }); });
+    expect(result.current).toMatchObject({ status: "scheduled", tier: "pro" });
+  });
 });

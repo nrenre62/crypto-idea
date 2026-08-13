@@ -1925,16 +1925,17 @@ scheduled future-start subscription (server callable at go-live; dev marker loca
 > window) was deferred to **PR-C3**, gated before paid plans. Ships with paid plans OFF. Canonical:
 > [`BILLING.md`](../decisions/BILLING.md) §3.3.
 >
-> **AS-BUILT UPDATE (Plan B PR-C3b-server, 2026-08-13, `6c25f90`):** the SERVER half of seamless re-subscribe
-> shipped. The future-start marker is now tier-carrying (`subscription.scheduledPro` → **`scheduledNext
-> {tier,…}`**; `scheduleProMarkerPatch`→`scheduleNextMarkerPatch`; a legacy `scheduledPro` is shimmed to tier
-> "pro") behind ONE shared `scheduleFutureStart` engine, plus a new **`resubscribePremium`** callable
-> (precondition: a cancelled Premium with **no pending `scheduledNext`** → "Keep my plan" first). **The CLIENT
-> is UNCHANGED** — `checkSubscriptionStatus` and the other five client sites still read `scheduledPro`;
-> swapping the "Re-subscribe to Premium" CTA onto `resubscribePremium` (confirm-gated + cycle picker) and
-> adding the `scheduledNext || scheduledPro` reader shim is **PR-C3b-client**. **⚠️ Deploy the client shim
-> before/with the server rename reaching prod, and keep `paidPlansEnabled` OFF until both land** (fail-safe —
-> no paywall bypass — but a real ordering constraint). Canonical:
+> **AS-BUILT UPDATE (Plan B PR-C3b, 2026-08-13 — server `6c25f90`, client `76f0caa`):** seamless re-subscribe
+> shipped in full. SERVER (PR-C3b-server): the future-start marker is now tier-carrying
+> (`subscription.scheduledPro` → **`scheduledNext {tier,…}`**; `scheduleProMarkerPatch`→`scheduleNextMarkerPatch`;
+> a legacy `scheduledPro` is shimmed to tier "pro") behind ONE shared `scheduleFutureStart` engine, plus a new
+> **`resubscribePremium`** callable (precondition: a cancelled Premium with **no pending `scheduledNext`** →
+> "Keep my plan" first). CLIENT (PR-C3b-client): the **"Re-subscribe to Premium" CTA now shows ONLY in the
+> plain-cancelled state** (`cancelled && no scheduledNext` — Keep-my-plan-first) and opens a **confirm modal
+> with a monthly/yearly cycle picker** (shared `<Modal>` + `.cycle-card`, no new CSS) that calls
+> `resubscribePremium(cycle)`; the six client sites (incl. `checkSubscriptionStatus`, `recheckoutDue`,
+> `useProSuccess`/`pro-success`) now read `scheduledNext || scheduledPro`. **The deploy-ordering constraint is
+> satisfied** (the client shim is in place); **paid plans stay gated OFF until launch.** Canonical:
 > [`BILLING.md`](../decisions/BILLING.md) §3.3.
 
 **R31-4 · No-refund disclaimer on EVERY billing surface.**

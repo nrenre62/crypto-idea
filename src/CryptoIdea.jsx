@@ -20,7 +20,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 // Firebase Authentication — passwords are handled by Firebase and never stored on the device.
 import { registerUser, loginUser, logoutUser, resetPassword, verifyEmail, confirmPassword, changePassword, passwordError, updateDisplayName, changeEmail, updateUserSettings, CONSENT_VERSION } from "./api/firebase-auth.js";
 import { exportMyData, deleteMyAccount as apiDeleteMyAccount, restoreMyAccount as apiRestoreMyAccount, signOutEverywhere as apiSignOutEverywhere, devSetMyTier, reconcileMyCounters as apiReconcileMyCounters, resolveRecheckout as apiResolveRecheckout, reactivateSubscription as apiReactivateSubscription, chooseFreePlan as apiChooseFreePlan } from "./api/account.js";
-import { cancelSubscription as apiCancelSubscription, scheduleProDowngrade as apiScheduleProDowngrade } from "./api/billing.js";
+import { cancelSubscription as apiCancelSubscription, scheduleProDowngrade as apiScheduleProDowngrade, resubscribePremium as apiResubscribePremium } from "./api/billing.js";
 import { buildPortfolioCsv } from "./utils/export-csv.js";
 import { CSV_BOM } from "./utils/csv.js";
 import {
@@ -613,6 +613,23 @@ export default function CryptoIdea(){
       setDgPayErr((e&&e.message)||"Couldn't schedule Pro. Please try again.");
     }
   };
+  // PR-C3b-client: seamless Premium re-subscribe from the plain-cancelled Premium state. The
+  // server callable schedules a REAL future-start Premium sub (writes subscription.scheduledNext
+  // {tier:"premium"}); in PROD it returns a PayPal approval URL and we redirect the browser to it,
+  // in DEV/emulator there is no PayPal so the callable writes the marker and returns no url — close
+  // the modal + surface an honest toast and rely on watchUserDoc to sync scheduledNext back. NO
+  // client-forged tier/marker write (mirrors scheduleProPay).
+  const resubscribePremium=async(billing)=>{
+    const res=await apiResubscribePremium({billing});
+    if(import.meta.env.DEV){
+      setShowDowngradeChooser(false);
+      showErr("Premium re-subscription scheduled — you'll keep Premium access through your current period.");
+    }else if(res&&res.approvalUrl){
+      window.location.assign(res.approvalUrl);
+    }else{
+      throw new Error("Couldn't start the Premium re-subscription. Please try again.");
+    }
+  };
   // R31-3: "Keep my plan" on a pending downgrade — fail-closed, both marker shapes.
   const keepPlan=async()=>{
     // PR-C2 SECURITY FIX (fail-closed): "Keep my plan" can NEVER resume a cancelled paid sub. By the
@@ -638,7 +655,7 @@ export default function CryptoIdea(){
   // lands directly on Pro via the server sweep at period end and NEVER needs the manual
   // re-checkout. This stays only as a fallback for a LEGACY marker (cancelled + downgradeTo:pro
   // with NO scheduledPro) written before PR-C2.
-  const recheckoutDue=!!(user&&(user.tier||"free")==="free"&&user.subscription&&user.subscription.cancelled&&user.subscription.downgradeTo==="pro"&&!user.subscription.scheduledPro);
+  const recheckoutDue=!!(user&&(user.tier||"free")==="free"&&user.subscription&&user.subscription.cancelled&&user.subscription.downgradeTo==="pro"&&!(user.subscription.scheduledNext||user.subscription.scheduledPro));
   const declineProRecheckout=async()=>{
     // DI-4 (D3): no trim — over-limit data is KEPT and grey-locked, never deleted.
     const updated={...user,subscription:null};
@@ -976,24 +993,28 @@ export default function CryptoIdea(){
     if(!u||!u.subscription)return u;
     const target=dueDowngrade(u.subscription,new Date());
     if(!target)return u;
-    if(target==="pro"){
-      // PR-C2: a Premium→Pro downgrade scheduled a REAL future-start Pro sub (scheduledPro). At
-      // the period end the SERVER sweep activates it and flips the tier to Pro (a payment-backed
-      // Pro sub); the client only READS that via watchUserDoc and must NEVER fabricate a paid tier
-      // in prod. In DEV/emulator there is no sweep, so simulate the flip so the local end state
-      // matches prod (mirrors how the old proApproved branch behaved, keyed off scheduledPro).
-      if(u.subscription.scheduledPro){
-        if(import.meta.env.DEV){
-          const billing=u.subscription.scheduledPro.billing||"monthly";
-          const updated={...u,tier:"pro",subscription:{billing,startDate:new Date().toISOString(),endDate:calcEndDate(billing),cancelled:false}};
-          await saveProfile(updated);
-          await persistTierDev("pro");
-          return updated;
-        }
-        return u;   // PROD: the server sweep + watchUserDoc own the flip — don't forge a tier here
+    // PR-C3b-client (tier-aware, supersedes PR-C2): a scheduled future-start sub — a Premium→Pro
+    // downgrade (scheduledNext.tier="pro") OR a seamless Premium re-subscribe (scheduledNext.tier=
+    // "premium"); a legacy scheduledPro marker shims to tier "pro". At the period end the SERVER
+    // sweep activates it and flips the tier (a payment-backed sub); the client only READS that via
+    // watchUserDoc and must NEVER fabricate a paid tier in prod. In DEV/emulator there is no sweep,
+    // so simulate the flip so the local end state matches prod. Checked before the target split so a
+    // premium re-subscribe (dueDowngrade → "free" via downgradeTo) isn't mis-resolved to Starter.
+    const sched=u.subscription.scheduledNext||(u.subscription.scheduledPro?{...u.subscription.scheduledPro,tier:"pro"}:null);
+    if(sched){
+      if(import.meta.env.DEV){
+        const billing=sched.billing||"monthly";
+        const schedTier=sched.tier||"pro";
+        const updated={...u,tier:schedTier,subscription:{billing,startDate:new Date().toISOString(),endDate:calcEndDate(billing),cancelled:false}};
+        await saveProfile(updated);
+        await persistTierDev(schedTier);
+        return updated;
       }
-      // Fallback for a LEGACY marker (no scheduledPro) — drop to Starter NOW and keep the
-      // marker so the (retired) re-checkout popup can still resolve it. Data is KEPT (DI-4).
+      return u;   // PROD: the server sweep + watchUserDoc own the flip — don't forge a tier here
+    }
+    if(target==="pro"){
+      // Fallback for a LEGACY marker (no scheduledNext/scheduledPro) — drop to Starter NOW and keep
+      // the marker so the (retired) re-checkout popup can still resolve it. Data is KEPT (DI-4).
       if((u.tier||"free")==="free")return u;   // already flipped — still awaiting the decision
       const updated={...u,tier:"free"};
       await saveProfile(updated);
@@ -1063,7 +1084,7 @@ export default function CryptoIdea(){
     remCoin,remEntry,
     tv,totalBuys,tpnl,tpp,txLoaded:activeTxLoaded,maxCoinsPerPort,usagePct,maxPortfolios,isPro,isPremium,startUpgrade,
     portfolios,setActivePortId,activePortId,coinOrder,updateCoinOrder,
-    maxTxPerCoin,aiMonthlyCents,startDowngrade,openDowngradeChooser,keepPlan,fmtDate,deletePortfolio,startRename,newPortName,setNewPortName,addPortfolio,
+    maxTxPerCoin,aiMonthlyCents,startDowngrade,openDowngradeChooser,keepPlan,resubscribePremium,fmtDate,deletePortfolio,startRename,newPortName,setNewPortName,addPortfolio,
     lockedCoins,lockedPortIds,openLockInfo,
     downloadMyData,downloadCsv,acctBusy,deleteMyAccount,restoreAccount,delConfirm,setDelConfirm,acctMsg,logout,
     delPass,setDelPass,delType,setDelType,cancelDelete,
