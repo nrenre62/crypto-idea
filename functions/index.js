@@ -773,16 +773,24 @@ exports.scheduleProDowngrade = functions.https.onCall(async (data, context) => {
     if (cancelResp.ok || cancelResp.status === 422) {   // 204 = cancelled; 422 = already inactive
       // Confirmed cancelled → drain the recovery breadcrumb via a TARGETED nested delete (clobber-safe:
       // a concurrent webhook write to any other subscription.* field in the window survives, unlike a
-      // whole-map rewrite from this stale snapshot).
-      await userRef.update({ "subscription.cancelPending": admin.firestore.FieldValue.delete() });
+      // whole-map rewrite from this stale snapshot). Modular FieldValue — admin.firestore.FieldValue is
+      // undefined in the emulator (see the import note at the top of this file).
+      await userRef.update({ "subscription.cancelPending": FieldValue.delete() });
+    } else if (cancelResp.status >= 500) {
+      // AMBIGUOUS: a 5xx does NOT throw, but the cancel may still have gone through server-side. Treat it
+      // exactly like the network-error case — leave the marker (cancelPending set) for the daily
+      // reconcile-drain to confirm/finish (never premium-with-no-billing). Void the pending Pro sub
+      // (no double charge); return no approvalUrl.
+      await cancelPayPalSubscription(subId, "Rollback: Premium cancel 5xx");
+      throw new functions.https.HttpsError("unavailable", "We couldn't confirm the change with PayPal — it'll be reconciled automatically. Please check back shortly.");
     } else {
-      // DEFINITIVE failure (PayPal returned an error status) → Premium is provably STILL LIVE. Fully
-      // ROLL BACK the marker so the account returns to its exact pre-schedule premium state and the
+      // DEFINITIVE failure (a 4xx — PayPal rejected the cancel request outright, so Premium is still live).
+      // Fully ROLL BACK the marker so the account returns to its exact pre-schedule premium state and the
       // user can retry (preserves PR-C2's fully-reversible property; the scheduledPro guard no longer
       // strands the account fail-closed to free). Void the pending Pro sub (no double charge).
       // update() REPLACES the subscription field wholesale (drops the marker).
       await cancelPayPalSubscription(subId, "Rollback: Premium cancel failed");
-      await userRef.update({ subscription: cur.subscription ?? admin.firestore.FieldValue.delete() });
+      await userRef.update({ subscription: cur.subscription ?? FieldValue.delete() });
       throw new functions.https.HttpsError("internal", "Couldn't cancel your current Premium subscription — no changes were made. Please try again.");
     }
   }
@@ -2755,7 +2763,7 @@ exports.enforceSubscriptionPeriods = SCHEDULED.pubsub.schedule("every 24 hours")
       const pending = billing.pendingCancelSubId(d.data());
       if (pending) {
         const ok = await cancelPayPalSubscription(pending, "reconcile: drain pending Premium cancel");
-        if (ok) await d.ref.update({ "subscription.cancelPending": admin.firestore.FieldValue.delete() });
+        if (ok) await d.ref.update({ "subscription.cancelPending": FieldValue.delete() });
         // if !ok: leave cancelPending set — the next daily sweep retries (never erase an unconfirmed cancel).
       }
       const patch = billing.subscriptionSweepPatch(d.data(), Date.now());
