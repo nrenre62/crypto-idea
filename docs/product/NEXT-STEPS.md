@@ -662,15 +662,25 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
   routes to an honest "Re-subscribe to Premium" CTA, and `/pro-success` gains a "Pro starts when Premium
   ends" scheduled state. Restores the `FUNCTIONS_EMULATOR` dev-split (ERRORS.md §C8 resolved for this
   path). The security review's four findings are closed (ERRORS.md §C9); ships with paid plans OFF.
-  **PR-C3** (queued — **gated before enabling paid plans**): (1) **seamless future-start Premium
-  re-subscribe** — mirror the Pro machinery generalized to carry the tier, so the "Re-subscribe to
-  Premium" CTA works during the cancelled-but-not-lapsed window (today it routes via
-  `startUpgrade("premium")` and no-ops on the same-tier guard); (2) the **marker-first ordering**
-  reconciliation fix for `scheduleProDowngrade`'s [MED] fail-open window (persist the scheduled marker
-  before the irreversible eager Premium-cancel, or add a reconciliation sweep). Both are dormant while
-  `paidPlansEnabled=false` and are **also recorded in [`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md)** as
-  pre-paid-plans blockers so they can't be lost. Live PayPal **sandbox e2e** still verifies the whole
-  flow (incl. the PR-C2 cancel-access + future-start `ACTIVATED` timing) at go-live.
+  **PR-C3a** (the **marker-first reconciliation** fix — closes PR-C2 residual #1, the [MED] fail-open
+  window) **done (2026-08-13,** branch `claude/plan-b-pr-c3a-marker-reconcile`, `c58751e` red →
+  `3a08d1a` impl → `f0525e0`/`9091f6f` hardening**):** `scheduleProDowngrade` now writes the
+  `scheduledPro` marker carrying a transient `cancelPending` breadcrumb (the live Premium sub id still
+  needing cancellation) **before** the irreversible eager Premium-cancel, so a crash between the two is
+  always recoverable (never premium-with-no-billing). The checked cancel three-way branches — CONFIRMED
+  (`ok`/`422` → drain the breadcrumb via a targeted `FieldValue.delete()`), AMBIGUOUS (network throw **or
+  a 5xx** → leave it for the daily reconcile-drain), DEFINITIVE (a 4xx → roll the marker fully back to the
+  pre-schedule premium state so the user can retry). The daily `enforceSubscriptionPeriods` sweep gained a
+  per-user **reconcile-drain** that clears `cancelPending` **only on a confirmed cancel**. New pure helper
+  `pendingCancelSubId`; `scheduleProMarkerPatch` now stamps `cancelPending`; `keepPlanPatch` preserves it
+  (fail-closed). Server-only; no callable/rules/client change; dormant while `paidPlansEnabled=false`.
+  **PR-C3b** (queued — the **last** pre-paid-plans gate): **seamless future-start Premium re-subscribe** —
+  mirror the Pro machinery generalized to carry the tier, so the "Re-subscribe to Premium" CTA works during
+  the cancelled-but-not-lapsed window (today it routes via `startUpgrade("premium")` and no-ops on the
+  same-tier guard). Dormant while `paidPlansEnabled=false` and **also recorded in
+  [`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md)** as a pre-paid-plans blocker so it can't be lost. Live PayPal
+  **sandbox e2e** still verifies the whole flow (incl. the PR-C2 cancel-access + future-start `ACTIVATED`
+  timing) at go-live.
 
 ---
 

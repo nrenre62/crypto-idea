@@ -132,17 +132,21 @@ always lands in a *new* database — not something to learn at 2am), and disclos
 > "Re-subscribe to Premium" CTA. The security review's four findings are closed (ERRORS.md §C9). **Ships
 > with paid plans OFF** (`paidPlansEnabled=false`), so the whole flow is dormant until paid plans are on.
 >
-> **⚠️ Two PR-C2 residuals are pre-paid-plans BLOCKERS (must land before `paidPlansEnabled` is turned on;
-> also tracked as PR-C3 in [`NEXT-STEPS.md`](NEXT-STEPS.md) §Plan B and [`BILLING.md`](../decisions/BILLING.md)
-> §3.3 / §8):**
-> 1. **[MED] fail-open ordering in `scheduleProDowngrade`** — the eager Premium-cancel happens *before* the
->    Firestore marker write, so a rare, non-adversarial marker-write failure after a successful cancel leaves
->    premium-with-no-billing. Fix = **marker-first ordering** (persist the scheduled intent before the
->    irreversible PayPal cancel) or a reconciliation sweep.
-> 2. **Seamless re-subscribe (PR-C3)** — the "Re-subscribe to Premium" CTA routes via
->    `startUpgrade("premium")`, which **no-ops while `tier==="premium"`** (same-tier guard), so it is inert
->    during the cancelled-but-not-lapsed window. Fix = a **future-start Premium re-subscribe** (mirror the
->    Pro machinery, generalized to carry the tier).
+> **PR-C2 residuals — one resolved, one remaining pre-paid-plans BLOCKER (must land before `paidPlansEnabled`
+> is turned on; also tracked in [`NEXT-STEPS.md`](NEXT-STEPS.md) §Plan B and
+> [`BILLING.md`](../decisions/BILLING.md) §3.3 / §8):**
+> 1. **[MED] fail-open ordering in `scheduleProDowngrade`** — ✅ **RESOLVED by Plan B PR-C3a** (2026-08-13,
+>    branch `claude/plan-b-pr-c3a-marker-reconcile`, `c58751e` red → `3a08d1a` impl → `f0525e0`/`9091f6f`
+>    hardening). The eager Premium-cancel used to happen *before* the Firestore marker write. It is now
+>    **marker-first**: the `scheduledPro` marker + a transient `cancelPending` breadcrumb (the live Premium
+>    sub id still needing cancellation) is persisted **before** the irreversible cancel, and the daily
+>    `enforceSubscriptionPeriods` sweep gained a **reconcile-drain** that finishes any un-cleared cancel
+>    (clearing the breadcrumb **only on a confirmed cancel** — a PayPal 5xx never erases an unconfirmed
+>    cancel). Server-only; dormant while paid plans are OFF.
+> 2. **Seamless re-subscribe (PR-C3b) — STILL OPEN, the remaining pre-paid-plans blocker.** The
+>    "Re-subscribe to Premium" CTA routes via `startUpgrade("premium")`, which **no-ops while
+>    `tier==="premium"`** (same-tier guard), so it is inert during the cancelled-but-not-lapsed window.
+>    Fix = a **future-start Premium re-subscribe** (mirror the Pro machinery, generalized to carry the tier).
 >
 > **Remaining verification:** the full cancel/downgrade round-trip — incl. the PR-C2 **eager-cancel access
 > timing** (Premium access continues to the period end) and the **future-start Pro `ACTIVATED` timing** (fires
