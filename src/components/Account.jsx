@@ -290,9 +290,12 @@ export function Account() {
               </div>
               <button onClick={keepPlan} className="acct-btn ghost">Keep my plan</button>
               {isPremium&&<button onClick={openDowngradeChooser} className="acct-btn ghost">Change downgrade choice</button>}
-              {/* PR-C2: the eager-cancel means the only way back onto Premium is a fresh
-                  subscription — route to the EXISTING Premium checkout (no new callable/route). */}
-              {paidPlansOn&&user.subscription.scheduledPro&&<button onClick={()=>startUpgrade("premium")} className="acct-btn prem">Re-subscribe to Premium</button>}
+              {/* PR-C2 SECURITY FIX (fail-closed): "Keep my plan" can't resume a cancelled Premium sub
+                  — the PayPal sub is already terminally cancelled (a scheduled-Pro downgrade eager-
+                  cancels Premium; a legacy cancel POSTs /cancel before marking). So for ANY cancelled
+                  Premium marker (scheduledPro OR legacy) the only honest way back onto Premium is a
+                  fresh subscription — route to the EXISTING Premium checkout (no new callable/route). */}
+              {paidPlansOn&&isPremium&&<button onClick={()=>startUpgrade("premium")} className="acct-btn prem">Re-subscribe to Premium</button>}
             </>)}
 
             {paidPlansOn&&!isPro&&<button onClick={()=>startUpgrade("pro")} className="acct-btn accent">Upgrade to Pro</button>}

@@ -613,33 +613,24 @@ export default function CryptoIdea(){
       setDgPayErr((e&&e.message)||"Couldn't schedule Pro. Please try again.");
     }
   };
-  // R29-2/R31-3: un-cancel a pending downgrade — the subscription resumes AND any scheduled
-  // future-start Pro sub (scheduledPro) is cancelled with it.
+  // R31-3: "Keep my plan" on a pending downgrade — fail-closed, both marker shapes.
   const keepPlan=async()=>{
-    // PR-C2 SECURITY FIX (fail-closed): a Premium→Pro downgrade EAGER-CANCELS the Premium PayPal
-    // sub at schedule time, so "Keep my plan" on a scheduled-Pro marker can NOT resume Premium —
-    // there is no live subscription left to un-cancel. The old optimistic cancelled:false forge
-    // painted Premium as a healthy "renews on" sub with nothing behind it (the [HIGH] paywall-
-    // bypass illusion). So for a scheduled-Pro marker we never forge cancelled:false: the server
-    // cancels the scheduled Pro + keeps the cancel-to-free marker (Premium runs to period end,
-    // then Starter), and watchUserDoc syncs that corrected "then Starter" marker back. To
-    // continue on Premium the user re-subscribes (Account's "Re-subscribe to Premium" CTA →
-    // the existing Premium checkout). Drop the now-defunct scheduled-Pro marker optimistically so
-    // the misleading "ends on … then Pro" notice clears while the real marker arrives.
-    if(user?.subscription?.scheduledPro){
-      setUser(u=>u?{...u,subscription:null}:u);
-      try{await apiReactivateSubscription();}catch(_e){}
-      return;
-    }
-    // Legacy marker (a plain pending cancel, no scheduledPro): the live sub is still active until
-    // period end, so an optimistic un-cancel is honest (R29-2).
-    const{cancelled:_c,downgradeTo:_d,scheduledPro:_sp,proApproved:_pa,proBilling:_pb,...rest}=user?.subscription||{};
-    const updated={...user,subscription:{...rest,cancelled:false}};
-    // PR-C1: the useAuthSession auto-save effect persists this single state change — no
-    // second saveProfile here (that would double-write ci-profile-<uid>).
-    setUser(updated);
-    // DI-4/G23: persist the un-cancel server-side too (the owner can't write the marker;
-    // best-effort locally where there may be no server subscription yet).
+    // PR-C2 SECURITY FIX (fail-closed): "Keep my plan" can NEVER resume a cancelled paid sub. By the
+    // time a cancel marker exists the PayPal sub is already terminally cancelled — cancelSubscription
+    // POSTs /cancel BEFORE marking, and a Premium→Pro downgrade EAGER-CANCELS Premium at schedule
+    // time (subscription.scheduledPro). The old optimistic cancelled:false forge painted the plan as
+    // a healthy "renews on" sub with NOTHING behind it (the [HIGH] paywall-bypass illusion — free
+    // Premium forever, the sweep never drops it). So BOTH a scheduled-Pro marker AND a legacy plain
+    // cancel converge on the same handling: never forge cancelled:false. Drop the defunct marker
+    // optimistically (clears the misleading "access ends on … then Pro/Starter" notice) and let the
+    // server keep the fail-closed cancel-to-lower-tier marker (access runs to period end, then the
+    // sweep drops the tier); watchUserDoc syncs that corrected state back. To continue on the paid
+    // tier the user re-subscribes (Account's "Re-subscribe to Premium" CTA → the existing Premium
+    // checkout). The useAuthSession auto-save effect persists this single state change — no second
+    // saveProfile here (that would double-write ci-profile-<uid>, PR-C1).
+    setUser(u=>u?{...u,subscription:null}:u);
+    // DI-4/G23: tell the server too (the owner can't write the marker) — the callable keeps the
+    // fail-closed cancel-to-free + cancels any scheduled Pro. Best-effort.
     try{await apiReactivateSubscription();}catch(_e){}
   };
   // PR-C2: the R29-3 period-end re-checkout popup is RETIRED for the new flow — a Premium→Pro

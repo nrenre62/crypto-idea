@@ -1725,19 +1725,21 @@ exports.resolveRecheckout = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
-// ─── Self-service (DI-4/R29): "Keep my plan" — un-cancel a pending downgrade ───
-// Clears the cancellation marker so the paid tier simply continues (owners can't write
-// `subscription` themselves — this is the server counterpart).
+// ─── Self-service (DI-4/R29): "Keep my plan" — reactivate a pending downgrade ───
+// Owners can't write `subscription` themselves — this is the server counterpart, decided
+// by the pure billing.keepPlanPatch.
 //
-// PR-C2 SECURITY FIX (eager-cancel): the two paths differ, decided by the pure
-// billing.keepPlanPatch —
+// PR-C2 SECURITY FIX (fail-closed in BOTH branches): every pending cancellation in this app
+// already has a terminally-cancelled PayPal sub, so keepPlanPatch NEVER un-cancels to
+// premium-forever (that would be the [HIGH] paywall bypass). The two paths differ only in
+// whether a scheduled Pro sub gets cancelled —
 //   • a SCHEDULED-Pro marker: the Premium PayPal sub was terminally cancelled at schedule
-//     time, so it can NOT be reactivated (reactivating a cancelled sub is a PayPal no-op →
-//     premium-with-no-live-sub, the [HIGH] paywall bypass). Fail-closed instead: keep the
-//     cancel-to-FREE marker (the sweep drops it at endDate), drop the scheduledPro, and
-//     CANCEL the scheduled (not-yet-started) Pro sub at PayPal. The user re-subscribes.
-//   • a LEGACY pending cancel (no scheduledPro): the Premium sub is still live, so a plain
-//     un-cancel resumes premium (the R29-2 behavior); nothing to cancel at PayPal.
+//     time, so it can NOT be reactivated. Fail-closed: keep the cancel-to-FREE marker (the
+//     sweep drops it at endDate), drop the scheduledPro, and CANCEL the scheduled
+//     (not-yet-started) Pro sub at PayPal. The user re-subscribes.
+//   • a LEGACY / any other cancelled marker (no scheduledPro): its Premium sub is already
+//     gone too, so the marker is simply re-affirmed (cancelled stays true; the sweep drops
+//     it at endDate) — cancelProSubId is null, nothing to cancel at PayPal.
 exports.reactivateSubscription = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   assertNoUnknownKeys(data, []);
