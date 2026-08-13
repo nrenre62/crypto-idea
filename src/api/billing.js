@@ -24,9 +24,9 @@ export async function cancelSubscription({ downgradeTo } = {}) {
 
 // Plan B PR-C2 — schedule a REAL future-start Pro subscription for a Premium→Pro downgrade.
 // Acts on the caller's OWN uid server-side (no IDOR); the client sends only {billing} and the
-// server writes the scheduled marker (subscription.scheduledPro) — never the client. Returns
-// { approvalUrl, subscriptionId }; the caller redirects the browser to approvalUrl (PROD).
-// Throws (failed-precondition / cooldown / auth) on refusal.
+// server writes the scheduled marker (subscription.scheduledNext{tier:"pro"}) — never the
+// client. Returns { approvalUrl, subscriptionId }; the caller redirects the browser to
+// approvalUrl (PROD). Throws (failed-precondition / cooldown / auth) on refusal.
 export async function scheduleProDowngrade({ billing } = {}) {
   const res = await httpsCallable(functions, "scheduleProDowngrade")({ billing });
   return res.data;
