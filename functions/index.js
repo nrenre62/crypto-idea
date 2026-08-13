@@ -678,7 +678,9 @@ exports.scheduleProDowngrade = functions.https.onCall(async (data, context) => {
   if (!cd.allowed) {
     throw new functions.https.HttpsError("resource-exhausted", "Please wait a minute before trying again.");
   }
-  return scheduleFutureStart({ tier: "pro", billingCycle, cur, userId, userRef, context });
+  const res = await scheduleFutureStart({ tier: "pro", billingCycle, cur, userId, userRef, context });
+  await writeAudit(context, "scheduleProDowngrade", { targetUid: userId, details: `billing=${billingCycle} start=${res.startDate}` });
+  return { approvalUrl: res.approvalUrl, subscriptionId: res.subscriptionId };
 });
 
 // ─── Plan B PR-C3b-server: Re-subscribe to Premium (seamless future-start Premium) ───
@@ -728,7 +730,9 @@ exports.resubscribePremium = functions.https.onCall(async (data, context) => {
   if (!cd2.allowed) {
     throw new functions.https.HttpsError("resource-exhausted", "Please wait a minute before trying again.");
   }
-  return scheduleFutureStart({ tier: "premium", billingCycle, cur, userId, userRef, context });
+  const res = await scheduleFutureStart({ tier: "premium", billingCycle, cur, userId, userRef, context });
+  await writeAudit(context, "resubscribePremium", { targetUid: userId, details: `billing=${billingCycle} start=${res.startDate}` });
+  return { approvalUrl: res.approvalUrl, subscriptionId: res.subscriptionId };
 });
 
 // ─── Plan B PR-C2 / C3b-server: shared future-start pre-authorization engine ───
@@ -862,9 +866,11 @@ async function scheduleFutureStart({ tier, billingCycle, cur, userId, userRef, c
     }
   }
 
-  const action = tier === "premium" ? "resubscribePremium" : "scheduleProDowngrade";
-  await writeAudit(context, action, { targetUid: userId, details: `tier=${tier} billing=${billingCycle} start=${startDate}` });
-  return { approvalUrl, subscriptionId: subId };
+  // C3b-server: the audit is written by each CALLER (with a LITERAL action string the
+  // audit-labels scraper can see), AFTER this engine returns — so it fires on success only
+  // (this throws on any failure above). Return startDate for the callers' audit details; the
+  // callable RESPONSE strips it back to {approvalUrl, subscriptionId} (no contract drift).
+  return { approvalUrl, subscriptionId: subId, startDate };
 }
 
 // ─── Cancel Subscription (signed-in user cancels THEIR OWN) ───
