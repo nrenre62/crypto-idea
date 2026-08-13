@@ -9,7 +9,7 @@ import { Logo } from "./ui.jsx";
 export function Loading() {
   return (
     <div className="ci-app" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", gap: 12 }}>
-      <Logo size="lg" />
+      <Logo up />
       <div style={{ fontSize: 13, color: c.dim }}>Loading…</div>
     </div>
   );
