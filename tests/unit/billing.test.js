@@ -6,10 +6,12 @@ import {
   // Plan B PR-C2 (future-start Pro pre-authorization).
   scheduleProMarkerPatch, scheduledActivationDecision,
   // Plan B PR-C2 SECURITY FIX (eager-cancel Premium on Pro downgrade) — `keepPlanPatch` is the
-  // NEW pure "Keep my plan" decision the fix introduces. It does not exist yet, so the missing
-  // named import resolves to `undefined` and the calls below throw "not a function": red for the
-  // right reason (the fix has not been written).
+  // NEW pure "Keep my plan" decision the fix introduces.
   keepPlanPatch,
+  // Plan B PR-C3a (marker-first reconciliation) — the two NEW pure helpers the fix introduces.
+  // They do not exist yet, so the missing named imports resolve to `undefined` and the calls
+  // below throw "not a function": red for the right reason (C3a has not been written).
+  pendingCancelSubId, dropCancelPending,
 } from "../../functions/billing.js";
 
 // BL-1b/BL-1f (D6 + ERRORS.md B8): the PayPal webhook / cancellation / revenue
@@ -463,5 +465,75 @@ describe("billing.subscriptionSweepPatch (PR-C2: the future-start Pro pre-auth m
   it("regression: a legacy pro-target marker with NO scheduledPro still flips to free and KEEPS the marker", () => {
     const p = subscriptionSweepPatch({ tier: "premium", subscription: { cancelled: true, downgradeTo: "pro", endDate: "2026-06-01" } }, Date.parse("2026-07-03"));
     expect(p).toEqual({ tier: "free" });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════
+// Plan B PR-C3a — marker-first reconciliation (a billing money-path hardening).
+//
+// scheduleProDowngrade currently orders its PayPal ops as: create the future-start Pro sub →
+// CANCEL the Premium sub (irreversible) → write the Firestore marker. A marker-write failure
+// AFTER the Premium cancel leaves tier:"premium" with a cancelled Premium sub and NO marker the
+// daily sweep can act on = premium-with-no-billing (Finding #3, a [MED] fail-open).
+//
+// C3a fixes it by writing the marker FIRST — carrying a `cancelPending` breadcrumb (the live
+// Premium sub id still needing cancellation) — THEN cancelling Premium, and draining any
+// un-finished cancel in the daily sweep. The pure decision layer gains a field + two helpers:
+//   • scheduleProMarkerPatch also stamps `cancelPending: scheduled.cancelSubId || null`.
+//   • pendingCancelSubId(userData)  → subscription.cancelPending || null (null-safe).
+//   • dropCancelPending(sub)        → the subscription map with `cancelPending` removed.
+// All pure → unit-testable with no emulator.
+// ══════════════════════════════════════════════════════════════════════════════════
+
+describe("billing.scheduleProMarkerPatch (PR-C3a marker-first: carry the cancelPending breadcrumb)", () => {
+  const premium = () => ({
+    tier: "premium", paypalSubscriptionId: "I-PREM",
+    subscription: { billing: "monthly", startDate: "2026-05-01", endDate: "2026-09-01T00:00:00.000Z", cancelled: false },
+  });
+  it("C3a: stamps cancelPending = the live Premium sub id (the breadcrumb the reconcile-drain cancels), WITHOUT regressing the PR-C2 marker fields", () => {
+    const p = scheduleProMarkerPatch(premium(),
+      { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", cancelSubId: "I-PREM" }, 5000);
+    // the NEW breadcrumb: the Premium sub id still needing cancellation
+    expect(p.subscription.cancelPending).toBe("I-PREM");
+    // PR-C2 regression guard: the existing marker shape is unchanged
+    expect(p.subscription.scheduledPro).toEqual({
+      subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z", approved: false,
+    });
+    expect(p.subscription.cancelled).toBe(true);
+    expect(p.subscription.downgradeTo).toBe("pro");
+    expect(p.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
+  });
+  it("C3a: cancelPending is null when no Premium sub id is supplied (DEV branch has none to cancel)", () => {
+    const p = scheduleProMarkerPatch(premium(),
+      { subId: "I-PRO", billing: "monthly", startDate: "2026-09-01T00:00:00.000Z" }, 1);
+    expect(p.subscription.cancelPending).toBeNull();
+  });
+});
+
+describe("billing.pendingCancelSubId (PR-C3a: read the un-drained cancel breadcrumb)", () => {
+  it("C3a: returns the cancelPending sub id when the marker carries one", () => {
+    expect(pendingCancelSubId({ subscription: { cancelPending: "I-PREM" } })).toBe("I-PREM");
+  });
+  it("C3a: null-safe — no breadcrumb, no subscription, or null userData all yield null", () => {
+    expect(pendingCancelSubId({ subscription: {} })).toBeNull();
+    expect(pendingCancelSubId({})).toBeNull();
+    expect(pendingCancelSubId(null)).toBeNull();
+  });
+});
+
+describe("billing.dropCancelPending (PR-C3a: clear the breadcrumb once the cancel is drained)", () => {
+  it("C3a: removes ONLY cancelPending, preserving every other subscription field", () => {
+    const out = dropCancelPending({ cancelPending: "x", cancelled: true, downgradeTo: "free", endDate: "2026-01-01" });
+    expect("cancelPending" in out).toBe(false);
+    expect(out.cancelled).toBe(true);
+    expect(out.downgradeTo).toBe("free");
+    expect(out.endDate).toBe("2026-01-01");
+  });
+  it("C3a: idempotent — a map with no cancelPending comes back equivalent", () => {
+    const sub = { cancelled: true, downgradeTo: "free", endDate: "2026-01-01" };
+    expect(dropCancelPending(sub)).toEqual(sub);
+  });
+  it("C3a: null-safe on null input", () => {
+    expect(dropCancelPending(null)).toBeNull();
   });
 });
