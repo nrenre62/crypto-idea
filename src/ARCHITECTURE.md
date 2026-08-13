@@ -35,7 +35,11 @@ src/
     `finalizeDowngrade`, plus PR-C2's `scheduleProPay`) route through it too (server-authoritative,
     no client-forged marker). Server-side, `scheduleProDowngrade` (in `functions/index.js`) creates
     the future-start Pro sub + eager-cancels Premium and rides the pure `functions/billing.js` helpers
-    `scheduleProMarkerPatch` / `scheduledActivationDecision` / `keepPlanPatch`.
+    `scheduleNextMarkerPatch` / `scheduledActivationDecision` / `keepPlanPatch`. **Plan B PR-C3b-server**
+    generalized the marker to be tier-carrying (`subscription.scheduledNext {tier,…}`, renaming
+    `scheduleProMarkerPatch`→`scheduleNextMarkerPatch` with a legacy-`scheduledPro`→"pro" shim) behind ONE
+    shared `scheduleFutureStart` engine, adding the new `resubscribePremium` callable (server-only; the
+    client `scheduledNext || scheduledPro` reader shim + CTA are the pending PR-C3b-client).
   - `utils/` — `format.js` (pure formatters: `fmtP`, `fmtMc`, `fmtPct`, `uid`, `fmtDT`,
     `timeBetween`), `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
     price model `getHistoricalPrice`), and `theme.js` (visual tokens `c`, `inp_s`,
