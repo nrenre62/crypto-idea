@@ -37,9 +37,15 @@ export function useProSuccess({ timeoutMs = 8000 } = {}) {
         lastTier = tier;
         const base = baseline;
         if (baseline === undefined) baseline = tier;   // first snapshot = baseline
-        // PR-C2: a scheduled future-start Pro downgrade — the tier stays premium; recognize the
-        // marker so the return page shows the honest "downgrade scheduled" confirmation.
-        if (server.subscription && server.subscription.scheduledPro) { finish({ status: "scheduled", tier }); return; }
+        // PR-C3b-client (tier-aware, supersedes PR-C2): a scheduled future-start sub — the current
+        // tier stays premium until the sweep, so confirm the SCHEDULED tier, not server.tier. The
+        // renamed subscription.scheduledNext{tier} carries it (Pro downgrade OR seamless Premium
+        // re-subscribe); a legacy subscription.scheduledPro shims to tier "pro".
+        if (server.subscription && (server.subscription.scheduledNext || server.subscription.scheduledPro)) {
+          const sched = server.subscription.scheduledNext || { tier: "pro" };
+          finish({ status: "scheduled", tier: sched.tier || "pro" });
+          return;
+        }
         const cancelled = !!(server.subscription && server.subscription.cancelled);
         const confirmed = PAID.has(tier) && !cancelled &&
           base !== undefined && (base === "free" || tier !== base);
