@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -26 452 126" role="img" aria-label="CryptoIdea">
+  <defs><style>
+  .tile{fill:#0B6B4F}.cee{fill:#fff;font-family:'Fraunces','Georgia',serif;font-weight:600;font-size:60px}
+  .shell{fill:#6FBE93}.skin{fill:#C39A6B}.eye{fill:#2F2013}
+  .seam{fill:none;stroke:#3E8E6A;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+  .crest{fill:none;stroke:#4FA6A8;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+  .ripple{fill:none;stroke:#7FC0C1;stroke-width:1.5;stroke-linecap:round;opacity:.7}
+  .head{transform:translate(-14px,0);animation:ghead 1200ms ease-in-out infinite}
+  .bob{transform-box:fill-box;transform-origin:center;animation:gbob 1200ms ease-in-out infinite}
+  .life{transform-box:fill-box;transform-origin:center;animation:gsway 1200ms ease-in-out infinite}
+  .ff{transform-box:fill-box;transform-origin:50% 0;animation:gpad 1200ms ease-in-out infinite}
+  .fb{transform-box:fill-box;transform-origin:50% 0;animation:gpadB 1200ms ease-in-out infinite}
+  .eye{transform-box:fill-box;transform-origin:center;animation:gblink 1200ms linear infinite}
+  .ripple{animation:grip 1200ms ease-in-out infinite}
+  @keyframes ghead{0%{transform:translate(-14px,0)}14%,86%{transform:translate(0,0)}100%{transform:translate(-14px,0)}}
+  @keyframes gbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.4px)}}
+  @keyframes gsway{0%,100%{transform:translateY(0)}50%{transform:translateY(-.7px)}}
+  @keyframes gpad{0%,100%{transform:rotate(-9deg)}25%{transform:rotate(19deg)}50%{transform:rotate(-9deg)}75%{transform:rotate(19deg)}}
+  @keyframes gpadB{0%,100%{transform:rotate(16deg)}25%{transform:rotate(-6deg)}50%{transform:rotate(16deg)}75%{transform:rotate(-6deg)}}
+  @keyframes gblink{0%,44%,54%,100%{transform:scaleY(1)}49%{transform:scaleY(.12)}}
+  @keyframes grip{0%,100%{opacity:.45}50%{opacity:.9}}
+  .word{font-family:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-weight:600;font-size:64px;letter-spacing:-0.64px;fill:#15211B}
+  </style></defs>
+  <g>
+  <rect class="tile" x="0" y="0" width="100" height="100" rx="28.5"/>
+  <text class="cee" x="49" y="55" text-anchor="middle" dominant-baseline="middle">C</text>
+  <g class="turtle" transform="translate(93 12) rotate(-28) scale(1.42)">
+    <g class="life">
+      <path class="crest" d="M-19,11 L-3,11 L2,6.4 L7,11 L21,11"/>
+      <path class="ripple" d="M-13,15.5 L-4,15.5"/>
+      <path class="ripple" d="M7,15.5 L17,15.5"/>
+      <g transform="translate(-11 3)"><g class="fb"><path class="skin flip" d="M0,0 C-4,0 -4.6,5 -2.6,8.6 C-1,10.2 1,10.2 2.6,8.6 C4.6,5 4,0 0,0 Z"/></g></g>
+      <path class="skin" d="M-15,1 l-5,1.6 l4.4,3 z"/>
+      <g class="head"><g class="bob">
+        <path class="skin" d="M5,-3.4 L19,-4.2 L19,3 L5,3 Z"/>
+        <ellipse class="skin" cx="20.5" cy="-2" rx="6.2" ry="5.2"/>
+        <circle class="eye" cx="22.6" cy="-4" r="1.3"/>
+      </g></g>
+      <ellipse class="shell" cx="0" cy="-1" rx="16" ry="11"/>
+      <path class="seam" d="M-9,-6.5 C-3,-9.6 3,-9.6 9,-6.5"/>
+      <path class="seam" d="M-6,-8.4 C-8,-1 -8,4 -5,9.4"/>
+      <path class="seam" d="M6,-8.4 C8,-1 8,4 5,9.4"/>
+      <g transform="translate(9 4)"><g class="ff"><path class="skin flip" d="M0,0 C-4,0 -4.6,5 -2.6,8.6 C-1,10.2 1,10.2 2.6,8.6 C4.6,5 4,0 0,0 Z"/></g></g>
+    </g>
+  </g></g>
+  <text class="word" x="136" y="50" dominant-baseline="central">CryptoIdea</text>
+</svg>
