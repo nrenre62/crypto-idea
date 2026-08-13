@@ -26,9 +26,27 @@ function Loading() {
   // .ci-app wrapper lets the app.css .ci-logo* styles apply.
   return (
     <div className="ci-app" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, fontFamily: "system-ui, -apple-system, sans-serif", color: "#1A1A2E" }}>
-      <span className="ci-logo lg" role="img" aria-label="CryptoIdea">
+      <span className="ci-logo up" role="img" aria-label="CryptoIdea">
         <span className="ci-logo-mark" aria-hidden="true">C</span>
         <span className="ci-logo-word">CryptoIdea</span>
+        <svg className="ci-turtle" viewBox="0 0 40 38" aria-hidden="true">
+          <g transform="translate(19 20) rotate(-28) scale(0.85)"><g className="ci-t-life">
+            <path className="ci-t-crest" d="M-19,11 L-3,11 L2,6.4 L7,11 L21,11"/>
+            <path className="ci-t-ripple" d="M-13,15.5 L-4,15.5"/><path className="ci-t-ripple" d="M7,15.5 L17,15.5"/>
+            <g transform="translate(-11 3)"><g className="ci-t-fb"><path className="ci-t-skin" d="M0,0 C-4,0 -4.6,5 -2.6,8.6 C-1,10.2 1,10.2 2.6,8.6 C4.6,5 4,0 0,0 Z"/></g></g>
+            <path className="ci-t-skin" d="M-15,1 l-5,1.6 l4.4,3 z"/>
+            <g className="ci-t-head"><g className="ci-t-bob">
+              <path className="ci-t-skin" d="M5,-3.4 L19,-4.2 L19,3 L5,3 Z"/>
+              <ellipse className="ci-t-skin" cx="20.5" cy="-2" rx="6.2" ry="5.2"/>
+              <circle className="ci-t-eye" cx="22.6" cy="-4" r="1.3"/>
+            </g></g>
+            <ellipse className="ci-t-shell" cx="0" cy="-1" rx="16" ry="11"/>
+            <path className="ci-t-seam" d="M-9,-6.5 C-3,-9.6 3,-9.6 9,-6.5"/>
+            <path className="ci-t-seam" d="M-6,-8.4 C-8,-1 -8,4 -5,9.4"/>
+            <path className="ci-t-seam" d="M6,-8.4 C8,-1 8,4 5,9.4"/>
+            <g transform="translate(9 4)"><g className="ci-t-ff"><path className="ci-t-skin" d="M0,0 C-4,0 -4.6,5 -2.6,8.6 C-1,10.2 1,10.2 2.6,8.6 C4.6,5 4,0 0,0 Z"/></g></g>
+          </g></g>
+        </svg>
       </span>
       <div style={{ width: 26, height: 26, border: "3px solid #E8E8ED", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "ci-spin 0.7s linear infinite" }} />
       <div style={{ fontSize: 13, color: "#999" }}>Loading…</div>

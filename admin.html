@@ -7,6 +7,8 @@
        server-side {admin:true} claim, not this tag.) -->
   <meta name="robots" content="noindex, nofollow" />
   <meta name="theme-color" content="#FFFFFF" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="96x96" href="/icons/icon-96.png" />
   <title>CryptoIdea — Admin</title>
   <!-- Paper-design type (Fraunces + Hanken Grotesk) for the ADMIN-D Settings reskin.
        Same font hosts the app already allowlists in the CSP. -->
@@ -24,19 +26,25 @@
     .app-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 12px; color: #999; font-size: 14px; }
     /* LOGO-2: the unified brand lockup — green "C" tile + one-word "CryptoIdea".
        Brand green #0b6b4f (the landing --accent); no app tokens exist pre-bundle. */
-    .app-loading .lockup { display: flex; align-items: center; gap: 10px; }
+    .app-loading .lockup { position: relative; display: flex; align-items: center; gap: 10px; }
     .app-loading .mark {
       width: 28px; height: 28px; border-radius: 8px; background: #0b6b4f; color: #fff;
       display: flex; align-items: center; justify-content: center;
       font-family: 'Fraunces', Georgia, serif; font-size: 16px; font-weight: 600;
     }
     .app-loading .word { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: #1A1A1A; }
+    /* Static head-up turtle on the "C" tile corner (splash — no hover). */
+    .app-loading .turtle { position: absolute; left: 16px; top: -13px; width: 31px; height: 31px; overflow: visible; pointer-events: none; }
+    .app-loading .sh { fill: #6fbe93; } .app-loading .sk { fill: #c39a6b; } .app-loading .ey { fill: #2f2013; }
+    .app-loading .sm { fill: none; stroke: #3e8e6a; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+    .app-loading .cr { fill: none; stroke: #4fa6a8; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+    .app-loading .rp { fill: none; stroke: #7fc0c1; stroke-width: 1.5; stroke-linecap: round; opacity: .7; }
   </style>
 </head>
 <body>
   <div id="root">
     <div class="app-loading">
-      <div class="lockup"><span class="mark">C</span><span class="word">CryptoIdea</span></div>
+      <div class="lockup"><span class="mark">C</span><span class="word">CryptoIdea</span><svg class="turtle" viewBox="0 0 40 38" aria-hidden="true"><g transform="translate(19 20) rotate(-28) scale(0.85)"><path class="cr" d="M-19,11 L-3,11 L2,6.4 L7,11 L21,11"/><path class="rp" d="M-13,15.5 L-4,15.5"/><path class="rp" d="M7,15.5 L17,15.5"/><g transform="translate(-11 3)"><path class="sk" d="M0,0 C-4,0 -4.6,5 -2.6,8.6 C-1,10.2 1,10.2 2.6,8.6 C4.6,5 4,0 0,0 Z"/></g><path class="sk" d="M-15,1 l-5,1.6 l4.4,3 z"/><path class="sk" d="M5,-3.4 L19,-4.2 L19,3 L5,3 Z"/><ellipse class="sk" cx="20.5" cy="-2" rx="6.2" ry="5.2"/><circle class="ey" cx="22.6" cy="-4" r="1.3"/><ellipse class="sh" cx="0" cy="-1" rx="16" ry="11"/><path class="sm" d="M-9,-6.5 C-3,-9.6 3,-9.6 9,-6.5"/><path class="sm" d="M-6,-8.4 C-8,-1 -8,4 -5,9.4"/><path class="sm" d="M6,-8.4 C8,-1 8,4 5,9.4"/><g transform="translate(9 4)"><path class="sk" d="M0,0 C-4,0 -4.6,5 -2.6,8.6 C-1,10.2 1,10.2 2.6,8.6 C4.6,5 4,0 0,0 Z"/></g></g></svg></div>
       <p>Loading…</p>
     </div>
   </div>

@@ -209,16 +209,52 @@ html[data-theme="dark"] .ci-app .submit-buy.submit-sell { background:var(--sr); 
    (a solid fill with a white letter is dark-safe on its own — no border, so it needs
    no R18 --edge lift) + the --ink wordmark (flips light/dark). No image asset. Header
    size is the default; .lg is the larger auth-screen variant. */
-.ci-app .ci-logo { display:inline-flex; align-items:center; gap:10px; font-family:var(--body); font-weight:600; letter-spacing:-.01em; color:var(--ink); line-height:1; }
+.ci-app .ci-logo { position:relative; display:inline-flex; align-items:center; gap:10px; font-family:var(--body); font-weight:600; letter-spacing:-.01em; color:var(--ink); line-height:1; }
 /* Pin the LOGO tile to the brand green #0b6b4f (the index.html mark), NOT the
    --accent token — the token drives buttons/pills/links and must stay theme-flexible.
    transition + hover-rotate mirror the landing .brand .mark exactly. */
 .ci-app .ci-logo-mark { flex:none; width:28px; height:28px; border-radius:8px; background:#0b6b4f; color:#fff; font-family:var(--display); font-weight:600; font-size:16px; display:grid; place-items:center; transition:transform .3s var(--ease); }
 .ci-app .ci-logo:hover .ci-logo-mark { transform:rotate(-6deg) scale(1.06); }
 .ci-app .ci-logo-word { font-size:18px; }
-.ci-app .ci-logo.lg { gap:12px; }
-.ci-app .ci-logo.lg .ci-logo-mark { width:44px; height:44px; border-radius:13px; font-size:24px; }
-.ci-app .ci-logo.lg .ci-logo-word { font-size:28px; }
+/* Size is UNIFORM everywhere (index proportions) — no enlarged variant. `lg`
+   is kept as an accepted class for back-compat but renders identically. */
+
+/* ── Turtle overlay on the "C" tile (LOGO-TURTLE, 2026-08-13) ──────────────
+   Absolutely positioned over the mark's upper-right corner; markup sits AFTER
+   the wordmark so it never affects the wordmark spacing or the brand-guard
+   lockup. Head tucks at rest, pops up + flippers paddle + blink on hover.
+   `.up` forces the head up for non-hover splash screens. Light mode unchanged;
+   dark mode adds an outer green shine (glow) only — no shape inside the tile. */
+.ci-app .ci-turtle { position:absolute; left:16px; top:-13px; width:31px; height:31px; overflow:visible; pointer-events:none; }
+.ci-app .ci-t-shell { fill:#6fbe93; }
+.ci-app .ci-t-skin { fill:#c39a6b; }
+.ci-app .ci-t-eye { fill:#2f2013; }
+.ci-app .ci-t-seam { fill:none; stroke:#3e8e6a; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
+.ci-app .ci-t-crest { fill:none; stroke:#4fa6a8; stroke-width:2.1; stroke-linecap:round; stroke-linejoin:round; }
+.ci-app .ci-t-ripple { fill:none; stroke:#7fc0c1; stroke-width:1.5; stroke-linecap:round; opacity:.7; }
+.ci-app .ci-t-head { transform:translate(-14px,0); transition:transform .44s cubic-bezier(.34,1.42,.5,1); }
+.ci-app .ci-logo:hover .ci-t-head, .ci-app .ci-logo.up .ci-t-head { transform:translate(0,0); }
+.ci-app .ci-t-bob, .ci-app .ci-t-eye, .ci-app .ci-t-life { transform-box:fill-box; transform-origin:center; }
+.ci-app .ci-t-ff, .ci-app .ci-t-fb { transform-box:fill-box; transform-origin:50% 0; }
+.ci-app .ci-logo:hover .ci-t-bob { animation:ci-tb 1.9s ease-in-out infinite; }
+.ci-app .ci-logo:hover .ci-t-ff { animation:ci-tp .55s ease-in-out infinite; }
+.ci-app .ci-logo:hover .ci-t-fb { animation:ci-tp .55s ease-in-out .27s infinite; }
+.ci-app .ci-logo:hover .ci-t-eye { animation:ci-tbl 3.4s ease-in-out infinite; }
+.ci-app .ci-logo:hover .ci-t-ripple { animation:ci-tr 2.4s ease-in-out infinite; }
+.ci-app .ci-logo:hover .ci-t-life { animation:ci-ts 2.7s ease-in-out infinite; }
+@keyframes ci-tb { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-1.6px)} }
+@keyframes ci-tp { 0%,100%{transform:rotate(-9deg)} 50%{transform:rotate(19deg)} }
+@keyframes ci-tbl { 0%,92%,100%{transform:scaleY(1)} 96%{transform:scaleY(.12)} }
+@keyframes ci-tr { 0%,100%{opacity:.4} 50%{opacity:.9} }
+@keyframes ci-ts { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-.8px)} }
+@media (prefers-reduced-motion: reduce) {
+  .ci-app .ci-t-bob, .ci-app .ci-t-ff, .ci-app .ci-t-fb, .ci-app .ci-t-eye, .ci-app .ci-t-ripple, .ci-app .ci-t-life { animation:none !important; }
+  .ci-app .ci-t-head { transition-duration:.001s; }
+}
+/* Dark-mode shine: an outer green glow on the tile + turtle (no shape inside
+   the tile). Light mode is byte-for-byte unchanged. */
+html[data-theme="dark"] .ci-app .ci-logo-mark { box-shadow:0 0 7px rgba(47,181,135,.55); }
+html[data-theme="dark"] .ci-app .ci-turtle { filter:drop-shadow(0 0 3px rgba(47,181,135,.6)); }
 .ci-app .avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(155deg,#26241d,#15140f); color:var(--paper); display:grid; place-items:center; font-weight:700; font-size:13px; flex:none; }
 /* Persistent account avatar — top-right of every tab screen (opens Account) */
 .ci-app .screen-wrap { position:relative; }
