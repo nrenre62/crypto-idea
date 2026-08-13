@@ -408,6 +408,17 @@ describe("billing.keepPlanPatch (PR-C2 security fix: 'Keep my plan' is fail-clos
     expect(second.patch.subscription.cancelled).not.toBe(false);
     expect(second.cancelProSubId).toBeNull();
   });
+
+  // [LOW] self-harm guard: "Keep my plan" must only ever act on an ALREADY-CANCELLED marker.
+  // Invoked (via the raw callable) on a HEALTHY, non-cancelled sub it must be a NO-OP — never
+  // mark a live sub cancelled:true (which would drop the user to free at endDate while PayPal
+  // keeps charging). The UI only surfaces "Keep my plan" on a cancelled marker.
+  it("PR-C2 (security): a HEALTHY (non-cancelled) sub is a no-op — keep never marks a live sub cancelled:true", () => {
+    const healthy = { tier: "premium", paypalSubscriptionId: "I-PREM", subscription: { billing: "monthly", endDate: "2026-09-01T00:00:00.000Z" } };
+    const { patch, cancelProSubId } = keepPlanPatch(healthy, 9000);
+    expect(patch.subscription && patch.subscription.cancelled).not.toBe(true);
+    expect(cancelProSubId).toBeNull();
+  });
 });
 
 describe("billing.subscriptionSweepPatch (PR-C2: the future-start Pro pre-auth money flip)", () => {

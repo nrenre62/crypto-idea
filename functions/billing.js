@@ -216,6 +216,11 @@ function scheduledActivationDecision(userData, resource, nowMs) {
 function keepPlanPatch(userData, nowMs) {
   const d = userData || {};
   const sub = d.subscription || {};
+  // Only ever act on an ALREADY-CANCELLED marker. Invoked on a healthy, non-cancelled sub
+  // (the raw-callable path — the UI only shows "Keep my plan" on a cancelled marker) it is a
+  // NO-OP: never mark a live sub cancelled:true, which would drop the user to free at endDate
+  // while PayPal keeps charging.
+  if (!sub.cancelled) return { patch: {}, cancelProSubId: null };
   if (sub.scheduledPro && sub.scheduledPro.subId) {
     const cancelProSubId = sub.scheduledPro.subId;
     const { scheduledPro, ...prev } = sub;
