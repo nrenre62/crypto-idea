@@ -15,6 +15,10 @@ import { watchUserDoc } from "../api/firebase-database.js";
 //  - if the webhook had already landed before the first read (baseline is already the
 //    paid tier and nothing changes), the timeout resolves to that paid tier so the page
 //    still confirms instead of spinning forever;
+//  - PR-C2: a future-start Pro DOWNGRADE approval doesn't set a paid tier immediately (tier
+//    stays premium until the server sweep). If the synced doc carries subscription.scheduledPro,
+//    finish as "scheduled" so the reused return page confirms "downgrade scheduled" instead of
+//    timing out to "still confirming";
 //  - no signed-in user → "signedout".
 const PAID = new Set(["pro", "premium"]);
 
@@ -33,6 +37,9 @@ export function useProSuccess({ timeoutMs = 8000 } = {}) {
         lastTier = tier;
         const base = baseline;
         if (baseline === undefined) baseline = tier;   // first snapshot = baseline
+        // PR-C2: a scheduled future-start Pro downgrade — the tier stays premium; recognize the
+        // marker so the return page shows the honest "downgrade scheduled" confirmation.
+        if (server.subscription && server.subscription.scheduledPro) { finish({ status: "scheduled", tier }); return; }
         const cancelled = !!(server.subscription && server.subscription.cancelled);
         const confirmed = PAID.has(tier) && !cancelled &&
           base !== undefined && (base === "free" || tier !== base);

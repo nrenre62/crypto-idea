@@ -120,9 +120,34 @@ always lands in a *new* database — not something to learn at 2am), and disclos
 > sync the **server-written** marker back — the optimistic `setUser`+`saveProfile` forge of
 > `{cancelled, downgradeTo}` is gone, toasts are date-free, and the fake up-front "Approve your Pro
 > payment now" step was deleted (Premium→Pro schedules the downgrade; the period-end R29 re-checkout
-> takes the real Pro payment). **No client-forged billing write remains.** **Remaining:** the real
-> future-start Pro pre-auth is **Plan B PR-C2**, and the full cancel/downgrade round-trip verifies at
-> the go-live PayPal **sandbox e2e**. The historical finding below is kept for context.
+> takes the real Pro payment). **No client-forged billing write remains.**
+>
+> **✅ FUTURE-START PRO PRE-AUTH SHIPPED (Plan B PR-C2, 2026-08-13, branch `claude/plan-b-pr-c2-pro-preauth`,
+> `1dee0b4`):** the Premium→Pro downgrade now creates a **REAL future-start PayPal Pro subscription** (via
+> the new `scheduleProDowngrade` callable) that first-charges when Premium ends → the account lands directly
+> on Pro. It **eagerly cancels** the Premium sub at schedule time (checked; void-and-throw on failure),
+> writes the server-only `subscription.scheduledPro` marker (tier stays premium; the daily sweep flips it at
+> `endDate` — approved→Pro, unapproved→**fail-closed free**), and reinstates the real "Approve your Pro
+> payment" client step; **"Keep my plan" is fail-closed** (never `cancelled:false`) → an honest
+> "Re-subscribe to Premium" CTA. The security review's four findings are closed (ERRORS.md §C9). **Ships
+> with paid plans OFF** (`paidPlansEnabled=false`), so the whole flow is dormant until paid plans are on.
+>
+> **⚠️ Two PR-C2 residuals are pre-paid-plans BLOCKERS (must land before `paidPlansEnabled` is turned on;
+> also tracked as PR-C3 in [`NEXT-STEPS.md`](NEXT-STEPS.md) §Plan B and [`BILLING.md`](../decisions/BILLING.md)
+> §3.3 / §8):**
+> 1. **[MED] fail-open ordering in `scheduleProDowngrade`** — the eager Premium-cancel happens *before* the
+>    Firestore marker write, so a rare, non-adversarial marker-write failure after a successful cancel leaves
+>    premium-with-no-billing. Fix = **marker-first ordering** (persist the scheduled intent before the
+>    irreversible PayPal cancel) or a reconciliation sweep.
+> 2. **Seamless re-subscribe (PR-C3)** — the "Re-subscribe to Premium" CTA routes via
+>    `startUpgrade("premium")`, which **no-ops while `tier==="premium"`** (same-tier guard), so it is inert
+>    during the cancelled-but-not-lapsed window. Fix = a **future-start Premium re-subscribe** (mirror the
+>    Pro machinery, generalized to carry the tier).
+>
+> **Remaining verification:** the full cancel/downgrade round-trip — incl. the PR-C2 **eager-cancel access
+> timing** (Premium access continues to the period end) and the **future-start Pro `ACTIVATED` timing** (fires
+> at `start_time`, deferred to `scheduledPro.approved`, sweep flips to Pro at `endDate`) — verifies at the
+> go-live PayPal **sandbox e2e**. The historical finding below is kept for context.
 
 `src/components/Login.jsx` fakes payment with `setTimeout(…, 2000)`, writes the tier to
 **localStorage**, and calls a function that is a hard no-op in production. `src/api/` has no billing

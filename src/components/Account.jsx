@@ -281,11 +281,21 @@ export function Account() {
               <div className="sub-note bad">
                 Your {user.tier==="premium"?"Premium":"Pro"} access ends on<br/>{fmtDate(user.subscription.endDate)}<br/>
                 <span className="sub-sub">Then your account will become {user.subscription.downgradeTo==="free"?"Starter":"Pro"}</span>
-                {/* R31-3: a Premium→Pro downgrade approves the Pro payment up-front */}
-                {user.subscription.proApproved&&<span className="sub-sub" style={{display:"block",marginTop:4}}>Pro payment approved ✓</span>}
+                {/* PR-C2: a Premium→Pro downgrade schedules a REAL future-start Pro sub (scheduledPro) */}
+                {user.subscription.scheduledPro&&<span className="sub-sub" style={{display:"block",marginTop:4}}>Pro is scheduled ✓ — starts when your Premium period ends</span>}
+                {/* PR-C2 SECURITY FIX: Premium was cancelled when the Pro switch was scheduled, so
+                    "Keep my plan" here can't resume Premium — it cancels the Pro switch and you
+                    keep Premium only until the period ends, then Starter. Re-subscribe to continue. */}
+                {user.subscription.scheduledPro&&<span className="sub-sub" style={{display:"block",marginTop:4}}>This cancels the Pro switch — you keep Premium until {fmtDate(user.subscription.endDate)}, then Starter. Re-subscribe to stay on Premium.</span>}
               </div>
               <button onClick={keepPlan} className="acct-btn ghost">Keep my plan</button>
               {isPremium&&<button onClick={openDowngradeChooser} className="acct-btn ghost">Change downgrade choice</button>}
+              {/* PR-C2 SECURITY FIX (fail-closed): "Keep my plan" can't resume a cancelled Premium sub
+                  — the PayPal sub is already terminally cancelled (a scheduled-Pro downgrade eager-
+                  cancels Premium; a legacy cancel POSTs /cancel before marking). So for ANY cancelled
+                  Premium marker (scheduledPro OR legacy) the only honest way back onto Premium is a
+                  fresh subscription — route to the EXISTING Premium checkout (no new callable/route). */}
+              {paidPlansOn&&isPremium&&<button onClick={()=>startUpgrade("premium")} className="acct-btn prem">Re-subscribe to Premium</button>}
             </>)}
 
             {paidPlansOn&&!isPro&&<button onClick={()=>startUpgrade("pro")} className="acct-btn accent">Upgrade to Pro</button>}

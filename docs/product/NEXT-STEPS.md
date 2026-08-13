@@ -649,12 +649,28 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
   client-forged billing write; `watchUserDoc` syncs the server marker, toasts are date-free, and the
   fake up-front "Approve your Pro payment now" step was deleted so Premium→Pro schedules the downgrade
   and the period-end R29 re-checkout takes the real Pro payment) **done (2026-08-12,** branch
-  `claude/plan-b-pr-c1-cancel-downgrade`, `9b68276`**)**. **PR-C2** (next): the real **future-start Pro
-  pre-authorization** — a backend + PayPal change that approves the Pro charge up front to start when
-  Premium ends (reuse `/pro-success` "Pro starts when Premium ends"), plus a `FUNCTIONS_EMULATOR`
-  dev-split so `devSetMyTier` accounts (no real PayPal sub) can test downgrade locally again;
-  verified by the PayPal **sandbox e2e** at deploy. Live PayPal sandbox e2e still verifies the whole
-  flow at go-live.
+  `claude/plan-b-pr-c1-cancel-downgrade`, `9b68276`**)**. **PR-C2** (the real **future-start Pro
+  pre-authorization**, eager-cancel design) **done (2026-08-13,** branch
+  `claude/plan-b-pr-c2-pro-preauth`, `1dee0b4`**):** the Premium→Pro downgrade now creates a REAL
+  future-start PayPal Pro sub (first-charges when Premium ends → lands directly on Pro) via the new
+  **`scheduleProDowngrade({billing})`** callable, which **eagerly cancels the Premium sub at schedule
+  time** (checked; void-and-throw on failure) and writes the server-only `subscription.scheduledPro`
+  marker (tier stays premium; the sweep flips it at `endDate` — approved→Pro, unapproved→**fail-closed
+  free**). New pure helpers `scheduleProMarkerPatch`/`scheduledActivationDecision`/`keepPlanPatch` in
+  `functions/billing.js`; `src/api/billing.js` gains `scheduleProDowngrade`; the client reinstates the
+  real "Approve your Pro payment" step, "Keep my plan" is **fail-closed** (never `cancelled:false`) and
+  routes to an honest "Re-subscribe to Premium" CTA, and `/pro-success` gains a "Pro starts when Premium
+  ends" scheduled state. Restores the `FUNCTIONS_EMULATOR` dev-split (ERRORS.md §C8 resolved for this
+  path). The security review's four findings are closed (ERRORS.md §C9); ships with paid plans OFF.
+  **PR-C3** (queued — **gated before enabling paid plans**): (1) **seamless future-start Premium
+  re-subscribe** — mirror the Pro machinery generalized to carry the tier, so the "Re-subscribe to
+  Premium" CTA works during the cancelled-but-not-lapsed window (today it routes via
+  `startUpgrade("premium")` and no-ops on the same-tier guard); (2) the **marker-first ordering**
+  reconciliation fix for `scheduleProDowngrade`'s [MED] fail-open window (persist the scheduled marker
+  before the irreversible eager Premium-cancel, or add a reconciliation sweep). Both are dormant while
+  `paidPlansEnabled=false` and are **also recorded in [`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md)** as
+  pre-paid-plans blockers so they can't be lost. Live PayPal **sandbox e2e** still verifies the whole
+  flow (incl. the PR-C2 cancel-access + future-start `ACTIVATED` timing) at go-live.
 
 ---
 

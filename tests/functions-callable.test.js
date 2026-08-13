@@ -429,6 +429,208 @@ test("CRYP-101: saveConfig KEEPS a stored paidPlansEnabled=false when a flags pa
   );
 });
 
+// ── Plan B PR-C2 · scheduleProDowngrade — future-start Pro pre-authorization ──
+// A Premium user's Pro downgrade schedules a REAL future-start PayPal Pro subscription
+// (server returns an approvalUrl; the client redirects). scheduleProDowngrade({billing})
+// is the callable BODY — the only tier that runs it. Its gate order MIRRORS
+// createSubscription exactly:
+//   auth → assertNoUnknownKeys(data,["billing"]) → fresh config →
+//   paidPlansEnabled=false ⇒ paused → checkout off ⇒ unavailable →
+//   non-premium caller ⇒ failed-precondition → already-scheduled (subscription.scheduledPro
+//   present) ⇒ refused → [premium, clean] ⇒ reaches the PayPal boundary.
+// These run in CI (the functions emulator can't boot in the authoring sandbox — egress
+// policy). RED today: the callable does not exist yet, so the emulator 404s every call and
+// the status assertions (401/400/200) fail — red for the right reason. Uses callAsSafe (a
+// 404 has a plain-text body that callAs's r.json() would throw on). The functions-builder
+// adds the body + wires the gates + the PayPal scheduling; then these go green.
+
+test("PR-C2: scheduleProDowngrade rejects unauthenticated callers and unknown data keys", async () => {
+  const email = `c2_gate_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set(
+    { email, name: "C2", tier: "premium", subscription: { cancelled: false, endDate: "2027-01-01T00:00:00.000Z" } },
+    { merge: true },
+  );
+  const token = await idTokenFor(email);
+  // Everything ON so we exercise the input gates, not the switches.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: true } } }, { merge: true });
+
+  // Unauthenticated → 401.
+  const noAuth = await fetch(callableUrl("scheduleProDowngrade"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: { billing: "monthly" } }),
+  });
+  assert.strictEqual(noAuth.status, 401, "an unauthenticated call must be rejected");
+
+  // Unknown top-level key → invalid-argument (400) — the allow-list is ["billing"].
+  const badKey = await callAsSafe("scheduleProDowngrade", token, { billing: "monthly", sneaky: 1 });
+  assert.strictEqual(badKey.status, 400, `unknown key should be rejected: ${JSON.stringify(badKey.body)}`);
+  assert.strictEqual(badKey.body && badKey.body.error && badKey.body.error.status, "INVALID_ARGUMENT");
+});
+
+test("PR-C2: scheduleProDowngrade is paused when paidPlansEnabled=false (takes precedence over checkout)", async () => {
+  const email = `c2_paused_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set(
+    { email, name: "C2P", tier: "premium", subscription: { cancelled: false, endDate: "2027-01-01T00:00:00.000Z" } },
+    { merge: true },
+  );
+  const token = await idTokenFor(email);
+  // Launch-free ON — nothing new may be sold, even a scheduled downgrade.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: false } }, { merge: true });
+
+  const res = await callAsSafe("scheduleProDowngrade", token, { billing: "monthly" });
+  assert.strictEqual(res.status, 400, `expected failed-precondition (400), got ${res.status}: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body && res.body.error && res.body.error.status, "FAILED_PRECONDITION");
+  assert.match(String(res.body && res.body.error && res.body.error.message), /paused/i, "must refuse with the launch-free 'paused' message");
+  // No schedule written.
+  assert.strictEqual((await userDoc(uid)).subscription.scheduledPro, undefined, "no schedule may be created while paused");
+});
+
+test("PR-C2: scheduleProDowngrade is unavailable when the checkout kill-switch is off", async () => {
+  const email = `c2_checkout_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set(
+    { email, name: "C2C", tier: "premium", subscription: { cancelled: false, endDate: "2027-01-01T00:00:00.000Z" } },
+    { merge: true },
+  );
+  const token = await idTokenFor(email);
+  // Paid plans ON, but the checkout kill-switch is off.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: false } } }, { merge: true });
+
+  const res = await callAsSafe("scheduleProDowngrade", token, { billing: "monthly" });
+  assert.strictEqual(res.status, 400, `expected failed-precondition (400), got ${res.status}: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body && res.body.error && res.body.error.status, "FAILED_PRECONDITION");
+  assert.match(String(res.body && res.body.error && res.body.error.message), /unavailable/i, "must refuse with the checkout-off 'unavailable' message");
+});
+
+test("PR-C2: scheduleProDowngrade refuses a non-premium caller, and an already-scheduled premium caller", async () => {
+  // Everything ON so we reach the premium/already-scheduled gates.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: true } } }, { merge: true });
+
+  // A free-tier caller cannot schedule a Pro downgrade — there is no premium to downgrade FROM.
+  const freeEmail = `c2_free_${stamp}@example.com`;
+  const freeUid = await makeUser(freeEmail, null);
+  await db.collection("users").doc(freeUid).set({ email: freeEmail, name: "C2F", tier: "free", portfolioCount: 1 }, { merge: true });
+  const freeToken = await idTokenFor(freeEmail);
+  const asFree = await callAsSafe("scheduleProDowngrade", freeToken, { billing: "monthly" });
+  assert.strictEqual(asFree.status, 400, `a non-premium caller must be refused, got ${asFree.status}: ${JSON.stringify(asFree.body)}`);
+  assert.strictEqual(asFree.body && asFree.body.error && asFree.body.error.status, "FAILED_PRECONDITION");
+
+  // A premium caller who ALREADY has a scheduled Pro sub is refused (no double schedule).
+  const schedEmail = `c2_sched_${stamp}@example.com`;
+  const schedUid = await makeUser(schedEmail, null);
+  await db.collection("users").doc(schedUid).set({
+    email: schedEmail, name: "C2S", tier: "premium",
+    subscription: { cancelled: true, downgradeTo: "pro", endDate: "2027-01-01T00:00:00.000Z",
+      scheduledPro: { subId: "I-PRO-EXISTING", billing: "monthly", startDate: "2027-01-01T00:00:00.000Z", approved: false } },
+  }, { merge: true });
+  const schedToken = await idTokenFor(schedEmail);
+  const asScheduled = await callAsSafe("scheduleProDowngrade", schedToken, { billing: "monthly" });
+  assert.strictEqual(asScheduled.status, 400, `an already-scheduled premium caller must be refused, got ${asScheduled.status}: ${JSON.stringify(asScheduled.body)}`);
+  assert.strictEqual(asScheduled.body && asScheduled.body.error && asScheduled.body.error.status, "FAILED_PRECONDITION");
+  // The existing schedule is untouched (no overwrite).
+  assert.strictEqual((await userDoc(schedUid)).subscription.scheduledPro.subId, "I-PRO-EXISTING", "the existing schedule must be preserved");
+});
+
+test("PR-C2: an authorized premium caller reaches PAST the gates (schedule written, or the PayPal boundary — no live PayPal call)", async () => {
+  const email = `c2_ok_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set(
+    { email, name: "C2OK", tier: "premium", subscription: { cancelled: false, endDate: "2027-01-01T00:00:00.000Z" } },
+    { merge: true },
+  );
+  const token = await idTokenFor(email);
+  // Everything ON, no existing schedule → the call must pass every gate.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: true } } }, { merge: true });
+
+  const res = await callAsSafe("scheduleProDowngrade", token, { billing: "monthly" });
+  const msg = String((res.body && res.body.error && res.body.error.message) || "");
+  // Not blocked by any gate (mirrors createSubscription's default-ON reachability probe)…
+  assert.ok(!/paused|unavailable/i.test(msg), `must not be gate-blocked for an eligible premium caller; got ${JSON.stringify(res.body)}`);
+  // …it either wrote the pending schedule (DEV/emulator branch, synthetic subId) OR reached the
+  // PayPal boundary (no PayPal env here → "plan not configured"/approval/token). Either proves
+  // reachability + gating WITHOUT a live PayPal round-trip.
+  assert.ok(
+    res.status === 200 || /plan not configured|paypal|approval|token/i.test(msg),
+    `expected to reach the PayPal boundary past the gates, got ${res.status}: ${JSON.stringify(res.body)}`,
+  );
+  // If it wrote the pending schedule, the marker shape is the PR-C2 one (pending, not yet approved).
+  if (res.status === 200) {
+    const after = await userDoc(uid);
+    assert.ok(after.subscription && after.subscription.scheduledPro, "a written schedule must carry subscription.scheduledPro");
+    assert.strictEqual(after.subscription.scheduledPro.approved, false, "a freshly scheduled Pro is PENDING (approved:false) until the webhook");
+    assert.strictEqual(after.tier, "premium", "tier must stay premium during the scheduled window");
+  }
+});
+
+// ── Plan B PR-C2 · SECURITY FIX — eager-cancel Premium; "Keep my plan" is fail-closed ──
+// The lazy-cancel impl let reactivateSubscription reactivate a terminally-cancelled Premium sub
+// on a scheduled-Pro marker → premium access with no live subscription (a [HIGH] paywall bypass).
+// The fix cancels Premium at SCHEDULE time, so "Keep my plan" can NOT reinstate it: it must
+// cancel the SCHEDULED Pro sub, KEEP the cancellation (target free), and let the account lapse at
+// endDate (routing the user to re-subscribe). This is the callable-BODY regression test (the only
+// tier that runs the body). Runs in CI — the functions emulator can't boot in the authoring
+// sandbox. RED today: reactivateSubscription writes `{...rest, cancelled:false}` (drops the
+// cancel + downgradeTo), so `after.subscription.cancelled` is false, not true.
+
+test("PR-C2 (security): reactivateSubscription on a scheduled-Pro marker is fail-closed — drops the schedule, KEEPS the cancel, never premium-forever", async () => {
+  const email = `c2_keep_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  // A premium user mid-window with an APPROVED scheduled future-start Pro sub. The Premium PayPal
+  // sub was already terminally cancelled at schedule time (eager-cancel), so "Keep my plan"
+  // cannot reinstate it — it must cancel the scheduled Pro and let the account lapse to free.
+  await db.collection("users").doc(uid).set({
+    email, name: "C2Keep", tier: "premium", paypalSubscriptionId: "I-PREM",
+    subscription: {
+      cancelled: true, cancelledAt: 100, downgradeTo: "pro", endDate: "2027-01-01T00:00:00.000Z",
+      scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2027-01-01T00:00:00.000Z", approved: true },
+    },
+  }, { merge: true });
+  const token = await idTokenFor(email);
+
+  const res = await callAs("reactivateSubscription", token, {});
+  assert.strictEqual(res.status, 200, `reactivateSubscription failed: ${JSON.stringify(res.body)}`);
+
+  const after = await userDoc(uid);
+  // The scheduled Pro is dropped from the marker (its PayPal sub is being cancelled).
+  assert.strictEqual(after.subscription.scheduledPro, undefined, "the scheduled Pro must be dropped from the marker");
+  // THE [HIGH]-bug regression: the cancel is NOT reversed to a premium-forever sub — cancelled
+  // STAYS true and the target is free, so the account lapses at endDate.
+  assert.strictEqual(after.subscription.cancelled, true, "keep must NOT reinstate a terminally-cancelled Premium (cancelled stays true)");
+  assert.strictEqual(after.subscription.downgradeTo, "free", "keep on a scheduled-Pro marker is fail-closed to free");
+  // Access continues to the period end — tier stays premium; the daily sweep drops it at endDate.
+  assert.strictEqual(after.tier, "premium", "tier stays premium — access continues to endDate, the sweep drops it");
+});
+
+// The SINGLE-CLICK plain-downgrade trigger of the same [HIGH]: a plain Premium→Starter
+// cancelSubscription leaves a LEGACY cancel-to-free marker (no scheduledPro). Its PayPal sub is
+// ALSO already terminally cancelled (cancelSubscription POSTs /cancel before marking), so a lone
+// "Keep my plan" must NOT un-cancel it back to premium-forever. RED today: keepPlanPatch's legacy
+// branch writes `{...rest, cancelled:false}`, so the persisted marker flips to cancelled:false —
+// the account is premium with no live sub and the sweep never drops it (paywall bypass).
+test("PR-C2 (security): reactivateSubscription on a legacy cancel-to-free marker (no scheduledPro) keeps cancelled:true — never premium-forever", async () => {
+  const email = `c2_legacy_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  // A premium user who plainly cancelled to Starter: cancelled + downgradeTo:"free", NO scheduledPro.
+  await db.collection("users").doc(uid).set({
+    email, name: "C2Legacy", tier: "premium", paypalSubscriptionId: "I-PREM",
+    subscription: { cancelled: true, cancelledAt: 100, downgradeTo: "free", endDate: "2027-01-01T00:00:00.000Z" },
+  }, { merge: true });
+  const token = await idTokenFor(email);
+
+  const res = await callAs("reactivateSubscription", token, {});
+  assert.strictEqual(res.status, 200, `reactivateSubscription failed: ${JSON.stringify(res.body)}`);
+
+  const after = await userDoc(uid);
+  // THE [HIGH]-bug regression: the cancel is NOT reversed — cancelled STAYS true, so the daily
+  // sweep still drops the account to free at endDate (no live sub behind a "premium" tier).
+  assert.strictEqual(after.subscription.cancelled, true, "keep must NOT un-cancel a terminally-cancelled sub (cancelled stays true)");
+  // tier is left alone — access continues to endDate; the sweep flips it.
+  assert.strictEqual(after.tier, "premium", "tier is untouched by reactivate (the sweep drops it at endDate)");
+});
+
 // ── ADMIN-SEP · CRYP-103 · admin/user separation + owner-only admin roster (PR1: Parts A + B) ──
 // Founder ask: an admin account (owner OR manager) must NEVER appear as a normal user.
 // The exclusion + the roster are SERVER-enforced and key off the Firebase custom claim

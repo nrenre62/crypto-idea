@@ -117,6 +117,10 @@ function cancelRequestPatch(userData, downgradeTo, nowMs) {
 //  - cancelled + endDate passed → tier "free". Target "free" clears the marker;
 //    target "pro" KEEPS it (the client's R29 re-checkout popup owns the landing —
 //    an approved Pro payment arrives as a fresh ACTIVATED webhook).
+//  - PR-C2 (future-start Pro pre-auth): a `scheduledPro` marker reaching endDate is
+//    the MONEY FLIP. Approved → a clean payment-backed Pro (the live sub id becomes
+//    the Pro sub, the marker is cleared). NOT approved by period end → fail-closed to
+//    FREE (never grant Pro without a PayPal-confirmed payment).
 //  - paymentFailed + 7-day grace elapsed → tier "free", marker cleared
 //    (tierBeforeFailure stays on the doc for recovery via salePatch).
 function subscriptionSweepPatch(userData, nowMs) {
@@ -132,12 +136,111 @@ function subscriptionSweepPatch(userData, nowMs) {
     return { tier: "free", subscription: null };
   }
   if (sub.cancelled && sub.endDate && nowMs >= toMs(sub.endDate)) {
+    // PR-C2: a real future-start Pro sub was scheduled. This wins over the legacy
+    // downgradeTo:"pro" keep-marker branch below.
+    const sched = sub.scheduledPro;
+    if (sched && sched.subId) {
+      if (sched.approved) {
+        return { tier: "pro", paypalSubscriptionId: sched.subId, billingCycle: sched.billing || "monthly", subscription: null };
+      }
+      return { tier: "free", subscription: null };               // fail-closed: no approval → no Pro
+    }
     if (sub.downgradeTo === "pro") {
-      return tier === "free" ? null : { tier: "free" };          // keep the marker
+      return tier === "free" ? null : { tier: "free" };          // keep the marker (legacy R29)
     }
     return tier === "free" ? { subscription: null } : { tier: "free", subscription: null };
   }
   return null;
+}
+
+// PR-C2 (future-start Pro pre-authorization) — schedule the Pro downgrade. Returns the
+// marker patch that records a REAL future-start PayPal Pro subscription as PENDING
+// (approved:false — only the scheduled sub's ACTIVATED webhook flips it true). This is a
+// SCHEDULE, not a switch: `tier` and the live `paypalSubscriptionId` are left UNTOUCHED
+// (stay premium) so no early tier drop can happen — the daily sweep performs the flip at
+// endDate. The cancel-at-period-end marker lands on "pro"; endDate == the Pro sub's
+// start_time (the premium period end). Preserves prior subscription fields (...prev).
+function scheduleProMarkerPatch(userData, scheduled, nowMs) {
+  const d = userData || {};
+  const sub = d.subscription || {};
+  const s = scheduled || {};
+  return {
+    subscription: {
+      ...sub,
+      cancelled: true,
+      cancelledAt: nowMs,
+      downgradeTo: "pro",
+      endDate: s.startDate,
+      scheduledPro: { subId: s.subId, billing: s.billing, startDate: s.startDate, approved: false },
+    },
+  };
+}
+
+// PR-C2 — the scheduled Pro sub's BILLING.SUBSCRIPTION.ACTIVATED webhook. When the
+// activating subscription IS the scheduled Pro sub (resource.id === scheduledPro.subId),
+// this is DEFERRED: mark scheduledPro.approved=true (the payment-approval proof) WITHOUT
+// flipping tier or overwriting the live sub id — the account stays premium until the sweep
+// flips it at endDate. Fail-closed: a normal (non-scheduled) activation, or a doc with no
+// scheduledPro, is NOT deferred and the caller runs the usual activationPatch.
+//
+// PR-C2 SECURITY FIX (eager-cancel): the Premium PayPal sub is cancelled at SCHEDULE time
+// now (scheduleProDowngrade, CHECKED), so this webhook decision NO LONGER carries a
+// `cancelPremiumSubId` — a lazy best-effort cancel here was the double-charge / bill-forever
+// window. Return only { deferred, patch }.
+function scheduledActivationDecision(userData, resource, nowMs) {
+  const d = userData || {};
+  const sub = d.subscription || {};
+  const sched = sub.scheduledPro;
+  const resId = resource && resource.id;
+  if (!sched || !sched.subId || resId !== sched.subId) return { deferred: false };
+  return {
+    deferred: true,
+    patch: { subscription: { ...sub, scheduledPro: { ...sched, approved: true } } },
+  };
+}
+
+// PR-C2 SECURITY FIX — "Keep my plan" (the reactivateSubscription callable), fail-closed in
+// BOTH branches: it must NEVER produce `cancelled:false`. EVERY pending cancellation in this
+// app already has a terminally-cancelled PayPal sub — cancelSubscription POSTs /cancel before
+// marking, scheduleProDowngrade eager-cancels the Premium sub, and a CANCELLED webhook only
+// fires because PayPal cancelled — so un-cancelling to `cancelled:false` would leave a paid
+// tier with NO live sub, and subscriptionSweepPatch (which drops only when cancelled:true)
+// would never downgrade = free Premium forever (the [HIGH] paywall-bypass bug). Two paths:
+//   • scheduledPro present → cancel-to-FREE marker: keep `cancelled:true` (the sweep still
+//     drops them at endDate), target "free", DROP the scheduledPro from the marker, and hand
+//     back its subId so the caller cancels the future Pro sub at PayPal. `tier` is NOT set —
+//     paid access continues to endDate; the sweep flips it. NEVER `cancelled:false`.
+//   • legacy / any other cancelled marker (no scheduledPro) → re-affirm the cancellation
+//     (a no-op keep of `cancelled:true`) so the daily sweep still drops at endDate; the client
+//     routes the user to re-subscribe. Nothing to cancel at PayPal. NEVER `cancelled:false`.
+function keepPlanPatch(userData, nowMs) {
+  const d = userData || {};
+  const sub = d.subscription || {};
+  // Only ever act on an ALREADY-CANCELLED marker. Invoked on a healthy, non-cancelled sub
+  // (the raw-callable path — the UI only shows "Keep my plan" on a cancelled marker) it is a
+  // NO-OP: never mark a live sub cancelled:true, which would drop the user to free at endDate
+  // while PayPal keeps charging.
+  if (!sub.cancelled) return { patch: {}, cancelProSubId: null };
+  if (sub.scheduledPro && sub.scheduledPro.subId) {
+    const cancelProSubId = sub.scheduledPro.subId;
+    const { scheduledPro, ...prev } = sub;
+    return {
+      patch: {
+        subscription: {
+          ...prev,
+          cancelled: true,             // fail-closed: never a premium-forever un-cancel
+          cancelledAt: nowMs,
+          downgradeTo: "free",
+          endDate: prev.endDate || null,
+        },
+      },
+      cancelProSubId,
+    };
+  }
+  // Legacy / any other cancelled marker (no scheduledPro) → FAIL-CLOSED. The un-cancel branch
+  // is deleted: re-affirm the existing marker (cancelled STAYS true) so the sweep still drops
+  // the account to free at endDate. Nothing to cancel at PayPal.
+  return { patch: { subscription: { ...sub, cancelled: true } }, cancelProSubId: null };
 }
 
 // R31-6: un-suspending an account extends its subscription's endDate by the suspension
@@ -199,4 +302,8 @@ module.exports = {
   planTier, planIdFor, paypalBaseFor, activationPatch, salePatch, cancellationPatch,
   cancelRequestPatch, subscriptionSweepPatch, extendForSuspension, computeRevenue, webhookEventKey,
   billingStatusOf,
+  // PR-C2 (future-start Pro pre-authorization)
+  scheduleProMarkerPatch, scheduledActivationDecision,
+  // PR-C2 SECURITY FIX (eager-cancel Premium; fail-closed "Keep my plan")
+  keepPlanPatch,
 };

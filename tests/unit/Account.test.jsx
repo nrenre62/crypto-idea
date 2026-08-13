@@ -183,6 +183,25 @@ describe("Account screen (drill-in, via AppContext)", () => {
     expect(screen.queryByText("Change downgrade choice")).not.toBeInTheDocument();
   });
 
+  // PR-C2 (future-start Pro pre-auth): the pending "Pro is scheduled/approved" confirmation must
+  // read from subscription.scheduledPro (the real scheduled sub) — repointed from the now-inert
+  // proApproved marker. With an APPROVED scheduledPro (and NO proApproved) the notice must confirm
+  // the Pro sub is scheduled. RED today: Account.jsx only shows the "Pro payment approved ✓" line
+  // when user.subscription.proApproved is set, so with scheduledPro alone no confirmation renders.
+  // (Flagged wording — the client-builder matches this Pro-scheduled confirmation copy.)
+  it("PR-C2: a pending Premium→Pro downgrade with an approved scheduledPro shows the Pro-scheduled confirmation", () => {
+    const keepPlan = vi.fn();
+    const openDowngradeChooser = vi.fn();
+    provide({ isPro: true, isPremium: true, keepPlan, openDowngradeChooser,
+      user: { ...base.user, tier: "premium", subscription: {
+        cancelled: true, endDate: "2027-01-01", downgradeTo: "pro",
+        scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2027-01-01", approved: true },
+      } } });
+    open(/Plan & billing/);
+    expect(screen.getByText(/access ends on/i)).toBeInTheDocument();   // the pending notice renders
+    expect(screen.getByText(/Pro (payment approved|starts when|is scheduled|scheduled)/i)).toBeInTheDocument();
+  });
+
   // ── PROFILE detail ──
   it("Profile: editable name + change-email (U7)", () => {
     provide({});

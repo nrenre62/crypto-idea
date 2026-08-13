@@ -87,6 +87,8 @@ const UNGATED_BY_DESIGN = new Set([
   "createSubscription", "cancelSubscription", "deleteMyAccount", "restoreMyAccount",
   "signOutEverywhere", "exportMyData", "reconcileMyCounters", "resolveRecheckout",
   "reactivateSubscription",
+  "scheduleProDowngrade",  // Plan B PR-C2 — schedule a future-start Pro sub; acts on the caller's own uid
+
   "chooseFreePlan",  // ONBOARD-GATE — free plan choice; per-uid rate-limited, acts on caller's uid (App Check platform-side)
 
   "devSetMyTier",    // emulator-gated dev helper (R17)

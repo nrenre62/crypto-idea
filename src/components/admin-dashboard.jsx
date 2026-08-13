@@ -44,6 +44,8 @@ export const ACTION_LABELS = { setUserTier: "Changed tier", setPremiumLimits: "S
   selfDeleteAccount: "User deleted own account", selfRestoreAccount: "User restored own account",
   signOutEverywhere: "User signed out everywhere", exportMyData: "User exported data",
   createSubscription: "Started subscription checkout", cancelSubscription: "Cancelled subscription",
+  // PR-C2: a Premium→Pro downgrade schedules a real future-start Pro subscription.
+  scheduleProDowngrade: "Scheduled Pro downgrade",
   // DI/R29 self-service repair + billing recovery
   reconcileMyCounters: "User repaired their counters", resolveRecheckout: "User resolved a re-checkout",
   reactivateSubscription: "User reactivated subscription",

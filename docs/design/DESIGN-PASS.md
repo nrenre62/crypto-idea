@@ -1904,16 +1904,26 @@ Account, pending notice ("Premium until {date}, then Pro — payment approved �
 no welcome screen for downgrades. "Keep my plan"/"Change downgrade choice" must also cancel the
 scheduled future-start subscription (server callable at go-live; dev marker locally).
 
-> **AS-BUILT (Plan B PR-C1, 2026-08-12):** the shipped chooser is **pick → warn → Confirm** only — the
-> **"approve the Pro payment NOW / future-start" step was NOT built as designed here.** Confirm routes
-> through the server `cancelSubscription({downgradeTo})` callable (no client-forged marker; `watchUserDoc`
-> syncs it back; toasts **date-free**, never a client-fabricated end date). For the **Premium→Pro interim,
-> the R29-3 period-end re-checkout is KEPT, not retired** — Premium→Pro just schedules the downgrade and the
-> **real** Pro payment is taken by the existing "Your Premium period has ended → Approve Pro payment" popup.
-> The R31-3 **real future-start pre-authorization** (approve up front, PayPal `start_time`, land directly on
-> Pro at period end) is deferred to **Plan B PR-C2** (reuses `/pro-success` "Pro starts when Premium ends";
-> adds a `FUNCTIONS_EMULATOR` dev-split; verified by the go-live PayPal sandbox e2e). Until PR-C2 the
-> `checkSubscriptionStatus` `proApproved` branch is inert. Canonical: [`BILLING.md`](../decisions/BILLING.md) §3.3.
+> **AS-BUILT (Plan B PR-C1, 2026-08-12):** the shipped chooser was **pick → warn → Confirm** only — the
+> **"approve the Pro payment NOW / future-start" step was NOT built** in C1. Confirm routes through the
+> server `cancelSubscription({downgradeTo})` callable (no client-forged marker; `watchUserDoc` syncs it
+> back; toasts **date-free**, never a client-fabricated end date). Starter downgrades still work this way.
+>
+> **AS-BUILT UPDATE (Plan B PR-C2, 2026-08-13 — the R31-3 future-start pre-auth is now REAL, for the
+> Premium→Pro path):** the Premium→Pro branch **reinstates the real approve step** exactly as designed —
+> pick → warn → **cycle** (monthly/yearly) → "Pay with PayPal", which calls the new `scheduleProDowngrade`
+> callable to create a **REAL future-start PayPal Pro sub** (PayPal `start_time` = the Premium period end;
+> PROD redirects to the approval URL, DEV writes the `scheduledPro` marker). At period end the server sweep
+> lands the account directly on Pro — **the R29-3 period-end re-checkout is now RETIRED for the new flow**
+> (kept only as a legacy fallback for a marker with no `scheduledPro`). The pending notice reads
+> "Pro is scheduled ✓ — starts when your Premium period ends"; `/pro-success` gains a "Downgrade scheduled"
+> state. **"Keep my plan" is fail-closed** (a security fix, not the R31-3 design): because scheduling Pro
+> **eager-cancels Premium**, keep-my-plan can't resume Premium — it cancels the Pro switch, keeps Premium
+> only to the period end, and surfaces an honest **"Re-subscribe to Premium"** CTA. The
+> `checkSubscriptionStatus` branch is repointed at `scheduledPro` (DEV simulates the flip; PROD reads the
+> server sweep). **Seamless re-subscribe** (making that CTA work during the cancelled-but-not-lapsed
+> window) is deferred to **PR-C3**, gated before paid plans. Ships with paid plans OFF. Canonical:
+> [`BILLING.md`](../decisions/BILLING.md) §3.3.
 
 **R31-4 · No-refund disclaimer on EVERY billing surface.**
 The purchase/cycle step has none today — add the R27-4 line ("No refunds. Your subscription

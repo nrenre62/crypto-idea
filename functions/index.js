@@ -527,6 +527,32 @@ async function getPayPalToken() {
   return data.access_token;
 }
 
+// PR-C2: cancel a PayPal subscription — best-effort + idempotent. Cancelling an
+// already-cancelled sub is a no-op/tolerated (PayPal returns 4xx), so a cancel error
+// NEVER fails the caller: the money-critical state (the approval marker / the user's
+// decision) is already persisted, and the daily sweep owns the tier flip. Guarded by
+// FUNCTIONS_EMULATOR — no PayPal round-trip locally.
+async function cancelPayPalSubscription(subscriptionId, reason) {
+  if (!subscriptionId || process.env.FUNCTIONS_EMULATOR) return;
+  try {
+    const token = await getPayPalToken();
+    await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions/${subscriptionId}/cancel`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: reason || "Superseded by scheduled downgrade" }),
+    });
+  } catch (e) { console.warn("cancelPayPalSubscription: non-fatal error:", e && e.message); }
+}
+
+// PR-C2: a defensive period-end fallback for the emulator DEV split — the future Pro
+// sub's start_time when no persisted endDate is available (+1 billing period from now).
+function periodEndFromNow(cycle, nowMs) {
+  const d = new Date(nowMs);
+  if (cycle === "yearly") d.setUTCFullYear(d.getUTCFullYear() + 1);
+  else d.setUTCMonth(d.getUTCMonth() + 1);
+  return d.toISOString();
+}
+
 // ─── Create Subscription (signed-in user only) ───
 exports.createSubscription = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -599,6 +625,139 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
   const result = await response.json();
   const approvalUrl = result.links && result.links.find((l) => l.rel === "approve");
   return { approvalUrl: approvalUrl ? approvalUrl.href : null, subscriptionId: result.id };
+});
+
+// ─── Plan B PR-C2: Schedule a future-start Pro downgrade (Premium → Pro) ───
+// A Premium user's downgrade to Pro schedules a REAL future-start PayPal Pro subscription
+// that first-charges when Premium ends (start_time == the premium period end), so the
+// account lands directly on Pro with a real payment — no early tier drop, no double-charge.
+// Server-authoritative + fail-closed. The gate order MIRRORS createSubscription exactly:
+//   auth → assertNoUnknownKeys(["billing"]) → fresh config → paidPlansEnabled MASTER (before
+//   checkout) → checkout kill-switch → premium & not-already-scheduled → 60s cooldown →
+//   the PayPal boundary. Acts on context.auth.uid only (no IDOR — never a body uid).
+exports.scheduleProDowngrade = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "You must be signed in.");
+  }
+  assertNoUnknownKeys(data, ["billing"]);
+  // CRYP-101 (LAUNCH-FREE): the paidPlansEnabled MASTER switch pauses ALL new
+  // subscriptions — a scheduled downgrade creates a new Pro sub, so it is paused too.
+  // Read config/app FRESH (not the 60s cache) and BEFORE the checkout kill-switch, so
+  // paidPlansEnabled=false takes precedence regardless of the checkout flag.
+  let paidCfg = {};
+  try { const s = await db.doc("config/app").get(); paidCfg = (s.exists && s.data()) || {}; } catch (e) { /* default-ON below */ }
+  if (!paidPlansOn(paidCfg)) {
+    throw new functions.https.HttpsError("failed-precondition", "New subscriptions are paused right now.");
+  }
+  // Read the checkout kill-switch from the SAME fresh config, not the 60s-cached
+  // featureOn — an enforcement point must not lag its own switch, and the fresh
+  // read keeps this gate consistent with the paidPlansOn check just above.
+  if (!featureFlags.featureEnabled(paidCfg, "checkout")) {
+    throw new functions.https.HttpsError("failed-precondition", "Checkout is temporarily unavailable. Please try again shortly.");
+  }
+  const userId = context.auth.uid;                 // the caller — NOT from the body
+  const billingCycle = data && data.billing === "yearly" ? "yearly" : "monthly";
+
+  const userRef = db.doc(`users/${userId}`);
+  const snap = await userRef.get();
+  const cur = snap.exists ? snap.data() : {};
+  // Only a Premium account can schedule a downgrade to Pro, and never twice.
+  if ((cur.tier || "free") !== "premium") {
+    throw new functions.https.HttpsError("failed-precondition", "Only a Premium plan can schedule a downgrade to Pro.");
+  }
+  if (cur.subscription && cur.subscription.scheduledPro) {
+    throw new functions.https.HttpsError("failed-precondition", "A Pro downgrade is already scheduled.");
+  }
+  // 60s per-uid cooldown against double-click / scripted duplicate schedules.
+  const cd = await checkCooldown(db, { uid: userId, key: "scheduleProDowngrade", cooldownMs: 60_000 });
+  if (!cd.allowed) {
+    throw new functions.https.HttpsError("resource-exhausted", "Please wait a minute before trying again.");
+  }
+
+  const planId = billing.planIdFor("pro", billingCycle, PLAN_IDS);
+  let startDate = (cur.subscription && cur.subscription.endDate) || null;
+  let subId, approvalUrl = null;
+
+  if (process.env.FUNCTIONS_EMULATOR) {
+    // DEV split: no PayPal round-trip in the emulator. Resolve the period end from the
+    // persisted marker (or +1 period from now) and synthesize a subId — and relax the
+    // "no paypalSubscriptionId" hard-stop so a devSetMyTier premium can still schedule.
+    startDate = startDate || periodEndFromNow(billingCycle, Date.now());
+    subId = "SIM-PRO-" + userId;
+  } else {
+    if (!planId) throw new functions.https.HttpsError("failed-precondition", "Plan not configured.");
+    const premiumSubId = cur.paypalSubscriptionId;
+    if (!premiumSubId) throw new functions.https.HttpsError("failed-precondition", "No active subscription to schedule from.");
+    const token = await getPayPalToken();
+    // Resolve the premium period end (PayPal's next_billing_time; fall back to endDate).
+    try {
+      const subResp = await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions/${premiumSubId}`, {
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      const subData = await subResp.json();
+      startDate = (subData && subData.billing_info && subData.billing_info.next_billing_time) || startDate;
+    } catch (e) { /* fall back to the persisted endDate */ }
+    if (!startDate) throw new functions.https.HttpsError("failed-precondition", "Could not resolve the current billing period end.");
+    // Create the future-start Pro sub FIRST, so a create failure leaves NO marker and the
+    // user stays fully premium (fail-closed). The Pro sub stays APPROVAL_PENDING — it cannot
+    // charge — until the client redirects to approvalUrl, which only happens on this
+    // callable's SUCCESS (i.e. after Premium is confirmed cancelled below). So the two subs
+    // can never overlap-bill.
+    const response = await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        plan_id: planId,
+        start_time: startDate,
+        custom_id: userId,
+        application_context: {
+          brand_name: "CryptoIdea",
+          return_url: `${APP_URL}/pro-success`,
+          cancel_url: `${APP_URL}/pricing`,
+          user_action: "SUBSCRIBE_NOW",
+        },
+      }),
+    });
+    const result = await response.json();
+    subId = result.id;
+    if (!subId) throw new functions.https.HttpsError("internal", "PayPal did not return a subscription id.");
+    const approve = result.links && result.links.find((l) => l.rel === "approve");
+    approvalUrl = approve ? approve.href : null;
+
+    // PR-C2 SECURITY FIX (eager-cancel): cancel the Premium sub NOW, CHECKED — not the
+    // swallow-everything helper. This closes the double-charge window: Premium stops billing
+    // and the Pro sub (still APPROVAL_PENDING) can't charge until the user approves it. Treat
+    // an OK response OR an already-inactive sub (422) as success. On any failure/throw, void
+    // the just-created (un-approved) Pro sub and throw — NO marker is written, the user stays
+    // fully premium (fully reversible, no changes made).
+    try {
+      const cancelResp = await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions/${premiumSubId}/cancel`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Superseded by scheduled Pro downgrade" }),
+      });
+      if (!cancelResp.ok && cancelResp.status !== 422) {   // 204 = cancelled; 422 = already inactive
+        throw new Error(`PayPal cancel returned ${cancelResp.status}`);
+      }
+    } catch (e) {
+      await cancelPayPalSubscription(subId, "Rollback: Premium cancel failed");   // void the pending Pro sub
+      throw new functions.https.HttpsError("internal", "Couldn't cancel your current Premium subscription — no changes were made.");
+    }
+  }
+
+  // Persist the PENDING marker (approved:false). tier stays premium; the live sub id
+  // stays the premium sub until the sweep flips it at endDate. Wrapped: a write failure
+  // voids the just-created Pro sub so we never leave a charge-later Pro sub with no server
+  // record, and surfaces the failure (best-effort void; emulator no-ops).
+  const patch = billing.scheduleProMarkerPatch(cur, { subId, billing: billingCycle, startDate }, Date.now());
+  try {
+    await userRef.set(patch, { merge: true });
+  } catch (e) {
+    await cancelPayPalSubscription(subId, "Rollback: schedule marker write failed");
+    throw new functions.https.HttpsError("internal", "Couldn't schedule the downgrade — please try again.");
+  }
+  await writeAudit(context, "scheduleProDowngrade", { targetUid: userId, details: `billing=${billingCycle} start=${startDate}` });
+  return { approvalUrl, subscriptionId: subId };
 });
 
 // ─── Cancel Subscription (signed-in user cancels THEIR OWN) ───
@@ -700,13 +859,25 @@ exports.paypalWebhook = functions
         // as premium (was hardcoded "pro"). Unknown plan → record the sub, keep tier.
         const userId = resource.custom_id;
         if (userId) {
+          const uref = db.doc(`users/${userId}`);
+          // PR-C2: the scheduled future-start Pro sub activating is DEFERRED — mark the
+          // schedule approved (server-authoritative proof of payment) and keep tier premium
+          // (the daily sweep flips it at endDate). The Premium sub was ALREADY cancelled at
+          // schedule time (eager-cancel, CHECKED) — the SECURITY FIX removed the lazy
+          // best-effort cancel that used to live here (the double-charge window).
+          const usnap = await uref.get();
+          const decision = billing.scheduledActivationDecision(usnap.exists ? usnap.data() : {}, resource, Date.now());
+          if (decision.deferred) {
+            await uref.set(decision.patch, { merge: true });
+            break;
+          }
           const { patch, tier, unknownPlan } = billing.activationPatch(resource, planIds, Date.now());
           if (unknownPlan) console.warn("paypalWebhook: unknown plan_id on ACTIVATED — tier left unchanged:", resource.plan_id);
           // ONBOARD-GATE: a completed PAID choice also records the plan-choice flag, so a
           // later lapse back to free (enforceSubscriptionPeriods) never RE-gates the user —
           // they already chose once. Only when a real tier was set (known plan).
           if (tier) patch.planChosen = true;
-          await db.doc(`users/${userId}`).set(patch, { merge: true });
+          await uref.set(patch, { merge: true });
           // ONBOARD-GATE: the first portfolio appears when the plan is recorded (registration
           // no longer creates it client-side; portfolio writes are gated behind isChosen).
           if (tier) await ensureDefaultPortfolio(userId);
@@ -1557,19 +1728,35 @@ exports.resolveRecheckout = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
-// ─── Self-service (DI-4/R29): "Keep my plan" — un-cancel a pending downgrade ───
-// Clears the cancellation marker so the paid tier simply continues (owners can't write
-// `subscription` themselves — this is the server counterpart). At go-live this also
-// reactivates the PayPal subscription before the period end.
+// ─── Self-service (DI-4/R29): "Keep my plan" — reactivate a pending downgrade ───
+// Owners can't write `subscription` themselves — this is the server counterpart, decided
+// by the pure billing.keepPlanPatch.
+//
+// PR-C2 SECURITY FIX (fail-closed in BOTH branches): every pending cancellation in this app
+// already has a terminally-cancelled PayPal sub, so keepPlanPatch NEVER un-cancels to
+// premium-forever (that would be the [HIGH] paywall bypass). The two paths differ only in
+// whether a scheduled Pro sub gets cancelled —
+//   • a SCHEDULED-Pro marker: the Premium PayPal sub was terminally cancelled at schedule
+//     time, so it can NOT be reactivated. Fail-closed: keep the cancel-to-FREE marker (the
+//     sweep drops it at endDate), drop the scheduledPro, and CANCEL the scheduled
+//     (not-yet-started) Pro sub at PayPal. The user re-subscribes.
+//   • a LEGACY / any other cancelled marker (no scheduledPro): its Premium sub is already
+//     gone too, so the marker is simply re-affirmed (cancelled stays true; the sweep drops
+//     it at endDate) — cancelProSubId is null, nothing to cancel at PayPal.
 exports.reactivateSubscription = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
   assertNoUnknownKeys(data, []);
   const ref = db.collection("users").doc(context.auth.uid);
   const snap = await ref.get();
-  const sub = (snap.exists && snap.data().subscription) || null;
-  if (sub) {
-    const { cancelled, downgradeTo, ...rest } = sub;
-    await ref.set({ subscription: { ...rest, cancelled: false } }, { merge: true });
+  const cur = snap.exists ? snap.data() : {};
+  if (cur.subscription) {
+    const { patch, cancelProSubId } = billing.keepPlanPatch(cur, Date.now());
+    // update() (not set-merge) REPLACES the subscription field wholesale, so dropping
+    // scheduledPro from the patch actually deletes it in Firestore — a {merge:true} set
+    // deep-merges the nested map and would preserve the old scheduledPro. No-op patch ({})
+    // → nothing to write.
+    if (patch.subscription) await ref.update({ subscription: patch.subscription });
+    if (cancelProSubId) await cancelPayPalSubscription(cancelProSubId, "Scheduled downgrade cancelled by user");
   }
   await writeAudit(context, "reactivateSubscription", { targetUid: context.auth.uid });
   return { success: true };
