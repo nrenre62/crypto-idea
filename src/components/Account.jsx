@@ -143,7 +143,15 @@ export function Account() {
   // NOT a CryptoIdea-level modal like the downgrade chooser. Confirming calls the ctx handler.
   const [showResub, setShowResub] = useState(false);
   const [reCycle, setReCycle] = useState("monthly");
-  const openResubscribe = () => { setReCycle("monthly"); setShowResub(true); };
+  const [resubErr, setResubErr] = useState("");
+  const openResubscribe = () => { setResubErr(""); setReCycle("monthly"); setShowResub(true); };
+  // PR-C3b-client: mirror scheduleProPay's error handling — a server refusal (failed-precondition /
+  // cooldown / auth) must surface, not fail silently; keep the modal open so the user can retry.
+  const confirmResubscribe = async () => {
+    setResubErr("");
+    try { await resubscribePremium(reCycle); setShowResub(false); }
+    catch (e) { setResubErr((e && e.message) || "Couldn't start re-subscription. Please try again."); }
+  };
   // CRYP-102: opening a settings drill-in (or returning home) resets scroll to the top
   // so the framed panel always starts at its sticky header, not the prior scroll offset.
   useEffect(() => { window.scrollTo(0, 0); }, [view]);
@@ -346,9 +354,10 @@ export function Account() {
                       <div><div className="cycle-name">Yearly</div><div className="cycle-sub">${yearlyM}/mo · billed annually</div></div>
                       <div className="cycle-price">${yearlyP}<span className="cycle-per">/yr</span></div>
                     </div>
-                    <button onClick={()=>{resubscribePremium(reCycle);setShowResub(false);}} className="paypal-btn">
+                    <button onClick={confirmResubscribe} className="paypal-btn">
                       Pay with <span style={{fontStyle:"italic",fontWeight:800}}>Pay<span style={{color:"#253B80"}}>Pal</span></span>
                     </button>
+                    {resubErr&&<div className="auth-err" role="alert" style={{color:"#FF3B30",fontSize:12,textAlign:"center",marginTop:8}}>{resubErr}</div>}
                   </div>
                 </Modal>
               );
