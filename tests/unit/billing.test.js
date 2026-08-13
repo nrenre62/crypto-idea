@@ -377,14 +377,36 @@ describe("billing.keepPlanPatch (PR-C2 security fix: 'Keep my plan' is fail-clos
     expect(patch.subscription.endDate).toBe("2026-09-01T00:00:00.000Z");
     expect("tier" in patch).toBe(false);
   });
-  it("a LEGACY pending cancel (no scheduledPro) → a plain un-cancel; the legacy Premium sub stays live, nothing to cancel", () => {
+  // PR-C2 SECURITY FIX (spec correction): the OLD assertion here (`cancelled:false`) encoded the
+  // [HIGH] paywall bypass. EVERY pending cancellation in this app already has a terminally-cancelled
+  // PayPal sub (cancelSubscription POSTs /cancel before marking; the CANCELLED webhook fires because
+  // PayPal cancelled), so un-cancelling to `cancelled:false` leaves tier:"premium" with NO live sub →
+  // subscriptionSweepPatch (which only drops when cancelled:true) never downgrades = free Premium
+  // forever. "Keep my plan" on a legacy cancel-to-free marker must stay fail-closed: keep the
+  // cancellation so the sweep still drops at endDate; the client routes the user to re-subscribe.
+  // NEVER `cancelled:false`.
+  it("PR-C2 (security): a LEGACY cancel-to-FREE marker (no scheduledPro) is fail-closed — never un-cancels to premium-forever", () => {
     const legacy = {
       tier: "premium", paypalSubscriptionId: "I-PREM",
-      subscription: { cancelled: true, cancelledAt: 100, downgradeTo: "pro", endDate: "2026-09-01T00:00:00.000Z" },
+      subscription: { cancelled: true, cancelledAt: 100, downgradeTo: "free", endDate: "2026-09-01T00:00:00.000Z" },
     };
     const { patch, cancelProSubId } = keepPlanPatch(legacy, 9000);
-    expect(patch.subscription.cancelled).toBe(false);   // resume premium (the R29-2 legacy path)
-    expect(cancelProSubId).toBeNull();
+    // the money proof: NEVER a premium-forever un-cancel — cancelled stays true/omitted so the
+    // daily sweep still drops the account to free at endDate.
+    expect(patch.subscription.cancelled).not.toBe(false);
+    expect(cancelProSubId).toBeNull();                 // no scheduled Pro sub to cancel
+  });
+  // Trigger 1 from the security review — the DOUBLE "Keep my plan" click. A keep on a scheduled-Pro
+  // doc emits a {cancelled:true, downgradeTo:"free"} legacy-shaped marker (scheduledPro dropped); a
+  // SECOND click feeds that marker back through keepPlanPatch. It must NOT fall into a
+  // `cancelled:false` un-cancel — fail-closed on every click, so a double-click can't reach the
+  // paywall-bypass state either.
+  it("PR-C2 (security): a CHAINED keep (double-click) stays fail-closed — feeding a prior keep's marker back in never yields cancelled:false", () => {
+    const first = keepPlanPatch(scheduled(), 9000);
+    const chainedDoc = { tier: "premium", paypalSubscriptionId: "I-PREM", subscription: first.patch.subscription };
+    const second = keepPlanPatch(chainedDoc, 9500);
+    expect(second.patch.subscription.cancelled).not.toBe(false);
+    expect(second.cancelProSubId).toBeNull();
   });
 });
 

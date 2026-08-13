@@ -455,7 +455,15 @@ describe("User walkthrough — all functions", () => {
     expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
   });
 
-  it("R29-2: Keep-my-plan un-cancels a pending downgrade (notice gone, Downgrade back)", async () => {
+  // PR-C2 SECURITY FIX (spec correction): the OLD R29-2 test asserted "Keep my plan" un-cancels a
+  // legacy pending downgrade (notice gone, healthy "Downgrade" back). The security re-review proved
+  // that un-cancel is the [HIGH] paywall bypass — the legacy marker's PayPal sub is already
+  // terminally cancelled (cancelSubscription POSTs /cancel before marking), so forging cancelled:false
+  // paints Premium as a healthy "renews on" sub with NOTHING behind it and the sweep never drops it =
+  // free Premium forever. Fail-closed: keep still calls the server, but the client must NEVER forge an
+  // optimistic cancelled:false into state/cache and must NOT present a false "renews on" — it routes
+  // the user to re-subscribe. (The exact re-subscribe CTA is a client-builder hand-off.)
+  it("PR-C2 (security): Keep-my-plan on a LEGACY cancelled marker never forges cancelled:false and shows no false 'renews on'", async () => {
     loginPremium(premiumSub({ cancelled: true, downgradeTo: "pro" }));
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
@@ -464,8 +472,13 @@ describe("User walkthrough — all functions", () => {
     fireEvent.click(screen.getByRole("button", { name: /Plan & billing/ }));
     expect(screen.getByText(/access ends on/i)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Keep my plan"));
-    await waitFor(() => expect(screen.queryByText(/access ends on/i)).toBeNull());
-    expect(screen.getByText("Downgrade")).toBeInTheDocument();
+    // keep still does the real server work (fail-closed there: keep the cancel, route to re-subscribe)
+    await waitFor(() => expect(reactivateMock).toHaveBeenCalled());
+    // it must NOT paint Premium as a healthy, renewing subscription (the premium-forever illusion) …
+    expect(screen.queryByText(/renews on/i)).toBeNull();
+    // … and must NEVER forge an optimistic cancelled:false into the cached profile.
+    const cached = JSON.parse(localStorage.getItem("ci-profile-u1") || "{}");
+    expect(cached?.subscription?.cancelled).not.toBe(false);
   });
 
   // PR-C2 SECURITY FIX: "Keep my plan" on a SCHEDULED-Pro marker (subscription.scheduledPro
@@ -477,7 +490,7 @@ describe("User walkthrough — all functions", () => {
   // The exact re-subscribe CTA is a client-builder hand-off (this pins the security invariant:
   // no premium-forever illusion). RED today: keepPlan unconditionally sets cancelled:false, so
   // the misleading "renews on" note appears and the cache carries subscription.cancelled=false.
-  // The legacy R29-2 keep-my-plan test above (no scheduledPro → plain un-cancel) stays GREEN.
+  // The legacy keep-my-plan test above (no scheduledPro) is now ALSO fail-closed — same invariant.
   it("PR-C2: Keep-my-plan on a scheduled-Pro marker calls the server, shows NO premium-forever 'renews on', and never forges cancelled:false", async () => {
     loginPremium(premiumSub({ endDate: "2099-01-01", cancelled: true, downgradeTo: "pro",
       scheduledPro: { subId: "I-PRO", billing: "monthly", startDate: "2099-01-01", approved: true } }));

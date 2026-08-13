@@ -604,6 +604,33 @@ test("PR-C2 (security): reactivateSubscription on a scheduled-Pro marker is fail
   assert.strictEqual(after.tier, "premium", "tier stays premium — access continues to endDate, the sweep drops it");
 });
 
+// The SINGLE-CLICK plain-downgrade trigger of the same [HIGH]: a plain Premium→Starter
+// cancelSubscription leaves a LEGACY cancel-to-free marker (no scheduledPro). Its PayPal sub is
+// ALSO already terminally cancelled (cancelSubscription POSTs /cancel before marking), so a lone
+// "Keep my plan" must NOT un-cancel it back to premium-forever. RED today: keepPlanPatch's legacy
+// branch writes `{...rest, cancelled:false}`, so the persisted marker flips to cancelled:false —
+// the account is premium with no live sub and the sweep never drops it (paywall bypass).
+test("PR-C2 (security): reactivateSubscription on a legacy cancel-to-free marker (no scheduledPro) keeps cancelled:true — never premium-forever", async () => {
+  const email = `c2_legacy_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  // A premium user who plainly cancelled to Starter: cancelled + downgradeTo:"free", NO scheduledPro.
+  await db.collection("users").doc(uid).set({
+    email, name: "C2Legacy", tier: "premium", paypalSubscriptionId: "I-PREM",
+    subscription: { cancelled: true, cancelledAt: 100, downgradeTo: "free", endDate: "2027-01-01T00:00:00.000Z" },
+  }, { merge: true });
+  const token = await idTokenFor(email);
+
+  const res = await callAs("reactivateSubscription", token, {});
+  assert.strictEqual(res.status, 200, `reactivateSubscription failed: ${JSON.stringify(res.body)}`);
+
+  const after = await userDoc(uid);
+  // THE [HIGH]-bug regression: the cancel is NOT reversed — cancelled STAYS true, so the daily
+  // sweep still drops the account to free at endDate (no live sub behind a "premium" tier).
+  assert.strictEqual(after.subscription.cancelled, true, "keep must NOT un-cancel a terminally-cancelled sub (cancelled stays true)");
+  // tier is left alone — access continues to endDate; the sweep flips it.
+  assert.strictEqual(after.tier, "premium", "tier is untouched by reactivate (the sweep drops it at endDate)");
+});
+
 // ── ADMIN-SEP · CRYP-103 · admin/user separation + owner-only admin roster (PR1: Parts A + B) ──
 // Founder ask: an admin account (owner OR manager) must NEVER appear as a normal user.
 // The exclusion + the roster are SERVER-enforced and key off the Firebase custom claim
