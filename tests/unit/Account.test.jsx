@@ -433,3 +433,81 @@ describe("CRYP-102 — settings drill-in scroll-to-top", () => {
     }
   });
 });
+
+// ── Plan B PR-C3b-client — seamless Premium re-subscribe (client half of C3b-server) ──
+// C3b-server (merged) renamed the future-start marker to subscription.scheduledNext{tier}
+// and added the resubscribePremium callable. This client half:
+//   1. shows the "Re-subscribe to Premium" CTA ONLY in the plain-cancelled Premium state
+//      (cancelled && NO scheduledNext). While a scheduledNext is pending, the user must
+//      "Keep my plan" FIRST (drops the marker) before re-subscribing;
+//   2. confirm-gates the CTA behind a monthly/yearly cycle picker whose confirm calls the
+//      re-subscribe flow (a ctx handler) — replacing the current INERT startUpgrade("premium")
+//      (startUpgrade no-ops while tier==="premium");
+//   3. reads the marker tier-aware via `scheduledNext || scheduledPro` everywhere.
+// Flagged wording (the client-builder matches these strings): the confirm modal shows a
+// "Pay with" PayPal button; scheduledNext.tier "premium" shows a distinct
+// "Premium re-subscription is scheduled" copy. Design note: the founder's test spec asserts
+// the cycle picker appears in an ISOLATED Account render, so the confirm modal is rendered by
+// Account (not a CryptoIdea-level modal like the downgrade chooser).
+describe("Plan B PR-C3b-client — seamless Premium re-subscribe (Account)", () => {
+  // A cancelled Premium subscriber; `sub` overrides the subscription marker per case.
+  const cancelledPremium = (sub) => ({
+    isPro: true, isPremium: true,
+    user: { ...base.user, tier: "premium", subscription: { cancelled: true, endDate: "2027-01-01", ...sub } },
+  });
+
+  it("PR-C3b-client: a plain-cancelled Premium (no scheduledNext) shows the Re-subscribe-to-Premium CTA", () => {
+    provide(cancelledPremium({ downgradeTo: "free" }));
+    open(/Plan & billing/);
+    expect(screen.getByText("Re-subscribe to Premium")).toBeInTheDocument();
+  });
+
+  it("PR-C3b-client: while a scheduledNext downgrade is pending, Re-subscribe is hidden and Keep-my-plan shows instead", () => {
+    provide(cancelledPremium({ downgradeTo: "pro",
+      scheduledNext: { tier: "pro", subId: "I-PRO", billing: "monthly", approved: true } }));
+    open(/Plan & billing/);
+    // Founder rule: a pending scheduledNext means "Keep my plan" first — no direct re-subscribe.
+    expect(screen.queryByText("Re-subscribe to Premium")).toBeNull();
+    expect(screen.getByText("Keep my plan")).toBeInTheDocument();
+  });
+
+  it("PR-C3b-client: clicking Re-subscribe opens a cycle-picker confirm modal whose confirm calls resubscribePremium (not the inert startUpgrade)", () => {
+    const startUpgrade = vi.fn();
+    const resubscribePremium = vi.fn();
+    provide({ ...cancelledPremium({ downgradeTo: "free" }), startUpgrade, resubscribePremium });
+    open(/Plan & billing/);
+    fireEvent.click(screen.getByText("Re-subscribe to Premium"));
+    // A confirm modal with a monthly/yearly cycle picker appears (mirrors the downgrade cycle modal).
+    expect(screen.getByText("Monthly")).toBeInTheDocument();
+    expect(screen.getByText("Yearly")).toBeInTheDocument();
+    // Pick a cycle, then confirm via the PayPal button.
+    fireEvent.click(screen.getByText("Yearly"));
+    fireEvent.click(screen.getByRole("button", { name: /pay with/i }));
+    // The re-subscribe flow runs with the chosen cycle — NOT the inert startUpgrade("premium").
+    expect(resubscribePremium).toHaveBeenCalled();
+    expect(JSON.stringify(resubscribePremium.mock.calls[0])).toContain("yearly");
+    expect(startUpgrade).not.toHaveBeenCalled();
+  });
+
+  it("PR-C3b-client: a scheduledNext PRO downgrade shows the Pro-scheduled copy (scheduledNext reader shim)", () => {
+    provide(cancelledPremium({ downgradeTo: "pro",
+      scheduledNext: { tier: "pro", subId: "I-PRO", billing: "monthly", approved: true } }));
+    open(/Plan & billing/);
+    expect(screen.getByText(/Pro is scheduled/i)).toBeInTheDocument();
+  });
+
+  it("PR-C3b-client: a scheduledNext PREMIUM re-subscribe shows a distinct Premium-scheduled copy (tier-aware)", () => {
+    provide(cancelledPremium({ downgradeTo: "free",
+      scheduledNext: { tier: "premium", subId: "I-PREM", billing: "monthly", approved: true } }));
+    open(/Plan & billing/);
+    expect(screen.getByText(/premium re-?subscription is scheduled/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Pro is scheduled/i)).toBeNull(); // not the Pro copy
+  });
+
+  it("PR-C3b-client: a legacy scheduledPro marker still shows the Pro-scheduled copy (back-compat shim)", () => {
+    provide(cancelledPremium({ downgradeTo: "pro",
+      scheduledPro: { subId: "I-PRO", billing: "monthly", approved: true } }));
+    open(/Plan & billing/);
+    expect(screen.getByText(/Pro is scheduled/i)).toBeInTheDocument();
+  });
+});
