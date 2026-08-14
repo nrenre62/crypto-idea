@@ -1,5 +1,13 @@
 # Crypto Idea — Billing & Subscriptions (PayPal)
 
+> **⚠️ Launch status: paid plans are OFF. The live app runs on the free Starter plan only.**
+> The Pro/Premium subscription code documented below **exists but is not enabled**. It is gated by
+> the admin master switch **`paidPlansEnabled`** (admin panel → **Plans & Pricing**), which is
+> **off** for launch: everyone is on Starter, the plan chooser is suppressed, and `createSubscription`
+> refuses server-side. The PayPal flow has **not been tested end-to-end on live** and won't be until
+> there is a proper legal/business setup — treat this document as a design record of a dormant
+> feature, not a live payment path. Turning the switch on does not make it "tested".
+
 **Canonical record of how paid subscriptions work.** Processor: **PayPal Subscriptions**.
 Prices and tier economics live in [PRICING.md](PRICING.md); this doc is the source of truth
 for the *mechanism* — the lifecycle, the webhook, security, secrets, and go-live steps.
