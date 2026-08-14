@@ -1809,6 +1809,16 @@ exports.researchAsk = functions.https.onCall(async (data, context) => {
   // 6) App-wide monthly $-cap, FAIL-CLOSED. A throw from the ledger read is a HARD refusal
   // (unavailable 503) — NEVER a silent .catch(()=>0) that would let spend run past the cap
   // during a Firestore blip. budgetExceeded is a >= wall (a prior crossing charge recorded).
+  //
+  // BOUNDED OVERSHOOT (accepted while DORMANT; harden before PR-E3 — see NEXT-STEPS §Plan B):
+  // this read-then-act cap check is NOT atomic with the later chargeMonthCents write, so N
+  // requests in-flight together can all read spent<cap and all generate before any charges,
+  // overshooting the cap by ~(peak concurrency × per-request cost). The overshoot is bounded
+  // (each request is ≤3 Sonnet gens + ≤3 Haiku judges over a ≤40-coin/≤64-char-name context —
+  // a few cents; once crossed every serial call refuses; resets per UTC month) and there is
+  // ZERO live exposure today (AI_PROXY_LIVE=false, no caller). The atomic-reservation fix
+  // (reserve an estimated max up front, reconcile to actual after) belongs to the increment
+  // that flips the client seam live, where the overshoot becomes real money.
   let spent;
   try { spent = await aiCost.readMonthSpendCents(db, {}); }
   catch (e) { throw new functions.https.HttpsError("unavailable", "AI research is briefly unavailable. Please try again shortly."); }
@@ -1861,12 +1871,18 @@ exports.researchAsk = functions.https.onCall(async (data, context) => {
     return { safe: /^\s*SAFE\s*$/i.test(p.text || ""), usage: p.usage };
   };
 
-  const result = await runResearchAsk({ question: q, context: contextText, allowedNames, callModel, judge });
-
-  // Charge the EXACT metered sum — every burned generation (even rejected/refused ones) and
-  // every judge call is accounted, so the app-wide cap can never be under-metered.
-  const totalCents = metered.reduce((a, b) => a + b, 0);
-  if (totalCents > 0) await aiCost.chargeMonthCents(db, { cents: totalCents });
+  // Charge the EXACT metered sum in a finally — every burned generation (even rejected/refused
+  // ones) and every judge call is accounted, so the app-wide cap can never be under-metered.
+  // The finally guarantees already-spent tokens are recorded even if a LATER Anthropic call
+  // throws mid-request (a network blip after attempt 1 already burned tokens): the charge still
+  // lands, then the original error propagates. metered[] holds only completed calls' cents.
+  let result;
+  try {
+    result = await runResearchAsk({ question: q, context: contextText, allowedNames, callModel, judge });
+  } finally {
+    const totalCents = metered.reduce((a, b) => a + b, 0);
+    if (totalCents > 0) await aiCost.chargeMonthCents(db, { cents: totalCents });
+  }
 
   // NEVER return violating text — the fail-closed fallback is answer:"" / fellBack:true.
   // No writeAudit: this is a high-frequency user action; the aiBudget ledger + the per-uid
