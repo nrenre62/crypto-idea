@@ -54,9 +54,10 @@ in fundamentals — not FOMO."*
 
 ## 4. The conviction engine (the marketed differentiator — today offline)
 
-> Today: `src/features/research/api/ai-client.js` `askClaude()` **throws** → the tab
-> renders built-in data-driven fallbacks; conviction pills are design-only "coming
-> soon". The keystone is the **secure AI proxy** (backlog N-3).
+> Today: `src/features/research/api/ai-client.js` `askClaude()` **throws while `AI_PROXY_LIVE` is
+> `false`** → the tab renders built-in data-driven fallbacks; conviction pills are design-only "coming
+> soon". The keystone — the **secure AI proxy** (`researchAsk`) — is now BUILT server-side (PR-E1/E2)
+> with the client seam wired behind the flag (PR-E3); it goes live once the flag flips at go-live.
 
 | # | Decision | Choice | Status | Build implication |
 |---|---|---|---|---|

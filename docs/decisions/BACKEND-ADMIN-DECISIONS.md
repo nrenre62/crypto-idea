@@ -138,11 +138,14 @@ out-of-band via `functions/scripts/set-admin.js` (`--role=owner|manager`, plus `
 ⚠️ Stale doc: NEXT-STEPS §4 / root `.env.example` still recommend `firebase functions:config:set`, **removed
 in functions v7** — a silent no-op at go-live.
 
-### 1.6 Planned AI proxy (Wave B) — currently inert
-`ai-client.js` `askClaude()` **unconditionally throws**, so Pulse/Ask render offline summaries and conviction
-pills are mock-fed. **No AI key, no `researchAsk` function, and `functions/validate-output.js` (the fail-closed
-no-names/no-advice guard) is imported nowhere.** The validator must be wired *inside* the proxy and green
-**before** the client body-swap, or raw model prose reaches users.
+### 1.6 Planned AI proxy (Wave B) — server built, client seam inert
+`ai-client.js` `askClaude()` throws **only while `AI_PROXY_LIVE` is false** (the flag is `false` today, so the
+client seam is inert and no callable fires); the Pulse is now deterministic-by-construction (severed from AI in
+PR-E3), Ask renders offline summaries, and conviction pills are mock-fed. The server proxy **now exists**: the
+`researchAsk` callable (PR-E2) mounts the PR-E1 foundation and **`functions/validate-output.js` (the fail-closed
+no-names/no-advice guard) is imported and run on every candidate inside `functions/ai-proxy.js`** — the validator
+is wired *inside* the proxy, so raw model prose can never reach users. What remains before a live surface: a real
+Anthropic key + the PR-E2.5 atomic budget reservation, then flipping `AI_PROXY_LIVE` at go-live.
 
 ---
 

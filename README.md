@@ -484,11 +484,12 @@ unrealized P&L vs cost basis, which holding drove the move, top-two concentratio
 equal-weight positions you really hold, your typical daily swing and how far you sit below the 7-day high, and
 a diversification nudge), and the **Daily Brief** is an honest 24h digest (biggest gainer + biggest decliner,
 no "volatility" mislabel). The old
-"AI is offline" apology is gone, replaced by a neutral **"AI off"/"AI on" status pill**, and the AI ornaments
-(gradient label, Regenerate, "AI-generated" disclaimer) only appear once the `AI_PROXY_LIVE` seam flips;
-the **Ask** chat + per-coin "Ask AI" button are gated on the `aiResearch` kill-switch. Wiring live Claude
-is a planned next step (a secure Cloud Function proxy holding the Anthropic key — see `NEXT-STEPS.md`
-§RESEARCH-NO-AI / N-3).
+"AI is offline" apology is gone, and the **Pulse is now permanently deterministic** — as of PR-E3 (CRYP-106)
+its interim "AI off"/"AI on" pill, gradient label and Regenerate button were removed and `usePulse` is severed
+from AI; only the tab-level "AI-generated" disclaimer flips once `AI_PROXY_LIVE` goes live. The **Ask** chat +
+per-coin "Ask AI" button are gated on the `aiResearch` kill-switch. The secure Cloud Function proxy (PR-E1/E2)
+and the client wiring (PR-E3) are built; only the go-live flag flip (plus the PR-E2.5 atomic budget reservation)
+remains — see `NEXT-STEPS.md` §Plan B PR-E / §RESEARCH-NO-AI.
 
 The free DCA calculator lives **inline on the landing** (no login, no separate page) — it is **not** in the app. It's built so visitors add **~0 backend calls**: it fetches the full ~3,000-coin list **once** from `/api/coinlist` (CDN-cached 24h) and searches **client-side** (no per-keystroke calls), then a calculation fetches only that coin's `/api/history` (CDN-cached; price history is immutable) and uses its latest point as "today's price" — no per-calc `/api/prices` call. So thousands of visitors share a couple of cached responses; scheduled jobs refresh the data at most daily. (CDN caching applies on the deployed site, not the local dev server.)
 

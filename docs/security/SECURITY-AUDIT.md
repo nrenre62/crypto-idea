@@ -19,7 +19,7 @@
 Two facts that frame everything below:
 
 - **The in-app upgrade flow is currently a client-side *simulation*.** [`src/components/Login.jsx:65`](../../src/components/Login.jsx) runs a `setTimeout` then writes `tier` to `window.storage` (local), not Firestore; the real `createSubscription` callable is never invoked from the client. So there is **no "free Pro" via the UI today**. However, the **server-side PayPal webhook, `cancelSubscription`, and `createSubscription` callables in `functions/index.js` are real, deployable code** — that is where finding **H1** applies.
-- **The live-AI surface is entirely inert.** `src/features/research/api/ai-client.js` `askClaude()` throws unconditionally, and `functions/validate-output.js` is never imported by any deployed function. There is **no prompt-injection or AI-output XSS surface shipped today.** This becomes live work when the AI proxy is built — see [Deferred / future work](#deferred--future-work).
+- **No live-AI surface ships today.** `src/features/research/api/ai-client.js` `askClaude()` throws **while `AI_PROXY_LIVE` is false** (the flag is off, so the client seam is inert and no callable fires). The server proxy now exists — the `researchAsk` callable, which **imports and runs `functions/validate-output.js` on every candidate** — but nothing invokes it in a live path yet. There is **no prompt-injection or AI-output XSS surface shipped today.** This becomes live work when `AI_PROXY_LIVE` flips at go-live — see [Deferred / future work](#deferred--future-work).
 
 ### Findings at a glance
 
@@ -265,8 +265,8 @@ The adversarial verification pass rejected these — in each case a server-side 
 
 | Candidate | Why it's not exploitable |
 |-----------|--------------------------|
-| **AI prompt-injection** (system-prompt concatenation) | The entire AI path is dead: `askClaude()` throws unconditionally; no `researchAsk`/LLM call exists in `functions/`. No live surface. |
-| **AI output XSS / unwired output validator** | Same — `validate-output.js` is never imported by a deployed function; AI output is never rendered. Latent, not live. |
+| **AI prompt-injection** (system-prompt concatenation) | No live AI surface: `askClaude()` throws while `AI_PROXY_LIVE` is `false`, so no callable fires. The server `researchAsk` exists but nothing invokes it in a live path yet — and the client sends ONLY `{ question }` (the server builds the prompt/context authoritatively). |
+| **AI output XSS / unwired output validator** | `validate-output.js` is now imported and run on every candidate inside `functions/ai-proxy.js`, but no live surface renders AI output yet (the flag is off). Latent, not live. |
 | **"Free Pro" via the upgrade UI** | The flow is a client-side simulation writing to `window.storage` (local), not Firestore; the real `createSubscription` is never called. Revenue/trust gap, not a privilege bypass. (The *real* server billing path is covered by H1.) |
 | **Yearly/Premium not honored (webhook hardcodes `tier:'pro'`)** | Correctness/revenue bug, not an attacker-exploitable security issue. |
 | **Cancel/downgrade only in local storage** | `confirmDowngrade()` writes to `window.storage`, never Firestore — it cannot affect server state, so no security impact. |

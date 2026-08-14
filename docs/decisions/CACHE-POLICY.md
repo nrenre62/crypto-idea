@@ -54,17 +54,21 @@ real-time listener** (`useAuthSession.js`) → a second device's edits aren't se
 Addressed by C12.
 
 ### ⏳ Planned, not built — the entire AI tier (the real gap)
-The `researchAsk` callable, `getConviction`, `convictionCache`, and any live per-uid AI budget counter
-**still do not exist** in `functions/index.js`. `ai-client.js` `askClaude()` throws by design; every AI
-surface (per-coin Conviction, portfolio Pulse, Ask) renders a data-driven offline fallback. Conviction is
-fed by `src/features/research/data/mock-conviction.js` stamped with a fixed `2026-06-22` date (now reads
-as stale). The fail-closed output validator `functions/validate-output.js` exists and is unit-tested but
-is still **wired nowhere in production**. **Plan B PR-E1 (2026-08-14) shipped the INERT server foundation**
+`getConviction`, `convictionCache`, and the shared per-coin conviction cache **still do not exist** in
+`functions/index.js` — but the **`researchAsk` callable now DOES** (PR-E2), with a per-uid daily budget +
+an app-wide monthly $-cap. `ai-client.js` `askClaude()` throws **only while `AI_PROXY_LIVE` is false** (the
+flag is `false` today, so the client seam is inert and no callable fires); the per-coin Conviction + Ask
+surfaces render a data-driven offline fallback, and the portfolio Pulse is now deterministic-by-construction
+(severed from AI in PR-E3). Conviction is fed by `src/features/research/data/mock-conviction.js` stamped with
+a fixed `2026-06-22` date (now reads as stale). The fail-closed output validator `functions/validate-output.js`
+exists, is unit-tested, and is now **imported and run on every candidate inside `functions/ai-proxy.js`** — but
+no live surface renders AI output yet (the flag is off). **Plan B PR-E1 (2026-08-14) shipped the INERT server foundation**
 — pure `functions/ai-cost.js` (the app-wide monthly $-budget ledger, see C7) + `functions/ai-anthropic.js`
 (raw-fetch Anthropic call, key header-only) + `functions/ai-proxy.js` (`runResearchAsk`, the fail-closed
-orchestrator that already *consumes* `validate-output.js`) + the admin `monthlyCapCents` cap — but nothing
-calls any of it. Wiring is PR-E2 (the callable) then PR-E3 (the client swap); this is why the AI cache
-policy is still mostly locked-as-decisions rather than built.
+orchestrator that already *consumes* `validate-output.js`) + the admin `monthlyCapCents` cap. Wiring is now
+DONE — PR-E2 (the `researchAsk` callable) + PR-E3 (the client swap, behind the still-`false` flag); what remains
+before a live surface is PR-E2.5 (atomic budget reservation) + flipping `AI_PROXY_LIVE` at go-live, which is why
+the AI cache policy is still mostly locked-as-decisions rather than live.
 
 ### ⚠️ Cross-cutting weakness — staleness UX
 Research Overview shows an honest "Updated Xm ago"; Portfolio shows only a generic "live" with no
