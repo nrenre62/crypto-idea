@@ -223,7 +223,7 @@ Detail + checkboxes in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §C. Ranked b
   *PR-E1 built the distinct **app-wide** $-cap ledger (`ai-cost.js` + `config/app.ai.monthlyCapCents`,
   see C7) inert; PR-E2 must **fail the budget read CLOSED** (a callable that `.catch(()=>0)` on an
   unreadable `aiBudget` doc = free spend) and gate `callAnthropic` behind the `aiResearch` kill-switch +
-  a `budgetExceeded` check BEFORE generation.*
+  an atomic reserve-then-settle cap (PR-E2.5) BEFORE generation.*
 - **App Check + `addCoinGuarded`** per-uid limiter. (C11 / B3.)
 
 ### 🟠 Wave B P1 — the AI cache layer itself

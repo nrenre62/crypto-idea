@@ -210,12 +210,18 @@ When a user hits the ceiling, we degrade gracefully:
 (2026-08-14) built an **app-wide single monthly $-cap** —
 `config/app.ai.monthlyCapCents` (default **5000** = **$50/mo**), admin-editable
 from the Settings AI card and metered by the pure `functions/ai-cost.js` ledger
-on a server-only `aiBudget/{YYYY-MM}` doc (round-up cents, UTC month key,
-`>=` wall). It is a **global spend pool for the whole app**, founder-locked as
+on a server-only `aiBudget/{YYYY-MM}` doc (round-up cents, UTC month key). It is
+a **global spend pool for the whole app**, founder-locked as
 the launch cost ceiling, distinct from the **per-tier per-uid** `plans.*.aiMonthlyCents`
-described above. The per-tier fields **remain unenforced** (founder decision:
-ship the single global cap first); PR-E2 meters live spend against
-`monthlyCapCents`. Both are INERT until PR-E2 wires the `researchAsk` callable.
+described above. **As of PR-E2.5 (CRYP-107) the app-wide cap is enforced
+atomically (reserve-then-settle)** — a derived worst-case (**12¢**, from
+`ai-cost.js` `reservationMaxCents()`) is transactionally reserved up front via
+`reserveMonthCents` (or the request is denied-consuming-nothing at the cap), then
+`chargeMonthCents` settles the reservation down to the ACTUAL metered token cost,
+replacing the earlier non-atomic read-then-check `>=` wall. The per-tier fields
+**remain unenforced** (founder decision: ship the single global cap first); PR-E2
+meters live spend against `monthlyCapCents`. Both are INERT until PR-E2 wires the
+`researchAsk` callable.
 The proxy's model economics are founder-locked in `functions/ai-cost.js`:
 **generation = Sonnet 5** ($3/$15 per Mtok), **judge = Haiku 4.5** ($1/$5),
 rounded up to whole cents. *(This post-dates the §3.2 margin sketch's ~$0.01

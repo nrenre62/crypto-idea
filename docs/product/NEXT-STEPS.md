@@ -738,11 +738,17 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
     `process.env.ANTHROPIC_KEY` fallback), header-only, never logged/returned. Reviews: **contract IN SYNC** (0
     drift), **security SAFE TO COMMIT** (0 High, all 8 repo invariants verified). **`AI_PROXY_LIVE` stays `false`** —
     nothing calls the callable yet (the client swap is PR-E3). PR-E1 security must-dos: **#1 fail-read-closed
-    SATISFIED**, **#2 gate-before-generation SATISFIED**, **#3 concurrent overshoot DOCUMENTED + DEFERRED** ([MED]
-    bounded overshoot noted in code; [LOW] meter-on-throw FIXED via the try/finally in `a79270b`; [LOW]
-    daily-slot-before-cap-check left as-is, fairness only).
-  - **➡️ Pre-PR-E3 hardening · atomic cap reservation:** make the monthly $-cap check-and-charge atomic (reserve
-    an estimated max up front, reconcile to actual) **before** flipping `AI_PROXY_LIVE`, closing the [MED]
+    SATISFIED**, **#2 gate-before-generation SATISFIED**, **#3 concurrent overshoot CLOSED by PR-E2.5** (the
+    [MED] bounded overshoot is now fixed via the atomic reserve-then-settle cap — see the PR-E2.5 bullet
+    below; [LOW] meter-on-throw FIXED via the try/finally in `a79270b`; [LOW] daily-slot-before-cap-check
+    left as-is, fairness only).
+  - **✅ BUILT — PR-E2.5 (CRYP-107) · atomic cap reservation:** the app-wide monthly $-cap is now
+    check-and-charge **atomic** via **reserve-then-settle** — `ai-cost.js` `reserveMonthCents` holds a
+    derived **12¢** worst-case estimate (`reservationMaxCents()` = `(MAX_REGENS 2 + 1) × (genMax 3¢ +
+    judgeMax 1¢)`) on `aiBudget/{YYYY-MM}` in one transaction (or denies-consuming-nothing at the cap),
+    then `chargeMonthCents` settles the delta down to the ACTUAL metered cost. Month-boundary-safe (one
+    pinned timestamp) and never strands a reservation (widened try/finally). Ships **dormant**
+    (`AI_PROXY_LIVE = false`) — this **gates the go-live `AI_PROXY_LIVE` flip** and closes the [MED]
     concurrent-overshoot finding where it becomes real money.
   - **➡️ PR-E3 · client swap:** swap the `ai-client.js` body to call `researchAsk` and flip `AI_PROXY_LIVE`
     in the same increment (keep the resolve-string/reject contract so the offline fallback survives).
@@ -2940,8 +2946,10 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
   behind the fail-closed gate order (auth → question validation + deny-by-default keys → `aiResearch` fresh-read
   kill-switch → key present → per-uid daily budget → app-wide monthly $-cap → generate + meter), Sonnet-gen/
   Haiku-judge metered into `aiBudget`. Review must-dos #1 (fail-read-closed) + #2 (gate-before-generation)
-  SATISFIED; #3 (concurrent overshoot) DOCUMENTED + DEFERRED as a pre-PR-E3 atomic reservation. `AI_PROXY_LIVE`
-  stays `false` until the PR-E3/B4 client swap.
+  SATISFIED; #3 (concurrent overshoot) **BUILT/CLOSED (PR-E2.5, CRYP-107)** — the app-wide monthly cap is now
+  atomic via reserve-then-settle (`ai-cost.js` `reserveMonthCents` holds a derived 12¢ worst-case from
+  `reservationMaxCents()`, `chargeMonthCents` settles the delta to actual), which gates the go-live flip.
+  `AI_PROXY_LIVE` stays `false` until the PR-E3/B4 client swap.
 - [ ] **B3 · 0a-antiabuse (#20):** `addCoinGuarded` callable — **reuses B2's per-uid limiter + App
   Check gate**; the client write path routes through it. Closes #20's rate-limit + the write-path App
   Check. Integration throttle test (rapid adds → `resource-exhausted`).
