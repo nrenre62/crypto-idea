@@ -101,7 +101,7 @@ wins in a conflict) is **bold**.
 
 ### AI budget / usage (`aiMonthlyCents`, "~N/day")
 - Docs: **[`PRICING.md`](decisions/PRICING.md) §4** · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) C3 · [`ai-tool-policy.md`](planning/ai-tool-policy.md) · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #21 · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md)
-- Code: `functions/index.js` (`aiMonthlyCents` in `DEFAULT_PLANS`) · `functions/guards.js` (`consumeDailyBudget`)
+- Code: `functions/index.js` (`aiMonthlyCents` in `DEFAULT_PLANS`) · `functions/guards.js` (`consumeDailyBudget`) · `functions/ai-cost.js` (the app-wide `aiBudget/{YYYY-MM}` ledger + atomic reserve-then-settle mechanism — `reserveMonthCents`/`reservationMaxCents`/`chargeMonthCents`, PR-E2.5)
 
 ### Research tab / AI seam (`askClaude`, `AI_PROXY_LIVE`, `researchAsk` proxy, fail-closed validator)
 - Canonical: **`src/features/research/api/ai-status.js`** (`AI_PROXY_LIVE` — the single live/inert flag) · **`openapi.json`** (`/researchAsk` contract)

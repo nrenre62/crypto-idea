@@ -1396,3 +1396,69 @@ test("PR-E2: researchAsk (safety) never returns violating text — falls back an
   const perGen = aiCost.costCents(GEN_USAGE, aiCost.SONNET5_RATES);
   assert.strictEqual((await raBudgetCents()) - before, perGen * 3, "all three rejected generations must be metered");
 });
+
+// ── Plan B PR-E2.5 · CRYP-107 — atomic reserve-then-settle for the app-wide monthly $-cap ──
+// The current gate 6 is a NON-ATOMIC read-then-act: readMonthSpendCents → budgetExceeded (a
+// spent>=cap wall) → generate → chargeMonthCents. N requests in flight together can all read
+// spent<cap and all generate before any charge, overshooting the cap. PR-E2.5 reserves the
+// worst-case per-request estimate up front (reserveMonthCents, atomic) and settles the delta to
+// the ACTUAL after — so a call whose remaining headroom is smaller than the estimate must refuse
+// BEFORE generating, and a completed call must leave NO stranded reservation cents. Both cases
+// are CI-only (the functions emulator can't boot in the authoring sandbox).
+
+test("CRYP-107: researchAsk refuses (429) when the monthly reservation headroom is smaller than the per-request estimate", async () => {
+  const email = `ra_reserve_${stamp}@example.com`;
+  const uid = await seedUser(email);
+  const token = await idTokenFor(email);
+  const CAP = 1000;                                   // ¢ — a real cap for this month
+  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: CAP });
+  await clearResearchDailyBudget(uid);
+  // Spend one cent below the cap → headroom = 1¢, which is smaller than the ~12¢ worst-case
+  // per-request reservation but NOT yet at the cap. On the CURRENT code gate 6 is
+  // budgetExceeded(999, 1000) = (999 >= 1000) = FALSE, so the callable PASSES the gate and
+  // proceeds to generate (status ≠ 429) — this test is RED there. After PR-E2.5 reserveMonthCents
+  // sees headroom(1¢) < estMax(12¢) → resource-exhausted with no generation and no ledger change.
+  await raBudgetDoc().set({ cents: CAP - 1, month: RA_MONTH, updatedAt: Date.now() });
+
+  const before = await raBudgetCents();
+  const r = await callAsSafe("researchAsk", token, { question: "How is my book?" });
+  assert.strictEqual(r.status, 429, `insufficient reservation headroom must refuse (resource-exhausted), got ${r.status}: ${JSON.stringify(r.body)}`);
+  assert.strictEqual(r.body && r.body.error && r.body.error.status, "RESOURCE_EXHAUSTED");
+  // A headroom refusal reserves nothing and generates nothing — the ledger is exactly as it was.
+  assert.strictEqual(await raBudgetCents(), before, "a headroom refusal must not reserve or spend");
+});
+
+test("CRYP-107: two consecutive researchAsk happy calls leave the ledger at exactly 2× the real per-call cost (no stranded reservation)", async () => {
+  // GUARD (green today; enforces the invariant post-impl): reserve-then-settle must net to the
+  // ACTUAL per-call cost with NO leftover reservation. Two happy calls must leave the ledger at
+  // exactly 2× the real per-call cost — if the settle failed to release the over-reservation the
+  // ledger would carry extra estimate cents and this would break.
+  const email = `ra_settle_${stamp}@example.com`;
+  const uid = await seedUser(email);
+  const pRef = db.collection("users").doc(uid).collection("portfolios").doc("default");
+  await pRef.set({ name: "Main", coinCount: 1 });
+  await pRef.collection("coins").doc("bitcoin").set({ symbol: "btc", name: "Bitcoin", txCount: 0, entries: [] });
+  const token = await idTokenFor(email);
+
+  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await clearResearchDailyBudget(uid);
+  await raBudgetDoc().delete().catch(() => {});
+
+  const CLEAN = "Your book is concentrated in a single position, which raises the impact of any move in that one holding on your overall result.";
+  const GEN_USAGE = { input_tokens: 200_000, output_tokens: 100_000 };
+  const JUDGE_USAGE = { input_tokens: 100_000, output_tokens: 40_000 };
+  const reply = (body) => (/haiku/i.test(String(body && body.model || ""))
+    ? { text: "SAFE", usage: JUDGE_USAGE }
+    : { text: CLEAN, usage: GEN_USAGE });
+  const perCall = aiCost.costCents(GEN_USAGE, aiCost.SONNET5_RATES) + aiCost.costCents(JUDGE_USAGE, aiCost.HAIKU45_RATES);
+
+  const before = await raBudgetCents();
+  await withStub(reply, async () => {
+    const r1 = await callAsSafe("researchAsk", token, { question: "How concentrated is my book?" });
+    assert.strictEqual(r1.status, 200, `call 1 failed: ${JSON.stringify(r1.body)}`);
+    const r2 = await callAsSafe("researchAsk", token, { question: "How concentrated is my book?" });
+    assert.strictEqual(r2.status, 200, `call 2 failed: ${JSON.stringify(r2.body)}`);
+  });
+  // Net of reserve+settle across TWO calls = exactly 2× the real cost; zero reservation cents left.
+  assert.strictEqual((await raBudgetCents()) - before, perCall * 2, "reserve-then-settle must net to actual — no stranded reservation cents");
+});

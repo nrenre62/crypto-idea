@@ -741,9 +741,9 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
     `process.env.ANTHROPIC_KEY` fallback), header-only, never logged/returned. Reviews: **contract IN SYNC** (0
     drift), **security SAFE TO COMMIT** (0 High, all 8 repo invariants verified). **`AI_PROXY_LIVE` stays `false`** —
     nothing calls the callable yet (the client swap is PR-E3). PR-E1 security must-dos: **#1 fail-read-closed
-    SATISFIED**, **#2 gate-before-generation SATISFIED**, **#3 concurrent overshoot DOCUMENTED + DEFERRED** ([MED]
-    bounded overshoot noted in code; [LOW] meter-on-throw FIXED via the try/finally in `a79270b`; [LOW]
-    daily-slot-before-cap-check left as-is, fairness only).
+    SATISFIED**, **#2 gate-before-generation SATISFIED**, **#3 concurrent overshoot CLOSED by PR-E2.5** (the [MED]
+    bounded overshoot is now fixed via the atomic reserve-then-settle cap — see the PR-E2.5 bullet below; [LOW]
+    meter-on-throw FIXED via the try/finally in `a79270b`; [LOW] daily-slot-before-cap-check left as-is, fairness only).
   - **✅ PR-E3 · client seam wired (2026-08-14, branch `claude/plan-b-pr-e3-research-client-seam`, CRYP-106)
     — BUILT behind the still-`false` flag.** `src/features/research/api/ai-client.js` `askClaude` now
     short-circuits (throws `research-ai-proxy-not-configured`, **no network**) **while `AI_PROXY_LIVE` is false**;
@@ -755,9 +755,14 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
     tab-level "AI-generated" Ask disclaimer. **`AI_PROXY_LIVE` STAYS `false`** — PR-E3 did NOT flip it. This
     CLOSES the go-live "Pulse-decoupling" risk in code. `useAsk` still rides `askClaude` (Ask chat + per-coin
     button, gated on `aiResearch`, unchanged).
-  - **➡️ PR-E2.5 · pre-flip hardening · atomic cap reservation (the next factory item, gates go-live):** make the
-    monthly $-cap check-and-charge atomic (reserve an estimated max up front, reconcile to actual) **before**
-    flipping `AI_PROXY_LIVE`, closing the [MED] concurrent-overshoot finding where it becomes real money.
+  - **✅ BUILT — PR-E2.5 (CRYP-107) · atomic cap reservation:** the app-wide monthly $-cap is now
+    check-and-charge **atomic** via **reserve-then-settle** — `ai-cost.js` `reserveMonthCents` holds a
+    derived **12¢** worst-case estimate (`reservationMaxCents()` = `(MAX_REGENS 2 + 1) × (genMax 3¢ +
+    judgeMax 1¢)`) on `aiBudget/{YYYY-MM}` in one transaction (or denies-consuming-nothing at the cap),
+    then `chargeMonthCents` settles the delta down to the ACTUAL metered cost. Month-boundary-safe (one
+    pinned timestamp) and never strands a reservation (widened try/finally). Ships **dormant**
+    (`AI_PROXY_LIVE = false`) — this **gates the go-live `AI_PROXY_LIVE` flip** and closes the [MED]
+    concurrent-overshoot finding where it becomes real money.
   - **➡️ `AI_PROXY_LIVE` flip (separate go-live step):** flip the flag in `api/ai-status.js` to `true` in the
     increment that deploys `researchAsk` with a real Anthropic key (needs Blaze + keys) — kept SEPARATE from the
     PR-E3 client swap so the seam ships dormant.
