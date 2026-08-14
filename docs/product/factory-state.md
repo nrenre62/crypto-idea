@@ -52,7 +52,7 @@ a fresh context resumes **exactly where it left off**.
 - Merged: no
 - Agents this item: 13
 - Updated: 2026-08-14
-- Sibling: PR-E3 (#87, CRYP-106) built + CI-green, awaiting founder merge (block lives on the PR-E3 branch)
+- Sibling: PR-E3 (#87, CRYP-106) MERGED to master (04cd129, Story CRYP-106 Done) — its block removed per convention
 
 ## JOURNAL-POLISH — Journal/thesis type-scale + floating coin header + honest disclaimers (CRYP-105)
 - Phase: built (awaiting G3 merge)

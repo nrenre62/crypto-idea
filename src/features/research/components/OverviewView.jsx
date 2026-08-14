@@ -40,7 +40,7 @@ function Brief({ portfolio, empty }) {
 // R13-3: the source chips + "Updated just now" freshness line were removed (founder:
 // clutter). `status`/`asOf` (and the freshness helpers) went with them — kept out of the
 // signature so no dead code remains. Freshness is an internal cost lever, not user-facing.
-export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShare, aiChrome }) {
+export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShare }) {
   // CRYP-99: the note shown is chosen by the pure pickNote rule engine (empty book,
   // NaN-safe top-two %, and the no-name/no-link compliance all live there).
   const note = pickNote(portfolio);
@@ -49,8 +49,8 @@ export default function OverviewView({ portfolio, empty, pulse, tf, onTf, onShar
       <Brief portfolio={portfolio} empty={empty} />
       <Pulse
         perf={empty ? 0 : portfolio.perf[tf]} tf={tf} onTf={onTf}
-        text={pulse.text} aiChrome={aiChrome} loading={pulse.loading}
-        onRegenerate={pulse.regenerate} onShare={onShare} empty={empty}
+        text={pulse.text} loading={pulse.loading}
+        onShare={onShare} empty={empty}
       />
 
       {!empty && (

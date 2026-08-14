@@ -39,7 +39,6 @@
 .research-root .badge-paused{color:var(--amber);background:rgba(184,132,31,.1);border:1px solid rgba(184,132,31,.2);cursor:help}
 html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:var(--sg-s);border-color:color-mix(in srgb, var(--sg) 28%, transparent)}
 .research-root .apphead .sub{font-size:13px;color:var(--ink-faint);margin-top:3px;letter-spacing:0}
-.research-root .ai-gradient-text{background:linear-gradient(95deg,var(--ai-1),var(--ai-2));-webkit-background-clip:text;background-clip:text;color:transparent}
 
 /* CRYP-102 (F2): the sub-nav flows directly under the header inside .research-stickyhead —
    no own sticky/top; it pins as part of the block at the header's real height. */
@@ -77,10 +76,6 @@ html[data-theme="dark"] .research-root .badge-live{color:var(--sg);background:va
 .research-root .pulse-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
 .research-root .pulse-head .left{display:flex;align-items:center;gap:8px}
 .research-root .pulse-label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
-/* CRYP-93: the neutral AI status pill beside the Pulse label — replaces the old
-   "AI is offline" apology. Token-driven (paper/ink/line all flip per theme), so it's
-   dark-safe with no data-theme block. */
-.research-root .ai-status{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);background:var(--paper-3);border:1px solid var(--line);border-radius:999px;padding:2px 8px;line-height:1.5}
 /* R7-4: Share/Regenerate as the app's soft-green secondary pill (= .ci-app .tx-btn.buy).
    --accent-soft/--accent-ink already flip in dark, so this also fixes the old neutral
    pill vanishing on the dark page (no new dark rule needed). */
