@@ -66,6 +66,15 @@ const statsDaily = require("./stats-daily.js");
 // Sentry DSN is configured in admin Settings.
 const featureFlags = require("./features.js");
 const observability = require("./observability.js");
+// Plan B PR-E2: Wave-B AI research proxy — the pure token-cost / app-wide monthly $-budget
+// ledger, the holdings→prompt safety-allowlist helper, the seamed Anthropic request/response
+// shaping, and the fail-closed generate→validate→judge orchestrator (which runs the REAL
+// validate-output.js naming/advice/price wall on every candidate before any text can reach
+// the client). Used only by exports.researchAsk.
+const aiCost = require("./ai-cost.js");
+const { holdingsContext } = require("./ai-context.js");
+const { buildMessagesRequest, parseMessage, callAnthropic } = require("./ai-anthropic.js");
+const { runResearchAsk } = require("./ai-proxy.js");
 // ADMIN-0: the pure signups decision behind the Auth beforeCreate blocking function.
 const signupGate = require("./signup-gate.js");
 // CRYP-101: the pure paidPlansEnabled predicate (top-level launch-free switch).
@@ -1753,6 +1762,116 @@ exports.exportMyData = functions.https.onCall(async (data, context) => {
     profile: userSnap.exists ? userSnap.data() : {},
     portfolios,
   };
+});
+
+// ─── Plan B PR-E2: Wave-B AI research proxy (signed-in user) ───
+// A signed-in user asks about THEIR OWN book. The callable generates via Sonnet 5, judges
+// via Haiku 4.5 (through the fail-closed functions/ai-proxy.js orchestrator, which runs the
+// REAL functions/validate-output.js naming/advice/price wall on every candidate BEFORE any
+// text can reach the client), meters the ACTUAL token cost into the app-wide
+// aiBudget/{YYYY-MM} ledger, and returns { answer, fellBack } — NEVER violating text.
+//
+// FAIL-CLOSED gate order — each refuses BEFORE any Anthropic call / any spend / any daily-
+// budget touch:
+//   1 auth → 2 question validation (non-blank string, ≤500) + deny-by-default keys →
+//   3 aiResearch kill-switch (FRESH config, not the 60s cache) → 4 anthropicKey present →
+//   5 per-uid daily budget → 6 app-wide monthly $-cap (fail-closed) → 7 generate + meter.
+// Acts on context.auth.uid only — NEVER a body uid (no IDOR). Request shape is { question }.
+exports.researchAsk = functions.https.onCall(async (data, context) => {
+  // 1) Auth.
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  // 2) Deny-by-default input shape + question validation (non-blank string, ≤500 chars).
+  assertNoUnknownKeys(data, ["question"]);
+  const q = data && data.question;
+  if (typeof q !== "string" || q.trim() === "" || q.length > 500) {
+    throw new functions.https.HttpsError("invalid-argument", "Ask a question (up to 500 characters).");
+  }
+  const uid = context.auth.uid;                 // the caller — NEVER from the body (no IDOR)
+
+  // 3) aiResearch kill-switch, read FRESH from config/app (NOT the 60s featureOn() cache —
+  // an enforcement point must not lag its own switch). Must refuse BEFORE the per-uid budget
+  // is touched, so a killed feature accrues no rate-limit state either.
+  let cfg = {};
+  try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* default-ON below */ }
+  if (!featureFlags.featureEnabled(cfg, "aiResearch")) {
+    throw new functions.https.HttpsError("failed-precondition", "AI research is turned off right now.");
+  }
+  // 4) An Anthropic key must be configured or there is nothing to generate with. Never
+  // logged or returned — it is header-only inside ai-anthropic.js.
+  const anthropicKey = (cfg.ai && cfg.ai.anthropicKey) || process.env.ANTHROPIC_KEY || "";
+  if (!anthropicKey) {
+    throw new functions.https.HttpsError("failed-precondition", "AI research is not configured yet.");
+  }
+  // 5) Per-uid daily budget (reuse guards.js) — bounds a scripted loop. Consumed only past
+  // the kill-switch, so an OFF feature leaves no per-uid rate-limit doc behind.
+  const budget = await consumeDailyBudget(db, { uid, key: "researchAsk", limit: 50 });
+  if (!budget.allowed) throw new functions.https.HttpsError("resource-exhausted", "You've reached today's research limit — please try again tomorrow.");
+  // 6) App-wide monthly $-cap, FAIL-CLOSED. A throw from the ledger read is a HARD refusal
+  // (unavailable 503) — NEVER a silent .catch(()=>0) that would let spend run past the cap
+  // during a Firestore blip. budgetExceeded is a >= wall (a prior crossing charge recorded).
+  let spent;
+  try { spent = await aiCost.readMonthSpendCents(db, {}); }
+  catch (e) { throw new functions.https.HttpsError("unavailable", "AI research is briefly unavailable. Please try again shortly."); }
+  const capCents = (cfg.ai && Number.isFinite(cfg.ai.monthlyCapCents)) ? cfg.ai.monthlyCapCents : 5000;
+  if (aiCost.budgetExceeded(spent, capCents)) {
+    throw new functions.https.HttpsError("resource-exhausted", "The monthly AI budget has been reached. Please try again next month.");
+  }
+
+  // 7) Generate + meter + return. Read the caller's holdings across ALL their portfolios
+  // (same shape as exportMyData) → the SERVER-AUTHORITATIVE safety allowlist + context. The
+  // allowlist is derived only from the caller's own coin docs, never trusted from the client.
+  const coins = [];
+  const pSnap = await db.collection("users").doc(uid).collection("portfolios").get();
+  for (const p of pSnap.docs) {
+    const cSnap = await p.ref.collection("coins").get();
+    for (const co of cSnap.docs) coins.push(co.data());
+  }
+  const { allowedNames, contextText } = holdingsContext(coins);
+
+  const SYS =
+    'You are the research assistant inside "CryptoIdea", a crypto portfolio app. ' +
+    "Answer the user's question about THEIR portfolio in plain, friendly English, " +
+    "2-4 sentences. Be neutral and educational. Never give financial advice, " +
+    "buy/sell/hold recommendations, or price predictions. Only name a coin the user " +
+    "actually holds. " + contextText;
+  const JUDGE_SYS =
+    "You are a strict safety reviewer for a crypto portfolio app. Reply with EXACTLY the " +
+    'single word "SAFE" if the text contains no financial advice, no buy/sell/hold ' +
+    "recommendation, no price prediction or target, no portfolio-allocation percentage, " +
+    'and no aggregate rating/score. Otherwise reply with the single word "UNSAFE".';
+
+  // Self-metering closures. runResearchAsk returns a FLAT, untagged usage list — the caller
+  // cannot tell which model produced which entry — so the closures charge as they go, each at
+  // the correct per-model rate (Sonnet 5 generation, Haiku 4.5 judge). The generation model
+  // MUST NOT contain "haiku" and the judge model MUST contain "haiku" (the founder-locked
+  // pair, and the stub routes by /haiku/i.test(body.model)).
+  const metered = [];   // cents, in call order
+  const callModel = async () => {
+    const body = buildMessagesRequest({ system: SYS, userMsg: q, maxTokens: 1024, model: "claude-sonnet-5" });
+    const json = await callAnthropic({ apiKey: anthropicKey, body, fetchImpl: fetch });
+    const p = parseMessage(json);
+    metered.push(aiCost.costCents(p.usage, aiCost.SONNET5_RATES));
+    return { text: p.text, usage: p.usage, stopReason: p.stopReason };
+  };
+  const judge = async (text) => {
+    const body = buildMessagesRequest({ system: JUDGE_SYS, userMsg: text, maxTokens: 16, model: "claude-haiku-4-5" });
+    const json = await callAnthropic({ apiKey: anthropicKey, body, fetchImpl: fetch });
+    const p = parseMessage(json);
+    metered.push(aiCost.costCents(p.usage, aiCost.HAIKU45_RATES));
+    return { safe: /^\s*SAFE\s*$/i.test(p.text || ""), usage: p.usage };
+  };
+
+  const result = await runResearchAsk({ question: q, context: contextText, allowedNames, callModel, judge });
+
+  // Charge the EXACT metered sum — every burned generation (even rejected/refused ones) and
+  // every judge call is accounted, so the app-wide cap can never be under-metered.
+  const totalCents = metered.reduce((a, b) => a + b, 0);
+  if (totalCents > 0) await aiCost.chargeMonthCents(db, { cents: totalCents });
+
+  // NEVER return violating text — the fail-closed fallback is answer:"" / fellBack:true.
+  // No writeAudit: this is a high-frequency user action; the aiBudget ledger + the per-uid
+  // daily rate limit are the accountability (auditing every chat turn would flood the log).
+  return { answer: result.text, fellBack: result.fellBack };
 });
 
 // ─── Self-service (DI-3): recompute the caller's OWN aggregate counters from real docs ───

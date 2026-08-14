@@ -36,6 +36,10 @@
       "description": "Signed-in user self-service account actions (GDPR/CCPA, sessions, counters)."
     },
     {
+      "name": "Research",
+      "description": "Signed-in user AI research proxy — asks about the caller's OWN holdings; fail-closed, server-side output validation, app-wide budget-metered."
+    },
+    {
       "name": "Admin",
       "description": "Admin-only operations. Require the verified {admin:true} custom claim in one of two roles: `manager` (read + account management) or `owner` (Settings, manager grants, permanent erasure — plus a step-up password re-auth). Owners are protected by IDENTITY: they can never be deleted, trashed, demoted or self-deleted, and a manager may not act on an owner at all; the MIN_ADMINS count is only a secondary floor. firestore.rules matches — any admin may READ users, but the blanket update/delete branches are owner-only. Kept in the PRIVATE repo."
     },
@@ -743,6 +747,93 @@
           },
           "500": {
             "description": "internal (PayPal error).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
+    "/researchAsk": {
+      "post": {
+        "operationId": "researchAsk",
+        "summary": "Wave-B AI research proxy — ask about your own holdings (Plan B PR-E2)",
+        "description": "Callable. A signed-in user asks a question about THEIR OWN portfolio. The server builds a safety allowlist from the caller's own coin docs, generates via Sonnet 5, and runs the fail-closed validate-output.js naming/advice/price wall plus a Haiku 4.5 judge on every candidate BEFORE any text reaches the client — so it NEVER returns financial advice, buy/sell/hold recommendations, price targets, allocation percentages or aggregate scores. Meters the actual token cost into the app-wide monthly aiBudget ledger. Fail-closed gate order: auth → question validation (non-blank, ≤500) + deny-by-default keys → aiResearch kill-switch (fresh config) → Anthropic key present → per-uid daily budget → app-wide monthly $-cap. Acts on context.auth.uid only (no IDOR). Returns { answer, fellBack } — a fail-closed fallback is answer:\"\" / fellBack:true.",
+        "tags": [
+          "Research"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchAskEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The answer (empty string on a fail-closed fallback) and whether it fell back.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchAskResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument (blank/non-string/too-long question, or an unknown field) / failed-precondition (aiResearch kill-switch off, or no Anthropic key configured).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "resource-exhausted — the per-uid daily budget is exhausted, or the app-wide monthly $-cap has been reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "unavailable — the monthly AI budget ledger could not be read (fail-closed refusal).",
             "content": {
               "application/json": {
                 "schema": {
@@ -4190,6 +4281,55 @@
                 "pattern": "^[A-Za-z0-9_-]*$"
               }
             },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResearchAskEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "question": {
+                "type": "string",
+                "description": "The user's question about their OWN portfolio. Non-blank, trimmed; capped at 500 characters.",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "question"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "ResearchAskResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "answer": {
+                "type": "string",
+                "description": "The validated answer text. Empty string on a fail-closed fallback (fellBack:true).",
+                "maxLength": 8192
+              },
+              "fellBack": {
+                "type": "boolean",
+                "description": "True when the fail-closed orchestrator hit the regen cap without a clean+judge-safe candidate — the answer is then the empty safe fallback, never violating text."
+              }
+            },
+            "required": [
+              "answer",
+              "fellBack"
+            ],
             "additionalProperties": false
           }
         },
