@@ -2157,7 +2157,13 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
     legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
     // BL-2d (D10): the reserved AI section — the key itself never leaves the server.
-    ai: { anthropicKeySet: !!(cfg.ai && cfg.ai.anthropicKey) },
+    // PR-E1: monthlyCapCents (the app-wide Wave-B AI $-cap) is operational config, NOT a
+    // secret, so it round-trips as a FULL NUMBER the Settings form can show/edit; default
+    // 5000 (= $50) when unset. The Anthropic key stays a boolean set-flag beside it.
+    ai: {
+      anthropicKeySet: !!(cfg.ai && cfg.ai.anthropicKey),
+      monthlyCapCents: (cfg.ai && Number.isFinite(cfg.ai.monthlyCapCents)) ? cfg.ai.monthlyCapCents : 5000,
+    },
     // ADMIN-6: whether a Settings password is set (drives set-vs-change UI). The
     // scrypt hash/salt NEVER leave the server — only this boolean + when it changed.
     settingsAuth: { set: !!(cfg.settingsAuth && cfg.settingsAuth.hash), updatedAt: (cfg.settingsAuth && cfg.settingsAuth.updatedAt) || null },
@@ -2167,6 +2173,18 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     updatedAt: cfg.updatedAt || null,
   };
 });
+
+// PR-E1: resolve the app-wide monthly AI $-cap for a saveConfig write. `incoming` is the
+// (optional) keys.aiMonthlyCapCents from the payload; `current` the stored value. Present
+// ⇒ clamp to a non-negative integer; OMITTED/blank/garbage ⇒ KEEP the stored value; never
+// set ⇒ default 5000 (= $50). Pure — no I/O.
+function clampMonthlyCapCents(incoming, current) {
+  if (incoming !== undefined && incoming !== null && incoming !== "") {
+    const n = Math.round(Number(incoming));
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return Number.isFinite(current) ? Math.max(0, Math.round(current)) : 5000;
+}
 
 // ─── Save app config / API keys (admins only) ───
 // Writes the admin dashboard's Settings (CoinGecko + PayPal keys, email provider)
@@ -2233,7 +2251,16 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
     plans: mergePlans((data && data.plans) || existing.plans),
     // BL-2d (D10): Anthropic key for the Wave-B AI proxy — same keep() idiom as the
     // other secrets (a blank field keeps the saved value; the key is never echoed back).
-    ai: { anthropicKey: keep(k.anthropicKey, (existing.ai || {}).anthropicKey) },
+    // PR-E1: monthlyCapCents is the app-wide AI $-cap — NOT a secret (it round-trips as a
+    // full number), so it is NOT keep()-guarded and NOT in SECRET_PATHS. But it follows
+    // the same KEEP-on-OMIT rule as flags.requireAdminMfa/paidPlansEnabled: the instant
+    // maintenance/signups toggles post WITHOUT `keys`, so an omitted cap must preserve the
+    // stored ceiling, not silently reset it. Clamp to a non-negative integer; default 5000
+    // (= $50) when never set.
+    ai: {
+      anthropicKey: keep(k.anthropicKey, (existing.ai || {}).anthropicKey),
+      monthlyCapCents: clampMonthlyCapCents(k.aiMonthlyCapCents, (existing.ai || {}).monthlyCapCents),
+    },
     // ADMIN-2: the Sentry DSN — same keep() idiom as the secrets, so re-saving the
     // form without re-typing it doesn't silently switch error reporting off.
     sentry: { dsn: keep(k.sentryDsn, (existing.sentry || {}).dsn) },

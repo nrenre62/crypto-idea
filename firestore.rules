@@ -105,6 +105,12 @@ service cloud.firestore {
     match /webhookEvents/{document=**} {
       allow read, write: if false;
     }
+    // Plan B PR-E1: the app-wide AI spend ledger (aiBudget/{YYYY-MM}) is server-only — a
+    // client-writable budget could be zeroed to fake-exhaust or grant free spend, defeating
+    // config/app.ai.monthlyCapCents. Written ONLY by the Admin SDK inside the AI proxy.
+    match /aiBudget/{document=**} {
+      allow read, write: if false;
+    }
     match /cache/{document=**} {
       allow read, write: if false;
     }
