@@ -40,6 +40,9 @@ Everything below is complete but unreleased — the feature areas that make up t
 Epic (newest area first). These are **not** tagged releases.
 
 ### Security, data isolation & hardening
+- Security audits (results folded into the code, the rules, and [SECURITY.md](docs/security/SECURITY.md)):
+  a `secure-by-design` five-area review (2026-06-16) and a multi-agent `vibe-security` audit
+  (2026-06-27, 8 confirmed findings) — every code-fixable finding fixed, tested, and verified.
 - Secure-by-design audit: framework + reusable checklist (CRYP-70).
 - Data-isolation audit — 23 cross-tenant probes, no IDOR (CRYP-71).
 - Hardened Firestore security rules; deny-by-default Storage rules (CRYP-72, CRYP-73).

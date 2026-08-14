@@ -1,11 +1,6 @@
-<!--
-  API-SECURITY.md — canonical record of the API surface, how every client connects
-  to it, how API keys/secrets are protected, and the security-review findings + fixes.
-  Companion machine-readable contract: openapi.json (repo root).
-  Created 2026-07-08 from a founder interview (see "Interview decisions" below).
--->
-
 # API & Key Security
+
+Part of **[SECURITY.md](SECURITY.md)** — return to the security map.
 
 The single source of truth for **what the API is, how it's wired, and how the keys stay safe.**
 The machine-readable contract is [`openapi.json`](../../openapi.json) (OpenAPI 3.0.3, 36 operations).
