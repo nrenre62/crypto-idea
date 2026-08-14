@@ -452,13 +452,15 @@
 ## C. By design — NOT bugs (documented so they aren't "fixed" by mistake)
 
 - **C1 · Research AI is a stub, and that's honest now (not an apology).** `src/features/research/api/ai-client.js`
-  throws `research-ai-proxy-not-configured`; `useAsk`/`usePulse` catch it and render the deterministic
-  data-driven summary — which IS the shipped product. As of **CRYP-93 (2026-08-08)** the old "AI is offline —
-  showing a basic summary" note was **removed** and replaced by a neutral **"AI off"/"AI on" status pill**; the
-  live-AI ornaments (gradient label, Regenerate, "AI-generated" disclaimer) and the Ask chat are gated off
-  (`AI_PROXY_LIVE` + the `aiResearch` flag) until the proxy ships. Live Claude is **Wave B** (secure Cloud
-  Function proxy holding the Anthropic key + the `validate-output.js` validator). *Nice-to-have:* a dev-only
-  `console.warn` so a future misconfigured proxy doesn't fail silently. ℹ️
+  `askClaude` throws `research-ai-proxy-not-configured` **while `AI_PROXY_LIVE` is false**; `useAsk` catches it and
+  renders the deterministic data-driven summary — which IS the shipped product. As of **PR-E3 (CRYP-106,
+  2026-08-14)** `usePulse` is **severed from AI** (deterministic by construction — it no longer calls `askClaude`)
+  and the Pulse card's "AI off"/"AI on" pill, gradient label and Regenerate button were **removed**; the only
+  live-AI ornament left is the tab-level "AI-generated" Ask disclaimer, gated off via `aiChrome`
+  (`chatEnabled && AI_PROXY_LIVE`), and the Ask chat is gated on the `aiResearch` flag until the proxy ships. Live
+  Claude is **Wave B** — the secure Cloud Function proxy (`researchAsk`, PR-E1/E2 built) holding the Anthropic key
+  + the `validate-output.js` validator (already imported/run inside the proxy), live once `AI_PROXY_LIVE` flips at
+  go-live. *Nice-to-have:* a dev-only `console.warn` so a future misconfigured proxy doesn't fail silently. ℹ️
 - **C2 · Audit logging is best-effort.** `functions/index.js` `writeAudit` (~85-97) logs and swallows its own
   failures so a bad audit write never breaks an admin action (correct policy). Monitor Functions logs for
   `writeAudit` errors as a config/quota signal. ℹ️

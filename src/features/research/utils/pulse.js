@@ -8,7 +8,7 @@
 // no advice/prediction/target (S1–S4), and never NaN/Infinity/∞ on a degenerate book.
 import { fmtPct, money } from './format';
 
-// Timeframe wording — the single source (usePulse imports it for the AI prompt too).
+// Timeframe wording — the single source, used below to build each facts object's tfWord.
 export const TFWORD = { '24h': 'last 24 hours', '7d': 'last 7 days', '30d': 'last 30 days' };
 
 const EMPTY_LINE = 'Once you add coins, your portfolio summary appears here.';

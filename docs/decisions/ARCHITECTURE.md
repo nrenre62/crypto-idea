@@ -153,7 +153,8 @@ Tiers, TTLs and cost figures are **not restated here** — they are the deep rec
 [`CACHE-POLICY.md`](CACHE-POLICY.md). *Source: `CLAUDE.md` "Known notes"; [`docs/diagrams/coin-data-flow.svg`](../diagrams/coin-data-flow.svg).*
 
 ### ARCH-12 — AI / Research safety: fail-closed, no live AI yet, research-never-advice `[current + aspirational]`
-There is **no live AI today** (`api/ai-client.js` `askClaude` throws by design); every AI surface renders
+There is **no live AI today** (`api/ai-client.js` `askClaude` throws while `AI_PROXY_LIVE` is `false`; the
+server `researchAsk` proxy exists but nothing calls it in a live path yet); every AI surface renders
 a deterministic, data-driven summary presented as the real feature. `AI_PROXY_LIVE` (in `api/ai-status.js`,
 `false` today) is the single go-live seam. When live AI ships (Wave B, `[aspirational]`): it MUST run
 server-side behind a Cloud Function holding the Anthropic key, MUST run the fail-closed output validator
