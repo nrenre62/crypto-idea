@@ -1818,72 +1818,82 @@ exports.researchAsk = functions.https.onCall(async (data, context) => {
   // NEVER a silent .catch(()=>0) that would let spend run past the cap during a Firestore blip.
   const capCents = (cfg.ai && Number.isFinite(cfg.ai.monthlyCapCents)) ? cfg.ai.monthlyCapCents : 5000;
   const estCents = aiCost.reservationMaxCents();
+  // Pin ONE timestamp for BOTH the reserve and its settle (Fix #1 / CRYP-107): a request in
+  // flight across UTC midnight on the 1st must not reserve against month N but settle the delta
+  // against month N+1 (which would seed N+1 negative — raising its cap — and strand +estCents in
+  // month N). ai-cost's monthKey derives the aiBudget/{YYYY-MM} doc id from this exact instant.
+  const reserveNow = Date.now();
   let dec;
-  try { dec = await aiCost.reserveMonthCents(db, { estCents, capCents }); }
+  try { dec = await aiCost.reserveMonthCents(db, { estCents, capCents, now: reserveNow }); }
   catch (e) { throw new functions.https.HttpsError("unavailable", "AI research is briefly unavailable. Please try again shortly."); }
   if (!dec.allowed) {
     throw new functions.https.HttpsError("resource-exhausted", "The monthly AI budget has been reached. Please try again next month.");
   }
   const reservedCents = dec.reservedCents;
 
-  // 7) Generate + meter + return. Read the caller's holdings across ALL their portfolios
-  // (same shape as exportMyData) → the SERVER-AUTHORITATIVE safety allowlist + context. The
-  // allowlist is derived only from the caller's own coin docs, never trusted from the client.
-  const coins = [];
-  const pSnap = await db.collection("users").doc(uid).collection("portfolios").get();
-  for (const p of pSnap.docs) {
-    const cSnap = await p.ref.collection("coins").get();
-    for (const co of cSnap.docs) coins.push(co.data());
-  }
-  const { allowedNames, contextText } = holdingsContext(coins);
-
-  const SYS =
-    'You are the research assistant inside "CryptoIdea", a crypto portfolio app. ' +
-    "Answer the user's question about THEIR portfolio in plain, friendly English, " +
-    "2-4 sentences. Be neutral and educational. Never give financial advice, " +
-    "buy/sell/hold recommendations, or price predictions. Only name a coin the user " +
-    "actually holds. " + contextText;
-  const JUDGE_SYS =
-    "You are a strict safety reviewer for a crypto portfolio app. Reply with EXACTLY the " +
-    'single word "SAFE" if the text contains no financial advice, no buy/sell/hold ' +
-    "recommendation, no price prediction or target, no portfolio-allocation percentage, " +
-    'and no aggregate rating/score. Otherwise reply with the single word "UNSAFE".';
-
-  // Self-metering closures. runResearchAsk returns a FLAT, untagged usage list — the caller
-  // cannot tell which model produced which entry — so the closures charge as they go, each at
-  // the correct per-model rate (Sonnet 5 generation, Haiku 4.5 judge). The generation model
-  // MUST NOT contain "haiku" and the judge model MUST contain "haiku" (the founder-locked
-  // pair, and the stub routes by /haiku/i.test(body.model)).
-  const metered = [];   // cents, in call order
-  const callModel = async () => {
-    const body = buildMessagesRequest({ system: SYS, userMsg: q, maxTokens: 1024, model: "claude-sonnet-5" });
-    const json = await callAnthropic({ apiKey: anthropicKey, body, fetchImpl: fetch });
-    const p = parseMessage(json);
-    metered.push(aiCost.costCents(p.usage, aiCost.SONNET5_RATES));
-    return { text: p.text, usage: p.usage, stopReason: p.stopReason };
-  };
-  const judge = async (text) => {
-    const body = buildMessagesRequest({ system: JUDGE_SYS, userMsg: text, maxTokens: 16, model: "claude-haiku-4-5" });
-    const json = await callAnthropic({ apiKey: anthropicKey, body, fetchImpl: fetch });
-    const p = parseMessage(json);
-    metered.push(aiCost.costCents(p.usage, aiCost.HAIKU45_RATES));
-    return { safe: /^\s*SAFE\s*$/i.test(p.text || ""), usage: p.usage };
-  };
-
-  // Settle the reservation to the ACTUAL metered cost in a finally: charge the delta
-  // (totalCents - reservedCents), which is NEGATIVE when the true spend came in under the
-  // worst-case estimate (the common case) and releases the over-reservation. Every burned
-  // generation (even rejected/refused ones) and every judge call is metered, so the app-wide cap
-  // can never be under-charged. The finally guarantees the settle lands even if a LATER Anthropic
-  // call throws mid-request (a network blip after attempt 1 already burned tokens): a zero-gen
-  // throw settles (0 - reserved), fully releasing the reservation; then the original error
-  // propagates. metered[] holds only completed calls' cents — so the delta is always exact.
+  // 7) Generate + meter + return. Once the reserve has committed, EVERYTHING that follows runs
+  // inside ONE try/finally (Fix #2 / CRYP-107) so the settle ALWAYS lands and the reservation can
+  // never be stranded — even if the holdings read or context build throws BEFORE any generation,
+  // in which case metered[] is empty → totalCents 0 → the settle charges (0 - reservedCents),
+  // fully releasing the hold. metered[] + result are declared out here so the finally (and the
+  // return after it) can read them; reservedCents was captured above.
+  const metered = [];   // cents, in call order — declared before the try so the finally sees it
   let result;
   try {
+    // Read the caller's holdings across ALL their portfolios (same shape as exportMyData) → the
+    // SERVER-AUTHORITATIVE safety allowlist + context. The allowlist is derived only from the
+    // caller's own coin docs, never trusted from the client.
+    const coins = [];
+    const pSnap = await db.collection("users").doc(uid).collection("portfolios").get();
+    for (const p of pSnap.docs) {
+      const cSnap = await p.ref.collection("coins").get();
+      for (const co of cSnap.docs) coins.push(co.data());
+    }
+    const { allowedNames, contextText } = holdingsContext(coins);
+
+    const SYS =
+      'You are the research assistant inside "CryptoIdea", a crypto portfolio app. ' +
+      "Answer the user's question about THEIR portfolio in plain, friendly English, " +
+      "2-4 sentences. Be neutral and educational. Never give financial advice, " +
+      "buy/sell/hold recommendations, or price predictions. Only name a coin the user " +
+      "actually holds. " + contextText;
+    const JUDGE_SYS =
+      "You are a strict safety reviewer for a crypto portfolio app. Reply with EXACTLY the " +
+      'single word "SAFE" if the text contains no financial advice, no buy/sell/hold ' +
+      "recommendation, no price prediction or target, no portfolio-allocation percentage, " +
+      'and no aggregate rating/score. Otherwise reply with the single word "UNSAFE".';
+
+    // Self-metering closures. runResearchAsk returns a FLAT, untagged usage list — the caller
+    // cannot tell which model produced which entry — so the closures charge as they go, each at
+    // the correct per-model rate (Sonnet 5 generation, Haiku 4.5 judge). The generation model
+    // MUST NOT contain "haiku" and the judge model MUST contain "haiku" (the founder-locked
+    // pair, and the stub routes by /haiku/i.test(body.model)).
+    const callModel = async () => {
+      const body = buildMessagesRequest({ system: SYS, userMsg: q, maxTokens: 1024, model: "claude-sonnet-5" });
+      const json = await callAnthropic({ apiKey: anthropicKey, body, fetchImpl: fetch });
+      const p = parseMessage(json);
+      metered.push(aiCost.costCents(p.usage, aiCost.SONNET5_RATES));
+      return { text: p.text, usage: p.usage, stopReason: p.stopReason };
+    };
+    const judge = async (text) => {
+      const body = buildMessagesRequest({ system: JUDGE_SYS, userMsg: text, maxTokens: 16, model: "claude-haiku-4-5" });
+      const json = await callAnthropic({ apiKey: anthropicKey, body, fetchImpl: fetch });
+      const p = parseMessage(json);
+      metered.push(aiCost.costCents(p.usage, aiCost.HAIKU45_RATES));
+      return { safe: /^\s*SAFE\s*$/i.test(p.text || ""), usage: p.usage };
+    };
+
     result = await runResearchAsk({ question: q, context: contextText, allowedNames, callModel, judge });
   } finally {
+    // Settle the reservation to the ACTUAL metered cost: charge the delta (totalCents -
+    // reservedCents), NEGATIVE when the true spend came in under the worst-case estimate (the
+    // common case), releasing the over-reservation to net the ledger to the true spend. Every
+    // burned generation (even rejected/refused ones) and every judge call is metered, so the cap
+    // can never be under-charged; a zero-gen throw settles (0 - reservedCents), fully releasing
+    // the hold, then the original error propagates. Pinned to reserveNow (Fix #1) so the settle
+    // targets the SAME aiBudget/{YYYY-MM} doc the reserve did.
     const totalCents = metered.reduce((a, b) => a + b, 0);
-    await aiCost.chargeMonthCents(db, { cents: totalCents - reservedCents });
+    await aiCost.chargeMonthCents(db, { cents: totalCents - reservedCents, now: reserveNow });
   }
 
   // NEVER return violating text — the fail-closed fallback is answer:"" / fellBack:true.
