@@ -40,17 +40,17 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## PR-E2.5 — Atomic app-wide AI budget-cap reservation (reserve-then-settle) (CRYP-107)
-- Phase: G2-approved (plan of record; proceeding to inner loop)
+- Phase: built (awaiting G3 merge)
 - Provenance: PLANNED (founder-directed "the new PR for the server for the AI, done completely"; scope locked by PR-E decision 4-A — separate pre-flip server PR closing the [MED] non-atomic read-then-charge overshoot). G1 interview skipped (security hardening, no product question); architect found no open founder questions.
 - G1 confirmed: yes (Story CRYP-107 filed)
 - G2 approved: yes (architect plan-of-record; reserve-then-settle mirroring consumeDailyBudget, EST_MAX_CENTS=12¢ derived)
 - Plan (files): functions/ai-cost.js (reservationMaxCents + reserveMonthCents; settle via chargeMonthCents negative delta) · functions/index.js (researchAsk gate 6 reserve + finally settle) · tests/unit/ai-cost.test.js + tests/functions-callable.test.js (CI-only) · docs (NEXT-STEPS, PRICING §4, CLAUDE.md, BILLING.md, interview.md AI-budget row) — NO client/rules/openapi change
-- Fix-round: 0 / 3
-- Open findings: none
+- Fix-round: 1 / 3
+- Open findings: none (1 go-live follow-up: real emulator concurrency test + settle-throw-in-finally note)
 - Branch: claude/plan-b-pr-e25-atomic-ai-cap (off master 728a8ec)
-- Built: no
+- Built: yes 57ffc60 (range 78ee7f4..57ffc60)
 - Merged: no
-- Agents this item: 1 (architect)
+- Agents this item: 13
 - Updated: 2026-08-14
 - Sibling: PR-E3 (#87, CRYP-106) built + CI-green, awaiting founder merge (block lives on the PR-E3 branch)
 
