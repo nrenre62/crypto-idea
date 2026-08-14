@@ -2179,11 +2179,12 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
 // ⇒ clamp to a non-negative integer; OMITTED/blank/garbage ⇒ KEEP the stored value; never
 // set ⇒ default 5000 (= $50). Pure — no I/O.
 function clampMonthlyCapCents(incoming, current) {
+  const CAP = 100000000;   // upper bound — honors openapi's `maximum` (smtpPort precedent); $1M/mo ceiling
   if (incoming !== undefined && incoming !== null && incoming !== "") {
     const n = Math.round(Number(incoming));
-    if (Number.isFinite(n) && n >= 0) return n;
+    if (Number.isFinite(n) && n >= 0) return Math.min(CAP, n);
   }
-  return Number.isFinite(current) ? Math.max(0, Math.round(current)) : 5000;
+  return Number.isFinite(current) ? Math.min(CAP, Math.max(0, Math.round(current))) : 5000;
 }
 
 // ─── Save app config / API keys (admins only) ───
