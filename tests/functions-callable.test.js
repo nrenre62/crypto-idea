@@ -429,6 +429,45 @@ test("CRYP-101: saveConfig KEEPS a stored paidPlansEnabled=false when a flags pa
   );
 });
 
+// ── Plan B PR-E1 · app-wide AI monthly $-cap round-trip (config plumbing) ──
+// The Wave-B AI proxy is bounded by ONE app-wide monthly $-cap at
+// config/app.ai.monthlyCapCents (default 5000 = $50). Unlike the Anthropic key it is
+// NOT a secret, so getAdminConfig must surface it as a FULL NUMBER the Settings form can
+// show and edit — while the key next to it stays a set-flag whose value never leaves the
+// server. This runs in CI (the functions emulator can't boot in the authoring sandbox).
+// RED today: getAdminConfig returns `ai: { anthropicKeySet }` only, so
+// cfg.ai.monthlyCapCents is undefined and the number assertion fails — red for the right
+// reason. The config-builder adds the read projection; then this goes green.
+test("PR-E1: getAdminConfig surfaces ai.monthlyCapCents as a full number; the Anthropic key stays a set-flag", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+  // Seed the app-wide cap AND a secret key directly (Admin SDK bypasses rules). No
+  // settingsAuth is set here, so getAdminConfig takes the bootstrap step-up path that a
+  // fresh owner login token satisfies.
+  await db.doc("config/app").set(
+    { ai: { anthropicKey: "sk-ant-SECRET-E1", monthlyCapCents: 6000 } },
+    { merge: true },
+  );
+  try {
+    const res = await callAs("getAdminConfig", ownerToken, {});
+    assert.strictEqual(res.status, 200, `getAdminConfig failed: ${JSON.stringify(res.body)}`);
+    const cfg = res.body.result;
+    // The cap is operational config, not a secret — it round-trips as a full number.
+    assert.strictEqual(
+      cfg.ai.monthlyCapCents, 6000,
+      `ai.monthlyCapCents must return as a full number, got ${JSON.stringify(cfg.ai && cfg.ai.monthlyCapCents)}`,
+    );
+    // The Anthropic key is a secret — it returns ONLY as a boolean set-flag…
+    assert.strictEqual(cfg.ai.anthropicKeySet, true, "anthropicKey must still report as set");
+    // …and its VALUE never appears anywhere in the response (the keep() guard, intact).
+    assert.ok(
+      !JSON.stringify(res.body).includes("sk-ant-SECRET-E1"),
+      "the raw Anthropic key must NEVER leave the server",
+    );
+  } finally {
+    await db.doc("config/app").set({ ai: FieldValue.delete() }, { merge: true });
+  }
+});
+
 // ── Plan B PR-C2 · scheduleProDowngrade — future-start Pro pre-authorization ──
 // A Premium user's Pro downgrade schedules a REAL future-start PayPal Pro subscription
 // (server returns an approvalUrl; the client redirects). scheduleProDowngrade({billing})

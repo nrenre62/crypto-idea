@@ -54,13 +54,17 @@ real-time listener** (`useAuthSession.js`) → a second device's edits aren't se
 Addressed by C12.
 
 ### ⏳ Planned, not built — the entire AI tier (the real gap)
-`convictionCache`, `getConviction`, `researchAsk`, and the per-uid AI budget counter **do not exist**
-in `functions/index.js`. `ai-client.js` `askClaude()` throws by design; every AI surface (per-coin
-Conviction, portfolio Pulse, Ask) renders a data-driven offline fallback. Conviction is fed by
-`src/features/research/data/mock-conviction.js` stamped with a fixed `2026-06-22` date (now reads as
-stale). The fail-closed output validator `functions/validate-output.js` exists and is unit-tested but
-is **wired nowhere**. This is why the AI cache policy can only be locked as decisions now and built in
-Wave B.
+The `researchAsk` callable, `getConviction`, `convictionCache`, and any live per-uid AI budget counter
+**still do not exist** in `functions/index.js`. `ai-client.js` `askClaude()` throws by design; every AI
+surface (per-coin Conviction, portfolio Pulse, Ask) renders a data-driven offline fallback. Conviction is
+fed by `src/features/research/data/mock-conviction.js` stamped with a fixed `2026-06-22` date (now reads
+as stale). The fail-closed output validator `functions/validate-output.js` exists and is unit-tested but
+is still **wired nowhere in production**. **Plan B PR-E1 (2026-08-14) shipped the INERT server foundation**
+— pure `functions/ai-cost.js` (the app-wide monthly $-budget ledger, see C7) + `functions/ai-anthropic.js`
+(raw-fetch Anthropic call, key header-only) + `functions/ai-proxy.js` (`runResearchAsk`, the fail-closed
+orchestrator that already *consumes* `validate-output.js`) + the admin `monthlyCapCents` cap — but nothing
+calls any of it. Wiring is PR-E2 (the callable) then PR-E3 (the client swap); this is why the AI cache
+policy is still mostly locked-as-decisions rather than built.
 
 ### ⚠️ Cross-cutting weakness — staleness UX
 Research Overview shows an honest "Updated Xm ago"; Portfolio shows only a generic "live" with no
@@ -116,6 +120,14 @@ The existing user AI-allowance meter (built in U9) is removed from the user UI; 
 an **admin dashboard**. Users see "AI: live" and just use the product; the budget is a business lever
 the founder manages. *Impact:* changes U9 + supersedes the BL-6/D13 "coming soon until metered" line
 (now: never user-facing).
+> **Built (inert) — Plan B PR-E1 (2026-08-14).** The founder-locked **app-wide** monthly $-cap machinery
+> now exists but is dormant: `config/app.ai.monthlyCapCents` (default **5000** = $50/mo, admin-editable
+> from the Settings AI card, clamped 0..100000000, **not a secret** — echoed as a full number, not a
+> set-flag), metered by pure `functions/ai-cost.js` (`costCents` round-up · UTC `monthKey` ·
+> `readMonthSpendCents`/`chargeMonthCents` on a **server-only `aiBudget/{YYYY-MM}` doc** · `budgetExceeded`
+> `>=` wall). This is a **single global pool**, not the per-tier `aiMonthlyCents` of C3 (see PRICING.md
+> §4). It stays admin-only and never surfaces a number to users. No callable meters against it yet — that
+> is the PR-E2 wiring.
 
 **C8 — News allowlist: an admin-managed CRUD list, seeded, wired to the conviction axes.**
 The news-domain allowlist becomes an **admin panel CRUD surface** (add/delete domains), seeded with a
@@ -204,8 +216,14 @@ Detail + checkboxes in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §C. Ranked b
 ### 🔴 Wave B P0 — must land *with* the AI proxy (cost-safety / no raw AI leak)
 - **Wire `validate-output.js` fail-closed inside the proxy** (B2) before any client body-swap (B4).
   Define its error contract: throw → offline fallback, **never** show held-back text. (Re-sequence
-  already in §0; restated here because it's the highest-consequence line.)
+  already in §0; restated here because it's the highest-consequence line.) *Foundation built inert —
+  PR-E1's `functions/ai-proxy.js` `runResearchAsk` already runs the real validator fail-closed; PR-E2
+  wires it behind the callable.*
 - **Per-uid monthly AI $-budget** (`aiMonthlyCents`, token-cost-metered), server-enforced. (C3 / BL-1; see PRICING.md §4.)
+  *PR-E1 built the distinct **app-wide** $-cap ledger (`ai-cost.js` + `config/app.ai.monthlyCapCents`,
+  see C7) inert; PR-E2 must **fail the budget read CLOSED** (a callable that `.catch(()=>0)` on an
+  unreadable `aiBudget` doc = free spend) and gate `callAnthropic` behind the `aiResearch` kill-switch +
+  a `budgetExceeded` check BEFORE generation.*
 - **App Check + `addCoinGuarded`** per-uid limiter. (C11 / B3.)
 
 ### 🟠 Wave B P1 — the AI cache layer itself

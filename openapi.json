@@ -5156,6 +5156,12 @@
                 "properties": {
                   "anthropicKeySet": {
                     "type": "boolean"
+                  },
+                  "monthlyCapCents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "description": "Plan B PR-E1. The app-wide monthly Wave-B AI spend cap in whole cents (default 5000 = $50). Operational config, NOT a secret — returned as a full number the Settings form can show and edit."
                   }
                 },
                 "additionalProperties": false
@@ -5247,6 +5253,12 @@
                     "maxLength": 512,
                     "pattern": "^[\\x21-\\x7E]*$",
                     "description": "ADMIN-2 Sentry DSN. keep()-guarded: blank KEEPS the stored value."
+                  },
+                  "aiMonthlyCapCents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "description": "Plan B PR-E1. The app-wide monthly Wave-B AI spend cap in whole cents (default 5000 = $50). NOT a secret. KEEP-on-omit: an absent value preserves the stored cap; a present value is clamped to a non-negative integer."
                   }
                 },
                 "additionalProperties": false

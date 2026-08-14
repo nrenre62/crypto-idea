@@ -199,12 +199,28 @@ When a user hits the ceiling, we degrade gracefully:
 
 ### 4.4 Implementation status
 
-- `aiMonthlyCents` is now a **first-class field** on `config/app.plans` (this
-  PR) and the admin can edit it.
+- `aiMonthlyCents` is a **first-class per-tier field** on `config/app.plans`
+  and the admin can edit it.
 - **Enforcement is not yet wired** — the AI proxy (`ai-client.js`) is still in
-  offline-fallback mode. When NEXT-STEPS B2 (`researchAsk` callable) ships,
-  the rate limiter must read `aiMonthlyCents` and meter on actual token cost.
-- Until B2, all users get offline summaries. The field is set so it's ready.
+  offline-fallback mode. When NEXT-STEPS B2/PR-E2 (`researchAsk` callable) ships,
+  the metering hook reads the budget and decrements on actual token cost.
+- Until then, all users get offline summaries. The field is set so it's ready.
+
+**⚠️ Two different budgets — don't conflate them.** Plan B **PR-E1**
+(2026-08-14) built an **app-wide single monthly $-cap** —
+`config/app.ai.monthlyCapCents` (default **5000** = **$50/mo**), admin-editable
+from the Settings AI card and metered by the pure `functions/ai-cost.js` ledger
+on a server-only `aiBudget/{YYYY-MM}` doc (round-up cents, UTC month key,
+`>=` wall). It is a **global spend pool for the whole app**, founder-locked as
+the launch cost ceiling, distinct from the **per-tier per-uid** `plans.*.aiMonthlyCents`
+described above. The per-tier fields **remain unenforced** (founder decision:
+ship the single global cap first); PR-E2 meters live spend against
+`monthlyCapCents`. Both are INERT until PR-E2 wires the `researchAsk` callable.
+The proxy's model economics are founder-locked in `functions/ai-cost.js`:
+**generation = Sonnet 5** ($3/$15 per Mtok), **judge = Haiku 4.5** ($1/$5),
+rounded up to whole cents. *(This post-dates the §3.2 margin sketch's ~$0.01
+Haiku-per-call figure — reconcile §3.2 against the locked models when PR-E2
+lands its real usage numbers.)*
 
 ---
 

@@ -147,8 +147,12 @@ pre-reconciliation archive):
 
 ### Still genuinely open (don't block Wave A)
 - **CoinGecko plan tier** under on-demand engine load (cost modeling; today ~44k calls/mo on the price proxy alone).
-- **Exact Claude/Gemini model ids** — resolve via the `claude-api` skill at code time (never hardcode from memory).
-- Which model runs the **0d output judge** (Gemini cheaper/structured vs Claude better at naming-wall nuance) — decide at B2.
+- ~~**Exact Claude/Gemini model ids**~~ — **RESOLVED, founder-locked in Plan B PR-E1 (2026-08-14):**
+  generation = **Sonnet 5**, output judge = **Haiku 4.5** (the judge is **Claude, not Gemini**), pinned in
+  `functions/ai-anthropic.js`/`functions/ai-cost.js`. *(Still verify the literal id against the live
+  `claude-api` skill before the go-live deploy — never trust a from-memory string.)*
+- ~~Which model runs the **0d output judge**~~ — **RESOLVED (PR-E1): Claude Haiku 4.5** ($1/$5 per Mtok),
+  reusing the same `buildMessagesRequest` builder as generation.
 
 ---
 

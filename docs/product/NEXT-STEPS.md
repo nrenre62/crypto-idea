@@ -708,6 +708,31 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
   PR-C2 cancel-access + future-start `ACTIVATED` timing) at go-live.
   **➡️ Remaining Plan B item = PR-E (Wave-B AI):** the secure Anthropic proxy + the `AI_PROXY_LIVE` flip
   (needs Blaze + keys) — see §0 Wave B / §C-B. All billing/subscription-lifecycle work (PR-A…PR-C3) is now done.
+  - **✅ PR-E1 · proxy FOUNDATION (2026-08-14, branch `claude/plan-b-pr-e-ai-proxy`, HEAD `691a259`) —
+    INERT, nothing calls it yet.** Founder-locked: generation **Sonnet 5**, judge **Haiku 4.5**, raw
+    fetch, a single **app-wide** monthly $-cap (default **$50/mo** = `config/app.ai.monthlyCapCents` =
+    5000), a **3-PR split**. Shipped: three pure server modules — `functions/ai-cost.js` (token→cents
+    round-up + the app-wide $-budget ledger on a server-only `aiBudget/{YYYY-MM}` doc:
+    `readMonthSpendCents`/`chargeMonthCents`/`budgetExceeded` `>=` wall, UTC month key),
+    `functions/ai-anthropic.js` (`buildMessagesRequest` Sonnet 5 · thinking disabled · effort low;
+    `parseMessage` refusal→empty; `callAnthropic` raw seamed fetch to `ANTHROPIC_BASE`, key header-only),
+    `functions/ai-proxy.js` (`runResearchAsk` — fail-closed generate → real `validate-output.js`
+    prefilter → injected judge → N=2 regen cap → never returns violating text) — plus `getAdminConfig`/
+    `saveConfig` carrying `ai.monthlyCapCents` (clamped 0..100000000, NOT a secret), a `firestore.rules`
+    server-only deny for `aiBudget/**`, the `openapi.json` contract, and an admin **Monthly AI budget cap**
+    input. Reviews: **security SAFE TO COMMIT**, contract in sync, unit 1202/1202, rules 53/53, build clean.
+  - **➡️ PR-E2 · the `researchAsk` callable (wiring) — must-dos carried from the PR-E1 security review:**
+    1. **Fail the budget read CLOSED** — `readMonthSpendCents` THROWS on an unreadable ledger; the callable
+       must REFUSE on that error, **never** `.catch(()=>0)` (which fails open = free spend).
+    2. **Gate the Anthropic path** — `callAnthropic` has no central choke point (unlike `cgFetch`); wire it
+       behind the `aiResearch` kill-switch AND a `budgetExceeded` check **BEFORE** generation.
+    3. **Concurrent overshoot** — check-then-charge isn't atomic across the model call; document the bound
+       (or add a reservation).
+  - **➡️ PR-E3 · client swap:** swap the `ai-client.js` body to call `researchAsk` and flip `AI_PROXY_LIVE`
+    in the same increment (keep the resolve-string/reject contract so the offline fallback survives).
+  - **Deferred to go-live:** a live end-to-end run with a **real Anthropic key in a sandbox** (needs
+    Blaze + keys) — PR-E1/E2/E3 are emulator-verifiable with the injected fetch/judge seams, but the real
+    upstream round-trip is only provable once a key exists.
 
 ---
 
@@ -2891,6 +2916,12 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
   (structured) **+ `validateOutput` (A9) wired in, fail-closed** + per-uid **Firestore** monthly
   $-budget (`aiMonthlyCents`, token-cost-metered — see PRICING.md §4) + **`context.app` App Check gate**
   (v1, prod-flag) + server-side tier-gate. Extract guard/budget/validator logic as pure helpers and unit-test them.
+  **⏳ Foundation built inert (Plan B PR-E1, 2026-08-14):** the pure helpers already exist — `ai-cost.js`
+  (app-wide $-cap ledger on server-only `aiBudget/{YYYY-MM}`), `ai-anthropic.js` (raw-fetch call, key
+  header-only), `ai-proxy.js` `runResearchAsk` (fail-closed generate→validator→judge→N=2) + the admin
+  `monthlyCapCents` cap. **B2/PR-E2 is now the WIRING** — the `researchAsk` callable that mounts these,
+  with the 3 review must-dos: (1) fail the budget read CLOSED (no `.catch(()=>0)`); (2) gate `callAnthropic`
+  behind `aiResearch` + `budgetExceeded` *before* generation; (3) bound/reserve against concurrent overshoot.
 - [ ] **B3 · 0a-antiabuse (#20):** `addCoinGuarded` callable — **reuses B2's per-uid limiter + App
   Check gate**; the client write path routes through it. Closes #20's rate-limit + the write-path App
   Check. Integration throttle test (rapid adds → `resource-exhausted`).
@@ -3044,12 +3075,17 @@ extend B5/B6/BL-2, they don't replace them.
 - [ ] **C-B1 · validator wired fail-closed (P0)** — restated keystone: `validateOutput` (A9) runs INSIDE
   the B2 proxy, fail-closed, **before** the B4 body-swap. Error contract: throw → offline fallback,
   never the held-back text. (Same as §0 "the one critical re-sequence" — listed here as a P0 gate.)
+  *⏳ Built inert (PR-E1): `functions/ai-proxy.js` `runResearchAsk` already runs the real validator
+  fail-closed (returns `""`, never the violating candidate); PR-E2 wires it behind the callable.*
 - [ ] **C-B2 · per-uid AI budget = monthly $-ceiling (`aiMonthlyCents`) (C3)** — build BL-1's
   limiter to decrement a per-uid **monthly** counter by the **actual token cost** of each call, capped
   at the plan's `aiMonthlyCents` (Starter $0 / Pro $4 / Premium $25). **Reconciles the 3 conflicting
   specs** (daily count vs. token-decrement vs. `aiMonthlyCents`) → the **$-ceiling** is the ceiling
   (a call-count isn't margin-safe). Server-enforced, never user-visible (C6/C7); shown as
-  "~N analyses/day". Canonical: PRICING.md §4.
+  "~N analyses/day". Canonical: PRICING.md §4. *⏳ PR-E1 built a DISTINCT **app-wide** $-cap
+  (`config/app.ai.monthlyCapCents` default $50/mo + the `ai-cost.js` `aiBudget/{YYYY-MM}` ledger) inert —
+  the founder-locked single global pool. The per-uid per-tier `aiMonthlyCents` above stays unenforced;
+  PR-E2 meters live spend against the app-wide cap and must fail the ledger read CLOSED.*
 - [ ] **C-B3 · App Check + `addCoinGuarded` alongside the proxy (C11)** — every *novel* coin = one paid
   cold run, so the per-uid add-limiter + `context.app` gate ship in the **same** Wave B push (B2/B3),
   before exposure. (Already mandated #20/D4/D5 — C11 confirms the sequencing.)

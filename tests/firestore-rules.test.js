@@ -72,6 +72,25 @@ test("rateLimits and webhookEvents are unreadable and unwritable by clients", as
   await assertFails(setDoc(doc(aliceDb(), "webhookEvents", "WH-2"), { at: 2 }));
 });
 
+// Plan B PR-E1: the app-wide AI budget ledger is server-only. aiBudget/{YYYY-MM} meters
+// live-AI $-spend against config/app.ai.monthlyCapCents; a client that could read it would
+// see spend telemetry, and one that could WRITE it could zero the meter and lift the cap —
+// turning the one control that bounds AI cost into the thing that defeats it. Only the
+// Admin SDK (which bypasses rules) touches it; no client, admin token included, gets in.
+// Mirrors rateLimits/webhookEvents/statsDaily/health/adminNotes.
+test("PR-E1: aiBudget is unreadable and unwritable by clients — including admins", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "aiBudget", "2026-08"), { cents: 4200, month: "2026-08" });
+  });
+  await assertFails(getDoc(doc(aliceDb(), "aiBudget", "2026-08")));
+  await assertFails(setDoc(doc(aliceDb(), "aiBudget", "2026-08"), { cents: 0 }));       // can't zero the meter
+  await assertFails(setDoc(doc(aliceDb(), "aiBudget", "2026-09"), { cents: 0 }));       // nor pre-create a new month
+  await assertFails(deleteDoc(doc(aliceDb(), "aiBudget", "2026-08")));
+  // The blanket admin-owner write over user docs must NOT reach this collection.
+  await assertFails(getDoc(doc(adminDb(), "aiBudget", "2026-08")));
+  await assertFails(setDoc(doc(adminDb(), "aiBudget", "2026-08"), { cents: 0 }));
+});
+
 // ADMIN-4: the daily growth series is server-only. It is aggregate data with no
 // personal content, but it is kept FOREVER and the panel presents it as the record
 // of what actually happened — a client-writable series could be poisoned to fake
