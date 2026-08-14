@@ -40,9 +40,9 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount, c
   const [tab, setTab] = useState('overview');
   const [tf, setTf] = useState('30d');
 
-  // CRYP-93: aiChrome gates the *live-AI* ornaments (gradient label, Regenerate, the
-  // "AI-generated" disclaimer) and whether askClaude ever runs. It stays false until
-  // the server proxy ships (AI_PROXY_LIVE), even when the chat tab is shown.
+  // CRYP-106: with the Pulse severed from AI, aiChrome's sole remaining job is the
+  // tab-level "AI-generated" disclaimer copy (it refers to the Ask answers). It stays
+  // false until the server proxy ships (AI_PROXY_LIVE), even when the chat tab is shown.
   const aiChrome = chatEnabled && AI_PROXY_LIVE;
   // The chat tab drops out of the sub-nav when chat is off…
   const tabs = chatEnabled ? TABS : TABS.filter((t) => t.id !== 'ask');
@@ -56,7 +56,7 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount, c
   const { prices } = usePrices(ids, source, livePrices);   // status/asOf dropped with the R13-3 freshness line
 
   const portfolio = usePortfolio(holdings, prices);
-  const pulse = usePulse(portfolio, tf, !empty && aiChrome);
+  const pulse = usePulse(portfolio, tf);   // CRYP-106: deterministic, no AI seam
   const ask = useAsk(portfolio.context);
   const sharePulse = useSharePulse();
 
@@ -86,7 +86,7 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount, c
 
       <div className="pad">
         {active === 'overview' && (
-          <OverviewView portfolio={portfolio} empty={empty} pulse={pulse} tf={tf} onTf={setTf} onShare={onShare} aiChrome={aiChrome} />
+          <OverviewView portfolio={portfolio} empty={empty} pulse={pulse} tf={tf} onTf={setTf} onShare={onShare} />
         )}
         {active === 'coins' && <CoinsView holdings={portfolio.holdings} coinOrder={coinOrder} onReorder={onReorder} empty={empty} onAsk={chatEnabled ? askAboutCoin : undefined} />}
         {active === 'ask' && <AskView messages={ask.messages} busy={ask.busy} onSend={ask.send} />}
