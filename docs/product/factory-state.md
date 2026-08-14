@@ -40,7 +40,7 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## PR-E3 — Finalize Research AI seam: Ask→researchAsk callable (flag-gated) + Pulse severed from AI (CRYP-106)
-- Phase: G2 (architect re-running for combined scope; plan-of-record)
+- Phase: built (awaiting G3 merge)
 - Provenance: PLANNED (Plan B / Wave-B PR-E split, G2 pre-approved 3-PR "Approve all"; PR-E3 G1 questions answered "go with your recs" → 1-A/2-A/3-A/5-hide/6-both) + founder mid-run directive "remove from the code the connection of Pulse to any AI" folded into scope (Part B)
 - G1 confirmed: yes (interview answered; Story CRYP-106 filed)
 - G2 approved: yes (PR-E 3-PR split pre-approved; architect = non-blocking plan-of-record for the combined scope)
@@ -48,9 +48,9 @@ a fresh context resumes **exactly where it left off**.
 - Fix-round: 0 / 3
 - Open findings: none
 - Branch: claude/plan-b-pr-e3-research-client-seam (off master 728a8ec)
-- Built: no
+- Built: yes 069a18c (range 810b3ef..069a18c)
 - Merged: no
-- Agents this item: 2 (architect ×2 — pre- and post-Pulse-decouple scope)
+- Agents this item: 12
 - Updated: 2026-08-14
 
 ## JOURNAL-POLISH — Journal/thesis type-scale + floating coin header + honest disclaimers (CRYP-105)
