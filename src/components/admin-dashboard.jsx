@@ -1339,6 +1339,13 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   <input className="field-input" type="password" value={keys.anthropicKey}
                     placeholder={setFlags.anthropicKey ? "•••••••• (saved — type to replace)" : "sk-ant-…"}
                     onChange={e => setKeys({ ...keys, anthropicKey: e.target.value })} />
+                  {/* PR-E1: the app-wide monthly $-ceiling for the live AI proxy (fail-closed,
+                      invisible to users). Bound to CENTS 1:1 with config/app.ai.monthlyCapCents. */}
+                  <label className="acct-label">Monthly AI budget cap (cents)</label>
+                  <input className="field-input" type="number" min="0" value={keys.aiMonthlyCapCents}
+                    placeholder="5000"
+                    onChange={e => setKeys({ ...keys, aiMonthlyCapCents: e.target.value === "" ? "" : Number(e.target.value) })} />
+                  <div className="card-sub">App-wide monthly ceiling for the live AI proxy — 5000 = $50/mo. Fail-closed, invisible to users.</div>
                   <button className="acct-btn accent" onClick={saveConfig}>Save AI settings</button>
                   <div className="mini-grid" style={{ gridTemplateColumns:"1fr 1fr", marginTop:14 }}>
                     <button disabled className="acct-btn ghost" style={{ marginTop:0, opacity:0.6 }} title="Available once the conviction engine ships (Wave B · B5)">Invalidate conviction cache</button>

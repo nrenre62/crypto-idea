@@ -153,7 +153,10 @@ export function useAdminDashboard() {
 
 
   // Settings forms (saved via the admin-only saveConfig Cloud Function).
-  const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "", anthropicKey: "", sentryDsn: "" });
+  // PR-E1: aiMonthlyCapCents rides the same `keys` bag (a plain integer, not a secret) so it
+  // round-trips through saveConfig → config/app.ai.monthlyCapCents. Default 5000 (= $50) so the
+  // number input is controlled from first render, before loadConfig fills it in.
+  const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "", anthropicKey: "", sentryDsn: "", aiMonthlyCapCents: 5000 });
   // ADMIN-6 PR2: the SMTP fields (smtpHost/smtpPort/smtpSecure/smtpUser/smtpPass) power the
   // DreamHost transactional send that emails the Settings-password reset link. They ride the
   // same `email: mail` save path — smtpPass is a secret (blank keeps the saved value, mirrored
@@ -208,7 +211,7 @@ export function useAdminDashboard() {
     try {
       const d = await withUnlock(() => getAdminConfig());
       if (!d || d === CANCELLED) return;
-      setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "", anthropicKey: "", sentryDsn: "" });
+      setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "", anthropicKey: "", sentryDsn: "", aiMonthlyCapCents: d.ai?.monthlyCapCents ?? 5000 });
       setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "",
         // ADMIN-6 PR2: DreamHost SMTP for the reset email. smtpPass is a secret — never
         // returned, so it stays blank; setFlags.smtpPass below carries the "saved" flag.
