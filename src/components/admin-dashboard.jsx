@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { CiTurtle } from "./ui.jsx"; // shared turtle overlay for the "C" tile
 import { useAdminDashboard } from "../hooks/useAdminDashboard.js";
 import { trashDaysLeft, partitionUsers } from "../utils/trash.js";
 // ADMIN-3: CSV export of the audit log + the users list (pure builders; the download
@@ -439,7 +440,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
       <header className="adm-bar">
         <div className="adm-bar-inner">
           <div className="adm-brand">
-            <span className="adm-logo" aria-hidden="true">C</span>
+            <span className="adm-logo" aria-hidden="true">C<CiTurtle/></span>
             <span className="adm-brand-txt">CryptoIdea <span className="adm-sub">· Admin</span></span>
           </div>
           <div className="adm-bar-right">

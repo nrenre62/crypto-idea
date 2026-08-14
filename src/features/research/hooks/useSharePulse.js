@@ -7,6 +7,31 @@ import { abbreviate } from '../utils/format';
 const TFWORD = { '24h': 'Last 24 hours', '7d': 'Last 7 days', '30d': 'Last 30 days' };
 
 function roundRect(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
+// A turtle flipper (teardrop) drawn around its (0,0) shoulder.
+function flip(x) { x.beginPath(); x.moveTo(0, 0); x.bezierCurveTo(-4, 0, -4.6, 5, -2.6, 8.6); x.bezierCurveTo(-1, 10.2, 1, 10.2, 2.6, 8.6); x.bezierCurveTo(4.6, 5, 4, 0, 0, 0); x.closePath(); }
+// The corner turtle (LOGO-TURTLE), static head-up — the same shapes as the SVG
+// mark, ported to canvas. Fully isolated by save/restore so it leaks no state.
+function drawTurtle(x, cx, cy, s) {
+  x.save(); x.translate(cx, cy); x.rotate(-28 * Math.PI / 180); x.scale(s, s);
+  x.lineCap = 'round'; x.lineJoin = 'round';
+  x.strokeStyle = '#4fa6a8'; x.lineWidth = 2.1; x.beginPath(); x.moveTo(-19, 11); x.lineTo(-3, 11); x.lineTo(2, 6.4); x.lineTo(7, 11); x.lineTo(21, 11); x.stroke();
+  x.strokeStyle = '#7fc0c1'; x.lineWidth = 1.5; x.globalAlpha = 0.7;
+  x.beginPath(); x.moveTo(-13, 15.5); x.lineTo(-4, 15.5); x.stroke();
+  x.beginPath(); x.moveTo(7, 15.5); x.lineTo(17, 15.5); x.stroke(); x.globalAlpha = 1;
+  x.fillStyle = '#c39a6b';
+  x.save(); x.translate(-11, 3); flip(x); x.fill(); x.restore();                 // back flipper
+  x.beginPath(); x.moveTo(-15, 1); x.lineTo(-20, 2.6); x.lineTo(-15.6, 5.6); x.closePath(); x.fill(); // tail
+  x.beginPath(); x.moveTo(5, -3.4); x.lineTo(19, -4.2); x.lineTo(19, 3); x.lineTo(5, 3); x.closePath(); x.fill(); // neck
+  x.beginPath(); x.ellipse(20.5, -2, 6.2, 5.2, 0, 0, Math.PI * 2); x.fill();      // head
+  x.fillStyle = '#2f2013'; x.beginPath(); x.ellipse(22.6, -4, 1.3, 1.3, 0, 0, Math.PI * 2); x.fill(); // eye
+  x.fillStyle = '#6fbe93'; x.beginPath(); x.ellipse(0, -1, 16, 11, 0, 0, Math.PI * 2); x.fill();      // shell
+  x.strokeStyle = '#3e8e6a'; x.lineWidth = 1.5; x.globalAlpha = 0.85;
+  x.beginPath(); x.moveTo(-9, -6.5); x.bezierCurveTo(-3, -9.6, 3, -9.6, 9, -6.5); x.stroke();
+  x.beginPath(); x.moveTo(-6, -8.4); x.bezierCurveTo(-8, -1, -8, 4, -5, 9.4); x.stroke();
+  x.beginPath(); x.moveTo(6, -8.4); x.bezierCurveTo(8, -1, 8, 4, 5, 9.4); x.stroke(); x.globalAlpha = 1;
+  x.fillStyle = '#c39a6b'; x.save(); x.translate(9, 4); flip(x); x.fill(); x.restore(); // front flipper
+  x.restore();
+}
 function wrap(x, t, X, Y, maxW, lh, maxLines) {
   const words = t.split(/\s+/); let line = '', n = 0;
   for (let i = 0; i < words.length; i++) {
@@ -34,6 +59,7 @@ function buildCard({ portfolio, tf, pulseText }) {
   x.fillStyle = '#fff'; x.font = '600 30px "Fraunces",Georgia,serif';
   x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('C', TX + TILE / 2, TY + TILE / 2 + 1);
   x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+  drawTurtle(x, TX + 93 * TILE / 100, TY + 12 * TILE / 100, 1.42 * TILE / 100); // turtle riding the tile corner
   x.fillStyle = '#15140f'; x.font = '600 34px "Hanken Grotesk",sans-serif'; x.fillText('CryptoIdea', TX + TILE + 16, TY + TILE / 2 + 12);
   x.fillStyle = '#15140f'; x.font = '500 56px "Fraunces",Georgia,serif'; x.fillText('Portfolio Pulse', P, 224);
   x.fillStyle = '#928f85'; x.font = '500 34px "Hanken Grotesk",sans-serif'; x.fillText(TFWORD[tf] || '', P, 300);

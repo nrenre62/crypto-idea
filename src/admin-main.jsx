@@ -22,6 +22,7 @@ import "./styles/admin-settings.css";
 // session in another tab (fixes ERRORS §A5). See api/firebase.admin.config.js.
 import { onAdminAuthChange, adminLogin, adminLogout, adminAuth, adminResetPassword } from "./api/admin-auth.js";
 import AdminDashboard from "./components/admin-dashboard.jsx";
+import { CiTurtle } from "./components/ui.jsx"; // shared turtle overlay for the "C" tile
 import SettingsPwReset from "./components/SettingsPwReset.jsx"; // ADMIN-6 PR2: emailed reset page
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx"; // H8: no white screen on a render throw
 
@@ -79,7 +80,7 @@ function AdminApp() {
   if (phase === "loading") return (
     <div className="ci-app adm-auth-wrap">
       <div className="adm-auth-logo">
-        <span className="adm-logo lg" aria-hidden="true">C</span>
+        <span className="adm-logo lg" aria-hidden="true">C<CiTurtle/></span>
         <div className="adm-auth-loading">Loading…</div>
       </div>
     </div>
@@ -100,7 +101,7 @@ function AdminApp() {
   // Shared sign-in lockup: the green logo tile + the CryptoIdea · Admin brand.
   const logo = (
     <div className="adm-auth-logo">
-      <span className="adm-logo lg" aria-hidden="true">C</span>
+      <span className="adm-logo lg" aria-hidden="true">C<CiTurtle/></span>
       <div className="adm-auth-brand">CryptoIdea<span className="adm-auth-sub">Admin</span></div>
     </div>
   );
