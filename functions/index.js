@@ -1806,26 +1806,25 @@ exports.researchAsk = functions.https.onCall(async (data, context) => {
   // the kill-switch, so an OFF feature leaves no per-uid rate-limit doc behind.
   const budget = await consumeDailyBudget(db, { uid, key: "researchAsk", limit: 50 });
   if (!budget.allowed) throw new functions.https.HttpsError("resource-exhausted", "You've reached today's research limit — please try again tomorrow.");
-  // 6) App-wide monthly $-cap, FAIL-CLOSED. A throw from the ledger read is a HARD refusal
-  // (unavailable 503) — NEVER a silent .catch(()=>0) that would let spend run past the cap
-  // during a Firestore blip. budgetExceeded is a >= wall (a prior crossing charge recorded).
-  //
-  // BOUNDED OVERSHOOT (accepted while DORMANT; harden before PR-E3 — see NEXT-STEPS §Plan B):
-  // this read-then-act cap check is NOT atomic with the later chargeMonthCents write, so N
-  // requests in-flight together can all read spent<cap and all generate before any charges,
-  // overshooting the cap by ~(peak concurrency × per-request cost). The overshoot is bounded
-  // (each request is ≤3 Sonnet gens + ≤3 Haiku judges over a ≤40-coin/≤64-char-name context —
-  // a few cents; once crossed every serial call refuses; resets per UTC month) and there is
-  // ZERO live exposure today (AI_PROXY_LIVE=false, no caller). The atomic-reservation fix
-  // (reserve an estimated max up front, reconcile to actual after) belongs to the increment
-  // that flips the client seam live, where the overshoot becomes real money.
-  let spent;
-  try { spent = await aiCost.readMonthSpendCents(db, {}); }
-  catch (e) { throw new functions.https.HttpsError("unavailable", "AI research is briefly unavailable. Please try again shortly."); }
+  // 6) App-wide monthly $-cap, FAIL-CLOSED — atomic reserve-then-settle (PR-E2.5 / CRYP-107).
+  // reserveMonthCents holds the worst-case per-request ESTIMATE (reservationMaxCents = 12¢:
+  // (MAX_REGENS+1) attempts × one Sonnet gen + one Haiku judge each) in ONE transaction, so N
+  // concurrent requests can no longer all read spent<cap and all generate before any charge —
+  // the second racer sees the first's reserve and is denied. It DENIES (reserving nothing) when
+  // current+estimate would exceed the cap, so a call whose remaining headroom is smaller than the
+  // estimate refuses BEFORE generating. The finally below settles the delta (actual-reserved,
+  // possibly NEGATIVE) via chargeMonthCents, releasing the over-reservation to net the ledger to
+  // the true spend. A throw from the reserve transaction is a HARD refusal (unavailable 503) —
+  // NEVER a silent .catch(()=>0) that would let spend run past the cap during a Firestore blip.
   const capCents = (cfg.ai && Number.isFinite(cfg.ai.monthlyCapCents)) ? cfg.ai.monthlyCapCents : 5000;
-  if (aiCost.budgetExceeded(spent, capCents)) {
+  const estCents = aiCost.reservationMaxCents();
+  let dec;
+  try { dec = await aiCost.reserveMonthCents(db, { estCents, capCents }); }
+  catch (e) { throw new functions.https.HttpsError("unavailable", "AI research is briefly unavailable. Please try again shortly."); }
+  if (!dec.allowed) {
     throw new functions.https.HttpsError("resource-exhausted", "The monthly AI budget has been reached. Please try again next month.");
   }
+  const reservedCents = dec.reservedCents;
 
   // 7) Generate + meter + return. Read the caller's holdings across ALL their portfolios
   // (same shape as exportMyData) → the SERVER-AUTHORITATIVE safety allowlist + context. The
@@ -1871,17 +1870,20 @@ exports.researchAsk = functions.https.onCall(async (data, context) => {
     return { safe: /^\s*SAFE\s*$/i.test(p.text || ""), usage: p.usage };
   };
 
-  // Charge the EXACT metered sum in a finally — every burned generation (even rejected/refused
-  // ones) and every judge call is accounted, so the app-wide cap can never be under-metered.
-  // The finally guarantees already-spent tokens are recorded even if a LATER Anthropic call
-  // throws mid-request (a network blip after attempt 1 already burned tokens): the charge still
-  // lands, then the original error propagates. metered[] holds only completed calls' cents.
+  // Settle the reservation to the ACTUAL metered cost in a finally: charge the delta
+  // (totalCents - reservedCents), which is NEGATIVE when the true spend came in under the
+  // worst-case estimate (the common case) and releases the over-reservation. Every burned
+  // generation (even rejected/refused ones) and every judge call is metered, so the app-wide cap
+  // can never be under-charged. The finally guarantees the settle lands even if a LATER Anthropic
+  // call throws mid-request (a network blip after attempt 1 already burned tokens): a zero-gen
+  // throw settles (0 - reserved), fully releasing the reservation; then the original error
+  // propagates. metered[] holds only completed calls' cents — so the delta is always exact.
   let result;
   try {
     result = await runResearchAsk({ question: q, context: contextText, allowedNames, callModel, judge });
   } finally {
     const totalCents = metered.reduce((a, b) => a + b, 0);
-    if (totalCents > 0) await aiCost.chargeMonthCents(db, { cents: totalCents });
+    await aiCost.chargeMonthCents(db, { cents: totalCents - reservedCents });
   }
 
   // NEVER return violating text — the fail-closed fallback is answer:"" / fellBack:true.
