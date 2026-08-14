@@ -16,6 +16,7 @@
  */
 import test from "node:test";
 import assert from "node:assert";
+import http from "node:http";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 
@@ -28,6 +29,9 @@ const { getAuth } = requireFromFunctions("firebase-admin/auth");
 const { getFirestore, FieldValue } = requireFromFunctions("firebase-admin/firestore");
 // ADMIN-6 PR2: the pure crypto core, to craft/redeem reset tokens deterministically.
 const settingsAuthMod = requireFromFunctions("./settings-auth.js");
+// Plan B PR-E2: the pure token-cost helper, to compute the EXACT metered cents the
+// researchAsk callable must accrue (Sonnet rate for generation, Haiku rate for judge).
+const aiCost = requireFromFunctions("./ai-cost.js");
 
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || "demo-crypto-idea";
 // `firebase emulators:exec` exports the auth/firestore hosts, but not the functions port.
@@ -1146,4 +1150,249 @@ test("ADMIN-6 PR2: completeSettingsPwReset redeems a token once, bound to the ow
       await db.doc(`settingsPwReset/${settingsAuthMod.hashToken(raw)}`).delete().catch(() => {});
     }
   }
+});
+
+// ── Plan B PR-E2 · researchAsk — the Wave-B AI research proxy callable BODY ──
+// A signed-in user asks about THEIR OWN book; the callable generates via Sonnet 5, judges
+// via Haiku 4.5 (through the already-built fail-closed functions/ai-proxy.js orchestrator),
+// meters the ACTUAL token cost into the app-wide aiBudget/{YYYY-MM} ledger, and returns
+// { answer, fellBack } — NEVER violating text. This is the only tier that runs the body.
+//
+// FAIL-CLOSED GATE ORDER (each must refuse BEFORE any Anthropic call / any spend):
+//   1 auth → 2 question validation (non-blank string, ≤500) + deny-by-default keys →
+//   3 aiResearch kill-switch (fresh config) → 4 anthropicKey present → 5 per-uid daily
+//   budget (guards.consumeDailyBudget "researchAsk") → 6 app-wide monthly $-cap
+//   (readMonthSpendCents FAIL-CLOSED: throw ⇒ unavailable; budgetExceeded ⇒ resource-exhausted)
+//   → 7 generate + meter + return.
+// Request shape is { question } ONLY (assertNoUnknownKeys). Acts on context.auth.uid — no
+// body uid, no IDOR. Response error → HTTP: unauthenticated 401, invalid-argument 400,
+// failed-precondition 400, resource-exhausted 429, unavailable 503.
+//
+// RED today: exports.researchAsk does not exist, so the emulator 404s every call and the
+// status assertions fail — red for the right reason. Uses callAsSafe (a 404 has a
+// plain-text body that callAs's r.json() would throw on). CI-only (the functions emulator
+// can't boot in the authoring sandbox — egress policy). The functions-builder adds the
+// callable body + functions/ai-context.js; then these go green.
+//
+// The gate-refusal cases (1–6) need NO network and are the load-bearing pins. The happy +
+// safety cases (7–8) drive the seam via a LOCAL http stub pointed at by ANTHROPIC_BASE (see
+// functions/ai-anthropic.js). NOTE for CI: `firebase emulators:exec "node --test …"` runs
+// the functions emulator AND this test in ONE process tree that inherits the shell env, so
+// exporting ANTHROPIC_BASE (e.g. http://127.0.0.1:8791) BEFORE the run makes both the
+// emulator's proxy and this in-test stub agree on the same origin — cases 7–8 then go green.
+// Without that export the proxy targets the real api.anthropic.com (network-blocked in CI),
+// so cases 7–8 stay red; the gate cases 1–6 are unaffected. withStub() binds the stub to
+// whatever ANTHROPIC_BASE names (falling back to :8791 and exporting it for the local child).
+
+const RA_MONTH = new Date().toISOString().slice(0, 7);   // aiBudget/{YYYY-MM} doc id
+const raDay = () => new Date().toISOString().slice(0, 10);
+const raBudgetDoc = () => db.doc(`aiBudget/${RA_MONTH}`);
+const raBudgetCents = async () => {
+  const s = await raBudgetDoc().get();
+  return (s.exists && Number(s.data().cents)) || 0;
+};
+// Set the AI-related config knobs the callable reads FRESH. Nested {merge:true} deep-merges,
+// so this never clobbers flags.features.checkout / paidPlansEnabled set by earlier tests.
+async function setAiConfig({ aiResearch, key, capCents } = {}) {
+  const doc = {};
+  if (aiResearch !== undefined) doc.flags = { features: { aiResearch } };
+  const ai = {};
+  if (key !== undefined) ai.anthropicKey = key === null ? FieldValue.delete() : key;
+  if (capCents !== undefined) ai.monthlyCapCents = capCents;
+  if (Object.keys(ai).length) doc.ai = ai;
+  await db.doc("config/app").set(doc, { merge: true });
+}
+async function fillResearchDailyBudget(uid) {
+  await db.doc(`rateLimits/${uid}__researchAsk__${raDay()}`).set({ count: 1_000_000, day: raDay(), updatedAt: Date.now() });
+}
+async function clearResearchDailyBudget(uid) {
+  await db.doc(`rateLimits/${uid}__researchAsk__${raDay()}`).delete().catch(() => {});
+}
+async function seedUser(email, extra) {
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set({ email, name: "RA", tier: "free", portfolioCount: 1, ...(extra || {}) }, { merge: true });
+  return uid;
+}
+// A local Anthropic Messages-API stub. `reply(reqBody)` → { text, usage, stopReason }.
+// Routes by model: the Haiku judge vs the Sonnet generator, so one stub serves both hops.
+function startAnthropicStub(reply) {
+  const server = http.createServer((req, res) => {
+    let raw = "";
+    req.on("data", (c) => { raw += c; });
+    req.on("end", () => {
+      let body = {};
+      try { body = JSON.parse(raw); } catch { /* ignore */ }
+      const out = reply(body) || {};
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({
+        content: out.text ? [{ type: "text", text: out.text }] : [],
+        usage: out.usage || { input_tokens: 0, output_tokens: 0 },
+        stop_reason: out.stopReason || "end_turn",
+      }));
+    });
+  });
+  return server;
+}
+async function withStub(reply, fn) {
+  const server = startAnthropicStub(reply);
+  const base = new URL(process.env.ANTHROPIC_BASE || "http://127.0.0.1:8791");
+  process.env.ANTHROPIC_BASE = base.origin;
+  await new Promise((r) => server.listen(Number(base.port), base.hostname, r));
+  try { return await fn(base.origin); }
+  finally { await new Promise((r) => server.close(r)); }
+}
+
+test("PR-E2: researchAsk rejects an unauthenticated caller", async () => {
+  const noAuth = await fetch(callableUrl("researchAsk"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: { question: "How is my book?" } }),
+  });
+  assert.strictEqual(noAuth.status, 401, "an unauthenticated researchAsk must be rejected");
+});
+
+test("PR-E2: researchAsk rejects a blank/non-string/too-long question and unknown data keys", async () => {
+  const email = `ra_q_${stamp}@example.com`;
+  const uid = await seedUser(email);
+  const token = await idTokenFor(email);
+  // Everything downstream ON so the ONLY thing that can refuse is the question validation.
+  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await clearResearchDailyBudget(uid);
+
+  for (const bad of ["", "   ", 123, null, "x".repeat(501)]) {
+    const r = await callAsSafe("researchAsk", token, { question: bad });
+    assert.strictEqual(r.status, 400, `question=${JSON.stringify(bad)} must be invalid-argument, got ${r.status}: ${JSON.stringify(r.body)}`);
+    assert.strictEqual(r.body && r.body.error && r.body.error.status, "INVALID_ARGUMENT");
+  }
+  // Deny-by-default input shape: the allow-list is ["question"].
+  const badKey = await callAsSafe("researchAsk", token, { question: "How is my book?", sneaky: 1 });
+  assert.strictEqual(badKey.status, 400, `an unknown key must be rejected: ${JSON.stringify(badKey.body)}`);
+  assert.strictEqual(badKey.body && badKey.body.error && badKey.body.error.status, "INVALID_ARGUMENT");
+});
+
+test("PR-E2: researchAsk refuses when the aiResearch kill-switch is OFF (no Anthropic call)", async () => {
+  const email = `ra_off_${stamp}@example.com`;
+  const uid = await seedUser(email);
+  const token = await idTokenFor(email);
+  // Kill-switch OFF; a key IS present, proving the switch refuses BEFORE the key/generation.
+  await setAiConfig({ aiResearch: false, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await clearResearchDailyBudget(uid);
+
+  const r = await callAsSafe("researchAsk", token, { question: "How is my book?" });
+  assert.strictEqual(r.status, 400, `aiResearch OFF must refuse (failed-precondition), got ${r.status}: ${JSON.stringify(r.body)}`);
+  assert.strictEqual(r.body && r.body.error && r.body.error.status, "FAILED_PRECONDITION");
+  // Nothing was generated → no spend accrued in this call is asserted by the gate ordering;
+  // the daily budget was NOT consumed either (the switch short-circuits before gate 5).
+  const dailyDoc = await db.doc(`rateLimits/${uid}__researchAsk__${raDay()}`).get();
+  assert.ok(!dailyDoc.exists, "the kill-switch must refuse before the per-uid budget is touched");
+});
+
+test("PR-E2: researchAsk refuses when no Anthropic key is configured (can't generate)", async () => {
+  const email = `ra_nokey_${stamp}@example.com`;
+  const uid = await seedUser(email);
+  const token = await idTokenFor(email);
+  // Switch ON, but the key is removed → failed-precondition at gate 4 (before budget/generation).
+  await setAiConfig({ aiResearch: true, key: null, capCents: 1_000_000 });
+  await clearResearchDailyBudget(uid);
+
+  const r = await callAsSafe("researchAsk", token, { question: "How is my book?" });
+  assert.strictEqual(r.status, 400, `a missing Anthropic key must refuse (failed-precondition), got ${r.status}: ${JSON.stringify(r.body)}`);
+  assert.strictEqual(r.body && r.body.error && r.body.error.status, "FAILED_PRECONDITION");
+});
+
+test("PR-E2: researchAsk refuses when the per-uid daily budget is exhausted", async () => {
+  const email = `ra_daily_${stamp}@example.com`;
+  const uid = await seedUser(email);
+  const token = await idTokenFor(email);
+  // Switch ON, key present, monthly cap high → the ONLY refusal is the exhausted daily budget.
+  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await raBudgetDoc().delete().catch(() => {});
+  await fillResearchDailyBudget(uid);
+
+  const r = await callAsSafe("researchAsk", token, { question: "How is my book?" });
+  assert.strictEqual(r.status, 429, `an exhausted daily budget must refuse (resource-exhausted), got ${r.status}: ${JSON.stringify(r.body)}`);
+  assert.strictEqual(r.body && r.body.error && r.body.error.status, "RESOURCE_EXHAUSTED");
+});
+
+test("PR-E2: researchAsk refuses when the app-wide monthly $-cap is already reached (fail-closed)", async () => {
+  const email = `ra_cap_${stamp}@example.com`;
+  const uid = await seedUser(email);
+  const token = await idTokenFor(email);
+  // Switch ON, key present, daily budget fresh → the ONLY refusal is the exceeded monthly cap.
+  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 100 });
+  await clearResearchDailyBudget(uid);
+  // Spend already at/over the cap for this month (budgetExceeded uses >= as the wall).
+  await raBudgetDoc().set({ cents: 999_999, month: RA_MONTH, updatedAt: Date.now() });
+
+  const r = await callAsSafe("researchAsk", token, { question: "How is my book?" });
+  assert.strictEqual(r.status, 429, `an exceeded monthly cap must refuse (resource-exhausted), got ${r.status}: ${JSON.stringify(r.body)}`);
+  assert.strictEqual(r.body && r.body.error && r.body.error.status, "RESOURCE_EXHAUSTED");
+  // The refusal did not spend more: the ledger is unchanged by a capped call.
+  assert.strictEqual(await raBudgetCents(), 999_999, "a capped refusal must not accrue further spend");
+});
+
+test("PR-E2: researchAsk (happy path) returns the answer and meters the ACTUAL token cost into aiBudget", async () => {
+  const email = `ra_ok_${stamp}@example.com`;
+  const uid = await seedUser(email, {
+    // A held coin so holdingsContext builds a real allowlist/context (via ai-context.js).
+  });
+  // Seed a portfolio → coin so the callable has holdings to summarise.
+  const pRef = db.collection("users").doc(uid).collection("portfolios").doc("default");
+  await pRef.set({ name: "Main", coinCount: 1 });
+  await pRef.collection("coins").doc("bitcoin").set({ symbol: "btc", name: "Bitcoin", txCount: 0, entries: [] });
+  const token = await idTokenFor(email);
+
+  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await clearResearchDailyBudget(uid);
+  await raBudgetDoc().delete().catch(() => {});
+
+  // A clean answer (no ticker/price/advice) that passes the real validate-output.js; a
+  // judge reply of exactly "SAFE". Large usage so the Sonnet-vs-Haiku rate split is visible.
+  const CLEAN = "Your book is concentrated in a single position, which raises the impact of any move in that one holding on your overall result.";
+  const GEN_USAGE = { input_tokens: 200_000, output_tokens: 100_000 };
+  const JUDGE_USAGE = { input_tokens: 100_000, output_tokens: 40_000 };
+  const reply = (body) => (/haiku/i.test(String(body && body.model || ""))
+    ? { text: "SAFE", usage: JUDGE_USAGE }
+    : { text: CLEAN, usage: GEN_USAGE });
+
+  const before = await raBudgetCents();
+  const res = await withStub(reply, () => callAsSafe("researchAsk", token, { question: "How concentrated is my book?" }));
+  assert.strictEqual(res.status, 200, `researchAsk happy path failed: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body.result.answer, CLEAN, "the clean answer must be returned verbatim");
+  assert.strictEqual(res.body.result.fellBack, false, "a clean+judge-safe answer did not fall back");
+
+  // The ledger grew by exactly (generation @ Sonnet + judge @ Haiku) — the correct rate split.
+  const expected = aiCost.costCents(GEN_USAGE, aiCost.SONNET5_RATES) + aiCost.costCents(JUDGE_USAGE, aiCost.HAIKU45_RATES);
+  assert.strictEqual((await raBudgetCents()) - before, expected, "aiBudget must accrue the exact metered cost (Sonnet gen + Haiku judge)");
+});
+
+test("PR-E2: researchAsk (safety) never returns violating text — falls back and STILL meters the burned tokens", async () => {
+  const email = `ra_safe_${stamp}@example.com`;
+  const uid = await seedUser(email);
+  const pRef = db.collection("users").doc(uid).collection("portfolios").doc("default");
+  await pRef.set({ name: "Main", coinCount: 1 });
+  await pRef.collection("coins").doc("bitcoin").set({ symbol: "btc", name: "Bitcoin", txCount: 0, entries: [] });
+  const token = await idTokenFor(email);
+
+  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await clearResearchDailyBudget(uid);
+  await raBudgetDoc().delete().catch(() => {});
+
+  // Every generation carries a price target + advice → rejected by the REAL validator → the
+  // regen cap is hit → fail closed. The violating text must NEVER reach the client.
+  const DIRTY = "This position could reach $100 which is a strong buy.";
+  const GEN_USAGE = { input_tokens: 200_000, output_tokens: 100_000 };
+  const reply = (body) => (/haiku/i.test(String(body && body.model || ""))
+    ? { text: "SAFE", usage: { input_tokens: 10, output_tokens: 1 } }
+    : { text: DIRTY, usage: GEN_USAGE });
+
+  const before = await raBudgetCents();
+  const res = await withStub(reply, () => callAsSafe("researchAsk", token, { question: "Should I buy more?" }));
+  assert.strictEqual(res.status, 200, `researchAsk safety path failed: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body.result.fellBack, true, "a violating candidate must force a fail-closed fallback");
+  assert.strictEqual(res.body.result.answer, "", "the safe fallback returns empty text, NEVER the violating candidate");
+  assert.ok(!/\$100|strong buy/i.test(res.body.result.answer), "violating text must never reach the client");
+  // The rejected generations still burned tokens → 1 initial + 2 regens metered at the Sonnet rate.
+  const perGen = aiCost.costCents(GEN_USAGE, aiCost.SONNET5_RATES);
+  assert.strictEqual((await raBudgetCents()) - before, perGen * 3, "all three rejected generations must be metered");
 });

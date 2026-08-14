@@ -92,6 +92,9 @@ const UNGATED_BY_DESIGN = new Set([
 
   "chooseFreePlan",  // ONBOARD-GATE — free plan choice; per-uid rate-limited, acts on caller's uid (App Check platform-side)
 
+  "researchAsk",     // Plan B PR-E2 — Wave-B AI research proxy; signed-in user asks about their OWN book,
+                     // acts on context.auth.uid only (no IDOR), per-uid daily budget + app-wide $-cap gated
+
   "devSetMyTier",    // emulator-gated dev helper (R17)
   "setAdminClaim",   // removed — the body throws permission-denied unconditionally
 ]);
