@@ -17,10 +17,33 @@
     header { display:flex; align-items:center; justify-content:space-between; padding-bottom:20px; border-bottom:1px solid #eee; margin-bottom:28px; }
     /* Brand lockup — mirrors the app.html loading .lockup shell exactly (green "C"
        tile #0b6b4f + one-word "CryptoIdea", hover-rotate). */
-    .brand { display:flex; align-items:center; gap:10px; font-weight:600; font-size:18px; letter-spacing:-.01em; text-decoration:none; }
+    .brand { position:relative; display:flex; align-items:center; gap:10px; font-weight:600; font-size:18px; letter-spacing:-.01em; text-decoration:none; }
     .brand .mark { width:28px; height:28px; border-radius:8px; background:#0b6b4f; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Fraunces',Georgia,serif; font-size:16px; font-weight:600; transition:transform .3s ease; }
     .brand .word { font-family:'Hanken Grotesk',-apple-system,system-ui,sans-serif; color:#1A1A1A; }
     .brand:hover .mark { transform:rotate(-6deg) scale(1.06); }
+    /* Turtle overlay on the "C" tile corner (LOGO-TURTLE). Placed AFTER the
+       wordmark so the brand-guard lockup (>C<…CryptoIdea) is untouched. */
+    .brand .ci-turtle { position:absolute; left:16px; top:-13px; width:31px; height:31px; overflow:visible; pointer-events:none; }
+    .ci-t-shell { fill:#6fbe93; } .ci-t-skin { fill:#c39a6b; } .ci-t-eye { fill:#2f2013; }
+    .ci-t-seam { fill:none; stroke:#3e8e6a; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
+    .ci-t-crest { fill:none; stroke:#4fa6a8; stroke-width:2.1; stroke-linecap:round; stroke-linejoin:round; }
+    .ci-t-ripple { fill:none; stroke:#7fc0c1; stroke-width:1.5; stroke-linecap:round; opacity:.7; }
+    .ci-t-head { transform:translate(-14px,0); transition:transform .44s cubic-bezier(.34,1.42,.5,1); }
+    .brand:hover .ci-t-head { transform:translate(0,0); }
+    .ci-t-bob,.ci-t-eye,.ci-t-life { transform-box:fill-box; transform-origin:center; }
+    .ci-t-ff,.ci-t-fb { transform-box:fill-box; transform-origin:50% 0; }
+    .brand:hover .ci-t-bob { animation:ci-tb 1.9s ease-in-out infinite; }
+    .brand:hover .ci-t-ff { animation:ci-tp .55s ease-in-out infinite; }
+    .brand:hover .ci-t-fb { animation:ci-tp .55s ease-in-out .27s infinite; }
+    .brand:hover .ci-t-eye { animation:ci-tbl 3.4s ease-in-out infinite; }
+    .brand:hover .ci-t-ripple { animation:ci-tr 2.4s ease-in-out infinite; }
+    .brand:hover .ci-t-life { animation:ci-ts 2.7s ease-in-out infinite; }
+    @keyframes ci-tb { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-1.6px)} }
+    @keyframes ci-tp { 0%,100%{transform:rotate(-9deg)} 50%{transform:rotate(19deg)} }
+    @keyframes ci-tbl { 0%,92%,100%{transform:scaleY(1)} 96%{transform:scaleY(.12)} }
+    @keyframes ci-tr { 0%,100%{opacity:.4} 50%{opacity:.9} }
+    @keyframes ci-ts { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-.8px)} }
+    @media (prefers-reduced-motion: reduce) { .ci-t-bob,.ci-t-ff,.ci-t-fb,.ci-t-eye,.ci-t-ripple,.ci-t-life{animation:none!important} .ci-t-head{transition-duration:.001s} }
     a.back { font-size:13px; color:#0b6b4f; text-decoration:none; font-weight:600; }
     h1 { font-size:26px; margin:0 0 8px; }
     .muted { color:#888; font-size:13px; margin-bottom:24px; }
@@ -31,7 +54,7 @@
 <body>
   <div class="wrap">
     <header>
-      <a href="/" class="brand"><span class="mark">C</span><span class="word">CryptoIdea</span></a>
+      <a href="/" class="brand"><span class="mark">C</span><span class="word">CryptoIdea</span><svg class="ci-turtle" viewBox="0 0 40 38" aria-hidden="true"><g transform="translate(19 20) rotate(-28) scale(0.85)"><g class="ci-t-life"><path class="ci-t-crest" d="M-19,11 L-3,11 L2,6.4 L7,11 L21,11"/><path class="ci-t-ripple" d="M-13,15.5 L-4,15.5"/><path class="ci-t-ripple" d="M7,15.5 L17,15.5"/><g transform="translate(-11 3)"><g class="ci-t-fb"><path class="ci-t-skin" d="M0,0 C-4,0 -4.6,5 -2.6,8.6 C-1,10.2 1,10.2 2.6,8.6 C4.6,5 4,0 0,0 Z"/></g></g><path class="ci-t-skin" d="M-15,1 l-5,1.6 l4.4,3 z"/><g class="ci-t-head"><g class="ci-t-bob"><path class="ci-t-skin" d="M5,-3.4 L19,-4.2 L19,3 L5,3 Z"/><ellipse class="ci-t-skin" cx="20.5" cy="-2" rx="6.2" ry="5.2"/><circle class="ci-t-eye" cx="22.6" cy="-4" r="1.3"/></g></g><ellipse class="ci-t-shell" cx="0" cy="-1" rx="16" ry="11"/><path class="ci-t-seam" d="M-9,-6.5 C-3,-9.6 3,-9.6 9,-6.5"/><path class="ci-t-seam" d="M-6,-8.4 C-8,-1 -8,4 -5,9.4"/><path class="ci-t-seam" d="M6,-8.4 C8,-1 8,4 5,9.4"/><g transform="translate(9 4)"><g class="ci-t-ff"><path class="ci-t-skin" d="M0,0 C-4,0 -4.6,5 -2.6,8.6 C-1,10.2 1,10.2 2.6,8.6 C4.6,5 4,0 0,0 Z"/></g></g></g></g></svg></a>
       <a class="back" href="/">← Back to site</a>
     </header>
 

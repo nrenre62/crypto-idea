@@ -103,10 +103,25 @@
    --accent token, which drives the admin tabs/pills. transition + the hover-rotate
    (fired from the .adm-brand bar lockup and the .adm-auth-logo sign-in lockup) mirror
    the landing .brand .mark exactly. */
-.ci-app .adm-logo { flex:none; width:28px; height:28px; border-radius:8px; background:#0b6b4f; color:#fff; font-family:var(--display); font-weight:600; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; transition:transform .3s var(--ease); }
+.ci-app .adm-logo { position:relative; flex:none; width:28px; height:28px; border-radius:8px; background:#0b6b4f; color:#fff; font-family:var(--display); font-weight:600; font-size:16px; line-height:1; display:flex; align-items:center; justify-content:center; transition:transform .3s var(--ease); }
 .ci-app .adm-brand:hover .adm-logo,
 .ci-app .adm-auth-logo:hover .adm-logo { transform:rotate(-6deg) scale(1.06); }
-.ci-app .adm-logo.lg { width:44px; height:44px; border-radius:13px; font-size:24px; }
+/* Size is UNIFORM (index proportions) — the enlarged .lg tile is retired so the
+   turtle overlay sits identically on the bar + sign-in marks. */
+
+/* Turtle overlay on the admin "C" tile (LOGO-TURTLE). The fills, keyframes,
+   head-tuck default and reduced-motion come from app.css (loaded here); admin
+   only positions it (a touch less top-poke to fit the sticky bar) and drives the
+   pop from its own hover targets. Admin is light-only, so no dark glow. */
+.ci-app .adm-logo .ci-turtle { top:-3px; }
+.ci-app .adm-brand:hover .ci-t-head,
+.ci-app .adm-auth-logo:hover .ci-t-head { transform:translate(0,0); }
+.ci-app .adm-brand:hover .ci-t-bob, .ci-app .adm-auth-logo:hover .ci-t-bob { animation:ci-tb 1.9s ease-in-out infinite; }
+.ci-app .adm-brand:hover .ci-t-ff, .ci-app .adm-auth-logo:hover .ci-t-ff { animation:ci-tp .55s ease-in-out infinite; }
+.ci-app .adm-brand:hover .ci-t-fb, .ci-app .adm-auth-logo:hover .ci-t-fb { animation:ci-tp .55s ease-in-out .27s infinite; }
+.ci-app .adm-brand:hover .ci-t-eye, .ci-app .adm-auth-logo:hover .ci-t-eye { animation:ci-tbl 3.4s ease-in-out infinite; }
+.ci-app .adm-brand:hover .ci-t-ripple, .ci-app .adm-auth-logo:hover .ci-t-ripple { animation:ci-tr 2.4s ease-in-out infinite; }
+.ci-app .adm-brand:hover .ci-t-life, .ci-app .adm-auth-logo:hover .ci-t-life { animation:ci-ts 2.7s ease-in-out infinite; }
 .ci-app .adm-brand-txt { font-family:var(--body); font-weight:600; font-size:18px; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ci-app .adm-brand-txt .adm-sub { font-family:var(--body); font-size:12px; font-weight:600; letter-spacing:.02em; color:var(--ink-faint); }
 .ci-app .adm-bar-right { display:flex; align-items:center; gap:12px; min-width:0; }
