@@ -178,5 +178,5 @@ site or run your own copy. Full statement: [LEGAL.md](docs/product/LEGAL.md).
 
 ## License
 
-[MIT](LICENSE) © 2026 nrenre62. Free to use, copy, modify, and self-host — just keep the license
-notice. Change the branding and name and make it your own.
+[MIT](LICENSE) © 2026 Mark Tomanok (nrenre62). Free to use, copy, modify, and self-host — just keep
+the license notice. Change the branding and name and make it your own.
