@@ -3,6 +3,11 @@ import {
   SONNET5_RATES, HAIKU45_RATES, costCents,
   readMonthSpendCents, chargeMonthCents, budgetExceeded,
 } from "../../functions/ai-cost.js";
+// PR-E2.5 (CRYP-107): the reserve-then-settle helpers (reserveMonthCents, reservationMaxCents)
+// do NOT exist yet. Import the module NAMESPACE for them so a missing export reads as `undefined`
+// — the tests then fail with a per-case TypeError at the call site (the RIGHT red reason) instead
+// of a whole-file module-link error that would also break the passing PR-E1 suite above.
+import * as aiCostMod from "../../functions/ai-cost.js";
 
 // Plan B PR-E1 — the pure token-cost + app-wide monthly $-budget helpers for the
 // Wave-B AI proxy. Pure + dependency-injected (a FAKE Firestore, no emulator), the
@@ -126,5 +131,128 @@ describe("ai-cost.budgetExceeded (PR-E1: the app-wide monthly $-cap decision)", 
   it("PR-E1: denies an overage — a prior call that crossed the cap refuses the next", () => {
     // Mid-request overage rule: the crossing charge still records; THIS is the call it stops.
     expect(budgetExceeded(5020, 5000)).toBe(true);
+  });
+});
+
+/* ===========================================================================
+ * PR-E2.5 (CRYP-107) — atomic reserve-then-settle for the app-wide monthly $-cap
+ * ===========================================================================
+ * The researchAsk cap check is currently read-then-act (readMonthSpendCents →
+ * budgetExceeded → generate → chargeMonthCents), which is NOT atomic: N requests
+ * in flight together can all read spent<cap and all generate before any charge,
+ * overshooting the cap by ~(concurrency × per-request cost). PR-E2.5 replaces it
+ * with reserve-then-settle:
+ *   • reserveMonthCents(db, {estCents, capCents, now}) atomically reserves the
+ *     worst-case estimate in ONE transaction (mirrors guards.consumeDailyBudget) —
+ *     denies (reserving NOTHING) when current+estCents would exceed the cap;
+ *   • the EXISTING chargeMonthCents settles the delta (actual-reserved, possibly
+ *     NEGATIVE) afterwards, releasing the over-reservation;
+ *   • reservationMaxCents({maxRegens}) derives the per-request worst case
+ *     = (maxRegens+1) × (genMax + judgeMax).
+ * These helpers don't exist yet, so every case below fails with a TypeError at the
+ * aiCostMod.<helper> call — red for the right reason.
+ */
+describe("ai-cost reserve-then-settle (PR-E2.5 / CRYP-107: atomic app-wide monthly $-cap)", () => {
+  const NOW = Date.UTC(2026, 7, 15);          // → aiBudget/2026-08 (UTC month key)
+  const PATH = "aiBudget/2026-08";
+
+  // ── Derivation pin ─────────────────────────────────────────────────────────
+  it("CRYP-107: reservationMaxCents returns 12 by default and scales with maxRegens", () => {
+    // Worst case = (maxRegens+1) × (genMax + judgeMax): genMax = costCents(~2000 in / 1024 out,
+    // Sonnet 5) = ceil(2.136¢) = 3¢; judgeMax = costCents(~2000 in / 16 out, Haiku 4.5) =
+    // ceil(0.208¢) = 1¢. Default maxRegens=2 → 3 × (3+1) = 12. Pinning the OUTPUT (not the token
+    // estimate) makes any future token-cap / regen-count change surface HERE as a test diff.
+    expect(aiCostMod.reservationMaxCents()).toBe(12);
+    expect(aiCostMod.reservationMaxCents({})).toBe(12);
+    expect(aiCostMod.reservationMaxCents({ maxRegens: 2 })).toBe(12);
+    expect(aiCostMod.reservationMaxCents({ maxRegens: 1 })).toBe(8);   // 2 × (3+1)
+    expect(aiCostMod.reservationMaxCents({ maxRegens: 0 })).toBe(4);   // 1 × (3+1)
+  });
+
+  // ── AC1 — atomic reserve blocks overshoot ────────────────────────────────────
+  it("CRYP-107: reserveMonthCents allows a reservation that fits and increments by estCents", async () => {
+    const db = makeFakeDb();
+    const r = await aiCostMod.reserveMonthCents(db, { estCents: 12, capCents: 5000, now: NOW });
+    expect(r.allowed).toBe(true);
+    expect(r.reservedCents).toBe(12);
+    expect(r.spent).toBe(12);                       // 0 + 12
+    expect(db._store.get(PATH).cents).toBe(12);     // the ledger really moved (worst case held)
+  });
+
+  it("CRYP-107: reserveMonthCents denies when current+estCents would exceed cap and consumes nothing", async () => {
+    const db = makeFakeDb();
+    const seeded = { cents: 4995, month: "2026-08" };   // headroom 5¢ < the 12¢ estimate
+    db._store.set(PATH, { ...seeded });
+    const r = await aiCostMod.reserveMonthCents(db, { estCents: 12, capCents: 5000, now: NOW });
+    expect(r.allowed).toBe(false);
+    expect(r.spent).toBe(4995);
+    expect(r.cap).toBe(5000);
+    expect(db._store.get(PATH)).toEqual(seeded);        // NOT one cent was reserved
+  });
+
+  it("CRYP-107: two racing reserveMonthCents calls at the cap — exactly one is allowed, ledger never exceeds cap", async () => {
+    const db = makeFakeDb();
+    db._store.set(PATH, { cents: 4988, month: "2026-08" });   // headroom = exactly one 12¢ reserve
+    const args = { estCents: 12, capCents: 5000, now: NOW };
+    const results = await Promise.all([
+      aiCostMod.reserveMonthCents(db, args),
+      aiCostMod.reserveMonthCents(db, args),
+    ]);
+    const allowed = results.filter((r) => r.allowed);
+    expect(allowed.length).toBe(1);                    // the second racer sees the first's reserve
+    expect(db._store.get(PATH).cents).toBe(5000);      // reached the cap
+    expect(db._store.get(PATH).cents).toBeLessThanOrEqual(5000);   // never exceeded it
+  });
+
+  // ── AC2 — settle nets to actual ──────────────────────────────────────────────
+  it("CRYP-107: reserve then settle via chargeMonthCents(actual-reserved) leaves the ledger at exactly actual", async () => {
+    const db = makeFakeDb();
+    const est = aiCostMod.reservationMaxCents();       // 12
+    // A real, smaller-than-the-estimate actual cost (one Sonnet gen + one Haiku judge).
+    const actual = costCents({ input_tokens: 1000, output_tokens: 500 }, SONNET5_RATES)
+      + costCents({ input_tokens: 1000, output_tokens: 500 }, HAIKU45_RATES);   // 2 + 1 = 3
+    const r = await aiCostMod.reserveMonthCents(db, { estCents: est, capCents: 1_000_000, now: NOW });
+    expect(r.allowed).toBe(true);
+    expect(await readMonthSpendCents(db, { now: NOW })).toBe(est);   // worst case reserved up front
+    await chargeMonthCents(db, { cents: actual - est, now: NOW });   // settle the NEGATIVE delta
+    expect(await readMonthSpendCents(db, { now: NOW })).toBe(actual);
+  });
+
+  it("CRYP-107: three reserve+settle cycles leave the ledger at the sum of the three actual costs", async () => {
+    const db = makeFakeDb();
+    const est = aiCostMod.reservationMaxCents();       // 12
+    const actuals = [3, 7, 2];
+    for (const actual of actuals) {
+      const r = await aiCostMod.reserveMonthCents(db, { estCents: est, capCents: 1_000_000, now: NOW });
+      expect(r.allowed).toBe(true);
+      await chargeMonthCents(db, { cents: actual - est, now: NOW });   // release the over-reservation
+    }
+    // The estimate cancels out entirely — only the three real costs remain on the ledger.
+    expect(await readMonthSpendCents(db, { now: NOW })).toBe(3 + 7 + 2);
+  });
+
+  // ── AC3 — fail path releases ──────────────────────────────────────────────────
+  it("CRYP-107: a reservation settled with actual=0 (throw before metering) returns the ledger to its pre-reserve value", async () => {
+    const db = makeFakeDb();
+    await chargeMonthCents(db, { cents: 40, now: NOW });   // pre-existing month spend
+    const est = aiCostMod.reservationMaxCents();           // 12
+    const r = await aiCostMod.reserveMonthCents(db, { estCents: est, capCents: 1_000_000, now: NOW });
+    expect(r.allowed).toBe(true);
+    expect(await readMonthSpendCents(db, { now: NOW })).toBe(40 + est);
+    // The generate step threw before any token was metered → actual = 0 → release the whole reserve.
+    await chargeMonthCents(db, { cents: 0 - est, now: NOW });
+    expect(await readMonthSpendCents(db, { now: NOW })).toBe(40);
+  });
+
+  it("CRYP-107: a reservation settled with a partial actual leaves only the partial and releases the rest", async () => {
+    const db = makeFakeDb();
+    await chargeMonthCents(db, { cents: 40, now: NOW });
+    const est = aiCostMod.reservationMaxCents();           // 12
+    const actual = 4;                                      // one gen burned before falling back
+    const r = await aiCostMod.reserveMonthCents(db, { estCents: est, capCents: 1_000_000, now: NOW });
+    expect(r.allowed).toBe(true);
+    expect(await readMonthSpendCents(db, { now: NOW })).toBe(40 + est);
+    await chargeMonthCents(db, { cents: actual - est, now: NOW });   // keep 4, release 8
+    expect(await readMonthSpendCents(db, { now: NOW })).toBe(40 + actual);
   });
 });
