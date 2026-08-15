@@ -1204,6 +1204,10 @@ async function setAiConfig({ aiResearch, key, capCents, genModel, judgeModel } =
     // whether the model id contains "judge".
     ai.generationModel = genModel || "generation-model-test";
     ai.judgeModel = judgeModel || "judge-model-test";
+    // Point the proxy's endpoint at the local stub via ADMIN CONFIG (the production path —
+    // baseUrl is admin-set, not env). Matches the origin withStub listens on, so the emulator
+    // reaches the stub regardless of whether AI_PROVIDER_BASE is exported to its process.
+    ai.baseUrl = process.env.AI_PROVIDER_BASE || "http://127.0.0.1:8791";
   }
   if (capCents !== undefined) ai.monthlyCapCents = capCents;
   if (Object.keys(ai).length) doc.ai = ai;
