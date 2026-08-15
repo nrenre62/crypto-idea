@@ -46,7 +46,12 @@
     @media (prefers-reduced-motion: reduce) { .ci-t-bob,.ci-t-ff,.ci-t-fb,.ci-t-eye,.ci-t-ripple,.ci-t-life{animation:none!important} .ci-t-head{transition-duration:.001s} }
     a.back { font-size:13px; color:#0b6b4f; text-decoration:none; font-weight:600; }
     h1 { font-size:26px; margin:0 0 8px; }
+    h2 { font-size:17px; margin:28px 0 8px; }
     .muted { color:#888; font-size:13px; margin-bottom:24px; }
+    #termly-policy p, #termly-terms p, #termly-policy li, #termly-terms li { font-size:14.5px; }
+    #termly-policy ul, #termly-terms ul { padding-left:20px; margin:8px 0; }
+    #termly-policy li, #termly-terms li { margin:4px 0; }
+    .legal-note { background:#f6f5f0; border:1px solid #eee; border-radius:8px; padding:12px 14px; font-size:13px !important; color:#555; margin-top:24px; }
     footer { margin-top:48px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#999; }
     footer a { color:#0b6b4f; text-decoration:none; }
   </style>
@@ -64,8 +69,72 @@
     <!-- Auto-embeds the Termly Terms document using the ID set in admin Settings
          → Analytics & Legal (Termly Terms doc ID). No code edits needed. -->
     <div id="termly-terms">
-      <p>Our terms of service are being finalized. Set the <b>Termly Terms doc ID</b> in
-      the admin dashboard (Settings → Analytics &amp; Legal) to publish it here.</p>
+      <p class="muted" style="margin-bottom:20px">Last updated: 15 August 2026</p>
+
+      <p>These Terms of Service ("Terms") govern your use of CryptoIdea (the
+      "Service"), an open-source crypto portfolio tracker and research tool operated by
+      [OPERATOR NAME]. By creating an account or using the Service, you agree to these
+      Terms. If you do not agree, do not use the Service.</p>
+
+      <h2>1. What CryptoIdea is — and is not</h2>
+      <p>CryptoIdea helps you track a crypto portfolio, record your own research, and
+      learn. It is a personal research and portfolio project. <b>Nothing in the Service
+      is financial, investment, legal, or tax advice.</b> Crypto assets are volatile
+      and you can lose money. All decisions are your own, and you use market data and
+      any tools at your own risk.</p>
+
+      <h2>2. Your account</h2>
+      <p>You must provide an accurate email, keep your credentials secure, and are
+      responsible for activity under your account. You must be at least 16 (or the age
+      of majority where you live) to use the Service. Don't share accounts or attempt
+      to access data that isn't yours.</p>
+
+      <h2>3. Acceptable use</h2>
+      <p>Don't misuse the Service: no attempts to break security or access controls, no
+      automated scraping or overloading, no reverse-engineering of the hosted service
+      to extract secrets, no unlawful, infringing, or abusive content, and no use that
+      harms the Service or other users.</p>
+
+      <h2>4. Your content</h2>
+      <p>You keep ownership of the portfolios, notes, and other content you create. You
+      grant us only the limited permission needed to store your content and display it
+      back to you to operate the Service. You are responsible for what you enter.</p>
+
+      <h2>5. Plans &amp; payments</h2>
+      <p>Some features may require a paid plan, billed through PayPal on the cycle shown
+      at checkout. Prices and plan limits may change with notice. Except where required
+      by law, payments are non-refundable. You can cancel at any time; access continues
+      until the end of the paid period.</p>
+
+      <h2>6. Third-party data &amp; services</h2>
+      <p>Market data is provided by third parties (e.g. CoinGecko) and may be delayed,
+      incomplete, or inaccurate; we don't guarantee it. The Service also relies on
+      third-party providers (e.g. Google Firebase, PayPal, Sentry) under their own
+      terms.</p>
+
+      <h2>7. Open source</h2>
+      <p>CryptoIdea's source code is released under the MIT License. That license
+      covers the code; it does not grant rights to our brand, the hosted service, or
+      any accounts or data on it. Your use of the hosted Service is governed by these
+      Terms.</p>
+
+      <h2>8. Disclaimers &amp; limitation of liability</h2>
+      <p>The Service is provided "as is" and "as available", without warranties of any
+      kind, to the fullest extent permitted by law. To the maximum extent permitted by
+      law, we are not liable for any indirect, incidental, or consequential damages, or
+      for any trading or investment losses, arising from your use of the Service.</p>
+
+      <h2>9. Suspension &amp; termination</h2>
+      <p>You may stop using the Service and delete your account at any time. We may
+      suspend or end access if these Terms are breached or to protect the Service.</p>
+
+      <h2>10. Changes &amp; contact</h2>
+      <p>We may update these Terms; we will change the "Last updated" date and, for
+      material changes, notify you in the app. These Terms are governed by the laws of
+      [JURISDICTION]. Questions? Contact [CONTACT EMAIL].</p>
+
+      <p class="legal-note">Reminder: CryptoIdea is an open-source research/portfolio
+      project and is not financial advice.</p>
     </div>
     <script src="/termly-embed.js" data-doc="termlyTermsId" data-host="termly-terms"></script>
 
