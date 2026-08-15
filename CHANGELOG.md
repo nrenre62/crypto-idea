@@ -50,7 +50,7 @@ Epic (newest area first). These are **not** tagged releases.
 - Secure-by-design audit: framework + reusable checklist (CRYP-70).
 - Data-isolation audit — 23 cross-tenant probes, no IDOR (CRYP-71).
 - Hardened Firestore security rules; deny-by-default Storage rules (CRYP-72, CRYP-73).
-- OpenAPI spec (32 ops) + API-security review with 8 fixes; 42Crunch OAS hardening + clean live scan
+- OpenAPI spec (32 ops) + API-security review with 8 fixes; OpenAPI contract hardening + clean live scan
   (CRYP-74, CRYP-75).
 - Client-bundle + git-history secret scan; secret-scanning git hooks + AI-agent guard (CRYP-76, CRYP-77).
 - Spend caps + fail-loud scheduled jobs; deploy-time demo-config guard + Hosting/SW safety
