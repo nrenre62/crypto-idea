@@ -24,7 +24,7 @@
         ]
       },
       {
-        "_comment": "ONLY /assets/** is content-hashed by Vite, so only it may be immutable. The old **/*.@(js|css|...) glob also matched the UNHASHED root files (landing.js, site-meta.js, sw-register.js, termly-embed.js), pinning them in browser caches for a year — a stale landing page with no way to push a fix.",
+        "_comment": "ONLY /assets/** is content-hashed by Vite, so only it may be immutable. The old **/*.@(js|css|...) glob also matched the UNHASHED root files (landing.js, site-metadata.js, sw-register.js, termly-embed.js), pinning them in browser caches for a year — a stale landing page with no way to push a fix.",
         "source": "/assets/**",
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
       },
