@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Crypto Idea API",
-    "description": "Complete HTTP surface of the Crypto Idea backend (Firebase Cloud Functions v1 + Firestore security rules).\n\nThree kinds of endpoint are documented:\n\n1. **Public REST** (`/api/*`) — the `api` HTTP function. No authentication. Serves cached CoinGecko market data to the landing DCA calculator and the app, plus the public app config and the landing email-capture form. In production these are also reachable at `https://<your-domain>/api/*` via a Firebase Hosting rewrite (`firebase.json`).\n\n2. **Callable functions** — Firebase `onCall` functions. The Firebase SDK POSTs `{\"data\": <input>}` and receives `{\"result\": <output>}`; on error it returns a non-2xx status with `{\"error\": {\"message\", \"status\", \"details\"}}`. Every callable verifies the caller's Firebase ID token server-side and acts on `context.auth.uid` — never a uid taken from the request body (no IDOR by design). **Admin** callables additionally require the verified `{admin:true}` custom claim, which now also carries a role: `manager` (account management, granted by an owner from the Admin access tab) or `owner` (minted ONLY by `functions/scripts/set-admin.js --role=owner`). The owner-only callables (`getAdminConfig`, `saveConfig`, `setManagerRole`) additionally require a password re-auth within the last ~600s (step-up).\n\n3. **PayPal webhook** (`/paypalWebhook`) — the only inbound write not gated by a Firebase user login; it is authenticated instead by PayPal's webhook signature (documented as the `PayPalWebhookSignature` scheme). Every event is cryptographically verified against PayPal's verify-webhook-signature API before it is trusted.\n\nSecurity model summary: Firestore rules are the authorization boundary (owner-only data, closed-shape user doc, users cannot write their own `tier`/`subscription`/`premiumLimits`/`deleted`). Secrets (CoinGecko / PayPal / email / Anthropic keys) live only in the server-side locked `config/app` Firestore doc or environment variables; they are never returned to a client and never shipped in the browser bundle.",
+    "description": "Complete HTTP surface of the Crypto Idea backend (Firebase Cloud Functions v1 + Firestore security rules).\n\nThree kinds of endpoint are documented:\n\n1. **Public REST** (`/api/*`) — the `api` HTTP function. No authentication. Serves cached CoinGecko market data to the landing DCA calculator and the app, plus the public app config and the landing email-capture form. In production these are also reachable at `https://<your-domain>/api/*` via a Firebase Hosting rewrite (`firebase.json`).\n\n2. **Callable functions** — Firebase `onCall` functions. The Firebase SDK POSTs `{\"data\": <input>}` and receives `{\"result\": <output>}`; on error it returns a non-2xx status with `{\"error\": {\"message\", \"status\", \"details\"}}`. Every callable verifies the caller's Firebase ID token server-side and acts on `context.auth.uid` — never a uid taken from the request body (no IDOR by design). **Admin** callables additionally require the verified `{admin:true}` custom claim, which now also carries a role: `manager` (account management, granted by an owner from the Admin access tab) or `owner` (minted ONLY by `functions/scripts/set-admin.js --role=owner`). The owner-only callables (`getAdminConfig`, `saveConfig`, `setManagerRole`) additionally require a password re-auth within the last ~600s (step-up).\n\n3. **PayPal webhook** (`/paypalWebhook`) — the only inbound write not gated by a Firebase user login; it is authenticated instead by PayPal's webhook signature (documented as the `PayPalWebhookSignature` scheme). Every event is cryptographically verified against PayPal's verify-webhook-signature API before it is trusted.\n\nSecurity model summary: Firestore rules are the authorization boundary (owner-only data, closed-shape user doc, users cannot write their own `tier`/`subscription`/`premiumLimits`/`deleted`). Secrets (CoinGecko / PayPal / SMTP / AI provider keys) live only in the server-side locked `config/app` Firestore doc or environment variables; they are never returned to a client and never shipped in the browser bundle.",
     "version": "1.0.0-beta",
     "contact": {
       "name": "Crypto Idea"
@@ -413,7 +413,7 @@
       "post": {
         "operationId": "subscribeEmail",
         "summary": "Landing-page email capture (public write)",
-        "description": "The only public unauthenticated write. Forwards the email to the admin-configured provider (ActiveCampaign / GetResponse) server-side; the provider key never reaches the client. Protected by a strict per-IP budget (5/min), a honeypot field, and (at go-live) App Check/reCAPTCHA.",
+        "description": "The only public unauthenticated write. Emails the captured address to the site owner over SMTP (provider-agnostic — configured in admin Settings; no provider is hardcoded and no key reaches the client). Protected by a strict per-IP budget (5/min), a honeypot field, and (at go-live) App Check/reCAPTCHA.",
         "tags": [
           "Subscribe"
         ],
@@ -777,7 +777,7 @@
       "post": {
         "operationId": "researchAsk",
         "summary": "Wave-B AI research proxy — ask about your own holdings (Plan B PR-E2)",
-        "description": "Callable. A signed-in user asks a question about THEIR OWN portfolio. The server builds a safety allowlist from the caller's own coin docs, generates via Sonnet 5, and runs the fail-closed validate-output.js naming/advice/price wall plus a Haiku 4.5 judge on every candidate BEFORE any text reaches the client — so it NEVER returns financial advice, buy/sell/hold recommendations, price targets, allocation percentages or aggregate scores. Meters the actual token cost into the app-wide monthly aiBudget ledger. Fail-closed gate order: auth → question validation (non-blank, ≤500) + deny-by-default keys → aiResearch kill-switch (fresh config) → Anthropic key present → per-uid daily budget → app-wide monthly $-cap. Acts on context.auth.uid only (no IDOR). Returns { answer, fellBack } — a fail-closed fallback is answer:\"\" / fellBack:true.",
+        "description": "Callable. A signed-in user asks a question about THEIR OWN portfolio. The server builds a safety allowlist from the caller's own coin docs, generates via the configured generation model, and runs the fail-closed validate-output.js naming/advice/price wall plus the configured judge model on every candidate BEFORE any text reaches the client — so it NEVER returns financial advice, buy/sell/hold recommendations, price targets, allocation percentages or aggregate scores. Meters the actual token cost into the app-wide monthly aiBudget ledger. Fail-closed gate order: auth → question validation (non-blank, ≤500) + deny-by-default keys → aiResearch kill-switch (fresh config) → AI provider key + models present → per-uid daily budget → app-wide monthly $-cap. Acts on context.auth.uid only (no IDOR). Returns { answer, fellBack } — a fail-closed fallback is answer:\"\" / fellBack:true.",
         "tags": [
           "Research"
         ],
@@ -803,7 +803,7 @@
             }
           },
           "400": {
-            "description": "invalid-argument (blank/non-string/too-long question, or an unknown field) / failed-precondition (aiResearch kill-switch off, or no Anthropic key configured).",
+            "description": "invalid-argument (blank/non-string/too-long question, or an unknown field) / failed-precondition (aiResearch kill-switch off, or no AI provider key/models configured).",
             "content": {
               "application/json": {
                 "schema": {
@@ -2678,7 +2678,7 @@
       "post": {
         "operationId": "getAdminConfig",
         "summary": "Read saved app config to pre-fill Settings (owner + Settings-password unlock)",
-        "description": "Callable, owner-only, and behind the ADMIN-6 Settings-password unlock (`assertSettingsUnlocked`). Once a Settings password is set (`config/app.settingsAuth`), the caller must hold a live server-tracked unlock (`unlockSettings`, ~10 min) or the call fails `settings-locked`. Before any Settings password is set it falls back to the pre-ADMIN-6 step-up re-auth (recent password re-auth, `config/app.flags.stepUpReauth`, default on). Secrets are returned as boolean set-flags ONLY (e.g. `secretSet`, `apiKeySet`, `anthropicKeySet`, and `settingsAuth.set`) — the secret values and the scrypt hash never leave the server.",
+        "description": "Callable, owner-only, and behind the ADMIN-6 Settings-password unlock (`assertSettingsUnlocked`). Once a Settings password is set (`config/app.settingsAuth`), the caller must hold a live server-tracked unlock (`unlockSettings`, ~10 min) or the call fails `settings-locked`. Before any Settings password is set it falls back to the pre-ADMIN-6 step-up re-auth (recent password re-auth, `config/app.flags.stepUpReauth`, default on). Secrets are returned as boolean set-flags ONLY (e.g. `secretSet`, `providerKeySet`, and `settingsAuth.set`) — the secret values and the scrypt hash never leave the server.",
         "tags": [
           "Admin"
         ],
@@ -5207,35 +5207,18 @@
               },
               "email": {
                 "type": "object",
+                "description": "SMTP-only email — provider-agnostic (any email provider works via SMTP; no provider name is stored). Sends the landing-form signup notification and the Settings-password reset link.",
                 "properties": {
-                  "provider": {
-                    "type": "string",
-                    "maxLength": 32,
-                    "pattern": "^[a-z]*$"
-                  },
-                  "apiKeySet": {
-                    "type": "boolean"
-                  },
-                  "apiUrl": {
-                    "type": "string",
-                    "maxLength": 2048,
-                    "pattern": "^$|^https?://\\S+$"
-                  },
                   "fromEmail": {
                     "type": "string",
                     "maxLength": 254,
                     "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
                   },
-                  "listId": {
-                    "type": "string",
-                    "maxLength": 512,
-                    "pattern": "^[\\x21-\\x7E]*$"
-                  },
                   "smtpHost": {
                     "type": "string",
                     "maxLength": 255,
                     "pattern": "^[\\x21-\\x7E]*$",
-                    "description": "ADMIN-6 PR2. DreamHost SMTP host for the Settings-password reset email."
+                    "description": "SMTP host for outbound email (any provider)."
                   },
                   "smtpPort": {
                     "type": "integer",
@@ -5294,14 +5277,32 @@
               "ai": {
                 "type": "object",
                 "properties": {
-                  "anthropicKeySet": {
+                  "providerKeySet": {
                     "type": "boolean"
+                  },
+                  "generationModel": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "pattern": "^[\\x21-\\x7E]*$",
+                    "description": "The generation model id (admin config, not a secret) — paste to switch model/provider without a code change."
+                  },
+                  "judgeModel": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "pattern": "^[\\x21-\\x7E]*$",
+                    "description": "The judge model id (admin config, not a secret)."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "pattern": "^$|^https?://\\S+$",
+                    "description": "Optional AI provider API base URL (admin config, not a secret). Blank uses the deploy-time default."
                   },
                   "monthlyCapCents": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000,
-                    "description": "Plan B PR-E1. The app-wide monthly Wave-B AI spend cap in whole cents (default 5000 = $50). Operational config, NOT a secret — returned as a full number the Settings form can show and edit."
+                    "description": "The app-wide monthly AI spend cap in whole cents (default 5000 = $50). Operational config, NOT a secret — returned as a full number the Settings form can show and edit."
                   }
                 },
                 "additionalProperties": false
@@ -5354,7 +5355,7 @@
         "properties": {
           "data": {
             "type": "object",
-            "description": "A blank secret field (keys.coingecko, keys.paypalSecret, keys.anthropicKey, keys.sentryDsn, email.apiKey) KEEPS the currently-saved value.",
+            "description": "A blank secret field (keys.coingecko, keys.paypalSecret, keys.providerKey, keys.sentryDsn, email.smtpPass) KEEPS the currently-saved value.",
             "properties": {
               "keys": {
                 "type": "object",
@@ -5381,11 +5382,30 @@
                     "maxLength": 512,
                     "pattern": "^[\\x21-\\x7E]*$"
                   },
-                  "anthropicKey": {
+                  "providerKey": {
                     "type": "string",
                     "format": "password",
                     "maxLength": 512,
-                    "pattern": "^[\\x21-\\x7E]*$"
+                    "pattern": "^[\\x21-\\x7E]*$",
+                    "description": "The AI provider API key. keep()-guarded: blank KEEPS the stored value; never echoed back."
+                  },
+                  "generationModel": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "pattern": "^[\\x21-\\x7E]*$",
+                    "description": "The generation model id (not a secret). KEEP-on-omit: absent preserves the stored value."
+                  },
+                  "judgeModel": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "pattern": "^[\\x21-\\x7E]*$",
+                    "description": "The judge model id (not a secret). KEEP-on-omit: absent preserves the stored value."
+                  },
+                  "aiBaseUrl": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "pattern": "^$|^https?://\\S+$",
+                    "description": "Optional AI provider API base URL (not a secret). KEEP-on-omit: absent preserves the stored value."
                   },
                   "sentryDsn": {
                     "type": "string",
@@ -5405,42 +5425,18 @@
               },
               "email": {
                 "type": "object",
+                "description": "SMTP-only email — provider-agnostic (any provider works via SMTP; no provider name is stored).",
                 "properties": {
-                  "provider": {
-                    "type": "string",
-                    "enum": [
-                      "none",
-                      "getresponse",
-                      "activecampaign"
-                    ],
-                    "maxLength": 32
-                  },
-                  "apiKey": {
-                    "type": "string",
-                    "format": "password",
-                    "maxLength": 512,
-                    "pattern": "^[\\x21-\\x7E]*$"
-                  },
-                  "apiUrl": {
-                    "type": "string",
-                    "maxLength": 2048,
-                    "pattern": "^$|^https?://\\S+$"
-                  },
                   "fromEmail": {
                     "type": "string",
                     "maxLength": 254,
                     "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
                   },
-                  "listId": {
-                    "type": "string",
-                    "maxLength": 512,
-                    "pattern": "^[\\x21-\\x7E]*$"
-                  },
                   "smtpHost": {
                     "type": "string",
                     "maxLength": 255,
                     "pattern": "^[\\x21-\\x7E]*$",
-                    "description": "ADMIN-6 PR2. DreamHost SMTP host for the Settings-password reset email."
+                    "description": "SMTP host for outbound email (any provider)."
                   },
                   "smtpPort": {
                     "type": "integer",

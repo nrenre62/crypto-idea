@@ -7,21 +7,21 @@
  *     "Ask AI about …" button render only when true.
  *   • aiChrome    = chatEnabled && AI_PROXY_LIVE (always false today) → the Pulse
  *     card's AI ornaments (gradient label, Regenerate button, "AI-generated"
- *     disclaimer) and whether askClaude is ever called.
+ *     disclaimer) and whether askAI is ever called.
  *
  * These render <ResearchTab> directly (it takes everything as props — no app
  * providers needed) with a non-empty holdings fixture. They must FAIL on the
  * current tree (TABS always has 'ask'; CoinCard always renders the button; Pulse
  * always shows the gradient label + Regenerate + the offline apology; usePulse is
- * called with enabled=!empty so askClaude runs) and PASS once the gate ships.
+ * called with enabled=!empty so askAI runs) and PASS once the gate ships.
  */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Spy on the AI client so we can prove askClaude is NEVER invoked (case 6) and so
-// the Pulse/Ask fallbacks behave exactly as they do live (askClaude throws today).
+// Spy on the AI client so we can prove askAI is NEVER invoked (case 6) and so
+// the Pulse/Ask fallbacks behave exactly as they do live (askAI throws today).
 vi.mock("../../src/features/research/api/ai-client.js", () => ({
-  askClaude: vi.fn(() => Promise.reject(new Error("research-ai-proxy-not-configured"))),
+  askAI: vi.fn(() => Promise.reject(new Error("research-ai-proxy-not-configured"))),
 }));
 
 // usePrices derives 7d/30d + sparkline from /api/history — mock it so no network
@@ -34,7 +34,7 @@ vi.mock("../../src/api/coingecko.js", () => ({
 }));
 
 import ResearchTab from "../../src/features/research/components/ResearchTab.jsx";
-import { askClaude } from "../../src/features/research/api/ai-client.js";
+import { askAI } from "../../src/features/research/api/ai-client.js";
 
 // A non-empty active portfolio (entries/priceAtBuy/type → holdingsFromCoins keeps
 // them, so `empty` is false and the Coins/Pulse/holdings paths all light up).
@@ -118,19 +118,19 @@ describe("Research tab — AI honesty gate", () => {
     expect(screen.queryByText(/AI-generated/i)).toBeNull();
   });
 
-  it("CRYP-93: askClaude is never called on a mounted Research tab (proxy not live)", async () => {
+  it("CRYP-93: askAI is never called on a mounted Research tab (proxy not live)", async () => {
     renderTab({ chatEnabled: true });
     // Let the mount effects (usePulse) settle.
     await screen.findByText("Portfolio Pulse");
     await waitFor(() => expect(screen.getByText("Portfolio Pulse")).toBeInTheDocument());
-    expect(askClaude).toHaveBeenCalledTimes(0);
+    expect(askAI).toHaveBeenCalledTimes(0);
   });
 
   // CRYP-106 (PR-E3): the per-coin "Ask AI about …" button keeps riding the
-  // useAsk → askClaude seam after the Pulse is severed from AI. Guard: it already
+  // useAsk → askAI seam after the Pulse is severed from AI. Guard: it already
   // works today via the reject-fallback and must keep working post-PR-E3, proving
-  // the refactor doesn't break the one remaining askClaude caller (useAsk).
-  it("CRYP-106: the per-coin Ask button routes through the useAsk→askClaude seam exactly once", async () => {
+  // the refactor doesn't break the one remaining askAI caller (useAsk).
+  it("CRYP-106: the per-coin Ask button routes through the useAsk→askAI seam exactly once", async () => {
     renderTab({ chatEnabled: true });
     await screen.findByText("Research");
 
@@ -144,7 +144,7 @@ describe("Research tab — AI honesty gate", () => {
     expect(await screen.findByText("Tell me about my Bitcoin position.")).toBeInTheDocument();
 
     // …the seam fired exactly once, producing one assistant reply (no double-send).
-    await waitFor(() => expect(askClaude).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(askAI).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(document.querySelector(".bubble-a")).toBeTruthy());
   });
 });

@@ -1,6 +1,6 @@
 // hooks/useAsk.js — manage the Ask thread. Business logic only.
 import { useCallback, useState } from 'react';
-import { askClaude } from '../api/ai-client';
+import { askAI } from '../api/ai-client';
 
 const SYS =
   'You are the research assistant inside "CryptoIdea", a crypto portfolio app. ' +
@@ -37,7 +37,7 @@ export function useAsk(context) {
       try {
         // CRYP-93: the canned answer no longer apologizes for being "offline" — until
         // the AI proxy ships every answer is the deterministic data-driven fallback.
-        const answer = await askClaude(SYS + context, text);
+        const answer = await askAI(SYS + context, text);
         setMessages((m) => [...m, { role: 'assistant', text: answer || DEFAULT_A, followups: pickFollowups(text) }]);
       } catch (_) {
         setMessages((m) => [...m, { role: 'assistant', text: DEFAULT_A, followups: pickFollowups(text) }]);

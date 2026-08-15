@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  SONNET5_RATES, HAIKU45_RATES, costCents,
+  GEN_RATES, JUDGE_RATES, costCents,
   readMonthSpendCents, chargeMonthCents, budgetExceeded,
 } from "../../functions/ai-cost.js";
 // PR-E2.5 (CRYP-107): the reserve-then-settle helpers (reserveMonthCents, reservationMaxCents)
@@ -15,8 +15,8 @@ import * as aiCostMod from "../../functions/ai-cost.js";
 // callable wires these yet (PR-E2) — so this suite is the executable spec of the
 // foundation.
 //
-// Model economics are FOUNDER-LOCKED: generation = Sonnet 5 ($3/$15 per Mtok in/out),
-// judge = Haiku 4.5 ($1/$5). One app-wide cap lives at config/app.ai.monthlyCapCents
+// Model economics: generation rates ($3/$15 per Mtok in/out),
+// judge rates ($1/$5). One app-wide cap lives at config/app.ai.monthlyCapCents
 // (default 5000 = $50), metered on a server-only aiBudget/{YYYY-MM} doc.
 
 // A fake Firestore that satisfies BOTH a plain db.doc(path).get() read (readMonthSpendCents)
@@ -37,35 +37,35 @@ const makeFakeDb = () => {
   };
 };
 
-describe("ai-cost.costCents (PR-E1: Anthropic token usage → whole cents, rounded UP)", () => {
-  it("PR-E1: prices Sonnet 5 at $3/$15 per Mtok and rounds a fractional cent UP", () => {
+describe("ai-cost.costCents (PR-E1: provider token usage → whole cents, rounded UP)", () => {
+  it("PR-E1: prices the generation model at $3/$15 per Mtok and rounds a fractional cent UP", () => {
     // (1000/1e6·$3 + 500/1e6·$15)·100 = (0.003 + 0.0075)·100 = 1.05¢ → charge conservatively → 2.
-    expect(costCents({ input_tokens: 1000, output_tokens: 500 }, SONNET5_RATES)).toBe(2);
+    expect(costCents({ input_tokens: 1000, output_tokens: 500 }, GEN_RATES)).toBe(2);
   });
 
   it("PR-E1: exposes the founder-locked per-Mtok rates for both models", () => {
-    expect(SONNET5_RATES).toMatchObject({ inputPerMtok: 3, outputPerMtok: 15 });
-    expect(HAIKU45_RATES).toMatchObject({ inputPerMtok: 1, outputPerMtok: 5 });
+    expect(GEN_RATES).toMatchObject({ inputPerMtok: 3, outputPerMtok: 15 });
+    expect(JUDGE_RATES).toMatchObject({ inputPerMtok: 1, outputPerMtok: 5 });
   });
 
-  it("PR-E1: prices the cheaper judge model (Haiku 4.5) correctly, still rounding up", () => {
+  it("PR-E1: prices the cheaper judge model correctly, still rounding up", () => {
     // (1000/1e6·$1 + 500/1e6·$5)·100 = (0.001 + 0.0025)·100 = 0.35¢ → 1.
-    expect(costCents({ input_tokens: 1000, output_tokens: 500 }, HAIKU45_RATES)).toBe(1);
+    expect(costCents({ input_tokens: 1000, output_tokens: 500 }, JUDGE_RATES)).toBe(1);
   });
 
   it("PR-E1: a whole-cent cost is not needlessly bumped by the ceiling", () => {
-    // Choose tokens that land on an EXACT cent: 1,000,000 in + 0 out on Sonnet = $3.00 = 300¢.
-    expect(costCents({ input_tokens: 1_000_000, output_tokens: 0 }, SONNET5_RATES)).toBe(300);
+    // Choose tokens that land on an EXACT cent: 1,000,000 in + 0 out at the generation rate = $3.00 = 300¢.
+    expect(costCents({ input_tokens: 1_000_000, output_tokens: 0 }, GEN_RATES)).toBe(300);
   });
 
   it("PR-E1: zero usage costs zero (a call that produced nothing is free)", () => {
     // `=== 0` (not toBe) so a legitimate signed -0 from the round-up still counts as zero.
-    expect(costCents({ input_tokens: 0, output_tokens: 0 }, SONNET5_RATES) === 0).toBe(true);
+    expect(costCents({ input_tokens: 0, output_tokens: 0 }, GEN_RATES) === 0).toBe(true);
   });
 
   it("PR-E1: treats missing/garbage usage fields as zero — never NaN", () => {
     for (const bad of [{}, null, undefined]) {
-      const c = costCents(bad, SONNET5_RATES);
+      const c = costCents(bad, GEN_RATES);
       expect(Number.isNaN(c)).toBe(false);
       expect(c === 0).toBe(true);
     }
@@ -159,7 +159,7 @@ describe("ai-cost reserve-then-settle (PR-E2.5 / CRYP-107: atomic app-wide month
   // ── Derivation pin ─────────────────────────────────────────────────────────
   it("CRYP-107: reservationMaxCents returns 12 by default and scales with maxRegens", () => {
     // Worst case = (maxRegens+1) × (genMax + judgeMax): genMax = costCents(~2000 in / 1024 out,
-    // Sonnet 5) = ceil(2.136¢) = 3¢; judgeMax = costCents(~2000 in / 16 out, Haiku 4.5) =
+    // GEN_RATES) = ceil(2.136¢) = 3¢; judgeMax = costCents(~2000 in / 16 out, JUDGE_RATES) =
     // ceil(0.208¢) = 1¢. Default maxRegens=2 → 3 × (3+1) = 12. Pinning the OUTPUT (not the token
     // estimate) makes any future token-cap / regen-count change surface HERE as a test diff.
     expect(aiCostMod.reservationMaxCents()).toBe(12);
@@ -208,9 +208,9 @@ describe("ai-cost reserve-then-settle (PR-E2.5 / CRYP-107: atomic app-wide month
   it("CRYP-107: reserve then settle via chargeMonthCents(actual-reserved) leaves the ledger at exactly actual", async () => {
     const db = makeFakeDb();
     const est = aiCostMod.reservationMaxCents();       // 12
-    // A real, smaller-than-the-estimate actual cost (one Sonnet gen + one Haiku judge).
-    const actual = costCents({ input_tokens: 1000, output_tokens: 500 }, SONNET5_RATES)
-      + costCents({ input_tokens: 1000, output_tokens: 500 }, HAIKU45_RATES);   // 2 + 1 = 3
+    // A real, smaller-than-the-estimate actual cost (one generation + one judge call).
+    const actual = costCents({ input_tokens: 1000, output_tokens: 500 }, GEN_RATES)
+      + costCents({ input_tokens: 1000, output_tokens: 500 }, JUDGE_RATES);   // 2 + 1 = 3
     const r = await aiCostMod.reserveMonthCents(db, { estCents: est, capCents: 1_000_000, now: NOW });
     expect(r.allowed).toBe(true);
     expect(await readMonthSpendCents(db, { now: NOW })).toBe(est);   // worst case reserved up front

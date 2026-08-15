@@ -1,5 +1,5 @@
 // hooks/usePulse.js — the "Portfolio Pulse" summary. Deterministic by construction:
-// PR-E3 (CRYP-106) severed the Pulse from AI, so this never touches the askClaude
+// PR-E3 (CRYP-106) severed the Pulse from AI, so this never touches the askAI
 // seam — it returns the honest multi-signal summary (utils/pulse.js) directly.
 import { useMemo } from 'react';
 import { pulseFacts, pulseLines } from '../utils/pulse';

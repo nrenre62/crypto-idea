@@ -1141,7 +1141,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
             grant/revoke flow is folded in as the last row (ADMIN-D3). Design-only:
             every handler here is the hook's, unchanged. */}
         {tab === "settings" && (() => {
-          const providerLabel = (p) => p === "activecampaign" ? "ActiveCampaign" : p === "getresponse" ? "GetResponse" : "None";
+          const emailConfigured = !!(mail.smtpHost && mail.fromEmail);
           const anaSummary = [analytics.ga4 && "GA4", analytics.plausible && "Plausible", legal.termlyUuid && "Termly"].filter(Boolean).join(" · ");
           const keysSet = [setFlags.coingecko, !!keys.paypalClientId, setFlags.paypalSecret, !!keys.paypalWebhookId].filter(Boolean).length;
           const back = () => setSettingsView("home");
@@ -1159,9 +1159,9 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   {[
                     ["Payments", !!setFlags.paypalSecret, setFlags.paypalSecret ? "PayPal connected" : "Not set"],
                     ["Market data", !!setFlags.coingecko, setFlags.coingecko ? "CoinGecko connected" : "Not set"],
-                    ["Email", !!(mail.provider && mail.provider !== "none"), (mail.provider && mail.provider !== "none") ? providerLabel(mail.provider) : "Not connected"],
+                    ["Email", emailConfigured, emailConfigured ? "SMTP configured" : "Not connected"],
                     ["Analytics & legal", !!anaSummary, anaSummary || "Not set"],
-                    ["AI", false, setFlags.anthropicKey ? "Key saved · starts at go-live" : "Not set"],
+                    ["AI", false, setFlags.providerKey ? "Key saved · starts at go-live" : "Not set"],
                   ].map(([label, ok, val]) => (
                     <div key={label} className="status-row">
                       <span className={"dot " + (ok ? "ok" : "idle")} />
@@ -1194,9 +1194,9 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                       App Controls is for the two incident switches that gate something live
                       TODAY; the AI chat switch gates a Wave-B surface and belongs by the key. */}
                   <NavRow icon={SI.keys} label="API keys" value={keysSet ? keysSet + " set" : "Not set"} onClick={() => setSettingsView("apiKeys")} />
-                  <NavRow icon={SI.email} label="Email & integrations" value={providerLabel(mail.provider)} onClick={() => setSettingsView("email")} />
+                  <NavRow icon={SI.email} label="Email" value={emailConfigured ? "SMTP set" : "Not set"} muted={!emailConfigured} onClick={() => setSettingsView("email")} />
                   <NavRow icon={SI.plans} label="Plans & pricing" value="3 tiers" onClick={() => setSettingsView("plans")} />
-                  <NavRow icon={SI.ai} label="AI" value={setFlags.anthropicKey ? "Key saved" : "Reserved"} muted={!setFlags.anthropicKey} onClick={() => setSettingsView("ai")} />
+                  <NavRow icon={SI.ai} label="AI" value={setFlags.providerKey ? "Key saved" : "Reserved"} muted={!setFlags.providerKey} onClick={() => setSettingsView("ai")} />
                   <NavRow icon={SI.analytics} label="Analytics & legal" value={anaSummary || "Off"} onClick={() => setSettingsView("analytics")} />
                   <NavRow icon={SI.announce} label="Announcement banner" value={announcement.active ? "On · " + announcement.level : (announcement.text ? "Draft" : "Off")} muted={!announcement.active} onClick={() => setSettingsView("announcement")} />
                   <NavRow icon={SI.lock} label="Settings password" value={settingsPwSet ? "Set" : "Not set"} muted={!settingsPwSet} onClick={() => { setSettingsPwMsg(""); setSettingsView("password"); }} />
@@ -1249,39 +1249,20 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
 
               {/* ── EMAIL & INTEGRATIONS ── */}
               {settingsView === "email" && (<>
-                  <div className="card-sub">Connect an email service for the landing-page subscribe form and transactional emails.</div>
-                  <label className="acct-label">Provider</label>
-                  <select className="field-input" value={mail.provider} onChange={e => setMail({ ...mail, provider:e.target.value })}>
-                    <option value="none">None</option>
-                    <option value="activecampaign">ActiveCampaign</option>
-                    <option value="getresponse">GetResponse</option>
-                  </select>
-                  {[
-                    ["API key","apiKey","provider API key"],
-                    ["API URL (ActiveCampaign only)","apiUrl","https://youracct.api-us1.com"],
-                    ["List / Campaign ID","listId","list or campaign id"],
-                    ["From email (also the SMTP sender for admin emails)","fromEmail","hello@yourdomain.com"],
-                  ].map(([label,key,ph]) => (
-                    <div key={key}>
-                      <label className="acct-label">{label}</label>
-                      <input className="field-input" type={key==="apiKey"?"password":"text"} value={mail[key]}
-                        placeholder={(key==="apiKey"&&setFlags.apiKey) ? "•••••••• saved — leave blank to keep" : ph}
-                        onChange={e => setMail({ ...mail, [key]: e.target.value })} />
-                    </div>
-                  ))}
-                  {/* ── ADMIN-6 PR2: SMTP (DreamHost) — sends the Settings-password reset email.
-                       smtpPass is a secret: blank keeps the saved value (mirrors the apiKey field
-                       via setFlags.smtpPass). The From email above is the SMTP sender. ── */}
+                  <div className="card-sub">SMTP only — works with any email provider. Set the SMTP host/port/username/password and a from address; the landing-page subscribe form emails the signup to the from address, and transactional emails (the Settings-password reset link) send over the same SMTP.</div>
+                  <label className="acct-label">From email (SMTP sender + where signups are emailed)</label>
+                  <input className="field-input" type="text" value={mail.fromEmail} placeholder="hello@yourdomain.com"
+                    onChange={e => setMail({ ...mail, fromEmail: e.target.value })} />
                   <div className="adm-scr-section">
-                    <div className="card-sub">SMTP (transactional email) — sends the Settings-password reset link. DreamHost: host <code>smtp.dreamhost.com</code>, port 587 (or 465 with SSL on).</div>
+                    <div className="card-sub">SMTP — enter your email provider's SMTP details (any provider works). Typical: port 587 (STARTTLS) or 465 (SSL on).</div>
                     <label className="acct-label">SMTP host</label>
-                    <input className="field-input" type="text" value={mail.smtpHost} placeholder="smtp.dreamhost.com"
+                    <input className="field-input" type="text" value={mail.smtpHost} placeholder="smtp.your-email.com"
                       onChange={e => setMail({ ...mail, smtpHost: e.target.value })} />
                     <label className="acct-label">SMTP port</label>
                     <input className="field-input" type="number" min="0" value={mail.smtpPort}
                       onChange={e => setMail({ ...mail, smtpPort: e.target.value === "" ? "" : Number(e.target.value) })} />
                     <label className="acct-label">SMTP username</label>
-                    <input className="field-input" type="text" value={mail.smtpUser} placeholder="you@cryptoidea.app"
+                    <input className="field-input" type="text" value={mail.smtpUser} placeholder="you@yourdomain.com"
                       onChange={e => setMail({ ...mail, smtpUser: e.target.value })} />
                     <label className="acct-label">SMTP password</label>
                     <input className="field-input" type="password" value={mail.smtpPass}
@@ -1328,7 +1309,7 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
 
               {/* ── AI (reserved — live AI ships at go-live) ── */}
               {settingsView === "ai" && (<>
-                  <div className="card-sub">Reserved — live AI ships at go-live. The Anthropic API key powers the server-side <code>researchAsk</code> proxy (Claude only, validator-first — never called from the browser). Saving it now is safe: it stays in the locked config doc until the proxy ships. The AI-research chat switch below is live TODAY.</div>
+                  <div className="card-sub">Reserved — live AI ships at go-live. The AI provider API key powers the server-side <code>researchAsk</code> proxy (validator-first — never called from the browser). The provider is swappable: paste the API key, the generation and judge model ids, and (optionally) the API base URL below, then save. It all stays in the locked config doc until the proxy ships. The AI-research chat switch below is live TODAY.</div>
                   {/* CRYP-93: the AI-research chat kill-switch lives here (moved from App Controls).
                       Off = hides the Research → Ask chat for all users now, via the same
                       saveFeature→saveConfig path the incident switches use. */}
@@ -1336,10 +1317,23 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                     <Switch checked={controls.features.aiResearch !== false}
                             onChange={async () => { const r = await saveFeature("aiResearch", !(controls.features.aiResearch !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
                   </CtrlRow>
-                  <label className="acct-label">Anthropic API key{setFlags.anthropicKey ? " · saved ✓" : ""}</label>
-                  <input className="field-input" type="password" value={keys.anthropicKey}
-                    placeholder={setFlags.anthropicKey ? "•••••••• (saved — type to replace)" : "sk-ant-…"}
-                    onChange={e => setKeys({ ...keys, anthropicKey: e.target.value })} />
+                  <label className="acct-label">AI provider API key{setFlags.providerKey ? " · saved ✓" : ""}</label>
+                  <input className="field-input" type="password" value={keys.providerKey}
+                    placeholder={setFlags.providerKey ? "•••••••• (saved — type to replace)" : "Provider API key"}
+                    onChange={e => setKeys({ ...keys, providerKey: e.target.value })} />
+                  <label className="acct-label">Generation model id</label>
+                  <input className="field-input" type="text" value={keys.generationModel}
+                    placeholder="e.g. the provider's writing model id"
+                    onChange={e => setKeys({ ...keys, generationModel: e.target.value })} />
+                  <label className="acct-label">Judge model id</label>
+                  <input className="field-input" type="text" value={keys.judgeModel}
+                    placeholder="e.g. the provider's cheaper review model id"
+                    onChange={e => setKeys({ ...keys, judgeModel: e.target.value })} />
+                  <label className="acct-label">API base URL (optional)</label>
+                  <input className="field-input" type="text" value={keys.aiBaseUrl}
+                    placeholder="https://api.your-ai-provider.com"
+                    onChange={e => setKeys({ ...keys, aiBaseUrl: e.target.value })} />
+                  <div className="card-sub">Paste the provider's model ids (and base URL if it differs from the default) to switch provider or model without a code change.</div>
                   {/* PR-E1: the app-wide monthly $-ceiling for the live AI proxy (fail-closed,
                       invisible to users). Bound to CENTS 1:1 with config/app.ai.monthlyCapCents. */}
                   <label className="acct-label">Monthly AI budget cap (cents)</label>
