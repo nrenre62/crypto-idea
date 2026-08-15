@@ -31,11 +31,13 @@ phone/OS "standard tokens," any brand name in the code itself — and remove/gen
 - **OS/brand mentions in comments/docs genericized:** "Excel on Windows" → "spreadsheet apps"
   (`csv.js`, `admin-dashboard.jsx`), "(iOS-style)" dropped (`app.css`), `apple-touch-icon` row in
   `public/brand/README.md` genericized.
-- **In-app CoinGecko attribution now hyperlinked** (closes the LANDING-OSS follow-up): the Portfolio +
-  Search footer disclaimers changed from "Prices via CoinGecko" (plain text) to **"Data provided by
-  [CoinGecko](https://www.coingecko.com/en/api)"** (target=_blank, rel=noopener) — API ToS §4.3
-  requires the credit to link back. New `.ci-app .disclaimer a` style. `Search.test.jsx` updated to
-  assert the link.
+- **In-app CoinGecko attribution now hyperlinked, on EVERY price surface** (closes the LANDING-OSS
+  follow-up): a shared **`src/components/CoinGeckoCredit.jsx`** renders the exact required message +
+  hyperlink in ONE place — **"Data provided by [CoinGecko](https://www.coingecko.com/en/api)"**
+  (`target=_blank`, `rel="noopener noreferrer"`), the exact API-attribution URL CoinGecko requires (not
+  the homepage), per their API Terms §4.3 + attribution guide. Rendered in the footer disclaimer of
+  **Portfolio, Search, coin Detail, CoinInfo overlay, and the Research tab** — everywhere CoinGecko data
+  is shown. `Search.test.jsx` asserts the link; full Detail/CoinInfo/Research/walkthrough suites green.
 - **Kept (functional service integrations, not cosmetic brand tokens):** Firebase, PayPal, CoinGecko,
   Termly, Sentry, React (Meta OSS), Google Fonts (actually used), the opt-in GA loader.
 

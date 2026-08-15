@@ -20,6 +20,7 @@ import { AI_PROXY_LIVE } from '../api/ai-status';
 // ADMIN-2: the one live/paused pill shared with the other tab headers, so a frozen
 // price cache can't read as "● LIVE" here while the other two admit it's paused.
 import { LivePill } from '../../../components/HeaderTags.jsx';
+import { CoinGeckoCredit } from '../../../components/CoinGeckoCredit.jsx';
 
 import OverviewView from './OverviewView';
 import CoinsView from './CoinsView';
@@ -96,6 +97,7 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount, c
             ? 'AI-generated insights and the Stress test are for information and education only — not financial advice or a prediction. Crypto is volatile and you can lose money. Always do your own research.'
             : 'The Stress test and these summaries are for information and education only — not financial advice or a prediction. Crypto is volatile and you can lose money. Always do your own research.'}
         </p>
+        <p className="disclaimer"><CoinGeckoCredit /></p>
       </div>
     </div>
   );

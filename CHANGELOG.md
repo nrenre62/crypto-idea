@@ -47,7 +47,9 @@ the go-live checklist plus a polish pass across the app and the docs.
   dropped `apple-touch-icon` (manifest covers install); genericized "Excel on Windows" / "iOS-style"
   mentions in comments. Functional service integrations (Firebase, PayPal, CoinGecko, Termly, Sentry,
   React, Google Fonts, opt-in GA) are unchanged. Added the required **hyperlinked** "Data provided by
-  CoinGecko" attribution to the in-app Portfolio + Search footers (CoinGecko API Terms §4.3).
+  CoinGecko" attribution — the exact API-attribution URL (`/en/api`), not the homepage — on every in-app
+  CoinGecko surface (Portfolio, Search, coin Detail, CoinInfo, Research) via a shared `CoinGeckoCredit`
+  component, plus the landing DCA calculator (CoinGecko API Terms §4.3).
 - Landing page (`index.html`) reworked to the free / open-source (MIT) reality and the burnt-out-investor
   voice: single **Starter** tier with a **"Usage"** section (real account limits, no billing/pricing UI),
   every **AI** claim removed (conviction/Pulse described as the deterministic/illustrative features that

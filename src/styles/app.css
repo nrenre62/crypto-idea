@@ -283,8 +283,6 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
    token (--ink-soft flips per theme, so it reads right in both; the dark override below
    is now redundant and was removed). */
 .ci-app .disclaimer { font-size:14px; color:var(--ink-soft); line-height:1.55; padding:14px 6px 0; text-align:center; }
-/* CoinGecko attribution link in the footer disclaimers — API Terms §4.3 requires it hyperlinked */
-.ci-app .disclaimer a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
 
 /* ── Empty state ──────────────────────────────────────── */
 .ci-app .empty-state { text-align:center; padding:48px 24px; }
