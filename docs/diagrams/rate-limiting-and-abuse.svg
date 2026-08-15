@@ -70,7 +70,7 @@
 
   <rect x="666" y="250" width="230" height="74" rx="9" fill="var(--color-background-primary,#fff)" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.4"/>
   <text x="682" y="269" font-size="10" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">④ forward to provider</text>
-  <text x="682" y="285" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">ActiveCampaign / GetResponse</text>
+  <text x="682" y="285" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">SMTP email (any provider)</text>
   <text x="682" y="297" font-size="8.5" fill="var(--color-text-secondary,#6b6b6b)">API key stays SERVER-SIDE</text>
   <line x1="226" y1="287" x2="237" y2="287" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" marker-end="url(#rl_a)"/>
   <line x1="440" y1="287" x2="451" y2="287" stroke="var(--color-text-secondary,#6b6b6b)" stroke-width="1.2" marker-end="url(#rl_a)"/>

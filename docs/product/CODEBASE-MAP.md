@@ -69,7 +69,7 @@ crypto-idea/
 - `universe-utils.js` — coin-universe cache shaping helpers.
 - `validate-output.js` — fail-closed AI output validator (regex prefilter, N=2 regen cap).
 - `ai-cost.js` — token→cents cost + the app-wide monthly `$` budget ledger.
-- `ai-anthropic.js` — raw seamed request builder + call to the AI provider (`x-api-key` header-only).
+- `ai-provider.js` — raw seamed request builder + call to the AI provider (`x-api-key` header-only).
 - `ai-proxy.js` — fail-closed generate→validate→judge→N=2 orchestrator (`runResearchAsk`).
 - `ai-context.js` — server-authoritative holdings allowlist from the caller's own coin docs.
 - `scripts/seed-emulator.js` — seeds 2 owners + a manager + test users, exportable for reuse.

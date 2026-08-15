@@ -31,7 +31,7 @@ change code, rules, or tests.
 ## What to update (per the DoD + consistency map)
 
 - **The topic's canonical MD doc(s)** — the authoritative record (e.g. `PRICING.md`,
-  `BILLING.md`, `BACKEND-ADMIN-DECISIONS.md`, `CACHE-POLICY.md`, `DESIGN-PASS.md`).
+  `BILLING.md`, `BACKEND-ADMIN-DECISIONS.md`, `CACHE-POLICY.md`, `DESIGN.md`).
 - **`README.md`** — when structure/behavior/tier tables/commands changed.
 - **`CLAUDE.md`** — when a convention, architecture note, or workflow changed
   (keep it accurate; it's loaded every session and overrides defaults).

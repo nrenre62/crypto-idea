@@ -89,7 +89,7 @@ writing they are:
 
 - **Pricing / plans** — canonical `docs/decisions/PRICING.md`; also
   `BILLING.md`, `PRODUCT-DECISIONS.md` (#19/#20/#21), `USER-BENEFITS.md`,
-  `CACHE-POLICY.md`, `ai-tool-policy.md`; code `functions/index.js`
+  `CACHE-POLICY.md`; code `functions/index.js`
   (`DEFAULT_PLANS`/`mergePlans`/`getStats`), `functions/billing.js`
   (`computeRevenue`), `src/hooks/useAdminDashboard.js` (`DEFAULT_PLANS`),
   `src/components/Login.jsx` (`PLAN_BENEFITS`), `index.html` (landing plan
@@ -101,7 +101,7 @@ writing they are:
   (`PLAN_BENEFITS`); docs `README.md`, `PRICING.md`, `USER-BENEFITS.md`,
   `PRODUCT-DECISIONS.md` #19/#20.
 - **AI budget / usage** (`aiMonthlyCents`) — canonical `PRICING.md` §4; also
-  `CACHE-POLICY.md` C3, `ai-tool-policy.md`, `USER-BENEFITS.md`,
+  `CACHE-POLICY.md` C3, `USER-BENEFITS.md`,
   `PRODUCT-DECISIONS.md` #21, `BACKEND-ADMIN-DECISIONS.md`; code
   `functions/index.js` (`aiMonthlyCents` in `DEFAULT_PLANS`), `functions/guards.js`
   (`consumeDailyBudget`).
@@ -111,7 +111,7 @@ writing they are:
   `Login.jsx` + `useUpgrade.js`, `firestore.rules` (subscription/tier
   server-only).
 - **User settings / account** — canonical `USER-SETTINGS.md`; also
-  `USER-SETTINGS-README.md`, `USER-CREATION.md`; code `src/components/Account.jsx`,
+  `USER-CREATION.md`; code `src/components/Account.jsx`,
   `src/hooks/useAuthSession.js`, `src/CryptoIdea.jsx`, `firestore.rules`
   (users-doc shape + owner blocklist), `functions/index.js` (self-service
   callables).
@@ -124,7 +124,7 @@ writing they are:
   `functions/{guards,billing,net-utils,universe-utils,validate-output}.js`,
   `firestore.rules`.
 - **Security / rules / isolation** — canonical `API-SECURITY.md`; also
-  `SECURITY-AUDIT.md`, `ISOLATION.md`; code/config `firestore.rules`,
+  `SECURITY.md`, `ISOLATION.md`; code/config `firestore.rules`,
   `storage.rules`, `functions/guards.js`, `functions/net-utils.js`,
   `.githooks/pre-commit`, `.gitignore`.
 - **Caching / market data** — canonical `CACHE-POLICY.md`; also `README.md`,
@@ -179,7 +179,7 @@ security boundary and are verified by `npm run test:rules`).
   are *mirrors*. If they disagree with rules, the drift is a real security/UX
   bug, not cosmetic — rank it high.
 - **Secrets never travel.** If the topic touches config/secrets (`coingecko`,
-  `paypal.secret`, `email.apiKey`, `ai.anthropicKey`, `sentry.dsn`), verify the
+  `paypal.secret`, `email.smtpPass`, `ai.providerKey`, `sentry.dsn`), verify the
   `keep()` set-flag idiom is intact and never report a secret *value* — report
   only that a field exists/changed.
 - **Two `DEFAULT_PLANS` copies exist** (`functions/index.js` server + client

@@ -126,7 +126,7 @@ Self-service callables (`exportMyData`, `deleteMyAccount`, `restoreMyAccount`, `
 
 ## Notifications
 
-Two user-controllable email categories persist in the settings map: `emailDigest` (weekly portfolio digest) and `emailMarketing` (product updates and offers, which doubles as the withdrawable marketing consent). Both auto-save. Delivery uses the configured email provider seam. Transactional email (security, payment) is always sent and has no toggle.
+Two user-controllable email categories persist in the settings map: `emailDigest` (weekly portfolio digest) and `emailMarketing` (product updates and offers, which doubles as the withdrawable marketing consent). Both auto-save. Delivery uses the configured SMTP email seam (provider-agnostic — host/port/user/pass/from). Transactional email (security, payment) is always sent and has no toggle.
 
 ## Tier-aware surfaces
 
