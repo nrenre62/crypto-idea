@@ -12,6 +12,52 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## LANDING-OSS. index.html reworked to the free / open-source (MIT) reality + burnt-out-investor voice  (✅ BUILT 2026-08-15 · branch master-6mrr02 · founder interview 2026-08-15)
+
+**Founder ask (2026-08-15, plain-chat interview):** audit `index.html` against the *shipped* app and the
+[INDEX.HTML PLAYBOOK] and make it honest — it's a free, **open-source MIT** project, **no billing**, one
+**Starter** tier. Match the in-page mockups to the real app pop-ups; kill every AI claim (AI is off);
+remove all company names from the page's code/copy; add CoinGecko attribution; write the sub-copy for the
+**burnt-out investor**.
+
+**🟩 Locked decisions (founder answered all):**
+1. **One tier only ("Starter"), no billing anywhere.** Pricing section → **"Usage"** stating the real
+   account limits (3 portfolios / 30 coins each / 300 tx per coin / all 9 Learn modules open / Journal /
+   conviction / tracker). No Pro/Premium, no payment copy. Nav/footer "Pricing" → "Usage".
+2. **Open-source MIT stated:** footer **Source-on-GitHub** (`github.com/nrenre62/crypto-idea`) + **MIT
+   License** links + a repo/license/attribution row.
+3. **No AI anywhere** — conviction = a four-signal read (illustrative/deterministic), Pulse = deterministic
+   summary; no "AI"/"Ask AI"/"web search". Describe only what ships.
+4. **Two faithful pop-up mockups** matching `src/features/research` + `src/components/Journal.jsx`: (1)
+   Research coin card with the real **🟢 Healthy / 🟡 Mixed / 🔴 Problem / ⬛ Insufficient** states across
+   **Dev·Founders·Team·Community** (⬛ shows the reason chip; ≥2-source rule noted), (2) the thesis pop-up
+   ("Why you bought it" / "What would change your mind" + the intact/review/challenged review row). Example
+   coins **BTC / ETH** (open, no legal entity); marked *Example*.
+5. **No company names in page code/copy:** removed "iPhone"/"App Store"; dropped the `apple-touch-icon`
+   link + the `-apple-system` CSS token (kept neutral `system-ui`); renamed `site-meta.js` →
+   **`site-metadata.js`** (updated `index.html`, `app.html`, `firebase.json` comment). Google Fonts kept
+   (actually used); GA loader kept (opt-in infra); React/Meta OSS is fine.
+6. **CoinGecko attribution** ("Data provided by CoinGecko", hyperlinked) by the DCA calculator + in the
+   footer — API ToS §4.3.
+7. `og:image` added; `landing.js` billing toggle + `paidPlansEnabled` client-hide + plan-price config
+   fetch removed (no dynamic pricing left). Build clean: dist-name-guard + brand-guard green.
+
+**Interpretive calls (flagged to founder):** "screenshots" built as faithful HTML re-creations in the
+page's existing card style (not raster PNGs — preserves the design + lets us strip coin names); "free →
+Starter" applied to the *plan label* + CTAs ("Start free" → "Get started"), keeping honest
+"open source / no sign-up" descriptors.
+
+**Follow-ups logged:**
+- **[next PR] In-app CoinGecko attribution** — the React app's data surfaces (Research / DCA auto-fill /
+  CoinInfo) also display CoinGecko data, so ToS §4.3 requires a visible "Data provided by CoinGecko"
+  credit **inside the app** too. Add it where the data renders.
+- **[optional] Repo-wide Apple-token sweep** — `app.html`/`admin.html` still carry `apple-mobile-web-app-*`,
+  `apple-touch-icon`, `-apple-system`, `SF Pro Display`, `Helvetica Neue`, `BlinkMacSystemFont` (outside
+  this PR's index scope). Sweep if a fully company-name-free repo is wanted (these are web/font standards,
+  so weigh the iOS-icon/native-font cost).
+
+[INDEX.HTML PLAYBOOK]: founder Drive doc (best-practice skeleton, CoinGecko wiring, MIT mechanics, checklist).
+
 ## FLOATING-HEADER. Pinned brand-bar header on every tab + Account, 30px top gap, sticky settings headers  (✅ BUILT 2026-08-09 · CRYP-102 · branch master-6mrr02 · design-only · founder interview 2026-08-09)
 
 **Founder ask (2026-08-09, plain-chat interview + interactive spacing mockup):** the header must stay

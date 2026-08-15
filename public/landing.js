@@ -10,18 +10,6 @@ const tog=document.getElementById('menuToggle');
 tog.addEventListener('click',()=>hdr.classList.toggle('menu-open'));
 document.querySelectorAll('#navLinks a').forEach(a=>a.addEventListener('click',()=>hdr.classList.remove('menu-open')));
 
-// Billing toggle
-function setBilling(p){
-  const m=p==='monthly';
-  document.getElementById('btnMonthly').classList.toggle('active',m);
-  document.getElementById('btnYearly').classList.toggle('active',!m);
-  document.querySelectorAll('.plan-price').forEach(el=>{
-    const v=m?el.dataset.m:el.dataset.y;
-    const free=v==='$0';
-    el.innerHTML=v+'<span>'+(free?'/month':(m?'/month':'/month, billed yearly'))+'</span>';
-  });
-}
-
 // Subscribe
 function subscribe(){
   const input=document.getElementById('emailInput');
@@ -38,10 +26,8 @@ function subscribe(){
     }).catch(()=>{msg.style.color='var(--warn)';msg.textContent='Network error — please try again.';});
 }
 document.getElementById('emailInput').addEventListener('keydown',e=>{if(e.key==='Enter')subscribe();});
-// Bind the billing toggle + Subscribe button here (not inline onclick=): the production CSP
-// script-src has no 'unsafe-inline', so inline handlers are blocked at click time (D12).
-document.getElementById('btnMonthly').addEventListener('click',()=>setBilling('monthly'));
-document.getElementById('btnYearly').addEventListener('click',()=>setBilling('yearly'));
+// Bind the Subscribe button here (not inline onclick=): the production CSP script-src has
+// no 'unsafe-inline', so inline handlers are blocked at click time (D12).
 document.getElementById('subscribeBtn').addEventListener('click',subscribe);
 
 // Year
@@ -53,29 +39,6 @@ const io=new IntersectionObserver(entries=>{
 },{threshold:.1,rootMargin:'0px 0px -36px 0px'});
 document.querySelectorAll('.reveal').forEach((el,i)=>{
   el.style.transitionDelay=(Math.min(i%5,4)*80)+'ms';io.observe(el);});
-
-// Live plan prices from admin config (falls back to hardcoded data-* values)
-fetch('/api/config').then(r=>r.ok?r.json():null).then(c=>{
-  if(!c)return;
-  // CRYP-101 (LAUNCH-FREE Part B): free-launch mode hides every pricing surface on the
-  // landing. CSP-safe — programmatic el.style only, no inline script/style injected.
-  if(c.paidPlansEnabled===false){
-    ['#pricing','.nav-links a[href="#pricing"]','.foot-links a[href="#pricing"]'].forEach(function(sel){
-      document.querySelectorAll(sel).forEach(function(el){if(el)el.style.display='none';});
-    });
-  }
-  if(!c.plans)return;
-  var cards=document.querySelectorAll('.plan-price');
-  ['free','pro','premium'].forEach((t,i)=>{
-    var p=c.plans[t];if(!cards[i]||!p||p.price==null)return;
-    // Yearly shows the per-month equivalent of the stored annual price (priceYear).
-    // Fallback if priceYear is absent: 2 months free (= price*10/12).
-    var y=(p.priceYear!=null)?Math.round(p.priceYear/12*100)/100:Math.round(p.price*10/12*100)/100;
-    cards[i].dataset.m='$'+p.price;cards[i].dataset.y='$'+y;
-  });
-  var yEl=document.getElementById('btnYearly');
-  setBilling(yEl&&yEl.classList.contains('active')?'yearly':'monthly');
-}).catch(()=>{});
 
 // ── DCA Calculator ──
 // Prefers the live API (3,000+ coins, CDN-cached on the deployed site). When the

@@ -41,6 +41,14 @@ the go-live checklist plus a polish pass across the app and the docs.
   policy before it runs for real users.
 
 ### Changed
+- Landing page (`index.html`) reworked to the free / open-source (MIT) reality and the burnt-out-investor
+  voice: single **Starter** tier with a **"Usage"** section (real account limits, no billing/pricing UI),
+  every **AI** claim removed (conviction/Pulse described as the deterministic/illustrative features that
+  ship), the two in-page mockups rebuilt to match the real Research coin pop-up (🟢/🟡/🔴/⬛
+  Dev·Founders·Team·Community) and Journal thesis pop-up, **Source-on-GitHub + MIT** footer links, and
+  **CoinGecko** attribution by the DCA calculator (API ToS §4.3). Company names removed from the page's
+  own code/copy (Apple/iPhone/App-Store); the shared metadata loader renamed `site-meta.js` →
+  `site-metadata.js`; dead billing toggle / `paidPlansEnabled` client-hide removed from `landing.js`.
 - Removed swappable-vendor company names from the codebase — function names, identifiers, and config
   fields are provider-neutral (e.g. the AI client seam and the outbound-email path name a function, not
   a company). The fixed single-service integrations (PayPal, CoinGecko, Termly, Sentry) keep their
