@@ -30,6 +30,15 @@ the go-live checklist plus a polish pass across the app and the docs.
 - SMTP-only email: any email provider works via SMTP (host/port/user/pass/from) configured in admin
   Settings; the landing signup form emails the site owner over SMTP. The previous hardcoded email-list
   integrations were removed.
+- Client-side error monitoring + measurement (Sentry browser SDK) on the user and admin React apps,
+  in addition to the existing server-side reporter. Full instrumentation — errors, tracing, and
+  session replay — chosen because this is a public, MIT-licensed research/portfolio project whose goal
+  is keeping the deployed product live and measuring everything. Privacy-safe: `sendDefaultPii:false`,
+  error events are scrubbed of user + request data, replay masks all text / blocks all media, the EU
+  (DE) Sentry region is used, and no source maps are uploaded (source stays private; traces are
+  minified). Lives in `src/observability-client.js`, loaded lazily as its own chunk; the DSN is a
+  browser DSN (publish-only, safe in a public repo). Session replay must be disclosed in the privacy
+  policy before it runs for real users.
 
 ### Changed
 - Removed swappable-vendor company names from the codebase — function names, identifiers, and config

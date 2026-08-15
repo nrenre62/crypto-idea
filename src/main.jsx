@@ -11,6 +11,11 @@ import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import "./styles/app.css"; // app design system (scoped under .ci-app)
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx"; // H8: no white screen on a render throw
+import { initClientSentry } from "./observability-client.js"; // client error reporting + measurement
+
+// Install global error/rejection handlers + tracing early (fire-and-forget; the SDK
+// streams as its own chunk and never blocks first paint). No-op if it can't load.
+initClientSentry();
 
 // Every route is code-split. The initial download is just this tiny entry + React,
 // so the loading shell paints immediately; the heavy app code AND the Firebase SDK

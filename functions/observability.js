@@ -1,10 +1,13 @@
-// ADMIN-2 — server-side error reporting (Sentry), functions only.
+// ADMIN-2 — server-side error reporting (Sentry). This is the SERVER half; the
+// browser half lives in src/observability-client.js (added 2026-08-15).
 //
-// Why functions-only (founder, 2026-07-24): the failures that matter before there
-// are users are server-side — a webhook that stops entitling paid accounts, a
-// scheduler that quietly dies, an upstream that starts 500ing. Adding @sentry/react
-// would tax every visitor's bundle (~30 KB gz) and need a CSP connect-src entry for
-// a signal worth far less. Client errors stay a go-live decision.
+// History: this was functions-only before launch — the failures that matter before
+// there are users are server-side (a webhook that stops entitling paid accounts, a
+// scheduler that quietly dies, an upstream that starts 500ing), and a client SDK
+// taxes every visitor's bundle. That reversed on 2026-08-15 (founder): this repo is
+// a public, MIT-licensed research/portfolio project whose whole point is keeping the
+// deployed product live and MEASURING EVERYTHING, so the client now runs full
+// error + tracing + replay instrumentation (see src/observability-client.js).
 //
 // The DSN lives in config/app.sentry.dsn (admin Settings), NOT in the bundle and
 // NOT in git — same treatment as every other key. With no DSN configured this

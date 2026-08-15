@@ -60,6 +60,7 @@ export default defineConfig({
         // often than the React/Firebase SDKs do).
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
+          if (id.includes("@sentry")) return "sentry"; // isolate the error/replay SDK
           if (id.includes("@firebase") || id.includes("/firebase/")) return "firebase";
           return "vendor"; // react, react-dom, and the rest
         },
