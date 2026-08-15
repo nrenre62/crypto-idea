@@ -1,8 +1,9 @@
 # Agile workflow (lightweight, solo)
 
-How we build Crypto Idea: small, vertical, **test-guarded increments** off a **prioritized
+How we build CryptoIdea: small, vertical, **test-guarded increments** off a **prioritized
 backlog**, each meeting a clear **Definition of Done**. Tuned for a solo builder — value over
-ceremony (KISS). Pairs with Kaizen (continuous improvement) and the conventions in `CLAUDE.md`.
+ceremony (KISS). Pairs with Kaizen (continuous improvement) and the conventions in `CLAUDE.md`;
+see also the [docs hub](../INDEX.md).
 
 > Why no Scrum ceremony? One person doesn't need sprints, standups, or story points — that's
 > overhead with no payoff. We keep the parts of Agile that actually add value solo: a clear

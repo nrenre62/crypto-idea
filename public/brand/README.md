@@ -2,7 +2,8 @@
 
 Standalone logo files for the CryptoIdea turtle mark. These are **generated
 artifacts** — do not hand-edit; re-run the generator (see
-[`scripts/brand/`](../../scripts/brand/)) and commit the output.
+[`scripts/brand/`](../../scripts/brand/)) and commit the output. See also the
+[project README](../../README.md).
 
 The design: the green "C" tile, a small turtle riding the upper-right corner on
 a stylized sea line, and the one-word **CryptoIdea** wordmark. Brand greens only

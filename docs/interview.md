@@ -1,7 +1,8 @@
 # Interview & Consistency Process
 
-**Standing operating procedure for this project** (founder decision, 2026-07-17). Bound via a rule in
-[`CLAUDE.md`](../CLAUDE.md) → Conventions, so it's loaded and applied every session.
+**Standing operating procedure for this project** (founder decision). Bound via a rule in
+[`CLAUDE.md`](../CLAUDE.md) → Conventions, so it's loaded and applied every session. See also the
+[docs hub](INDEX.md).
 
 **Purpose:** keep the **code, the rules, the README, and every MD doc in agreement.** One change to a
 topic (pricing, tier limits, user settings, admin, API, security…) must be reflected *everywhere*
@@ -21,7 +22,7 @@ This one loop covers **building a plan, fixing a bug, or fixing anything** subst
 Never skip the interview or the gap-hunt; never push to `master`; never reuse or rewrite an old (merged / closed) PR.
 
 **Ad-hoc "build / design / fix this now" from chat enters this loop at the interview — it never goes
-straight to build** (founder rule, 2026-08-08). The **only** thing that skips the interview is a
+straight to build** (founder rule). The **only** thing that skips the interview is a
 `NEXT-STEPS` item that already carries a **written/locked plan** (a real plan block or the 🟩 GREEN
 "locked decisions" marker — the founder planned it manually and wrote it in the ledger); a bare
 `NEXT-STEPS` **stub** with no plan is still interviewed. The `/build-feature` factory enforces this same
@@ -41,7 +42,7 @@ plan-of-record), AD-HOC gets the mandatory G1 interview + a blocking G2 — see
 
 **Skip to a one-line heads-up** for a *pure doc typo / one-line copy tweak / lone comment* — something
 that is **NOT** a build, design, or bug fix. **Any build / design / bug fix is interviewed, no
-exceptions** (founder rule, 2026-08-08) — even a one-liner; there is no straight-to-build path. **When
+exceptions** (founder rule) — even a one-liner; there is no straight-to-build path. **When
 unsure which bucket a change is in, treat it as substantive and interview.**
 
 ---
@@ -50,7 +51,7 @@ unsure which bucket a change is in, treat it as substantive and interview.**
 
 1. **Interview with plain-chat questions.** Ask about the goal, the options, and the trade-offs as
    **numbered plain text in the chat** and **wait for the founder's typed answer** — **never the
-   `AskUserQuestion` tool or any option-box UI** (founder rule, 2026-08-03: questions are never
+   `AskUserQuestion` tool or any option-box UI** (founder rule: questions are never
    timed or skippable; they stay in the conversation and must be answered). Don't guess intent on a
    substantive change.
 2. **Find the gaps first — always.** Before proposing anything — whether building a plan, fixing a
@@ -90,7 +91,7 @@ When a topic changes, review and reconcile **all** of these. The **canonical** s
 wins in a conflict) is **bold**.
 
 ### Pricing / plans (prices, annual, AI $ budget)
-- Docs: **[`PRICING.md`](decisions/PRICING.md)** · [`BILLING.md`](decisions/BILLING.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #19/#20/#21 · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) (AI budget) · [`ai-tool-policy.md`](planning/ai-tool-policy.md)
+- Docs: **[`PRICING.md`](decisions/PRICING.md)** · [`BILLING.md`](decisions/BILLING.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #19/#20/#21 · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) (AI budget)
 - Code: `functions/index.js` (`DEFAULT_PLANS`, `mergePlans`, `getStats`) · `functions/billing.js` (`computeRevenue`) · `src/hooks/useAdminDashboard.js` (`DEFAULT_PLANS`) · `src/data/plan-benefits.js` (`PLAN_BENEFITS` — re-exported by `src/components/Login.jsx`; also read by `src/components/pro-success.jsx`) · `index.html` (landing plan cards)
 - `README.md` (Tier Limits table)
 
@@ -100,7 +101,7 @@ wins in a conflict) is **bold**.
 - Docs: `README.md` (Tier Limits) · [`PRICING.md`](decisions/PRICING.md) · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #19/#20
 
 ### AI budget / usage (`aiMonthlyCents`, "~N/day")
-- Docs: **[`PRICING.md`](decisions/PRICING.md) §4** · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) C3 · [`ai-tool-policy.md`](planning/ai-tool-policy.md) · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #21 · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md)
+- Docs: **[`PRICING.md`](decisions/PRICING.md) §4** · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) C3 · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #21 · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md)
 - Code: `functions/index.js` (`aiMonthlyCents` in `DEFAULT_PLANS`) · `functions/guards.js` (`consumeDailyBudget`)
 
 ### Billing / PayPal (subscription lifecycle, webhook)
@@ -108,7 +109,7 @@ wins in a conflict) is **bold**.
 - Code: `functions/index.js` (PayPal section; `scheduleProDowngrade` — Plan B PR-C2 — + the shared `scheduleFutureStart` engine + `resubscribePremium` — Plan B PR-C3b-server) · `functions/billing.js` (+ PR-C2/C3b-server helpers `scheduleNextMarkerPatch`/`scheduledActivationDecision`/`keepPlanPatch` — the tier-carrying `scheduledNext` marker, legacy `scheduledPro` shimmed) · `functions/guards.js` (cooldown) · `src/api/billing.js` (client `createSubscription` — Plan B PR-B — + `cancelSubscription` — Plan B PR-C1 — + `scheduleProDowngrade` — Plan B PR-C2 — + `resubscribePremium` — Plan B PR-C3b-client — wrappers; PR-C3b-client also adds the `scheduledNext || scheduledPro` reader shim + the confirm-gated "Re-subscribe to Premium" CTA + cycle picker) · `src/components/Login.jsx` + `src/components/Account.jsx` + `src/hooks/useUpgrade.js` + `src/CryptoIdea.jsx` (upgrade/downgrade UI; PR-C1 routes the downgrade handlers through `cancelSubscription`; PR-C2 adds the Premium→Pro future-start approve step + fail-closed "Keep my plan" → "Re-subscribe to Premium") · `src/components/pro-success.jsx` + `src/hooks/useProSuccess.js` (webhook-confirmed `/pro-success`; PR-C2 "Pro starts when Premium ends" scheduled state) · `firestore.rules` (subscription/tier server-only)
 
 ### User settings / account (profile, security, GDPR)
-- Docs: **[`USER-SETTINGS.md`](product/USER-SETTINGS.md)** · [`USER-SETTINGS-README.md`](product/USER-SETTINGS-README.md) · [`USER-CREATION.md`](product/USER-CREATION.md)
+- Docs: **[`USER-SETTINGS.md`](product/USER-SETTINGS.md)** · [`USER-CREATION.md`](product/USER-CREATION.md)
 - Code: `src/components/Account.jsx` · `src/hooks/useAuthSession.js` · `src/CryptoIdea.jsx` (handlers) · `firestore.rules` (users-doc shape + owner blocklist) · `functions/index.js` (self-service callables: `deleteMyAccount` / `restoreMyAccount` / `exportMyData` / `signOutEverywhere` / `reconcileMyCounters`)
 
 ### Admin panel
@@ -120,7 +121,7 @@ wins in a conflict) is **bold**.
 - Code: `functions/index.js` + `functions/{guards,billing,net-utils,universe-utils,validate-output}.js` · `firestore.rules`
 
 ### Security / rules / isolation
-- Docs: **[`API-SECURITY.md`](security/API-SECURITY.md)** · [`SECURITY-AUDIT.md`](security/SECURITY-AUDIT.md) · [`ISOLATION.md`](security/ISOLATION.md)
+- Docs: **[`API-SECURITY.md`](security/API-SECURITY.md)** · [`SECURITY.md`](security/SECURITY.md) · [`ISOLATION.md`](security/ISOLATION.md)
 - Code/config: `firestore.rules` · `storage.rules` · `functions/guards.js` · `functions/net-utils.js` · `.githooks/pre-commit` · `.gitignore`
 
 ### Caching / market data
@@ -128,11 +129,11 @@ wins in a conflict) is **bold**.
 - Code: `functions/index.js` (universe / cache / history) · `functions/universe-utils.js`
 
 ### Architecture / layering
-- Docs: **[`ARCHITECTURE.md`](decisions/ARCHITECTURE.md)** · [`src/ARCHITECTURE.md`](../src/ARCHITECTURE.md) · [`ARCHITECTURE-AUDIT.md`](testing/ARCHITECTURE-AUDIT.md) (historical) · [`CODEBASE-MAP.md`](product/CODEBASE-MAP.md) · [`docs/diagrams/frontend-layered-architecture.svg`](diagrams/frontend-layered-architecture.svg)
+- Docs: **[`ARCHITECTURE.md`](decisions/ARCHITECTURE.md)** · [`src/ARCHITECTURE.md`](../src/ARCHITECTURE.md) · [`CODEBASE-MAP.md`](product/CODEBASE-MAP.md) · [`docs/diagrams/frontend-layered-architecture.svg`](diagrams/frontend-layered-architecture.svg)
 - Code: `src/{api,hooks,components,utils}/` · `src/features/research/` · `functions/index.js` (+ helper modules) · `vite.config.js` · `index.html`/`app.html`/`admin.html`
 
 ### Testing & issue tracking (Jira CRYP, test ↔ ticket traceability)
-- Docs: **[`JIRA-WORKFLOW.md`](testing/JIRA-WORKFLOW.md)** (bug loop) · **[`JIRA-PLAYBOOK.md`](testing/JIRA-PLAYBOOK.md)** (hierarchy / templates / Components / Versions / presentation) · [`AGILE.md`](product/AGILE.md) (Definition of Done + testing conventions) · [`ERRORS.md`](testing/ERRORS.md) · `README.md` (Tests + "How I built this") · `CHANGELOG.md` · `CLAUDE.md` (Conventions) · `docs/testing/bug-hunts/` (hunt reports)
+- Docs: **[`JIRA-WORKFLOW.md`](testing/JIRA-WORKFLOW.md)** (bug loop) · **[`JIRA-PLAYBOOK.md`](testing/JIRA-PLAYBOOK.md)** (hierarchy / templates / Components / Versions / presentation) · [`AGILE.md`](product/AGILE.md) (Definition of Done + testing conventions) · [`ERRORS.md`](testing/ERRORS.md) · `README.md` (Tests + "How I built this") · `CHANGELOG.md` · `CLAUDE.md` (Conventions) · [`TESTING.md`](testing/TESTING.md) (test reports + hunts)
 - Commands / agents: `.claude/commands/jira-bug.md` · `.claude/commands/jira-fix.md` (uses `claude/…` branches) · `.claude/commands/jira-test-sync.md` · `.claude/commands/jira-bug-hunt.md` · `.claude/commands/build-feature.md` + `.claude/agents/spec-drafter.md` (G1 files a CRYP Story)
 - Code/config: `scripts/jira-test-map.js` + `tests/unit/jira-test-map.test.js` · `package.json` (test scripts) · `.githooks/pre-push` · `.gitignore` (`.tmp/`)
 
@@ -142,15 +143,15 @@ wins in a conflict) is **bold**.
 - Tests: `tests/unit/Logo.test.jsx` · `tests/unit/brand-guard.test.js` + `scripts/check-brand.js` (now also enforces PRESENCE via the `findMissingLockups`/`findMissingFonts`/`findMissingSource` helpers — terms/privacy must carry the tile lockup + Fraunces/Hanken, education-page uses `<Logo`, both stylesheets carry the hover + `#0b6b4f`; two-word denylist is case-insensitive) · `tests/unit/education-page.test.jsx` · `tests/unit/Loading.test.jsx`
 
 ### Design system / app shell / responsive layout (paper design, sticky headers, avatar, `.ci-app` vs `.research-root`)
-- Docs: **[`DESIGN-PASS.md`](design/DESIGN-PASS.md)** (canonical round-by-round spec) · [`RESPONSIVE-DESIGN.md`](design/RESPONSIVE-DESIGN.md) · [`DESIGN-REVAMP.md`](design/DESIGN-REVAMP.md) · `CLAUDE.md` (Conventions — design notes)
+- Docs: **[`DESIGN.md`](design/DESIGN.md)** (canonical design spec) · [`RESPONSIVE-DESIGN.md`](design/RESPONSIVE-DESIGN.md) · `CLAUDE.md` (Conventions — design notes)
 - Code: `src/styles/app.css` (`.ci-app` tokens + `.apphead`/`.set-scr*`/`.avatar-dock`/`app-shell`) · `src/features/research/styles/research-tab.css` (`.research-root`/`.research-stickyhead`, scoped separate) · the 5 tab headers (Portfolio/Journal/Learn/Search share `.apphead`; Research header) · `src/CryptoIdea.jsx` (app shell + docked avatar) · `src/components/Account.jsx` (`SettingsScreen`)
 
 ### Number / money display (app-side $-rounding · % · minus signs · missing-data neutrality)
 - Canonical: **`src/utils/format.js`** + **`src/utils/money.js`** (pure `splitMoney` — rounds to cents FIRST, then splits, so `$100.999` → `$101.00`; single source of truth for the dollar+cents split)
 - Consumers: `src/components/Portfolio.jsx` · `src/components/Detail.jsx` · `src/components/CoinInfo.jsx` · `src/components/AddEntry.jsx`
 - Tests: `tests/unit/money.test.js` · `tests/unit/format.test.js`
-- **Note:** the Research tab has its OWN formatter (`src/features/research/utils/format.js`) that currently DIVERGES from the app pair (rounds differently; `fmtPct(null)` → "NaN%") — unifying the two is tracked in `NEXT-STEPS.md` §FORMATTER-UNIFY — still not done (DARK-FIX-NaN shipped 2026-08-07 but only guarded the OverviewView diversification note's `top2` locally; the `format.js` `fmtPct(null)` → "NaN%" divergence itself is untouched). Row added 2026-08-06 (PORTFOLIO-NUM-FIX) to close the gap that let the app-vs-Research formatters drift.
-- **P/L math (CRYP-94 / §GROUP-B, 2026-08-08):** the oversell + realized-vs-unrealized + unpriced-holding *math* lives in **`src/utils/pnl.js`** (realized-proceeds clamp for over-sold books; unknown-price → null value/P&L, not −100%) and **`src/utils/tx.js`** (`firstOverSoldSell`/`isFutureTx`), with the guard wired in **`src/CryptoIdea.jsx`** `addEntry`/`remEntry`. These files are NOT in any consistency-map row — a change to the P/L invariant must sweep them **by hand** alongside the display consumers above (Detail/CoinInfo/Portfolio/AddEntry). The Research tab carries its OWN parallel copies (`features/research/utils/priceAdapter.js`+`portfolio.js`) — deliberately deferred (mock-fed / Wave B).
+- **Note:** the Research tab has its OWN formatter (`src/features/research/utils/format.js`) that currently DIVERGES from the app pair (rounds differently; `fmtPct(null)` → "NaN%") — unifying the two is tracked in `NEXT-STEPS.md` §FORMATTER-UNIFY — still not done (DARK-FIX-NaN shipped but only guarded the OverviewView diversification note's `top2` locally; the `format.js` `fmtPct(null)` → "NaN%" divergence itself is untouched). Row added (PORTFOLIO-NUM-FIX) to close the gap that let the app-vs-Research formatters drift.
+- **P/L math (CRYP-94 / §GROUP-B):** the oversell + realized-vs-unrealized + unpriced-holding *math* lives in **`src/utils/pnl.js`** (realized-proceeds clamp for over-sold books; unknown-price → null value/P&L, not −100%) and **`src/utils/tx.js`** (`firstOverSoldSell`/`isFutureTx`), with the guard wired in **`src/CryptoIdea.jsx`** `addEntry`/`remEntry`. These files are NOT in any consistency-map row — a change to the P/L invariant must sweep them **by hand** alongside the display consumers above (Detail/CoinInfo/Portfolio/AddEntry). The Research tab carries its OWN parallel copies (`features/research/utils/priceAdapter.js`+`portfolio.js`) — deliberately deferred (mock-fed / Wave B).
 
 > **Keep this map current.** When a file moves or a new canonical doc is added (e.g. `BILLING.md`),
 > update the affected row in the *same* change — the map itself is subject to the consistency rule.

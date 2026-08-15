@@ -29,7 +29,7 @@ gcloud firestore backups schedules create --database='(default)' --recurrence=da
 
 The Firebase Console exposes a Point-in-time recovery toggle under Firestore → settings, so `gcloud` is not required for PITR. The backup schedule may still need `gcloud` if the Console does not offer Firestore → Backups → Create schedule.
 
-After enabling, add a production-recovery section to [backup notes](BACKUP.md), do one practice restore (a restore always lands in a new database), and disclose the backup window in `privacy.html` alongside the audit-retention block. Match the disclosed window to the real `--retention` value.
+After enabling, document the production-recovery steps, do one practice restore (a restore always lands in a new database), and disclose the backup window in `privacy.html` alongside the audit-retention block. Match the disclosed window to the real `--retention` value.
 
 ## Legal documents
 

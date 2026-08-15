@@ -2,7 +2,7 @@
 
 > **Canonical guide for running the whole project in Jira** — the hierarchy, how to write each
 > work-item type, the Kanban board, Components & Releases, and how the process shows up as portfolio
-> evidence. Distilled from the founder's research note *"Jira workflow"* (Aug 2026) and adapted to this
+> evidence. Distilled from the founder's research note *"Jira workflow"* and adapted to this
 > repo's real setup (project **CRYP** on `cryptoidea.atlassian.net`, team-managed, Rovo MCP, `claude/…`
 > branches, the `test:unit` / `test:rules` / `test:integration` tiers).
 >
@@ -94,7 +94,7 @@ outcome, acceptance criteria that map to tests, a Definition of Done that is che
 
 ### 3.1 Epic
 
-```
+```text
 EPIC: <feature area, e.g. "Billing & subscriptions">
 
 Goal / Objective
@@ -122,7 +122,7 @@ Use `As a … / I want … / so that …` + 2–5 **Given/When/Then** acceptance
 (*"Given an unauthenticated user"*, not *"Given I'm at /login"*). INVEST: Independent, Negotiable,
 Valuable, Estimable, Small, Testable. The AC become the failing tests first (TDD).
 
-```
+```text
 STORY: <short title, e.g. "Add crypto holding to portfolio">
 
 As a CryptoIdea user,
@@ -154,7 +154,7 @@ goes.
 
 ### 3.3 Task
 
-```
+```text
 TASK: <verb-first, e.g. "Enable App Check enforcement in production">
 
 Objective
@@ -173,7 +173,7 @@ Epic: <CRYP-key>   Component: <area>   Fix Version: <v0.x>
 
 The full bug loop lives in [`JIRA-WORKFLOW.md`](JIRA-WORKFLOW.md); this is the ticket shape it files:
 
-```
+```text
 BUG: [Area] short, specific — what is broken
 
 Symptom:   what the user sees
@@ -252,12 +252,12 @@ version** — never versioned separately. The version lives in `package.json` + 
 **Pre-release ladder (SemVer).** Until the product is stable and public it carries a **pre-release tag**,
 which SemVer orders *below* the plain version (`1.0.0-beta` ships before `1.0.0`):
 
-```
+```text
 pre-alpha → alpha (1.0.0-alpha) → beta (1.0.0-beta) → release candidate (1.0.0-rc.1) → 1.0.0 (stable, public)
 ```
 
 `0.x.y` means "initial development, not yet stable." Our first Firebase deploy skips straight to a
-public **beta**: **`1.0.0-beta`**, targeted **2026-10-01** — the whole app + admin, on a real Firebase
+public **beta**: **`1.0.0-beta`** — the whole app + admin, on a real Firebase
 project. Once the beta is stable it becomes `1.0.0` (optionally through `1.0.0-rc.N`).
 
 **On the board:** set each Done story's **Fix Version** to the release it ships in — most existing work
@@ -370,4 +370,4 @@ stories**, not every commit — 500 micro-tickets read as noise, not process.
 *Append to this doc when a planning/hierarchy/release convention changes. The **bug → failing-test → fix**
 loop and the `it("CRYP-nn: …")` marker live in [`JIRA-WORKFLOW.md`](JIRA-WORKFLOW.md); the Definition of
 Done lives in [`AGILE.md`](../product/AGILE.md); how a change becomes a PR lives in
-[`PR-WORKFLOW.md`](../product/PR-WORKFLOW.md).*
+[`PR-WORKFLOW.md`](../product/PR-WORKFLOW.md). See also the [docs hub](../INDEX.md).*
