@@ -37,7 +37,7 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (!this.state.hasError) return this.props.children;
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, textAlign: "center", fontFamily: "system-ui, -apple-system, sans-serif", background: "#F6F5F0", color: "#1A1A2E" }}>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, textAlign: "center", fontFamily: "system-ui, sans-serif", background: "#F6F5F0", color: "#1A1A2E" }}>
         <div style={{ fontSize: 20, fontWeight: 700 }}>Something went wrong</div>
         <div style={{ fontSize: 14, color: "#6b6b6b", maxWidth: 420, lineHeight: 1.5 }}>
           The app hit an unexpected error. Your data is safe — reloading usually fixes it.

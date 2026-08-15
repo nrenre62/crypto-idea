@@ -12,14 +12,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@500;600&display=swap" rel="stylesheet" />
   <style>
     :root { color-scheme: light; }
-    body { margin:0; font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color:#1A1A2E; background:#fff; line-height:1.6; }
+    body { margin:0; font-family: system-ui, sans-serif; color:#1A1A2E; background:#fff; line-height:1.6; }
     .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
     header { display:flex; align-items:center; justify-content:space-between; padding-bottom:20px; border-bottom:1px solid #eee; margin-bottom:28px; }
     /* Brand lockup — mirrors the app.html loading .lockup shell exactly (green "C"
        tile #0b6b4f + one-word "CryptoIdea", hover-rotate). */
     .brand { position:relative; display:flex; align-items:center; gap:10px; font-weight:600; font-size:18px; letter-spacing:-.01em; text-decoration:none; }
     .brand .mark { width:28px; height:28px; border-radius:8px; background:#0b6b4f; color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Fraunces',Georgia,serif; font-size:16px; font-weight:600; transition:transform .3s ease; }
-    .brand .word { font-family:'Hanken Grotesk',-apple-system,system-ui,sans-serif; color:#1A1A1A; }
+    .brand .word { font-family:'Hanken Grotesk',system-ui,sans-serif; color:#1A1A1A; }
     .brand:hover .mark { transform:rotate(-6deg) scale(1.06); }
     /* Turtle overlay on the "C" tile corner (LOGO-TURTLE). Placed AFTER the
        wordmark so the brand-guard lockup (>C<…CryptoIdea) is untouched. */

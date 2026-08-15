@@ -41,6 +41,13 @@ the go-live checklist plus a polish pass across the app and the docs.
   policy before it runs for real users.
 
 ### Changed
+- Company-name-free shipped frontend: generalized every font stack to `system-ui, sans-serif` (behind the
+  brand fonts) — removed `-apple-system` / `BlinkMacSystemFont` / `SF Pro Display` / `Helvetica Neue` /
+  `Segoe UI` / `Roboto`; replaced the Apple PWA meta hints with the standard `mobile-web-app-capable` and
+  dropped `apple-touch-icon` (manifest covers install); genericized "Excel on Windows" / "iOS-style"
+  mentions in comments. Functional service integrations (Firebase, PayPal, CoinGecko, Termly, Sentry,
+  React, Google Fonts, opt-in GA) are unchanged. Added the required **hyperlinked** "Data provided by
+  CoinGecko" attribution to the in-app Portfolio + Search footers (CoinGecko API Terms §4.3).
 - Landing page (`index.html`) reworked to the free / open-source (MIT) reality and the burnt-out-investor
   voice: single **Starter** tier with a **"Usage"** section (real account limits, no billing/pricing UI),
   every **AI** claim removed (conviction/Pulse described as the deterministic/illustrative features that

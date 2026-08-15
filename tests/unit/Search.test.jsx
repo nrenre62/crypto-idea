@@ -95,11 +95,14 @@ describe("Search — Buy-Journal capture", () => {
     expect(setScreen).toHaveBeenCalledWith("account");
   });
 
-  // CRYP-105 (AC1): the Search tab carries a standing "prices + not advice" disclaimer,
-  // matching the Portfolio tab's honest footer.
-  it("CRYP-105: the Search tab shows the prices/advice disclaimer", () => {
+  // CRYP-105 (AC1): the Search tab carries a standing "data source + not advice" disclaimer,
+  // matching the Portfolio tab's honest footer. The CoinGecko credit is hyperlinked to the
+  // API page (CoinGecko API Terms §4.3 requires the attribution to link back).
+  it("CRYP-105: the Search tab shows the CoinGecko attribution + advice disclaimer", () => {
     provide({});
-    expect(screen.getByText("Prices via CoinGecko · Not financial advice")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "CoinGecko" });
+    expect(link).toHaveAttribute("href", "https://www.coingecko.com/en/api");
+    expect(screen.getByText(/Not financial advice/)).toBeInTheDocument();
   });
 });
 

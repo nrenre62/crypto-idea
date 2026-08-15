@@ -30,7 +30,7 @@ function Loading() {
   // (not `import { Logo }`) so the deliberately-small entry chunk stays lean. The
   // .ci-app wrapper lets the app.css .ci-logo* styles apply.
   return (
-    <div className="ci-app" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, fontFamily: "system-ui, -apple-system, sans-serif", color: "#1A1A2E" }}>
+    <div className="ci-app" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, fontFamily: "system-ui, sans-serif", color: "#1A1A2E" }}>
       <span className="ci-logo up" role="img" aria-label="CryptoIdea">
         <span className="ci-logo-mark" aria-hidden="true">C</span>
         <span className="ci-logo-word">CryptoIdea</span>

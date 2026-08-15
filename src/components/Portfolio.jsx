@@ -140,7 +140,7 @@ export function Portfolio() {
           })}
         </div>
       )}
-      <div className="disclaimer">Prices via CoinGecko · Not financial advice</div>
+      <div className="disclaimer">Data provided by <a href="https://www.coingecko.com/en/api" target="_blank" rel="noopener noreferrer">CoinGecko</a> · Not financial advice</div>
     </div>
   );
 }

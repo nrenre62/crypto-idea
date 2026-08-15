@@ -23,7 +23,7 @@
   --sh:0 1px 2px rgba(21,20,15,.04),0 12px 26px -14px rgba(21,20,15,.13);
   --sh-lg:0 2px 6px rgba(21,20,15,.05),0 34px 64px -30px rgba(21,20,15,.24);
   --display:"Fraunces",Georgia,serif;
-  --body:"Hanken Grotesk",-apple-system,system-ui,sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
   font-family:var(--body); color:var(--ink); letter-spacing:-.005em;
   -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
 }
@@ -283,6 +283,8 @@ html[data-theme="dark"] .ci-app .ci-mono { color:color-mix(in srgb, var(--ci) 52
    token (--ink-soft flips per theme, so it reads right in both; the dark override below
    is now redundant and was removed). */
 .ci-app .disclaimer { font-size:14px; color:var(--ink-soft); line-height:1.55; padding:14px 6px 0; text-align:center; }
+/* CoinGecko attribution link in the footer disclaimers — API Terms §4.3 requires it hyperlinked */
+.ci-app .disclaimer a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
 
 /* ── Empty state ──────────────────────────────────────── */
 .ci-app .empty-state { text-align:center; padding:48px 24px; }
@@ -575,7 +577,7 @@ html[data-theme="dark"] .ci-app .chg-pill.muted { color:var(--ink-faint); }
 .ci-app .pw-eye { position:absolute; top:50%; right:10px; transform:translateY(-50%); background:none; border:0; padding:4px; cursor:pointer; color:var(--ink-faint); display:flex; }
 .ci-app .field-hint { font-size:10.5px; color:var(--amber); margin-top:5px; }
 .ci-app .field-warn { font-size:11px; color:var(--amber); margin-top:5px; display:flex; align-items:center; gap:5px; }
-/* R2-5: segmented control — a track with a white active pill (iOS-style) */
+/* R2-5: segmented control — a track with a white active pill */
 .ci-app .seg { display:flex; gap:4px; background:var(--paper-3); border:1px solid var(--line); border-radius:14px; padding:4px; }
 .ci-app .seg-btn { flex:1; padding:10px; border-radius:10px; border:0; background:transparent; color:var(--ink-faint); font-family:var(--body); font-size:14px; font-weight:700; cursor:pointer; transition:background .15s var(--ease), color .15s var(--ease); }
 .ci-app .seg-btn.on-buy { background:var(--paper-2); color:var(--accent-ink); box-shadow:var(--sh-sm); }
