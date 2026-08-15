@@ -31,6 +31,10 @@ the go-live checklist plus a polish pass across the app and the docs.
 
 ### Docs / legal
 - Privacy policy + terms of service finalized (CRYP-87).
+- Documentation reorganized into a hub-and-spoke set — one canonical file per subject, cross-linked
+  from a root index. The detailed point-in-time build records (design rounds, security / architecture
+  / admin-panel audits, test and review reports, bug hunts) were consolidated into the canonical docs
+  and this changelog; git preserves the originals.
 
 ---
 
@@ -40,10 +44,13 @@ Everything below is complete but unreleased — the feature areas that make up t
 Epic (newest area first). These are **not** tagged releases.
 
 ### Security, data isolation & hardening
+- Security audits (results folded into the code, the rules, and [SECURITY.md](docs/security/SECURITY.md)):
+  a `secure-by-design` five-area review (2026-06-16) and a multi-agent `vibe-security` audit
+  (2026-06-27, 8 confirmed findings) — every code-fixable finding fixed, tested, and verified.
 - Secure-by-design audit: framework + reusable checklist (CRYP-70).
 - Data-isolation audit — 23 cross-tenant probes, no IDOR (CRYP-71).
 - Hardened Firestore security rules; deny-by-default Storage rules (CRYP-72, CRYP-73).
-- OpenAPI spec (32 ops) + API-security review with 8 fixes; 42Crunch OAS hardening + clean live scan
+- OpenAPI spec (32 ops) + API-security review with 8 fixes; OpenAPI contract hardening + clean live scan
   (CRYP-74, CRYP-75).
 - Client-bundle + git-history secret scan; secret-scanning git hooks + AI-agent guard (CRYP-76, CRYP-77).
 - Spend caps + fail-loud scheduled jobs; deploy-time demo-config guard + Hosting/SW safety

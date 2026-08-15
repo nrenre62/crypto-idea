@@ -1,106 +1,51 @@
 # `src/` architecture (layered)
 
-> **System-level rules: see [`docs/decisions/ARCHITECTURE.md`](../docs/decisions/ARCHITECTURE.md) (canonical).**
-> That file owns the whole-system shape (ARCH-1…ARCH-17) and wins on architecture; **this file details the
-> `src/` layers** (`api`/`hooks`/`components`/`utils`) + their current state.
+Part of [System Architecture](../docs/decisions/ARCHITECTURE.md) — the `src/` layer detail.
 
-The layered structure is **in place: all code follows it, with a few documented by-design exceptions.**
-**All new code follows the layer rules; the last extractions were peeled in one verified commit at a
-time.** (History: this was a "migration in progress" — §1a/§1b/§1c are now complete.)
+The client is organized into four layers — `api/`, `hooks/`, `components/`, `utils/`. The system-level rules (ARCH-1…ARCH-17) live in the canonical hub above and win on architecture; this file details the `src/` layers and their current state.
 
-```
+The layered structure is in place: all code follows it, apart from the documented by-design exceptions and the one open violation below.
+
+```text
 src/
   api/          ← data fetching ONLY (Firebase SDK, CoinGecko /api/* fetches). No UI, no React.
   hooks/        ← business logic ONLY (state, portfolio/DCA math orchestration). React hooks, no JSX markup.
   components/   ← UI ONLY (presentational JSX). No fetching, no business rules — call hooks instead.
   utils/        ← pure helper functions (formatting, validation, math). No React, no I/O.
+  data/         ← static reference/content modules (Learn content, plan benefits, mock data). No React, no I/O.
+  features/     ← self-contained feature modules (the Research tab: its own components/hooks/utils/api/styles).
+  styles/       ← global CSS (the app design system, admin-only styles).
 ```
 
 ## Rules of thumb
-- A **component** that needs data calls a **hook**; the hook calls **api/** and uses **utils/**.
-- Never `fetch`/import the Firebase SDK directly from a component — go through `api/`.
-- `utils/` must stay pure (same input → same output, no side effects) so it's trivially testable.
 
-## Current state (layering done, with documented exceptions)
-- **Done:**
-  - `api/` — Firebase data layer (`firebase.config.js`, `firebase-auth.js`,
-    `firebase-database.js`) + the backend `/api/*` fetches: `coingecko.js`
-    (`fetchPrices`, `searchCoins`) and `config.js` (`fetchSiteConfig`). `CryptoIdea.jsx`
-    no longer calls `fetch()` directly. The callable wrappers `account.js`, `admin.js`,
-    `admin-auth.js` and **`billing.js`** (Plan B PR-B — `createSubscription({plan, billing})`;
-    Plan B PR-C1 — `cancelSubscription({downgradeTo})`, a peer of `createSubscription`;
-    Plan B PR-C2 — `scheduleProDowngrade({billing})`, the future-start Pro pre-auth wrapper)
-    keep `httpsCallable` out of components: `Login.jsx`'s buy button imports `api/billing.js`,
-    never the SDK directly, and `CryptoIdea.jsx`'s downgrade handlers (`confirmDowngrade`/
-    `finalizeDowngrade`, plus PR-C2's `scheduleProPay`) route through it too (server-authoritative,
-    no client-forged marker). Server-side, `scheduleProDowngrade` (in `functions/index.js`) creates
-    the future-start Pro sub + eager-cancels Premium and rides the pure `functions/billing.js` helpers
-    `scheduleNextMarkerPatch` / `scheduledActivationDecision` / `keepPlanPatch`. **Plan B PR-C3b-server**
-    generalized the marker to be tier-carrying (`subscription.scheduledNext {tier,…}`, renaming
-    `scheduleProMarkerPatch`→`scheduleNextMarkerPatch` with a legacy-`scheduledPro`→"pro" shim) behind ONE
-    shared `scheduleFutureStart` engine, adding the new `resubscribePremium` callable. **Plan B PR-C3b-client**
-    then wired the client half: the `api/billing.js` `resubscribePremium` wrapper, the `scheduledNext ||
-    scheduledPro` reader shim across all six client sites, and a confirm-gated "Re-subscribe to Premium" CTA +
-    cycle picker in `Account.jsx` (paid plans stay gated OFF until launch).
-  - `utils/` — `format.js` (pure formatters: `fmtP`, `fmtMc`, `fmtPct`, `uid`, `fmtDT`,
-    `timeBetween`), `coins.js` (reference data `TOP_COINS`/`PRICE_HISTORY` + the DCA
-    price model `getHistoricalPrice`), and `theme.js` (visual tokens `c`, `inp_s`,
-    `lbl_s`, `sb`).
-  - `hooks/` — `useCoinSearch(sq)`, `useLivePrices(portfolio)`, `useAuthSession(...)` (auth
-    watch + profile save; owns `user`/`dataLoaded`), `usePortfolios()` (owns `portfolios`/
-    `activePortId` + `portfolio`/`setPortfolio`), `useUpgrade({portfolios,setPortfolios})`
-    (tier-limit logic: `calcEndDate`/`getTrimImpact`/`trimToTier` + the `TIER_LIMITS` table),
-    **`useProSuccess()`** (Plan B PR-B — read-only: watches the caller's own user doc via
-    `api/firebase-database.js` `watchUserDoc` and resolves the `/pro-success` page's waiting /
-    confirmed / timeout / signed-out state; mutates nothing), and `app-context.js`
-    (`AppContext` + `useApp()`).
-  - `data/` — static reference/content modules (no React, no I/O): Learn content (`learn-content.js`
-    + `learn/`), `journal-funnel.js`, `mock-conviction.js`, and **`plan-benefits.js`** (Plan B PR-B —
-    the single `PLAN_BENEFITS` source for the plan-picker cards, welcome screen and the standalone
-    `/pro-success` page; extracted out of `Login.jsx`, which now re-exports it, so `/pro-success`
-    doesn't pull Login into its chunk).
-  - `utils/storage.js` — `db` key/value wrapper over `localStorage` (JSON, error-swallowing; cleared on logout).
-  - `components/` — standalone page UIs (`education-page.jsx`, `pro-success.jsx` — post-PR-B it holds
-    presentation only, reading `hooks/useProSuccess.js` + `data/plan-benefits.js`, no fetch/SDK,
-    `admin-dashboard.jsx`); shared primitives `ui.jsx` (`Ic`, `CI`, `hdr`) + `StatusDot.jsx`;
-    and extracted screens `Loading.jsx`, `ForgotPass.jsx`, `Contact.jsx`, `Search.jsx`, `AddEntry.jsx`, `CoinInfo.jsx`, `Detail.jsx`, `Portfolio.jsx`+`PortfolioBar.jsx`, `Account.jsx`, `Login.jsx` (**all screens now extracted**). `src/` root now holds only the
-    Vite entries (`main.jsx`, `admin-main.jsx`) and the main app shell `CryptoIdea.jsx`.
-  - **Context for screens:** `CryptoIdea.jsx` wraps its render in `<AppContext.Provider value={ctx}>`;
-    extracted screens read shared state/handlers via `useApp()` instead of 25+ props each. The
-    `ctx` object grows as each screen migrates.
-  - **Test net:** `tests/unit/` (Vitest, `npm run test:unit`) — both hooks + a `CryptoIdea`
-    smoke test that renders the logged-out (login) and logged-in (portfolio) screens and the
-    login→reset navigation, with `api/` mocked. Guards the remaining screen extractions.
+- A component that needs data calls a hook; the hook calls `api/` and uses `utils/`.
+- Never `fetch` or import the Firebase SDK directly from a component — go through `api/`.
+- `utils/` stays pure (same input → same output, no side effects) so it is trivially testable.
+- The Vite entries (`main.jsx`, `admin-main.jsx`) and the main app shell (`CryptoIdea.jsx`) stay at the `src/` root.
 
-## Screen-migration pattern (for each remaining screen)
-Add the screen's deps to `ctx` in `CryptoIdea.jsx` → move its JSX to `components/<Screen>.jsx`
-reading them via `useApp()` → render `<Screen/>` (NOT `Screen()` — a component using a hook
-must be a real element, not a conditional function call) → add/extend a navigation test →
-`npm run test:unit`.
+## Layer contents
 
-- **All screens are now extracted.** `CryptoIdea.jsx` (down from ~1.56k lines) now holds only
-  the auth/data-load + profile-save effects, the portfolio CRUD + upgrade-overlay handlers (kept
-  here by design — coupled to UI/form/auth state), the `ctx` object, and the router shell — no
-  inline screen JSX. **§1b hooks (`useAuthSession`/`usePortfolios`/`useUpgrade`) are extracted.
-  See [`../NEXT-STEPS.md`](../docs/product/NEXT-STEPS.md) for the remaining checklist (§1c).**
-- Multi-page Vite entries (`main.jsx`, `admin-main.jsx`) stay at the `src/` root.
+- `api/` — the data layer. Firebase config + auth + database (`firebase.config.js`, `firebase.admin.config.js`, `firebase-auth.js`, `firebase-database.js`), the backend `/api/*` fetchers (`coingecko.js`, `config.js`), and the callable wrappers that keep `httpsCallable` out of components (`account.js`, `admin.js`, `admin-auth.js`, `billing.js`). `billing.js` exposes `createSubscription({plan, billing})`, `cancelSubscription({downgradeTo})`, `scheduleProDowngrade({billing})`, and `resubscribePremium(...)`; `Login.jsx`'s buy button and `CryptoIdea.jsx`'s downgrade handlers route through it, never the SDK, so the marker stays server-authoritative.
+- `hooks/` — business logic. `useCoinSearch`, `useLivePrices`, `useCoinHistory`, `useTrending`, `useAuthSession` (auth watch + profile save; owns `user`/`dataLoaded`), `usePortfolios` (owns `portfolios`/`activePortId` + `portfolio`), `useUpgrade` (tier-limit logic + the `TIER_LIMITS` table), `useLearn`, `useAdminDashboard` (the admin panel's data/actions), `useProSuccess` (read-only `/pro-success` state via `watchUserDoc`), `useIsDesktop`, and `app-context.js` (`AppContext` + `useApp()`).
+- `components/` — UI. The extracted app screens (`Loading`, `ForgotPass`, `Contact`, `Search`, `AddEntry`, `CoinInfo`, `Detail`, `Portfolio` + `PortfolioBar`, `Account`, `Login`, `Journal`, `Learn`, `RestoreAccount`), standalone pages (`education-page.jsx`, `pro-success.jsx`, `admin-dashboard.jsx`), shared primitives (`ui.jsx`, `StatusDot.jsx`, `Modal.jsx`, `CoinIcon.jsx`, `HeaderTags.jsx`, `AnnouncementBanner.jsx`, `ErrorBoundary.jsx`, `SettingsPwReset.jsx`), and icon sets. All screens are extracted — `CryptoIdea.jsx` holds no inline screen JSX.
+- `utils/` — pure helpers: `format.js`, `money.js`, `pnl.js`, `tx.js`, `usage.js`, `coins.js` (reference data + the DCA price model), `theme.js`, `storage.js` (the `db` key/value `localStorage` wrapper), `learn.js`, `journal.js`, `errors.js`, `csv.js`, `growth.js`, `status.js`, `trash.js`, `announcement.js`, `admin-views.js`, and the CSV exporters.
+- `data/` — static content modules: `learn-content.js` + `learn/`, `journal-funnel.js`, `mock-conviction.js`, and `plan-benefits.js` (the single `PLAN_BENEFITS` source for the plan-picker cards, welcome screen, and `/pro-success`; `Login.jsx` re-exports it so `/pro-success` does not pull Login into its chunk).
+- `features/` — the Research tab (`features/research/`), a self-contained module with its own `components/hooks/utils/api/styles`.
 
-## Known layer exceptions & remaining gap (audit)
-Most of the layered rules are satisfied; the items below are documented by-design exceptions plus one
-genuine remaining gap. (Full status + the system rules: [`docs/decisions/ARCHITECTURE.md`](../docs/decisions/ARCHITECTURE.md).)
-1. **Components doing fetch/logic:** MOSTLY CLOSED — `CryptoIdea.jsx` no longer calls `httpsCallable`
-   directly (GDPR export/delete now in `api/account.js`), and **`admin-dashboard.jsx` is now hook-driven**
-   via `api/admin.js` + `hooks/useAdminDashboard.js` — it imports no `firebase/*`/`httpsCallable` (fixed in
-   `df83e51`). What remains: `CryptoIdea.jsx` still holds the CRUD + upgrade orchestrators (a documented
-   by-design exception, coupled to UI/auth state), and **`components/education-page.jsx` still calls
-   `fetch("/api/subscribe")` directly** — the one real open violation, tracked as `ARCH-DOC-FIX-2`.
-2. **State/logic not in hooks:** PARTIALLY CLOSED — the auth session (`useAuthSession`),
-   portfolios state container (`usePortfolios`), and tier-limit logic (`useUpgrade`) now live in
-   hooks. What remains in `CryptoIdea.jsx` is coupled to UI/form/auth state by design (KISS):
-   portfolio CRUD handlers and the upgrade-overlay flow orchestrators (`startUpgrade`/downgrade,
-   shared with the auth/Login flow) — see the `usePortfolios`/`useUpgrade` header comments.
-3. **`api/` not fetch-only:** `firebase-database.js`/`firebase-auth.js` also run counter/limit
-   logic (`writeBatch`+`increment`) — really a data/model layer, not thin fetchers.
-4. **Backend has no controller/service/model split:** `functions/index.js` colocates HTTP
-   routing + external API calls + Firestore access in one file (a defensible serverless choice;
-   split only if MVC separation is wanted — see NEXT-STEPS §2).
+## Context for screens
+
+`CryptoIdea.jsx` wraps its render in `<AppContext.Provider value={ctx}>`; extracted screens read shared state and handlers via `useApp()` instead of dozens of props each. What remains in `CryptoIdea.jsx` is the auth/data-load and profile-save effects, the live-sync effects (`watchCoins`, `watchUserDoc`), the portfolio CRUD and upgrade-overlay handlers (kept here by design — coupled to UI/form/auth state), the `ctx` object, and the router shell. The `useAuthSession`, `usePortfolios`, and `useUpgrade` hooks are extracted.
+
+## Test net
+
+`tests/unit/` (Vitest, `npm run test:unit`) covers the hooks and a `CryptoIdea` smoke test that renders the logged-out and logged-in screens plus the login→reset navigation, with `api/` mocked. Server-side pure modules under `functions/` are imported and unit-tested directly. Rules and data-layer/callable behavior are covered by `npm run test:rules` and `npm run test:integration`.
+
+## Known layer exceptions and the open violation
+
+Most of the layered rules are satisfied. The items below are documented by-design exceptions plus one genuine open violation. (Full status and the system rules: [`../docs/decisions/ARCHITECTURE.md`](../docs/decisions/ARCHITECTURE.md).)
+
+1. Components doing fetch/logic: mostly closed. `CryptoIdea.jsx` no longer calls `httpsCallable` directly (GDPR export/delete live in `api/account.js`), and `admin-dashboard.jsx` is hook-driven via `api/admin.js` + `hooks/useAdminDashboard.js` — it imports no `firebase/*` or `httpsCallable`. What remains: `CryptoIdea.jsx` still holds the portfolio CRUD + upgrade orchestrators (a by-design exception, coupled to UI/auth state), and `components/education-page.jsx` still calls `fetch("/api/subscribe")` directly — the one open layer violation (the marketing email-capture form on the standalone `/edge` page).
+2. State/logic not in hooks: partially closed. The auth session (`useAuthSession`), portfolios container (`usePortfolios`), and tier-limit logic (`useUpgrade`) are hooks. What stays in `CryptoIdea.jsx` is coupled to UI/form/auth state by design (KISS): the portfolio CRUD handlers and the upgrade-overlay flow orchestrators, which are shared with the auth/Login flow.
+3. `api/` is not strictly fetch-only: `firebase-database.js`/`firebase-auth.js` also run counter/limit logic (`writeBatch`/`runTransaction` + `increment`, the write-failure classifier) — in practice a data/model layer, not thin fetchers.
+4. The backend has no controller/service/model split: `functions/index.js` colocates HTTP routing, external API calls, and Firestore access in one file — a defensible serverless choice; split only if MVC separation is wanted.

@@ -1,180 +1,66 @@
-# CryptoIdea — Product Decisions (canonical)
+# CryptoIdea — Product Decisions
 
-> **Single source of truth** for the product/strategy decisions made in the
-> 2026-06-22 founder interview. Where any planning doc disagrees with this file,
-> **this file wins** — the affected docs have been reconciled (see
-> [§7 Corrections](#7-corrections-applied-to-planning-docs)).
->
-> Scope: this records *what we decided and why*. The **how-we-build** rules stay in
-> [`AGILE.md`](../product/AGILE.md); the **current code reality** stays in [`CLAUDE.md`](../../CLAUDE.md)
-> and [`CODEBASE-MAP.md`](../product/CODEBASE-MAP.md); the **backlog** stays in
-> [`NEXT-STEPS.md`](../product/NEXT-STEPS.md). Planning docs live in [`docs/planning/`](../planning/).
->
-> *Date: 2026-06-22 · 28 decisions across 7 interview rounds.*
+The hub for CryptoIdea's product and strategy decisions: what the product is, the rules that hold across every surface, and where the full detail for each area lives. State each decision once here and follow the spoke link for the rest.
 
----
+## What CryptoIdea is
 
-## 1. The product (post-pivot, in one paragraph)
+CryptoIdea is a conviction tool for retail crypto investors who have been burned by hype and FOMO — not a trading platform, a signal service, or another price tracker. The core gesture is: *write why you bought a coin, then see whether your thesis still holds.*
 
-CryptoIdea is a **conviction tool for retail crypto investors burned by hype/FOMO** —
-not a trading platform, signal service, or another price tracker. The **gotcha**:
-*"Write why you bought it. See if your thesis still holds."* It is **one integrated
-5-tab product** — Portfolio · Research · Journal · Learn · Search — where the Journal
-(your thesis) is tested against AI **conviction signals** (Dev · Founders · Team ·
-Community), and Learn teaches the framework behind them. Hard rule across every
-surface: **research, never advice** — no buy/sell/hold, no price targets, no aggregate
-score, no project name the AI introduced itself.
+It is one integrated product with five tabs — Portfolio, Research, Journal, Learn, and Search. The Journal holds your thesis; the Research tab is meant to test it against conviction signals; and Learn teaches the framework behind those signals. The integration across the five tabs is the product's moat, not any single tab.
 
-**Value prop:** *"CryptoIdea gives retail crypto investors the research edge to invest
-in fundamentals — not FOMO."*
+- Platform: a web PWA, fully responsive across mobile and desktop, built on Vite, React, and Firebase.
+- Acquisition: research-led — public research under the @CryptoIdea handle feeds signups. This is a marketing motion, kept strictly separate from the app by the naming wall below.
+- Payments: PayPal is the sole processor, via a signature-verified webhook and callables. See [Billing](./BILLING.md).
 
----
+## The rules that hold everywhere
 
-## 2. How to read the status column
+These are the invariants every feature is built against.
 
-| Tag | Meaning |
-|---|---|
-| ✅ **Done** | Already true in the codebase today — decision just confirms it |
-| 🔧 **Change** | Modifies something already built (config, rules, copy) |
-| 🆕 **New** | Net-new build |
+- Research, never advice. Nowhere in the app does CryptoIdea give buy/sell/hold calls, price targets, probability weights, model portfolios, or an aggregate score. The app shows separate signals and your own thesis; it never resolves them into a verdict.
+- The naming wall. In-app AI output is fully anonymized — it never surfaces a project name the AI introduced itself, and Learn teaches principles with no attribution to named investors. Any named, published research is a separate, founder-reviewed pipeline; nothing named flows into the app. A build-time no-names guard fails the shipped bundle if a real investor name leaks in.
+- Fail-closed AI. Every LLM response passes a regex prefilter and then a stricter judge before any text reaches a user; a judge error or timeout falls back to safe text rather than raw model output. See [AI — status and roadmap](../product/AI.md).
+- Prices are never a tier lever. Market data reads live and identical for every tier. Tier value comes from AI access and capacity, never from price freshness. See [Cache policy](./CACHE-POLICY.md).
+- Anti-abuse by design. A hard per-portfolio coin clamp, a rate-limited add-coin callable, and App Check keep capacity limits from being bot-inflated — this protects both stored data and AI cost, since each novel coin is a fresh engine run.
 
----
+## Plans and monetization
 
-## 3. Strategy & go-to-market
+Three tiers, priced and limited to keep a flat-cost model. Free renames to "Starter" as a label only; the internal tier key stays `free`.
 
-| # | Decision | Choice | Status | Build implication |
-|---|---|---|---|---|
-| 1 | Product scope / wedge | **Ship all 5 tabs as one integrated product** — the integration is the moat | ✅/🆕 | Tabs exist; Research + Learn need wiring (see §6) |
-| 2 | Platform | **Web PWA now, native later** · fully responsive **mobile + desktop** | ✅/🆕 | Stay on Vite/React/Firebase; responsive is a hard UI requirement |
-| 3 | Acquisition funnel | **Research-led** — @CryptoIdea reports on Substack/X feed signups | — | Marketing motion, not app code; see naming wall (#14) |
-| 4 | Acquisition hook | **Anti-FOMO / regret** ("still holding a coin that quietly died?") | 🔧 | Landing/onboarding copy leads anti-hype, not FOMO |
-| 5 | Payments | **PayPal only** (signature-verified webhook + callables) | ✅ | PayPal is the sole processor; no alternate planned unless a native pivot later |
+- Starter, Pro, and Premium each raise the ceilings on portfolios, coins per portfolio, and transactions.
+- The live-AI ceiling is a per-user monthly dollar cap metered on actual token cost — Starter runs offline, Pro and Premium get live AI within their monthly budget.
 
----
+Exact prices, resource limits, and the margin logic behind the numbers live in [Pricing](./PRICING.md); the payment and subscription flow lives in [Billing](./BILLING.md).
 
-## 4. The conviction engine (the marketed differentiator — today offline)
+## The conviction engine
 
-> Today: `src/features/research/api/ai-client.js` `askClaude()` **throws while `AI_PROXY_LIVE` is
-> `false`** → the tab renders built-in data-driven fallbacks; conviction pills are design-only "coming
-> soon". The keystone — the **secure AI proxy** (`researchAsk`) — is now BUILT server-side (PR-E1/E2)
-> with the client seam wired behind the flag (PR-E3); it goes live once the flag flips at go-live.
+The marketed differentiator. It is architected so the backend fetches from approved sources and the AI reasons only over that data — it is not an LLM turned loose with a web tool.
 
-| # | Decision | Choice | Status | Build implication |
-|---|---|---|---|---|
-| 6 | Engine architecture | **Backend fetches from approved sources; the LLM reasons only** (AI policy v4) — *not* an LLM with a web tool | 🆕 | Proxy fetches GitHub/CoinGecko + allowlisted media; hands data to the model |
-| 7 | Founders/Community signals | **Derive from the news-domain allowlist** (no direct X/YouTube scraping) | 🆕 | Cheaper/legal; less fresh — acceptable |
-| 8 | Accuracy gate | **Multi-source cross-check** before a signal shows | 🆕 | Each axis must corroborate across ≥2 sources (prevents the CryptoMiso-was-wrong failure) |
-| 9 | Signal rubric | **4 states — 🟢 healthy / 🟡 mixed / 🔴 problem / ⬛ insufficient-data** | 🔧 | "dead/abandoned" grades 🔴; ⬛ = *no verifiable data*, shown with a per-axis **reason chip** (`no public repo` / `no coverage` / `anonymous team`) and framed as a **caution finding** (taught in Learn), never a silent blank |
-| 10 | Coverage & freshness | **Shared per-coin cache, on-demand only** (no scheduler) + **read-time TTL**: Premium 24h · Pro 48h · Starter read-only (never triggers). **No rank gate** — any coin (held or searched), any rank; budget (50/300) + TTL are the only limiters. Cold runs metered; hits free. Per-user **local offline copy**; thin/never-warmed → ⬛ | 🆕 | One `convictionCache/{coinId}` doc, generated once per coin (**NEVER per-user**). **Rank ≠ ⬛** (thin sources do; frontier ≈ ~3,000-coin universe edge). Starter sees ⬛ for un-warmed coins (accepted — cheapest model + upgrade hook) |
-| 11 | Freshness | **Stamp every signal "as of DATE" + auto-expire dated catalysts** | 🆕 | Cheap honesty layer; never show a past unlock as "upcoming" |
-| 12 | Pulse / tutor | **Own AI surface** — per-user cache (uid+portfolio-hash+tf) + TTL, tier-gate, validation; live for Pro/Premium within budget (Starter = offline summary) | 🆕 | Distinct from the per-coin conviction cache; portfolio-level "describe, don't prescribe"; same fail-closed validator |
+- A signal shows only after a multi-source cross-check corroborates it, and each signal is stamped with its fetch date; dated catalysts auto-expire so a past event never reads as upcoming.
+- The rubric is four states: healthy, mixed, problem, and insufficient-data. "Insufficient-data" is shown with a per-axis reason chip and framed as a caution finding, never a silent blank.
+- Conviction data lives in a shared per-coin cache, generated once per coin (never per-user), refreshed on demand with a read-time TTL that varies by tier.
 
----
+The engine's live path depends on a secure AI proxy that holds the provider key server-side. Today the app ships with AI off and the Research tab renders honest, data-driven summaries in its place. What is built, what is inert, and what "turning it on" requires are all documented in [AI — status and roadmap](../product/AI.md).
 
-## 5. AI safety, legal & privacy
+## AI safety, legal, and privacy
 
-| # | Decision | Choice | Status | Build implication |
-|---|---|---|---|---|
-| 13 | No advice (in-app) | **Zero** price targets / probability weights / model portfolio in-app; **no aggregate score** | ✅ | Targets/V7 live only in the external reports; app shows separate signals + your thesis |
-| 14 | Naming wall | **Hard wall** — in-app AI fully anonymized; published named reports are a **separate, founder-reviewed** pipeline | 🆕 | Two content pipelines; nothing named flows into the app |
-| 15 | Output validator | **Regex prefilter → LLM judge**, fail-closed | 🆕 | Cheap path for clean text, escalate suspect spans; blocks names/targets/advice |
-| 16 | Fail-closed UX | **Up to N regens, then safe fallback** | 🆕 | **N = 2** (locked) to bound chat latency/cost; a judge error/timeout also fails closed → safe fallback |
-| 17 | Privacy | **Send raw to the LLM under no-train terms** + clear user disclosure | 🆕 | **Hard requirement:** use no-training API tiers (Anthropic default; Gemini *paid* only) + privacy-policy line |
-| 18 | LLM split | **Claude for prose** (chat, Pulse) · **Gemini for structured extraction** (signals) | 🆕 | Two integrations behind the proxy; best cost/quality split |
+- The output validator is the control, not the system prompt: a cheap regex prefilter handles clean text and escalates suspect spans to an AI judge, and the whole path fails closed with a bounded regeneration cap before showing safe fallback text.
+- User data sent to the AI provider goes only under no-training API terms, disclosed in the privacy policy, because the chat can send a raw journal thesis.
+- Generation and judging use two separate models from the AI provider — a generation model for prose and a judge model for output review — pinned in the server code and verified against the provider's live model list before any go-live deploy.
 
----
+## Learn, Journal, and the funnel
 
-## 6. Monetization, data & content
+- The Journal stores each thesis on the coin document in Firestore (validated by rules), which is what lets the AI read it and keeps it in cross-device sync.
+- Learn ships as a full library with gamification (levels, XP, streaks, badges) and quiz-gated lesson completion; quizzes are hand-authored to guarantee the no-names voice and correct answers.
+- The taxonomy keeps both the research funnel and the conviction signals, with an explicit in-app bridge explaining which steps the signals cover and which you apply yourself. Three funnel steps — dilution and unlocks, real volume versus wash-trading, and real yield — stay permanently manual; the Journal captures those findings and Learn teaches them.
+- The DCA calculator lives on the marketing landing page only and is intentionally absent from the app.
 
-| # | Decision | Choice | Status | Build implication |
-|---|---|---|---|---|
-| 19 | Tiers | **Starter** 3 portfolios/30 coins each · **Pro** 6 portfolios/100 coins each · **Premium** 15 portfolios/200 coins each · tx caps (Starter 300 / Pro 1,000 / Premium 2,000) · rename Free→**Starter** (label only; internal tier key stays `free`). *(Limits raised by PLAN-LIMITS-MAX #12, 2026-08 — originally 1/10/50 · 3/50/2,000 · 15/1,000/5,000; prices unchanged.)* | 🔧 | `config/app.plans` + `firestore.rules` + admin defaults + plan labels |
-| 20 | Anti-abuse | **1,000-coin hard clamp (rules `min(config,1000)`) + `addCoinGuarded` callable (per-uid rate limit) + App Check (v1 `context.app`)** — never bot-inflatable. The 1,000 clamp is the anti-abuse **ceiling**; the *enforced* Premium default is now **200 coins/portfolio** (#12), which sits under it | 🆕 | The clamp is *independent of* `config/app.plans` (the 200 default demonstrates a finite default isn't a ceiling); protects data *and* AI cost (each novel coin = a fresh engine run) |
-| 21 | AI cost control | **Template-first tutor** (personalize only the coin) + **per-uid monthly live-AI $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), metered on actual token cost — see [PRICING.md §4](PRICING.md). *Supersedes the retired "Pro 50 / Premium 300 per day" call-count (not margin-safe).* | 🆕 | Keeps the flat-cost model; "unlimited" Premium needs finite ceilings |
-| 22 | Journal storage | **Firestore** (already on the coin doc: `journal{thesis,changeMyMind,status,priceAtAdd,createdAt}`, `validJournal` rule) | ✅ | Required for AI read + cross-device sync — **already done** |
-| 23 | Learn at launch | **Full library + gamification + AI tutor** (tutor templated per #21) | 🆕 | Largest content lift: ~9 modules / ~50 lessons + XP/badges/streaks + quiz + wiring |
-| 24 | Learn voice | **No names** — principles taught without attribution | ✅/🔧 | `learn-tab` already no-names; **fix the landing/spec copy that names Buffett/Munger/Marks** |
-| 25 | Lesson completion | **Quiz-gated** | 🆕 | Real assessment per lesson; shapes the Learn data model |
-| 26 | Taxonomy | **Keep both** the 5-step funnel and the 4 signals, with an **explicit in-app bridge** | 🆕 | "These signals cover steps 1–2; you apply 3–5" wherever signals appear |
-| 27 | Manual funnel steps | dilution/unlocks · volume/wash-trading · real-yield stay **permanently manual** | 🆕 | Journal must add fields to capture findings; Learn must teach them rigorously |
-| 28 | DCA calculator | **Landing-page only** (intentional; removed from the app) | ✅ | Confirmed — no app DCA feature |
+## See also
 
----
-
-## Captured hard requirements (carry into every relevant story)
-
-- **Two separate caches:** (1) **prices** — shared CoinGecko `cache/universe`, **live & untiered** (Starter→Premium identical); (2) **AI conviction** — shared per-coin cache, **on-demand only**, read-time TTL by tier (Premium 24h / Pro 48h / Starter read-only), budget-metered, per-user **local offline copy**. Generated once per coin (never per-user). Prices are never a tier lever — tier value = AI + capacity.
-- **Responsive mobile + desktop** for the whole app (PWA path).
-- **Anti-abuse on "unlimited"**: 1,000-coin hard clamp + `addCoinGuarded` callable (rate-limited) + App Check.
-- **No-training LLM tiers** + privacy-policy disclosure (because chat sends the journal raw); Gemini **paid** key only.
-- **Regen cap N = 2** with a safe fallback; the validator **fails closed** (judge error → fallback, never the raw text).
-- **Live-AI budget**: per-uid **monthly $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), metered on actual token cost (see [PRICING.md §4](PRICING.md); supersedes the retired 50/300 daily count).
-- **Every signal carries its fetch date**; dated catalysts auto-expire.
-- **Hard naming wall** between the anonymized app and the named published reports.
-- **No advice anywhere in-app**: no targets, no model portfolio, no aggregate score.
-
----
-
-## 7. Corrections applied to planning docs
-
-These were edited in [`docs/planning/`](../planning/) to match the decisions above
-(the original zipped versions in `Design app/` / `system design.zip` are the
-pre-reconciliation archive):
-
-| Doc | Was | Now |
-|---|---|---|
-| `PRODUCT-SPEC.md` | Tiers: Free 1/10, Pro 10/200, Premium 50/500 | Starter 1/10 · Pro 3/50-each · Premium 15/unlimited(-capped) |
-| `PRODUCT-SPEC.md` | Landing copy names "Buffett, Munger, Marks" | Names removed (no-names voice, #24) |
-| `PRODUCT-SPEC.md` | "Research tab: AI web-search per coin" | Backend-fetch / AI-reason (#6) |
-| `PRODUCT-SPEC.md` | Signal ⬛ = "Dead/Departed/Gone" | ⬛ = insufficient-data; dead → 🔴 (#9) |
-| `PRODUCT-SPEC.md` | Journal in localStorage (Phase 2) | Firestore on the coin doc (#22, already shipped) |
-| `ai-tool-policy.md` | Premium "unlimited" coins/chat | + anti-abuse ceiling language (#20); Pulse as its own surface (#12); LLM split (#18) |
-| `user-account-settings.md` | 10/50/Unlimited coins, no portfolios concept | New tier portfolios/coins (#19) + ceiling (#20) |
-
----
-
-## 8. Decisions settled 2026-06-22 (were open; now locked)
-
-| Was open | Resolved |
-|---|---|
-| Learn-progress storage | **Firestore** — `users/{uid}/learn/progress` doc + `validLearnProgress` rule (mirrors the journal) |
-| Anti-abuse ceiling number | **1,000 coins/portfolio hard clamp** — lives in the `mergePlans` clamp + the `firestore.rules` `maxCoins` hardMax. **No longer an identical literal in `DEFAULT_PLANS`:** as of PLAN-LIMITS-MAX (#12, 2026-08) `DEFAULT_PLANS.premium.coins = 200` (the enforced default), while 1,000 remains only as the clamp ceiling |
-| Add-coin rate-limit | **`addCoinGuarded` callable** (per-uid sliding window + App Check), Wave B |
-| Live-AI budget | **Monthly $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), token-cost-metered — see [PRICING.md §4](PRICING.md) (supersedes the retired 50/300 daily count) |
-| Regen cap N | **2**, then safe fallback (validator fails closed) |
-| Founders/Community news allowlist | **Deferred** — fetchers built against an (initially empty) config list; those axes show ⬛ until domains are supplied |
-| App Check approach | **v1 `onCall` + manual `context.app`** check, prod-flag gated (no v1/v2 mix) |
-| Lesson quizzes | **Hand-authored** (guarantees the no-names voice + correct answers) |
-
-### Still genuinely open (don't block Wave A)
-- **CoinGecko plan tier** under on-demand engine load (cost modeling; today ~44k calls/mo on the price proxy alone).
-- ~~**Exact Claude/Gemini model ids**~~ — **RESOLVED, founder-locked in Plan B PR-E1 (2026-08-14):**
-  generation = **Sonnet 5**, output judge = **Haiku 4.5** (the judge is **Claude, not Gemini**), pinned in
-  `functions/ai-anthropic.js`/`functions/ai-cost.js`. *(Still verify the literal id against the live
-  `claude-api` skill before the go-live deploy — never trust a from-memory string.)*
-- ~~Which model runs the **0d output judge**~~ — **RESOLVED (PR-E1): Claude Haiku 4.5** ($1/$5 per Mtok),
-  reusing the same `buildMessagesRequest` builder as generation.
-
----
-
-## 9. Build sequence → see `NEXT-STEPS.md` §0 (authoritative)
-
-The detailed, audited build order now lives in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §0, structured as
-**two waves** around the Blaze/keys boundary (Wave A local-first A1–A9 · Wave B Blaze B1–B7). Two
-refinements from the 2026-06-22 codebase audit supersede the original linear list:
-
-- **The output validator (#15/#16) is built FIRST and wired INSIDE the proxy**, green before the
-  `ai-client.js` body-swap — not a step after the engine. `ai-client.js` is a throwing stub, so the
-  swap is the moment raw LLM prose could reach the UI; nothing un-validated may ever get there.
-- **App Check + the per-uid rate limiter are built ONCE** (in the proxy) and reused by the
-  `addCoinGuarded` callable — the codebase has zero server-side `context.app` checks today, so App
-  Check is currently decorative.
-
-> **Cofounder note (recorded once):** shipping all of the above at once is a large
-> first release for a solo builder and consciously overrides KISS/Agile/PMF. Consider
-> sequencing the **private beta** by the order above even if the public v1 is the whole
-> thing — it de-risks AI cost/accuracy before you spend on it. Decision stands; noted, not re-litigated.
-
----
-
-*Generated from the 2026-06-22 founder interview. Update this file when a decision changes — don't overwrite history silently (Kaizen).*
+- [Documentation index](../INDEX.md) — the map of all docs.
+- [Pricing](./PRICING.md) — tiers, prices, limits, and the AI budget model.
+- [Billing](./BILLING.md) — the PayPal subscription flow, webhooks, and go-live checklist.
+- [Cache policy](./CACHE-POLICY.md) — cache tiers, TTLs, and the "everything reads live" north star.
+- [Backend and admin decisions](./BACKEND-ADMIN-DECISIONS.md) — admin roles, moderation, and operational safety.
+- [Architecture](./ARCHITECTURE.md) — system layering and the code-reality record.
+- [AI — status and roadmap](../product/AI.md) — what AI is off, what it does without a live model, and what Wave B adds.
+- [How to research crypto](../planning/how-to-research-crypto.md) — the research method behind the funnel and signals.
