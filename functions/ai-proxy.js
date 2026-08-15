@@ -3,8 +3,8 @@
 // Plan B PR-E1 — the pure, security-critical, FAIL-CLOSED orchestrator for the Wave-B AI
 // research proxy. `callModel` + `judge` are INJECTED (no network); the regex validator is
 // the REAL functions/validate-output.js (the control being exercised — never reimplemented
-// or mocked). PR-E1 ships INERT: PR-E2 wires the callable, the real Anthropic generation,
-// the real Haiku judge, and the app-wide $-budget metering around this.
+// or mocked). PR-E1 ships INERT: PR-E2 wires the callable, the real generation model,
+// the real judge model, and the app-wide $-budget metering around this.
 //
 // Flow per candidate: generate → treat refusal/empty text as invalid → validateOutput(
 // text, {allowedNames}) regex prefilter → injected judge(text) → a candidate that is

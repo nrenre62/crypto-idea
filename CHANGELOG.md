@@ -24,6 +24,18 @@ the go-live checklist plus a polish pass across the app and the docs.
 - Provision the real Firebase project and retire the demo config (CRYP-85).
 - Enable Point-in-Time Recovery + a backup schedule before the first deploy (CRYP-86).
 - Custom domain / hosting path (CRYP-88).
+- Swappable AI provider from the admin panel: the API key, generation/judge model ids, and API base
+  URL are admin config (`config/app.ai`), so the provider or model can be changed by paste-and-save
+  with no code edit. No provider name or model id remains as a bare code literal.
+- SMTP-only email: any email provider works via SMTP (host/port/user/pass/from) configured in admin
+  Settings; the landing signup form emails the site owner over SMTP. The previous hardcoded email-list
+  integrations were removed.
+
+### Changed
+- Removed swappable-vendor company names from the codebase — function names, identifiers, and config
+  fields are provider-neutral (e.g. the AI client seam and the outbound-email path name a function, not
+  a company). The fixed single-service integrations (PayPal, CoinGecko, Termly, Sentry) keep their
+  names. Documentation genericized to match.
 
 ### Security
 - App Check enforcement in production (CRYP-89).

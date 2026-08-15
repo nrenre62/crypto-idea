@@ -13,7 +13,7 @@ import { usePortfolio } from '../hooks/usePortfolio';
 import { usePulse } from '../hooks/usePulse';
 import { useAsk } from '../hooks/useAsk';
 import { useSharePulse } from '../hooks/useSharePulse';
-// The AI-proxy-live flag lives in its own module (see ai-status.js) so the askClaude
+// The AI-proxy-live flag lives in its own module (see ai-status.js) so the askAI
 // factory-mock in tests doesn't make reading it throw.
 import { AI_PROXY_LIVE } from '../api/ai-status';
 

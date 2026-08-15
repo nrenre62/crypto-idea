@@ -78,11 +78,11 @@ The `keep()` idiom preserves a stored secret when its Settings field is re-saved
 | `coingecko` key | Settings | CoinGecko request headers | yes |
 | `paypal.clientId/secret/webhookId` | Settings | PayPal token + webhook verify | yes |
 | `paypal` plan IDs + `APP_URL` | `functions/.env` only | `createSubscription` | env |
-| `email.apiKey/provider/apiUrl/listId` | Settings | `/api/subscribe` (the email provider) | apiKey |
-| `email.smtpPass` | Settings | transactional mail via an SMTP server | yes |
+| `email.fromEmail/smtpHost/smtpPort/smtpSecure/smtpUser` | Settings | `/api/subscribe` + reset mail (SMTP-only, provider-agnostic) | no |
+| `email.smtpPass` | Settings | transactional + landing-signup mail via an SMTP server | yes |
 | `plans.{tier}.{price,priceYear,portfolios,coins,transactions}` | Settings | `firestore.rules` `get()`, `getStats`, `/api/config` | no |
 | `plans.{tier}.aiMonthlyCents` | Settings | `/api/config` to the Account display | no |
-| `ai.anthropicKey` | Settings | the AI-research proxy | yes |
+| `ai.providerKey` | Settings | the AI-research proxy | yes |
 | `ai.monthlyCapCents` | Settings | the app-wide monthly AI-spend cap | no |
 | `flags.maintenance` | Settings toggle | `/api/config` maintenance screen | no |
 | `flags.signupsEnabled` | Settings toggle | `/api/config` (hides Register) + `beforeCreateUser` | no |

@@ -143,11 +143,11 @@ change **must be verified with `npm run test:rules`** — say so in your report.
   `functions/.env` value referenced from `src/**` client code, or `functions/**`
   imported into the client bundle.
 - **`keep()` / set-flag idiom.** Secrets are returned to admins as **booleans
-  only** (`secretSet`/`apiKeySet`/`anthropicKeySet`/`coingeckoSet`). A diff that
+  only** (`secretSet`/`smtpPassSet`/`providerKeySet`/`coingeckoSet`). A diff that
   returns a raw secret value from `getAdminConfig`, adds a secret to the public
   `/api/config` projection, or drops the `keep(incoming,current)` blank-preserves
   behavior in `saveConfig` is a finding. Secrets guarded by `keep()`:
-  `coingecko`, `paypal.secret`, `email.apiKey`, `ai.anthropicKey`, `sentry.dsn`.
+  `coingecko`, `paypal.secret`, `email.smtpPass`, `ai.providerKey`, `sentry.dsn`.
   **Never quote a secret value in your report** — say the field, not the value.
 - **Hygiene.** New secret-bearing filename patterns must be in `.gitignore`
   (`.env*`, `*serviceAccount*.json`, `*-key.json`, `*.pem`/`.p12`/`.p8`,

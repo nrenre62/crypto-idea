@@ -30,7 +30,7 @@ const { getFirestore, FieldValue } = requireFromFunctions("firebase-admin/firest
 // ADMIN-6 PR2: the pure crypto core, to craft/redeem reset tokens deterministically.
 const settingsAuthMod = requireFromFunctions("./settings-auth.js");
 // Plan B PR-E2: the pure token-cost helper, to compute the EXACT metered cents the
-// researchAsk callable must accrue (Sonnet rate for generation, Haiku rate for judge).
+// researchAsk callable must accrue (generation rate + judge rate).
 const aiCost = requireFromFunctions("./ai-cost.js");
 
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT || "demo-crypto-idea";
@@ -435,20 +435,20 @@ test("CRYP-101: saveConfig KEEPS a stored paidPlansEnabled=false when a flags pa
 
 // ── Plan B PR-E1 · app-wide AI monthly $-cap round-trip (config plumbing) ──
 // The Wave-B AI proxy is bounded by ONE app-wide monthly $-cap at
-// config/app.ai.monthlyCapCents (default 5000 = $50). Unlike the Anthropic key it is
+// config/app.ai.monthlyCapCents (default 5000 = $50). Unlike the provider key it is
 // NOT a secret, so getAdminConfig must surface it as a FULL NUMBER the Settings form can
 // show and edit — while the key next to it stays a set-flag whose value never leaves the
 // server. This runs in CI (the functions emulator can't boot in the authoring sandbox).
-// RED today: getAdminConfig returns `ai: { anthropicKeySet }` only, so
+// RED today: getAdminConfig returns `ai: { providerKeySet, generationModel, judgeModel, ... }`, so
 // cfg.ai.monthlyCapCents is undefined and the number assertion fails — red for the right
 // reason. The config-builder adds the read projection; then this goes green.
-test("PR-E1: getAdminConfig surfaces ai.monthlyCapCents as a full number; the Anthropic key stays a set-flag", async () => {
+test("PR-E1: getAdminConfig surfaces ai.monthlyCapCents as a full number; the provider key stays a set-flag", async () => {
   const ownerToken = await idTokenFor(OWNER_EMAIL);
   // Seed the app-wide cap AND a secret key directly (Admin SDK bypasses rules). No
   // settingsAuth is set here, so getAdminConfig takes the bootstrap step-up path that a
   // fresh owner login token satisfies.
   await db.doc("config/app").set(
-    { ai: { anthropicKey: "sk-ant-SECRET-E1", monthlyCapCents: 6000 } },
+    { ai: { providerKey: "PROVIDER-SECRET-E1", generationModel: "gen-x", judgeModel: "judge-x", monthlyCapCents: 6000 } },
     { merge: true },
   );
   try {
@@ -460,12 +460,12 @@ test("PR-E1: getAdminConfig surfaces ai.monthlyCapCents as a full number; the An
       cfg.ai.monthlyCapCents, 6000,
       `ai.monthlyCapCents must return as a full number, got ${JSON.stringify(cfg.ai && cfg.ai.monthlyCapCents)}`,
     );
-    // The Anthropic key is a secret — it returns ONLY as a boolean set-flag…
-    assert.strictEqual(cfg.ai.anthropicKeySet, true, "anthropicKey must still report as set");
+    // The provider key is a secret — it returns ONLY as a boolean set-flag…
+    assert.strictEqual(cfg.ai.providerKeySet, true, "providerKey must still report as set");
     // …and its VALUE never appears anywhere in the response (the keep() guard, intact).
     assert.ok(
-      !JSON.stringify(res.body).includes("sk-ant-SECRET-E1"),
-      "the raw Anthropic key must NEVER leave the server",
+      !JSON.stringify(res.body).includes("PROVIDER-SECRET-E1"),
+      "the raw provider key must NEVER leave the server",
     );
   } finally {
     await db.doc("config/app").set({ ai: FieldValue.delete() }, { merge: true });
@@ -1153,14 +1153,14 @@ test("ADMIN-6 PR2: completeSettingsPwReset redeems a token once, bound to the ow
 });
 
 // ── Plan B PR-E2 · researchAsk — the Wave-B AI research proxy callable BODY ──
-// A signed-in user asks about THEIR OWN book; the callable generates via Sonnet 5, judges
-// via Haiku 4.5 (through the already-built fail-closed functions/ai-proxy.js orchestrator),
+// A signed-in user asks about THEIR OWN book; the callable generates via the configured generation model, judges
+// via the configured judge model (through the already-built fail-closed functions/ai-proxy.js orchestrator),
 // meters the ACTUAL token cost into the app-wide aiBudget/{YYYY-MM} ledger, and returns
 // { answer, fellBack } — NEVER violating text. This is the only tier that runs the body.
 //
-// FAIL-CLOSED GATE ORDER (each must refuse BEFORE any Anthropic call / any spend):
+// FAIL-CLOSED GATE ORDER (each must refuse BEFORE any provider call / any spend):
 //   1 auth → 2 question validation (non-blank string, ≤500) + deny-by-default keys →
-//   3 aiResearch kill-switch (fresh config) → 4 anthropicKey present → 5 per-uid daily
+//   3 aiResearch kill-switch (fresh config) → 4 provider key + models present → 5 per-uid daily
 //   budget (guards.consumeDailyBudget "researchAsk") → 6 app-wide monthly $-cap
 //   (readMonthSpendCents FAIL-CLOSED: throw ⇒ unavailable; budgetExceeded ⇒ resource-exhausted)
 //   → 7 generate + meter + return.
@@ -1175,14 +1175,14 @@ test("ADMIN-6 PR2: completeSettingsPwReset redeems a token once, bound to the ow
 // callable body + functions/ai-context.js; then these go green.
 //
 // The gate-refusal cases (1–6) need NO network and are the load-bearing pins. The happy +
-// safety cases (7–8) drive the seam via a LOCAL http stub pointed at by ANTHROPIC_BASE (see
-// functions/ai-anthropic.js). NOTE for CI: `firebase emulators:exec "node --test …"` runs
+// safety cases (7–8) drive the seam via a LOCAL http stub pointed at by AI_PROVIDER_BASE (see
+// functions/ai-provider.js). NOTE for CI: `firebase emulators:exec "node --test …"` runs
 // the functions emulator AND this test in ONE process tree that inherits the shell env, so
-// exporting ANTHROPIC_BASE (e.g. http://127.0.0.1:8791) BEFORE the run makes both the
+// exporting AI_PROVIDER_BASE (e.g. http://127.0.0.1:8791) BEFORE the run makes both the
 // emulator's proxy and this in-test stub agree on the same origin — cases 7–8 then go green.
-// Without that export the proxy targets the real api.anthropic.com (network-blocked in CI),
+// Without that export the proxy targets the real provider endpoint (network-blocked in CI),
 // so cases 7–8 stay red; the gate cases 1–6 are unaffected. withStub() binds the stub to
-// whatever ANTHROPIC_BASE names (falling back to :8791 and exporting it for the local child).
+// whatever AI_PROVIDER_BASE names (falling back to :8791 and exporting it for the local child).
 
 const RA_MONTH = new Date().toISOString().slice(0, 7);   // aiBudget/{YYYY-MM} doc id
 const raDay = () => new Date().toISOString().slice(0, 10);
@@ -1193,11 +1193,22 @@ const raBudgetCents = async () => {
 };
 // Set the AI-related config knobs the callable reads FRESH. Nested {merge:true} deep-merges,
 // so this never clobbers flags.features.checkout / paidPlansEnabled set by earlier tests.
-async function setAiConfig({ aiResearch, key, capCents } = {}) {
+async function setAiConfig({ aiResearch, key, capCents, genModel, judgeModel } = {}) {
   const doc = {};
   if (aiResearch !== undefined) doc.flags = { features: { aiResearch } };
   const ai = {};
-  if (key !== undefined) ai.anthropicKey = key === null ? FieldValue.delete() : key;
+  if (key !== undefined) {
+    ai.providerKey = key === null ? FieldValue.delete() : key;
+    // The proxy gate requires BOTH model ids (generation + judge) alongside the key, so a
+    // key-configured run can actually generate. The stub reply routes generation vs judge by
+    // whether the model id contains "judge".
+    ai.generationModel = genModel || "generation-model-test";
+    ai.judgeModel = judgeModel || "judge-model-test";
+    // Point the proxy's endpoint at the local stub via ADMIN CONFIG (the production path —
+    // baseUrl is admin-set, not env). Matches the origin withStub listens on, so the emulator
+    // reaches the stub regardless of whether AI_PROVIDER_BASE is exported to its process.
+    ai.baseUrl = process.env.AI_PROVIDER_BASE || "http://127.0.0.1:8791";
+  }
   if (capCents !== undefined) ai.monthlyCapCents = capCents;
   if (Object.keys(ai).length) doc.ai = ai;
   await db.doc("config/app").set(doc, { merge: true });
@@ -1213,9 +1224,9 @@ async function seedUser(email, extra) {
   await db.collection("users").doc(uid).set({ email, name: "RA", tier: "free", portfolioCount: 1, ...(extra || {}) }, { merge: true });
   return uid;
 }
-// A local Anthropic Messages-API stub. `reply(reqBody)` → { text, usage, stopReason }.
-// Routes by model: the Haiku judge vs the Sonnet generator, so one stub serves both hops.
-function startAnthropicStub(reply) {
+// A local provider Messages-API stub. `reply(reqBody)` → { text, usage, stopReason }.
+// Routes by model id: the judge model vs the generation model, so one stub serves both hops.
+function startProviderStub(reply) {
   const server = http.createServer((req, res) => {
     let raw = "";
     req.on("data", (c) => { raw += c; });
@@ -1234,9 +1245,9 @@ function startAnthropicStub(reply) {
   return server;
 }
 async function withStub(reply, fn) {
-  const server = startAnthropicStub(reply);
-  const base = new URL(process.env.ANTHROPIC_BASE || "http://127.0.0.1:8791");
-  process.env.ANTHROPIC_BASE = base.origin;
+  const server = startProviderStub(reply);
+  const base = new URL(process.env.AI_PROVIDER_BASE || "http://127.0.0.1:8791");
+  process.env.AI_PROVIDER_BASE = base.origin;
   await new Promise((r) => server.listen(Number(base.port), base.hostname, r));
   try { return await fn(base.origin); }
   finally { await new Promise((r) => server.close(r)); }
@@ -1256,7 +1267,7 @@ test("PR-E2: researchAsk rejects a blank/non-string/too-long question and unknow
   const uid = await seedUser(email);
   const token = await idTokenFor(email);
   // Everything downstream ON so the ONLY thing that can refuse is the question validation.
-  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await setAiConfig({ aiResearch: true, key: "PROVIDER-TEST-KEY", capCents: 1_000_000 });
   await clearResearchDailyBudget(uid);
 
   for (const bad of ["", "   ", 123, null, "x".repeat(501)]) {
@@ -1270,12 +1281,12 @@ test("PR-E2: researchAsk rejects a blank/non-string/too-long question and unknow
   assert.strictEqual(badKey.body && badKey.body.error && badKey.body.error.status, "INVALID_ARGUMENT");
 });
 
-test("PR-E2: researchAsk refuses when the aiResearch kill-switch is OFF (no Anthropic call)", async () => {
+test("PR-E2: researchAsk refuses when the aiResearch kill-switch is OFF (no provider call)", async () => {
   const email = `ra_off_${stamp}@example.com`;
   const uid = await seedUser(email);
   const token = await idTokenFor(email);
   // Kill-switch OFF; a key IS present, proving the switch refuses BEFORE the key/generation.
-  await setAiConfig({ aiResearch: false, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await setAiConfig({ aiResearch: false, key: "PROVIDER-TEST-KEY", capCents: 1_000_000 });
   await clearResearchDailyBudget(uid);
 
   const r = await callAsSafe("researchAsk", token, { question: "How is my book?" });
@@ -1287,7 +1298,7 @@ test("PR-E2: researchAsk refuses when the aiResearch kill-switch is OFF (no Anth
   assert.ok(!dailyDoc.exists, "the kill-switch must refuse before the per-uid budget is touched");
 });
 
-test("PR-E2: researchAsk refuses when no Anthropic key is configured (can't generate)", async () => {
+test("PR-E2: researchAsk refuses when no provider key is configured (can't generate)", async () => {
   const email = `ra_nokey_${stamp}@example.com`;
   const uid = await seedUser(email);
   const token = await idTokenFor(email);
@@ -1296,7 +1307,7 @@ test("PR-E2: researchAsk refuses when no Anthropic key is configured (can't gene
   await clearResearchDailyBudget(uid);
 
   const r = await callAsSafe("researchAsk", token, { question: "How is my book?" });
-  assert.strictEqual(r.status, 400, `a missing Anthropic key must refuse (failed-precondition), got ${r.status}: ${JSON.stringify(r.body)}`);
+  assert.strictEqual(r.status, 400, `a missing provider key must refuse (failed-precondition), got ${r.status}: ${JSON.stringify(r.body)}`);
   assert.strictEqual(r.body && r.body.error && r.body.error.status, "FAILED_PRECONDITION");
 });
 
@@ -1305,7 +1316,7 @@ test("PR-E2: researchAsk refuses when the per-uid daily budget is exhausted", as
   const uid = await seedUser(email);
   const token = await idTokenFor(email);
   // Switch ON, key present, monthly cap high → the ONLY refusal is the exhausted daily budget.
-  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await setAiConfig({ aiResearch: true, key: "PROVIDER-TEST-KEY", capCents: 1_000_000 });
   await raBudgetDoc().delete().catch(() => {});
   await fillResearchDailyBudget(uid);
 
@@ -1319,7 +1330,7 @@ test("PR-E2: researchAsk refuses when the app-wide monthly $-cap is already reac
   const uid = await seedUser(email);
   const token = await idTokenFor(email);
   // Switch ON, key present, daily budget fresh → the ONLY refusal is the exceeded monthly cap.
-  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 100 });
+  await setAiConfig({ aiResearch: true, key: "PROVIDER-TEST-KEY", capCents: 100 });
   await clearResearchDailyBudget(uid);
   // Spend already at/over the cap for this month (budgetExceeded uses >= as the wall).
   await raBudgetDoc().set({ cents: 999_999, month: RA_MONTH, updatedAt: Date.now() });
@@ -1342,16 +1353,16 @@ test("PR-E2: researchAsk (happy path) returns the answer and meters the ACTUAL t
   await pRef.collection("coins").doc("bitcoin").set({ symbol: "btc", name: "Bitcoin", txCount: 0, entries: [] });
   const token = await idTokenFor(email);
 
-  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await setAiConfig({ aiResearch: true, key: "PROVIDER-TEST-KEY", capCents: 1_000_000 });
   await clearResearchDailyBudget(uid);
   await raBudgetDoc().delete().catch(() => {});
 
   // A clean answer (no ticker/price/advice) that passes the real validate-output.js; a
-  // judge reply of exactly "SAFE". Large usage so the Sonnet-vs-Haiku rate split is visible.
+  // judge reply of exactly "SAFE". Large usage so the generation-vs-judge rate split is visible.
   const CLEAN = "Your book is concentrated in a single position, which raises the impact of any move in that one holding on your overall result.";
   const GEN_USAGE = { input_tokens: 200_000, output_tokens: 100_000 };
   const JUDGE_USAGE = { input_tokens: 100_000, output_tokens: 40_000 };
-  const reply = (body) => (/haiku/i.test(String(body && body.model || ""))
+  const reply = (body) => (/judge/i.test(String(body && body.model || ""))
     ? { text: "SAFE", usage: JUDGE_USAGE }
     : { text: CLEAN, usage: GEN_USAGE });
 
@@ -1361,9 +1372,9 @@ test("PR-E2: researchAsk (happy path) returns the answer and meters the ACTUAL t
   assert.strictEqual(res.body.result.answer, CLEAN, "the clean answer must be returned verbatim");
   assert.strictEqual(res.body.result.fellBack, false, "a clean+judge-safe answer did not fall back");
 
-  // The ledger grew by exactly (generation @ Sonnet + judge @ Haiku) — the correct rate split.
-  const expected = aiCost.costCents(GEN_USAGE, aiCost.SONNET5_RATES) + aiCost.costCents(JUDGE_USAGE, aiCost.HAIKU45_RATES);
-  assert.strictEqual((await raBudgetCents()) - before, expected, "aiBudget must accrue the exact metered cost (Sonnet gen + Haiku judge)");
+  // The ledger grew by exactly (generation + judge, each at its own rate) — the correct rate split.
+  const expected = aiCost.costCents(GEN_USAGE, aiCost.GEN_RATES) + aiCost.costCents(JUDGE_USAGE, aiCost.JUDGE_RATES);
+  assert.strictEqual((await raBudgetCents()) - before, expected, "aiBudget must accrue the exact metered cost (generation + judge)");
 });
 
 test("PR-E2: researchAsk (safety) never returns violating text — falls back and STILL meters the burned tokens", async () => {
@@ -1374,7 +1385,7 @@ test("PR-E2: researchAsk (safety) never returns violating text — falls back an
   await pRef.collection("coins").doc("bitcoin").set({ symbol: "btc", name: "Bitcoin", txCount: 0, entries: [] });
   const token = await idTokenFor(email);
 
-  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await setAiConfig({ aiResearch: true, key: "PROVIDER-TEST-KEY", capCents: 1_000_000 });
   await clearResearchDailyBudget(uid);
   await raBudgetDoc().delete().catch(() => {});
 
@@ -1382,7 +1393,7 @@ test("PR-E2: researchAsk (safety) never returns violating text — falls back an
   // regen cap is hit → fail closed. The violating text must NEVER reach the client.
   const DIRTY = "This position could reach $100 which is a strong buy.";
   const GEN_USAGE = { input_tokens: 200_000, output_tokens: 100_000 };
-  const reply = (body) => (/haiku/i.test(String(body && body.model || ""))
+  const reply = (body) => (/judge/i.test(String(body && body.model || ""))
     ? { text: "SAFE", usage: { input_tokens: 10, output_tokens: 1 } }
     : { text: DIRTY, usage: GEN_USAGE });
 
@@ -1392,8 +1403,8 @@ test("PR-E2: researchAsk (safety) never returns violating text — falls back an
   assert.strictEqual(res.body.result.fellBack, true, "a violating candidate must force a fail-closed fallback");
   assert.strictEqual(res.body.result.answer, "", "the safe fallback returns empty text, NEVER the violating candidate");
   assert.ok(!/\$100|strong buy/i.test(res.body.result.answer), "violating text must never reach the client");
-  // The rejected generations still burned tokens → 1 initial + 2 regens metered at the Sonnet rate.
-  const perGen = aiCost.costCents(GEN_USAGE, aiCost.SONNET5_RATES);
+  // The rejected generations still burned tokens → 1 initial + 2 regens metered at the generation rate.
+  const perGen = aiCost.costCents(GEN_USAGE, aiCost.GEN_RATES);
   assert.strictEqual((await raBudgetCents()) - before, perGen * 3, "all three rejected generations must be metered");
 });
 
@@ -1411,7 +1422,7 @@ test("CRYP-107: researchAsk refuses (429) when the monthly reservation headroom 
   const uid = await seedUser(email);
   const token = await idTokenFor(email);
   const CAP = 1000;                                   // ¢ — a real cap for this month
-  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: CAP });
+  await setAiConfig({ aiResearch: true, key: "PROVIDER-TEST-KEY", capCents: CAP });
   await clearResearchDailyBudget(uid);
   // Spend one cent below the cap → headroom = 1¢, which is smaller than the ~12¢ worst-case
   // per-request reservation but NOT yet at the cap. On the CURRENT code gate 6 is
@@ -1440,17 +1451,17 @@ test("CRYP-107: two consecutive researchAsk happy calls leave the ledger at exac
   await pRef.collection("coins").doc("bitcoin").set({ symbol: "btc", name: "Bitcoin", txCount: 0, entries: [] });
   const token = await idTokenFor(email);
 
-  await setAiConfig({ aiResearch: true, key: "sk-ant-TEST", capCents: 1_000_000 });
+  await setAiConfig({ aiResearch: true, key: "PROVIDER-TEST-KEY", capCents: 1_000_000 });
   await clearResearchDailyBudget(uid);
   await raBudgetDoc().delete().catch(() => {});
 
   const CLEAN = "Your book is concentrated in a single position, which raises the impact of any move in that one holding on your overall result.";
   const GEN_USAGE = { input_tokens: 200_000, output_tokens: 100_000 };
   const JUDGE_USAGE = { input_tokens: 100_000, output_tokens: 40_000 };
-  const reply = (body) => (/haiku/i.test(String(body && body.model || ""))
+  const reply = (body) => (/judge/i.test(String(body && body.model || ""))
     ? { text: "SAFE", usage: JUDGE_USAGE }
     : { text: CLEAN, usage: GEN_USAGE });
-  const perCall = aiCost.costCents(GEN_USAGE, aiCost.SONNET5_RATES) + aiCost.costCents(JUDGE_USAGE, aiCost.HAIKU45_RATES);
+  const perCall = aiCost.costCents(GEN_USAGE, aiCost.GEN_RATES) + aiCost.costCents(JUDGE_USAGE, aiCost.JUDGE_RATES);
 
   const before = await raBudgetCents();
   await withStub(reply, async () => {

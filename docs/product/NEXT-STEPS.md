@@ -712,13 +712,13 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
   from AI structurally, so flipping the flag can never re-couple the Pulse to live AI. All billing/subscription-
   lifecycle work (PR-A…PR-C3) is now done.
   - **✅ PR-E1 · proxy FOUNDATION (2026-08-14, branch `claude/plan-b-pr-e-ai-proxy`, HEAD `691a259`) —
-    INERT, nothing calls it yet.** Founder-locked: generation **Sonnet 5**, judge **Haiku 4.5**, raw
+    INERT, nothing calls it yet.** Founder-locked: **a generation model**, **a judge model**, raw
     fetch, a single **app-wide** monthly $-cap (default **$50/mo** = `config/app.ai.monthlyCapCents` =
     5000), a **3-PR split**. Shipped: three pure server modules — `functions/ai-cost.js` (token→cents
     round-up + the app-wide $-budget ledger on a server-only `aiBudget/{YYYY-MM}` doc:
     `readMonthSpendCents`/`chargeMonthCents`/`budgetExceeded` `>=` wall, UTC month key),
-    `functions/ai-anthropic.js` (`buildMessagesRequest` Sonnet 5 · thinking disabled · effort low;
-    `parseMessage` refusal→empty; `callAnthropic` raw seamed fetch to `ANTHROPIC_BASE`, key header-only),
+    `functions/ai-provider.js` (`buildMessagesRequest` the generation model · thinking disabled · effort low;
+    `parseMessage` refusal→empty; `callProvider` raw seamed fetch to `AI_PROVIDER_BASE`, key header-only),
     `functions/ai-proxy.js` (`runResearchAsk` — fail-closed generate → real `validate-output.js`
     prefilter → injected judge → N=2 regen cap → never returns violating text) — plus `getAdminConfig`/
     `saveConfig` carrying `ai.monthlyCapCents` (clamped 0..100000000, NOT a secret), a `firestore.rules`
@@ -731,21 +731,21 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
     coins slice-first; empty → `[]` + "The user holds no coins yet.") mount the PR-E1 foundation. Fail-closed
     gate order: auth → question validation (non-blank string, ≤500) + deny-by-default keys
     (`assertNoUnknownKeys(data,["question"])`) → **`aiResearch` kill-switch (FRESH config read, not the 60s
-    cache)** → Anthropic key present → per-uid daily budget (`consumeDailyBudget` key `"researchAsk"`, limit 50)
+    cache)** → the AI provider key present → per-uid daily budget (`consumeDailyBudget` key `"researchAsk"`, limit 50)
     → app-wide monthly $-cap (ledger-read throw = HARD `unavailable`; `budgetExceeded` `>=` wall =
-    `resource-exhausted`) → generate + meter. Acts on `context.auth.uid` only (no IDOR). Generates via **Sonnet 5**,
-    judges via **Haiku 4.5** through the merged `ai-proxy.js` orchestrator (real `validate-output.js` wall on every
+    `resource-exhausted`) → generate + meter. Acts on `context.auth.uid` only (no IDOR). Generates via **the generation model**,
+    judges via **the judge model** through the merged `ai-proxy.js` orchestrator (real `validate-output.js` wall on every
     candidate before any text reaches the client); self-metering closures charge the exact per-model cost into
     `aiBudget/{YYYY-MM}` via `chargeMonthCents` in a `try/finally`. Returns `{ answer, fellBack }` — never violating
-    text (fallback `answer:""`, `fellBack:true`). Key read from `config/app.ai.anthropicKey` (or
-    `process.env.ANTHROPIC_KEY` fallback), header-only, never logged/returned. Reviews: **contract IN SYNC** (0
+    text (fallback `answer:""`, `fellBack:true`). Key read from `config/app.ai.providerKey` (or
+    `process.env.AI_PROVIDER_KEY` fallback), header-only, never logged/returned. Reviews: **contract IN SYNC** (0
     drift), **security SAFE TO COMMIT** (0 High, all 8 repo invariants verified). **`AI_PROXY_LIVE` stays `false`** —
     nothing calls the callable yet (the client swap is PR-E3). PR-E1 security must-dos: **#1 fail-read-closed
     SATISFIED**, **#2 gate-before-generation SATISFIED**, **#3 concurrent overshoot CLOSED by PR-E2.5** (the [MED]
     bounded overshoot is now fixed via the atomic reserve-then-settle cap — see the PR-E2.5 bullet below; [LOW]
     meter-on-throw FIXED via the try/finally in `a79270b`; [LOW] daily-slot-before-cap-check left as-is, fairness only).
   - **✅ PR-E3 · client seam wired (2026-08-14, branch `claude/plan-b-pr-e3-research-client-seam`, CRYP-106)
-    — BUILT behind the still-`false` flag.** `src/features/research/api/ai-client.js` `askClaude` now
+    — BUILT behind the still-`false` flag.** `src/features/research/api/ai-client.js` `askAI` now
     short-circuits (throws `research-ai-proxy-not-configured`, **no network**) **while `AI_PROXY_LIVE` is false**;
     when the flag is true it calls `httpsCallable(functions,'researchAsk')({ question })` (sends ONLY
     `{ question }`) and returns the answer string, or `''` on `fellBack || !answer` (→ `useAsk`'s deterministic
@@ -753,7 +753,7 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
     AI branch is DELETED (`pulseLines(pulseFacts())` only) and the Pulse card's "AI off/on" pill, gradient label
     and Regenerate button were REMOVED; `aiChrome = chatEnabled && AI_PROXY_LIVE` survives ONLY to gate the
     tab-level "AI-generated" Ask disclaimer. **`AI_PROXY_LIVE` STAYS `false`** — PR-E3 did NOT flip it. This
-    CLOSES the go-live "Pulse-decoupling" risk in code. `useAsk` still rides `askClaude` (Ask chat + per-coin
+    CLOSES the go-live "Pulse-decoupling" risk in code. `useAsk` still rides `askAI` (Ask chat + per-coin
     button, gated on `aiResearch`, unchanged).
   - **✅ BUILT — PR-E2.5 (CRYP-107) · atomic cap reservation:** the app-wide monthly $-cap is now
     check-and-charge **atomic** via **reserve-then-settle** — `ai-cost.js` `reserveMonthCents` holds a
@@ -764,9 +764,9 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
     (`AI_PROXY_LIVE = false`) — this **gates the go-live `AI_PROXY_LIVE` flip** and closes the [MED]
     concurrent-overshoot finding where it becomes real money.
   - **➡️ `AI_PROXY_LIVE` flip (separate go-live step):** flip the flag in `api/ai-status.js` to `true` in the
-    increment that deploys `researchAsk` with a real Anthropic key (needs Blaze + keys) — kept SEPARATE from the
+    increment that deploys `researchAsk` with a real AI provider key (needs Blaze + keys) — kept SEPARATE from the
     PR-E3 client swap so the seam ships dormant.
-  - **Deferred to go-live:** a live end-to-end run with a **real Anthropic key in a sandbox** (needs
+  - **Deferred to go-live:** a live end-to-end run with a **real AI provider key in a sandbox** (needs
     Blaze + keys) — PR-E1/E2/E3 are emulator-verifiable with the injected fetch/judge seams, but the real
     upstream round-trip is only provable once a key exists.
 
@@ -861,7 +861,7 @@ on phones, bounded/centred on desktop). This **supersedes** the original "border
 `‹` back BOX** (`.icon-btn` 34×34, `border-radius:11px`, `border:1px solid var(--line-strong)`,
 `background:var(--paper-2)`), and the centered title **once**, then an **`.adm-scr-body`** (`padding:18px`)
 with **`.adm-scr-section`** inner dividers between sub-blocks. Documented in
-[ADMIN-UI-REDESIGN.md](../design/ADMIN-UI-REDESIGN.md) §10–§11.
+[BACKEND-ADMIN-DECISIONS.md](../decisions/BACKEND-ADMIN-DECISIONS.md) §10–§11.
 
 **Current user state (verified):** [Account.jsx](../../src/components/Account.jsx) is one screen with a
 local `view` state. It uses a *floating* `.detail-head` (a **bare** back chevron + centered title) sitting
@@ -1280,7 +1280,7 @@ users untouched; Starter tag; reversible).
 >   **fresh**, and successful unlocks are audited.
 > - **PR2 — emailed reset (piece #6, MERGED, PR #69, squash `abc4d5f`):** `functions/sendMail.js`
 >   seam (pure `smtpConfigOf` + `sendMail` — dev/emulator logs the link, prod lazy-requires **nodemailer** and
->   sends via **DreamHost SMTP**) · `requestSettingsPwReset` (mails a single-use HASHED token to the owner's
+>   sends over **SMTP** — provider-agnostic) · `requestSettingsPwReset` (mails a single-use HASHED token to the owner's
 >   OWN verified email — no body address, so no redirection) + `completeSettingsPwReset` (transactional
 >   single-use redeem, uid-bound, expiry-checked → installs the new scrypt hash + grants a session-bound
 >   unlock) · SMTP config fields on the admin Email settings screen (`smtpPass` via `keep()`, returned only as
@@ -1353,7 +1353,7 @@ Settings tab (L338) and the server refuses them ("owner-required").
    same ~10-min `unlockedUntil` UX from `settingsUnlock`. Add a **"Settings password" section** inside
    Settings (owner-only) to set/change it.
 6. **Emailed-link reset (owner-only):** ⚠️ **BLOCKING FINDING (2026-08-02): there is NO email-sending
-   code in the backend yet** — only a `config/app.email.apiKey` placeholder field; no provider
+   code in the backend yet** — only a placeholder email config field; no provider
    integration, no `sendMail`. The settings password is *our own* secret (not a Firebase Auth
    credential), so Firebase's built-in reset email cannot carry it — a custom send is genuinely
    required. So this piece needs EITHER a chosen mail provider (build a `sendMail()` seam that logs
@@ -1660,7 +1660,7 @@ founder chose machine-local over a committed baseline).
 
 ## ADMIN-UI. Admin panel mockup match — unified chrome (UI-1) + card/tab/sizing fidelity (UI-2)  (✅ BUILT — 2026-07-25)
 
-Canonical: [`docs/design/ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) (mockup→code spec + file
+Canonical: [`docs/decisions/BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) (mockup→code spec + file
 map + acceptance criteria). Reference mockup: [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html).
 **✅ BUILT 2026-07-25** (design-only) — founder interview 2026-07-25 locked: back button on **every
 drill-in AND every popup/modal**; **reskin** the sign-in / denied / loading screens too; card/tab/sizing
@@ -1699,14 +1699,14 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       H1 34px. Files: `src/styles/admin-settings.css` (the bulk) · `src/components/admin-dashboard.jsx`
       (class normalising only, no logic) · `tests/unit/admin-dashboard.test.jsx`. **Design-only** (no
       callable/rule/logic change); light-paper only; **no new dependency**. Naturally the **same build as
-      ADMIN-UI-1** (same two files, same mockup). Spec: [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md)
+      ADMIN-UI-1** (same two files, same mockup). Spec: [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md)
       §8. DoD: green active tab, one card-token set on every surface, 1140px shell, no overflow at 375/768,
       light-paper only; `test:unit` green + `build` clean + browser-verified owner & manager, mobile &
       desktop.
 
 - [x] **ADMIN-UI-3 · Mockup-match refinements** (🟡 design · founder 2026-07-25 · **✅ BUILT 2026-07-25**) —
       A second founder pass over the shipped panel against [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html),
-      five items. Spec + as-built notes: [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §9.
+      five items. Spec + as-built notes: [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) §9.
       Items 1–3 were real gaps (fixed); 4–5 already structural (confirmed by a live owner+manager sweep).
       Verified: admin `test:unit` 66 (+2) green · `build` clean (no-names guard) · browser owner+manager,
       desktop 1280 + mobile — logo/Log-out at the bar edges over a 1140-centered body, Overview cards
@@ -1747,7 +1747,7 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       `build` clean + browser-verified owner & manager, mobile & desktop; light-paper only.
 - [x] **ADMIN-UI-4 · Visible back button + bordered header on every second-screen** (🟡 design · founder
       2026-07-25 · **✅ BUILT 2026-07-25** — new `DScreen` primitive; retired `DHead`; verified owner desktop
-      1280 + mobile 375, 67 admin tests green, build clean; as-built [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §10) — The real fix behind ADMIN-UI-3 items 4/5, which only
+      1280 + mobile 375, 67 admin tests green, build clean; as-built [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) §10) — The real fix behind ADMIN-UI-3 items 4/5, which only
       confirmed the `‹` **existed in the DOM**, not that it was **visible**. On every admin second-screen the
       shared `.icon-btn` renders `background:none; border:0; padding:0` (`app.css`), so the back `‹` is a bare
       borderless chevron floating above the card — reads as *no back button* — and the title has **no bordered
@@ -1766,7 +1766,7 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       user-detail card to `DScreen` (drop the duplicate `.card-title`, keep `.card-sub`), remove the shared
       `<DHead>`; wrap multi-card **Admin access** in `DScreen` with its inner cards demoted to
       divider-separated sections (no card-in-card); give the view-as modal the same bordered `‹`. Spec:
-      [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §10.
+      [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) §10.
     - **DoD:** every second-screen shows a bordered `‹` box + a bordered/divided header with the title once;
       no bare chevron anywhere in the admin; main tabs unchanged; `test:unit` green (existing "Back" /
       "Save keys" / "CHANGE TIER" assertions still pass) + a new bordered-header case · `build` clean ·
@@ -1775,7 +1775,7 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
 - [x] **ADMIN-UI-5 · Match the mockup's card + text SIZE (Overview bigger, Settings smaller)** (🟡 design ·
       founder 2026-07-25 · **✅ BUILT 2026-07-25** — Overview 38/30/26px + 30px pad via a `.adm-ov-screen`
       scope, Settings 18px `DScreen` body; build-time fix: `.adm-mini` is shared with the user-detail so the
-      bumps are Overview-scoped; as-built [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §11) — Founder: the mockup's cards
+      bumps are Overview-scoped; as-built [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) §11) — Founder: the mockup's cards
       and text are **bigger** than the live panel; apply the mockup's sizing to the admin panel, **except
       Settings, where the cards should be SMALLER**. **Verified — founder is right.** ADMIN-UI-2 matched the
       card *chrome* (22px radius, .8px border, shadow) but kept the pre-mockup **padding (22px)** and the
@@ -1802,13 +1802,13 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       22→**26px**, Overview card padding 22→**30px**; (3) **Settings cards shrink to the settings mockup's
       ~18px padding** (text already ~13/11.5px). Because the pad token is shared, introduce a **per-surface pad**
       (Overview 30px / Settings 18px) rather than moving the one `--adm-card-pad`. Spec:
-      [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §11.
+      [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) §11.
     - **DoD:** Overview stat/value cards render at the mockup scale (38/30/26px, 30px pad); Settings drill-in
       cards visibly smaller (~18px pad); Users/Trash/Audit unchanged; `test:unit` green · `build` clean ·
       browser-verified owner & manager, desktop + mobile; light-paper only, no new hex, no new dependency.
 
 - [ ] **ADMIN-UI-6 · Header typography fidelity** (🟡 design · founder 2026-07-26 · **📋 PLAN ONLY — not built**;
-      spec [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §12) — Founder: in the top bar the
+      spec [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) §12) — Founder: in the top bar the
       **`CryptoIdea` wordmark** is smaller than the mockup **and in the wrong font**, the **`· Admin`** sub is
       too small, the **`Log out`** button is too small + too round, and the **email** is too small. Measured
       vs. [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) (founder is right on all):
@@ -1824,7 +1824,7 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
       browser-verified owner, desktop 1280 + mobile 375 (no overflow); light-paper only, no new hex, no new
       dependency.
 - [ ] **ADMIN-UI-7 · Overview card fidelity (padding + Tier-breakdown pill)** (🟡 design · founder 2026-07-26 ·
-      **📋 PLAN ONLY — not built**; spec [`ADMIN-UI-REDESIGN.md`](../design/ADMIN-UI-REDESIGN.md) §13) — Founder,
+      **📋 PLAN ONLY — not built**; spec [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) §13) — Founder,
       on the Overview screen: (1) the **cards have too much empty space** — content should "use more of the card,"
       and (2) the **Tier-breakdown bar** colours should **connect** like the mockup. Measured vs.
       [`docs/mockups/admin-panel/index.html`](../mockups/admin-panel/index.html) (founder is right on both).
@@ -1990,7 +1990,7 @@ outer grey/purple shell bar (`admin-main.jsx` `ok` `<header>`, z-index 10) and t
 
 ## ADMIN. Admin-panel research audit + build plan  (📋 PLAN — 2026-07-18; not scheduled)
 
-Canonical: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) (scored gap-audit vs. external
+Canonical: [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) (scored gap-audit vs. external
 best practice + cited sources + phased plan). A limited-but-grounded pass (4 read-only research agents
 over React-Admin / Refine / AdminJS / Stripe / PayPal / PostHog / OWASP / Auth0 / WorkOS / LaunchDarkly
 / Unleash / Sentry docs + OSS repos, then a synthesis cross-referenced against the code). **Nothing
@@ -2025,7 +2025,7 @@ trend snapshots). Phases (KISS-first, most valuable first):
       Plans & pricing / grant-manager**. Managers can't see Settings, Admin access, permanent purge, or
       any grant control (UI-hidden **and** callable-denied). Absorbs the old RBAC + step-up-reauth audit
       rows; MFA stays §ADMIN-0/§4. Spec + role matrix + file map:
-      [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) § Admin roles. **Build before the
+      [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) § Admin roles. **Build before the
       design items** — it overrides three areas of the ADMIN-D2 mockup and adds the unlock gate to
       Settings, so reskinning first means drawing those screens twice. Local-first / emulator-
       verifiable; runs the §PROCESS interview+sweep (Admin map row) when built.
@@ -2333,7 +2333,7 @@ trend snapshots). Phases (KISS-first, most valuable first):
       optional **Configuration** summary card — **confirmed in**, with a live amber/green Email dot.
       Mockups: [`admin-settings/index.html`](../mockups/admin-settings/index.html) (4 screens,
       light+dark) + the interactive [`admin-panel/index.html`](../mockups/admin-panel/index.html)
-      (same drill-in, all 5 tabs). Spec: [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md)
+      (same drill-in, all 5 tabs). Spec: [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md)
       § Settings redesign. **Keep maintenance in its warning colour** (the mockup renders it green).
       **Sequence after ADMIN-SEC** — Settings gains the owner-only unlock gate, so building it first
       means drawing the screen twice. Local-first / emulator-verifiable; run the §PROCESS
@@ -2367,7 +2367,7 @@ trend snapshots). Phases (KISS-first, most valuable first):
       `actionMsg`) and **pre-empting a blocked delete** with a toast instead of opening the confirm.
       **Three areas are SUPERSEDED by ADMIN-SEC and must NOT be built as drawn** (the Users-tab ADMIN
       ROLE card, the flat single-admin model, ungated Settings/API-keys/Plans) — see
-      [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md) § Full-panel mockup. Carry the build
+      [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) § Full-panel mockup. Carry the build
       constraints from that section: strip the prototype artefacts (uncontrolled Settings inputs,
       `showSampleData`, unbound Refresh, hard-coded audit actor), port the fixed 1140px grids to the
       app's `auto-fit` responsive standard (§R), add the dark pass, and fix the a11y gaps (unlabelled
@@ -2415,7 +2415,7 @@ trend snapshots). Phases (KISS-first, most valuable first):
       state (`grantEmail`/`grantEmail2`/`grantFound`/`grantMsg`/`grantWarn`/`setManager`/`grantLookup`) is
       unchanged — it just renders under `settings`. Update tests (`tests/unit/admin-dashboard.test.jsx` —
       anything selecting the Admin-access tab or asserting the tab list) + every doc that names the
-      "Admin access tab" (CLAUDE.md § Admin & privacy, [`ADMIN-PANEL-AUDIT.md`](../decisions/ADMIN-PANEL-AUDIT.md),
+      "Admin access tab" (CLAUDE.md § Admin & privacy, [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md),
       the ADMIN-D / ADMIN-D2 mockups → Settings gains an Admin-access row, owner tab count drops 5→4).
       Interpretation to confirm at the build interview: "admin access" = the manager grant/revoke tab
       (the reading here); keep the manager-grant flow as one Settings detail card (recommended). Local-
@@ -2454,7 +2454,7 @@ Commits `76a3711` (spec+doc) · `5bf9f1a` (fixes) · `d82786f` (secrets hygiene)
   (email unconfigured), tierBeforeFailure resurrection (signature-gated), full-collection scans
   (scale-only). See API-SECURITY.md §4.
 
-**Log — 42Crunch audit remediation (2026-07-18):** ran the 42Crunch `42c-ast` static audit (v3.57.0,
+**Log — API-contract audit remediation (2026-07-18):** ran an OpenAPI/API-contract static security audit (v3.57.0,
 Token/freemium mode) on `openapi.json`. Baseline **9.24/100** (Security 1.88 · Data 7.36). Applied the
 "honest blocking fixes" (target 70, block HIGH+): (1) dropped the `http://localhost` emulator entry from
 `servers` so the documented contract is HTTPS-only — killed the CRITICAL "bearer-over-cleartext" (24 ops)
@@ -2474,9 +2474,9 @@ signature auth as a `PayPalWebhookSignature` apiKey scheme (reconciled the "unau
   wrapper. Score **9.24 → 32.56 → 48.35** (responses-only) **→ 65.06** (also closing request bodies).
   Security **24.61/30**, Data **40.45/70**.
 - **⚠️ "70 is NOT honestly reachable" (the 2026-07-18 conclusion above) was WRONG — SUPERSEDED by the
-  2026-08-01 re-audit → 92.95/100.** On the newer `42c-ast` (v3.58.4) Data climbed **40.45 → 67.37/70** and
+  2026-08-01 re-audit → 92.95/100.** On the newer audit tool (v3.58.4) Data climbed **40.45 → 67.37/70** and
   the total to **92.95** (Security **25.58/30**) with constraints that reject no REAL value: free text gets a
-  control-char-exclusion `pattern` (`^[^<ctrl>]*$` — 42Crunch ACCEPTS this; only a bare `^\S*$` is flagged
+  control-char-exclusion `pattern` (`^[^<ctrl>]*$` — the audit ACCEPTS this; only a bare `^\S*$` is flagged
   "too loose"), structured strings get real patterns (email / url / token / id / ISO-date), every response
   array gets a `maxItems` matched to the REAL code cap (viewUserAsAdmin 20/150/50, listDailyStats 400), and
   every closed-shape object gets `additionalProperties:false`. The heaviest gap was the ADMIN-5
@@ -2501,7 +2501,7 @@ signature auth as a `PayPalWebhookSignature` apiKey scheme (reconciled the "unau
   webhook (arbitrary signed payload) and **nested** config shapes (saveConfig's merge/`keep()`) are out of
   scope by design. Unit-tested + a callable integration test (emulator tier needs JDK 21). `guards.js` +
   `functions/index.js` (31 of 32 callables; `setAdminClaim` already throws).
-- Next 42Crunch step available: `42crunch-scan` (live conformance / BOLA / BFLA) against the running stack.
+- Next audit step available: a live API-contract conformance scan (live conformance / BOLA / BFLA) against the running stack.
 
 ## SKILL. `tdd-testing` audit — top-up + research conformance  (✅ APPLIED 2026-07-20)
 
@@ -2510,7 +2510,7 @@ Two phases, both landed. **(1) Content audit 2026-07-18:** multi-agent audit, 19
 "Build Agent Skills" research doc compared against skill + plan (13 confirmed gaps / 1 refuted + 3
 completeness-critic finds), reconciled in an 11-decision founder interview, then **applied the same
 session**. Full record incl. what changed vs the written plan:
-[`TDD-SKILL-UPDATE.md`](../planning/TDD-SKILL-UPDATE.md) **§10**.
+`TDD-SKILL-UPDATE.md` **§10** (planning doc, since removed).
 
 **Applied to `tdd-testing` (185→254 lines):** four tiers (+**Callables** — the
 [`ERRORS.md`](../testing/ERRORS.md) C6 class) + the mocks-never-run-the-server-body gotcha ·
@@ -2677,7 +2677,7 @@ to the first failure line; and the documented suite flake (**§FLAKE** below, ru
 
 Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:
 [`ERRORS.md`](../testing/ERRORS.md) §A4 · full inventory:
-[`docs/planning/data-integrity-findings.json`](../planning/data-integrity-findings.json).
+[DATA-INTEGRITY.md](DATA-INTEGRITY.md).
 Trigger: the false **"You've reached this portfolio's coin limit"** toast on a 2-coin Starter
 account (a >2000-char Buy-Journal thesis denied by `validJournal`, mislabeled as a limit).
 A 27-agent adversarial audit confirmed **36 gaps + 5 critic adds** (2 refuted) in the class.
@@ -2715,7 +2715,7 @@ Everything below is local-first (emulator-verifiable now; no Blaze needed).
 
 ## R31. Onboarding choice · downgrade select-flow · admin trash-delete · suspension freeze  (✅ BUILT 2026-07-07 — live PayPal calls verify at go-live)
 
-Canonical spec + decisions R31-D1…D4: [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) "Round 31" · bug diagnosis:
+Canonical spec + decisions R31-D1…D4: [`DESIGN.md`](../design/DESIGN.md) "Round 31" · bug diagnosis:
 [`ERRORS.md`](../testing/ERRORS.md) §A5 (admin tab kills non-admin sessions — explains the empty "Welcome,", the
 popup→full-screen flip, and the post-un-suspend logout loop; **local-testing gotcha: keep the admin tab
 closed while testing user logins until R31-1 lands**). Pairs with §DI; build R31-1 first.
@@ -2750,7 +2750,7 @@ closed while testing user logins until R31-1 lands**). Pairs with §DI; build R3
 ## ISO. User-data & admin isolation — audit + harden + prove  (✅ ISO-1/2/3/5 BUILT 2026-07-07 · ISO-4 = go-live infra)
 
 Canonical: [`ISOLATION.md`](../security/ISOLATION.md) (guarantee + threat model + decisions ISO-D1…D4) ·
-findings: [`docs/planning/isolation-audit-findings.json`](../planning/isolation-audit-findings.json).
+findings: [ISOLATION.md](../security/ISOLATION.md).
 **Audit result: core isolation VERIFIED SOUND live** (23 cross-tenant probes all denied; guard-first
 callables; admin data walled off; no admin code in the user bundle). Below = defense-in-depth
 hardening (no current breach) + the regression tests that PROVE it. Decision ISO-D1: keep logical
@@ -2775,7 +2775,7 @@ per-uid isolation (physical per-user DB is an anti-pattern here), harden + prove
 
 ## R32. Research → Coins: custom drag-and-drop order  (✅ BUILT 2026-07-07)
 
-Canonical spec + decisions R32-D1…D4: [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) "Round 32". The Coins
+Canonical spec + decisions R32-D1…D4: [`DESIGN.md`](../design/DESIGN.md) "Round 32". The Coins
 view's Sort link is a dead anchor today; cards render value-desc.
 
 - [x] **R32-1 Sort mode + pointer drag** — Sort toggles sorting mode; drag handle (≡) per card,
@@ -2806,7 +2806,7 @@ Premium 5,000) · add-coin anti-abuse = **`addCoinGuarded` callable** · live-AI
 monthly $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day,
 token-cost-metered — see PRICING.md §4) · news allowlist
 **deferred** (Founders/Community show ⬛ until domains are supplied) · regen cap **N = 2** · App Check
-**v1 manual `context.app`**, prod-flag gated · Claude/Gemini model ids resolved via the `claude-api`
+**v1 manual `context.app`**, prod-flag gated · the AI provider model ids resolved via the `claude-api`
 skill at code time (never hardcoded from memory).
 
 **Two separate caches (do NOT conflate):**
@@ -2847,7 +2847,7 @@ must be green BEFORE the client body-swap (B4).** No un-validated LLM output may
    the 1,001st coin.
 2. **App Check is decoration.** Zero server-side `context.app` checks exist (uniformly v1 `onCall`).
    Build the gate ONCE (B2) and reuse it for the add-coin callable (B3) — don't build it twice.
-3. **#17 + a free Gemini key = a privacy violation that compiles.** Gemini's free tier trains on
+3. **#17 + a free-tier AI key = a privacy violation that compiles.** A free-tier provider trains on
    inputs; #17 sends journal text raw. The no-train **paid** key + the privacy disclosure must ship
    in the SAME commit as any journal-raw code; assert the no-train requirement at the call site.
 4. **Stale `dist/` still ships the named investors.** `0g`'s DoD = `npm run build` then grep `dist/`
@@ -2945,21 +2945,21 @@ validator (A9) in and body-swaps `ai-client.js`. Build order for Wave B is uncha
 validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) → B5/B6/B7/B8.
 
 ### Wave B — Blaze + keys (code + offline-degrade now; verify live at go-live)
-- [ ] **B1 · 0b-secret-store:** Anthropic + Gemini keys in the locked `config/app` doc + admin
-  Settings fields (set-flags only, `keep()` idiom). The Gemini key **must be a paid no-train key**
+- [ ] **B1 · 0b-secret-store:** the AI provider + second-provider keys in the locked `config/app` doc + admin
+  Settings fields (set-flags only, `keep()` idiom). The second-provider key **must be a paid no-train key**
   (trap 3) — document it in `functions/.env.example` + README.
-- [ ] **B2 · 0b-proxy (KEYSTONE, extends N-3):** `researchAsk` callable — Claude (prose) / Gemini
+- [ ] **B2 · 0b-proxy (KEYSTONE, extends N-3):** `researchAsk` callable — the AI provider (prose) / second provider
   (structured) **+ `validateOutput` (A9) wired in, fail-closed** + per-uid **Firestore** monthly
   $-budget (`aiMonthlyCents`, token-cost-metered — see PRICING.md §4) + **`context.app` App Check gate**
   (v1, prod-flag) + server-side tier-gate. Extract guard/budget/validator logic as pure helpers and unit-test them.
   **⏳ Foundation built inert (Plan B PR-E1, 2026-08-14):** the pure helpers already exist — `ai-cost.js`
-  (app-wide $-cap ledger on server-only `aiBudget/{YYYY-MM}`), `ai-anthropic.js` (raw-fetch call, key
+  (app-wide $-cap ledger on server-only `aiBudget/{YYYY-MM}`), `ai-provider.js` (raw-fetch call, key
   header-only), `ai-proxy.js` `runResearchAsk` (fail-closed generate→validator→judge→N=2) + the admin
   `monthlyCapCents` cap. **✅ B2/PR-E2 — the WIRING — is now BUILT (2026-08-14, still client-inert):** the
   `researchAsk` callable + pure `functions/ai-context.js` (server-authoritative holdings allowlist) mount these
   behind the fail-closed gate order (auth → question validation + deny-by-default keys → `aiResearch` fresh-read
-  kill-switch → key present → per-uid daily budget → app-wide monthly $-cap → generate + meter), Sonnet-gen/
-  Haiku-judge metered into `aiBudget`. Review must-dos #1 (fail-read-closed) + #2 (gate-before-generation)
+  kill-switch → key present → per-uid daily budget → app-wide monthly $-cap → generate + meter), the generation
+  model / judge model metered into `aiBudget`. Review must-dos #1 (fail-read-closed) + #2 (gate-before-generation)
   SATISFIED; #3 (concurrent overshoot) DOCUMENTED + DEFERRED as a pre-PR-E3 atomic reservation. `AI_PROXY_LIVE`
   stays `false` until the PR-E3/B4 client swap.
 - [ ] **B3 · 0a-antiabuse (#20):** `addCoinGuarded` callable — **reuses B2's per-uid limiter + App
@@ -3000,7 +3000,7 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
 
 ### Still genuinely open (does NOT block Wave A)
 - ~~CoinGecko plan tier under on-demand engine load~~ **DECIDED 2026-06-27: CoinGecko Lite (~100k/mo), keep `HOT_PAGES=5`** (see [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) D16).
-- ~~Which model runs the `0d` judge~~ **DECIDED 2026-06-27: Claude only (Opus 4.8)** for both prose and structured — there is no Gemini, which **voids trap #3** (the Gemini no-train key requirement). See D17.
+- ~~Which model runs the `0d` judge~~ **DECIDED 2026-06-27: a single AI provider** for both prose and structured — there is no second provider, which **voids trap #3** (the second-provider no-train key requirement). See D17.
 
 ---
 
@@ -3041,18 +3041,18 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
 - [x] **Admin soft-delete + Empty-trash bulk action** (D8) — ✅ `adminTrashUser` callable (refuses admins —
   demote first) + "Move to trash" two-tap; "Empty trash" bulk purge w/ confirm (also closes §4b N-2).
 - [x] **Admin "sign out of all devices"** for a target user — ✅ `adminSignOutUser` (audited) + button (D9).
-- [x] **Reserve the AI Settings section** — ✅ "AI (reserved)" card: Anthropic key set-flag via `keep()`
+- [x] **Reserve the AI Settings section** — ✅ "AI (reserved)" card: AI provider key set-flag via `keep()`
   (never echoed) + visibly disabled conviction-cache controls that activate with B5 (D10).
 
-### BL-3 · AI proxy (Claude-only) — extends §0 Wave B; validator-first
-- [ ] **B1** Anthropic (Claude) key in `config/app` + AI Settings (set-flag). **No Gemini** (D17 voids trap #3).
-- [ ] **B2 (keystone)** `researchAsk` callable — Claude prose + structured + **`validateOutput` (A9) wired in,
+### BL-3 · AI proxy (single-provider) — extends §0 Wave B; validator-first
+- [ ] **B1** the AI provider key in `config/app` + AI Settings (set-flag). **No second provider** (D17 voids trap #3).
+- [ ] **B2 (keystone)** `researchAsk` callable — the AI provider prose + structured + **`validateOutput` (A9) wired in,
   fail-closed** + per-uid daily budget (BL-1 limiter) + **`context.app` gate** (D4) + server tier-gate.
 - [ ] **B3** `addCoinGuarded` — reuses the BL-1 limiter + App Check gate.
 - [ ] **B4** swap `ai-client.js` body → `researchAsk` (gated on A9 + B2 green); lights up Pulse + Ask and
   **flips the AI "coming soon" label → the real metered number** (D13).
 - [ ] **B5–B7/B8** per-coin `convictionCache` + `getConviction` (on-demand, TTL by tier), Pulse per-user
-  cache, PWA offline copy, templated tutor (as §0 Wave B, Claude-only).
+  cache, PWA offline copy, templated tutor (as §0 Wave B, single-provider).
 
 ### BL-4 · Identity Platform hardening (needs Blaze + console)
 - [ ] **U14** `beforeCreate` blocking function enforcing `signupsEnabled` server-side + IP rate-limit; enable
@@ -3068,8 +3068,8 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
   and the R29 re-checkout popup would re-appear on every load after a real PayPal cancellation lapses.
 
 ### BL-5 · Transactional email + legal/analytics + CSP
-- [ ] **GetResponse transactional path** (welcome / verification / receipts) — makes `email.fromEmail` real
-  (D14/D15/D18). Confirm the GetResponse plan supports transactional/SMTP.
+- [ ] **SMTP transactional path** (welcome / verification / receipts) — makes `email.fromEmail` real
+  (D14/D15/D18). Confirm the email provider supports transactional/SMTP.
 - [ ] **Termly (3 IDs) + cookie banner + Plausible** into Settings; verify privacy/terms pages (D18).
 - [x] **Drop `unsafe-inline`** — ✅ BUILT 2026-07-03 (`c483d60`): script-src no longer allows inline; landing/SW/Termly
   scripts externalized to `public/` (dist ships ZERO inline scripts; style-src keeps 'unsafe-inline' for style attrs).
@@ -3509,7 +3509,7 @@ idle before believing it.
 
 **Later (not launch blockers)**
 - [ ] Enable **Identity Platform MFA (2FA)** for admins + the enrollment/challenge flow in the admin app.
-- [ ] Confirm the email provider (ActiveCampaign/GetResponse) end-to-end.
+- [ ] Confirm the email provider (any SMTP provider) end-to-end.
 
 ---
 
@@ -3539,11 +3539,11 @@ idle before believing it.
   a live admin list stays optional).
 - [ ] **N-3 (MED): live AI for the Research tab.** The Research tab ships with AI in graceful
   offline-fallback mode (`src/features/research/api/ai-client.js` throws → built-in data-driven
-  summaries). To make "Pulse"/"Ask" use real Claude: add a secure callable Cloud Function
-  (e.g. `researchAsk`) that holds the Anthropic key server-side, forwards to Claude (Anthropic SDK,
-  model per `claude-api` skill), and add per-user rate limiting + App Check. Then replace the one
-  `ai-client.js` body with a call to that function. Needs an Anthropic API key + the Blaze plan
-  (outbound network). NEVER call Anthropic directly from the browser.
+  summaries). To make "Pulse"/"Ask" use the real AI provider: add a secure callable Cloud Function
+  (e.g. `researchAsk`) that holds the AI provider key server-side, forwards to the provider (via its
+  SDK, model per admin config), and add per-user rate limiting + App Check. Then replace the one
+  `ai-client.js` body with a call to that function. Needs an AI provider API key + the Blaze plan
+  (outbound network). NEVER call the AI provider directly from the browser.
 
 ## R. Responsive app — desktop layout  (DONE 2026-06-25 — R-0…R-4 shipped)
 
@@ -3564,7 +3564,7 @@ mobile↔desktop, no `@media`, no new deps), **design unchanged**. As-built deta
 ## D. Design revamp — match the canonical Portfolio mockup  (BUILT 2026-06-26)
 
 Founder-approved mockup (desktop + mobile) is the canonical visual target. Full plan, current→target
-deltas, and phases live in [`DESIGN-REVAMP.md`](../design/DESIGN-REVAMP.md). Headline change: Portfolio value →
+deltas, and phases live in [`DESIGN.md`](../design/DESIGN.md). Headline change: Portfolio value →
 white summary card, and Portfolio assets **ROW → CARD GRID on the 1040 wide track** (this supersedes
 §R's "Portfolio rows kept"); plus a floating bottom-nav pill and a token/pill/card consistency pass.
 Dark mode preserved; KISS, no new deps.
@@ -3577,7 +3577,7 @@ Dark mode preserved; KISS, no new deps.
   gallery with a light/dark toggle: [`docs/mockups/desktop/index.html`](../mockups/desktop/index.html)
   (open in a real browser for true widths). Verified: 12 frames, Fraunces+Hanken load, 3-up/2-up grids,
   Login `#FF3B30` error preserved, dark mode flips, clean console.
-**Founder review locked 2026-06-26** (full per-screen decisions in [`DESIGN-REVAMP.md`](../design/DESIGN-REVAMP.md) §7).
+**Founder review locked 2026-06-26** (full per-screen decisions in [`DESIGN.md`](../design/DESIGN.md) §7).
 Locked wording: drop "held" → just the amount (`0.52 BTC`); Journal labels **Intact/Review/Challenged**;
 Journal note → "Only you can see your journal. Your thesis helps the AI give you better Research & Ask
 answers." *(superseded by JOURNAL-POLISH / CRYP-105, 2026-08-12 — the thesis→AI link is Wave-B / not
@@ -3614,11 +3614,11 @@ Guardrail: design-only — keep all settings/words/functions unless §7 says oth
 
 **§D Design revamp — COMPLETE (2026-06-26).** D-1…D-8 shipped; all founder-review items (§7) addressed.
 
-(See [`DESIGN-REVAMP.md`](../design/DESIGN-REVAMP.md) §3 for per-phase scope + DoD, §4 for the interaction decision, §7 for the founder review.)
+(See [`DESIGN.md`](../design/DESIGN.md) §3 for per-phase scope + DoD, §4 for the interaction decision, §7 for the founder review.)
 
 ## DP. Design Pass 2 — founder mockup alignment  (2026-06-27, PLANNED)
 
-Canonical: [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) (4 design changes + decisions). Design-only except the new
+Canonical: [`DESIGN.md`](../design/DESIGN.md) (4 design changes + decisions). Design-only except the new
 cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built as ONE batch in order:
 
 - [ ] **DP-1 Foundations** — add the icon set (Account: lock/bell/palette/shield/chevron/user/card/folder;
@@ -3651,7 +3651,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   rewritten for the drill-in (21 cases) + 2 e2e nav tests updated. 259 unit green, build clean, verified
   light+dark + mobile/desktop.
 - [x] **Round 2 — founder follow-ups — ✅ ALL BUILT 2026-06-28** — full spec in
-  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 2". R2-3 (Pulse) + R2-4 (Risk) were already implemented; R2-1/2/5/6/7/8 built + verified (TDD, 272 unit green, light+dark, mobile+desktop).
+  [DESIGN.md](../design/DESIGN.md) "Round 2". R2-3 (Pulse) + R2-4 (Risk) were already implemented; R2-1/2/5/6/7/8 built + verified (TDD, 272 unit green, light+dark, mobile+desktop).
   - [ ] **R2-1** Account avatar consistent on Learn + all tabs (currently overlaps the Learn hero card) — ⚠ confirm placement.
   - [ ] **R2-2** Learn: remove the `.badges-row` "graph icon" (not needed) — trivial.
   - [ ] **R2-3** Research › Portfolio Pulse: new design (Share/Regenerate pills + period headline pill); KEEP 24H/7D/30D where they are + KEEP the offline note.
@@ -3662,7 +3662,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   - [ ] **R2-8** Research dark-mode bug: "A note on diversification" card is light-on-light (unreadable) — tokenize + audit sibling cards.
   - [ ] **R2-9** Learn dark-mode bug: lesson overlay "THE KEY INSIGHT" box (`.lesson-insight`) light gradient unreadable in dark — tokenize.
 - [x] **Round 3 — dark-mode visibility bugs — ✅ ALL BUILT 2026-06-28** — full spec in
-  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 3". All dark-block-only (light byte-for-byte unchanged); R3-1…R3-8 built + browser-verified dark + light.
+  [DESIGN.md](../design/DESIGN.md) "Round 3". All dark-block-only (light byte-for-byte unchanged); R3-1…R3-8 built + browser-verified dark + light.
   - [ ] **R3-1** Add-portfolio "+ Add" button invisible in dark — `.add-name` (`app.css:463`) `background:var(--ink)` (flips light) + hardcoded `color:#fff` → dark-block override text `var(--paper)`.
   - [ ] **R3-2** Back chevron `<` invisible on every drill-in (CoinInfo/Detail/AddEntry/Account) — `Ic.back` (`ui.jsx:9`) `stroke={c.txt}` (#1A1A1A) + `.icon-btn` has no color → set `stroke="currentColor"` + add `color:var(--ink)` to `.ci-app .icon-btn` (flips correctly both modes).
   - [ ] **R3-3** Accent green dull on black — `--accent` doesn't flip; in the dark block, override **foreground** accent rules (`.nt-btn` + ~11 others + Portfolio.jsx:84 inline) to `var(--accent-ink)` (bright #5cd6a6). Keep `--accent` on solid-bg+white-text buttons & borders.
@@ -3681,7 +3681,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   green, build clean. **Part 2** (client tier ↔ DB tier sync) stays operational (admin/seed locally; PayPal
   webhook at go-live). Full write-up in [ERRORS.md](../testing/ERRORS.md) §A1 + §A2.
 - [x] **Round 4 — founder follow-up — ✅ ALL BUILT 2026-06-29** — full spec + as-built notes in
-  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 4". Decisions honored (header tags = all 5 tabs · delete warning =
+  [DESIGN.md](../design/DESIGN.md) "Round 4". Decisions honored (header tags = all 5 tabs · delete warning =
   only when the coin has transactions · simple Cancel/Delete-anyway popup · warn about transactions + thesis,
   hard delete). TDD'd + browser-verified (light+dark, mobile+desktop); 293 unit green; build clean.
   - [x] **R4-1** Research › Coins stat-row consistent (commit `8323fc7`) — `.ps-l` nowrap + smaller
@@ -3750,7 +3750,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
 mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
 
 - [x] **Round 7 — card consistency aligned to the Research _Portfolio Pulse_ card — ✅ BUILT 2026-06-30 (`3e9d1f1`)**
-  (founder follow-up; full spec in [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 7"; **supersedes Round 5**). Grounded
+  (founder follow-up; full spec in [DESIGN.md](../design/DESIGN.md) "Round 7"; **supersedes Round 5**). Grounded
   via a 6-agent read-only mapping. Decisions locked (AskUserQuestion): frame scope = **match base chrome
   everywhere, gradient frame on hero cards only**; Pulse buttons = **soft green pill**; diversification icon =
   **accent-tinted glyph**. **R7-1** Journal `.j-entry`/`.nt-row` radius `--radius-sm`→`--radius` (= old R5-2);
@@ -3764,7 +3764,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   share the affordance. **Zero new dark rules** (frame is theme-invariant; pill/icon tokens already flip); light
   mode unchanged. Build R7-1 → R7-6 → R7-4 → R7-5 → R7-3 → R7-2 on "go".
 - [x] **Round 8 — Journal thesis readability (previews · white-card popups · Read/Breakdown · X-close) — ✅ BUILT
-  2026-06-30 (`c2e2079`)** (founder Journal screenshots; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 8").
+  2026-06-30 (`c2e2079`)** (founder Journal screenshots; full spec [DESIGN.md](../design/DESIGN.md) "Round 8").
   Grounded via a 3-agent read-only mapping. **Gap checked:** thesis text already capped 2000 chars/field server-
   side (`firestore.rules` validJournal/validFunnel) → display bug only, no rule change. Decisions locked
   (AskUserQuestion): Read popup = **full breakdown** (Why + change-my-mind + dilution/volume/yield); **Read shown
@@ -3776,7 +3776,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   X-close, white cards, all fields `pre-wrap`+`overflow-wrap`). No data/handler change; zero new dark rules. Build
   R8-1 → R8-2 → R8-3 on "go".
 - [x] **Round 9 — login polish · Research card heights · in-tab portfolio popup — ✅ BUILT 2026-06-30 (`1389418`)**
-  (founder follow-ups; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 9"). Grounded via a 3-agent read-only
+  (founder follow-ups; full spec [DESIGN.md](../design/DESIGN.md) "Round 9"). Grounded via a 3-agent read-only
   mapping. Decisions locked (AskUserQuestion): login = all three (white toggle pill + align Forgot-password +
   dark-safe error); portfolio popup = **centered card dialog** with X. **R9-1** login: (a) `.auth-toggle button.on`
   near-black → **white pill** like `.seg` (`app.css:407`; matches screenshot, both modes, dark-safe); (b) restyle
@@ -3790,16 +3790,16 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   Build R9-2 → R9-1a → R9-1c → R9-1b → R9-3 on "go".
 - [ ] **Round 5 — card design consistency — ⤴️ SUPERSEDED by Round 7 (2026-06-29).** Earlier, plainer version
   (unify on `.asset-card`); Round 7 keeps its two moves but upgrades the canonical chrome to the Pulse card and
-  adds the button + icon fixes. See [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 5" (marked superseded). Build Round 7.
+  adds the button + icon fixes. See [DESIGN.md](../design/DESIGN.md) "Round 5" (marked superseded). Build Round 7.
 - [x] **Round 6 — dark-mode visibility follow-up — ✅ BUILT 2026-06-30 (`9cb0759`)** (founder screenshots; full spec
-  in [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 6"). Three **dark-block-only** fixes (light untouched): **R6-1**
+  in [DESIGN.md](../design/DESIGN.md) "Round 6"). Three **dark-block-only** fixes (light untouched): **R6-1**
   tab footer `.disclaimer` (+ `.research-root .disclaimer`) `--ink-faint`→`--ink-soft` (readable on dark);
   **R6-2** `.field-input` dark border (`--line-strong`→`--ink-soft`) + placeholder (`--ink-faint`→`--ink-soft`)
   so Account/form fields are visible (typed text already light); **R6-3** the R4-3 delete-coin modal title
   (`Detail.jsx`, hardcoded `c.txt` #1A1A1A → dark-on-dark) → `var(--ink)` so the "Delete {coin}?" header shows
   in dark. Build R6-3 → R6-1 → R6-2 on "go".
 - [x] **Round 10 — full-window paper background · positive-only Buy/Sell amounts — ✅ BUILT 2026-06-30 (`9246fda` R10-2 · `cd1922b` R10-1)**
-  (founder Add-transaction screenshot; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 10"). Decisions locked
+  (founder Add-transaction screenshot; full spec [DESIGN.md](../design/DESIGN.md) "Round 10"). Decisions locked
   (AskUserQuestion): (A) extend the **paper** bg to the whole window, both modes; (B) **both** block-typing +
   clear submit error, for Amount & Price. **R10-1** redefine the `--app-bg` token to the paper tone (`app.css`
   `:root` `#ffffff`→`#f8f7f3`; dark `#0f0e0c`→`#14130f`) so the body + the 1040 wrapper (`CryptoIdea.jsx:623`,
@@ -3810,7 +3810,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `min=0`/`inputMode=decimal`; R10-2b validate `amt>0`/`prc>0` in `addEntry` **before** the tx-limit check with a
   clear "… must be a positive number" message. TDD `AddEntry.test.jsx`. Build R10-2 → R10-1 on "go".
 - [x] **Round 11 — dark-mode account/transaction text visibility · Learn quiz Submit rework — 📋 PLAN ONLY
-  (2026-06-30)** (founder screenshots; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 11"). Decisions locked
+  (2026-06-30)** (founder screenshots; full spec [DESIGN.md](../design/DESIGN.md) "Round 11"). Decisions locked
   (AskUserQuestion): (1) lift dim text, keep hierarchy; (2) quiz = pick → Submit → correct=green+complete,
   wrong=red+hint+retry (gated). **R11-1** `.sr-value` (tier + `1/1`) `--ink-faint`→`--ink` (white dark / black
   light, both modes). **R11-2** dark-block: `.tx-rprice`→`--ink` (white $), `.tx-rcost`→`--ink-soft`. **R11-3**
@@ -3821,7 +3821,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   **X-close** (reuse Round 8 `Ic.close`/`.ov-close`); new `.quiz-result.ok/.bad` token banners. TDD Learn.test.jsx.
   Build R11-1 → R11-2 → R11-3 → R11-Q on "go".
 - [x] **Round 12 — delete-coin confirm leaks across navigation · auto-disarm the "Remove" pill — 📋 PLAN ONLY
-  (2026-07-01)** (founder screenshot + repro; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 12"; bug in
+  (2026-07-01)** (founder screenshot + repro; full spec [DESIGN.md](../design/DESIGN.md) "Round 12"; bug in
   [ERRORS.md](../testing/ERRORS.md) §A3). **Behavioural/error fix.** Repro: arm delete on a **no-transaction** coin (shows
   the "Remove" pill) → leave it → tap **+ Buy** and add a transaction → return to the coin → the "Delete {coin}?
   This coin has 1 buy/sell transaction…" **warning modal pops unbidden**. Root cause: `confirmDel` is **app-level**
@@ -3835,7 +3835,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   drive via the trash button) + add leak/auto-disarm/modal-still-works cases. Build R12-1 → R12-2 on "go".
 - [x] **Round 13 — header uniformity · sub-title cleanup · disclaimer visibility · Research Risk simplification ·
   Learn header frame — 📋 PLAN ONLY (2026-07-01)** (founder screenshots + notes; full spec
-  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 13"). Decisions locked (AskUserQuestion): disclaimer → **readable muted**
+  [DESIGN.md](../design/DESIGN.md) "Round 13"). Decisions locked (AskUserQuestion): disclaimer → **readable muted**
   (`--ink-soft`) light mode; remove **3** sub-lines (Research/Journal/Search), keep Learn eyebrow; unify headings to
   **28px**; **Learn header only** (not Account). **R13-1** `.disclaimer` `--ink-faint`→`--ink-soft` (both `app.css`
   + `research-tab.css`; drop now-redundant dark rules). **R13-2** delete Research `.sub`, Journal "Write before you
@@ -3848,7 +3848,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   keep "Your Investing Edge"; Search trending tests → `getAllByText("+ Add")`; add sub-title-absent / risk-chips-absent
   / "No thesis yet" / 28px-probe cases. Build R13-1→…→R13-7 on "go".
 - [x] **Round 14 — Portfolio Risk = market-cap tiers (allocation-weighted) — FUNCTIONAL, 📋 PLAN ONLY
-  (2026-07-01)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 14"). The Research Risk meter switches
+  (2026-07-01)** (founder; full spec [DESIGN.md](../design/DESIGN.md) "Round 14"). The Research Risk meter switches
   from concentration to **market cap**: High `<$100M` · Medium `$100M–$1B` · Low `$1B–$100B` · Super-low `≥$100B`
   (BTC/ETH). Decisions locked (AskUserQuestion): **allocation-weighted** aggregate · market-cap **replaces**
   concentration on the meter (concentration stays as the Allocation "High concentration" tag) · unknown mcap →
@@ -3862,7 +3862,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `research-adapters.test.js` for the `marketCap` field; AllocationBar concentration tag unchanged. Independent of
   Round 13 (both touch the Research Overview card). Build R14-1→…→R14-5 on "go".
 - [x] **Round 15 — one popup design: white rounded card for EVERY popup — 📋 PLAN ONLY (2026-07-01)** (founder
-  Journal-Breakdown screenshot; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 15"). Unify all popups to the
+  Journal-Breakdown screenshot; full spec [DESIGN.md](../design/DESIGN.md) "Round 15"). Unify all popups to the
   Round 9 `.cm-card` look (centered white rounded card on a dimmed scrim, X-close). **3 patterns today → 1:**
   `.ci-app.overlay` (5 popups: Journal AddThesis/Detail/Breakdown, Learn lesson, Search Buy-Journal) + `.dg-sheet`
   bottom-sheets (Detail delete, upgrade/downgrade) + `.cm-card` (PortfolioBar, the target). Assumed defaults (veto on
@@ -3878,7 +3878,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   card on desktop (one `@media`) · scrim tap closes read/confirm popups but NOT text-entry forms (`dismissOnScrim`
   prop) · confirms → centered cards · X-close everywhere · white=`--paper-2`.
 - [x] **Round 16 — Research "Coins" cards: align numbers + buttons to the bottom — 📋 PLAN ONLY (2026-07-01)**
-  (founder screenshot; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 16"). Cards are already equal-height
+  (founder screenshot; full spec [DESIGN.md](../design/DESIGN.md) "Round 16"). Cards are already equal-height
   (`.coins-grid align-items:stretch` + `.coin-card` flex-col, `research-tab.css:154-156`) and desktop shows the
   detail always-expanded (`:181`), but `.cc-detail` (stats + "Ask AI" button) isn't bottom-pinned → the number row +
   button float at different heights across a row (Synapse's extra "no coverage" chips push it down). **R16-1** add
@@ -3887,7 +3887,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `.pos-stats` share `top` across the row. *(The same message's Account "Starter/Pro/Premium" + "1/1" darker-in-light
   ask is already **Round 11 R11-1** — not duplicated.)*
 - [x] **Round 17 — FIX Pro/Premium can't add a portfolio (tier never reaches the DB) — FUNCTIONAL, ✅ BUILT
-  2026-07-01** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 17"; bug [ERRORS.md](../testing/ERRORS.md) §A1
+  2026-07-01** (founder; full spec [DESIGN.md](../design/DESIGN.md) "Round 17"; bug [ERRORS.md](../testing/ERRORS.md) §A1
   part 2). Root cause: demo upgrade sets `user.tier` + `saveProfile`→**localStorage** (`CryptoIdea.jsx:183`), never
   Firestore; the rule reads the DB `users/{uid}.tier` (still `free`, cap 1) → `permission-denied` → plan-limit
   message, even though Pro 3 / Premium 15 caps already exist. Decision locked (AskUserQuestion): **dev-only
@@ -3898,7 +3898,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   DB-`pro` user creates 2nd+3rd, blocked at 4th; dev path inert without the flag; the client-`tier`-write rejection
   test stays green. Build R17-1→R17-3 on "go".
 - [x] **Round 18 — dark-mode border visibility: soft-white edges on cards · pills · popups + Search separator — 📋
-  PLAN ONLY (2026-07-01)** (founder dark-mode screenshots; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 18").
+  PLAN ONLY (2026-07-01)** (founder dark-mode screenshots; full spec [DESIGN.md](../design/DESIGN.md) "Round 18").
   Dark-block-only (light untouched). Decisions locked (AskUserQuestion): **soft ~16% off-white** border
   `rgba(236,233,225,.16)` · **outer card/popup borders + Search line only** (internal row-dividers stay subtle) ·
   **neutral pills only** (colored status pills untouched). Constraint: cards + dividers + the search line all share
@@ -3913,7 +3913,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
 - [x] **Round 19 — portfolio delete-confirm · portfolio rename · 2-step transaction delete · transaction
   pagination · transaction ordering · mobile small-dialog centering · Learn header · Learn XP bar · desktop coin
   popups — ✅ BUILT 2026-07-01** (commits c2b7b29/53649f6/d8e6095/9ff3865 + modal-scrim fix b1d1a5e; 359 unit + 22
-  rules green; browser-verified desktop+mobile)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 19"). Nine
+  rules green; browser-verified desktop+mobile)** (founder; full spec [DESIGN.md](../design/DESIGN.md) "Round 19"). Nine
   Portfolio/Learn safety+polish gaps. Decisions locked (AskUserQuestion): portfolio delete **mirrors the coin**
   (empty → two-tap trash w/ ~3s auto-disarm; has-coins → blocking warning `<Modal>`) · rename from **Settings +
   the switcher bar** (edit ✎ on the active pill) · transaction delete = **inline two-tap on the row** (arm →
@@ -3951,7 +3951,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   …→ R19-8 → R19-9 on "go".
 - [x] **Round 20 — Learn lesson player: remove the L1–L5 markers · module-scoped Next/Previous nav · compact
   2-button row · Review-from-start — 📋 PLAN ONLY (2026-07-01)** (founder Learn screenshot; full spec
-  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 20"). Reworks the lesson flow. Decisions locked (AskUserQuestion):
+  [DESIGN.md](../design/DESIGN.md) "Round 20"). Reworks the lesson flow. Decisions locked (AskUserQuestion):
   progress bar — remove **only** the L1–L5 tick-marks/labels, **keep** the gradient fill + level title + the
   "300 / 700 XP to Level N" line · "Next →" advances **within the module**, the module's **last** lesson → "Done →"
   (closes) then pick the next module from the grid (**module-scoped**, not seamless-across-50) · the oversized
@@ -3968,7 +3968,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   change; all overlay state component-local; net removes the R19-8 marker CSS. Build R20-1 → (R20-2+R20-3+R20-4) on "go".
 - [x] **Round 21 — error toast visible above every popup (raise above the scrim) + ~6s auto-dismiss — 📋 PLAN ONLY
   (2026-07-02)** (founder Sell-BTC screenshot: on desktop the validation error renders behind/outside the popup,
-  invisible; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 21"). Root cause: the global `showErr` toast
+  invisible; full spec [DESIGN.md](../design/DESIGN.md) "Round 21"). Root cause: the global `showErr` toast
   (CryptoIdea.jsx:676) is `z-index:9500` — the **same** as the `.cm-scrim` (app.css:671) — and the scrim paints
   later → its 50%-black dims/hides the toast under every popup. Every popup error funnels through this one toast
   (AddEntry Buy/Sell, add/rename/delete portfolio, add/remove coin, tx delete), so one fix covers all; the Journal
@@ -3979,7 +3979,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   (CryptoIdea.jsx:183). Presentation only — one z-index + one timeout; no data/rules/handler change; verify
   in-browser (a z-index bug jsdom can't see). Build R21-1 → R21-2 on "go".
 - [x] **Round 22 — coin-holding tx rows: total as the bold number, coin price below ("/ SYMBOL"), drop "Recv/Cost" —
-  📋 PLAN ONLY (2026-07-02)** (founder coin-holding tx list; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 22").
+  📋 PLAN ONLY (2026-07-02)** (founder coin-holding tx list; full spec [DESIGN.md](../design/DESIGN.md) "Round 22").
   Today the right column (Detail.jsx:116-119) shows the **coin price** bold on top (`.tx-rprice`) and **"Recv"/"Cost"
   + total** muted below (`.tx-rcost`) — "Recv" is unclear + redundant with the SELL/BUY tag. Decisions
   (AskUserQuestion): per-coin line = **"$84,000.00 / BTC"** (price + " / {symbol}") · total = **plain bold** (no
@@ -3992,7 +3992,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `amount×priceAtBuy`). Build R22-1 + R22-2 (one commit) on "go".
 - [x] **Round 23 — Portfolio Risk uses real coin RANK: graduated (log-scale) risk + mega-cap ($100B+) safety floor —
   📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder Research→Portfolio Risk; full spec
-  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 23"). Refines the R14 market-cap-tier model. Decisions (AskUserQuestion):
+  [DESIGN.md](../design/DESIGN.md) "Round 23"). Refines the R14 market-cap-tier model. Decisions (AskUserQuestion):
   **real live CoinGecko rank** per coin · **mega-cap safety floor** (≥40% in $100B+ caps → meter can't read High) ·
   **graduated by size** (smooth log-scale, no tier cliffs). **Key find:** rank is **already fetched + cached** in
   the universe doc (functions/index.js:846, `market_cap_rank`, hot 5-min / daily) but `/api/prices` omits it → **no
@@ -4006,7 +4006,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   endpoint/upstream/dep, no rules change (rank is read-only server data). Build R23-1+R23-2 → R23-3+R23-4 on "go".
 - [x] **Round 24 — Journal: auto-save the thesis on close (X) + keep the Save button + flag incomplete theses —
   📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder "Add your thesis" popup; full spec
-  [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 24"). Today the X **discards** everything typed and a thesis needs BOTH
+  [DESIGN.md](../design/DESIGN.md) "Round 24"). Today the X **discards** everything typed and a thesis needs BOTH
   questions to save. Decisions (AskUserQuestion): partial on close → **save + flag incomplete** (never lose work) ·
   buttons → **keep "Save thesis" + X (both save), remove Cancel** · scope → **whole journal** (Add + Edit + findings).
   **No rules change** — `validJournal` already allows partial (empty strings pass); `addThesis` already saves partial
@@ -4019,7 +4019,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   closing; keep the edit-form Cancel + "Save findings" as explicit affordances. Component-level; no new dep/attack
   surface. Build R24-1+R24-2 → R24-3 on "go".
 - [x] **Round 25 — coin icon clickable + hover/press shadow everywhere (opens Coin info) + Transactions button
-  restyle — 📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md)
+  restyle — 📋 PLAN ONLY (FUNCTIONAL) (2026-07-02)** (founder; full spec [DESIGN.md](../design/DESIGN.md)
   "Round 25"). Today only the Portfolio icon is clickable (`.ac-img` + accent-ring hover → CoinInfo); elsewhere `<CI>`
   is plain. Decisions (AskUserQuestion): Transactions button = **accent-filled** (thesis `.j-edit-btn` look) · scope
   = **browse/list icons** (Portfolio · Search · trending · thesis cards · holdings header; decorative in-popup
@@ -4035,14 +4035,14 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   concepts + a latent close-to-Portfolio bug; no new endpoint/dep, no rules change (read-only). Update R19-9 tests.
   Build R25-1+R25-2 → R25-3+R25-4 → R25-5 on "go".
 - [x] **Round 26 — copy fix: delete-portfolio warning "theses" → count-aware "its transactions and thesis" —
-  📋 PLAN ONLY (2026-07-02)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 26"). The has-coins
+  📋 PLAN ONLY (2026-07-02)** (founder; full spec [DESIGN.md](../design/DESIGN.md) "Round 26"). The has-coins
   delete warning (Account.jsx:84) pluralizes coin/coins but leaves "their … theses" for 1 coin (each coin has one
   thesis). Decision (AskUserQuestion): **count-aware, delete message only** — `const many = p.coins.length>1` →
   "1 coin and all its transactions and thesis" vs "N coins and all their transactions and theses"; **leave** the
   Journal "Your theses (N)" header (a correct plural). Copy-only, no logic change. Update the R19-1 Account
   warning test. Build R26-1 on "go".
 - [x] **Round 27 — Billing: dark-mode readability + selected-card fix + desktop popups (X) + refund policy —
-  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 27").
+  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN.md](../design/DESIGN.md) "Round 27").
   The `showPlan` billing flow (Login.jsx pick-plan/billing-cycle/welcome/processing) mounts as a hand-rolled
   full-screen overlay (CryptoIdea.jsx:677-683), has **zero** dark overrides for `.plan-*`/`.cycle-*` (faint
   `--ink-faint` sub-text), and the **selected** Premium cycle card uses a hardcoded light `#f3ecfb` (app.css:552)
@@ -4057,7 +4057,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   Account cancel caption. Update Login/upgrade tests for the desktop-Modal branch. Build R27-1+R27-2 → R27-3 → R27-4
   on "go".
 - [x] **Round 28 — Billing: current-plan awareness + re-buy guard + honest benefit copy + light-mode readability —
-  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md) "Round 28";
+  📋 PLAN ONLY, part FUNCTIONAL/copy (2026-07-02)** (founder; full spec [DESIGN.md](../design/DESIGN.md) "Round 28";
   grounded via a 3-agent read-only map). **Real bug found:** the plan-picker (Login.jsx:91-113) never reads
   `user?.tier`, so a Pro user can click "Choose Pro" again and be **charged twice** (no guard/badge/disabled state);
   `user.tier` is available but unchecked. **Copy issues:** Premium claims "Priority support · Custom limits" —
@@ -4071,7 +4071,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `--ink-faint`→`--ink-soft` in the BASE rule (**supersedes R27-1**; drop that dark-only override when building).
   Update Login/upgrade/welcome tests. Build R28-1 → R28-2 → R28-3 on "go".
 - [x] **Round 29 — Billing: Premium downgrade chooser (Pro OR Starter) + pending flexibility + Premium→Pro
-  re-checkout — ✅ BUILT 2026-07-03 (commit 8c4a01e), FUNCTIONAL** (founder; full spec [DESIGN-PASS.md](../design/DESIGN-PASS.md)
+  re-checkout — ✅ BUILT 2026-07-03 (commit 8c4a01e), FUNCTIONAL** (founder; full spec [DESIGN.md](../design/DESIGN.md)
   "Round 29"; grounded via a 5-agent read-only billing map). Today Premium can ONLY downgrade to Pro
   (Account.jsx:262 hard-wired) and the at-endDate flip (CryptoIdea.jsx:610-615) grants the target tier with
   `subscription:null` — **a Premium→Pro downgrade lands as Pro with NO monthly payment attached (free Pro
@@ -4221,7 +4221,7 @@ and working.** Default ON (a kill-switch only fires when deliberately flipped).
 2. **Which switch:** reuse the existing `aiResearch` flag (no new flag — KISS).
 3. **Off-state UX:** the "Ask" tab simply disappears (2 tabs remain: Overview, Coins). No message.
 4. **Toggle location:** MOVE the toggle out of App Controls onto the admin **AI settings screen** (with
-   the Anthropic key). Still owner-only behind step-up re-auth (same `saveFeature`/`saveConfig` path).
+   the AI provider key). Still owner-only behind step-up re-auth (same `saveFeature`/`saveConfig` path).
 
 ### Honesty / security note ("cannot be accessed any way")
 - **Today** the chat is 100% client-side, so hiding the two entry buttons + forcing the tab away removes
@@ -4459,8 +4459,8 @@ largest / top-two allocation % · `mega` = `risk.megaAlloc` (% in mega-cap/top-r
 > "Can Portfolio Pulse / the Research Overview realistically work with NO AI / no AI API connection?"
 
 **Yes — it already does today, and always has. The AI path is dead code.**
-- `askClaude()` ([`ai-client.js:12`](../../src/features/research/api/ai-client.js)) **throws
-  unconditionally** — no Anthropic, no relay (by design: the key can't ship to the browser).
+- `askAI()` ([`ai-client.js:12`](../../src/features/research/api/ai-client.js)) **throws
+  unconditionally** — no AI provider, no relay (by design: the key can't ship to the browser).
 - So `usePulse` ([`usePulse.js:39`](../../src/features/research/hooks/usePulse.js)) **always** falls to
   `catch` → `fallbackText()`, a pure deterministic sentence from the user's OWN numbers (`total`, top
   holding, `alloc %`, `perf[tf]`). That fallback *is* the live behaviour.
@@ -4477,7 +4477,7 @@ have** (gradient "Portfolio Pulse" label, "AI insights" copy, an "AI-generated" 
 button that reproduces byte-identical text).
 
 ### Decisions (locked — 2026-08-03 interview)
-1. **AI is Wave-B "later," not "never."** Keep the `askClaude` seam; gate the AI *chrome* on the existing
+1. **AI is Wave-B "later," not "never."** Keep the `askAI` seam; gate the AI *chrome* on the existing
    `aiResearch` flag (the same switch AI-CHAT-SWITCH uses). One switch governs the whole Research AI surface.
 2. **Replace the "AI is offline" apology with a neutral AI-status pill (REVISED 2026-08-03).** Kill the old
    apology copy ("showing a basic summary…" — it made a working feature look broken); in its place a small
@@ -4649,7 +4649,7 @@ assistant," the **B2 LLM judge is REQUIRED** — the regex prefilter alone is in
 provided portfolio context + computed facts; assert **no external fact** (news/price/event) it wasn't given;
 neutral + educational; 2-4 sentences for Pulse, richer for Ask; never financial advice.
 
-**Server-enforcement rules (the real boundary):** the `researchAsk` Cloud Function holds the Anthropic key
+**Server-enforcement rules (the real boundary):** the `researchAsk` Cloud Function holds the AI provider key
 (never the client) · runs `selectValidated` on every response · checks `featureEnabled(cfg,'aiResearch')` and
 denies when OFF (deny-by-default — the forward requirement AI-CHAT-SWITCH recorded) · meters per-uid cost
 against `aiMonthlyCents` (free 0 / pro 400 / premium 2500) · rate-limit + App Check · sends only the caller's
@@ -4657,7 +4657,7 @@ OWN portfolio context (no cross-user data).
 
 **Expanded Wave-B Pulse roadmap (build order, gated on Blaze):**
 1. Ship the `researchAsk` proxy holding the key; wire `validate-output.js` (regex prefilter **+ B2 LLM judge**).
-2. Flip `AI_PROXY_LIVE=true`; replace the `askClaude` body with the callable (the seam is already there).
+2. Flip `AI_PROXY_LIVE=true`; replace the `askAI` body with the callable (the seam is already there).
 3. **Pulse-with-AI:** feed `pulseFacts` + context → AI rephrases → validator → fallback = the deterministic Pulse.
 4. **Ask chat** re-enabled (AI-CHAT-SWITCH flips `aiResearch` ON) with the fuller-assistant threads.
 5. **Per-tier budgets** (`aiMonthlyCents`) + **graceful degradation**: at the ceiling, fall back to the
@@ -4675,7 +4675,7 @@ Cross-refs: [`CACHE-POLICY.md`](../decisions/CACHE-POLICY.md) (AI tier) · [`PRI
   "works" client-side (canned answers) so it's purely the owner's show/hide choice.
 - **Pulse AI-chrome** (gradient label · Regenerate · any live-text attempt · the word "AI-generated" in the
   disclaimer) is gated on **`chatEnabled && AI_PROXY_LIVE`**, a strict subset — where **`AI_PROXY_LIVE`** is a
-  build constant exported from `ai-client.js`, **`false` today** (askClaude throws), flipped `true` by the
+  build constant exported from `ai-client.js`, **`false` today** (askAI throws), flipped `true` by the
   Wave-B increment that ships the real proxy.
   - **Why the extra `&& AI_PROXY_LIVE`, not the flag alone:** `aiResearch` DEFAULTS ON, and no proxy exists.
     A flag-only gate would paint AI chrome on a deterministic Pulse today and force the founder to remember to
@@ -4704,7 +4704,7 @@ only) and **`aiChrome`** = `chatEnabled && AI_PROXY_LIVE` (flag **and** a live p
 | **Portfolio · Coins · allocation · risk · stress · the deterministic Pulse facts** | never gated | always on | always on | always on |
 
 > **⚠️ Superseded by PR-E3 (CRYP-106, 2026-08-14):** the Pulse is now **permanently severed from AI** —
-> `usePulse` no longer touches `askClaude`, and the Pulse card's **"Regenerate" button, AI-gradient label and
+> `usePulse` no longer touches `askAI`, and the Pulse card's **"Regenerate" button, AI-gradient label and
 > "AI off"/"AI on" status pill were REMOVED**. The Pulse renders **deterministic in every state (A/B/C)**; the
 > `aiChrome` gate now governs ONLY the tab-level "AI-generated" Ask disclaimer. The Pulse rows in the matrix
 > above are historical — read them as the pre-PR-E3 design.
@@ -4724,13 +4724,13 @@ only) and **`aiChrome`** = `chatEnabled && AI_PROXY_LIVE` (flag **and** a live p
 ### Consistency sweep — change in EVERY file (no silent drift)
 Prop path: `useApp().site.features.aiResearch` → `Research.jsx` → `ResearchTab.jsx` → `OverviewView` → `Pulse`.
 1. **[`ai-client.js`](../../src/features/research/api/ai-client.js)** — export `export const AI_PROXY_LIVE =
-   false;` (Wave B flips it to `true` in the same increment that replaces the `askClaude` body). Keep the
+   false;` (Wave B flips it to `true` in the same increment that replaces the `askAI` body). Keep the
    throwing body.
 2. **[`Research.jsx`](../../src/features/research/Research.jsx)** — reuse `chatEnabled` (AI-CHAT-SWITCH);
    derive `const aiChrome = chatEnabled && AI_PROXY_LIVE;` and pass `aiChrome` to `ResearchTab`.
 3. **[`ResearchTab.jsx`](../../src/features/research/components/ResearchTab.jsx)** — accept `aiChrome = false`:
    - **line 45** `usePulse(portfolio, tf, !empty)` → `usePulse(portfolio, tf, !empty && aiChrome)` — when AI
-     off, usePulse short-circuits to `fallbackText` (`offline:false`) and makes **no** `askClaude` call
+     off, usePulse short-circuits to `fallbackText` (`offline:false`) and makes **no** `askAI` call
      (reuses the existing `enabled=false` path — no new branch);
    - **line 79 disclaimer** "AI-generated insights and the Stress test…" → gate the word "AI-generated" on
      `aiChrome` (or drop it: insights/Stress test are deterministic either way);
@@ -4766,7 +4766,7 @@ Prop path: `useApp().site.features.aiResearch` → `Research.jsx` → `ResearchT
   - `aiChrome=false`: **no** `ai-gradient-text` class, **no** Regenerate button, Share present; Pulse text ==
     the deterministic `fallbackText` for the portfolio+tf; disclaimer omits "AI-generated".
   - `aiChrome=true`: gradient + Regenerate present.
-  - `usePulse` with `enabled=false` makes **zero** `askClaude` calls (spy) and returns `offline:false`.
+  - `usePulse` with `enabled=false` makes **zero** `askAI` calls (spy) and returns `offline:false`.
 - **`npm run build`** — clean (no-names guard unaffected). **No `test:rules`** (no rules/backend change).
 
 ### Definition of Done
@@ -5091,7 +5091,7 @@ Keep the `rank` const (L37, still used by the Market Data row L64) and the field
 
 ### Consistency
 - **Leave (data-field docs/tests — the field + Market Data row stay):** CLAUDE.md `/api/prices` shape,
-  [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) DP-9b / R23, `openapi.json` `PriceEntry.usd_market_cap_rank`,
+  [`DESIGN.md`](../design/DESIGN.md) DP-9b / R23, `openapi.json` `PriceEntry.usd_market_cap_rank`,
   the research-risk unit tests — all describe the backend field, unaffected.
 - **Optional cosmetic tidy (nothing breaks if skipped):** `tests/unit/CoinInfo.test.jsx` stays green (its
   `getAllByText(/Rank #1|^#1$/)` still matches the kept Market Data value via the `^#1$` branch); the
@@ -5227,7 +5227,7 @@ are intentional discrete cliffs; `max()` cushions most rank cliffs because the o
    worked-example portfolios as the oracle + the two calibration traps (null-rank-on-cap-alone; `max` beats a
    deceptive rank); `research-adapters` if it asserts risk; the Overview render test for the 2-card split.
 6. **Docs** — CLAUDE.md "Research tab" + the **R23/R14** notes (rank-log risk, mega floor, rank-bucket note) go
-   stale → update to the tiered model in the same commit; [`DESIGN-PASS.md`](../design/DESIGN-PASS.md) R23/R14
+   stale → update to the tiered model in the same commit; [`DESIGN.md`](../design/DESIGN.md) R23/R14
    cross-note.
 
 ### Acceptance (RED first; never weaken a test)
@@ -5569,7 +5569,7 @@ is really the frontend model layer (already conceded).
 
 ## DARK-MODE-FIXES (DP Round 34). Dark-mode: red Sell buttons, shiny Buy/Sell, white card+pill borders in Research — + fix the NaN diversification note  (✅ BUILT 2026-08-07 · `ac08cb5` · via the Agent Factory · BUILD-LOOP #15)
 
-> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #15** (2026-08-05). Canonical design doc: **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log this as the next DP round (append after R28; confirm the number at build). **Design-only, 🟩 GREEN** — CSS + one small guard fix, no `firestore.rules`, no new dependency, no new hex beyond the existing token palette. Founder-reported from 4 dark-mode screenshots (2026-08-05).
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #15** (2026-08-05). Canonical design doc: **[`DESIGN.md`](../design/DESIGN.md)** — log this as the next DP round (append after R28; confirm the number at build). **Design-only, 🟩 GREEN** — CSS + one small guard fix, no `firestore.rules`, no new dependency, no new hex beyond the existing token palette. Founder-reported from 4 dark-mode screenshots (2026-08-05).
 >
 > **HARD CONSTRAINT (house rule R3, founder-restated "only on dark mode"): every change is DARK-BLOCK-ONLY** — scoped under `html[data-theme="dark"]`. **Light mode must stay byte-for-byte identical** (diff the built light CSS to prove it). Dark mode is applied via `html[data-theme="dark"]` (`app.css:48`).
 
@@ -5646,7 +5646,7 @@ is really the frontend model layer (already conceded).
 3. **`src/features/research/components/OverviewView.jsx`** — the G1 NaN guard (functional; `DARK-FIX-NaN`).
 4. **`tests/unit/`** — a test asserting the diversification note never renders "NaN" (G1); if any snapshot/style
    test pins the old Sell/toggle look, update it to the new values (never weaken a test).
-5. **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log this as the next DP round (the four fixes + G1–G7); **[`ERRORS.md`](../testing/ERRORS.md)** — add the NaN-diversification entry.
+5. **[`DESIGN.md`](../design/DESIGN.md)** — log this as the next DP round (the four fixes + G1–G7); **[`ERRORS.md`](../testing/ERRORS.md)** — add the NaN-diversification entry.
 6. **CLAUDE.md** design-follow-on note — one line that this round shipped (keep the doc current).
 
 ### Acceptance / Definition of Done
@@ -5670,7 +5670,7 @@ sell); **Q2=yes** folded `.tx-btn.sell`/`.tx-badge.sell`/`.kv-v.kv-sell` onto th
 "three reds" drift). **DARK-FIX-NaN (functional, own commit `0fbac77`, red-first `ca291bb`):** the
 diversification note's `NaN%` fixed **OverviewView-local** — top-two computed from `portfolio.holdings`
 behind a `Number.isFinite` guard (both themes; the bug was never dark-only). Logged as
-**[`DESIGN-PASS.md`](../design/DESIGN-PASS.md) Round 34** + **[`ERRORS.md`](../testing/ERRORS.md) §A9**
+**[`DESIGN.md`](../design/DESIGN.md) Round 34** + **[`ERRORS.md`](../testing/ERRORS.md) §A9**
 (renumbered from the mis-assigned A6 — A6 was already the blocked-signup entry cross-referenced by
 `USER-CREATION.md`) + a one-line CLAUDE.md design-follow-on note. **fix-round-1 (`376e771`)** consolidated
 the Research-card white border into `app.css` to drop a fragile equal-specificity cross-file cascade tie.
@@ -5688,7 +5688,7 @@ scoping guard.
 
 ## PORTFOLIO-TEXT-SIZE. Coin **Detail** card — bump the small text to a readable size (mobile + desktop, both themes)  (✅ BUILT 2026-08-07 · `786c85e` · via the Agent Factory · BUILD-LOOP #16)
 
-> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #16** (2026-08-06). Canonical design doc: **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log as the next DP round (confirm the number at build). **Design-only, 🟩 GREEN** — CSS in `app.css` + one tiny JSX edit in `Detail.jsx`; **no `firestore.rules`, no new dependency, no new hex/token.** Founder-reported (2026-08-06): the coin Detail drill-in text is too small to read fast; make it bigger for real use.
+> **Queued as [BUILD-LOOP](BUILD-LOOP.md) #16** (2026-08-06). Canonical design doc: **[`DESIGN.md`](../design/DESIGN.md)** — log as the next DP round (confirm the number at build). **Design-only, 🟩 GREEN** — CSS in `app.css` + one tiny JSX edit in `Detail.jsx`; **no `firestore.rules`, no new dependency, no new hex/token.** Founder-reported (2026-08-06): the coin Detail drill-in text is too small to read fast; make it bigger for real use.
 >
 > **NOT dark-block-only.** These are `font-size` bumps on **base `.ci-app` rules** (no `@media`, no theme override), so they apply to **light + dark and mobile + desktop identically** — which is exactly the ask ("make it for mobile and desktop both. its same on mobile"). Size only — **no colour/weight change**, so nothing about dark mode's look changes beyond the larger glyphs. This item touches `app.css`/`Detail.jsx`, the same files as #15 DARK-MODE-FIXES; the loop builds one item at a time so there's no conflict — just build whichever is queued first and re-verify.
 >
@@ -5743,7 +5743,7 @@ row divider + padding like the others — consistent.)
    needs NO edit** — it's already 14px = the new `.tx-btn`. ⚠️ Bump the **hero** pill `.price-hero .chg-pill` ONLY; leave
    the base `.chg-pill` (Portfolio-card % pill).
 2. **`src/components/Detail.jsx`** — remove `kv-sm` from the two rows (`className="kv-row kv-sm"` → `"kv-row"`, lines 89, 92).
-3. **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)** — log as the next DP round (the size table + the two locked decisions).
+3. **[`DESIGN.md`](../design/DESIGN.md)** — log as the next DP round (the size table + the two locked decisions).
 4. **CLAUDE.md** design-follow-on note — one line that this readability round shipped.
 
 ### Acceptance / Definition of Done
@@ -5758,7 +5758,7 @@ row divider + padding like the others — consistent.)
 
 ### As-built (2026-08-07, `786c85e`)
 Shipped exactly as planned: the 9 `font-size` bumps + `.kv-row.kv-sm` block deletion in `app.css` and
-`kv-sm` removed from the two `Detail.jsx` rows (89, 92). Logged as **[`DESIGN-PASS.md`](../design/DESIGN-PASS.md)
+`kv-sm` removed from the two `Detail.jsx` rows (89, 92). Logged as **[`DESIGN.md`](../design/DESIGN.md)
 Round 33** and a one-line CLAUDE.md design-follow-on note. **Option A confirmed as-built:** the four shared
 base `.ci-app` selectors (`.price-hero .ph-sub` / `.price-hero .chg-pill` / `.kv-row .kv-k` / `.kv-row .kv-v`)
 were bumped directly, so the **CoinInfo overlay grew too** (same readability win; `CoinInfo.jsx` not edited —
