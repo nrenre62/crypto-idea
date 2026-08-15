@@ -19,7 +19,7 @@ sea (`#4FA6A8`).
 | `logo.gif` | Full lockup, **animated** loop, on the paper background (`#F5F3ED`). | Chat/social where a GIF is needed. |
 | `icon.svg` / `favicon.svg` | The **turtle-only** icon centered on the green tile (no "C", no wordmark). Identical files. | App icon / favicon source. |
 | `favicon-16/32/48.png` | Raster favicons. | Browser tab. |
-| `apple-touch-icon.png` (180) | iOS home-screen icon. | `apple-touch-icon`. |
+| `touch-icon.png` (180) | Home-screen icon for installed web apps. | Home-screen shortcut icon (via the manifest). |
 | `icon-192.png` / `icon-512.png` | PWA install icons. | `manifest.json`. |
 
 ## Notes

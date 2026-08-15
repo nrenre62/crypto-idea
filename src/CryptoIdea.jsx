@@ -1054,7 +1054,7 @@ export default function CryptoIdea(){
   const openCoinInfo=(coin)=>setInfoCoin(coin);
   const at=(screen==="addEntry"||screen==="detail"||screen==="account")?"portfolio":screen;
 
-  if(site.maintenance) return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
+  if(site.maintenance) return(<div style={{fontFamily:"system-ui,sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
     <div style={{fontSize:40,marginBottom:14}}>🛠️</div>
     <div style={{fontSize:24,fontWeight:700,marginBottom:8}}>We'll be right back</div>
     <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5}}>CryptoIdea is briefly down for maintenance. Your data is safe — please check back in a little while.</div>
@@ -1067,7 +1067,7 @@ export default function CryptoIdea(){
   // denial must surface the plan gate (below), never the "Couldn't load / Retry" dead-end
   // (whose Retry would just re-hit the same denial). useAuthSession already skips the load for
   // a not-chosen user; this guard is the belt-and-suspenders so the gate can't be masked.
-  if(portfoliosError&&!forcedPlan&&user&&screen!=="login"&&screen!=="loading") return(<div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
+  if(portfoliosError&&!forcedPlan&&user&&screen!=="login"&&screen!=="loading") return(<div style={{fontFamily:"system-ui,sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"40px 28px"}}>
     <div style={{fontSize:40,marginBottom:14}}>📡</div>
     <div style={{fontSize:22,fontWeight:700,marginBottom:8}}>Couldn't load your portfolios</div>
     <div style={{fontSize:14,color:c.dim,maxWidth:320,lineHeight:1.5,marginBottom:20}}>Your data is safe on the server — this looks like a connection hiccup. Let's try again.</div>
@@ -1103,7 +1103,7 @@ export default function CryptoIdea(){
   const baseScreen=(isDesktop&&NARROW_SCREENS.has(screen))?"portfolio":screen;
   const TAB_SCREENS=new Set(["portfolio","research","journal","learn","search"]); // bottom-nav tabs get the persistent account avatar
   const acctInitial=(user?.name||user?.email||"C").trim().charAt(0).toUpperCase();
-  return(<AppContext.Provider value={ctx}><div style={{fontFamily:"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
+  return(<AppContext.Provider value={ctx}><div style={{fontFamily:"system-ui,sans-serif",background:"var(--app-bg)",color:"var(--app-fg)",minHeight:"100vh",maxWidth:1040,margin:"0 auto",paddingBottom:78,WebkitFontSmoothing:"antialiased"}}>
     {/* Floating toast: fixed so a limit/error message is always visible, even when the action
         (e.g. "Add portfolio" on the scrolled Account screen) is far below the top of the page.
         R21-1: styled by .ci-toast (app.css) at z-index 10000 — above every popup's 9500

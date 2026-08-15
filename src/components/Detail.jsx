@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CoinGeckoCredit } from "./CoinGeckoCredit.jsx";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct, fmtMc, fmtDT } from "../utils/format.js";
 import { coinPnl } from "../utils/pnl.js";
@@ -144,6 +145,8 @@ export function Detail() {
           </div>
         )}
         </>)}
+
+        <div className="disclaimer"><CoinGeckoCredit /> · Not financial advice</div>
 
       {/* R15-3: the destructive delete-with-transactions warning now uses the shared
           centered Modal (was a bottom-sheet). It's a confirm dialog → scrim tap closes it. */}

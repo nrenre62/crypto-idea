@@ -12,6 +12,40 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## OSS-CLEANUP. Company-name-free shipped frontend + hyperlinked in-app CoinGecko attribution  (✅ BUILT 2026-08-15 · branch master-6mrr02 · founder ask 2026-08-15 · follow-up to LANDING-OSS)
+
+**Founder ask (2026-08-15):** audit the whole React app / codebase for company names — Apple tokens,
+phone/OS "standard tokens," any brand name in the code itself — and remove/generalize them; and add
+**"Data provided by CoinGecko"** with a **hyperlink** in the app footer.
+
+**Done:**
+- **Font stacks generalized to `system-ui, sans-serif`** (behind the brand fonts Fraunces / Hanken)
+  everywhere they named a vendor — removed `-apple-system`, `BlinkMacSystemFont`, `'SF Pro Display'`,
+  `'Helvetica Neue'`, `'Segoe UI'`, `Roboto`. Files: `src/styles/app.css`, `research-tab.css`,
+  `CryptoIdea.jsx` (×3), `main.jsx`, `ErrorBoundary.jsx`, `education-page.jsx`, `pro-success.jsx`,
+  `app.html`, `admin.html`, `privacy.html`, `terms.html`, `public/brand/logo.svg`. `system-ui` still
+  resolves to each OS's native font — no vendor name, design unchanged.
+- **Apple PWA hints removed** in `app.html`: `apple-mobile-web-app-capable` → the standard
+  `mobile-web-app-capable`; dropped `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`,
+  and the `apple-touch-icon` link (manifest icons cover install).
+- **OS/brand mentions in comments/docs genericized:** "Excel on Windows" → "spreadsheet apps"
+  (`csv.js`, `admin-dashboard.jsx`), "(iOS-style)" dropped (`app.css`), `apple-touch-icon` row in
+  `public/brand/README.md` genericized.
+- **In-app CoinGecko attribution now hyperlinked, on EVERY price surface** (closes the LANDING-OSS
+  follow-up): a shared **`src/components/CoinGeckoCredit.jsx`** renders the exact required message +
+  hyperlink in ONE place — **"Data provided by [CoinGecko](https://www.coingecko.com/en/api)"**
+  (`target=_blank`, `rel="noopener noreferrer"`), the exact API-attribution URL CoinGecko requires (not
+  the homepage), per their API Terms §4.3 + attribution guide. Rendered in the footer disclaimer of
+  **Portfolio, Search, coin Detail, CoinInfo overlay, and the Research tab** — everywhere CoinGecko data
+  is shown. `Search.test.jsx` asserts the link; full Detail/CoinInfo/Research/walkthrough suites green.
+- **Kept (functional service integrations, not cosmetic brand tokens):** Firebase, PayPal, CoinGecko,
+  Termly, Sentry, React (Meta OSS), Google Fonts (actually used), the opt-in GA loader.
+
+**Verified:** build clean (dist-name + brand guards green); `Search` + `Portfolio` unit tests green;
+residual-token grep empty across `src` / `*.html` / `public`.
+
+---
+
 ## LANDING-OSS. index.html reworked to the free / open-source (MIT) reality + burnt-out-investor voice  (✅ BUILT 2026-08-15 · branch master-6mrr02 · founder interview 2026-08-15)
 
 **Founder ask (2026-08-15, plain-chat interview):** audit `index.html` against the *shipped* app and the

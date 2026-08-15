@@ -138,7 +138,7 @@ function JobPill({ job, health, healthText, healthDot, now }) {
    the audit file): once saved they are outside the app's retention + erasure
    controls, which is why the UI says so next to the buttons. */
 function saveCsv(filename, text) {
-  // BOM-prefixed so Excel on Windows reads it as UTF-8 rather than the local codepage.
+  // BOM-prefixed so spreadsheet apps read it as UTF-8 rather than the local codepage.
   const blob = new Blob([CSV_BOM + text], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

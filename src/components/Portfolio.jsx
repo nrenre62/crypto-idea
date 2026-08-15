@@ -1,4 +1,5 @@
 import { useApp } from "../hooks/app-context.js";
+import { CoinGeckoCredit } from "./CoinGeckoCredit.jsx";
 import { fmtP, fmtPct } from "../utils/format.js";
 import { splitMoney } from "../utils/money.js";
 import { portfolio24hPct } from "../utils/pnl.js";
@@ -140,7 +141,7 @@ export function Portfolio() {
           })}
         </div>
       )}
-      <div className="disclaimer">Prices via CoinGecko · Not financial advice</div>
+      <div className="disclaimer"><CoinGeckoCredit /> · Not financial advice</div>
     </div>
   );
 }

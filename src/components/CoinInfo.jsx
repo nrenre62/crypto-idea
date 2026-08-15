@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CoinGeckoCredit } from "./CoinGeckoCredit.jsx";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct, fmtMc } from "../utils/format.js";
 import { TOP_COINS, PRICE_HISTORY, getHistoricalPrice } from "../utils/coins.js";
@@ -131,6 +132,7 @@ export function CoinInfo() {
             });
           })()}
         </div>}
+        <div className="disclaimer"><CoinGeckoCredit /> · Not financial advice</div>
       </div>
     </div>
   );

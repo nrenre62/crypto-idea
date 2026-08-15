@@ -17,7 +17,7 @@ const linkStyle = {
 function Shell({ children }) {
   return (
     <div style={{
-      fontFamily: "-apple-system, 'Helvetica Neue', sans-serif",
+      fontFamily: "system-ui, sans-serif",
       background: c.bg, color: c.txt, minHeight: "100vh",
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
