@@ -78,7 +78,7 @@ Defense in depth: a crafted request that skips the UI still hits the rules. Ever
 | Field | Client (Login/CryptoIdea) | Server — `registerUser` | Server — `firestore.rules` |
 |---|---|---|---|
 | **name** | letters/spaces, 2–30, trimmed | trim + re-check | `validUserData`: string, size 2–50 |
-| **email** | format regex + required | Firebase Auth format check | stored copy, non-empty string |
+| **email** | format regex + required | Firebase Auth format check | allowlisted key only — no format/length check in rules |
 | **password** | 8+ upper/lower/digit/special | Firebase Auth floor | n/a (lives in Auth, not Firestore) |
 | **consent** | both boxes required to submit | passed through to the write | `validConsent`: closed map, string fields ≤ caps |
 | **settings** | defaults only at signup | written from defaults | `validSettings`: closed map, typed, enum/size caps |

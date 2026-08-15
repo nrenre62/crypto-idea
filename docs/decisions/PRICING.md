@@ -105,7 +105,7 @@ The AI-cost helpers (`costCents`, `readMonthSpendCents`, `chargeMonthCents`, `bu
 
 The admin Overview shows net revenue (gross minus fees), not gross. PayPal's pricing is `2.9% + $0.30 per charge`. Revenue is computed by `computeRevenue` in [`functions/billing.js`](../../functions/billing.js), which reads each payer's real billing cycle: an annual payer contributes `priceYear / 12` per month with its single yearly charge's fee amortized over twelve months, rather than being mispriced as a monthly payer. A missing `priceYear` degrades to the monthly math.
 
-The billing cycle is persisted as a top-level `billingCycle` field on `users/{uid}`, written by `createSubscription`, `scheduleProDowngrade`, and `resubscribePremium`. `gatherStats` builds its payer list from that field and prices each payer by cycle, so the net revenue number reflects annual and monthly payers correctly.
+The billing cycle is persisted as a top-level `billingCycle` field on `users/{uid}`. `createSubscription` writes it directly; the future-start flows (`scheduleProDowngrade` / `resubscribePremium`) record the cycle in their `subscription.scheduledNext.billing` marker, which the daily sweep promotes to the top-level field when the scheduled plan activates. `gatherStats` builds its payer list from that field and prices each payer by cycle, so the net revenue number reflects annual and monthly payers correctly.
 
 ## 6. What Premium gates (positioning)
 
