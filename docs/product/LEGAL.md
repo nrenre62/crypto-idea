@@ -10,11 +10,12 @@ Canonical record of the project's legal posture. CryptoIdea is an open-source pe
 
 ## Privacy & Terms (optional, off by default)
 
-Privacy Policy and Terms pages (`privacy.html` / `terms.html`) ship as static pages that auto-embed Termly documents by ID. They are optional and inactive by default — the same posture as billing and AI:
+Privacy Policy and Terms pages (`privacy.html` / `terms.html`) ship as static pages that carry a **basic hand-authored policy by default** and **auto-embed Termly documents by ID** when configured:
 
-- The pages show a "being finalized" placeholder until Termly document IDs are set in admin Settings → Analytics & legal (the IDs persist to the `config/app` doc; never paste a snippet into the HTML).
-- The live site is intended to run with a free Termly privacy policy and terms, purely so visitors to the public deployment have a basic notice.
-- Consent capture at signup records the accepted Terms/Privacy versions on the user profile (`consent` field) when the documents are active.
+- Each page includes a self-contained, plain-language **default** policy/terms covering the real data practices (Firebase, PayPal, Sentry error monitoring + session replay, CoinGecko, optional analytics), with clearly-bracketed placeholders (`[OPERATOR NAME]`, `[CONTACT EMAIL]`, `[JURISDICTION]`) for the operator to fill in.
+- Setting a Termly document ID in admin Settings → Analytics & legal (the IDs persist to the `config/app` doc; never paste a snippet into the HTML) makes `termly-embed.js` **replace** the default with the embedded Termly document. The default is the fallback; Termly is the override.
+- Consent capture at signup records the accepted Terms/Privacy versions on the user profile (`consent` field).
+- **Note:** if client-side session replay (Sentry) is enabled, the third-party recording is already disclosed in the default privacy policy — keep any replacement policy consistent with that.
 
 ## If you self-host
 

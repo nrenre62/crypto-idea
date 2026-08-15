@@ -52,6 +52,10 @@ the go-live checklist plus a polish pass across the app and the docs.
 
 ### Docs / legal
 - Privacy policy + terms of service finalized (CRYP-87).
+- Basic hand-authored default Privacy Policy + Terms of Service on `privacy.html` / `terms.html` (in
+  place of the "being finalized" placeholder), honest about the real processors (Firebase, PayPal,
+  Sentry incl. session replay, CoinGecko, optional analytics) with bracketed operator/contact/
+  jurisdiction placeholders. A configured Termly document ID still overrides the default.
 - Documentation reorganized into a hub-and-spoke set — one canonical file per subject, cross-linked
   from a root index. The detailed point-in-time build records (design rounds, security / architecture
   / admin-panel audits, test and review reports, bug hunts) were consolidated into the canonical docs

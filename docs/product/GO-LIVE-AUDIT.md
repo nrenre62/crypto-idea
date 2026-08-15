@@ -33,9 +33,9 @@ After enabling, document the production-recovery steps, do one practice restore 
 
 ## Legal documents
 
-The Privacy Policy and Terms pages embed Termly documents by ID and bail silently when the ID is unset, so both currently render a placeholder. Meanwhile signup forces users to accept both and writes a versioned consent record — which is worthless while the linked documents do not exist.
+The Privacy Policy and Terms pages now carry a **basic hand-authored default** policy/terms (honest about the real processors — Firebase, PayPal, Sentry incl. session replay, CoinGecko, optional analytics) with bracketed placeholders for the operator's name, contact, and jurisdiction. Setting a Termly document ID replaces the default with the embedded Termly document. So signup's forced acceptance is no longer worthless — a real notice exists — but the placeholders must still be filled in (or Termly documents provided) before a serious launch.
 
-Create both documents in Termly, then set the IDs in admin Settings → Analytics & Legal (they persist to `config/app`; do not paste snippets into the HTML). Name the payment processor, Firebase, and CoinGecko as processors. Bump `CONSENT_VERSION` and delete pre-launch test accounts so the re-acceptance mechanism starts clean.
+Fill in the `[OPERATOR NAME]` / `[CONTACT EMAIL]` / `[JURISDICTION]` placeholders in `privacy.html` and `terms.html`, or create both documents in Termly and set the IDs in admin Settings → Analytics & Legal (they persist to `config/app`; do not paste snippets into the HTML). Keep the session-replay disclosure consistent with whatever the client Sentry config actually does. Bump `CONSENT_VERSION` and delete pre-launch test accounts so the re-acceptance mechanism starts clean.
 
 ## Blaze, budget, project, and admins
 

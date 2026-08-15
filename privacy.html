@@ -46,7 +46,12 @@
     @media (prefers-reduced-motion: reduce) { .ci-t-bob,.ci-t-ff,.ci-t-fb,.ci-t-eye,.ci-t-ripple,.ci-t-life{animation:none!important} .ci-t-head{transition-duration:.001s} }
     a.back { font-size:13px; color:#0b6b4f; text-decoration:none; font-weight:600; }
     h1 { font-size:26px; margin:0 0 8px; }
+    h2 { font-size:17px; margin:28px 0 8px; }
     .muted { color:#888; font-size:13px; margin-bottom:24px; }
+    #termly-policy p, #termly-terms p, #termly-policy li, #termly-terms li { font-size:14.5px; }
+    #termly-policy ul, #termly-terms ul { padding-left:20px; margin:8px 0; }
+    #termly-policy li, #termly-terms li { margin:4px 0; }
+    .legal-note { background:#f6f5f0; border:1px solid #eee; border-radius:8px; padding:12px 14px; font-size:13px !important; color:#555; margin-top:24px; }
     footer { margin-top:48px; padding-top:20px; border-top:1px solid #eee; font-size:12px; color:#999; }
     footer a { color:#0b6b4f; text-decoration:none; }
   </style>
@@ -64,8 +69,90 @@
     <!-- Auto-embeds the Termly Privacy document using the ID set in admin Settings
          → Analytics & Legal (Termly Privacy doc ID). No code edits needed. -->
     <div id="termly-policy">
-      <p>Our privacy policy is being finalized. Set the <b>Termly Privacy doc ID</b> in
-      the admin dashboard (Settings → Analytics &amp; Legal) to publish it here.</p>
+      <p class="muted" style="margin-bottom:20px">Last updated: 15 August 2026</p>
+
+      <p>CryptoIdea ("CryptoIdea", "we", "us") is an open-source crypto portfolio
+      tracker and research tool. This policy explains what personal data we collect,
+      why, and the choices you have.</p>
+
+      <p><b>Who we are.</b> This service is operated by [OPERATOR NAME]. For any
+      privacy question, or to exercise your rights, contact us at [CONTACT EMAIL].</p>
+
+      <h2>What we collect</h2>
+      <ul>
+        <li><b>Account.</b> Your email address and a password, handled by Firebase
+        Authentication (Google). We never see your password.</li>
+        <li><b>Your content.</b> The portfolios, holdings, transactions, investment
+        notes ("theses"), and learning progress you create. This is stored privately
+        per account and is not visible to other users.</li>
+        <li><b>Subscription (paid plans only).</b> Payments are processed by PayPal.
+        We store only your plan tier and a subscription reference — never your card or
+        bank details.</li>
+        <li><b>Diagnostics.</b> To keep the service running we collect error reports,
+        performance traces, and session replays through Sentry (see below).</li>
+        <li><b>Analytics (optional).</b> If enabled, aggregate usage analytics via
+        Google Analytics and/or Plausible.</li>
+      </ul>
+      <p>Market data shown in the app comes from CoinGecko through our own server
+      proxy; no personal data about you is sent to CoinGecko.</p>
+
+      <h2>Error monitoring &amp; session replay (Sentry)</h2>
+      <p>We use Sentry to detect crashes and measure performance so the product stays
+      live. This includes <b>session replay</b>, which records a masked reconstruction
+      of your browser session (interactions and page structure) for a sample of
+      sessions and when errors occur. Replay <b>masks all text and blocks all media by
+      default</b>, and we strip identifying data from error reports. Sentry data is
+      processed in the European Union (Germany) — a transfer to a third-party
+      processor.</p>
+
+      <h2>Why we use your data (legal bases)</h2>
+      <ul>
+        <li><b>To provide the service</b> — performing our agreement with you (your
+        account and content).</li>
+        <li><b>To keep it secure and reliable</b> — our legitimate interest (error
+        monitoring, abuse prevention, audit records).</li>
+        <li><b>Analytics and replay cookies</b> — your consent, where required.</li>
+      </ul>
+
+      <h2>Who we share it with</h2>
+      <p>We do <b>not</b> sell your personal data. We share it only with the service
+      providers that run CryptoIdea: Google (Firebase Authentication, Firestore, Cloud
+      Functions, Hosting), PayPal (payments), Sentry (diagnostics), and, if enabled,
+      Google Analytics / Plausible (analytics) and Termly (consent management). Each
+      processes data on our behalf under its own terms.</p>
+
+      <h2>How long we keep it</h2>
+      <ul>
+        <li><b>Account &amp; content</b> — until you delete your account.</li>
+        <li><b>Deleted accounts</b> — moved to a 30-day recovery "trash", then
+        permanently erased.</li>
+        <li><b>Security/audit records</b> — up to 12 months (see below).</li>
+      </ul>
+
+      <h2>Your rights</h2>
+      <p>You can access, export, correct, or delete your data at any time from
+      <b>Account → Privacy &amp; your data</b> in the app (export as JSON/CSV; delete
+      with a 30-day recovery window). Depending on where you live you may also have the
+      right to object to or restrict processing, to withdraw consent, and to complain
+      to your data-protection authority. To make any request, contact [CONTACT
+      EMAIL].</p>
+
+      <h2>Security</h2>
+      <p>Data is encrypted in transit, isolated per account by server-side security
+      rules, and secrets are held server-side only. No method of transmission or
+      storage is 100% secure, but we design for least privilege and minimum data.</p>
+
+      <h2>Children</h2>
+      <p>CryptoIdea is not directed to children under 16 and we do not knowingly
+      collect their data.</p>
+
+      <h2>Changes</h2>
+      <p>We may update this policy; we will change the "Last updated" date above and,
+      for material changes, provide a notice in the app.</p>
+
+      <p class="legal-note">CryptoIdea is an open-source (MIT-licensed) research and
+      portfolio project, provided for informational purposes only. It is not
+      investment, financial, or tax advice.</p>
     </div>
 
     <!-- C-R2c (C15): standing retention disclosure — kept OUTSIDE the Termly embed
