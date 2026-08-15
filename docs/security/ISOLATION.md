@@ -88,7 +88,7 @@ subtrees, rules as the wall. **Decision ISO-D1: keep logical, harden + prove it*
   cross-tenant tests), **closed** per-user document shape (no privileged-by-default fields), and
   **complete** erasure reach — not a physical re-architecture.
 
-## 3 · Founder decisions (2026-07-07)
+## 3 · Founder decisions
 
 | # | Decision |
 |---|----------|
@@ -173,3 +173,7 @@ updated.
 - The **closed-shape rule (G1)** is the structural fix behind the `secure-by-design` "re-audit who can
   write a field the server starts trusting" lesson — shipping it now means future features can't
   accidentally trust an owner-writable profile field.
+
+---
+
+See also → [docs/INDEX.md](../INDEX.md)
