@@ -706,8 +706,11 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
   `paidPlansEnabled=false`; **paid plans stay gated OFF until the founder's launch** (also recorded in
   [`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md)). Live PayPal **sandbox e2e** still verifies the whole flow (incl. the
   PR-C2 cancel-access + future-start `ACTIVATED` timing) at go-live.
-  **➡️ Remaining Plan B item = PR-E (Wave-B AI):** the secure Anthropic proxy + the `AI_PROXY_LIVE` flip
-  (needs Blaze + keys) — see §0 Wave B / §C-B. All billing/subscription-lifecycle work (PR-A…PR-C3) is now done.
+  **➡️ Remaining Plan B item = PR-E (Wave-B AI):** the client seam is now wired (PR-E3, below); what's left is
+  **PR-E2.5** (the atomic budget-cap reservation) + the `AI_PROXY_LIVE` flip at go-live (needs Blaze + keys) —
+  see §0 Wave B / §C-B. The go-live **Pulse-decoupling risk is now RESOLVED**: PR-E3 Part B severed `usePulse`
+  from AI structurally, so flipping the flag can never re-couple the Pulse to live AI. All billing/subscription-
+  lifecycle work (PR-A…PR-C3) is now done.
   - **✅ PR-E1 · proxy FOUNDATION (2026-08-14, branch `claude/plan-b-pr-e-ai-proxy`, HEAD `691a259`) —
     INERT, nothing calls it yet.** Founder-locked: generation **Sonnet 5**, judge **Haiku 4.5**, raw
     fetch, a single **app-wide** monthly $-cap (default **$50/mo** = `config/app.ai.monthlyCapCents` =
@@ -738,14 +741,31 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
     `process.env.ANTHROPIC_KEY` fallback), header-only, never logged/returned. Reviews: **contract IN SYNC** (0
     drift), **security SAFE TO COMMIT** (0 High, all 8 repo invariants verified). **`AI_PROXY_LIVE` stays `false`** —
     nothing calls the callable yet (the client swap is PR-E3). PR-E1 security must-dos: **#1 fail-read-closed
-    SATISFIED**, **#2 gate-before-generation SATISFIED**, **#3 concurrent overshoot DOCUMENTED + DEFERRED** ([MED]
-    bounded overshoot noted in code; [LOW] meter-on-throw FIXED via the try/finally in `a79270b`; [LOW]
-    daily-slot-before-cap-check left as-is, fairness only).
-  - **➡️ Pre-PR-E3 hardening · atomic cap reservation:** make the monthly $-cap check-and-charge atomic (reserve
-    an estimated max up front, reconcile to actual) **before** flipping `AI_PROXY_LIVE`, closing the [MED]
+    SATISFIED**, **#2 gate-before-generation SATISFIED**, **#3 concurrent overshoot CLOSED by PR-E2.5** (the [MED]
+    bounded overshoot is now fixed via the atomic reserve-then-settle cap — see the PR-E2.5 bullet below; [LOW]
+    meter-on-throw FIXED via the try/finally in `a79270b`; [LOW] daily-slot-before-cap-check left as-is, fairness only).
+  - **✅ PR-E3 · client seam wired (2026-08-14, branch `claude/plan-b-pr-e3-research-client-seam`, CRYP-106)
+    — BUILT behind the still-`false` flag.** `src/features/research/api/ai-client.js` `askClaude` now
+    short-circuits (throws `research-ai-proxy-not-configured`, **no network**) **while `AI_PROXY_LIVE` is false**;
+    when the flag is true it calls `httpsCallable(functions,'researchAsk')({ question })` (sends ONLY
+    `{ question }`) and returns the answer string, or `''` on `fellBack || !answer` (→ `useAsk`'s deterministic
+    `DEFAULT_A`; C7 — no budget number). **Part B: the Pulse is permanently severed from AI** — `usePulse.js`'s
+    AI branch is DELETED (`pulseLines(pulseFacts())` only) and the Pulse card's "AI off/on" pill, gradient label
+    and Regenerate button were REMOVED; `aiChrome = chatEnabled && AI_PROXY_LIVE` survives ONLY to gate the
+    tab-level "AI-generated" Ask disclaimer. **`AI_PROXY_LIVE` STAYS `false`** — PR-E3 did NOT flip it. This
+    CLOSES the go-live "Pulse-decoupling" risk in code. `useAsk` still rides `askClaude` (Ask chat + per-coin
+    button, gated on `aiResearch`, unchanged).
+  - **✅ BUILT — PR-E2.5 (CRYP-107) · atomic cap reservation:** the app-wide monthly $-cap is now
+    check-and-charge **atomic** via **reserve-then-settle** — `ai-cost.js` `reserveMonthCents` holds a
+    derived **12¢** worst-case estimate (`reservationMaxCents()` = `(MAX_REGENS 2 + 1) × (genMax 3¢ +
+    judgeMax 1¢)`) on `aiBudget/{YYYY-MM}` in one transaction (or denies-consuming-nothing at the cap),
+    then `chargeMonthCents` settles the delta down to the ACTUAL metered cost. Month-boundary-safe (one
+    pinned timestamp) and never strands a reservation (widened try/finally). Ships **dormant**
+    (`AI_PROXY_LIVE = false`) — this **gates the go-live `AI_PROXY_LIVE` flip** and closes the [MED]
     concurrent-overshoot finding where it becomes real money.
-  - **➡️ PR-E3 · client swap:** swap the `ai-client.js` body to call `researchAsk` and flip `AI_PROXY_LIVE`
-    in the same increment (keep the resolve-string/reject contract so the offline fallback survives).
+  - **➡️ `AI_PROXY_LIVE` flip (separate go-live step):** flip the flag in `api/ai-status.js` to `true` in the
+    increment that deploys `researchAsk` with a real Anthropic key (needs Blaze + keys) — kept SEPARATE from the
+    PR-E3 client swap so the seam ships dormant.
   - **Deferred to go-live:** a live end-to-end run with a **real Anthropic key in a sandbox** (needs
     Blaze + keys) — PR-E1/E2/E3 are emulator-verifiable with the injected fetch/judge seams, but the real
     upstream round-trip is only provable once a key exists.
@@ -4682,6 +4702,12 @@ only) and **`aiChrome`** = `chatEnabled && AI_PROXY_LIVE` (flag **and** a live p
 | **Empty-state "AI insights" copy** | none | neutral | neutral | neutral |
 | **Disclaimer "AI-generated" word** | `aiChrome` | omitted | omitted | shown |
 | **Portfolio · Coins · allocation · risk · stress · the deterministic Pulse facts** | never gated | always on | always on | always on |
+
+> **⚠️ Superseded by PR-E3 (CRYP-106, 2026-08-14):** the Pulse is now **permanently severed from AI** —
+> `usePulse` no longer touches `askClaude`, and the Pulse card's **"Regenerate" button, AI-gradient label and
+> "AI off"/"AI on" status pill were REMOVED**. The Pulse renders **deterministic in every state (A/B/C)**; the
+> `aiChrome` gate now governs ONLY the tab-level "AI-generated" Ask disclaimer. The Pulse rows in the matrix
+> above are historical — read them as the pre-PR-E3 design.
 
 **How to read it:**
 - **State A is the no-AI launch posture** — set `aiResearch = false`: Ask hidden, pill "AI off", clean

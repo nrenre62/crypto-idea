@@ -73,6 +73,57 @@ function budgetExceeded(spentCents, capCents) {
   return (Number(spentCents) || 0) >= (Number(capCents) || 0);
 }
 
+// ─── PR-E2.5 (CRYP-107): atomic reserve-then-settle for the app-wide monthly $-cap ───
+// The read-then-act cap check (readMonthSpendCents → budgetExceeded → generate →
+// chargeMonthCents) is NOT atomic: N in-flight requests can all read spent<cap and all
+// generate before any charge, overshooting by ~(concurrency × per-request cost).
+// reserveMonthCents atomically holds the worst-case ESTIMATE up front; the existing
+// chargeMonthCents then settles the delta (actual-reserved, possibly negative) to release
+// the over-reservation. reservationMaxCents derives that worst-case estimate.
+
+// Worst-case per-request token ceilings. EST_GEN_OUTPUT_MAX mirrors researchAsk's
+// buildMessagesRequest generation maxTokens (1024); EST_JUDGE_OUTPUT_MAX mirrors its judge
+// maxTokens (16). Chosen so genMax rounds to 3¢ and judgeMax to 1¢ (see reservationMaxCents).
+// A future token-cap change here (or a MAX_REGENS change below) must move in lockstep with
+// researchAsk/validate-output — this is the single visible edit point for the reservation size.
+const EST_GEN_INPUT_MAX = 2000;    // ~context + question, worst case
+const EST_GEN_OUTPUT_MAX = 1024;   // == researchAsk generation buildMessagesRequest maxTokens
+const EST_JUDGE_INPUT_MAX = 2000;  // ~candidate text handed to the judge, worst case
+const EST_JUDGE_OUTPUT_MAX = 16;   // == researchAsk judge buildMessagesRequest maxTokens
+
+// The worst-case per-request cost = (maxRegens+1) attempts, each a Sonnet generation + a Haiku
+// judge. maxRegens defaults to validate-output's MAX_REGENS (2 → 1 initial + 2 regens). Reuses
+// the REAL costCents (same round-UP as the actual charge) so the estimate can never undercount.
+// genMax = ceil(2.136¢) = 3, judgeMax = ceil(0.208¢) = 1 → default 3 × (3+1) = 12¢.
+function reservationMaxCents({ maxRegens = 2 } = {}) {
+  const genMax = costCents({ input_tokens: EST_GEN_INPUT_MAX, output_tokens: EST_GEN_OUTPUT_MAX }, SONNET5_RATES);
+  const judgeMax = costCents({ input_tokens: EST_JUDGE_INPUT_MAX, output_tokens: EST_JUDGE_OUTPUT_MAX }, HAIKU45_RATES);
+  const attempts = (Number(maxRegens) || 0) + 1;
+  return attempts * (genMax + judgeMax);
+}
+
+// Atomically reserve `estCents` against the current UTC month's budget. Mirrors chargeMonthCents'
+// transaction shape AND guards.consumeDailyBudget's deny-consumes-nothing semantics: in ONE
+// transaction, read current spend, and either DENY (reserving nothing) when current+estCents would
+// exceed the cap, or hold the worst-case estimate by setting the ledger to current+estCents. A
+// genuine transaction error THROWS (the caller maps it to a fail-closed 503) — never swallowed.
+async function reserveMonthCents(db, { estCents, capCents, now = Date.now() } = {}) {
+  const est = Number(estCents) || 0;
+  const cap = Number(capCents) || 0;
+  const month = monthKey(now);
+  const ref = db.doc(budgetPath(now));
+  return db.runTransaction(async (t) => {
+    const snap = await t.get(ref);
+    const current = snap && snap.exists ? (Number(snap.data().cents) || 0) : 0;
+    if (current + est > cap) {
+      return { allowed: false, spent: current, cap };
+    }
+    const next = current + est;
+    t.set(ref, { cents: next, month, updatedAt: Date.now() });
+    return { allowed: true, reservedCents: est, spent: next };
+  });
+}
+
 module.exports = {
   SONNET5_RATES,
   HAIKU45_RATES,
@@ -81,4 +132,6 @@ module.exports = {
   readMonthSpendCents,
   chargeMonthCents,
   budgetExceeded,
+  reservationMaxCents,
+  reserveMonthCents,
 };

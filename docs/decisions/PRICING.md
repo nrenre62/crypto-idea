@@ -97,9 +97,11 @@ Users never see a dollar-budget figure — that framing punishes engagement. The
 There are two different budgets — do not conflate them:
 
 - The per-tier per-uid ceiling `plans.*.aiMonthlyCents` described above.
-- A single app-wide monthly spend pool at `config/app.ai.monthlyCapCents` (default 5000 = $50/mo), admin-editable from the Settings AI card and metered by the pure `functions/ai-cost.js` ledger on a server-only `aiBudget/{YYYY-MM}` doc (round-up cents, UTC month key, `>=` wall). This is the app-wide launch cost ceiling.
+- A single app-wide monthly spend pool at `config/app.ai.monthlyCapCents` (default 5000 = $50/mo), admin-editable from the Settings AI card and metered by the pure `functions/ai-cost.js` ledger on a server-only `aiBudget/{YYYY-MM}` doc (round-up cents, UTC month key). This is the app-wide launch cost ceiling.
 
-The AI-cost helpers (`costCents`, `readMonthSpendCents`, `chargeMonthCents`, `budgetExceeded`) are pure and dependency-injected, and the `aiBudget` doc is server-only in `firestore.rules` — a client-writable meter could be zeroed to defeat the cap.
+The AI-cost helpers (`costCents`, `readMonthSpendCents`, `reserveMonthCents`, `chargeMonthCents`, `budgetExceeded`) are pure and dependency-injected, and the `aiBudget` doc is server-only in `firestore.rules` — a client-writable meter could be zeroed to defeat the cap. The app-wide cap is enforced atomically: `reserveMonthCents` transactionally holds a derived worst-case cost up front (or denies the request at the cap, consuming nothing), then `chargeMonthCents` settles the reservation down to the actual metered token cost. The per-tier `plans.*.aiMonthlyCents` fields are not yet enforced — the single app-wide cap ships first. Both meter real spend only once live AI is switched on; today `AI_PROXY_LIVE` is false, so no tokens are spent and the ledger stays at zero. Model economics — a generation model and a cheaper judge model — are set in `functions/ai-cost.js`.
+
+---
 
 ## 5. Payment fees in `getStats`
 

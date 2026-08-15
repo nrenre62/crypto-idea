@@ -101,8 +101,14 @@ wins in a conflict) is **bold**.
 - Docs: `README.md` (Tier Limits) · [`PRICING.md`](decisions/PRICING.md) · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #19/#20
 
 ### AI budget / usage (`aiMonthlyCents`, "~N/day")
-- Docs: **[`PRICING.md`](decisions/PRICING.md) §4** · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) C3 · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) #21 · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md)
-- Code: `functions/index.js` (`aiMonthlyCents` in `DEFAULT_PLANS`) · `functions/guards.js` (`consumeDailyBudget`)
+- Docs: **[`PRICING.md`](decisions/PRICING.md) §4** · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) C3 · [`USER-BENEFITS.md`](product/USER-BENEFITS.md) · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md)
+- Code: `functions/index.js` (`aiMonthlyCents` in `DEFAULT_PLANS`) · `functions/guards.js` (`consumeDailyBudget`) · `functions/ai-cost.js` (the app-wide `aiBudget/{YYYY-MM}` ledger + atomic reserve-then-settle — `reserveMonthCents`/`reservationMaxCents`/`chargeMonthCents`)
+
+### Research tab / AI seam (`askClaude`, `AI_PROXY_LIVE`, `researchAsk` proxy, fail-closed validator)
+- Canonical: **`src/features/research/api/ai-status.js`** (`AI_PROXY_LIVE` — the single live/inert flag) · **`openapi.json`** (`/researchAsk` contract)
+- Code (client): `src/features/research/api/ai-client.js` (`askClaude` — throws while the flag is false, else calls `researchAsk`; sends ONLY `{ question }`) · `src/features/research/hooks/{usePulse,useAsk}.js` (Pulse is severed from AI; Ask rides `askClaude`) · `src/features/research/components/{Pulse,OverviewView,ResearchTab}.jsx` · `src/features/research/styles/research-tab.css` (`.ai-status`/`aiChrome` ornaments)
+- Code (server): `functions/{ai-proxy,ai-context,ai-anthropic,ai-cost,validate-output}.js` · `functions/index.js` (`researchAsk` `onCall`)
+- Docs: `CLAUDE.md` (Research tab §) · `README.md` (Research paragraph) · [`NEXT-STEPS.md`](product/NEXT-STEPS.md) §Plan B PR-E · [`ERRORS.md`](testing/ERRORS.md) C1 · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) (admin AI key + monthly cap) · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) (AI tier) · [`SECURITY.md`](security/SECURITY.md) (AI inert) · [`PRICING.md`](decisions/PRICING.md) §4 (AI budget) · [`ARCHITECTURE.md`](decisions/ARCHITECTURE.md) ARCH-12 · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) (conviction engine)
 
 ### Billing / PayPal (subscription lifecycle, webhook)
 - Docs: **[`BILLING.md`](decisions/BILLING.md)** · [`PRICING.md`](decisions/PRICING.md) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) D5/D6 · [`GO-LIVE-AUDIT.md`](product/GO-LIVE-AUDIT.md) · [`NEXT-STEPS.md`](product/NEXT-STEPS.md) §4 · `openapi.json` · `functions/.env.example` (PayPal deploy env-var contract: plan IDs + `PAYPAL_ENV`)

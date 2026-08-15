@@ -27,6 +27,12 @@ here, then open the file for the area you need.
   body-supplied one (no IDOR). See [ISOLATION.md](ISOLATION.md).
 - **Data-lifecycle controls.** Soft-delete into a 30-day recovery trash, self-service GDPR
   export/delete/restore, and a server-only append-only audit trail of every privileged action.
+- **No live-AI surface ships.** `ai-client.js` `askClaude` throws while `AI_PROXY_LIVE` is false, so
+  no AI output renders and there is no prompt-injection or AI-output surface today. The server
+  `researchAsk` proxy exists but nothing calls it in a live path yet; when it goes live it holds the
+  provider key server-side and runs a fail-closed output validator (`functions/validate-output.js`) on
+  every candidate before any text reaches the client. See [ARCHITECTURE.md](../decisions/ARCHITECTURE.md)
+  ARCH-12.
 
 ## When to open what
 

@@ -96,11 +96,13 @@ describe("Research tab — AI honesty gate", () => {
     expect(screen.getByText("A note on your portfolio")).toBeInTheDocument();    // Overview shown (CRYP-99 notes area)
   });
 
-  it("CRYP-93: the Pulse shows a neutral 'AI off' pill, not the old apology", async () => {
+  it("CRYP-106: the Pulse shows no AI on/off pill and no offline apology", async () => {
     renderTab();
-    // The neutral status pill replaces the apology.
-    expect(await screen.findByText("AI off")).toBeInTheDocument();
-    // The old offline apology copy must be gone.
+    await screen.findByText("Portfolio Pulse");
+    // PR-E3 severs Pulse from AI, so the .ai-status pill is removed entirely.
+    expect(screen.queryByText("AI off")).toBeNull();
+    expect(screen.queryByText("AI on")).toBeNull();
+    // The old offline apology copy must still be absent.
     expect(screen.queryByText(/AI is offline/i)).toBeNull();
     expect(screen.queryByText(/showing a basic summary/i)).toBeNull();
   });
@@ -122,6 +124,28 @@ describe("Research tab — AI honesty gate", () => {
     await screen.findByText("Portfolio Pulse");
     await waitFor(() => expect(screen.getByText("Portfolio Pulse")).toBeInTheDocument());
     expect(askClaude).toHaveBeenCalledTimes(0);
+  });
+
+  // CRYP-106 (PR-E3): the per-coin "Ask AI about …" button keeps riding the
+  // useAsk → askClaude seam after the Pulse is severed from AI. Guard: it already
+  // works today via the reject-fallback and must keep working post-PR-E3, proving
+  // the refactor doesn't break the one remaining askClaude caller (useAsk).
+  it("CRYP-106: the per-coin Ask button routes through the useAsk→askClaude seam exactly once", async () => {
+    renderTab({ chatEnabled: true });
+    await screen.findByText("Research");
+
+    // Open Coins and click the fixture coin's Ask button.
+    fireEvent.click(screen.getByRole("button", { name: "Coins" }));
+    expect(await screen.findByText("Bitcoin")).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Ask AI about Bitcoin/i));
+
+    // The view switches to Ask and the thread carries the user question…
+    expect(await screen.findByText("Ask about your portfolio")).toBeInTheDocument();
+    expect(await screen.findByText("Tell me about my Bitcoin position.")).toBeInTheDocument();
+
+    // …the seam fired exactly once, producing one assistant reply (no double-send).
+    await waitFor(() => expect(askClaude).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(document.querySelector(".bubble-a")).toBeTruthy());
   });
 });
 
