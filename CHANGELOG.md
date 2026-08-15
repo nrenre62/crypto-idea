@@ -31,6 +31,10 @@ the go-live checklist plus a polish pass across the app and the docs.
 
 ### Docs / legal
 - Privacy policy + terms of service finalized (CRYP-87).
+- Documentation reorganized into a hub-and-spoke set — one canonical file per subject, cross-linked
+  from a root index. The detailed point-in-time build records (design rounds, security / architecture
+  / admin-panel audits, test and review reports, bug hunts) were consolidated into the canonical docs
+  and this changelog; git preserves the originals.
 
 ---
 
