@@ -451,62 +451,26 @@ test("creating a portfolio WITHOUT bumping the counter is rejected", async () =>
   );
 });
 
-test("coin create enforces symbol/name length bounds", async () => {
+// ── CRYP-108 (B3, PR-1): coin CREATE is now SERVER-ONLY ──
+// The addCoinGuarded callable (Admin SDK) OWNS the coin write + the coinCount increment,
+// and the firestore.rules coin `create` rule is flipped to `if false`. So NO client may
+// create a coin directly — even a perfectly-formed batch (valid data, txCount 0, correct
+// counter math, a recorded plan choice, own uid, well under the cap) is denied. This is the
+// SINGLE client-coin-create rules test; the per-tier cap VALUES it used to prove live in the
+// addCoinGuarded integration tests (tests/functions-callable.test.js) + the coin-limits unit
+// tests (tests/unit/coin-limits.test.js). RED before the impl: this exact batch SUCCEEDS
+// today, so assertFails throws — red for the right reason (the create path is not yet closed).
+test("CRYP-108: a client can NEVER create a coin directly — coin create is server-only", async () => {
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 0 });
   });
   const db = aliceDb();
-  // Valid coin: coinCount 0 -> 1
-  const ok = writeBatch(db);
-  ok.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0 });
-  ok.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertSucceeds(ok.commit());
-  // Oversized name (>64 chars) -> rejected by validCoinData, even though the counter math is valid
-  const bad = writeBatch(db);
-  bad.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "eth"), { symbol: "ETH", name: "E".repeat(100), txCount: 0 });
-  bad.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertFails(bad.commit());
-});
-
-test("pro tier allows 100 coins per portfolio, then rejects (PLAN-LIMITS-MAX)", async () => {
-  await seed(async (db) => {
-    await setDoc(doc(db, "users", "bob"), { tier: "pro", portfolioCount: 1 });
-    // Seed the counter just below the new pro ceiling (avoids creating 99 real coins).
-    await setDoc(doc(db, "users", "bob", "portfolios", "p1"), { name: "P", coinCount: 99 });
-  });
-  const db = bobDb();
-  // 99 -> 100: at the new pro coins limit of 100 -> allowed (was denied at old limit 50)
-  const ok = writeBatch(db);
-  ok.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "c100"), { symbol: "AAA", name: "Coin A", txCount: 0 });
-  ok.update(doc(db, "users", "bob", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertSucceeds(ok.commit());
-  // 100 -> 101: exceeds the pro limit of 100 -> rejected
-  const over = writeBatch(db);
-  over.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "c101"), { symbol: "BBB", name: "Coin B", txCount: 0 });
-  over.update(doc(db, "users", "bob", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertFails(over.commit());
-});
-
-test("premium coins are hard-clamped at 1,000 even when config sets a higher number (#20 trap 1)", async () => {
-  await seed(async (db) => {
-    // A tampered / over-generous config tries to lift the ceiling above 1,000.
-    await setDoc(doc(db, "config", "app"), { plans: { premium: { coins: 5000 } } });
-    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 1 });
-    await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 999 });
-  });
-  const db = carolDb();
-  // 999 -> 1000: at the 1,000 hard clamp -> allowed
-  const ok = writeBatch(db);
-  ok.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c1000"), { symbol: "AAA", name: "Coin A", txCount: 0 });
-  ok.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertSucceeds(ok.commit());
-  // 1000 -> 1001: config says 5,000, but the rule clamps to 1,000 -> rejected.
-  // A finite *default* is not a ceiling — this proves the literal min(config, 1000).
-  const over = writeBatch(db);
-  over.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c1001"), { symbol: "BBB", name: "Coin B", txCount: 0 });
-  over.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertFails(over.commit());
+  // A flawless client coin create (coinCount 0 -> 1, within the free cap of 30) is STILL denied.
+  const create = writeBatch(db);
+  create.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0 });
+  create.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
+  await assertFails(create.commit());
 });
 
 // ── PLAN-LIMITS-MAX (#12): the new ceilings, boundary-tested (Nth ok / N+1th denied) ──
@@ -514,7 +478,10 @@ test("premium coins are hard-clamped at 1,000 even when config sets a higher num
 // creating N real docs. Each "allowed at the new ceiling" assertion is RED against the old
 // limit it replaces; each "denied past it" proves the enforced cap.
 
-test("PLAN-LIMITS-MAX: Starter caps at 3 portfolios / 30 coins / 300 tx", async () => {
+test("PLAN-LIMITS-MAX: Starter caps at 3 portfolios / 300 tx", async () => {
+  // CRYP-108: the 30-coin Starter cap is now enforced by the addCoinGuarded callable (client
+  // coin create is server-only), so its coin arm moved to the addCoinGuarded integration +
+  // coin-limits unit tests. The portfolio + tx caps stay client-enforced and are unchanged here.
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 2, planChosen: true });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 29 });
@@ -531,16 +498,6 @@ test("PLAN-LIMITS-MAX: Starter caps at 3 portfolios / 30 coins / 300 tx", async 
   p4.set(doc(db, "users", "alice", "portfolios", "p4"), { name: "Four", coinCount: 0 });
   p4.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
   await assertFails(p4.commit());
-  // 30th coin (count 29 -> 30): at the new free coins limit of 30 -> allowed (denied at old 10).
-  const c30 = writeBatch(db);
-  c30.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "c30"), { symbol: "AAA", name: "Coin A", txCount: 0 });
-  c30.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertSucceeds(c30.commit());
-  // 31st coin (count 30 -> 31): exceeds 30 -> rejected.
-  const c31 = writeBatch(db);
-  c31.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "c31"), { symbol: "BBB", name: "Coin B", txCount: 0 });
-  c31.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertFails(c31.commit());
   // 300th tx on btc (txCount 299 -> 300): at the new free tx limit of 300 -> allowed (denied at old 50).
   const t300 = writeBatch(db);
   t300.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t300"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
@@ -572,7 +529,9 @@ test("PLAN-LIMITS-MAX: Pro caps at 1,000 tx per coin (lowered from 2,000)", asyn
   await assertFails(over.commit());
 });
 
-test("PLAN-LIMITS-MAX: Premium caps at 15 portfolios / 200 coins / 2,000 tx (coins+tx lowered)", async () => {
+test("PLAN-LIMITS-MAX: Premium caps at 15 portfolios / 2,000 tx (tx lowered)", async () => {
+  // CRYP-108: the 200-coin Premium cap moved to the addCoinGuarded integration + coin-limits
+  // unit tests (client coin create is server-only). Portfolio + tx caps stay client-enforced.
   await seed(async (db) => {
     await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 15 });
     await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 199 });
@@ -584,16 +543,6 @@ test("PLAN-LIMITS-MAX: Premium caps at 15 portfolios / 200 coins / 2,000 tx (coi
   p16.set(doc(db, "users", "carol", "portfolios", "p16"), { name: "Sixteen", coinCount: 0 });
   p16.update(doc(db, "users", "carol"), { portfolioCount: increment(1) });
   await assertFails(p16.commit());
-  // 200th coin (count 199 -> 200): at the new premium coins limit -> allowed.
-  const c200 = writeBatch(db);
-  c200.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c200"), { symbol: "AAA", name: "Coin A", txCount: 0 });
-  c200.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertSucceeds(c200.commit());
-  // 201st coin (count 200 -> 201): exceeds 200 -> rejected (was ALLOWED at old premium 1,000).
-  const c201 = writeBatch(db);
-  c201.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c201"), { symbol: "BBB", name: "Coin B", txCount: 0 });
-  c201.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertFails(c201.commit());
   // 2000th tx on btc (txCount 1999 -> 2000): at the new premium tx limit -> allowed.
   const t2000 = writeBatch(db);
   t2000.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc", "transactions", "t2000"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
@@ -606,109 +555,69 @@ test("PLAN-LIMITS-MAX: Premium caps at 15 portfolios / 200 coins / 2,000 tx (coi
   await assertFails(t2001.commit());
 });
 
-test("premium per-user premiumLimits override is enforced (U11/S8)", async () => {
-  await seed(async (db) => {
-    // Admin-set per-user override LOWERS this premium user's coin cap to 3 (tier
-    // default is 1,000). The owner can't write premiumLimits (covered elsewhere).
-    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 1, premiumLimits: { coins: 3 } });
-    await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 2 });
-  });
-  const db = carolDb();
-  // 2 -> 3: at the per-user override -> allowed
-  const ok = writeBatch(db);
-  ok.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c3"), { symbol: "AAA", name: "Coin A", txCount: 0 });
-  ok.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertSucceeds(ok.commit());
-  // 3 -> 4: exceeds the override of 3 -> rejected (even though the tier default is 1,000)
-  const over = writeBatch(db);
-  over.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c4"), { symbol: "BBB", name: "Coin B", txCount: 0 });
-  over.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertFails(over.commit());
-});
+// CRYP-108: the two premium `premiumLimits` coin-cap rules tests (the per-user override is
+// enforced; the override is still hard-clamped to 1,000 — U11/S8/#20) were removed: client
+// coin create is server-only now, so the cap is derived + enforced by the addCoinGuarded
+// callable. Their coverage moved to coin-limits.test.js (coinCapFor: the override wins over the
+// plan but is clamped to 1,000) + the addCoinGuarded integration cap tests. The AC8 deny above
+// is the single client-coin-create rules test. (Writing premiumLimits stays owner-immutable —
+// covered by the "user profile update" test's admin-only premiumLimits assertions.)
 
-test("premium premiumLimits override is still hard-clamped to 1,000 coins (U11/#20)", async () => {
-  await seed(async (db) => {
-    // A tampered/over-generous override tries to lift coins above the 1,000 ceiling.
-    await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 1, premiumLimits: { coins: 5000 } });
-    await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 999 });
-  });
-  const db = carolDb();
-  // 999 -> 1000: at the hard clamp -> allowed
-  const ok = writeBatch(db);
-  ok.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c1000"), { symbol: "AAA", name: "Coin A", txCount: 0 });
-  ok.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertSucceeds(ok.commit());
-  // 1000 -> 1001: override says 5,000 but the rule clamps to 1,000 -> rejected
-  const over = writeBatch(db);
-  over.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "c1001"), { symbol: "BBB", name: "Coin B", txCount: 0 });
-  over.update(doc(db, "users", "carol", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertFails(over.commit());
-});
-
-test("coin journal: valid thesis accepted, owner can update status, bad data + strangers rejected", async () => {
+test("coin journal: owner updates status/thesis within validJournal; bad data + strangers rejected", async () => {
+  // CRYP-108: client coin CREATE is server-only (addCoinGuarded owns it), so the coin is SEEDED
+  // and validJournal is exercised on the UPDATE path — the live edit surface (updateCoinJournal /
+  // reviewThesis). The create-side coverage moved to the addCoinGuarded integration tests.
+  const goodJournal = { thesis: "active devs", changeMyMind: "devs quit", status: "intact", priceAtAdd: 50000, createdAt: "2026-01-01T00:00:00.000Z" };
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
-    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 0 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0, journal: goodJournal });
   });
   const db = aliceDb();
-  const goodJournal = { thesis: "active devs", changeMyMind: "devs quit", status: "intact", priceAtAdd: 50000, createdAt: "2026-01-01T00:00:00.000Z" };
+  const coin = doc(db, "users", "alice", "portfolios", "p1", "coins", "btc");
 
-  // Coin created WITH a valid journal (coinCount 0 -> 1)
-  const ok = writeBatch(db);
-  ok.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0, journal: goodJournal });
-  ok.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertSucceeds(ok.commit());
-
-  // Owner can update the journal status (the "is your thesis still intact?" decision)
-  await assertSucceeds(updateDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { journal: { ...goodJournal, status: "challenged" } }));
-
-  // Oversized thesis (>2000 chars) -> rejected by validJournal
-  const bad = writeBatch(db);
-  bad.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "eth"), { symbol: "ETH", name: "Ethereum", txCount: 0, journal: { ...goodJournal, thesis: "x".repeat(2001) } });
-  bad.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertFails(bad.commit());
-
-  // Invalid status enum -> rejected
-  const badStatus = writeBatch(db);
-  badStatus.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "sol"), { symbol: "SOL", name: "Solana", txCount: 0, journal: { ...goodJournal, status: "bogus" } });
-  badStatus.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertFails(badStatus.commit());
-
-  // A stranger cannot write Alice's coin journal
+  // Owner can update the journal status (the "is your thesis still intact?" decision).
+  await assertSucceeds(updateDoc(coin, { journal: { ...goodJournal, status: "challenged" } }));
+  // Oversized thesis (>2000 chars) -> rejected by validJournal.
+  await assertFails(updateDoc(coin, { journal: { ...goodJournal, thesis: "x".repeat(2001) } }));
+  // Invalid status enum -> rejected.
+  await assertFails(updateDoc(coin, { journal: { ...goodJournal, status: "bogus" } }));
+  // A stranger cannot write Alice's coin journal.
   await assertFails(updateDoc(doc(bobDb(), "users", "alice", "portfolios", "p1", "coins", "btc"), { journal: goodJournal }));
 });
 
-test("coin journal funnel (#27): valid funnel accepted, no-funnel still valid, oversized/unknown-key/non-string rejected", async () => {
+test("coin journal funnel (#27): valid funnel accepted on update, no-funnel still valid, oversized/unknown-key/non-string rejected", async () => {
+  // CRYP-108: client coin CREATE is server-only, so validFunnel is exercised on the coin UPDATE
+  // path (the Journal detail overlay's edit). The seeded coin already carries a funnel-less
+  // journal (backward-compat), and the hasOnly/size/type rejections all still apply on update.
+  const base = { thesis: "active devs", changeMyMind: "devs quit", status: "intact", priceAtAdd: 50000, createdAt: "2026-01-01T00:00:00.000Z" };
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
-    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 0 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0, journal: base });
   });
   const db = aliceDb();
-  const base = { thesis: "active devs", changeMyMind: "devs quit", status: "intact", priceAtAdd: 50000, createdAt: "2026-01-01T00:00:00.000Z" };
   const coin = doc(db, "users", "alice", "portfolios", "p1", "coins", "btc");
 
-  // Backward-compat: a journal with NO funnel key still validates (coinCount 0 -> 1)
-  const create = writeBatch(db);
-  create.set(coin, { symbol: "BTC", name: "Bitcoin", txCount: 0, journal: base });
-  create.update(doc(db, "users", "alice", "portfolios", "p1"), { coinCount: increment(1) });
-  await assertSucceeds(create.commit());
+  // Backward-compat: a journal with NO funnel key still validates on update.
+  await assertSucceeds(updateDoc(coin, { journal: base }));
 
-  // A full funnel (all three optional findings) is accepted
+  // A full funnel (all three optional findings) is accepted.
   await assertSucceeds(updateDoc(coin, { journal: { ...base, funnel: { dilution: "40% unlocks", volume: "thin book", yield: "real fees" } } }));
 
-  // A partial funnel (only one finding) is accepted
+  // A partial funnel (only one finding) is accepted.
   await assertSucceeds(updateDoc(coin, { journal: { ...base, funnel: { dilution: "unlock cliff" } } }));
 
-  // Oversized funnel field (>2000 chars) -> rejected
+  // Oversized funnel field (>2000 chars) -> rejected.
   await assertFails(updateDoc(coin, { journal: { ...base, funnel: { dilution: "x".repeat(2001) } } }));
 
-  // Unknown key inside funnel -> rejected (hasOnly)
+  // Unknown key inside funnel -> rejected (hasOnly).
   await assertFails(updateDoc(coin, { journal: { ...base, funnel: { bogus: "nope" } } }));
 
-  // Non-string funnel field -> rejected
+  // Non-string funnel field -> rejected.
   await assertFails(updateDoc(coin, { journal: { ...base, funnel: { dilution: 123 } } }));
 
-  // Unknown TOP-LEVEL journal key -> rejected (validJournal hasOnly; no smuggling junk into the journal)
+  // Unknown TOP-LEVEL journal key -> rejected (validJournal hasOnly; no smuggling junk into the journal).
   await assertFails(updateDoc(coin, { journal: { ...base, smuggled: "junk" } }));
 });
 
