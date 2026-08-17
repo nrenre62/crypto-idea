@@ -288,7 +288,10 @@ capacity, support), see the cross-market matrix in
    enforcement + per-uid rate limiter + `addCoinGuarded`) are live. **(1) Part B
    is now ✅ BUILT (2026-08-10 · branch `claude/plan-limits-partb` · CRYP-104 —
    `getCoinsMeta` loads non-active portfolios' coins + `txCount` only, no tx
-   reads), so the remaining code prerequisite is (2) the Wave-B abuse controls.**
+   reads); (2) `addCoinGuarded`'s server callable + rules lockdown + rate-limit
+   (2s cooldown + 100/uid/day) + flag-gated `appCheckOk` are now ✅ BUILT (PR-1,
+   CRYP-108, 2026-08-17), leaving the PR-2 client rewire + console App-Check
+   enforcement as the remaining prerequisites.**
    Without Part B, a Pro-max account's daily-open **read** cost is a margin loss (a
    maxed portfolio re-reads every transaction on open). **Starter's raise is
    independently deploy-safe** (a free maxed account is ~$0.16/mo). Also: a

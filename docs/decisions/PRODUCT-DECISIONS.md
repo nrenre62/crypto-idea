@@ -105,7 +105,7 @@ in fundamentals — not FOMO."*
 
 - **Two separate caches:** (1) **prices** — shared CoinGecko `cache/universe`, **live & untiered** (Starter→Premium identical); (2) **AI conviction** — shared per-coin cache, **on-demand only**, read-time TTL by tier (Premium 24h / Pro 48h / Starter read-only), budget-metered, per-user **local offline copy**. Generated once per coin (never per-user). Prices are never a tier lever — tier value = AI + capacity.
 - **Responsive mobile + desktop** for the whole app (PWA path).
-- **Anti-abuse on "unlimited"**: 1,000-coin hard clamp + `addCoinGuarded` callable (rate-limited) + App Check.
+- **Anti-abuse on "unlimited"**: 1,000-coin hard clamp + `addCoinGuarded` callable (rate-limited) + App Check. *(Server callable + rules lockdown + rate-limit BUILT — PR-1, CRYP-108; client rewire = PR-2.)*
 - **No-training LLM tiers** + privacy-policy disclosure (because chat sends the journal raw); Gemini **paid** key only.
 - **Regen cap N = 2** with a safe fallback; the validator **fails closed** (judge error → fallback, never the raw text).
 - **Live-AI budget**: per-uid **monthly $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), metered on actual token cost (see [PRICING.md §4](PRICING.md); supersedes the retired 50/300 daily count).
@@ -139,11 +139,11 @@ pre-reconciliation archive):
 |---|---|
 | Learn-progress storage | **Firestore** — `users/{uid}/learn/progress` doc + `validLearnProgress` rule (mirrors the journal) |
 | Anti-abuse ceiling number | **1,000 coins/portfolio hard clamp** — lives in the `mergePlans` clamp + the `firestore.rules` `maxCoins` hardMax. **No longer an identical literal in `DEFAULT_PLANS`:** as of PLAN-LIMITS-MAX (#12, 2026-08) `DEFAULT_PLANS.premium.coins = 200` (the enforced default), while 1,000 remains only as the clamp ceiling |
-| Add-coin rate-limit | **`addCoinGuarded` callable** (per-uid sliding window + App Check), Wave B |
+| Add-coin rate-limit | **`addCoinGuarded` callable** (2s per-uid cooldown + 100/uid/day + flag-gated App-Check) — **server + rules lockdown BUILT (PR-1, CRYP-108)**; client rewire = PR-2 |
 | Live-AI budget | **Monthly $-ceiling** (`aiMonthlyCents`: Starter offline · Pro $4/mo ≈ ~13/day · Premium $25/mo ≈ ~80/day), token-cost-metered — see [PRICING.md §4](PRICING.md) (supersedes the retired 50/300 daily count) |
 | Regen cap N | **2**, then safe fallback (validator fails closed) |
 | Founders/Community news allowlist | **Deferred** — fetchers built against an (initially empty) config list; those axes show ⬛ until domains are supplied |
-| App Check approach | **v1 `onCall` + manual `context.app`** check, prod-flag gated (no v1/v2 mix) |
+| App Check approach | **v1 `onCall` + manual `context.app`** check, prod-flag gated (no v1/v2 mix) — first wired in `addCoinGuarded` (flag-gated, default OFF; console enforcement stays the go-live control) |
 | Lesson quizzes | **Hand-authored** (guarantees the no-names voice + correct answers) |
 
 ### Still genuinely open (don't block Wave A)
@@ -166,9 +166,10 @@ refinements from the 2026-06-22 codebase audit supersede the original linear lis
 - **The output validator (#15/#16) is built FIRST and wired INSIDE the proxy**, green before the
   `ai-client.js` body-swap — not a step after the engine. `ai-client.js` is a throwing stub, so the
   swap is the moment raw LLM prose could reach the UI; nothing un-validated may ever get there.
-- **App Check + the per-uid rate limiter are built ONCE** (in the proxy) and reused by the
-  `addCoinGuarded` callable — the codebase has zero server-side `context.app` checks today, so App
-  Check is currently decorative.
+- **App Check + the per-uid rate limiter are built ONCE** (in `guards.js`) and reused by the
+  `addCoinGuarded` callable — **now wired there (PR-1, CRYP-108, 2026-08-17): flag-gated `appCheckOk`
+  (`config/app.appCheckEnforce`, default OFF) + a 2s cooldown + 100/uid/day limiter**. `addCoinGuarded`
+  is the sole `appCheckOk` call site; console App-Check enforcement stays the real go-live control.
 
 > **Cofounder note (recorded once):** shipping all of the above at once is a large
 > first release for a solo builder and consciously overrides KISS/Agile/PMF. Consider

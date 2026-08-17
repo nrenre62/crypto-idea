@@ -21,9 +21,10 @@
 7. User taps **+ Add** → `addCoin(coin)` from context.
 
 ### Write #1 — the coin
+> **Moving to a server-owned callable (CRYP-108 · B3).** **PR-1 (landed)** added the `addCoinGuarded` callable + locked the rules; **PR-2 (pending)** rewires the client below to call it. The steps describe the client path as it stands today; the note after each names the PR-1/PR-2 state.
 8. `CryptoIdea.jsx` `addCoin()` — guards: not already held, `portfolio.length < maxCoins`, `user.uid` exists → calls `dbAddCoin(uid, activePortId, {...})`.
-9. `api/firebase-database.js` `addCoin()` — `writeBatch`: `set` coin doc at `users/{uid}/portfolios/{pid}/coins/{coinId}` (`txCount:0`) **+** `increment(coinCount)` on the parent portfolio → `commit()`.
-10. `firestore.rules` — `coins` create rule authorizes: `isOwner` + `validCoinData()` + `txCount==0` + parent `coinCount` moved by exactly +1 + `coinCount <= maxCoins` (reads `config/app.plans`).
+9. `api/firebase-database.js` `addCoin()` — **`runTransaction`** (not `writeBatch`): read the coin doc → if it already exists return `already-exists`, else `set` the coin doc at `users/{uid}/portfolios/{pid}/coins/{coinId}` (`txCount:0`) **+** `increment(coinCount)` on the parent portfolio. **PR-2 replaces this direct write with a call to the `addCoinGuarded` callable**, which runs the same transaction server-side under the Admin SDK.
+10. `firestore.rules` — **since PR-1, coin `create` is `allow create: if false`**: clients can no longer create coin docs directly. The server-owned `addCoinGuarded` callable is the sole writer and re-derives `isOwner`/`isChosen` + `validCoinData()` field clamps + the tier coin-cap (`min(config, 1000)`, #20 clamp) itself. **Until PR-2 rewires the client, the direct write above is denied by the new rule** — the two PRs deploy together. (Coin `update`/`delete` rules are unchanged.)
 11. `CryptoIdea.jsx` — **optimistic** `setPortfolio([...p, coin])`, `setScreen("portfolio")`, clear search.
 
 ### Sub-flow B — first buy entry
@@ -34,7 +35,7 @@
 16. `firestore.rules` — `transactions` create rule: `isOwner` + `validTransactionData()` (type∈buy/sell, amount>0, price≥0) + coin `txCount` +1 + `txCount <= maxTx`.
 17. `CryptoIdea.jsx` — optimistic update of `portfolio`/`sel` with returned id → `setScreen("detail")`.
 
-> Note: submission writes **directly to Firestore** (no Cloud Function). Only the *search* touches the backend. Limits are enforced twice — client guard **and** security rules.
+> Note: the transaction write still goes **directly to Firestore**. The **coin** write is moving to the `addCoinGuarded` Cloud Function (CRYP-108 · B3 — PR-1 landed the callable + rules lockdown, PR-2 rewires the client), after which the coin-cap is enforced server-side in the callable instead of by rules; the transaction cap is still enforced twice (client guard **and** security rules). `addTransactionGuarded` is a later PR.
 
 ---
 

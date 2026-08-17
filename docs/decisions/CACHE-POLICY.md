@@ -156,7 +156,8 @@ The per-uid rate limiter + `context.app` App Check gate (BL-1 / B2) ship in the 
 the proxy, before any real exposure. *Rationale:* every **novel** coin added triggers one paid cold
 run, so without a per-uid add-limiter + App Check a bot could spam coin-adds (up to the 1,000 clamp)
 and drain the AI budget. *Impact:* closes a launch-day cost-drain vector. (Already mandated by
-#20 / D4 / D5; this confirms the sequencing.)
+#20 / D4 / D5; this confirms the sequencing.) *(✅ The add-limiter half is BUILT — `addCoinGuarded`
+PR-1, CRYP-108: 2s cooldown + 100/uid/day + flag-gated `appCheckOk`; client rewire = PR-2.)*
 
 **C12 — Multi-device sync: real-time listeners on user-owned data.**
 Replace fetch-once-on-auth with `onSnapshot` listeners on the user's portfolios / coins / journal /
@@ -228,7 +229,7 @@ Detail + checkboxes in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §C. Ranked b
   see C7) inert; PR-E2 must **fail the budget read CLOSED** (a callable that `.catch(()=>0)` on an
   unreadable `aiBudget` doc = free spend) and gate `callAnthropic` behind the `aiResearch` kill-switch +
   an atomic reserve-then-settle cap (PR-E2.5) BEFORE generation.*
-- **App Check + `addCoinGuarded`** per-uid limiter. (C11 / B3.)
+- **App Check + `addCoinGuarded`** per-uid limiter. (C11 / B3.) *(✅ Server callable + rules lockdown + rate-limit + flag-gated App-Check BUILT — PR-1, CRYP-108; client rewire = PR-2.)*
 
 ### 🟠 Wave B P1 — the AI cache layer itself
 - **`convictionCache/{coinId}` + `getConviction`** with tiered read-time TTL (C4), TTLs

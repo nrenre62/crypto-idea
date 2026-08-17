@@ -2962,9 +2962,29 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
   Haiku-judge metered into `aiBudget`. Review must-dos #1 (fail-read-closed) + #2 (gate-before-generation)
   SATISFIED; #3 (concurrent overshoot) DOCUMENTED + DEFERRED as a pre-PR-E3 atomic reservation. `AI_PROXY_LIVE`
   stays `false` until the PR-E3/B4 client swap.
-- [ ] **B3 · 0a-antiabuse (#20):** `addCoinGuarded` callable — **reuses B2's per-uid limiter + App
+- [~] **B3 · 0a-antiabuse (#20):** `addCoinGuarded` callable — **reuses BL-1's per-uid limiter + App
   Check gate**; the client write path routes through it. Closes #20's rate-limit + the write-path App
   Check. Integration throttle test (rapid adds → `resource-exhausted`).
+  - **✅ PR-1 BUILT (2026-08-17 · CRYP-108 · branch `claude/b3a-add-coin-guarded-server`):** the
+    SERVER side + rules lockdown. `exports.addCoinGuarded` (`functions/index.js`) now OWNS the coin
+    write — an Admin-SDK `runTransaction` that sets the coin doc + `increment(coinCount)` and
+    re-derives server-side the tier coin-cap + the #20 `min(config, 1000)` clamp (new pure
+    `functions/coin-limits.js` `coinCapFor`) + the `isChosen` gate + the coin/journal field clamps.
+    `firestore.rules` coin `create` is now `allow create: if false` (clients can no longer create coin
+    docs directly; dead `maxCoins()`/`portfolioRef()` helpers removed). Rate limiter wired IN: a **2s
+    per-uid cooldown** + **100 adds/uid/day** (`guards.checkCooldown`/`consumeDailyBudget`, over-limit
+    → `resource-exhausted`). Gate order mirrors `researchAsk`: auth → `assertNoUnknownKeys` +
+    path-segment safety → App-Check gate → cooldown → daily cap → isChosen/tier/cap → transaction;
+    acts on `context.auth.uid` only (no IDOR); no `writeAudit` (high-frequency).
+  - **App-Check H1-override decision (founder, 2026-08-17):** `guards.appCheckOk(context, {enforce:
+    config/app.appCheckEnforce === true})` is wired IN, **flag-gated, default OFF (no-op)**. This is now
+    the **SOLE `appCheckOk` call site** and deliberately overrides GO-LIVE-AUDIT **H1** ("App Check
+    console-only, zero code call sites") as a scoped exception — the code flag just mirrors the console
+    switch; real bot protection still activates only at go-live (console App-Check enforcement +
+    reCAPTCHA site key).
+  - **⏳ Still pending:** **PR-2** rewires `src/api/firebase-database.js addCoin` to call
+    `addCoinGuarded` (until then in-app add-coin is denied by the new rule — the two PRs deploy
+    together). A **separate later PR** adds `addTransactionGuarded` for the transaction write.
 - [ ] **B4 · 0b-swap:** swap the `ai-client.js` body to call `researchAsk` (keep the *resolve-string /
   reject* contract so the hooks' offline fallback survives). **LAST step, gated on A9 + B2 green.**
   Lights up Pulse AND Ask at once. Decide the validator's return contract first (throw → offline note,
@@ -3016,7 +3036,9 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
 - [x] **Shared per-uid rate limiter (Firestore) + `context.app` App Check gate** — ✅ `functions/guards.js`
   (`consumeDailyBudget` w/ UTC `dayKey` per **C16** · `checkCooldown` · `appCheckOk` prod-flag gated),
   pure + dependency-injected, 8 unit tests (in-memory Firestore fake); `rateLimits` pinned server-only by a
-  rules test. Wave B's B2/B3 + C-B2 **reuse these** — don't rebuild.
+  rules test. Wave B's B2/B3 + C-B2 **reuse these** — don't rebuild. *(B2/`researchAsk` and B3/`addCoinGuarded`
+  PR-1 both now reuse `checkCooldown`/`consumeDailyBudget`; B3 PR-1 also wired `appCheckOk` at its sole call
+  site, flag-gated default-OFF — see §0 Wave B B3.)*
 - [x] **PayPal webhook idempotency** — ✅ transactional `webhookEvents/{event.id}` create-if-absent (dupes
   ack'd + skipped); `serverTimestamp()`→`Date.now()`; `billingCycle` persisted at `createSubscription`
   and `getStats` now prices annual payers at `priceYear/12` w/ amortized fees (`billing.computeRevenue`).
@@ -3048,7 +3070,10 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
 - [ ] **B1** Anthropic (Claude) key in `config/app` + AI Settings (set-flag). **No Gemini** (D17 voids trap #3).
 - [ ] **B2 (keystone)** `researchAsk` callable — Claude prose + structured + **`validateOutput` (A9) wired in,
   fail-closed** + per-uid daily budget (BL-1 limiter) + **`context.app` gate** (D4) + server tier-gate.
-- [ ] **B3** `addCoinGuarded` — reuses the BL-1 limiter + App Check gate.
+- [~] **B3** `addCoinGuarded` — reuses the BL-1 limiter + App Check gate. **✅ PR-1 BUILT (CRYP-108,
+  2026-08-17):** server callable + rules lockdown (`create: if false`) + 2s cooldown + 100/uid/day +
+  flag-gated App-Check (the sole `appCheckOk` call site — H1 override, founder 2026-08-17). **PR-2**
+  (client rewire of `addCoin`) + `addTransactionGuarded` still pending. See §0 Wave B B3.
 - [ ] **B4** swap `ai-client.js` body → `researchAsk` (gated on A9 + B2 green); lights up Pulse + Ask and
   **flips the AI "coming soon" label → the real metered number** (D13).
 - [ ] **B5–B7/B8** per-coin `convictionCache` + `getConviction` (on-demand, TTL by tier), Pulse per-user

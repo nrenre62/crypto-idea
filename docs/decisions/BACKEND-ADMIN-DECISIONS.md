@@ -180,6 +180,8 @@ docs · verify secret files git-ignored before adding a remote.
 ### Abuse, cost & App Check
 - **D4 — App Check is a hard go-live gate.** Provision reCAPTCHA + add server-side `context.app` checks on
   sensitive callables and the `/api` proxy. Built once, reused by the AI proxy + addCoin + billing.
+  *(`addCoinGuarded` now wires the `appCheckOk` gate — flag-gated, default OFF, the sole call site — as
+  PR-1, CRYP-108; console App-Check enforcement stays the real go-live gate.)*
 - **D5 — Per-uid limiting + already-paid guard.** A Firestore-backed per-uid cooldown (the shared
   `consumeDailyBudget`/`checkCooldown` counter in `guards.js`) + an "already on a paid tier" short-circuit
   in `createSubscription`. (The live-AI ceiling is a monthly $-cap — `aiMonthlyCents` — not a daily count; see PRICING.md §4.)
@@ -248,7 +250,7 @@ Detail + checkboxes live in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §BL. Su
 2. **Admin capabilities:** ✅ owner-only "Admin access" tab → `setManagerRole`, step-up re-auth (D7); admin soft-delete + empty-trash
    (D8); admin revoke-sessions (D9); reserve AI Settings section (D10).
 3. **AI proxy (Claude-only keystone):** B1 Anthropic key in Settings → B2 `researchAsk` (validateOutput wired
-   fail-closed + per-uid budget + App Check + tier gate) → B3 `addCoinGuarded` → B4 swap `ai-client.js` (flip
+   fail-closed + per-uid budget + App Check + tier gate) → B3 `addCoinGuarded` (✅ PR-1 built: server callable + rules lockdown + rate-limit + flag-gated App-Check; client rewire = PR-2) → B4 swap `ai-client.js` (flip
    the "coming soon" label → real meter) → B5 per-coin `convictionCache` + `getConviction` → B6/B8/B7 Pulse /
    PWA offline copy / tutor. (D1/D10/D13/D17)
 4. **Identity Platform hardening (console + Blaze):** U14 `beforeCreate` enforcing `signupsEnabled` + IP limit
