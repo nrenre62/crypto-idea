@@ -1473,3 +1473,249 @@ test("CRYP-107: two consecutive researchAsk happy calls leave the ledger at exac
   // Net of reserve+settle across TWO calls = exactly 2× the real cost; zero reservation cents left.
   assert.strictEqual((await raBudgetCents()) - before, perCall * 2, "reserve-then-settle must net to actual — no stranded reservation cents");
 });
+
+// ── CRYP-108 · addCoinGuarded — the server-owned coin write (B3, PR-1) ──
+// A new `exports.addCoinGuarded` onCall OWNS the coin write (Admin SDK) so client coin create
+// can be flipped to `if false` in firestore.rules (server-only). It is the ONLY tier that runs
+// the callable BODY. Gate order (each maps to an HttpsError code):
+//   auth (unauthenticated) → assertNoUnknownKeys(["portfolioId","coin","journal"])
+//   (invalid-argument) → App-Check gate (flag-gated, default OFF) → 2s cooldown
+//   guards.checkCooldown + 100/day guards.consumeDailyBudget (resource-exhausted) →
+//   isChosen / tier / cap re-derivation (failed-precondition) → transaction
+//   (existence → cap → set coin + increment coinCount; a re-add is already-exists).
+//   Returns { success:true, coinCount }; acts on context.auth.uid only (no body-uid IDOR).
+//
+// CI-ONLY: the functions emulator can't boot in the authoring sandbox (egress policy), so these
+// are RED-by-404 today (the callable does not exist yet — the emulator 404s every call, so none
+// of the 200/400/401/409/429 status assertions land) and are verified on CI once the
+// functions-builder adds the body. Uses callAsSafe (a 404 body is plain text that callAs's
+// r.json() would throw on). The `coin` payload mirrors the app's coin doc: it is keyed by
+// `coin.id`, carrying `symbol`/`name` (see src/api/firebase-database.js addCoin).
+
+// A chosen user + one portfolio seeded at a given coinCount (Admin SDK, bypasses rules).
+async function seedAddCoinUser(email, { tier = "free", planChosen = true, coinCount = 0, portfolioId = "p1" } = {}) {
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set(
+    { email, name: "AddCoin", tier, portfolioCount: 1, ...(planChosen ? { planChosen: true } : {}) },
+    { merge: true },
+  );
+  await db.collection("users").doc(uid).collection("portfolios").doc(portfolioId).set({ name: "Main", coinCount });
+  return uid;
+}
+// Clear the per-uid add-coin rate-limit docs (2s cooldown + daily budget) so a follow-up call
+// in the SAME test reaches the transaction/cap gate instead of the cooldown. Keyed off the
+// documented rateLimits/${uid}__* convention (guards.rateDocPath), so it is independent of the
+// exact limiter key the callable chooses.
+async function clearAddLimiter(uid) {
+  const snap = await db.collection("rateLimits").get();
+  await Promise.all(snap.docs.filter((d) => d.id.startsWith(`${uid}__`)).map((d) => d.ref.delete()));
+}
+const addCoinData = (portfolioId, id, symbol, name, journal) => ({
+  portfolioId, coin: { id, symbol, name }, ...(journal ? { journal } : {}),
+});
+
+// AC2 — RED ANCHOR (written first). checkCooldown + consumeDailyBudget sit BEFORE the write,
+// so a rapid second add is refused with resource-exhausted (429).
+test("CRYP-108: two addCoinGuarded calls back-to-back trip the add-limiter (resource-exhausted)", async () => {
+  const email = `addcoin_rl_${stamp}@example.com`;
+  const uid = await seedAddCoinUser(email, { coinCount: 0 });
+  const token = await idTokenFor(email);
+
+  const first = await callAsSafe("addCoinGuarded", token, addCoinData("p1", "bitcoin", "btc", "Bitcoin"));
+  assert.strictEqual(first.status, 200, `the first add should succeed: ${JSON.stringify(first.body)}`);
+  assert.strictEqual(first.body && first.body.result && first.body.result.success, true, "the first add reports success");
+
+  // A second add IMMEDIATELY after (within the 2s cooldown / under the daily cap) is refused.
+  const second = await callAsSafe("addCoinGuarded", token, addCoinData("p1", "ethereum", "eth", "Ethereum"));
+  assert.strictEqual(second.status, 429, `a rapid second add must be rate-limited (429), got ${second.status}: ${JSON.stringify(second.body)}`);
+  assert.strictEqual(second.body && second.body.error && second.body.error.status, "RESOURCE_EXHAUSTED");
+  void uid;
+});
+
+// AC1 — no auth → unauthenticated (401).
+test("CRYP-108: addCoinGuarded rejects an unauthenticated caller (unauthenticated)", async () => {
+  const noAuth = await fetch(callableUrl("addCoinGuarded"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: addCoinData("p1", "bitcoin", "btc", "Bitcoin") }),
+  });
+  assert.strictEqual(noAuth.status, 401, "an unauthenticated add must be rejected");
+});
+
+// AC3 — an extra top-level data key → invalid-argument (400), and the message must NOT echo it.
+test("CRYP-108: addCoinGuarded rejects an unknown top-level data key without echoing it (invalid-argument)", async () => {
+  const email = `addcoin_key_${stamp}@example.com`;
+  const uid = await seedAddCoinUser(email, { coinCount: 0 });
+  const token = await idTokenFor(email);
+  // The allow-list is exactly ["portfolioId","coin","journal"] — a stray key is a 400.
+  const bad = await callAsSafe("addCoinGuarded", token,
+    { portfolioId: "p1", coin: { id: "bitcoin", symbol: "btc", name: "Bitcoin" }, sneaky: 1 });
+  assert.strictEqual(bad.status, 400, `unknown key should be rejected: ${JSON.stringify(bad.body)}`);
+  assert.strictEqual(bad.body && bad.body.error && bad.body.error.status, "INVALID_ARGUMENT");
+  // The message stays generic — it must NOT reflect the caller's field name back.
+  assert.ok(!String((bad.body.error && bad.body.error.message) || "").includes("sneaky"),
+    "the error must not echo the offending key name");
+  void uid;
+});
+
+// AC4 — one call creates exactly one coin (coinCount -> 1); an identical re-add is
+// already-exists and never clobbers the journal/addedAt or inflates the counter.
+test("CRYP-108: addCoinGuarded creates exactly one coin (coinCount->1); a repeat is already-exists and never clobbers journal/addedAt", async () => {
+  const email = `addcoin_dup_${stamp}@example.com`;
+  const uid = await seedAddCoinUser(email, { coinCount: 0 });
+  const token = await idTokenFor(email);
+  const journal = { thesis: "digital gold", changeMyMind: "a better base layer", status: "intact", priceAtAdd: 30000, createdAt: "2026-01-01" };
+
+  const first = await callAsSafe("addCoinGuarded", token, addCoinData("p1", "bitcoin", "btc", "Bitcoin", journal));
+  assert.strictEqual(first.status, 200, `the first add should succeed: ${JSON.stringify(first.body)}`);
+  assert.strictEqual(first.body && first.body.result && first.body.result.coinCount, 1, "coinCount must be 1 after the first add");
+
+  const portRef = db.collection("users").doc(uid).collection("portfolios").doc("p1");
+  assert.strictEqual((await portRef.collection("coins").get()).size, 1, "exactly one coin doc under the caller's portfolio");
+  assert.strictEqual((await portRef.get()).data().coinCount, 1, "the portfolio coinCount is exactly 1");
+  const firstCoin = (await portRef.collection("coins").doc("bitcoin").get()).data();
+  assert.strictEqual(firstCoin.journal.thesis, "digital gold", "the journal is persisted on the coin");
+  assert.ok(firstCoin.addedAt, "addedAt is stamped on the coin");
+
+  // A second IDENTICAL add (past the cooldown) is refused as already-exists — no second doc,
+  // counter unchanged, and the original journal + addedAt are NOT overwritten.
+  await clearAddLimiter(uid);
+  const second = await callAsSafe("addCoinGuarded", token,
+    addCoinData("p1", "bitcoin", "btc", "Bitcoin", { ...journal, thesis: "CLOBBERED" }));
+  assert.strictEqual(second.status, 409, `a re-add must be already-exists (409), got ${second.status}: ${JSON.stringify(second.body)}`);
+  assert.strictEqual(second.body && second.body.error && second.body.error.status, "ALREADY_EXISTS");
+  assert.strictEqual((await portRef.get()).data().coinCount, 1, "coinCount must be unchanged after a rejected re-add");
+  assert.strictEqual((await portRef.collection("coins").get()).size, 1, "no duplicate coin doc");
+  const afterCoin = (await portRef.collection("coins").doc("bitcoin").get()).data();
+  assert.strictEqual(afterCoin.journal.thesis, "digital gold", "the original journal must NOT be clobbered by a re-add");
+  // Impl-agnostic: equal whether addedAt is a Firestore Timestamp or a numeric Date.now().
+  assert.deepStrictEqual(afterCoin.addedAt, firstCoin.addedAt, "addedAt must NOT be rewritten by a re-add");
+});
+
+// AC5 — the callable RE-DERIVES the cap server-side. A premium user whose config plan says
+// coins:5000 is still clamped to min(config,1000): at coinCount 1000 a further add is refused.
+// And the free boundary: coinCount 29 -> the 30th add allowed; coinCount 30 -> refused.
+test("CRYP-108: addCoinGuarded re-derives the cap — premium clamps to 1,000; free at 29 adds the 30th, at 30 is refused", async () => {
+  // A tampered/over-generous config tries to lift the premium ceiling above 1,000.
+  await db.doc("config/app").set({ plans: { premium: { coins: 5000 } } }, { merge: true });
+  try {
+    const premEmail = `addcoin_prem_${stamp}@example.com`;
+    const premUid = await seedAddCoinUser(premEmail, { tier: "premium", coinCount: 1000 });
+    const premRes = await callAsSafe("addCoinGuarded", await idTokenFor(premEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin"));
+    assert.strictEqual(premRes.status, 400, `config says 5,000 but the callable clamps to 1,000 — at 1000 a further add must be refused: ${JSON.stringify(premRes.body)}`);
+    assert.strictEqual(premRes.body && premRes.body.error && premRes.body.error.status, "FAILED_PRECONDITION");
+    assert.strictEqual((await db.collection("users").doc(premUid).collection("portfolios").doc("p1").get()).data().coinCount, 1000, "no coin written past the clamp");
+
+    // Free user one BELOW the 30-coin Starter cap: the 30th add is allowed.
+    const okEmail = `addcoin_free_ok_${stamp}@example.com`;
+    const okUid = await seedAddCoinUser(okEmail, { tier: "free", coinCount: 29 });
+    const okRes = await callAsSafe("addCoinGuarded", await idTokenFor(okEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin"));
+    assert.strictEqual(okRes.status, 200, `the 30th coin (free cap 30) must be allowed: ${JSON.stringify(okRes.body)}`);
+    assert.strictEqual(okRes.body && okRes.body.result && okRes.body.result.coinCount, 30, "coinCount reaches exactly 30");
+    void okUid;
+
+    // Free user AT the cap: the 31st add is refused (failed-precondition).
+    const fullEmail = `addcoin_free_full_${stamp}@example.com`;
+    const fullUid = await seedAddCoinUser(fullEmail, { tier: "free", coinCount: 30 });
+    const fullRes = await callAsSafe("addCoinGuarded", await idTokenFor(fullEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin"));
+    assert.strictEqual(fullRes.status, 400, `at the 30-coin cap a further add must be refused: ${JSON.stringify(fullRes.body)}`);
+    assert.strictEqual(fullRes.body && fullRes.body.error && fullRes.body.error.status, "FAILED_PRECONDITION");
+    assert.strictEqual((await db.collection("users").doc(fullUid).collection("portfolios").doc("p1").get()).data().coinCount, 30, "no coin written at the cap");
+  } finally {
+    await db.doc("config/app").set({ plans: FieldValue.delete() }, { merge: true });
+  }
+});
+
+// AC7 — the onboarding gate + no IDOR path. A not-chosen free user is refused
+// (failed-precondition, nothing written); once planChosen is recorded the add succeeds and the
+// coin lands under the CALLER's own uid. There is no body-uid to target another user with — a
+// stray `uid` key is rejected by the deny-by-default input shape (same mechanism as AC3).
+test("CRYP-108: addCoinGuarded gates on planChosen and acts on the caller's own uid (no body-uid IDOR)", async () => {
+  const email = `addcoin_gate_${stamp}@example.com`;
+  // planChosen ABSENT + free tier → not chosen.
+  const uid = await seedAddCoinUser(email, { tier: "free", planChosen: false, coinCount: 0 });
+  const token = await idTokenFor(email);
+
+  // Not chosen → failed-precondition, and no coin is written.
+  const gated = await callAsSafe("addCoinGuarded", token, addCoinData("p1", "bitcoin", "btc", "Bitcoin"));
+  assert.strictEqual(gated.status, 400, `a not-chosen user must be refused: ${JSON.stringify(gated.body)}`);
+  assert.strictEqual(gated.body && gated.body.error && gated.body.error.status, "FAILED_PRECONDITION");
+  assert.strictEqual(
+    (await db.collection("users").doc(uid).collection("portfolios").doc("p1").collection("coins").get()).size, 0,
+    "no coin may be written while the plan gate is closed",
+  );
+
+  // Record the choice server-side; clear the add-limiter so the retry isn't cooldown-blocked
+  // (isChosen is checked AFTER the cooldown/budget gates, so the refused call already stamped them).
+  await db.collection("users").doc(uid).set({ planChosen: true }, { merge: true });
+  await clearAddLimiter(uid);
+
+  const ok = await callAsSafe("addCoinGuarded", token, addCoinData("p1", "bitcoin", "btc", "Bitcoin"));
+  assert.strictEqual(ok.status, 200, `a chosen user's add must succeed: ${JSON.stringify(ok.body)}`);
+  const mine = await db.collection("users").doc(uid).collection("portfolios").doc("p1").collection("coins").doc("bitcoin").get();
+  assert.ok(mine.exists, "the coin must be created under the caller's OWN uid/portfolio");
+
+  // A stray `uid` key (the would-be IDOR vector) is rejected by assertNoUnknownKeys, not honoured.
+  await clearAddLimiter(uid);
+  const idor = await callAsSafe("addCoinGuarded", token,
+    { portfolioId: "p1", coin: { id: "ethereum", symbol: "eth", name: "Ethereum" }, uid: "victim" });
+  assert.strictEqual(idor.status, 400, `a stray uid key must be rejected: ${JSON.stringify(idor.body)}`);
+  assert.strictEqual(idor.body && idor.body.error && idor.body.error.status, "INVALID_ARGUMENT");
+});
+
+// AC8 — RED ANCHOR (written first). The journal free-text fields are VALIDATED, not silently
+// clamped: an over-2000-char thesis (and likewise changeMyMind, or a funnel.dilution finding) is
+// REJECTED as invalid-argument, never truncated-then-saved. This is the callable-tier home for the
+// old data-layer "DI-1: an over-2000 thesis is rejected as reason:'invalid-or-denied'" contract —
+// the founder's actual false-"limit" bug, at its new server-owned enforcement point.
+//
+// RED today: the callable currently CLAMPS each field with `.slice(0, 2000)` (functions/index.js
+// addCoinGuarded), so an over-length thesis is truncated and the add SUCCEEDS (200) — the 400
+// assertion fails for the RIGHT reason. The functions-builder swaps clamp→reject; then it goes
+// green. Each over-length field uses a FRESH seeded user (coinCount 0, under cap) so the 2s
+// add-cooldown never couples the three probes.
+test("CRYP-108: addCoinGuarded rejects an over-2000-char thesis (invalid-argument), never silently truncating", async () => {
+  // (a) over-2000 thesis → invalid-argument, and NOTHING is written (not truncated-then-saved).
+  const thEmail = `addcoin_thesis_${stamp}@example.com`;
+  const thUid = await seedAddCoinUser(thEmail, { coinCount: 0 });
+  const overThesis = { thesis: "x".repeat(2001), changeMyMind: "y", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" };
+  const thRes = await callAsSafe("addCoinGuarded", await idTokenFor(thEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin", overThesis));
+  assert.strictEqual(thRes.status, 400, `an over-2000 thesis must be REJECTED, not clamped-then-saved: ${JSON.stringify(thRes.body)}`);
+  assert.strictEqual(thRes.body && thRes.body.error && thRes.body.error.status, "INVALID_ARGUMENT");
+  assert.strictEqual(
+    (await db.collection("users").doc(thUid).collection("portfolios").doc("p1").collection("coins").get()).size, 0,
+    "no coin may be written for an invalid over-length thesis (proves it was not truncated then saved)",
+  );
+
+  // (b) over-2000 changeMyMind → invalid-argument (fresh user — no cooldown coupling).
+  const cmmEmail = `addcoin_cmm_${stamp}@example.com`;
+  await seedAddCoinUser(cmmEmail, { coinCount: 0 });
+  const overCmm = { thesis: "y", changeMyMind: "x".repeat(2001), status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" };
+  const cmmRes = await callAsSafe("addCoinGuarded", await idTokenFor(cmmEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin", overCmm));
+  assert.strictEqual(cmmRes.status, 400, `an over-2000 changeMyMind must be rejected: ${JSON.stringify(cmmRes.body)}`);
+  assert.strictEqual(cmmRes.body && cmmRes.body.error && cmmRes.body.error.status, "INVALID_ARGUMENT");
+
+  // (c) over-2000 funnel.dilution finding → invalid-argument (fresh user).
+  const funEmail = `addcoin_funnel_${stamp}@example.com`;
+  await seedAddCoinUser(funEmail, { coinCount: 0 });
+  const overFunnel = { thesis: "y", changeMyMind: "z", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z", funnel: { dilution: "x".repeat(2001) } };
+  const funRes = await callAsSafe("addCoinGuarded", await idTokenFor(funEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin", overFunnel));
+  assert.strictEqual(funRes.status, 400, `an over-2000 funnel.dilution must be rejected: ${JSON.stringify(funRes.body)}`);
+  assert.strictEqual(funRes.body && funRes.body.error && funRes.body.error.status, "INVALID_ARGUMENT");
+});
+
+// AC9 — the callable-tier home for the old data-layer 'missing-target' coverage. A write to a
+// portfolio that doesn't exist is failed-precondition (the transaction's existence check), NEVER a
+// fake cap/limit — the whole point of the DI-1 fix. GREEN once the callable ships (the existence
+// check already lives in the transaction body); it 404s only in the authoring sandbox where the
+// functions emulator can't boot, so it's verified on CI.
+test("CRYP-108: addCoinGuarded on a non-existent portfolio → failed-precondition", async () => {
+  const email = `addcoin_noport_${stamp}@example.com`;
+  const uid = await seedAddCoinUser(email, { coinCount: 0 });
+  const token = await idTokenFor(email);
+  // The caller is chosen + under cap, so this reaches the transaction's portfolio-existence check.
+  const res = await callAsSafe("addCoinGuarded", token, addCoinData("no-such-portfolio", "bitcoin", "btc", "Bitcoin"));
+  assert.strictEqual(res.status, 400, `a missing portfolio must be failed-precondition, not a fake limit: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body && res.body.error && res.body.error.status, "FAILED_PRECONDITION");
+  void uid;
+});

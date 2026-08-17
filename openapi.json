@@ -860,6 +860,93 @@
         ]
       }
     },
+    "/addCoinGuarded": {
+      "post": {
+        "operationId": "addCoinGuarded",
+        "summary": "Add a coin to one of your portfolios — the server-owned coin write (CRYP-108, B3)",
+        "description": "Callable. THE sole coin-doc writer: client coin CREATE is `if false` in firestore.rules, so this Admin-SDK callable owns it and re-derives the tier coin cap + the #20 min(config,1000) clamp + the isChosen onboarding gate server-side. Acts on context.auth.uid only — there is no body uid (no IDOR); a stray one is rejected by the deny-by-default input shape. Fail-closed gate order: auth → deny-by-default keys + coin/journal validation → App-Check gate (config.appCheckEnforce flag, default off) → 2s cooldown → 100/UTC-day count budget → isChosen + cap re-derivation → transaction (portfolio exists → coin not already present → newCount ≤ cap → set coin + increment coinCount). The cooldown precedes the daily budget, so a throttled double-click burns no daily slot. Returns { success, coinCount }.",
+        "tags": [
+          "Account"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCoinGuardedEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The coin was created; coinCount is the portfolio's new coin count.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddCoinGuardedResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument (unknown field, or a missing/invalid portfolioId/coin/journal) / failed-precondition (App-Check enforced+missing, plan not chosen, portfolio not found, or the portfolio is at its coin cap for the plan).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "already-exists — the coin is already in this portfolio; nothing is written and the counter is unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "resource-exhausted — the 2s add cooldown or the 100/UTC-day add budget was tripped.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
     "/cancelSubscription": {
       "post": {
         "operationId": "cancelSubscription",
@@ -4329,6 +4416,143 @@
             "required": [
               "answer",
               "fellBack"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddCoinGuardedEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "portfolioId": {
+                "type": "string",
+                "description": "The caller's own portfolio to add the coin to. Non-blank; the coin lands under context.auth.uid — never a body uid.",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "coin": {
+                "type": "object",
+                "description": "The coin to add. Keyed by coin.id (the coin-doc id); symbol/name are re-clamped server-side (symbol ≤20, name ≤64, thumb ≤512).",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "The CoinGecko coin id — becomes the coin-doc id.",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "description": "Ticker symbol; clamped to 20 chars server-side.",
+                    "minLength": 1,
+                    "maxLength": 20
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Display name; clamped to 64 chars server-side.",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "thumb": {
+                    "type": "string",
+                    "description": "Optional icon URL; clamped to 512 chars server-side.",
+                    "maxLength": 512
+                  }
+                },
+                "required": [
+                  "id",
+                  "symbol",
+                  "name"
+                ],
+                "additionalProperties": false
+              },
+              "journal": {
+                "type": "object",
+                "nullable": true,
+                "description": "Optional investment-thesis journal stored on the coin. Free-text fields are clamped ≤2000 and status is coerced to the enum server-side (re-enforcing the retired validJournal rule).",
+                "properties": {
+                  "thesis": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "changeMyMind": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "intact",
+                      "review",
+                      "challenged"
+                    ]
+                  },
+                  "priceAtAdd": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "funnel": {
+                    "type": "object",
+                    "description": "Optional manual-research findings (#27); each field clamped ≤2000.",
+                    "properties": {
+                      "dilution": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "volume": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "yield": {
+                        "type": "string",
+                        "maxLength": 2000
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "portfolioId",
+              "coin"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "AddCoinGuardedResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean",
+                "description": "True when the coin was created."
+              },
+              "coinCount": {
+                "type": "integer",
+                "description": "The portfolio's coin count after the add.",
+                "minimum": 1,
+                "maximum": 1000
+              }
+            },
+            "required": [
+              "success",
+              "coinCount"
             ],
             "additionalProperties": false
           }

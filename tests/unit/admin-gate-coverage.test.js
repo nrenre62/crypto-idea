@@ -95,6 +95,9 @@ const UNGATED_BY_DESIGN = new Set([
   "researchAsk",     // Plan B PR-E2 — Wave-B AI research proxy; signed-in user asks about their OWN book,
                      // acts on context.auth.uid only (no IDOR), per-uid daily budget + app-wide $-cap gated
 
+  "addCoinGuarded",  // CRYP-108 (B3, PR-1) — server-owned coin write; acts on context.auth.uid only (no
+                     // body uid / no IDOR), cooldown + per-uid daily add budget + isChosen + re-derived cap
+
   "devSetMyTier",    // emulator-gated dev helper (R17)
   "setAdminClaim",   // removed — the body throws permission-denied unconditionally
 ]);

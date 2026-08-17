@@ -45,7 +45,7 @@ Fill in the `[OPERATOR NAME]` / `[CONTACT EMAIL]` / `[JURISDICTION]` placeholder
 
 ## App Check and error visibility
 
-- App Check enforcement is enabled in the Console only; for callables it applies platform-side before the handler runs. Order matters: set `VITE_RECAPTCHA_SITE_KEY`, build, deploy, watch unverified requests fall toward zero, and only then enforce. Reversed, it locks out every user.
+- App Check enforcement is enabled in the Console; for callables it applies platform-side before the handler runs. Order matters: set `VITE_RECAPTCHA_SITE_KEY`, build, deploy, watch unverified requests fall toward zero, and only then enforce. Reversed, it locks out every user. **Scoped code exception (CRYP-108, founder 2026-08-17):** `addCoinGuarded` is the ONE callable that also calls `guards.appCheckOk` in code, flag-gated by `config/app.appCheckEnforce` (**default OFF → no-op**) so the code flag can mirror the console switch on the high-frequency coin write; leave it off until the console step above is done, then optionally flip it on. Every other callable stays console-only.
 - After deploy, use the payment provider's "Send test event" and confirm a document lands in `webhookEvents` — a wrong webhook ID makes every event 401 silently, and the ID differs between sandbox and live.
 - One Cloud Logging alert covers the schedulers and webhook. Filter on platform labels so it cannot rot:
 
