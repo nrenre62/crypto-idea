@@ -1651,3 +1651,60 @@ test("CRYP-108: addCoinGuarded gates on planChosen and acts on the caller's own 
   assert.strictEqual(idor.status, 400, `a stray uid key must be rejected: ${JSON.stringify(idor.body)}`);
   assert.strictEqual(idor.body && idor.body.error && idor.body.error.status, "INVALID_ARGUMENT");
 });
+
+// AC8 — RED ANCHOR (written first). The journal free-text fields are VALIDATED, not silently
+// clamped: an over-2000-char thesis (and likewise changeMyMind, or a funnel.dilution finding) is
+// REJECTED as invalid-argument, never truncated-then-saved. This is the callable-tier home for the
+// old data-layer "DI-1: an over-2000 thesis is rejected as reason:'invalid-or-denied'" contract —
+// the founder's actual false-"limit" bug, at its new server-owned enforcement point.
+//
+// RED today: the callable currently CLAMPS each field with `.slice(0, 2000)` (functions/index.js
+// addCoinGuarded), so an over-length thesis is truncated and the add SUCCEEDS (200) — the 400
+// assertion fails for the RIGHT reason. The functions-builder swaps clamp→reject; then it goes
+// green. Each over-length field uses a FRESH seeded user (coinCount 0, under cap) so the 2s
+// add-cooldown never couples the three probes.
+test("CRYP-108: addCoinGuarded rejects an over-2000-char thesis (invalid-argument), never silently truncating", async () => {
+  // (a) over-2000 thesis → invalid-argument, and NOTHING is written (not truncated-then-saved).
+  const thEmail = `addcoin_thesis_${stamp}@example.com`;
+  const thUid = await seedAddCoinUser(thEmail, { coinCount: 0 });
+  const overThesis = { thesis: "x".repeat(2001), changeMyMind: "y", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" };
+  const thRes = await callAsSafe("addCoinGuarded", await idTokenFor(thEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin", overThesis));
+  assert.strictEqual(thRes.status, 400, `an over-2000 thesis must be REJECTED, not clamped-then-saved: ${JSON.stringify(thRes.body)}`);
+  assert.strictEqual(thRes.body && thRes.body.error && thRes.body.error.status, "INVALID_ARGUMENT");
+  assert.strictEqual(
+    (await db.collection("users").doc(thUid).collection("portfolios").doc("p1").collection("coins").get()).size, 0,
+    "no coin may be written for an invalid over-length thesis (proves it was not truncated then saved)",
+  );
+
+  // (b) over-2000 changeMyMind → invalid-argument (fresh user — no cooldown coupling).
+  const cmmEmail = `addcoin_cmm_${stamp}@example.com`;
+  await seedAddCoinUser(cmmEmail, { coinCount: 0 });
+  const overCmm = { thesis: "y", changeMyMind: "x".repeat(2001), status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" };
+  const cmmRes = await callAsSafe("addCoinGuarded", await idTokenFor(cmmEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin", overCmm));
+  assert.strictEqual(cmmRes.status, 400, `an over-2000 changeMyMind must be rejected: ${JSON.stringify(cmmRes.body)}`);
+  assert.strictEqual(cmmRes.body && cmmRes.body.error && cmmRes.body.error.status, "INVALID_ARGUMENT");
+
+  // (c) over-2000 funnel.dilution finding → invalid-argument (fresh user).
+  const funEmail = `addcoin_funnel_${stamp}@example.com`;
+  await seedAddCoinUser(funEmail, { coinCount: 0 });
+  const overFunnel = { thesis: "y", changeMyMind: "z", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z", funnel: { dilution: "x".repeat(2001) } };
+  const funRes = await callAsSafe("addCoinGuarded", await idTokenFor(funEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin", overFunnel));
+  assert.strictEqual(funRes.status, 400, `an over-2000 funnel.dilution must be rejected: ${JSON.stringify(funRes.body)}`);
+  assert.strictEqual(funRes.body && funRes.body.error && funRes.body.error.status, "INVALID_ARGUMENT");
+});
+
+// AC9 — the callable-tier home for the old data-layer 'missing-target' coverage. A write to a
+// portfolio that doesn't exist is failed-precondition (the transaction's existence check), NEVER a
+// fake cap/limit — the whole point of the DI-1 fix. GREEN once the callable ships (the existence
+// check already lives in the transaction body); it 404s only in the authoring sandbox where the
+// functions emulator can't boot, so it's verified on CI.
+test("CRYP-108: addCoinGuarded on a non-existent portfolio → failed-precondition", async () => {
+  const email = `addcoin_noport_${stamp}@example.com`;
+  const uid = await seedAddCoinUser(email, { coinCount: 0 });
+  const token = await idTokenFor(email);
+  // The caller is chosen + under cap, so this reaches the transaction's portfolio-existence check.
+  const res = await callAsSafe("addCoinGuarded", token, addCoinData("no-such-portfolio", "bitcoin", "btc", "Bitcoin"));
+  assert.strictEqual(res.status, 400, `a missing portfolio must be failed-precondition, not a fake limit: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body && res.body.error && res.body.error.status, "FAILED_PRECONDITION");
+  void uid;
+});

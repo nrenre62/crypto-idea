@@ -12,12 +12,12 @@ import { readFileSync } from "node:fs";
 import { auth, db, functions } from "../src/api/firebase.config.js";
 import { connectAuthEmulator } from "firebase/auth";
 import { connectFirestoreEmulator } from "firebase/firestore";
-import { connectFunctionsEmulator } from "firebase/functions";
+import { connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 import { registerUser, updateUserSettings } from "../src/api/firebase-auth.js";
 import { chooseFreePlan } from "../src/api/account.js";
 import {
   getPortfolios, createPortfolio, getCoins, getCoinsMeta,
-  addCoin, addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
+  addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
   getLearnProgress, saveLearnProgress, watchPortfolios, watchCoins, updatePortfolioName, updateCoinOrder,
 } from "../src/api/firebase-database.js";
 
@@ -45,6 +45,20 @@ async function resolveFunctionsPort() {
   return JSON.parse(readFileSync(new URL("../firebase.json", import.meta.url), "utf8")).emulators.functions.port;
 }
 connectFunctionsEmulator(functions, "127.0.0.1", await resolveFunctionsPort());
+
+// CRYP-108 (B3, PR-1): client coin CREATE is now server-only (firestore.rules `if false`), so the
+// data layer can no longer write a coin directly — coins are created ONLY by the addCoinGuarded
+// callable (Admin SDK). Seed a coin THROUGH that callable so the retained client-path tests below
+// (transactions/journal/watchers/counters, which PR-1 does NOT touch) still have coins to act on.
+async function seedCoin(portfolioId, coin, journal) {
+  const res = await httpsCallable(functions, "addCoinGuarded")({ portfolioId, coin, ...(journal ? { journal } : {}) });
+  return res.data;   // { success:true, coinCount }
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// functions/coin-limits.js ADD_COOLDOWN_MS — the addCoinGuarded 2s sliding add-cooldown. A client
+// can't clear the server-only rateLimits docs (the way functions-callable.test.js's clearAddLimiter
+// does over the Admin SDK), so consecutive server seeds must space past it.
+const ADD_COOLDOWN_MS = 2000;
 
 const email = `tester_${Date.now()}@example.com`;
 const pass = "Aa1!aaaa";
@@ -119,45 +133,38 @@ test("free tier: portfolios allowed up to 3, then rejected (PLAN-LIMITS-MAX)", a
   assert.equal(p4.success, false, "the 4th portfolio should be rejected on free tier");
 });
 
-test("free tier: coins allowed up to 30, then rejected", async () => {
-  for (let i = 0; i < 30; i++) {
-    const r = await addCoin(uid, "default", { id: "coin" + i, symbol: "C" + i, name: "Coin " + i });
-    assert.ok(r.success, `coin ${i} should add: ${JSON.stringify(r)}`);
+test("CRYP-108: seed coin0/coin1/coin2 via the addCoinGuarded callable (client coin create is server-only now)", async () => {
+  // PR-1 flipped client coin CREATE to server-only (firestore.rules `if false`); coins are created
+  // ONLY by the addCoinGuarded callable now. Seed exactly the coins the retained client-path tests
+  // below reference — coin0 (tx round-trip, journal), coin1 (counter-forge, journal funnel), coin2
+  // (R32 order), coins[0] (watchCoins) — THROUGH that callable, spacing each server add past the 2s
+  // add-cooldown (a client can't clear the server-only rateLimits docs).
+  const ids = ["coin0", "coin1", "coin2"];
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const r = await seedCoin("default", { id, symbol: id.toUpperCase(), name: "Coin " + id });
+    assert.ok(r && r.success, `seedCoin(${id}) should succeed via the callable: ${JSON.stringify(r)}`);
+    if (i < ids.length - 1) await sleep(ADD_COOLDOWN_MS + 250);   // past the 2s add-cooldown before the next server add
   }
-  const r31 = await addCoin(uid, "default", { id: "coin30", symbol: "C30", name: "Coin 30" });
-  assert.equal(r31.success, false, "the 31st coin should be rejected on free tier");
+  const coins = await getCoins(uid, "default");
+  assert.deepEqual(coins.coins.map((c) => c.id).sort(), ["coin0", "coin1", "coin2"],
+    "the three seed coins exist under the default portfolio");
 });
 
-test("DI-1: an at-cap add is reason:'limit', a missing parent is reason:'missing-target'", async () => {
-  // The account above is at the coin cap (30). With the tier limit passed in, an over-cap
-  // add is classified as a REAL limit — the only case the UI shows the upgrade toast.
-  const overCap = await addCoin(uid, "default", { id: "coinX", symbol: "CX", name: "Coin X" }, null, 30);
-  assert.equal(overCap.success, false);
-  assert.equal(overCap.reason, "limit", "an at-cap add is a real limit: " + JSON.stringify(overCap));
+// MOVED TO PR-2 (client addCoin rewire): the free-tier coin CAP as a client {success:false,reason:'limit'}
+// contract only exists once the client addCoin calls the callable and maps its error; callable-tier cap
+// is covered by functions-callable.test.js "CRYP-108: addCoinGuarded re-derives the cap …" (AC5: free 29→30
+// allowed, 30→refused failed-precondition).
 
-  // A write to a parent that no longer exists is 'missing-target', never a fake limit.
-  const gone = await addCoin(uid, "no-such-portfolio", { id: "eth", symbol: "ETH", name: "Ethereum" }, null, 30);
-  assert.equal(gone.success, false);
-  assert.equal(gone.reason, "missing-target", "a missing parent is not a limit: " + JSON.stringify(gone));
-});
+// MOVED TO PR-2 (client addCoin rewire): the reason mapping — an at-cap add → reason:'limit', a missing
+// parent → reason:'missing-target' — is a CLIENT contract; the callable-tier behaviors are covered by
+// functions-callable.test.js "CRYP-108: addCoinGuarded re-derives the cap …" (AC5, cap = failed-precondition)
+// and the new "CRYP-108: addCoinGuarded on a non-existent portfolio → failed-precondition" case.
 
-test("DI-3: re-adding an existing coin is 'already-exists' — no counter inflation, no journal clobber", async () => {
-  // coin0 exists (added above). A re-add used to take the rules UPDATE path: inflate
-  // coinCount forever AND overwrite the journal. The runTransaction guard refuses it.
-  const before = await getCoins(uid, "default");
-  const journalBefore = before.coins.find((c) => c.id === "coin0").journal || null;
-  const coinCountBefore = (await getPortfolios(uid)).portfolios.find((p) => p.id === "default").coinCount;
-
-  const readd = await addCoin(uid, "default", { id: "coin0", symbol: "C0", name: "Coin 0" },
-    { thesis: "CLOBBER", changeMyMind: "x", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" }, 30);
-  assert.equal(readd.success, false);
-  assert.equal(readd.reason, "already-exists", "a re-add is refused, not applied: " + JSON.stringify(readd));
-
-  const after = await getCoins(uid, "default");
-  assert.deepEqual(after.coins.find((c) => c.id === "coin0").journal || null, journalBefore, "existing journal preserved (not clobbered)");
-  const coinCountAfter = (await getPortfolios(uid)).portfolios.find((p) => p.id === "default").coinCount;
-  assert.equal(coinCountAfter, coinCountBefore, "coinCount not inflated by the re-add");
-});
+// MOVED TO PR-2 (client addCoin rewire): re-adding an existing coin as reason:'already-exists' (no counter
+// inflation, no journal clobber) is a CLIENT contract; the callable-tier already-exists + no-clobber behavior
+// is covered by functions-callable.test.js "CRYP-108: addCoinGuarded creates exactly one coin (coinCount->1);
+// a repeat is already-exists and never clobbers journal/addedAt" (AC4).
 
 test("API-SECURITY (counter-forge): deleting a tx does NOT decrement txCount client-side; 2nd delete is 'not-found'", async () => {
   // The client can no longer decrement a tier counter (firestore.rules counterNoForge closes a
@@ -323,21 +330,9 @@ test("C-A3: watchCoins surfaces a transaction added after subscribing (txCount b
   } finally { unsub(); }
 });
 
-// DI-1: the founder's actual bug — a denial caused by BAD DATA (an over-2000-char thesis)
-// on a portfolio BELOW the cap must NOT be mislabelled 'limit'. This registers a fresh
-// account (which re-authenticates the shared SDK), so it runs LAST — nothing after it uses
-// the original user.
-test("DI-1: an over-2000 thesis is rejected as reason:'invalid-or-denied', not a fake limit", async () => {
-  const email2 = `tester2_${Date.now()}@example.com`;
-  const reg = await registerUser(email2, pass, "Tester Two", { termsVersion: "2026-06-24", privacyVersion: "2026-06-24" });
-  assert.ok(reg.success, "second registration: " + JSON.stringify(reg));
-  const uid2 = reg.user.uid;   // fresh account: coinCount 0, well below the free cap of 10
-  // ONBOARD-GATE: pass the plan gate first (registerUser re-authed the shared SDK as uid2),
-  // so the add below fails on the THESIS length — the reason under test — not on the gate.
-  const choose2 = await chooseFreePlan();
-  assert.ok(choose2 && choose2.success, "choose free for the 2nd account: " + JSON.stringify(choose2));
-  const longThesis = { thesis: "x".repeat(2001), changeMyMind: "y", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" };
-  const badAdd = await addCoin(uid2, "default", { id: "btc", symbol: "BTC", name: "Bitcoin" }, longThesis, 10);
-  assert.equal(badAdd.success, false, "an over-2000 thesis is rejected by the rules");
-  assert.equal(badAdd.reason, "invalid-or-denied", "a data-validity denial is NOT a limit: " + JSON.stringify(badAdd));
-});
+// MOVED TO PR-2 (client addCoin rewire): the founder's actual bug — an over-2000-char thesis on a
+// portfolio BELOW the cap surfaces as the CLIENT reason:'invalid-or-denied' (never a fake 'limit') —
+// only exists once the client addCoin calls the callable and maps its error. The callable-tier
+// behavior (an over-2000 thesis / changeMyMind / funnel.dilution → invalid-argument, never silently
+// truncated) is covered by functions-callable.test.js "CRYP-108: addCoinGuarded rejects an
+// over-2000-char thesis (invalid-argument), never silently truncating".
