@@ -1933,14 +1933,14 @@ exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
   const portfolioId = data && data.portfolioId;
   if (typeof portfolioId !== "string" || portfolioId.trim() === "" || portfolioId.length > 128 ||
       unsafePathSeg(portfolioId)) {
-    throw new functions.https.HttpsError("invalid-argument", "A portfolio is required.");
+    throw new functions.https.HttpsError("invalid-argument", "A portfolio is required.", { reason: "invalid-or-denied" });
   }
   const coin = data && data.coin;
   if (!coin || typeof coin !== "object" || Array.isArray(coin) ||
       typeof coin.id !== "string" || coin.id.trim() === "" || coin.id.length > 128 || unsafePathSeg(coin.id) ||
       typeof coin.symbol !== "string" || coin.symbol.trim() === "" ||
       typeof coin.name !== "string" || coin.name.trim() === "") {
-    throw new functions.https.HttpsError("invalid-argument", "A valid coin is required.");
+    throw new functions.https.HttpsError("invalid-argument", "A valid coin is required.", { reason: "invalid-or-denied" });
   }
   // Defensive clamps — re-enforce the validCoinData bounds the rules used to (symbol 20 / name 64 /
   // thumb 512) so a stray long field can't be smuggled past the retired client-side create.
@@ -1960,14 +1960,14 @@ exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
   if (data.journal != null) {
     const j = data.journal;
     if (typeof j !== "object" || Array.isArray(j)) {
-      throw new functions.https.HttpsError("invalid-argument", "The journal is malformed.");
+      throw new functions.https.HttpsError("invalid-argument", "The journal is malformed.", { reason: "invalid-or-denied" });
     }
     const funnelIn = (j.funnel && typeof j.funnel === "object" && !Array.isArray(j.funnel)) ? j.funnel : {};
     // Reject any over-length prose field (thesis / changeMyMind / funnel.dilution|volume|yield).
     const tooLong = (v) => typeof v === "string" && v.length > 2000;
     if (tooLong(j.thesis) || tooLong(j.changeMyMind) ||
         tooLong(funnelIn.dilution) || tooLong(funnelIn.volume) || tooLong(funnelIn.yield)) {
-      throw new functions.https.HttpsError("invalid-argument", "Your journal note is too long.");
+      throw new functions.https.HttpsError("invalid-argument", "Your journal note is too long.", { reason: "invalid-or-denied" });
     }
     const clean = {
       thesis: String(j.thesis || ""),
@@ -1990,16 +1990,16 @@ exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
   let cfg = {};
   try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* default: not enforced */ }
   const appCheck = guards.appCheckOk(context, { enforce: cfg.appCheckEnforce === true });
-  if (!appCheck.ok) throw new functions.https.HttpsError("failed-precondition", "App verification failed. Please reload and try again.");
+  if (!appCheck.ok) throw new functions.https.HttpsError("failed-precondition", "App verification failed. Please reload and try again.", { reason: "invalid-or-denied" });
 
   // 4) Sliding 2s cooldown — BEFORE the daily budget is consumed, so a throttled double-click burns
   // no daily slot. A blocked attempt does not extend the window (guards.checkCooldown).
   const cool = await checkCooldown(db, { uid, key: "addCoin", cooldownMs: ADD_COOLDOWN_MS });
-  if (!cool.allowed) throw new functions.https.HttpsError("resource-exhausted", "You're adding coins too fast — please wait a moment and try again.");
+  if (!cool.allowed) throw new functions.https.HttpsError("resource-exhausted", "You're adding coins too fast — please wait a moment and try again.", { reason: "rate-limited" });
   // 5) Per-uid daily COUNT budget (100/UTC-day) — bounds a scripted add loop. Count-based, the same
   // primitive the createSubscription/reconcile limiters use; a denied call consumes nothing.
   const budget = await consumeDailyBudget(db, { uid, key: "addCoin", limit: ADD_DAILY_LIMIT });
-  if (!budget.allowed) throw new functions.https.HttpsError("resource-exhausted", "You've reached today's add-coin limit — please try again tomorrow.");
+  if (!budget.allowed) throw new functions.https.HttpsError("resource-exhausted", "You've reached today's add-coin limit — please try again tomorrow.", { reason: "rate-limited" });
 
   // 6) Onboarding gate + cap re-derivation. isChosen mirrors firestore.rules: a recorded plan choice
   // (planChosen) OR a paid tier. cap = the ONE source of truth (coin-limits.coinCapFor) over the
@@ -2008,7 +2008,7 @@ exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
   const u = (userSnap.exists && userSnap.data()) || {};
   const tier = u.tier || "free";
   const isChosen = u.planChosen === true || tier !== "free";
-  if (!isChosen) throw new functions.https.HttpsError("failed-precondition", "Choose a plan before adding coins.");
+  if (!isChosen) throw new functions.https.HttpsError("failed-precondition", "Choose a plan before adding coins.", { reason: "invalid-or-denied" });
   const cap = coinCapFor(tier, mergePlans(cfg.plans), u.premiumLimits || {});
 
   // 7) The write, TRANSACTIONALLY: existence + cap + counter must be atomic so two concurrent adds
@@ -2017,14 +2017,14 @@ exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
   const coinRef = portRef.collection("coins").doc(coin.id);
   const newCount = await db.runTransaction(async (t) => {
     const portSnap = await t.get(portRef);
-    if (!portSnap.exists) throw new functions.https.HttpsError("failed-precondition", "That portfolio doesn't exist.");
+    if (!portSnap.exists) throw new functions.https.HttpsError("failed-precondition", "That portfolio doesn't exist.", { reason: "missing-target" });
     const coinSnap = await t.get(coinRef);
     // DI-3: a re-add of a coin the server already has must NOT clobber the journal/addedAt or inflate
     // the counter — report already-exists and write nothing.
-    if (coinSnap.exists) throw new functions.https.HttpsError("already-exists", "That coin is already in this portfolio.");
+    if (coinSnap.exists) throw new functions.https.HttpsError("already-exists", "That coin is already in this portfolio.", { reason: "already-exists" });
     const n = (portSnap.data().coinCount || 0) + 1;
     // Cap message is DISTINCT from the rate-limit one — a full portfolio is not a throttle.
-    if (n > cap) throw new functions.https.HttpsError("failed-precondition", `This portfolio is at its ${cap}-coin limit for your plan.`);
+    if (n > cap) throw new functions.https.HttpsError("failed-precondition", `This portfolio is at its ${cap}-coin limit for your plan.`, { reason: "limit" });
     t.set(coinRef, coinDoc);
     t.update(portRef, { coinCount: FieldValue.increment(1) });
     return n;
