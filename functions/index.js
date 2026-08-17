@@ -2087,8 +2087,9 @@ exports.reconcileMyCounters = functions.https.onCall(async (data, context) => {
 // client-side). Idempotent — a second call after the choice is a harmless no-op. Acts only
 // on context.auth.uid (no IDOR). Per-uid rate-limited via guards.js and audited through the
 // single-writer choke point. App Check is enforced PLATFORM-SIDE (Firebase console) at go-live
-// — like every other callable, it is NOT wired in code (CLAUDE.md: appCheckOk has zero call
-// sites deliberately, to avoid a duplicate control + a second lockout surface). Paid choices go
+// and is NOT wired in code here. (As of CRYP-108, appCheckOk has exactly ONE deliberate code call
+// site — the addCoinGuarded write-path callable, flag-gated default-OFF; chooseFreePlan keeps the
+// platform-side model, and console enforcement + reCAPTCHA remain the go-live step.) Paid choices go
 // through the existing PayPal path instead (the webhook records planChosen + a tier != "free").
 exports.chooseFreePlan = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
