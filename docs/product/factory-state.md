@@ -39,19 +39,18 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-## B3-PR1 — Server-side guarded add-coin write (addCoinGuarded, Option A) (CRYP-108)
-- Phase: built (fix-round 1 resolved; PR #99 open — re-pushing for CI re-run, merge on green)
-- Provenance: AD-HOC (§0 Wave B B3 stub, no locked plan → G1 interviewed 2026-08-17). Part of founder-sequenced campaign B3 → B5 → B7/B8 → B6-cleanup; each PR ≤~200 lines (PR-1 approved to exceed ~300, cohesive security boundary can't split further), merged before the next.
-- G1 confirmed: yes — founder locked: Option A (callable owns write, rules DENY direct client coin-create) split into 2 PRs (this = PR-1 server+rules); App-Check code gate WIRED flag-gated (top-level config/app.appCheckEnforce, enforce off default, overrides GO-LIVE-AUDIT H1 → reconcile H1 docs); throttle = 2s checkCooldown + 100 adds/uid/day; transactions = separate addTransactionGuarded PR later; rate-limiter+App-Check folded into PR-1 (no un-throttled live window).
-- G2 approved: yes (founder 2026-08-17 — plan-of-record: size ~300 OK, openapi in PR-1, top-level flag, coordinated deploy w/ PR-2)
-- Plan (files): firestore.rules (coin create → if false) · functions/coin-limits.js (NEW pure: coinCapFor + consts) · functions/index.js (addCoinGuarded callable) · openapi.json (/addCoinGuarded) · tests/functions-callable.test.js (CI-only integration) · tests/firestore-rules.test.js (AC8 deny + rework ~9 coin-create cap tests) · tests/unit/coin-limits.test.js (NEW) · docs: API-SECURITY, DATA-FLOW, NEXT-STEPS, H1 reconciliation (CLAUDE.md/GO-LIVE-AUDIT/chooseFreePlan comment + PRODUCT-DECISIONS/CACHE-POLICY/PRICING/BACKEND-ADMIN), guards.js docstring
-- Fix-round: 1 / 3 (round 1 = CI integration RED: data-layer.test.js creates coins via the now-denied client addCoin. Fix: seed downstream coins via the addCoinGuarded callable + migrate the 4 client-addCoin-contract tests to PR-2; callable rejects over-2000 journal prose (invalid-argument) instead of clamping, matching validJournal + the DI-1 DATA-INTEGRITY guarantee. Plus 2 earlier secure-by-design LOW advisories folded in.)
-- Open findings: none. Round-1 fix committed: test-author db86db1 (data-layer seeds coins via callable + 4 client-contract tests migrated to PR-2 + new functions-callable over-thesis-reject & missing-portfolio cases) + functions-builder 0e97afc (journal prose clamp→reject = invalid-argument). Clamp→reject is an input-validation TIGHTENING (matches openapi maxLength + validJournal) → no fresh secure re-review warranted; api-contract stays IN-SYNC (openapi unchanged). Resolved earlier: LOW#1 path-seg guard (dc4df71) + LOW#2 dead rules helpers (5ac75da). Deferred (tracked): authorization-and-tier-limits.svg redraw → after PR-2 (diagrams/README backlog).
-- Reviews: verify GREEN (unit 1229/1229, rules 49/49; integration CI-only — functions emulator un-bootable in sandbox) · sec SAFE (0 High/Med, 2 LOW folded in; rules-simplify re-check SAFE) · api IN-SYNC · design N/A (no UI) · simplifier cleaned (2 dead rules helpers) · sweep: all code+doc files hit
-- Branch: claude/b3a-add-coin-guarded-server (off master 244ca55)
-- Built: yes (range 252002e RED .. docs+bookkeeping tip; code 6703ba1/bdbef57/dc4df71/5ac75da/c82d885)
+## B3-PR2 — Rewire client addCoin through addCoinGuarded callable (CRYP-109)
+- Phase: G2 (architect plan-of-record + consistency-sweep running)
+- Provenance: PLANNED (founder interview 2026-08-17 covered the approach; PR-2 of the B3 coin work, depends on merged PR-1/CRYP-108). Founder-sequenced campaign B3 → B5 → B7/B8 → B6-cleanup; ≤~200 lines, merged before the next.
+- G1 confirmed: yes (interview 2026-08-17 — rewire firebase-database.js addCoin → addCoinGuarded via httpsCallable, preserve {success,code,reason}, map HttpsError codes → reason:'limit'/'already-exists'/'invalid-or-denied'/'missing-target' + a distinct throttle reason/toast, keep optimistic append + watchCoins, restore the 4 migrated client-contract tests, redraw authorization-and-tier-limits.svg + update DATA-FLOW/decision-doc B3 status)
+- G2 approved: pending (architect plan-of-record running — PLANNED so non-blocking)
+- Plan (files): TBD by architect — expected src/api/firebase-database.js (addCoin rewire) · src/CryptoIdea.jsx (error-code→reason + throttle toast) · possibly functions/index.js (HttpsError details for clean client mapping) · tests/data-layer.test.js (restore 4 client-contract tests) + walkthrough/Search mocks + functions-callable · docs (DATA-FLOW, diagram redraw, decision-doc B3 status)
+- Fix-round: 0 / 3
+- Open findings: none
+- Branch: claude/b3b-add-coin-client-rewire (off master e3a16e6)
+- Built: no
 - Merged: no
-- Agents this item: 14 (spec-drafter, consistency-sweep, architect, test-author, rules-builder, functions-builder, test-tier-verifier, secure-by-design, api-contract-verifier, functions-builder[fix], simplifier, secure-by-design[re-check], docs-scribe, +integrate inline)
+- Agents this item: 2 (architect, consistency-sweep)
 - Updated: 2026-08-17
 
 ## JOURNAL-POLISH — Journal/thesis type-scale + floating coin header + honest disclaimers (CRYP-105)
@@ -68,4 +67,4 @@ a fresh context resumes **exactly where it left off**.
 - Agents this item: 11 (architect, test-author, client-builder, test-tier×2, secure-by-design, design-consistency, simplifier, consistency-sweep, docs-scribe, integrator)
 - Updated: 2026-08-12
 
-*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101); **FLOATING-HEADER** PR #60 `1edbef2` (CRYP-102); **#11 ADMIN-SEP** PR1 #61 `e10a92c` (CRYP-103a) + PR2 #62 `9528f59` (CRYP-103b) — Story CRYP-103 Done; **#12 PLAN-LIMITS-MAX** PR1 #64 `061e5a4` (Part A) + PR2 #65 `d5dc32d` (Part B) — Story CRYP-104 Done; **PR-E (Wave-B live-AI foundation)** — PR-E3 #87 `04cd129` (CRYP-106) + PR-E2.5 #88 `e38103d` (CRYP-107). Run rows in `factory-runs.md`.)*
+*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101); **FLOATING-HEADER** PR #60 `1edbef2` (CRYP-102); **#11 ADMIN-SEP** PR1 #61 `e10a92c` (CRYP-103a) + PR2 #62 `9528f59` (CRYP-103b) — Story CRYP-103 Done; **#12 PLAN-LIMITS-MAX** PR1 #64 `061e5a4` (Part A) + PR2 #65 `d5dc32d` (Part B) — Story CRYP-104 Done; **PR-E (Wave-B live-AI foundation)** — PR-E3 #87 `04cd129` (CRYP-106) + PR-E2.5 #88 `e38103d` (CRYP-107); **B3 PR-1** #99 `e3a16e6` (CRYP-108 — addCoinGuarded server + rules lockdown; resolved a merge with master's #90–#98 overhaul; PR-2/CRYP-109 in flight). Run rows in `factory-runs.md`.)*
