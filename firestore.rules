@@ -330,12 +330,9 @@ service cloud.firestore {
 
           allow read: if (isOwner(userId) && isChosen(userId)) || isAdmin();
 
-          allow create: if isOwner(userId)
-                        && isChosen(userId)
-                        && validCoinData()
-                        && request.resource.data.get('txCount', 0) == 0
-                        && getAfter(portfolioRef()).data.coinCount == get(portfolioRef()).data.get('coinCount', 0) + 1
-                        && getAfter(portfolioRef()).data.coinCount <= maxCoins(userId);
+          // server-owned: coin docs are created ONLY by the addCoinGuarded callable (Admin SDK),
+          // which re-derives the tier cap + the #20 min(config,1000) clamp + isChosen server-side (CRYP-108, B3).
+          allow create: if false;
 
           // Validate content (incl. the optional thesis journal) on update too, and let txCount
           // only stay or rise by 1 (never a client decrement; see counterNoForge) — so a coin's
