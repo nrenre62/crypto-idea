@@ -39,6 +39,20 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
+## B3-PR1 — Server-side guarded add-coin write (addCoinGuarded, Option A) (CRYP-108)
+- Phase: G1 confirmed (awaiting G2 architect plan)
+- Provenance: AD-HOC (§0 Wave B B3 stub, no locked plan → G1 interviewed 2026-08-17). Part of founder-sequenced campaign B3 → B5 → B7/B8 → B6-cleanup; each PR ≤~200 lines, merged before the next.
+- G1 confirmed: yes — founder locked: Option A (callable owns write, rules DENY direct client coin-create) split into 2 PRs (this = PR-1 server+rules); App-Check code gate WIRED flag-gated (enforce off default, overrides GO-LIVE-AUDIT H1 → reconcile H1 docs); throttle = 2s checkCooldown + 100 adds/uid/day; transactions = separate addTransactionGuarded PR later; rate-limiter+App-Check folded into PR-1 (no un-throttled live window).
+- G2 approved: no (architect plan running)
+- Plan (files): TBD by architect — expected functions/index.js (addCoinGuarded) · firestore.rules (deny client coin create) · openapi.json · tests/functions-callable.test.js + tests/firestore-rules.test.js + possibly tests/unit · docs sweep
+- Fix-round: 0 / 3
+- Open findings: none
+- Branch: claude/b3a-add-coin-guarded-server (off master 244ca55)
+- Built: no
+- Merged: no
+- Agents this item: 3 (spec-drafter, consistency-sweep, architect)
+- Updated: 2026-08-17
+
 ## JOURNAL-POLISH — Journal/thesis type-scale + floating coin header + honest disclaimers (CRYP-105)
 - Phase: built (awaiting G3 merge)
 - Provenance: PLANNED (🟩 GREEN locked plan in NEXT-STEPS §JOURNAL-POLISH; G1 interview skipped, Story CRYP-105 filed + In Progress)
