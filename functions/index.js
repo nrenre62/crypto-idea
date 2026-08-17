@@ -1930,13 +1930,26 @@ exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
   // A stray key (e.g. a smuggled `uid`) is a 400; the message stays generic — it never echoes the
   // caller's field name back.
   assertNoUnknownKeys(data, ["portfolioId", "coin", "journal"]);
+  // §7 path-segment safety: portfolioId + coin.id become Firestore doc-path segments below
+  // (portfolios/{portfolioId} · coins/{coin.id}). Reject a slash, any control char, or a bare
+  // "."/".." — a denylist, so legitimate CoinGecko ids ([a-z0-9-]) + Firestore push-ids stay valid.
+  // The message stays generic; it never echoes the offending value.
+  const unsafePathSeg = (s) => {
+    if (s === "." || s === "..") return true;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c === 47 || c < 32 || c === 127) return true; // "/" (47), control chars (<32), DEL (127)
+    }
+    return false;
+  };
   const portfolioId = data && data.portfolioId;
-  if (typeof portfolioId !== "string" || portfolioId.trim() === "" || portfolioId.length > 128) {
+  if (typeof portfolioId !== "string" || portfolioId.trim() === "" || portfolioId.length > 128 ||
+      unsafePathSeg(portfolioId)) {
     throw new functions.https.HttpsError("invalid-argument", "A portfolio is required.");
   }
   const coin = data && data.coin;
   if (!coin || typeof coin !== "object" || Array.isArray(coin) ||
-      typeof coin.id !== "string" || coin.id.trim() === "" || coin.id.length > 128 ||
+      typeof coin.id !== "string" || coin.id.trim() === "" || coin.id.length > 128 || unsafePathSeg(coin.id) ||
       typeof coin.symbol !== "string" || coin.symbol.trim() === "" ||
       typeof coin.name !== "string" || coin.name.trim() === "") {
     throw new functions.https.HttpsError("invalid-argument", "A valid coin is required.");
