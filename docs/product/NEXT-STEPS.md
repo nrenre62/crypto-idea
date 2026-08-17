@@ -3042,9 +3042,10 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
   model / judge model metered into `aiBudget`. Review must-dos #1 (fail-read-closed) + #2 (gate-before-generation)
   SATISFIED; #3 (concurrent overshoot) DOCUMENTED + DEFERRED as a pre-PR-E3 atomic reservation. `AI_PROXY_LIVE`
   stays `false` until the PR-E3/B4 client swap.
-- [~] **B3 · 0a-antiabuse (#20):** `addCoinGuarded` callable — **reuses BL-1's per-uid limiter + App
+- [x] **B3 · 0a-antiabuse (#20):** `addCoinGuarded` callable — **reuses BL-1's per-uid limiter + App
   Check gate**; the client write path routes through it. Closes #20's rate-limit + the write-path App
-  Check. Integration throttle test (rapid adds → `resource-exhausted`).
+  Check. Integration throttle test (rapid adds → `resource-exhausted`). **DONE = PR-1 (server) + PR-2
+  (client rewire); `addTransactionGuarded` is a separate later PR.**
   - **✅ PR-1 BUILT (2026-08-17 · CRYP-108 · branch `claude/b3a-add-coin-guarded-server`):** the
     SERVER side + rules lockdown. `exports.addCoinGuarded` (`functions/index.js`) now OWNS the coin
     write — an Admin-SDK `runTransaction` that sets the coin doc + `increment(coinCount)` and
@@ -3062,9 +3063,17 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
     console-only, zero code call sites") as a scoped exception — the code flag just mirrors the console
     switch; real bot protection still activates only at go-live (console App-Check enforcement +
     reCAPTCHA site key).
-  - **⏳ Still pending:** **PR-2** rewires `src/api/firebase-database.js addCoin` to call
-    `addCoinGuarded` (until then in-app add-coin is denied by the new rule — the two PRs deploy
-    together). A **separate later PR** adds `addTransactionGuarded` for the transaction write.
+  - **✅ PR-2 BUILT (2026-08-17 · CRYP-109 · branch `claude/b3b-add-coin-client-rewire`):** rewired
+    `src/api/firebase-database.js addCoin` to call `httpsCallable(functions, "addCoinGuarded")({portfolioId,
+    coin, journal?})` instead of writing Firestore directly, mapping the callable's `HttpsError` (via a
+    server-set `details.reason`) back to the app's `{success, code, reason}` contract — a new
+    **`rate-limited`** reason for `resource-exhausted` (a distinct throttle toast via `apiErrorMessage`,
+    separate from the plan-cap upgrade toast); the fallback never guesses `limit` → `invalid-or-denied`
+    (DI-1 honesty preserved). `classifyLimitDenied` is retained for `createPortfolio` + `addTransaction`;
+    `addCoin`'s `limit`/`uid` params are now vestigial (kept for call-site compat). No `firestore.rules`
+    change (coin `create` stays `if false`). PR-1 + PR-2 deploy together — the coin-add path is now
+    server-owned end-to-end.
+  - **⏳ Still pending:** a **separate later PR** adds `addTransactionGuarded` for the transaction write.
 - [ ] **B4 · 0b-swap:** swap the `ai-client.js` body to call `researchAsk` (keep the *resolve-string /
   reject* contract so the hooks' offline fallback survives). **LAST step, gated on A9 + B2 green.**
   Lights up Pulse AND Ask at once. Decide the validator's return contract first (throw → offline note,
@@ -3150,10 +3159,12 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
 - [ ] **B1** the AI provider key in `config/app` + AI Settings (set-flag). **No second provider** (D17 voids trap #3).
 - [ ] **B2 (keystone)** `researchAsk` callable — the AI provider prose + structured + **`validateOutput` (A9) wired in,
   fail-closed** + per-uid daily budget (BL-1 limiter) + **`context.app` gate** (D4) + server tier-gate.
-- [~] **B3** `addCoinGuarded` — reuses the BL-1 limiter + App Check gate. **✅ PR-1 BUILT (CRYP-108,
+- [x] **B3** `addCoinGuarded` — reuses the BL-1 limiter + App Check gate. **✅ PR-1 BUILT (CRYP-108,
   2026-08-17):** server callable + rules lockdown (`create: if false`) + 2s cooldown + 100/uid/day +
-  flag-gated App-Check (the sole `appCheckOk` call site — H1 override, founder 2026-08-17). **PR-2**
-  (client rewire of `addCoin`) + `addTransactionGuarded` still pending. See §0 Wave B B3.
+  flag-gated App-Check (the sole `appCheckOk` call site — H1 override, founder 2026-08-17). **✅ PR-2
+  BUILT (CRYP-109, 2026-08-17):** client `addCoin` rewired to the callable, `HttpsError`→`{success, code,
+  reason}` mapping incl. the new `rate-limited` throttle reason. `addTransactionGuarded` still pending.
+  See §0 Wave B B3.
 - [ ] **B4** swap `ai-client.js` body → `researchAsk` (gated on A9 + B2 green); lights up Pulse + Ask and
   **flips the AI "coming soon" label → the real metered number** (D13).
 - [ ] **B5–B7/B8** per-coin `convictionCache` + `getConviction` (on-demand, TTL by tier), Pulse per-user

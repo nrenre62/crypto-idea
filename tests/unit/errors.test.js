@@ -40,6 +40,17 @@ describe("apiErrorMessage", () => {
     expect(m).toMatch(/isn.t allowed/i);
   });
 
+  // CRYP-109 (B3 PR-2): the addCoinGuarded 2s cooldown / 100-per-day cap maps to a NEW
+  // reason:'rate-limited'. It must read as a THROTTLE ("too fast — wait a moment"), NOT the
+  // generic connection fallback and NOT the limit/upgrade line (a throttle is transient, not
+  // a plan cap — surfacing "upgrade" would be a lie).
+  it("CRYP-109: shows a throttle message on reason:'rate-limited', not the connection or the limit line", () => {
+    const m = apiErrorMessage({ success: false, code: "resource-exhausted", reason: "rate-limited" }, CONN, LIMIT);
+    expect(m).not.toBe(CONN);
+    expect(m).not.toBe(LIMIT);
+    expect(m).toMatch(/too fast|slow down|wait|moment/i);
+  });
+
   it("asks the user to sign in again on unauthenticated", () => {
     expect(apiErrorMessage({ success: false, code: "unauthenticated" }, CONN, LIMIT))
       .toMatch(/sign in again/i);

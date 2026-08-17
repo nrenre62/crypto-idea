@@ -4,7 +4,7 @@ The canonical record of what CryptoIdea charges and why — tiers, prices, resou
 
 Part of [Product decisions](PRODUCT-DECISIONS.md) — this spoke covers pricing; the billing mechanism (subscription lifecycle, webhook, secrets, go-live) lives in [BILLING.md](BILLING.md).
 
-Prices and limits come from the admin-editable `config/app.plans` document with a built-in `DEFAULT_PLANS` fallback, and resource limits are enforced server-side by [`firestore.rules`](../../firestore.rules). Paid plans ship OFF behind the `paidPlansEnabled` master switch until launch.
+Prices and limits come from the admin-editable `config/app.plans` document with a built-in `DEFAULT_PLANS` fallback; resource limits are enforced server-side — portfolios + tx by [`firestore.rules`](../../firestore.rules), the coin cap by the `addCoinGuarded` callable. Paid plans ship OFF behind the `paidPlansEnabled` master switch until launch.
 
 ## 1. The plan at a glance
 
@@ -16,7 +16,7 @@ Prices and limits come from the admin-editable `config/app.plans` document with 
 
 The "Live AI" column is presented to users as an approximate analyses-per-day figure. Internally each tier enforces a monthly dollar-cost ceiling (`aiMonthlyCents` in `config/app.plans`), because token usage — not call count — drives AI cost. See [section 4](#4-budget-unit-monthly-dollar-cost-ceiling).
 
-Resource limits (portfolios / coins / tx) are enforced server-side by [`firestore.rules`](../../firestore.rules), which reads `config/app.plans` via `get()` and falls back to the built-in defaults. Limits stay editable from the admin panel's Plans & Pricing card — they are not hard-coded into the app.
+Portfolio + transaction limits are enforced server-side by [`firestore.rules`](../../firestore.rules), which reads `config/app.plans` via `get()` and falls back to the built-in defaults; the coin cap moved to the `addCoinGuarded` callable (coin `create` is `if false` in the rules — see §2.5). Limits stay editable from the admin panel's Plans & Pricing card — they are not hard-coded into the app.
 
 ## 2. Why these numbers
 
@@ -40,7 +40,7 @@ The Starter tier ships no live AI. Variable AI cost on a free tier scales with a
 
 ### 2.5 Premium coins: 200 enforced default, 1,000 hard clamp
 
-`firestore.rules` clamps any configured coin limit to `min(config, 1000)` — 1,000 is the absolute ceiling no admin edit can raise (`maxCoins` in the rules; mirrored by the `mergePlans` clamp in `functions/index.js`). The enforced Premium default is 200 coins/portfolio, which gives a Premium user 3,000 coins across 15 portfolios. The 1,000 clamp stays as an anti-abuse backstop:
+The `addCoinGuarded` callable clamps any configured coin limit to `min(config, 1000)` — 1,000 is the absolute ceiling no admin edit can raise (the pure `coinCapFor` in `functions/coin-limits.js`, re-derived server-side in the callable since coin `create` is `if false` in `firestore.rules`; mirrored by the `mergePlans` clamp in `functions/index.js`). The enforced Premium default is 200 coins/portfolio, which gives a Premium user 3,000 coins across 15 portfolios. The 1,000 clamp stays as an anti-abuse backstop:
 
 - Real human portfolios do not exceed 1,000 distinct coins.
 - Each novel coin is a fresh conviction-cache miss and therefore fresh AI spend.
@@ -129,7 +129,8 @@ Premium's wedge is not capacity — every tracker offers more portfolios and coi
 - AI budget ledger: [`functions/ai-cost.js`](../../functions/ai-cost.js)
 - Admin UI: [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) — Plans & Pricing card, Revenue card
 - Hook state: [`src/hooks/useAdminDashboard.js`](../../src/hooks/useAdminDashboard.js) — `DEFAULT_PLANS`
-- Rules enforcement: [`firestore.rules`](../../firestore.rules) — `configuredLimit`, `maxCoins`
+- Rules enforcement (portfolios + tx): [`firestore.rules`](../../firestore.rules) — `configuredLimit`, `maxPortfolios`, `maxTx`
+- Coin cap: [`functions/coin-limits.js`](../../functions/coin-limits.js) — `coinCapFor` (`min(config, 1000)`), enforced in `addCoinGuarded`
 - Landing: [`index.html`](../../index.html) — plan-price cards and `/api/config` fetch
 - In-app billing screen: [`src/components/Login.jsx`](../../src/components/Login.jsx)
 - Product-direction record: [PRODUCT-DECISIONS.md](PRODUCT-DECISIONS.md)

@@ -890,7 +890,7 @@
             }
           },
           "400": {
-            "description": "invalid-argument (unknown field, or a missing/invalid portfolioId/coin/journal) / failed-precondition (App-Check enforced+missing, plan not chosen, portfolio not found, or the portfolio is at its coin cap for the plan).",
+            "description": "invalid-argument (unknown field, or a missing/invalid portfolioId/coin/journal — incl. an over-2000-char journal prose field) / failed-precondition (App-Check enforced+missing, plan not chosen, portfolio not found, or the portfolio is at its coin cap for the plan). For client disambiguation the error carries a fixed-enum details.reason (no user data): invalid-or-denied for validation/App-Check/not-chosen, missing-target for a missing portfolio, limit for the coin cap. See the CallableError.details description below.",
             "content": {
               "application/json": {
                 "schema": {
@@ -910,7 +910,7 @@
             }
           },
           "409": {
-            "description": "already-exists — the coin is already in this portfolio; nothing is written and the counter is unchanged.",
+            "description": "already-exists — the coin is already in this portfolio; nothing is written and the counter is unchanged. Carries details.reason:'already-exists'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -920,7 +920,7 @@
             }
           },
           "429": {
-            "description": "resource-exhausted — the 2s add cooldown or the 100/UTC-day add budget was tripped.",
+            "description": "resource-exhausted — the 2s add cooldown or the 100/UTC-day add budget was tripped. Carries details.reason:'rate-limited'.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3599,7 +3599,8 @@
               },
               "details": {
                 "type": "object",
-                "nullable": true
+                "nullable": true,
+                "description": "Optional error-specific payload. For addCoinGuarded it carries a fixed-enum reason (no user data, no cap number) for client disambiguation: details.reason ∈ {limit, missing-target, invalid-or-denied, rate-limited, already-exists}. Other callables may omit details or carry their own shape."
               }
             },
             "required": [

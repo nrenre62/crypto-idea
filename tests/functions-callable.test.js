@@ -1529,6 +1529,12 @@ test("CRYP-108: two addCoinGuarded calls back-to-back trip the add-limiter (reso
   const second = await callAsSafe("addCoinGuarded", token, addCoinData("p1", "ethereum", "eth", "Ethereum"));
   assert.strictEqual(second.status, 429, `a rapid second add must be rate-limited (429), got ${second.status}: ${JSON.stringify(second.body)}`);
   assert.strictEqual(second.body && second.body.error && second.body.error.status, "RESOURCE_EXHAUSTED");
+  // CRYP-109 (B3 PR-2): the throw must carry details.reason so the client maps it to reason:'rate-limited'.
+  assert.strictEqual(
+    second.body && second.body.error && second.body.error.details && second.body.error.details.reason,
+    "rate-limited",
+    `the rate-limit HttpsError must carry details.reason:'rate-limited': ${JSON.stringify(second.body)}`,
+  );
   void uid;
 });
 
@@ -1604,6 +1610,10 @@ test("CRYP-108: addCoinGuarded re-derives the cap — premium clamps to 1,000; f
     const premRes = await callAsSafe("addCoinGuarded", await idTokenFor(premEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin"));
     assert.strictEqual(premRes.status, 400, `config says 5,000 but the callable clamps to 1,000 — at 1000 a further add must be refused: ${JSON.stringify(premRes.body)}`);
     assert.strictEqual(premRes.body && premRes.body.error && premRes.body.error.status, "FAILED_PRECONDITION");
+    // CRYP-109 (B3 PR-2): the cap refusal must carry details.reason:'limit' so the client maps it to
+    // reason:'limit' (the ONLY upgrade case) — never a blind guess.
+    assert.strictEqual(premRes.body.error.details && premRes.body.error.details.reason, "limit",
+      `the cap refusal must carry details.reason:'limit': ${JSON.stringify(premRes.body)}`);
     assert.strictEqual((await db.collection("users").doc(premUid).collection("portfolios").doc("p1").get()).data().coinCount, 1000, "no coin written past the clamp");
 
     // Free user one BELOW the 30-coin Starter cap: the 30th add is allowed.
@@ -1620,6 +1630,9 @@ test("CRYP-108: addCoinGuarded re-derives the cap — premium clamps to 1,000; f
     const fullRes = await callAsSafe("addCoinGuarded", await idTokenFor(fullEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin"));
     assert.strictEqual(fullRes.status, 400, `at the 30-coin cap a further add must be refused: ${JSON.stringify(fullRes.body)}`);
     assert.strictEqual(fullRes.body && fullRes.body.error && fullRes.body.error.status, "FAILED_PRECONDITION");
+    // CRYP-109 (B3 PR-2): the at-cap refusal must ALSO carry details.reason:'limit'.
+    assert.strictEqual(fullRes.body.error.details && fullRes.body.error.details.reason, "limit",
+      `the at-cap refusal must carry details.reason:'limit': ${JSON.stringify(fullRes.body)}`);
     assert.strictEqual((await db.collection("users").doc(fullUid).collection("portfolios").doc("p1").get()).data().coinCount, 30, "no coin written at the cap");
   } finally {
     await db.doc("config/app").set({ plans: FieldValue.delete() }, { merge: true });
@@ -1682,6 +1695,10 @@ test("CRYP-108: addCoinGuarded rejects an over-2000-char thesis (invalid-argumen
   const thRes = await callAsSafe("addCoinGuarded", await idTokenFor(thEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin", overThesis));
   assert.strictEqual(thRes.status, 400, `an over-2000 thesis must be REJECTED, not clamped-then-saved: ${JSON.stringify(thRes.body)}`);
   assert.strictEqual(thRes.body && thRes.body.error && thRes.body.error.status, "INVALID_ARGUMENT");
+  // CRYP-109 (B3 PR-2): bad data carries details.reason:'invalid-or-denied' so the client maps it there
+  // (NEVER a fake 'limit' — the founder's actual false coin-limit bug).
+  assert.strictEqual(thRes.body.error.details && thRes.body.error.details.reason, "invalid-or-denied",
+    `an over-length thesis must carry details.reason:'invalid-or-denied': ${JSON.stringify(thRes.body)}`);
   assert.strictEqual(
     (await db.collection("users").doc(thUid).collection("portfolios").doc("p1").collection("coins").get()).size, 0,
     "no coin may be written for an invalid over-length thesis (proves it was not truncated then saved)",
@@ -1694,6 +1711,8 @@ test("CRYP-108: addCoinGuarded rejects an over-2000-char thesis (invalid-argumen
   const cmmRes = await callAsSafe("addCoinGuarded", await idTokenFor(cmmEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin", overCmm));
   assert.strictEqual(cmmRes.status, 400, `an over-2000 changeMyMind must be rejected: ${JSON.stringify(cmmRes.body)}`);
   assert.strictEqual(cmmRes.body && cmmRes.body.error && cmmRes.body.error.status, "INVALID_ARGUMENT");
+  assert.strictEqual(cmmRes.body.error.details && cmmRes.body.error.details.reason, "invalid-or-denied",
+    `an over-length changeMyMind must carry details.reason:'invalid-or-denied' (CRYP-109): ${JSON.stringify(cmmRes.body)}`);
 
   // (c) over-2000 funnel.dilution finding → invalid-argument (fresh user).
   const funEmail = `addcoin_funnel_${stamp}@example.com`;
@@ -1702,6 +1721,8 @@ test("CRYP-108: addCoinGuarded rejects an over-2000-char thesis (invalid-argumen
   const funRes = await callAsSafe("addCoinGuarded", await idTokenFor(funEmail), addCoinData("p1", "bitcoin", "btc", "Bitcoin", overFunnel));
   assert.strictEqual(funRes.status, 400, `an over-2000 funnel.dilution must be rejected: ${JSON.stringify(funRes.body)}`);
   assert.strictEqual(funRes.body && funRes.body.error && funRes.body.error.status, "INVALID_ARGUMENT");
+  assert.strictEqual(funRes.body.error.details && funRes.body.error.details.reason, "invalid-or-denied",
+    `an over-length funnel.dilution must carry details.reason:'invalid-or-denied' (CRYP-109): ${JSON.stringify(funRes.body)}`);
 });
 
 // AC9 — the callable-tier home for the old data-layer 'missing-target' coverage. A write to a
@@ -1717,5 +1738,9 @@ test("CRYP-108: addCoinGuarded on a non-existent portfolio → failed-preconditi
   const res = await callAsSafe("addCoinGuarded", token, addCoinData("no-such-portfolio", "bitcoin", "btc", "Bitcoin"));
   assert.strictEqual(res.status, 400, `a missing portfolio must be failed-precondition, not a fake limit: ${JSON.stringify(res.body)}`);
   assert.strictEqual(res.body && res.body.error && res.body.error.status, "FAILED_PRECONDITION");
+  // CRYP-109 (B3 PR-2): a missing parent carries details.reason:'missing-target' so the client kicks the
+  // self-heal, NEVER a fake 'limit'.
+  assert.strictEqual(res.body.error.details && res.body.error.details.reason, "missing-target",
+    `a missing portfolio must carry details.reason:'missing-target': ${JSON.stringify(res.body)}`);
   void uid;
 });
