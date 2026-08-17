@@ -40,17 +40,17 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## B3-PR1 — Server-side guarded add-coin write (addCoinGuarded, Option A) (CRYP-108)
-- Phase: G1 confirmed (awaiting G2 architect plan)
-- Provenance: AD-HOC (§0 Wave B B3 stub, no locked plan → G1 interviewed 2026-08-17). Part of founder-sequenced campaign B3 → B5 → B7/B8 → B6-cleanup; each PR ≤~200 lines, merged before the next.
-- G1 confirmed: yes — founder locked: Option A (callable owns write, rules DENY direct client coin-create) split into 2 PRs (this = PR-1 server+rules); App-Check code gate WIRED flag-gated (enforce off default, overrides GO-LIVE-AUDIT H1 → reconcile H1 docs); throttle = 2s checkCooldown + 100 adds/uid/day; transactions = separate addTransactionGuarded PR later; rate-limiter+App-Check folded into PR-1 (no un-throttled live window).
-- G2 approved: no (architect plan running)
-- Plan (files): TBD by architect — expected functions/index.js (addCoinGuarded) · firestore.rules (deny client coin create) · openapi.json · tests/functions-callable.test.js + tests/firestore-rules.test.js + possibly tests/unit · docs sweep
+- Phase: G2-approved (inner build loop — RED checkpoint running)
+- Provenance: AD-HOC (§0 Wave B B3 stub, no locked plan → G1 interviewed 2026-08-17). Part of founder-sequenced campaign B3 → B5 → B7/B8 → B6-cleanup; each PR ≤~200 lines (PR-1 approved to exceed ~300, cohesive security boundary can't split further), merged before the next.
+- G1 confirmed: yes — founder locked: Option A (callable owns write, rules DENY direct client coin-create) split into 2 PRs (this = PR-1 server+rules); App-Check code gate WIRED flag-gated (top-level config/app.appCheckEnforce, enforce off default, overrides GO-LIVE-AUDIT H1 → reconcile H1 docs); throttle = 2s checkCooldown + 100 adds/uid/day; transactions = separate addTransactionGuarded PR later; rate-limiter+App-Check folded into PR-1 (no un-throttled live window).
+- G2 approved: yes (founder 2026-08-17 — plan-of-record: size ~300 OK, openapi in PR-1, top-level flag, coordinated deploy w/ PR-2)
+- Plan (files): firestore.rules (coin create → if false) · functions/coin-limits.js (NEW pure: coinCapFor + consts) · functions/index.js (addCoinGuarded callable) · openapi.json (/addCoinGuarded) · tests/functions-callable.test.js (CI-only integration) · tests/firestore-rules.test.js (AC8 deny + rework ~9 coin-create cap tests) · tests/unit/coin-limits.test.js (NEW) · docs: API-SECURITY, DATA-FLOW, NEXT-STEPS, H1 reconciliation (CLAUDE.md/GO-LIVE-AUDIT/chooseFreePlan comment + PRODUCT-DECISIONS/CACHE-POLICY/PRICING/BACKEND-ADMIN), guards.js docstring
 - Fix-round: 0 / 3
 - Open findings: none
 - Branch: claude/b3a-add-coin-guarded-server (off master 244ca55)
 - Built: no
 - Merged: no
-- Agents this item: 3 (spec-drafter, consistency-sweep, architect)
+- Agents this item: 4 (spec-drafter, consistency-sweep, architect, test-author)
 - Updated: 2026-08-17
 
 ## JOURNAL-POLISH — Journal/thesis type-scale + floating coin header + honest disclaimers (CRYP-105)
