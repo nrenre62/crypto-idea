@@ -40,13 +40,13 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## B3-PR1 — Server-side guarded add-coin write (addCoinGuarded, Option A) (CRYP-108)
-- Phase: built (awaiting G3 merge — PR to open)
+- Phase: inner-loop fix-round 1 (PR #99 open; CI integration RED — data-layer.test.js coin tests broke on the client-create lockdown)
 - Provenance: AD-HOC (§0 Wave B B3 stub, no locked plan → G1 interviewed 2026-08-17). Part of founder-sequenced campaign B3 → B5 → B7/B8 → B6-cleanup; each PR ≤~200 lines (PR-1 approved to exceed ~300, cohesive security boundary can't split further), merged before the next.
 - G1 confirmed: yes — founder locked: Option A (callable owns write, rules DENY direct client coin-create) split into 2 PRs (this = PR-1 server+rules); App-Check code gate WIRED flag-gated (top-level config/app.appCheckEnforce, enforce off default, overrides GO-LIVE-AUDIT H1 → reconcile H1 docs); throttle = 2s checkCooldown + 100 adds/uid/day; transactions = separate addTransactionGuarded PR later; rate-limiter+App-Check folded into PR-1 (no un-throttled live window).
 - G2 approved: yes (founder 2026-08-17 — plan-of-record: size ~300 OK, openapi in PR-1, top-level flag, coordinated deploy w/ PR-2)
 - Plan (files): firestore.rules (coin create → if false) · functions/coin-limits.js (NEW pure: coinCapFor + consts) · functions/index.js (addCoinGuarded callable) · openapi.json (/addCoinGuarded) · tests/functions-callable.test.js (CI-only integration) · tests/firestore-rules.test.js (AC8 deny + rework ~9 coin-create cap tests) · tests/unit/coin-limits.test.js (NEW) · docs: API-SECURITY, DATA-FLOW, NEXT-STEPS, H1 reconciliation (CLAUDE.md/GO-LIVE-AUDIT/chooseFreePlan comment + PRODUCT-DECISIONS/CACHE-POLICY/PRICING/BACKEND-ADMIN), guards.js docstring
-- Fix-round: 0 / 3 (0 forced by RED/HIGH; 2 secure-by-design LOW advisories both folded in)
-- Open findings: none — LOW#1 unsafe path-segment guard (dc4df71) + LOW#2 dead rules helpers removed (5ac75da); re-check SAFE. Deferred (tracked): authorization-and-tier-limits.svg redraw → after PR-2 (diagrams/README backlog).
+- Fix-round: 1 / 3 (round 1 = CI integration RED: data-layer.test.js creates coins via the now-denied client addCoin. Fix: seed downstream coins via the addCoinGuarded callable + migrate the 4 client-addCoin-contract tests to PR-2; callable rejects over-2000 journal prose (invalid-argument) instead of clamping, matching validJournal + the DI-1 DATA-INTEGRITY guarantee. Plus 2 earlier secure-by-design LOW advisories folded in.)
+- Open findings: fixing CI-red (data-layer test rework + callable clamp→reject). Resolved earlier: LOW#1 path-seg guard (dc4df71) + LOW#2 dead rules helpers (5ac75da). Deferred (tracked): authorization-and-tier-limits.svg redraw → after PR-2 (diagrams/README backlog).
 - Reviews: verify GREEN (unit 1229/1229, rules 49/49; integration CI-only — functions emulator un-bootable in sandbox) · sec SAFE (0 High/Med, 2 LOW folded in; rules-simplify re-check SAFE) · api IN-SYNC · design N/A (no UI) · simplifier cleaned (2 dead rules helpers) · sweep: all code+doc files hit
 - Branch: claude/b3a-add-coin-guarded-server (off master 244ca55)
 - Built: yes (range 252002e RED .. docs+bookkeeping tip; code 6703ba1/bdbef57/dc4df71/5ac75da/c82d885)
