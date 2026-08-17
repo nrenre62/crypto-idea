@@ -49,6 +49,9 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 // and the pure PayPal-billing decision logic — both dependency-injected + unit-tested.
 const { checkCooldown, consumeDailyBudget } = require("./guards.js");
 const guards = require("./guards.js");   // ADMIN-SEC role gates (requireOwner/requireFreshAuth/roleOf)
+// CRYP-108 (B3, PR-1): the pure coin-cap derivation + add-limiter constants the server-owned
+// addCoinGuarded callable enforces (client coin CREATE is now `if false` in firestore.rules).
+const { coinCapFor, ADD_COOLDOWN_MS, ADD_DAILY_LIMIT } = require("./coin-limits.js");
 const settingsAuth = require("./settings-auth.js");   // ADMIN-6 Settings-password crypto core
 const { sendMail } = require("./sendMail.js");         // ADMIN-6 PR2: outbound-email seam (lazy nodemailer)
 const billing = require("./billing.js");
@@ -1900,6 +1903,124 @@ exports.researchAsk = functions.https.onCall(async (data, context) => {
   // No writeAudit: this is a high-frequency user action; the aiBudget ledger + the per-uid
   // daily rate limit are the accountability (auditing every chat turn would flood the log).
   return { answer: result.text, fellBack: result.fellBack };
+});
+
+// ─── CRYP-108 (B3, PR-1): addCoinGuarded — the SERVER-OWNED coin write ───────────────────────
+// Client coin CREATE is now `if false` in firestore.rules, so THIS Admin-SDK callable is the sole
+// coin-doc writer. It re-derives the tier cap + the #20 min(config,1000) clamp + the isChosen gate
+// server-side, so none of them can be bypassed by a crafted client. Same fail-closed, gate-before-
+// side-effect discipline as researchAsk; acts on context.auth.uid ONLY — never a body uid (no IDOR;
+// there is no `uid` field, and a stray one is rejected by the deny-by-default input shape).
+//
+// FAIL-CLOSED gate order (each maps to an HttpsError code):
+//   1 auth (unauthenticated) → 2 deny-by-default keys + coin/journal validation (invalid-argument)
+//   → 3 App-Check gate (flag-gated, default OFF) → 4 2s cooldown (resource-exhausted)
+//   → 5 100/UTC-day count budget (resource-exhausted) → 6 isChosen + cap re-derivation
+//   → 7 transaction: portfolio exists → coin not-already-there (already-exists) → newCount ≤ cap
+//     (failed-precondition, DISTINCT from the rate-limit message) → set coin + increment coinCount.
+// Request shape: { portfolioId, coin:{id,symbol,name,thumb?}, journal? }. Returns { success, coinCount }.
+// The cooldown is checked BEFORE the daily budget is consumed, so a throttled double-click burns no
+// daily slot. No writeAudit: a high-frequency user action, like researchAsk.
+exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
+  // 1) Auth. The caller is the ONLY subject — no body uid exists to target another user with.
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  const uid = context.auth.uid;
+
+  // 2) Deny-by-default input shape (mirrors openapi.json additionalProperties:false) + validation.
+  // A stray key (e.g. a smuggled `uid`) is a 400; the message stays generic — it never echoes the
+  // caller's field name back.
+  assertNoUnknownKeys(data, ["portfolioId", "coin", "journal"]);
+  const portfolioId = data && data.portfolioId;
+  if (typeof portfolioId !== "string" || portfolioId.trim() === "" || portfolioId.length > 128) {
+    throw new functions.https.HttpsError("invalid-argument", "A portfolio is required.");
+  }
+  const coin = data && data.coin;
+  if (!coin || typeof coin !== "object" || Array.isArray(coin) ||
+      typeof coin.id !== "string" || coin.id.trim() === "" || coin.id.length > 128 ||
+      typeof coin.symbol !== "string" || coin.symbol.trim() === "" ||
+      typeof coin.name !== "string" || coin.name.trim() === "") {
+    throw new functions.https.HttpsError("invalid-argument", "A valid coin is required.");
+  }
+  // Defensive clamps — re-enforce the validCoinData bounds the rules used to (symbol 20 / name 64 /
+  // thumb 512) so a stray long field can't be smuggled past the retired client-side create.
+  const coinDoc = {
+    symbol: String(coin.symbol).slice(0, 20),
+    name: String(coin.name).slice(0, 64),
+    thumb: String(coin.thumb || "").slice(0, 512),
+    addedAt: Date.now(),   // ms, not FieldValue.serverTimestamp() — matches ensureDefaultPortfolio
+    txCount: 0,
+  };
+  // Optional journal — re-enforce validJournal: clamp the free-text fields ≤2000, coerce status to
+  // the enum (default 'intact'), keep priceAtAdd/createdAt bounded, and drop any unknown key.
+  if (data.journal != null) {
+    const j = data.journal;
+    if (typeof j !== "object" || Array.isArray(j)) {
+      throw new functions.https.HttpsError("invalid-argument", "The journal is malformed.");
+    }
+    const clean = {
+      thesis: String(j.thesis || "").slice(0, 2000),
+      changeMyMind: String(j.changeMyMind || "").slice(0, 2000),
+      status: ["intact", "review", "challenged"].includes(j.status) ? j.status : "intact",
+      priceAtAdd: (typeof j.priceAtAdd === "number" && Number.isFinite(j.priceAtAdd) && j.priceAtAdd >= 0) ? j.priceAtAdd : 0,
+      createdAt: String(j.createdAt || "").slice(0, 40),
+    };
+    if (j.funnel && typeof j.funnel === "object" && !Array.isArray(j.funnel)) {
+      const f = {};
+      for (const k of ["dilution", "volume", "yield"]) {
+        if (typeof j.funnel[k] === "string") f[k] = j.funnel[k].slice(0, 2000);
+      }
+      if (Object.keys(f).length) clean.funnel = f;
+    }
+    coinDoc.journal = clean;
+  }
+
+  // 3) App-Check gate. Read config/app FRESH (as researchAsk does), then honour the top-level
+  // config/app.appCheckEnforce flag (default OFF → no-op, so local/emulator works tokenless). The
+  // ONLY appCheckOk call site (CLAUDE.md); saveConfig's {merge:true} preserves the top-level flag.
+  let cfg = {};
+  try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* default: not enforced */ }
+  const appCheck = guards.appCheckOk(context, { enforce: cfg.appCheckEnforce === true });
+  if (!appCheck.ok) throw new functions.https.HttpsError("failed-precondition", "App verification failed. Please reload and try again.");
+
+  // 4) Sliding 2s cooldown — BEFORE the daily budget is consumed, so a throttled double-click burns
+  // no daily slot. A blocked attempt does not extend the window (guards.checkCooldown).
+  const cool = await checkCooldown(db, { uid, key: "addCoin", cooldownMs: ADD_COOLDOWN_MS });
+  if (!cool.allowed) throw new functions.https.HttpsError("resource-exhausted", "You're adding coins too fast — please wait a moment and try again.");
+  // 5) Per-uid daily COUNT budget (100/UTC-day) — bounds a scripted add loop. Count-based, the same
+  // primitive the createSubscription/reconcile limiters use; a denied call consumes nothing.
+  const budget = await consumeDailyBudget(db, { uid, key: "addCoin", limit: ADD_DAILY_LIMIT });
+  if (!budget.allowed) throw new functions.https.HttpsError("resource-exhausted", "You've reached today's add-coin limit — please try again tomorrow.");
+
+  // 6) Onboarding gate + cap re-derivation. isChosen mirrors firestore.rules: a recorded plan choice
+  // (planChosen) OR a paid tier. cap = the ONE source of truth (coin-limits.coinCapFor) over the
+  // MERGED plans (so a raw config value ≥1000 is clamped) + the caller's own premiumLimits override.
+  const userSnap = await db.collection("users").doc(uid).get();
+  const u = (userSnap.exists && userSnap.data()) || {};
+  const tier = u.tier || "free";
+  const isChosen = u.planChosen === true || tier !== "free";
+  if (!isChosen) throw new functions.https.HttpsError("failed-precondition", "Choose a plan before adding coins.");
+  const cap = coinCapFor(tier, mergePlans(cfg.plans), u.premiumLimits || {});
+
+  // 7) The write, TRANSACTIONALLY: existence + cap + counter must be atomic so two concurrent adds
+  // can't both read newCount ≤ cap and both write past it. Reads before writes (Firestore rule).
+  const portRef = db.collection("users").doc(uid).collection("portfolios").doc(portfolioId);
+  const coinRef = portRef.collection("coins").doc(coin.id);
+  const newCount = await db.runTransaction(async (t) => {
+    const portSnap = await t.get(portRef);
+    if (!portSnap.exists) throw new functions.https.HttpsError("failed-precondition", "That portfolio doesn't exist.");
+    const coinSnap = await t.get(coinRef);
+    // DI-3: a re-add of a coin the server already has must NOT clobber the journal/addedAt or inflate
+    // the counter — report already-exists and write nothing.
+    if (coinSnap.exists) throw new functions.https.HttpsError("already-exists", "That coin is already in this portfolio.");
+    const n = (portSnap.data().coinCount || 0) + 1;
+    // Cap message is DISTINCT from the rate-limit one — a full portfolio is not a throttle.
+    if (n > cap) throw new functions.https.HttpsError("failed-precondition", `This portfolio is at its ${cap}-coin limit for your plan.`);
+    t.set(coinRef, coinDoc);
+    t.update(portRef, { coinCount: FieldValue.increment(1) });
+    return n;
+  });
+
+  return { success: true, coinCount: newCount };
 });
 
 // ─── Self-service (DI-3): recompute the caller's OWN aggregate counters from real docs ───
