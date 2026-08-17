@@ -8,7 +8,7 @@ Ordered, file-by-file traces for the three core user actions, across the layers 
 
 Files touched, in order:
 
-- `components/Search.jsx` → `hooks/useCoinSearch.js` → `api/coingecko.js` → `functions/index.js` (`search`) → `CryptoIdea.jsx` (`addCoin`) → `api/firebase-database.js` (`addCoin`) → `firestore.rules`
+- `components/Search.jsx` → `hooks/useCoinSearch.js` → `api/coingecko.js` → `functions/index.js` (`search`) → `CryptoIdea.jsx` (`addCoin`) → `api/firebase-database.js` (`addCoin`) → `functions/index.js` (`addCoinGuarded`, server-owned) → Firestore (Admin SDK)
 - then the entry: `components/Detail.jsx` → `components/AddEntry.jsx` → `CryptoIdea.jsx` (`addEntry`) → `api/firebase-database.js` (`addTransaction`) → `firestore.rules`
 
 ### Sub-flow A — search and select the coin
@@ -22,15 +22,14 @@ Files touched, in order:
 7. The user taps to add → `addCoin(coin)` from context.
 
 ### Write #1 — the coin
-> **Moving to a server-owned callable (CRYP-108 · B3).** **PR-1 (landed)** added the `addCoinGuarded` callable + locked the rules (coin `create` → `if false`); **PR-2 (pending)** rewires the client below to call it. The steps describe the client path as it stands today.
 8. `CryptoIdea.jsx` `addCoin()` — guards (not already held, under the coin cap, `user.uid` present) → calls `api/firebase-database.js` `addCoin(uid, activePortId, coinData, journal, limit)`. An optional `journal` (thesis) is written on the coin when the user fills the Buy-Journal prompt.
-9. `api/firebase-database.js` `addCoin()` — runs a `runTransaction` (DI-3 guard): if the coin doc already exists it returns `already-exists` (never overwrites the journal, never inflates the counter); otherwise it `set`s the coin doc at `users/{uid}/portfolios/{pid}/coins/{coinId}` with `txCount:0` and `increment`s the parent portfolio's `coinCount`. On `permission-denied` it calls `classifyLimitDenied()` — a fresh server re-read that returns the REAL reason (`limit` / `missing-target` / `invalid-or-denied`). **PR-2 replaces this direct write with a call to the `addCoinGuarded` callable**, which runs the same transaction server-side under the Admin SDK.
-10. `firestore.rules` — **since PR-1, coin `create` is `allow create: if false`**: clients can no longer create coin docs directly. The server-owned `addCoinGuarded` callable is the sole writer and re-derives `isOwner`/`isChosen` + `validCoinData`/`validJournal` field validation (coin metadata is clamped; a >2000-char journal note is **rejected** as `invalid-argument`, not truncated) + the tier coin-cap (`min(config, 1000)`, #20 clamp) itself. **Until PR-2 rewires the client, the direct write above is denied by the new rule** — the two PRs deploy together. (Coin `update`/`delete` rules are unchanged.)
+9. `api/firebase-database.js` `addCoin()` — no longer writes to Firestore directly: it calls the server-owned callable `httpsCallable(functions, "addCoinGuarded")({portfolioId, coin, journal?})`, which runs the coin write under the Admin SDK as a `runTransaction` (DI-3 guard): if the coin doc already exists it returns `already-exists` (never overwrites the journal, never inflates the counter); otherwise it `set`s the coin doc at `users/{uid}/portfolios/{pid}/coins/{coinId}` with `txCount:0` and `increment`s the parent portfolio's `coinCount`. The callable's `HttpsError` (via a server-set `details.reason`) is mapped back to the app's existing `{success, code, reason}` contract — `resource-exhausted` (the 2s cooldown / 100-per-day cap) → the new **`rate-limited`** reason (a distinct throttle toast, not the plan-cap upgrade toast); a cap denial → `limit`; anything else → `invalid-or-denied` (never guessed as `limit`, preserving DI-1 honesty). (`classifyLimitDenied` is retained for `createPortfolio` + `addTransaction`; `addCoin`'s `limit`/`uid` params are now vestigial, kept for call-site compat.)
+10. `firestore.rules` — coin `create` is `allow create: if false`: clients can no longer create coin docs directly, so the server-owned `addCoinGuarded` callable is the sole writer. It re-derives `isOwner`/`isChosen` + the `validCoinData`/`validJournal` field validation (coin metadata is clamped; a >2000-char journal note is **rejected** as `invalid-argument`, not truncated) + the tier coin-cap (`min(config, 1000)`, #20 clamp, via `functions/coin-limits.js` `coinCapFor`) itself. (Coin `update`/`delete` rules are unchanged.)
 11. `CryptoIdea.jsx` — optimistic local update, navigates back to the portfolio, clears the search.
 
 ### Sub-flow B — first buy entry
 
-> Note: the transaction write still goes **directly to Firestore** (only the **coin** write moves server-side in CRYP-108 · B3; `addTransactionGuarded` is a later PR). The transaction cap is enforced twice (client guard **and** security rules).
+> Note: the transaction write still goes **directly to Firestore** (the **coin** write moved server-side in CRYP-108 · B3, PR-1 + PR-2; `addTransactionGuarded` is a later PR). The transaction cap is enforced twice (client guard **and** security rules).
 12. `components/Detail.jsx` — tap to buy → presets type/price (auto-filled from history)/date → opens the AddEntry screen.
 13. `components/AddEntry.jsx` — amount/price/date inputs; a date change re-auto-fills the historical price; Submit is disabled until amount and price are finite and positive → `addEntry()`.
 14. `CryptoIdea.jsx` `addEntry()` — guards (`txCount` under the per-coin cap, sell-validation when selling, `user.uid` present, not offline) → `api/firebase-database.js` `addTransaction(uid, pid, coinId, txData, limit)`.
@@ -38,7 +37,7 @@ Files touched, in order:
 16. `firestore.rules` — the `transactions` create rule: `isOwner` + `isChosen` + `validTransactionData()` (type ∈ buy/sell, amount > 0, price ≥ 0) + coin `txCount` moved by +1 + `txCount <= maxTx`.
 17. `CryptoIdea.jsx` — optimistic update with the returned id → returns to the Detail screen.
 
-Submission writes directly to Firestore (no Cloud Function). Only the search step touches the backend. Limits are enforced twice — a client guard and the security rules. Deletes never decrement the counters client-side (a decrement is forbidden by `counterNoForge` in `firestore.rules`); the count is left fail-safe-high and reconciled by a trusted server callable.
+The transaction write goes directly to Firestore; the coin write now routes through the server-owned `addCoinGuarded` callable (CRYP-108). The search step also touches the backend. Portfolio + transaction limits are enforced twice — a client guard and the security rules; the coin cap is re-derived server-side in `addCoinGuarded`. Deletes never decrement the counters client-side (a decrement is forbidden by `counterNoForge` in `firestore.rules`); the count is left fail-safe-high and reconciled by a trusted server callable.
 
 ## 2. User views their portfolio
 

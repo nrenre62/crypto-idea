@@ -40,17 +40,18 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## B3-PR2 — Rewire client addCoin through addCoinGuarded callable (CRYP-109)
-- Phase: G2 (architect plan-of-record + consistency-sweep running)
+- Phase: built (awaiting G3 merge — PR to open)
 - Provenance: PLANNED (founder interview 2026-08-17 covered the approach; PR-2 of the B3 coin work, depends on merged PR-1/CRYP-108). Founder-sequenced campaign B3 → B5 → B7/B8 → B6-cleanup; ≤~200 lines, merged before the next.
-- G1 confirmed: yes (interview 2026-08-17 — rewire firebase-database.js addCoin → addCoinGuarded via httpsCallable, preserve {success,code,reason}, map HttpsError codes → reason:'limit'/'already-exists'/'invalid-or-denied'/'missing-target' + a distinct throttle reason/toast, keep optimistic append + watchCoins, restore the 4 migrated client-contract tests, redraw authorization-and-tier-limits.svg + update DATA-FLOW/decision-doc B3 status)
-- G2 approved: pending (architect plan-of-record running — PLANNED so non-blocking)
-- Plan (files): TBD by architect — expected src/api/firebase-database.js (addCoin rewire) · src/CryptoIdea.jsx (error-code→reason + throttle toast) · possibly functions/index.js (HttpsError details for clean client mapping) · tests/data-layer.test.js (restore 4 client-contract tests) + walkthrough/Search mocks + functions-callable · docs (DATA-FLOW, diagram redraw, decision-doc B3 status)
-- Fix-round: 0 / 3
+- G1 confirmed: yes (interview 2026-08-17 — rewire firebase-database.js addCoin → addCoinGuarded via httpsCallable, preserve {success,code,reason}, map HttpsError codes → reason + a distinct throttle reason/toast, keep optimistic append + watchCoins, restore the 4 migrated client-contract tests, redraw diagram + update DATA-FLOW/decision-doc B3 status)
+- G2 approved: yes (PLANNED plan-of-record — architect + consistency-sweep aligned; key decision = structured details:{reason} on the callable's HttpsErrors for clean declarative client mapping; fail-safe fallback never guesses 'limit' [DI-1])
+- Plan (files): functions/index.js (details:{reason} on 11 throws) · openapi.json (details.reason note) · src/api/firebase-database.js (addCoin → httpsCallable + mapping) · src/utils/errors.js (rate-limited branch) · src/CryptoIdea.jsx (throttle toast) · tests/unit/add-coin-mapping.test.js + add-coin-throttle-toast.test.jsx + errors.test.js · tests/data-layer.test.js (restored 4) + tests/functions-callable.test.js (details asserts) · docs (DATA-FLOW, PRICING stale-fix, API-SECURITY clause, interview.md row, NEXT-STEPS, CLAUDE.md) + authorization-and-tier-limits.svg + diagrams/README
+- Fix-round: 0 / 3 (all 4 reviews clean first pass; design LOW dead-arg folded into the simplifier)
 - Open findings: none
+- Reviews: verify GREEN (unit 1247/1247, build clean/no-names; integration CI-only — no functions emulator in sandbox) · sec SAFE (0 findings — no IDOR, details enum non-sensitive, DI-1 preserved, layer isolation) · api IN-SYNC (details.reason set exact; shared CallableError not over-constrained) · design CONSISTENT (0; reused failToast/.ci-toast) · simplifier 1 cleanup (dead fallback arg) · sweep: all code+doc files hit
 - Branch: claude/b3b-add-coin-client-rewire (off master e3a16e6)
-- Built: no
+- Built: yes (range d508cb3 RED .. docs tip; code aa48675/9e86a2d/53df3b0 + diagram 613567a)
 - Merged: no
-- Agents this item: 2 (architect, consistency-sweep)
+- Agents this item: 11 (architect, consistency-sweep, test-author, functions-builder, client-builder, test-tier-verifier, secure-by-design, api-contract-verifier, design-consistency, simplifier, docs-scribe)
 - Updated: 2026-08-17
 
 ## JOURNAL-POLISH — Journal/thesis type-scale + floating coin header + honest disclaimers (CRYP-105)
