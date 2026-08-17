@@ -759,6 +759,9 @@ export default function CryptoIdea(){
     if(!portfolios.some(p=>p.id===activePortId)){failToast({reason:"missing-target"});return}
     const res=await dbAddCoin(user.uid,activePortId,{id:c.id,symbol:c.symbol,name:c.name,thumb:c.thumb},journal,maxCoinsPerPort);
     if(!res.success){
+      // CRYP-109: the server addCoinGuarded 2s cooldown / 100-per-day cap → a TRANSIENT throttle,
+      // not a plan cap. Honest "too fast" toast; do NOT fire the counter self-heal (cap path only).
+      if(res.reason==="rate-limited"){failToast(res,"You're adding coins too fast — please wait a moment.");return}
       if(res.reason==="limit"){reconcileCounters("You've reached this portfolio's coin limit — upgrade for more.");return}
       failToast(res,"Couldn't add coin. Check your connection.","You've reached this portfolio's coin limit — upgrade for more.");return}
     // DI-5 (G35): de-dup the optimistic append by id so the live watcher's wholesale

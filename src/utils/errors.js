@@ -25,6 +25,10 @@ export function apiErrorMessage(res, fallback, limitMsg) {
     return "That's already in this portfolio.";
   if (reason === "missing-target")
     return "That item no longer exists on the server — resyncing…";
+  if (reason === "rate-limited")
+    // CRYP-109: the addCoinGuarded 2s cooldown / 100-per-day cap — a TRANSIENT throttle, not a
+    // plan cap. Never the misleading connection fallback and never the 'upgrade' line.
+    return "You're adding coins too fast — please wait a moment and try again.";
   if (reason === "invalid-or-denied")
     return "That change couldn't be saved — please check the details and try again.";
   if (reason === "not-found" || code === "not-found")

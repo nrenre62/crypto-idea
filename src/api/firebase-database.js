@@ -21,7 +21,8 @@ import {
   deleteDoc, updateDoc, deleteField, query, orderBy,
   serverTimestamp, writeBatch, increment, onSnapshot, runTransaction
 } from "firebase/firestore";
-import { db } from "./firebase.config.js";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "./firebase.config.js";
 
 
 // ════════════════════════════════════════
@@ -242,43 +243,36 @@ export async function getCoinsMeta(uid, portfolioId) {
   }
 }
 
-// Add a coin to a portfolio (atomically bumps the portfolio's coinCount). An
-// optional `journal` ({ thesis, changeMyMind, status, priceAtAdd, createdAt }) is
-// stored on the coin when the user writes a thesis in the Buy-Journal prompt.
+// Add a coin to a portfolio via the server-owned addCoinGuarded callable (CRYP-108/109):
+// the coin write, the coinCount bump, the DI-1 field clamps, the re-add de-dup and the plan
+// cap all moved SERVER-side (client coin `create` is now `if false` in firestore.rules). The
+// client just forwards { portfolioId, coin, journal? } — never the uid (the server acts on
+// context.auth.uid) and never the tier `limit` (the server re-derives the cap). On failure we
+// map the client HttpsError (code + details.reason) back to the EXISTING { success, code, reason }
+// data-layer contract so the app's honest-toast layer (utils/errors.js) is unchanged.
 export async function addCoin(uid, portfolioId, coinData, journal = null, limit = null) {
-  const coinRef = doc(db, "users", uid, "portfolios", portfolioId, "coins", coinData.id);
-  const portRef = doc(db, "users", uid, "portfolios", portfolioId);
-  const coinDoc = {
-    // DI-1 defense clamps — mirror validCoinData bounds so a stray long field from an
-    // upstream feed can never itself trip a permission-denied (symbol 20 / name 64 / thumb 512).
-    symbol: String(coinData.symbol || "").slice(0, 20),
-    name: String(coinData.name || "").slice(0, 64),
-    thumb: String(coinData.thumb || "").slice(0, 512),
-    addedAt: serverTimestamp(),
-    txCount: 0
-  };
-  if (journal) coinDoc.journal = journal;
+  // server re-derives the cap (CRYP-108); kept for signature compat
+  void uid; void limit;
   try {
-    // DI-3 (G15/G31): a re-add of a coin the server ALREADY has used to take the rules
-    // UPDATE path — inflating coinCount forever (a false "limit" fires before the real cap)
-    // AND clobbering the existing journal/addedAt via set(). Guard it in a transaction: if
-    // the coin already exists, do nothing and report 'already-exists' — never overwrite,
-    // never inflate the counter.
-    const outcome = await runTransaction(db, async (t) => {
-      const snap = await t.get(coinRef);
-      if (snap.exists()) return "already-exists";
-      t.set(coinRef, coinDoc);
-      t.update(portRef, { coinCount: increment(1) });
-      return "ok";
-    });
-    if (outcome === "already-exists")
-      return { success: false, code: "already-exists", reason: "already-exists" };
-    return { success: true };
-  } catch (error) {
-    const res = { success: false, error: error.message, code: error.code };
-    if (error.code === "permission-denied")
-      res.reason = await classifyLimitDenied(portRef, "coinCount", limit);
-    return res;
+    const call = httpsCallable(functions, "addCoinGuarded");
+    const res = await call({ portfolioId, coin: coinData, ...(journal ? { journal } : {}) });
+    return { success: true, coinCount: res.data?.coinCount };
+  } catch (err) {
+    // A client Cloud Functions error prefixes `code` with `functions/…`; strip it back to the
+    // bare Firestore-style code the contract uses.
+    const raw = err.code || "";
+    const code = raw.startsWith("functions/") ? raw.slice("functions/".length) : raw;
+    // Prefer the server's explicit reason. When absent, map on the code — and NEVER guess
+    // 'limit' from a bare failed-precondition/invalid-argument (the DI-1 false-limit invariant):
+    // an unclassified data/precondition failure is 'invalid-or-denied', not a plan cap.
+    let reason = err.details?.reason;
+    if (reason === undefined) {
+      if (code === "already-exists") reason = "already-exists";
+      else if (code === "resource-exhausted") reason = "rate-limited";
+      else if (code === "unauthenticated") reason = undefined; // auth lapse — apiErrorMessage keys off `code`
+      else reason = "invalid-or-denied";
+    }
+    return { success: false, code, reason, error: err.message };
   }
 }
 
