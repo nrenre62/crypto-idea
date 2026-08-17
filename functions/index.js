@@ -1963,27 +1963,36 @@ exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
     addedAt: Date.now(),   // ms, not FieldValue.serverTimestamp() — matches ensureDefaultPortfolio
     txCount: 0,
   };
-  // Optional journal — re-enforce validJournal: clamp the free-text fields ≤2000, coerce status to
-  // the enum (default 'intact'), keep priceAtAdd/createdAt bounded, and drop any unknown key.
+  // Optional journal — re-enforce validJournal: REJECT (never silently truncate) an over-2000-char
+  // free-text prose field, coerce status to the enum (default 'intact'), keep priceAtAdd/createdAt
+  // bounded, and drop any unknown key. The founder-locked spec restores what validJournal did — it
+  // REJECTED an over-length field (the old DI-1 contract), it did not clamp — so a >2000 thesis
+  // surfaces an honest error instead of a lossy truncated save (a DATA-INTEGRITY regression). The
+  // message stays generic; it never echoes the field content.
   if (data.journal != null) {
     const j = data.journal;
     if (typeof j !== "object" || Array.isArray(j)) {
       throw new functions.https.HttpsError("invalid-argument", "The journal is malformed.");
     }
+    const funnelIn = (j.funnel && typeof j.funnel === "object" && !Array.isArray(j.funnel)) ? j.funnel : {};
+    // Reject any over-length prose field (thesis / changeMyMind / funnel.dilution|volume|yield).
+    const tooLong = (v) => typeof v === "string" && v.length > 2000;
+    if (tooLong(j.thesis) || tooLong(j.changeMyMind) ||
+        tooLong(funnelIn.dilution) || tooLong(funnelIn.volume) || tooLong(funnelIn.yield)) {
+      throw new functions.https.HttpsError("invalid-argument", "Your journal note is too long.");
+    }
     const clean = {
-      thesis: String(j.thesis || "").slice(0, 2000),
-      changeMyMind: String(j.changeMyMind || "").slice(0, 2000),
+      thesis: String(j.thesis || ""),
+      changeMyMind: String(j.changeMyMind || ""),
       status: ["intact", "review", "challenged"].includes(j.status) ? j.status : "intact",
       priceAtAdd: (typeof j.priceAtAdd === "number" && Number.isFinite(j.priceAtAdd) && j.priceAtAdd >= 0) ? j.priceAtAdd : 0,
       createdAt: String(j.createdAt || "").slice(0, 40),
     };
-    if (j.funnel && typeof j.funnel === "object" && !Array.isArray(j.funnel)) {
-      const f = {};
-      for (const k of ["dilution", "volume", "yield"]) {
-        if (typeof j.funnel[k] === "string") f[k] = j.funnel[k].slice(0, 2000);
-      }
-      if (Object.keys(f).length) clean.funnel = f;
+    const f = {};
+    for (const k of ["dilution", "volume", "yield"]) {
+      if (typeof funnelIn[k] === "string") f[k] = funnelIn[k];
     }
+    if (Object.keys(f).length) clean.funnel = f;
     coinDoc.journal = clean;
   }
 
