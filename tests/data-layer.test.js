@@ -16,7 +16,7 @@ import { connectFunctionsEmulator, httpsCallable } from "firebase/functions";
 import { registerUser, updateUserSettings } from "../src/api/firebase-auth.js";
 import { chooseFreePlan } from "../src/api/account.js";
 import {
-  getPortfolios, createPortfolio, getCoins, getCoinsMeta,
+  getPortfolios, createPortfolio, getCoins, getCoinsMeta, addCoin,
   addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
   getLearnProgress, saveLearnProgress, watchPortfolios, watchCoins, updatePortfolioName, updateCoinOrder,
 } from "../src/api/firebase-database.js";
@@ -151,20 +151,53 @@ test("CRYP-108: seed coin0/coin1/coin2 via the addCoinGuarded callable (client c
     "the three seed coins exist under the default portfolio");
 });
 
-// MOVED TO PR-2 (client addCoin rewire): the free-tier coin CAP as a client {success:false,reason:'limit'}
-// contract only exists once the client addCoin calls the callable and maps its error; callable-tier cap
-// is covered by functions-callable.test.js "CRYP-108: addCoinGuarded re-derives the cap …" (AC5: free 29→30
-// allowed, 30→refused failed-precondition).
+// ── CRYP-109 (B3 PR-2) · client addCoin → addCoinGuarded, end-to-end reason mapping ──
+// PR-2 rewires src/api/firebase-database.js addCoin from a direct (now rules-denied) coin write
+// to the addCoinGuarded callable, mapping its HttpsError (code + details.reason) back to the
+// {success,code,reason} contract. These restore the client-contract cases the PR-1 MOVED-TO-PR-2
+// stubs deferred, exercised through the REAL client addCoin over the callable. CI-ONLY (the
+// functions emulator can't boot in the authoring sandbox). The RATE-LIMITED case is the clean
+// integration RED anchor — the current transaction-based client never calls the callable's
+// limiter, so a rapid 2nd add can NEVER be 'rate-limited' pre-rewire. (already-exists /
+// missing-target / invalid-or-denied may already pass today via the current denied-transaction
+// classifyLimitDenied fallback — they're restored to pin the post-rewire contract end-to-end.)
+//
+// The 30-coin CAP→'limit' mapping is deliberately NOT re-seeded here: it's unit-covered in
+// tests/unit/add-coin-mapping.test.js (the failed-precondition+details.reason:'limit' → 'limit'
+// case) and the callable-tier cap is functions-callable.test.js AC5 (free 29→30 allowed, 30
+// refused) — seeding 30 coins through the throttled callable would be slow and redundant.
+//
+// Each client add sits BEHIND the callable's 2s add-cooldown (a client can't clear the
+// server-only rateLimits docs), so a test whose add must SUCCEED (or reach a later gate) sleeps
+// past the cooldown first; the rate-limited case deliberately fires two adds back-to-back.
 
-// MOVED TO PR-2 (client addCoin rewire): the reason mapping — an at-cap add → reason:'limit', a missing
-// parent → reason:'missing-target' — is a CLIENT contract; the callable-tier behaviors are covered by
-// functions-callable.test.js "CRYP-108: addCoinGuarded re-derives the cap …" (AC5, cap = failed-precondition)
-// and the new "CRYP-108: addCoinGuarded on a non-existent portfolio → failed-precondition" case.
+test("CRYP-109: client addCoin re-adding an existing coin maps ALREADY_EXISTS → reason:'already-exists'", async () => {
+  await sleep(ADD_COOLDOWN_MS + 250);   // clear any prior add-cooldown for this uid
+  // coin0 was seeded (via the callable) earlier; a client re-add must map to already-exists,
+  // never inflate the counter. (The cooldown gate is BEFORE the existence check — hence the sleep.)
+  const res = await addCoin(uid, "default", { id: "coin0", symbol: "COIN0", name: "Coin coin0" }, null, 30);
+  assert.equal(res.success, false, "a re-add is not a success: " + JSON.stringify(res));
+  assert.equal(res.reason, "already-exists", "a re-add maps to already-exists: " + JSON.stringify(res));
+});
 
-// MOVED TO PR-2 (client addCoin rewire): re-adding an existing coin as reason:'already-exists' (no counter
-// inflation, no journal clobber) is a CLIENT contract; the callable-tier already-exists + no-clobber behavior
-// is covered by functions-callable.test.js "CRYP-108: addCoinGuarded creates exactly one coin (coinCount->1);
-// a repeat is already-exists and never clobbers journal/addedAt" (AC4).
+test("CRYP-109: client addCoin to a NON-existent portfolio maps → reason:'missing-target' (never a fake limit)", async () => {
+  await sleep(ADD_COOLDOWN_MS + 250);
+  const res = await addCoin(uid, "no-such-portfolio", { id: "ghostcoin", symbol: "GHOST", name: "Ghost" }, null, 30);
+  assert.equal(res.success, false);
+  assert.notEqual(res.reason, "limit", "a missing portfolio must NEVER be reported as a plan limit (DI-1)");
+  assert.equal(res.reason, "missing-target", "a missing portfolio maps to missing-target: " + JSON.stringify(res));
+});
+
+test("CRYP-109: two back-to-back client addCoin calls — the 2nd trips the callable's 2s cooldown → reason:'rate-limited'", async () => {
+  await sleep(ADD_COOLDOWN_MS + 250);   // clear any prior add-cooldown so the FIRST add is clean
+  // The first add (a fresh below-cap coin) succeeds; a SECOND immediately after (within the 2s
+  // sliding cooldown) is refused by the callable's guards → the NEW 'rate-limited' client reason.
+  const first = await addCoin(uid, "default", { id: "rl_a", symbol: "RLA", name: "RL A" }, null, 30);
+  assert.ok(first.success, "the first add should succeed: " + JSON.stringify(first));
+  const second = await addCoin(uid, "default", { id: "rl_b", symbol: "RLB", name: "RL B" }, null, 30);
+  assert.equal(second.success, false);
+  assert.equal(second.reason, "rate-limited", "a rapid 2nd add maps the callable's resource-exhausted → rate-limited: " + JSON.stringify(second));
+});
 
 test("API-SECURITY (counter-forge): deleting a tx does NOT decrement txCount client-side; 2nd delete is 'not-found'", async () => {
   // The client can no longer decrement a tier counter (firestore.rules counterNoForge closes a
@@ -330,9 +363,18 @@ test("C-A3: watchCoins surfaces a transaction added after subscribing (txCount b
   } finally { unsub(); }
 });
 
-// MOVED TO PR-2 (client addCoin rewire): the founder's actual bug — an over-2000-char thesis on a
-// portfolio BELOW the cap surfaces as the CLIENT reason:'invalid-or-denied' (never a fake 'limit') —
-// only exists once the client addCoin calls the callable and maps its error. The callable-tier
-// behavior (an over-2000 thesis / changeMyMind / funnel.dilution → invalid-argument, never silently
-// truncated) is covered by functions-callable.test.js "CRYP-108: addCoinGuarded rejects an
-// over-2000-char thesis (invalid-argument), never silently truncating".
+// CRYP-109 (B3 PR-2): the founder's actual bug — an over-2000-char thesis on a portfolio BELOW the
+// cap surfaces as the CLIENT reason:'invalid-or-denied' (NEVER a fake 'limit'). This is the client-
+// contract restoration the PR-1 MOVED-TO-PR-2 stub deferred; the callable-tier rejection (an
+// over-2000 thesis / changeMyMind / funnel.dilution → invalid-argument, never silently truncated) is
+// functions-callable.test.js "CRYP-108: addCoinGuarded rejects an over-2000-char thesis …". CI-ONLY.
+test("CRYP-109: client addCoin with an over-2000-char thesis on a BELOW-cap portfolio → reason:'invalid-or-denied' (never a fake 'limit')", async () => {
+  await sleep(ADD_COOLDOWN_MS + 250);   // past the add-cooldown so we reach the input-validation gate
+  // The default portfolio holds only the seed coins (well under the 30 free cap), so a 'limit' would
+  // be a lie — an over-length thesis is bad DATA, not a plan cap (the DI-1 verify-then-toast fix).
+  const journal = { thesis: "x".repeat(2001), changeMyMind: "y", status: "intact", priceAtAdd: 1, createdAt: "2026-01-01T00:00:00.000Z" };
+  const res = await addCoin(uid, "default", { id: "overthesis", symbol: "OVER", name: "Over" }, journal, 30);
+  assert.equal(res.success, false);
+  assert.notEqual(res.reason, "limit", "an over-length thesis must NEVER surface as a plan limit (DI-1)");
+  assert.equal(res.reason, "invalid-or-denied", "an over-length thesis maps to invalid-or-denied: " + JSON.stringify(res));
+});
