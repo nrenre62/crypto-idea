@@ -104,14 +104,14 @@ is **personal**. Expected baseline (verify against the current code — flag dri
 | Search | queries → the `/api/search` proxy | server cache only | query strings — check they are not logged linked to a uid |
 
 Specifically hunt for: a NEW write path a tab gained, personal data entering any SHARED doc, and user
-text leaving the app — the Research "Ask" AI is offline by design today (`askClaude` throws); if that
+text leaving the app — the Research "Ask" AI is offline by design today (`askAI` throws); if that
 ever changes, user text may only travel through the server-side proxy, never from the client to a
 third party.
 
 ## 5 · Phase VERIFY — kill the false positives
 
 For every candidate finding: reproduce it a second time in isolation; check `ERRORS.md`,
-`DESIGN-PASS.md`, and `GO-LIVE-AUDIT.md` for "known / by design"; classify severity as labels
+`DESIGN.md`, and `GO-LIVE-AUDIT.md` for "known / by design"; classify severity as labels
 (`prio-high` / `prio-med` / `prio-low` — CRYP has no priority field). Survivors are **CONFIRMED**;
 everything else is an **OBSERVATION**.
 

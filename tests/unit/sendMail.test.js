@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { smtpConfigOf, sendMail } from "../../functions/sendMail.js";
 
 /**
- * ADMIN-6 PR2 — the outbound-email seam. Pure `smtpConfigOf` extracts DreamHost SMTP
+ * ADMIN-6 PR2 — the outbound-email seam. Pure `smtpConfigOf` extracts the SMTP
  * settings from config/app.email (or null when incomplete); `sendMail` is a seam that
  * LOGS the link in dev / when no SMTP is configured (returning {logged:true}) and only
  * lazy-requires nodemailer on the real send path — so this suite never needs nodemailer
@@ -13,13 +13,13 @@ describe("sendMail.smtpConfigOf (pure SMTP config extraction)", () => {
   it("returns null when the SMTP config is incomplete", () => {
     expect(smtpConfigOf({})).toBeNull();
     expect(smtpConfigOf(null)).toBeNull();
-    expect(smtpConfigOf({ email: { smtpHost: "mail.dreamhost.com" } })).toBeNull();        // no user/pass/from
+    expect(smtpConfigOf({ email: { smtpHost: "smtp.example.com" } })).toBeNull();        // no user/pass/from
     expect(smtpConfigOf({ email: { smtpHost: "h", smtpUser: "u", smtpPass: "", fromEmail: "f@x.com" } })).toBeNull(); // blank pass
     expect(smtpConfigOf({ email: { smtpHost: "h", smtpUser: "u", smtpPass: "p", fromEmail: "" } })).toBeNull();        // no from
   });
   it("returns a complete config when every required field is present", () => {
-    const c = smtpConfigOf({ email: { smtpHost: "mail.dreamhost.com", smtpUser: "me@cryptoidea.app", smtpPass: "secret", fromEmail: "me@cryptoidea.app", smtpPort: 587 } });
-    expect(c).toMatchObject({ host: "mail.dreamhost.com", user: "me@cryptoidea.app", pass: "secret", from: "me@cryptoidea.app", port: 587 });
+    const c = smtpConfigOf({ email: { smtpHost: "smtp.example.com", smtpUser: "me@cryptoidea.app", smtpPass: "secret", fromEmail: "me@cryptoidea.app", smtpPort: 587 } });
+    expect(c).toMatchObject({ host: "smtp.example.com", user: "me@cryptoidea.app", pass: "secret", from: "me@cryptoidea.app", port: 587 });
   });
   it("defaults the port to 587 and derives `secure` from port 465", () => {
     const c465 = smtpConfigOf({ email: { smtpHost: "h", smtpUser: "u", smtpPass: "p", fromEmail: "f@x.com", smtpPort: 465 } });

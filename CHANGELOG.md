@@ -24,6 +24,44 @@ the go-live checklist plus a polish pass across the app and the docs.
 - Provision the real Firebase project and retire the demo config (CRYP-85).
 - Enable Point-in-Time Recovery + a backup schedule before the first deploy (CRYP-86).
 - Custom domain / hosting path (CRYP-88).
+- Swappable AI provider from the admin panel: the API key, generation/judge model ids, and API base
+  URL are admin config (`config/app.ai`), so the provider or model can be changed by paste-and-save
+  with no code edit. No provider name or model id remains as a bare code literal.
+- SMTP-only email: any email provider works via SMTP (host/port/user/pass/from) configured in admin
+  Settings; the landing signup form emails the site owner over SMTP. The previous hardcoded email-list
+  integrations were removed.
+- Client-side error monitoring + measurement (Sentry browser SDK) on the user and admin React apps,
+  in addition to the existing server-side reporter. Full instrumentation — errors, tracing, and
+  session replay — chosen because this is a public, MIT-licensed research/portfolio project whose goal
+  is keeping the deployed product live and measuring everything. Privacy-safe: `sendDefaultPii:false`,
+  error events are scrubbed of user + request data, replay masks all text / blocks all media, the EU
+  (DE) Sentry region is used, and no source maps are uploaded (source stays private; traces are
+  minified). Lives in `src/observability-client.js`, loaded lazily as its own chunk; the DSN is a
+  browser DSN (publish-only, safe in a public repo). Session replay must be disclosed in the privacy
+  policy before it runs for real users.
+
+### Changed
+- Company-name-free shipped frontend: generalized every font stack to `system-ui, sans-serif` (behind the
+  brand fonts) — removed `-apple-system` / `BlinkMacSystemFont` / `SF Pro Display` / `Helvetica Neue` /
+  `Segoe UI` / `Roboto`; replaced the Apple PWA meta hints with the standard `mobile-web-app-capable` and
+  dropped `apple-touch-icon` (manifest covers install); genericized "Excel on Windows" / "iOS-style"
+  mentions in comments. Functional service integrations (Firebase, PayPal, CoinGecko, Termly, Sentry,
+  React, Google Fonts, opt-in GA) are unchanged. Added the required **hyperlinked** "Data provided by
+  CoinGecko" attribution — the exact API-attribution URL (`/en/api`), not the homepage — on every in-app
+  CoinGecko surface (Portfolio, Search, coin Detail, CoinInfo, Research) via a shared `CoinGeckoCredit`
+  component, plus the landing DCA calculator (CoinGecko API Terms §4.3).
+- Landing page (`index.html`) reworked to the free / open-source (MIT) reality and the burnt-out-investor
+  voice: single **Starter** tier with a **"Usage"** section (real account limits, no billing/pricing UI),
+  every **AI** claim removed (conviction/Pulse described as the deterministic/illustrative features that
+  ship), the two in-page mockups rebuilt to match the real Research coin pop-up (🟢/🟡/🔴/⬛
+  Dev·Founders·Team·Community) and Journal thesis pop-up, **Source-on-GitHub + MIT** footer links, and
+  **CoinGecko** attribution by the DCA calculator (API ToS §4.3). Company names removed from the page's
+  own code/copy (Apple/iPhone/App-Store); the shared metadata loader renamed `site-meta.js` →
+  `site-metadata.js`; dead billing toggle / `paidPlansEnabled` client-hide removed from `landing.js`.
+- Removed swappable-vendor company names from the codebase — function names, identifiers, and config
+  fields are provider-neutral (e.g. the AI client seam and the outbound-email path name a function, not
+  a company). The fixed single-service integrations (PayPal, CoinGecko, Termly, Sentry) keep their
+  names. Documentation genericized to match.
 
 ### Security
 - App Check enforcement in production (CRYP-89).
@@ -31,6 +69,14 @@ the go-live checklist plus a polish pass across the app and the docs.
 
 ### Docs / legal
 - Privacy policy + terms of service finalized (CRYP-87).
+- Basic hand-authored default Privacy Policy + Terms of Service on `privacy.html` / `terms.html` (in
+  place of the "being finalized" placeholder), honest about the real processors (Firebase, PayPal,
+  Sentry incl. session replay, CoinGecko, optional analytics) with bracketed operator/contact/
+  jurisdiction placeholders. A configured Termly document ID still overrides the default.
+- Documentation reorganized into a hub-and-spoke set — one canonical file per subject, cross-linked
+  from a root index. The detailed point-in-time build records (design rounds, security / architecture
+  / admin-panel audits, test and review reports, bug hunts) were consolidated into the canonical docs
+  and this changelog; git preserves the originals.
 
 ---
 
@@ -40,10 +86,13 @@ Everything below is complete but unreleased — the feature areas that make up t
 Epic (newest area first). These are **not** tagged releases.
 
 ### Security, data isolation & hardening
+- Security audits (results folded into the code, the rules, and [SECURITY.md](docs/security/SECURITY.md)):
+  a `secure-by-design` five-area review (2026-06-16) and a multi-agent `vibe-security` audit
+  (2026-06-27, 8 confirmed findings) — every code-fixable finding fixed, tested, and verified.
 - Secure-by-design audit: framework + reusable checklist (CRYP-70).
 - Data-isolation audit — 23 cross-tenant probes, no IDOR (CRYP-71).
 - Hardened Firestore security rules; deny-by-default Storage rules (CRYP-72, CRYP-73).
-- OpenAPI spec (32 ops) + API-security review with 8 fixes; 42Crunch OAS hardening + clean live scan
+- OpenAPI spec (32 ops) + API-security review with 8 fixes; OpenAPI contract hardening + clean live scan
   (CRYP-74, CRYP-75).
 - Client-bundle + git-history secret scan; secret-scanning git hooks + AI-agent guard (CRYP-76, CRYP-77).
 - Spend caps + fail-loud scheduled jobs; deploy-time demo-config guard + Hosting/SW safety

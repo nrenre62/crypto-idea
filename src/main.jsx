@@ -11,6 +11,11 @@ import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import "./styles/app.css"; // app design system (scoped under .ci-app)
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx"; // H8: no white screen on a render throw
+import { initClientSentry } from "./observability-client.js"; // client error reporting + measurement
+
+// Install global error/rejection handlers + tracing early (fire-and-forget; the SDK
+// streams as its own chunk and never blocks first paint). No-op if it can't load.
+initClientSentry();
 
 // Every route is code-split. The initial download is just this tiny entry + React,
 // so the loading shell paints immediately; the heavy app code AND the Firebase SDK
@@ -25,7 +30,7 @@ function Loading() {
   // (not `import { Logo }`) so the deliberately-small entry chunk stays lean. The
   // .ci-app wrapper lets the app.css .ci-logo* styles apply.
   return (
-    <div className="ci-app" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, fontFamily: "system-ui, -apple-system, sans-serif", color: "#1A1A2E" }}>
+    <div className="ci-app" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, fontFamily: "system-ui, sans-serif", color: "#1A1A2E" }}>
       <span className="ci-logo up" role="img" aria-label="CryptoIdea">
         <span className="ci-logo-mark" aria-hidden="true">C</span>
         <span className="ci-logo-word">CryptoIdea</span>

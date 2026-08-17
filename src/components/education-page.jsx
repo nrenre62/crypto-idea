@@ -60,7 +60,7 @@ export default function EduDesign3() {
   ];
 
   return (
-    <div style={{ fontFamily: "-apple-system, 'Helvetica Neue', sans-serif", background: c.bg, color: c.text, minHeight: "100vh" }}>
+    <div style={{ fontFamily: "system-ui, sans-serif", background: c.bg, color: c.text, minHeight: "100vh" }}>
 
       {/* HEADER */}
       <div style={{ padding: "48px 24px 0", maxWidth: 600, margin: "0 auto" }}>

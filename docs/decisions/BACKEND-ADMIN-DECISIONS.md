@@ -1,267 +1,124 @@
-# Backend & Admin — workflow map, gaps & go-live decisions
+# Backend & Admin Model
 
-> **Canonical record of the 2026-06-27 backend/admin deep-dive + founder interview.**
-> Built from a full codebase audit (14-agent read of `functions/index.js`, the `/api` proxy,
-> the admin app, the Settings ↔ `config/app` wiring, the data layer, `firestore.rules`, and the
-> secrets inventory). This doc explains **how everything connects**, lists **every gap found**, and
-> records **the 18 locked decisions**. The sequenced build order lands in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §BL.
-> Where this doc and a stale planning note disagree, **this doc wins** (like PRODUCT-DECISIONS.md does for product).
+How CryptoIdea's Cloud Functions backend, the admin app, and the `config/app` settings doc fit together — the request lifecycle, the admin claim boundary, and the launch/kill-switch controls.
 
----
+Part of [Product Decisions](PRODUCT-DECISIONS.md) — the canonical product/pricing record this backend serves.
 
-## 1. How it all connects (the workflow)
+For the security boundary and rules invariants see [Security](../security/SECURITY.md); for the full billing flow, webhook events, and secrets see [Billing](./BILLING.md). Other canonical records are listed in the [docs index](../INDEX.md).
 
-### 1.1 Request lifecycle: app/landing → `/api` → CoinGecko cache
-Every HTTP call from **both** the React app and the static landing hits **one** Cloud Function:
-`exports.api` (onRequest, `functions/index.js:870`). `firebase.json` rewrites `/api/**` → it (same-origin),
-and it dispatches on the **last path segment**: `/api/prices · /api/search · /api/coinlist · /api/history ·
-/api/config · /api/subscribe` (unknown → 404). All routes are **public/unauthenticated**; the only abuse
-control is a **per-IP in-memory** sliding window (`rateLimited()`, `:765` — 60/min reads, 5/min subscribe)
-+ a honeypot on subscribe. CORS is wildcard (`*`).
+## Request lifecycle: app/landing to the market-data cache
 
-Cost stays **flat regardless of user count** via a single shared Firestore doc **`cache/universe`** (~3,000
-coins) that backs the whole app *and* the landing DCA calculator. `/api/prices` serves from it (refetching
-only stale >5min or long-tail coins); `/api/search` is a pure in-memory scan (no upstream call); per-coin
-history lives in `historyCache/{id}` (30-day TTL). **CDN headers** (coinlist 24h, history 24h, config 60s,
-prices 120s) make thousands of visitors ≈0 function calls — **but only on deployed Hosting**; locally the
-function runs every request, so the flat-cost effect is invisible/unverifiable in dev.
+Every HTTP call from both the React app and the static landing hits one Cloud Function, `exports.api` (an `onRequest` handler in `functions/index.js`). Firebase Hosting rewrites `/api/**` to it (same-origin), and it dispatches on the last path segment: `/api/prices`, `/api/search`, `/api/coinlist`, `/api/history`, `/api/config`, `/api/subscribe` (unknown paths return 404). All routes are public and unauthenticated; abuse control is a per-IP in-memory sliding window (60/min reads, 5/min subscribe) plus a honeypot field on subscribe.
 
-**Frontend callers:** `src/api/coingecko.js` (returns `null` on error, never throws) → `useLivePrices`
-(60s poll), `useCoinSearch` (300ms debounce), `useCoinHistory`. The Research tab derives 7d/30d + sparkline
-from history **client-side** (never calls CoinGecko from the browser). Landing `#dca` loads `/api/coinlist`
-once + `/api/history` per coin (12s timeout + offline fallback).
+Cost stays flat regardless of user count via a single shared Firestore doc, `cache/universe` (~3,000 coins), that backs the whole app and the landing DCA calculator:
 
-**Background freshness (3 pubsub schedulers):** `refreshPrices` (5min, top ~1,250, ≈44k CoinGecko calls/mo
-→ needs a paid plan), `refreshUniverseDaily` (24h, full refresh + prune), `purgeExpiredTrash` (24h).
-⚠️ Cloud Scheduler never fires in the emulator — locally the universe can drift and trash never erases.
+- `/api/prices` serves from the cache, refetching only stale (older than five minutes) or long-tail coins from CoinGecko.
+- `/api/search` is a pure in-memory scan over the cache — no upstream call.
+- Per-coin history lives in `historyCache/{id}` with a 30-day TTL.
 
-### 1.2 Auth & data layer
-Components never touch the Firebase SDK directly — it's all behind `src/api/`. `firebase.config.js` uses the
-real `VITE_FIREBASE_*` config only when `!isDev && apiKey present`, else a throwaway demo config on the
-emulators (Auth 9099 / Firestore 8080 / Functions 5001). `registerUser()` does a **deliberate two-step**
-write (user doc, then a batch creating `portfolios/default` + `increment` counter) because the counter rule
-needs the parent doc to pre-exist. Sensitive ops re-authenticate first. **App Check is initialized
-client-side only when the reCAPTCHA key is set — and the server never verifies the token** (gap #1).
+CDN cache headers (coinlist 24h, history 24h, config 60s, prices 120s) make thousands of visitors cost roughly zero function calls — but only on deployed Hosting. Locally the function runs on every request, so the flat-cost effect is not observable in dev.
 
-**Self-service GDPR callables** (`src/api/account.js`, each acting only on `context.auth.uid` — no IDOR):
-`deleteMyAccount` (30-day *soft* delete; Auth stays enabled so the user can sign back in to restore),
-`restoreMyAccount`, `signOutEverywhere`, `exportMyData`.
+Frontend callers live under `src/api/`: `src/api/coingecko.js` returns `null` on error (never throws), feeding `useLivePrices` (60s poll), `useCoinSearch` (300ms debounce), and `useCoinHistory`. The Research tab derives 7d/30d change and its sparkline from history client-side and never calls CoinGecko from the browser. The landing `#dca` calculator loads `/api/coinlist` once plus `/api/history` per coin, with a 12s timeout and an offline fallback.
 
-### 1.3 Admin app & the claim boundary
-`/admin` is a **separate Vite app** (`admin.html` → `admin-main.jsx`, never in the user bundle). The URL is
-**not** the boundary — the **`{admin:true}` custom claim** is: `admin-main.jsx` force-refreshes the token and
-only proceeds if `claims.admin===true`. The claim now carries a **role** too — **owner**
-(`{admin:true, role:"owner"}`, set only out-of-band by `set-admin.js`) or **manager**
-(`{admin:true, role:"manager"}`, granted by an owner in-panel); `admin:true` alone is the *entry* ticket,
-the role decides what each callable will do. The dashboard is presentation-only; all logic is in
-`useAdminDashboard.js` → 11 thin wrappers in `src/api/admin.js`. **Six tabs:** Overview (`getStats`), Users
-(`listUsers`/`lookupUser`/`setUserTier`/`setPremiumLimits`/`suspendUser`/`adminTrashUser`/`adminSignOutUser`/`deleteUser`
-— **no grant-admin control**), Trash (`restoreUser`/purge), Settings (**owner + step-up re-auth**:
-`getAdminConfig`/`saveConfig`), Audit (`listAudit`), and the **owner-only "Admin access" tab** (a
-read-only **roster** of every admin via `listAdmins` above the email-lookup `setManagerRole` grant/revoke
-flow — ADMIN-SEP). Every callable
-re-verifies the claim server-side through one of four gates in `functions/guards.js`: **`assertAdmin`**
-(read-only: `getStats`/`lookupUser`/`listUsers`/`listAudit`) · **`assertManager`** (day-to-day writes:
-`setUserTier`/`setPremiumLimits`/`suspendUser`/`restoreUser`/`adminTrashUser`/`adminSignOutUser`) ·
-**`assertOwner`** (`deleteUser`, `listAdmins` — the ADMIN-SEP owner roster read; a read, so no step-up)
-· **`assertFreshOwner`** (owner **+** a password re-auth within ~600s:
-`getAdminConfig`/`saveConfig`/`setManagerRole`; toggled by the server flag `config/app.flags.stepUpReauth`,
-default ON). Safety nets: **owner protection by identity** — an owner can never be deleted, trashed,
-demoted or self-deleted, and a *manager* may not act on an owner at all (suspend / sign-out / tier /
-limits / trash / delete all refuse); **`MIN_ADMINS=2`** remains only as a secondary floor. `firestore.rules`
-mirrors this with `isAdminOwner()` — the blanket `users` update/delete allowances are **owner-only**, reads
-stay open to any admin (`npm run test:rules:solo` runs them against an isolated emulator on :8099).
-Suspend/delete block self-target; `writeAudit()` logs admin actions to a server-only `audit` collection.
+Background freshness runs on three pub/sub schedulers: `refreshPrices` (5 min, the hot ~1,250 coins), `refreshUniverseDaily` (24h, full refresh plus prune of delisted coins), and `purgeExpiredTrash` (24h). Cloud Scheduler does not fire in the emulator, so locally the universe can drift and trash never erases.
 
-**Admins are excluded from the Users section (ADMIN-SEP PR1, CRYP-103a, 2026-08-09).** An admin account
-must never read as a normal user, so `listUsers` and `findDuplicateEmails` skip any account with
-`customClaims.admin === true` (keyed off the **claim**, not `role` — a no-role admin has `role === ""`
-and a role filter would leak it back). Admins are therefore absent from the Users list, its count, the
-CSV export and the page-scoped bulk actions. `gatherStats`/`getStats` (via a new `adminUidSet()`
-Auth-enumeration helper) and `countSignupsSince` exclude admins too, so the Overview **Total users** +
-tier counts + `signups24h` + the daily `statsDaily` snapshot exclude them as well; `totalCoins` stays
-unfiltered on purpose (a collection-group count, not a user-count surface). Admins are surfaced instead in
-the owner-only Admin-access **roster** fed by the new `listAdmins` read. A **client backstop** in the
-user-detail panel hides Suspend + Delete→Trash for any admin target (owners AND managers) behind a
-"protected admin account" notice. Rules are **not** touched (the roster lives in custom claims, no
-Firestore backing).
+## Auth and the data layer
 
-**Exactly-two-admin-types hardening is now BUILT (ADMIN-SEP PR2, CRYP-103b, branch `claude/admin-sep-partc`).**
-Part C shipped: **(C-1)** `guards.requireManager` is **no longer an alias of `requireAdmin`** — the
-account-management WRITE surface now requires an explicit `role` of `manager` or `owner`, so a legacy
-`{admin:true}` claim with no/unknown role is **refused** (reason `manager-required` → `permission-denied`);
-the shared READ surface (`requireAdmin`) still admits it, so the panel stays readable. This eliminates the
-silent third "no-role admin gets full manager power" state. **(C-2)** `set-admin.js` hard-caps owners at 2
-via the pure, unit-tested `functions/owner-cap.js` `ownerCapDecision` (a fresh `--role=owner` mint past 2 is
-refused without `--force`). The **seed dropped `legacy@test.com`** — every seeded admin now has an explicit
-role. And the deferred server backing for Part A1 landed: `assertTargetNotAdmin` in
-`setUserTier`/`setPremiumLimits`/`suspendUser` **refuses suspend/tier/limits on ANY admin target** (owner OR
-manager, `failed-precondition`), mirroring the already-refused trash/delete — server-enforced, not just a UI
-hide. No new callable. See [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §ADMIN-SEP.
+Components never touch the Firebase SDK directly — access is behind `src/api/`. `firebase.config.js` uses the real `VITE_FIREBASE_*` web config only when not in dev and an API key is present; otherwise it falls back to a throwaway demo config on the emulators (Auth 9099, Firestore 8080, Functions 5001). `registerUser()` performs a deliberate two-step write (the user doc first, then a batch that creates the default portfolio and an `increment` counter) because the counter rule needs the parent doc to already exist. Sensitive operations re-authenticate first. App Check is initialized client-side when the reCAPTCHA site key is set; callable App Check enforcement is configured platform-side.
 
-### 1.4 Settings → `config/app` → its consumers
-The locked **`config/app`** doc is written **only** by `saveConfig` (owner-gated, step-up re-auth). Rules deny **all** client
-read/write to `/config`. Reads split 3 ways: **(a)** admin pre-fill via `getAdminConfig` (secrets returned as
-boolean **set-flags only** — raw secrets never leave the server); **(b)** server consumers via `getConfig()`
-(5-min cache, invalidated on save); **(c)** the **public `/api/config`** (non-secrets only, CDN 60s). The
-**`keep()` idiom**: re-saving a blank secret field preserves the stored value.
+Self-service GDPR callables live in `src/api/account.js`, each acting only on `context.auth.uid` (no IDOR): `deleteMyAccount` (a 30-day soft delete — the Auth account stays enabled so the user can sign back in to restore), `restoreMyAccount`, `signOutEverywhere`, and `exportMyData`.
 
-| Field | Set where | Read by | Secret | Status |
-|---|---|---|---|---|
-| `coingecko` (key) | Settings | `cgHeaders` → CoinGecko | 🔒 | go-live key (CoinGecko Lite) |
-| `paypal.clientId/secret/webhookId` | Settings | `getPayPalToken`, `verifyPayPalWebhook` | 🔒 | go-live |
-| `paypal` **plan IDs** + `APP_URL` | **`functions/.env` only** | `createSubscription` | env | ⚠️ not in admin UI |
-| `email.apiKey/provider/apiUrl/listId` | Settings | `/api/subscribe` | 🔒 apiKey | go-live (GetResponse) |
-| `email.fromEmail` | Settings | *(none today)* | — | reserved → real once transactional email ships |
-| `plans.{tier}.{price,priceYear,portfolios,coins,transactions}` | Settings | `firestore.rules get()` + `getStats` + `/api/config` | public | live |
-| `plans.{tier}.aiMonthlyCents` | Settings | `/api/config` → Account display | public | shown "coming soon" until metered |
-| `flags.maintenance` | Settings toggle | `/api/config` → maintenance screen | public | live (60s + reload) |
-| `flags.signupsEnabled` | Settings toggle | `/api/config` → hide Register tab | public | ⚠️ client-only → server-enforce |
-| `flags.paidPlansEnabled` | **Plans & Pricing** toggle | `/api/config` + fresh read in `createSubscription` | public | live (CRYP-101) — top-level flag, not `flags.features` |
-| `analytics.{ga4,plausible}` | Settings | `/api/config` → `site-meta.js` | public | Plausible at launch |
-| `legal.{termlyUuid,privacyId,termsId,cookieBanner}` | Settings | `/api/config` → site-meta + privacy/terms.html | public | go-live IDs needed |
-| AI provider key (Anthropic) | **NEW** AI Settings | `researchAsk` proxy (Wave B) | 🔒 | to build (B1) |
+## Admin app and the claim boundary
 
-**Launch-free master toggle (CRYP-101, 2026-08-08).** `flags.paidPlansEnabled` is an admin **Plans &
-Pricing** switch — OFF puts the whole site in free-launch mode (Starter-only, no plan chooser, no new
-subscriptions; server-enforced in `createSubscription`, precedence over the finer `checkout`
-kill-switch). It rides the same `saveConfig` path as every other flag, so its change is **audited via
-the existing `saveConfig` diff** (`config-diff.js` `diffConfig` recursively captures nested `flags.*`)
-— there is **no new audit action or `ACTION_LABELS` entry**. Contract + security rationale:
-[BILLING.md](BILLING.md) §3.6; the plan: [NEXT-STEPS.md](../product/NEXT-STEPS.md) §LAUNCH-FREE.
+`/admin` is a separate Vite app (`admin.html` to `admin-main.jsx`) whose code never ships in the user bundle. The URL is not the security boundary — the `{admin:true}` custom claim is. `admin-main.jsx` force-refreshes the ID token and only proceeds when `claims.admin === true`.
 
-### 1.5 Keys & secrets — where each lives
-The only values in `dist/` are the **public** `VITE_FIREBASE_*` config and the **public** reCAPTCHA site key.
-Every real secret resolves **`config/app` first, then `process.env`**. The first **owner** is bootstrapped
-out-of-band via `functions/scripts/set-admin.js` (`--role=owner|manager`, plus `--revoke`/`--show`/`--force`)
-+ a **service-account JSON (must stay out of git)** — it is the only way an owner claim can ever be set.
-⚠️ Stale doc: NEXT-STEPS §4 / root `.env.example` still recommend `firebase functions:config:set`, **removed
-in functions v7** — a silent no-op at go-live.
+The claim carries a role: **owner** (`{admin:true, role:"owner"}`, mintable only out-of-band by `functions/scripts/set-admin.js`) or **manager** (`{admin:true, role:"manager"}`, granted by an owner from the panel). `admin:true` alone is the entry ticket; the role decides what each callable will do. Exactly two admin types exist — a legacy claim with no or unknown role keeps only the shared read surface and is refused every write.
 
-### 1.6 Planned AI proxy (Wave B) — server built, client seam inert
-`ai-client.js` `askClaude()` throws **only while `AI_PROXY_LIVE` is false** (the flag is `false` today, so the
-client seam is inert and no callable fires); the Pulse is now deterministic-by-construction (severed from AI in
-PR-E3), Ask renders offline summaries, and conviction pills are mock-fed. The server proxy **now exists**: the
-`researchAsk` callable (PR-E2) mounts the PR-E1 foundation and **`functions/validate-output.js` (the fail-closed
-no-names/no-advice guard) is imported and run on every candidate inside `functions/ai-proxy.js`** — the validator
-is wired *inside* the proxy, so raw model prose can never reach users. What remains before a live surface: a real
-Anthropic key + the PR-E2.5 atomic budget reservation, then flipping `AI_PROXY_LIVE` at go-live.
+The dashboard is presentation-only; all logic lives in `useAdminDashboard.js` calling thin wrappers in `src/api/admin.js`. The panel has **five tabs**:
 
----
+- **Overview** — `getStats`, plus the growth, billing/webhook, and system-status cards.
+- **Users** — `listUsers`/`lookupUser`/`setUserTier`/`setPremiumLimits`/`suspendUser`/`restoreUser`/`adminTrashUser`/`adminSignOutUser`/`deleteUser`. This tab has no grant-admin control.
+- **Trash** — `restoreUser` and permanent purge of expired trash.
+- **Settings** — the `config/app` editor (`getAdminConfig`/`saveConfig`), and the owner-only **Admin access** drill-in that reads the admin roster via `listAdmins` and grants/revokes a manager via `setManagerRole`.
+- **Audit** — `listAudit`.
 
-## 2. Gap inventory (27 found, prioritized)
+### Guard-first callables
 
-**🔴 High** — (1) App Check never verified server-side; (2) live AI unbuilt + validator unwired;
-(3) ~~no grant/revoke-admin UI~~ **CLOSED** — `setAdminClaim` is removed; owners grant/revoke
-*manager* via `setManagerRole` in the "Admin access" tab; (4) `lookupUser` drops `tierBeforeFailure` +
-`premiumLimits` (breaks two UI elements); (5) no per-uid rate limit on callables + no createSubscription
-"already paid" guard.
+Every callable re-verifies the claim server-side through one of the gates in `functions/guards.js`, which are pure functions that read the already-decoded `context.auth.token` and return a decision object the caller maps to an `HttpsError`:
 
-**🟡 Medium** — `signupsEnabled` not server-enforced · no admin 2FA · PayPal webhook no event-id de-dup ·
-self-service & billing callables write no audit entry · toggle-save can commit half-typed Settings ·
-`aiMonthlyCents` shown but unmetered · CSP allows `unsafe-inline` · admin hard-delete only (no soft-delete /
-empty-trash) · no admin force-sign-out · webhook uses `serverTimestamp()` (undefined in emulator) ·
-premium custom-limit `0` ignored client-side (diverges from rules).
+- `assertAdmin` (any admin, read-only): `getStats`, `lookupUser`, `listUsers`, `listAudit`, `listWebhookEvents`, `listDailyStats`, `getSystemStatus`, `findDuplicateEmails`.
+- `assertManager` (manager or owner, day-to-day writes): `setUserTier`, `setPremiumLimits`, `suspendUser`, `restoreUser`, `adminTrashUser`, `adminSignOutUser`, `saveUserNote`.
+- `assertOwner` (owner only): `deleteUser`, `viewUserAsAdmin`, `listAdmins`, `captureStatsSnapshot`.
+- `assertFreshOwner` (owner plus a password re-auth within ~600s, toggled by the server flag `config/app.flags.stepUpReauth`): `setManagerRole`.
 
-**🟢 Low** — wildcard CORS on the subscribe write · `email.fromEmail` dead · revenue mis-counts annual
-payers · `getStats` failure renders as a real $0 dashboard · flags propagate only on reload · free-tier
-CoinGecko degrade invisible in-app · admin lists load-once · no admin email-verify tools · stale go-live
-docs · verify secret files git-ignored before adding a remote.
+The admin gate helpers are `async` because `requireMfa` (behind `config/app.flags.requireAdminMfa`, default off) reads the token — every call site must `await`, and a unit test fails the build on any un-awaited gate.
 
----
+Because `requireManager` demands an explicit `manager` or `owner` role, a role-less legacy admin can read the panel but cannot mutate anything. `roleOf` collapses anything that is not exactly `"owner"` or `"manager"` to `""`, so the model fails closed.
 
-## 3. Locked decisions (2026-06-27 interview)
+### Owner protection and admin exclusion
 
-### Launch scope
-- **D1 — Live AI is in v1.** Build the secure proxy + validator + key before launch (not a fast-follow).
-- **D2 — Signups off is enforced server-side.** Build an Auth `beforeCreate` blocking function (Identity Platform).
-- **D3 — Admin 2FA is required for v1.** Identity Platform TOTP enrollment + challenge in the admin app.
+Owner protection is by identity: an owner can never be deleted, trashed, demoted, or self-deleted, and a manager may not act on an owner at all (suspend, sign-out, tier, limits, trash, and delete all refuse). `MIN_ADMINS=2` remains a secondary floor. Server-side, `assertTargetNotAdmin` refuses suspend/tier/limits on any admin target (owner or manager), mirroring the already-refused trash/delete — enforced in code, not only hidden in the UI. `set-admin.js` hard-caps owners at two via the pure `functions/owner-cap.js` (overridable with `--force`).
 
-### Abuse, cost & App Check
-- **D4 — App Check is a hard go-live gate.** Provision reCAPTCHA + add server-side `context.app` checks on
-  sensitive callables and the `/api` proxy. Built once, reused by the AI proxy + addCoin + billing.
-  *(`addCoinGuarded` now wires the `appCheckOk` gate — flag-gated, default OFF, the sole call site — as
-  PR-1, CRYP-108; console App-Check enforcement stays the real go-live gate.)*
-- **D5 — Per-uid limiting + already-paid guard.** A Firestore-backed per-uid cooldown (the shared
-  `consumeDailyBudget`/`checkCooldown` counter in `guards.js`) + an "already on a paid tier" short-circuit
-  in `createSubscription`. (The live-AI ceiling is a monthly $-cap — `aiMonthlyCents` — not a daily count; see PRICING.md §4.)
-- **D6 — PayPal webhook idempotency now.** Store each processed `event.id` and skip duplicates.
+Admins are excluded from the Users section: `listUsers` and `findDuplicateEmails` skip any account whose claim has `admin === true` (keyed off the claim, not the role, so a no-role admin cannot leak back), and `gatherStats`/`getStats` and `countSignupsSince` exclude admins too, so Overview totals, tier counts, `signups24h`, and the daily `statsDaily` snapshot all exclude them. `totalCoins` stays unfiltered (a collection-group count, not a user-count surface). Admins surface only in the owner-only Admin-access roster.
 
-### Admin panel capabilities
-- **D7 — In-panel grant/revoke admin** — **BUILT** as an **owner-only "Admin access" area** calling
-  **`setManagerRole({email, grant})`** (`setAdminClaim` is deleted and now throws). Gated by
-  `assertFreshOwner` (owner role + password re-auth); admin MFA layers on at go-live.
-  *(ADMIN-D3, 2026-07-23: this area was **folded into the Settings tab** as its last drill-in row — no
-  longer a separate top-level tab; the `setManagerRole` + `assertFreshOwner` gate is unchanged.)*
-- **D8 — Admin soft-delete + Empty-trash bulk action** (parity with self-service 30-day trash).
-- **D9 — Dedicated admin "sign out of all devices"** (admin-target `revokeRefreshTokens`).
-- **D10 — Reserve the AI Settings section now** — Anthropic key field (`keep()` idiom) + manual
-  conviction-cache controls (invalidate / force-refresh a coin).
+`firestore.rules` mirrors the write boundary with `isAdminOwner()`: the blanket `users` update/delete allowances are owner-only, while reads stay open to any admin. Suspend/delete block self-target, and `writeAudit()` logs admin actions to a server-only `audit` collection.
 
-### Audit, compliance & CSP
-- **D11 — Audit all sensitive events.** Add `writeAudit` to soft-delete, restore, data-export,
-  sign-out-everywhere, and billing create/cancel (GDPR + forensics).
-- **D12 — Drop `unsafe-inline` from CSP** before launch by moving inline landing/site-meta scripts to
-  external/hashed files.
+## Settings, `config/app`, and its consumers
 
-### Display honesty
-- **D13 — AI allowance line labeled "coming soon"** until the per-uid meter lands (then it flips to a real
-  number). Fix the bug where the "N analyses" line prints raw `aiMonthlyCents`.
-- **D14 — Keep `email.fromEmail`, labeled "reserved / not yet used"** — it becomes real with transactional email.
-- **D15 — Transactional email is in v1** (welcome / verification / billing receipts), in addition to landing capture.
+The locked `config/app` doc is written only by `saveConfig` (owner-gated, behind step-up re-auth or the dedicated Settings-password unlock). Rules deny all client read/write to `/config`. Reads split three ways:
 
-### Go-live provisioning
-- **D16 — CoinGecko Lite (~100k/mo), keep `HOT_PAGES=5`.**
-- **D17 — Claude only (Opus 4.8)** for both prose (Pulse/Ask) and structured (conviction). One key, one
-  provider. **This voids the old Gemini "no-train paid key" trap (#3 in NEXT-STEPS §0)** — there is no Gemini.
-- **D18 — GetResponse** backs both transactional email + landing capture (needs API key + campaignId; confirm
-  the plan tier supports transactional/SMTP). Legal/analytics: **Termly + cookie banner + Plausible**
-  (Plausible needs no CSP change, unlike GA4).
+- Admin pre-fill via `getAdminConfig` — secrets are returned as boolean set-flags only; raw secrets never leave the server.
+- Server consumers via `getConfig()` — a 5-minute cache, invalidated on save.
+- The public `/api/config` endpoint — non-secret values only, CDN-cached ~60s.
 
----
+The `keep()` idiom preserves a stored secret when its Settings field is re-saved blank, so a secret is never wiped by an ordinary save.
 
-## 4. Founder provisioning checklist (no code can supply these)
+| Field | Set where | Read by | Secret |
+|---|---|---|---|
+| `coingecko` key | Settings | CoinGecko request headers | yes |
+| `paypal.clientId/secret/webhookId` | Settings | PayPal token + webhook verify | yes |
+| `paypal` plan IDs + `APP_URL` | `functions/.env` only | `createSubscription` | env |
+| `email.fromEmail/smtpHost/smtpPort/smtpSecure/smtpUser` | Settings | `/api/subscribe` + reset mail (SMTP-only, provider-agnostic) | no |
+| `email.smtpPass` | Settings | transactional + landing-signup mail via an SMTP server | yes |
+| `plans.{tier}.{price,priceYear,portfolios,coins,transactions}` | Settings | `firestore.rules` `get()`, `getStats`, `/api/config` | no |
+| `plans.{tier}.aiMonthlyCents` | Settings | `/api/config` to the Account display | no |
+| `ai.providerKey` | Settings | the AI-research proxy | yes |
+| `ai.monthlyCapCents` | Settings | the app-wide monthly AI-spend cap | no |
+| `flags.maintenance` | Settings toggle | `/api/config` maintenance screen | no |
+| `flags.signupsEnabled` | Settings toggle | `/api/config` (hides Register) + `beforeCreateUser` | no |
+| `flags.paidPlansEnabled` | Plans & Pricing toggle | `/api/config` + fresh read in `createSubscription` | no |
+| `flags.features.*` | Settings toggles | server enforcement + `/api/config` | no |
+| `analytics.{ga4,plausible}` | Settings | `/api/config` to `site-meta.js` | no |
+| `legal.{termlyUuid,privacyId,termsId,cookieBanner}` | Settings | `/api/config` to site-meta + privacy/terms pages | no |
 
-- [ ] **Firebase Blaze plan** + create the real project; enable Email/Password Auth + Firestore.
-- [ ] **Identity Platform** enabled (gates D2 signups-enforce, D3 admin MFA, U13 password policy).
-- [ ] **CoinGecko Lite** key → admin Settings (D16).
-- [ ] **Anthropic API key** (Claude) → AI Settings (D1/D17).
-- [ ] **GetResponse** API key + campaignId + confirm transactional capability → Settings (D15/D18).
-- [ ] **Termly** account + 3 IDs (website UUID, privacy doc, terms doc) → Settings (D18).
-- [ ] **Plausible** domain → Settings (D18).
-- [ ] **reCAPTCHA v3** site key (`VITE_RECAPTCHA_SITE_KEY`) + enable App Check enforcement in console (D4).
-- [ ] **PayPal** live clientId/secret/webhookId → Settings; plan IDs + `APP_URL` → `functions/.env` (the only env-only secrets).
-- [ ] **Service-account JSON** for `set-admin.js` (bootstrap admin #1) — keep out of git.
-- [ ] Register + promote a **second owner** with `set-admin.js --role=owner` (only this script can mint an
-  owner, and owners can't be deleted or demoted); store both owners' creds in a password manager. Extra
-  staff get **manager** from the owner-only "Admin access" tab.
+## Launch and operational controls
 
----
+### Signups gate
 
-## 5. Sequenced build order
+Signups-off is enforced server-side. `exports.beforeCreateUser` (a `functions.auth.user().beforeCreate` blocking function, requiring Identity Platform) refuses account creation when signups are paused. Its verdict is pure and unit-tested in `functions/signup-gate.js`, reads `config/app` fresh rather than through the 5-minute cache, and fails open — an unreadable config allows the signup so a Firestore blip can never silently kill the funnel. The client `/api/config` read that hides the Register tab is a UX layer on top of this hard gate. The Admin SDK is not subject to the blocking function, so seeding and admin-created accounts are unaffected.
 
-Detail + checkboxes live in [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) §BL. Summary:
+### Launch-free master switch
 
-1. **Security foundation (local-buildable):** shared per-uid Firestore limiter + `context.app` gate helper
-   (D4/D5); PayPal webhook idempotency + `serverTimestamp`→`Date.now()` + persist billing cycle (D6, fixes
-   annual revenue); `createSubscription` already-paid guard (D5); audit expansion (D11); quick admin fixes
-   (`lookupUser` returns `tierBeforeFailure`/`premiumLimits`/`emailVerified`; premium-limit-`0` falsy bug;
-   `getStats` distinct error state).
-2. **Admin capabilities:** ✅ owner-only "Admin access" tab → `setManagerRole`, step-up re-auth (D7); admin soft-delete + empty-trash
-   (D8); admin revoke-sessions (D9); reserve AI Settings section (D10).
-3. **AI proxy (Claude-only keystone):** B1 Anthropic key in Settings → B2 `researchAsk` (validateOutput wired
-   fail-closed + per-uid budget + App Check + tier gate) → B3 `addCoinGuarded` (✅ PR-1 built: server callable + rules lockdown + rate-limit + flag-gated App-Check; client rewire = PR-2) → B4 swap `ai-client.js` (flip
-   the "coming soon" label → real meter) → B5 per-coin `convictionCache` + `getConviction` → B6/B8/B7 Pulse /
-   PWA offline copy / tutor. (D1/D10/D13/D17)
-4. **Identity Platform hardening (console + Blaze):** U14 `beforeCreate` enforcing `signupsEnabled` + IP limit
-   + App Check enforcement (D2/D4); U13 server password policy; U15 admin MFA (D3) — layers on top of the
-   already-shipped owner + step-up re-auth gate on D7.
-5. **Transactional email + legal/analytics + CSP:** GetResponse transactional path (D15, makes `fromEmail`
-   real) → Termly + cookie banner + Plausible (D18) → drop `unsafe-inline` (D12).
-6. **Display-honesty + docs cleanup (quick, can run early):** AI "coming soon" label + raw-cents fix (D13);
-   `fromEmail` "reserved" label (D14); fix stale `functions:config:set` docs; confirm `.env`/service-account
-   git-ignored before any remote.
+`flags.paidPlansEnabled` is an admin Plans & Pricing switch. When off, the whole site runs in free-launch mode: Starter-only, no plan chooser, and no new subscriptions — `createSubscription` refuses server-side, read fresh and placed before the finer `checkout` kill-switch so the master switch takes precedence. It rides the same `saveConfig` path as every other flag and is captured by the existing `saveConfig` audit diff, so it adds no new audit action. Contract and rationale live in [Billing](./BILLING.md).
 
-**Minor/optional hardening (not yet decided, low):** lock the `/api/subscribe` CORS to own-origin;
-optional periodic `/api/config` re-poll so maintenance mode evacuates active sessions; in-app "estimated price"
-signal for CoinGecko degrade (moot once Lite is bought, but keeps resilience honest).
+### Per-feature kill-switches
+
+`functions/features.js` declares three kill-switches under `config/app.flags.features`: `marketData` (CoinGecko prices/search/list/history), `checkout` (new subscription checkout), and `aiResearch` (hides the Research → Ask chat now and gates the AI proxy). The declared map is the single source of truth — the admin UI, `/api/config`, and the sanitizer all enumerate from it, so a switch can never be half-wired. A switch is on unless config says exactly `false`, so a missing or unreadable config degrades to a working app. Merge semantics keep a switch the payload does not mention at its stored value, so flipping maintenance during an incident cannot silently re-enable a feature that was just killed.
+
+### Audit and heartbeats
+
+`writeAudit()` appends every admin action and every sensitive self-service/billing event to a server-only `audit` collection (client access denied by rules; written only by the Admin SDK), retained 365 days and swept by a daily purge. Every scheduled job runs through `runJob()`, which stamps `health/jobs` and rethrows so a failed invocation is marked failed. Sentry is functions-only, behind a DSN in Settings, and scrubs uid/email/headers/URL/body from events.
+
+## AI-research proxy (foundation built, client-inert)
+
+The server foundation for AI research exists and is wired, but nothing calls it yet — the client `ai-client.js` seam still throws, so Pulse and Ask render their deterministic summaries and the go-live seam (`AI_PROXY_LIVE`) is `false`.
+
+`exports.researchAsk` is a signed-in-user `onCall` that acts on `context.auth.uid` only (no IDOR). It runs a fail-closed gate order before any call to the AI provider or any spend: auth, question validation (a non-blank string ≤500 chars plus deny-by-default input keys), the `aiResearch` kill-switch on a fresh config read, an AI-provider key present, a per-uid daily budget (via `guards.js`), and the app-wide monthly $-cap. It then derives the server-authoritative safety allowlist from the caller's own coin docs (name and symbol, de-duped, capped at 40) via `functions/ai-context.js`, generates an answer with a generation model, judges it with a separate judge model, meters the real per-model token cost into the server-only `aiBudget/{YYYY-MM}` ledger, and returns `{ answer, fellBack }` — never violating text.
+
+Safety is enforced in code, not by the prompt. `functions/ai-proxy.js` orchestrates a generate → regex prefilter (`functions/validate-output.js`, which blocks names, price targets, advice, allocation, and aggregate scores) → judge loop with an N=2 regeneration cap, and falls closed to an empty answer with `fellBack:true` rather than returning any candidate that fails. The monthly cap is `config/app.ai.monthlyCapCents` (default 5000 = $50/month, not a secret). The AI-spend ledger `aiBudget/{YYYY-MM}` is server-only in `firestore.rules`.
+
+The go-live increment swaps the `ai-client.js` body for a call to `researchAsk` and flips `AI_PROXY_LIVE` in the same change — a live provider round-trip is only proven with a real key at go-live. The client must never call the AI provider directly.
+
+## Keys and secrets
+
+The only values that reach `dist/` are the public `VITE_FIREBASE_*` config and the public reCAPTCHA site key. Every real secret resolves `config/app` first, then `process.env`. The first owner is bootstrapped out-of-band via `functions/scripts/set-admin.js` (`--role=owner|manager`, plus `--revoke`/`--show`/`--force`) with a service-account JSON that must stay out of git — that script is the only way an owner claim is ever set. Keep at least two owners so there is no single point of failure.

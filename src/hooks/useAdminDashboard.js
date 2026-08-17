@@ -156,15 +156,18 @@ export function useAdminDashboard() {
   // PR-E1: aiMonthlyCapCents rides the same `keys` bag (a plain integer, not a secret) so it
   // round-trips through saveConfig → config/app.ai.monthlyCapCents. Default 5000 (= $50) so the
   // number input is controlled from first render, before loadConfig fills it in.
-  const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "", anthropicKey: "", sentryDsn: "", aiMonthlyCapCents: 5000 });
-  // ADMIN-6 PR2: the SMTP fields (smtpHost/smtpPort/smtpSecure/smtpUser/smtpPass) power the
-  // DreamHost transactional send that emails the Settings-password reset link. They ride the
-  // same `email: mail` save path — smtpPass is a secret (blank keeps the saved value, mirrored
-  // by setFlags.smtpPass exactly like the provider apiKey).
-  const [mail, setMail] = useState({ provider: "none", apiKey: "", apiUrl: "", fromEmail: "", listId: "", smtpHost: "", smtpPort: 587, smtpSecure: false, smtpUser: "", smtpPass: "" });
+  // providerKey is the AI provider API key (secret); generationModel/judgeModel/aiBaseUrl are
+  // plain strings so the provider is swappable by paste-and-save. aiMonthlyCapCents is a plain
+  // integer. All ride the same `keys` bag → config/app.ai.*.
+  const [keys, setKeys] = useState({ coingecko: "", paypalClientId: "", paypalSecret: "", paypalWebhookId: "", providerKey: "", generationModel: "", judgeModel: "", aiBaseUrl: "", sentryDsn: "", aiMonthlyCapCents: 5000 });
+  // SMTP-only email (host/port/secure/user/pass/from) — provider-agnostic, no provider name
+  // stored. Powers the transactional send (Settings-password reset link) and the landing-form
+  // signup notification. They ride the `email: mail` save path — smtpPass is a secret (blank
+  // keeps the saved value, mirrored by setFlags.smtpPass).
+  const [mail, setMail] = useState({ fromEmail: "", smtpHost: "", smtpPort: 587, smtpSecure: false, smtpUser: "", smtpPass: "" });
   const [savedMsg, setSavedMsg] = useState("");
   // Which secrets are already saved (so the form shows "saved" without exposing them).
-  const [setFlags, setSetFlags] = useState({ coingecko: false, paypalSecret: false, apiKey: false, smtpPass: false, anthropicKey: false, sentryDsn: false });
+  const [setFlags, setSetFlags] = useState({ coingecko: false, paypalSecret: false, smtpPass: false, providerKey: false, sentryDsn: false });
   const [cfgAt, setCfgAt] = useState(null);
   // Public app controls (maintenance mode, signups on/off) + the ADMIN-2 per-feature
   // kill-switches. `features` lives INSIDE controls because every saveConfig call sends
@@ -211,12 +214,12 @@ export function useAdminDashboard() {
     try {
       const d = await withUnlock(() => getAdminConfig());
       if (!d || d === CANCELLED) return;
-      setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "", anthropicKey: "", sentryDsn: "", aiMonthlyCapCents: d.ai?.monthlyCapCents ?? 5000 });
-      setMail({ provider: d.email?.provider || "none", apiKey: "", apiUrl: d.email?.apiUrl || "", fromEmail: d.email?.fromEmail || "", listId: d.email?.listId || "",
-        // ADMIN-6 PR2: DreamHost SMTP for the reset email. smtpPass is a secret — never
-        // returned, so it stays blank; setFlags.smtpPass below carries the "saved" flag.
+      setKeys({ coingecko: "", paypalClientId: d.paypal?.clientId || "", paypalSecret: "", paypalWebhookId: d.paypal?.webhookId || "", providerKey: "", generationModel: d.ai?.generationModel || "", judgeModel: d.ai?.judgeModel || "", aiBaseUrl: d.ai?.baseUrl || "", sentryDsn: "", aiMonthlyCapCents: d.ai?.monthlyCapCents ?? 5000 });
+      setMail({ fromEmail: d.email?.fromEmail || "",
+        // SMTP-only: smtpPass is a secret — never returned, so it stays blank; setFlags.smtpPass
+        // below carries the "saved" flag.
         smtpHost: d.email?.smtpHost || "", smtpPort: (d.email && d.email.smtpPort != null) ? d.email.smtpPort : 587, smtpSecure: !!(d.email && d.email.smtpSecure), smtpUser: d.email?.smtpUser || "", smtpPass: "" });
-      setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), apiKey: !!(d.email && d.email.apiKeySet), smtpPass: !!(d.email && d.email.smtpPassSet), anthropicKey: !!(d.ai && d.ai.anthropicKeySet), sentryDsn: !!(d.sentry && d.sentry.dsnSet) });
+      setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), smtpPass: !!(d.email && d.email.smtpPassSet), providerKey: !!(d.ai && d.ai.providerKeySet), sentryDsn: !!(d.sentry && d.sentry.dsnSet) });
       const ff = (d.flags && d.flags.features) || {};
       setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false),
         // CRYP-101: ON unless the server says exactly false — a missing key reads as

@@ -437,14 +437,14 @@ describe("admin-dashboard", () => {
     expect(deleteUser).toHaveBeenCalledWith("t2");
   });
 
-  it("BL-2d: Settings shows the reserved AI card with the Anthropic key field", async () => {
+  it("BL-2d: Settings shows the reserved AI card with the AI provider key field", async () => {
     render(<AdminDashboard />);
     fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
     fireEvent.click(screen.getByText("AI", { selector: ".sr-label" }));   // ADMIN-D: drill into the AI detail
     // ADMIN-UI-4: the drill-in title is now the DScreen header ("AI"); the "reserved"
     // qualifier moved into the body copy (the duplicate in-card title was dropped).
     expect(screen.getByText(/Reserved.*live AI ships at go-live/)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/sk-ant/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Provider API key")).toBeInTheDocument();
     // the future cache controls are visibly reserved, not clickable
     expect(screen.getByRole("button", { name: /Invalidate conviction cache/ })).toBeDisabled();
   });
@@ -985,7 +985,7 @@ describe("admin-dashboard", () => {
   /* ── CRYP-93 · the AI-research chat kill-switch MOVES to the AI settings screen ──
      App Controls is for the two incident switches (market data, checkout) that gate
      something live TODAY. The AI-research chat toggle gates a Wave-B feature, so it
-     belongs in the reserved AI settings screen next to the Anthropic key — not in the
+     belongs in the reserved AI settings screen next to the provider key — not in the
      incident row where it reads as a live control. */
   it("CRYP-93: the AI research chat toggle lives on the AI settings screen, not App Controls", async () => {
     render(<AdminDashboard />);

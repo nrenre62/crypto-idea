@@ -34,7 +34,7 @@ The goal is simple: **make better decisions and protect your capital.** Understa
 avoid the ones that were never going to make it, and hold the rest with conviction.
 
 <div align="center">
-<img src="docs/screenshots/research-card.png" alt="In-app research card: conviction signals and your saved thesis for a holding" width="440" />
+<img src="docs/screenshots/research-card.png" alt="In-app research card: the four conviction signals — Dev, Founders, Team, Community — graded on each holding" width="440" />
 </div>
 
 ## What you can do
@@ -166,15 +166,17 @@ site or run your own copy. Full statement: [LEGAL.md](docs/product/LEGAL.md).
 
 | Area | Doc |
 |------|-----|
+| Start here | [docs/INDEX.md](docs/INDEX.md) · [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Architecture & codebase map | [ARCHITECTURE.md](docs/decisions/ARCHITECTURE.md) · [src/ARCHITECTURE.md](src/ARCHITECTURE.md) · [CODEBASE-MAP.md](docs/product/CODEBASE-MAP.md) |
 | API surface & keys | [API-SECURITY.md](docs/security/API-SECURITY.md) · [openapi.json](openapi.json) |
-| Security & data isolation | [SECURITY-AUDIT.md](docs/security/SECURITY-AUDIT.md) · [ISOLATION.md](docs/security/ISOLATION.md) |
+| Security & data isolation | [SECURITY.md](docs/security/SECURITY.md) · [ISOLATION.md](docs/security/ISOLATION.md) |
 | Billing (dormant) | [BILLING.md](docs/decisions/BILLING.md) · [PRICING.md](docs/decisions/PRICING.md) |
 | AI status & roadmap | [AI.md](docs/product/AI.md) |
 | DCA calculator | [CALCULATOR.md](docs/product/CALCULATOR.md) |
 | Legal / privacy / disclaimer | [LEGAL.md](docs/product/LEGAL.md) |
 | Going live | [GO-LIVE-AUDIT.md](docs/product/GO-LIVE-AUDIT.md) |
-| Design system | [DESIGN-PASS.md](docs/design/DESIGN-PASS.md) · [RESPONSIVE-DESIGN.md](docs/design/RESPONSIVE-DESIGN.md) |
+| Design system | [DESIGN.md](docs/design/DESIGN.md) · [RESPONSIVE-DESIGN.md](docs/design/RESPONSIVE-DESIGN.md) |
+| Testing | [TESTING.md](docs/testing/TESTING.md) · [ERRORS.md](docs/testing/ERRORS.md) |
 
 ## License
 

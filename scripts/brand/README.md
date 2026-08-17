@@ -2,7 +2,8 @@
 
 `generate-logo-assets.js` regenerates every file in [`public/brand/`](../../public/brand/)
 from one source-of-truth turtle design (shapes, colours, animation live in this
-script). Re-run it and commit the output whenever the mark changes.
+script). Re-run it and commit the output whenever the mark changes. See also the
+[project README](../../README.md).
 
 ## Regenerate
 
@@ -24,7 +25,7 @@ Vendored so the raster renders are reproducible and font-faithful:
 
 - **Fraunces** (the "C") and **Hanken Grotesk** (the wordmark), both from Google
   Fonts under the **SIL Open Font License 1.1** — redistribution and embedding
-  are permitted. The full license: <https://openfontlicense.org>.
+  are permitted (the [full license text](https://openfontlicense.org) is published online).
 
 These fonts are used only to bake the raster assets; the app itself loads the
 same families the normal way.

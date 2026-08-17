@@ -1,10 +1,10 @@
 # PR Workflow — how CryptoIdea writes pull requests
 
 **Canonical standard for every pull request in this repo** — hand-written or produced by the
-Agent Factory. Distilled from the founder's research note *"PR Explained"* (Aug 2026) and adapted
+Agent Factory. Distilled from the founder's research note *"PR Explained"* and adapted
 to this repo's real conventions (Jira project **CRYP**, `claude/…` feature branches, the
 server-side CI in `.github/workflows/ci.yml`). Sibling to [`AGILE.md`](AGILE.md) and
-[`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md).
+[`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md); see also the [docs hub](../INDEX.md).
 
 > **North star.** A PR is a reviewable proposal to merge one branch into `master`, and its whole
 > point is the reviewer's experience. Make each PR **small, single-purpose, and self-explanatory**
@@ -16,7 +16,7 @@ server-side CI in `.github/workflows/ci.yml`). Sibling to [`AGILE.md`](AGILE.md)
 open a PR that fills the template and links the ticket → self-review the diff → CI green → **squash-
 merge → delete branch.** Keep it under **~200 changed lines**; split if it grows.
 
-**Every planning session opens a NEW PR (founder rule, 2026-08-08).** A new plan → a fresh branch off
+**Every planning session opens a NEW PR (founder rule).** A new plan → a fresh branch off
 the latest `master` → a **new** PR. **Never** push to `master`. **Never** push to, reuse, or
 force-push/rewrite an **old** PR (merged or closed) or its branch — a merged/closed PR is finished.
 Follow-up or corrective work restarts the branch from the latest `master` and opens a **new** PR.
@@ -28,7 +28,7 @@ Follow-up or corrective work restarts the branch from the latest `master` and op
   deletes it and it never appears in `master`'s history. **The PR title is what survives**, so put
   the discipline there, not in the branch name.
 - Never commit straight to `master`.
-- **One plan = one fresh PR (founder rule, 2026-08-08).** Every planning session branches anew off the
+- **One plan = one fresh PR (founder rule).** Every planning session branches anew off the
   latest `master` and opens a **new** PR. Never push to, reuse, or rewrite/force-push an **old**
   (merged or closed) PR or its branch — that history is finished. Follow-up work is a *new* branch and a
   *new* PR restarted from the latest `master` (this is why the branch name barely matters: each plan
@@ -128,7 +128,7 @@ These are set in the GitHub web UI (no API path from the agent environment):
 ## 11. How the Agent Factory applies this
 
 The factory ([`AGENT-FACTORY.md`](AGENT-FACTORY.md)) **opens a PR per component by default** at gate
-**G3** (founder standing decision, 2026-08-06 — this supersedes the old "no PR unless asked"). The
+**G3** (founder standing decision — this supersedes the old "no PR unless asked"). The
 flow: `integrator` commits with a Conventional-Commit message + the `Co-Authored-By` trailer and
 pushes to the `claude/…` branch (step 16); at **G3** the orchestrator **opens the PR** — title per §2,
 body filling the template per §3, the CRYP key + `Closes #` per §7 — presents the PR link + diff +

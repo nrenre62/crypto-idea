@@ -1,4 +1,8 @@
 import React from "react";
+// A dependency-free leaf reporter (it lazy-loads the heavy SDK itself), so importing
+// it here doesn't violate this boundary's "don't depend on anything that could also
+// be broken" rule — it pulls in no app context, hooks, or design system.
+import { initClientSentry, captureClientError } from "../observability-client.js";
 
 // H8 (GO-LIVE-AUDIT): without this, a render throw anywhere below the boundary gives the
 // user a blank white page and no signal reaches us. This catches it, shows a recoverable
@@ -20,16 +24,20 @@ export class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    // Console for now; a production error sink (Sentry) is functions-side + a deploy-time
-    // decision (GO-LIVE-AUDIT). The point is that it is never silently swallowed.
+    // Never silently swallowed.
     // eslint-disable-next-line no-console
     console.error("Unhandled render error:", error, info);
+    // Report to Sentry. initClientSentry() ensures the SDK is loaded even if the crash
+    // happened before the entry's init resolved. Fire-and-forget; never throws.
+    Promise.resolve(initClientSentry())
+      .then(() => captureClientError(error, "react:render"))
+      .catch(() => {});
   }
 
   render() {
     if (!this.state.hasError) return this.props.children;
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, textAlign: "center", fontFamily: "system-ui, -apple-system, sans-serif", background: "#F6F5F0", color: "#1A1A2E" }}>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, textAlign: "center", fontFamily: "system-ui, sans-serif", background: "#F6F5F0", color: "#1A1A2E" }}>
         <div style={{ fontSize: 20, fontWeight: 700 }}>Something went wrong</div>
         <div style={{ fontSize: 14, color: "#6b6b6b", maxWidth: 420, lineHeight: 1.5 }}>
           The app hit an unexpected error. Your data is safe — reloading usually fixes it.

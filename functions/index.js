@@ -70,13 +70,13 @@ const statsDaily = require("./stats-daily.js");
 const featureFlags = require("./features.js");
 const observability = require("./observability.js");
 // Plan B PR-E2: Wave-B AI research proxy — the pure token-cost / app-wide monthly $-budget
-// ledger, the holdings→prompt safety-allowlist helper, the seamed Anthropic request/response
+// ledger, the holdings→prompt safety-allowlist helper, the seamed provider request/response
 // shaping, and the fail-closed generate→validate→judge orchestrator (which runs the REAL
 // validate-output.js naming/advice/price wall on every candidate before any text can reach
 // the client). Used only by exports.researchAsk.
 const aiCost = require("./ai-cost.js");
 const { holdingsContext } = require("./ai-context.js");
-const { buildMessagesRequest, parseMessage, callAnthropic } = require("./ai-anthropic.js");
+const { buildMessagesRequest, parseMessage, callProvider } = require("./ai-provider.js");
 const { runResearchAsk } = require("./ai-proxy.js");
 // ADMIN-0: the pure signups decision behind the Auth beforeCreate blocking function.
 const signupGate = require("./signup-gate.js");
@@ -504,24 +504,6 @@ function mergePlans(saved) {
     };
   }
   return out;
-}
-
-// SSRF guard: only allow fetching an EXTERNAL https URL (used for the admin-set
-// email-provider API URL). Rejects non-https, IP literals, localhost, and
-// internal/metadata hostnames so a misconfigured/compromised admin can't point
-// the server at the cloud metadata service or an internal address. Returns the
-// parsed URL's origin, or null if unsafe.
-function safeProviderOrigin(raw) {
-  let u;
-  try { u = new URL(String(raw || "")); } catch (e) { return null; }
-  if (u.protocol !== "https:") return null;
-  const host = u.hostname.toLowerCase();
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return null;        // IPv4 literal (incl. 169.254.169.254)
-  if (host.includes(":") || host.startsWith("[")) return null;  // IPv6 literal
-  if (host === "localhost" || host.endsWith(".localhost")) return null;
-  if (host.endsWith(".internal") || host.endsWith(".local")) return null;
-  if (host === "metadata") return null;
-  return u.origin;
 }
 
 async function getPayPalToken() {
@@ -1768,16 +1750,17 @@ exports.exportMyData = functions.https.onCall(async (data, context) => {
 });
 
 // ─── Plan B PR-E2: Wave-B AI research proxy (signed-in user) ───
-// A signed-in user asks about THEIR OWN book. The callable generates via Sonnet 5, judges
-// via Haiku 4.5 (through the fail-closed functions/ai-proxy.js orchestrator, which runs the
+// A signed-in user asks about THEIR OWN book. The callable generates via the configured
+// generation model and judges via the configured judge model (through the fail-closed
+// functions/ai-proxy.js orchestrator, which runs the
 // REAL functions/validate-output.js naming/advice/price wall on every candidate BEFORE any
 // text can reach the client), meters the ACTUAL token cost into the app-wide
 // aiBudget/{YYYY-MM} ledger, and returns { answer, fellBack } — NEVER violating text.
 //
-// FAIL-CLOSED gate order — each refuses BEFORE any Anthropic call / any spend / any daily-
+// FAIL-CLOSED gate order — each refuses BEFORE any provider call / any spend / any daily-
 // budget touch:
 //   1 auth → 2 question validation (non-blank string, ≤500) + deny-by-default keys →
-//   3 aiResearch kill-switch (FRESH config, not the 60s cache) → 4 anthropicKey present →
+//   3 aiResearch kill-switch (FRESH config, not the 60s cache) → 4 provider key + models present →
 //   5 per-uid daily budget → 6 app-wide monthly $-cap (fail-closed) → 7 generate + meter.
 // Acts on context.auth.uid only — NEVER a body uid (no IDOR). Request shape is { question }.
 exports.researchAsk = functions.https.onCall(async (data, context) => {
@@ -1799,10 +1782,15 @@ exports.researchAsk = functions.https.onCall(async (data, context) => {
   if (!featureFlags.featureEnabled(cfg, "aiResearch")) {
     throw new functions.https.HttpsError("failed-precondition", "AI research is turned off right now.");
   }
-  // 4) An Anthropic key must be configured or there is nothing to generate with. Never
-  // logged or returned — it is header-only inside ai-anthropic.js.
-  const anthropicKey = (cfg.ai && cfg.ai.anthropicKey) || process.env.ANTHROPIC_KEY || "";
-  if (!anthropicKey) {
+  // 4) A provider API key AND both model ids (generation + judge) must be configured or there
+  // is nothing to generate with. The key is never logged or returned — it is header-only inside
+  // ai-provider.js. The model ids + endpoint come from admin config so the provider is swappable
+  // from the panel with no code edit.
+  const providerKey = (cfg.ai && cfg.ai.providerKey) || process.env.AI_PROVIDER_KEY || "";
+  const genModel = (cfg.ai && cfg.ai.generationModel) || "";
+  const judgeModel = (cfg.ai && cfg.ai.judgeModel) || "";
+  const providerBase = (cfg.ai && cfg.ai.baseUrl) || process.env.AI_PROVIDER_BASE || "";
+  if (!providerKey || !genModel || !judgeModel) {
     throw new functions.https.HttpsError("failed-precondition", "AI research is not configured yet.");
   }
   // 5) Per-uid daily budget (reuse guards.js) — bounds a scripted loop. Consumed only past
@@ -1811,7 +1799,7 @@ exports.researchAsk = functions.https.onCall(async (data, context) => {
   if (!budget.allowed) throw new functions.https.HttpsError("resource-exhausted", "You've reached today's research limit — please try again tomorrow.");
   // 6) App-wide monthly $-cap, FAIL-CLOSED — atomic reserve-then-settle (PR-E2.5 / CRYP-107).
   // reserveMonthCents holds the worst-case per-request ESTIMATE (reservationMaxCents = 12¢:
-  // (MAX_REGENS+1) attempts × one Sonnet gen + one Haiku judge each) in ONE transaction, so N
+  // (MAX_REGENS+1) attempts × one generation + one judge call each) in ONE transaction, so N
   // concurrent requests can no longer all read spent<cap and all generate before any charge —
   // the second racer sees the first's reserve and is denied. It DENIES (reserving nothing) when
   // current+estimate would exceed the cap, so a call whose remaining headroom is smaller than the
@@ -1868,21 +1856,21 @@ exports.researchAsk = functions.https.onCall(async (data, context) => {
 
     // Self-metering closures. runResearchAsk returns a FLAT, untagged usage list — the caller
     // cannot tell which model produced which entry — so the closures charge as they go, each at
-    // the correct per-model rate (Sonnet 5 generation, Haiku 4.5 judge). The generation model
-    // MUST NOT contain "haiku" and the judge model MUST contain "haiku" (the founder-locked
-    // pair, and the stub routes by /haiku/i.test(body.model)).
+    // the correct per-model rate (generation vs the cheaper judge). Both the model ids and the
+    // endpoint come from admin config (genModel / judgeModel / providerBase), so the provider is
+    // swappable from the panel.
     const callModel = async () => {
-      const body = buildMessagesRequest({ system: SYS, userMsg: q, maxTokens: 1024, model: "claude-sonnet-5" });
-      const json = await callAnthropic({ apiKey: anthropicKey, body, fetchImpl: fetch });
+      const body = buildMessagesRequest({ system: SYS, userMsg: q, maxTokens: 1024, model: genModel });
+      const json = await callProvider({ apiKey: providerKey, body, fetchImpl: fetch, base: providerBase });
       const p = parseMessage(json);
-      metered.push(aiCost.costCents(p.usage, aiCost.SONNET5_RATES));
+      metered.push(aiCost.costCents(p.usage, aiCost.GEN_RATES));
       return { text: p.text, usage: p.usage, stopReason: p.stopReason };
     };
     const judge = async (text) => {
-      const body = buildMessagesRequest({ system: JUDGE_SYS, userMsg: text, maxTokens: 16, model: "claude-haiku-4-5" });
-      const json = await callAnthropic({ apiKey: anthropicKey, body, fetchImpl: fetch });
+      const body = buildMessagesRequest({ system: JUDGE_SYS, userMsg: text, maxTokens: 16, model: judgeModel });
+      const json = await callProvider({ apiKey: providerKey, body, fetchImpl: fetch, base: providerBase });
       const p = parseMessage(json);
-      metered.push(aiCost.costCents(p.usage, aiCost.HAIKU45_RATES));
+      metered.push(aiCost.costCents(p.usage, aiCost.JUDGE_RATES));
       return { safe: /^\s*SAFE\s*$/i.test(p.text || ""), usage: p.usage };
     };
 
@@ -2435,8 +2423,9 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
   return {
     coingeckoSet: !!cfg.coingecko,
     paypal: { clientId: pp.clientId || "", secretSet: !!pp.secret, webhookId: pp.webhookId || "" },
-    // ADMIN-6 PR2: SMTP settings pre-fill the form; smtpPass returns as a boolean set-flag ONLY.
-    email: { provider: em.provider || "none", apiKeySet: !!em.apiKey, apiUrl: em.apiUrl || "", fromEmail: em.fromEmail || "", listId: em.listId || "", smtpHost: em.smtpHost || "", smtpPort: em.smtpPort || 587, smtpSecure: em.smtpSecure === true, smtpUser: em.smtpUser || "", smtpPassSet: !!em.smtpPass },
+    // SMTP-only email — any provider works via SMTP (host/user/pass/from), none hardcoded.
+    // Settings pre-fill the form; smtpPass returns as a boolean set-flag ONLY.
+    email: { fromEmail: em.fromEmail || "", smtpHost: em.smtpHost || "", smtpPort: em.smtpPort || 587, smtpSecure: em.smtpSecure === true, smtpUser: em.smtpUser || "", smtpPassSet: !!em.smtpPass },
     // ADMIN-0: requireAdminMfa is OFF unless config says exactly true — nothing can
     // satisfy the gate until Identity Platform MFA is enabled, so an absent flag
     // must not read as "on".
@@ -2447,12 +2436,16 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     sentry: { dsnSet: !!observability.dsnOf(cfg) },
     analytics: { ga4: an.ga4 || "", plausible: an.plausible || "" },
     legal: { termlyUuid: lg.termlyUuid || "", termlyPrivacyId: lg.termlyPrivacyId || "", termlyTermsId: lg.termlyTermsId || "", cookieBanner: !!lg.cookieBanner },
-    // BL-2d (D10): the reserved AI section — the key itself never leaves the server.
-    // PR-E1: monthlyCapCents (the app-wide Wave-B AI $-cap) is operational config, NOT a
-    // secret, so it round-trips as a FULL NUMBER the Settings form can show/edit; default
-    // 5000 (= $50) when unset. The Anthropic key stays a boolean set-flag beside it.
+    // BL-2d (D10): the reserved AI section — the provider key itself never leaves the server
+    // (a boolean set-flag only). The model ids + endpoint are operational config (NOT secrets),
+    // so they round-trip as plain strings the Settings form shows/edits — this is what makes the
+    // provider swappable by paste-and-save. monthlyCapCents (the app-wide AI $-cap) likewise
+    // round-trips as a FULL NUMBER; default 5000 (= $50) when unset.
     ai: {
-      anthropicKeySet: !!(cfg.ai && cfg.ai.anthropicKey),
+      providerKeySet: !!(cfg.ai && cfg.ai.providerKey),
+      generationModel: (cfg.ai && cfg.ai.generationModel) || "",
+      judgeModel: (cfg.ai && cfg.ai.judgeModel) || "",
+      baseUrl: (cfg.ai && cfg.ai.baseUrl) || "",
       monthlyCapCents: (cfg.ai && Number.isFinite(cfg.ai.monthlyCapCents)) ? cfg.ai.monthlyCapCents : 5000,
     },
     // ADMIN-6: whether a Settings password is set (drives set-vs-change UI). The
@@ -2523,14 +2516,11 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
       webhookId: String(k.paypalWebhookId || ""),
     },
     email: {
-      provider: String(m.provider || "none"),
-      apiKey: keep(m.apiKey, exEm.apiKey),
-      apiUrl: String(m.apiUrl || ""),
       fromEmail: String(m.fromEmail || ""),
-      listId: String(m.listId || ""),
-      // ADMIN-6 PR2: DreamHost SMTP for the emailed Settings-password reset. smtpPass is
-      // a secret — keep()-guarded (blank keeps the saved value; never echoed to a client;
-      // registered as a SECRET_PATH in config-diff.js so its value never reaches the log).
+      // SMTP-only, provider-agnostic — any email provider works via these SMTP fields; no
+      // provider name is stored. smtpPass is a secret — keep()-guarded (blank keeps the saved
+      // value; never echoed to a client; registered as a SECRET_PATH in config-diff.js so its
+      // value never reaches the log).
       smtpHost: String(m.smtpHost || ""),
       // Clamp+round to a valid TCP port so the stored value honors openapi's 1..65535
       // integer bound (api-contract #2); a blank/NaN/out-of-range value falls back to 587.
@@ -2541,16 +2531,17 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
     },
     flags,
     plans: mergePlans((data && data.plans) || existing.plans),
-    // BL-2d (D10): Anthropic key for the Wave-B AI proxy — same keep() idiom as the
-    // other secrets (a blank field keeps the saved value; the key is never echoed back).
-    // PR-E1: monthlyCapCents is the app-wide AI $-cap — NOT a secret (it round-trips as a
-    // full number), so it is NOT keep()-guarded and NOT in SECRET_PATHS. But it follows
-    // the same KEEP-on-OMIT rule as flags.requireAdminMfa/paidPlansEnabled: the instant
-    // maintenance/signups toggles post WITHOUT `keys`, so an omitted cap must preserve the
-    // stored ceiling, not silently reset it. Clamp to a non-negative integer; default 5000
-    // (= $50) when never set.
+    // BL-2d (D10): the AI provider key — same keep() idiom as the other secrets (a blank
+    // field keeps the saved value; the key is never echoed back). The model ids + endpoint are
+    // plain operational config (NOT secrets), so the provider can be swapped by paste-and-save.
+    // They, and monthlyCapCents (the app-wide AI $-cap), follow the same KEEP-on-OMIT rule as
+    // flags.requireAdminMfa/paidPlansEnabled: the instant maintenance/signups toggles post
+    // WITHOUT `keys`, so an omitted field must preserve the stored value, not silently reset it.
     ai: {
-      anthropicKey: keep(k.anthropicKey, (existing.ai || {}).anthropicKey),
+      providerKey: keep(k.providerKey, (existing.ai || {}).providerKey),
+      generationModel: k.generationModel !== undefined ? String(k.generationModel) : ((existing.ai || {}).generationModel || ""),
+      judgeModel: k.judgeModel !== undefined ? String(k.judgeModel) : ((existing.ai || {}).judgeModel || ""),
+      baseUrl: k.aiBaseUrl !== undefined ? String(k.aiBaseUrl) : ((existing.ai || {}).baseUrl || ""),
       monthlyCapCents: clampMonthlyCapCents(k.aiMonthlyCapCents, (existing.ai || {}).monthlyCapCents),
     },
     // ADMIN-2: the Sentry DSN — same keep() idiom as the secrets, so re-saving the
@@ -3382,8 +3373,9 @@ exports.api = functions
       // while staying under the general limit. Defense-in-depth alongside the
       // honeypot below; App Check / reCAPTCHA is the deploy-time complement.
       if (rateLimited(req, _rlSub, SUBSCRIBE_LIMIT)) { res.status(429).json({ error: "Too many requests — please slow down." }); return; }
-      // Public email capture from the landing form → forward to the configured
-      // email provider (ActiveCampaign / GetResponse). Key stays server-side.
+      // Public email capture from the landing form → emailed to the site owner over SMTP.
+      // Provider-agnostic: any email provider works — set host/user/pass/from in admin
+      // Settings → Email; no provider is hardcoded. The captured address is the only content.
       const email = String((req.body && req.body.email) || req.query.email || "").trim().toLowerCase();
       const hp = String((req.body && req.body.hp) || "");
       if (hp) { res.json({ success: true }); return; }                 // honeypot: accept + drop
@@ -3391,44 +3383,17 @@ exports.api = functions
         res.status(400).json({ error: "invalid email" }); return;
       }
       const cfg = await getConfig();
-      const e = (cfg && cfg.email) || {};
-      if (!e.provider || e.provider === "none" || !e.apiKey) {
-        res.status(503).json({ error: "email not configured" }); return;
-      }
+      const em = (cfg && cfg.email) || {};
+      const to = String(em.fromEmail || "");
+      if (!to) { res.status(503).json({ error: "email not configured" }); return; }
       try {
-        let ok = false;
-        if (e.provider === "getresponse") {
-          const r = await fetch("https://api.getresponse.com/v3/contacts", {
-            method: "POST",
-            headers: { "X-Auth-Token": "api-key " + e.apiKey, "Content-Type": "application/json" },
-            body: JSON.stringify(e.listId ? { email, campaign: { campaignId: e.listId } } : { email }),
-          });
-          ok = r.ok || r.status === 202 || r.status === 409; // 409 = already on the list
-        } else if (e.provider === "activecampaign") {
-          const base = safeProviderOrigin(e.apiUrl);
-          if (!base) { res.status(503).json({ error: "invalid ActiveCampaign API URL (must be an external https URL)" }); return; }
-          const cr = await fetch(base + "/api/3/contact/sync", {
-            method: "POST",
-            headers: { "Api-Token": e.apiKey, "Content-Type": "application/json" },
-            body: JSON.stringify({ contact: { email } }),
-          });
-          if (cr.ok) {
-            const cd = await cr.json().catch(() => ({}));
-            const contactId = cd && cd.contact && cd.contact.id;
-            if (contactId && e.listId) {
-              await fetch(base + "/api/3/contactLists", {
-                method: "POST",
-                headers: { "Api-Token": e.apiKey, "Content-Type": "application/json" },
-                body: JSON.stringify({ contactList: { list: e.listId, contact: contactId, status: 1 } }),
-              });
-            }
-            ok = true;
-          }
-        } else {
-          res.status(501).json({ error: "provider not implemented" }); return;
-        }
-        if (ok) res.json({ success: true });
-        else res.status(502).json({ error: "subscribe failed" });
+        const out = await sendMail({
+          to,
+          subject: "New signup",
+          text: `New email signup from the landing page: ${email}`,
+        }, cfg);
+        if (out && out.notConfigured) { res.status(503).json({ error: "email not configured" }); return; }
+        res.json({ success: true });
       } catch (err) {
         console.error("subscribe error:", err);
         res.status(500).json({ error: "server error" });

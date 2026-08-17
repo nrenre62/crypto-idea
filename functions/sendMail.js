@@ -1,7 +1,7 @@
 /**
  * ADMIN-6 PR2 — the outbound-email seam (pure CommonJS + LAZY nodemailer).
  *
- * `smtpConfigOf` extracts the DreamHost SMTP settings from config/app.email, returning
+ * `smtpConfigOf` extracts the SMTP settings from config/app.email, returning
  * null when any required field (host/user/pass/from) is missing or blank. `sendMail` is
  * a thin seam with three paths: under the functions emulator it LOGS the full message
  * (the reset link included) so a developer can complete the flow locally; in a deployed
@@ -28,7 +28,7 @@ function smtpConfigOf(cfg) {
   const from = String(em.fromEmail || "");
   if (!host || !user || !pass || !from) return null;
   const port = Number(em.smtpPort) || 587;
-  // TLS on 465 (implicit) is the common DreamHost setup; STARTTLS on 587 is `secure:false`.
+  // TLS on 465 (implicit) is a common SMTP setup; STARTTLS on 587 is `secure:false`.
   const secure = em.smtpSecure === true || port === 465;
   return { host, port, secure, user, pass, from };
 }

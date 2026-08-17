@@ -1,257 +1,134 @@
-# Crypto Idea — User Creation (account & onboarding)
+# CryptoIdea — User Creation
 
-**Canonical spec for how an account is born:** registration → consent → default
-profile → first usable portfolio. Companion to [USER-SETTINGS.md](USER-SETTINGS.md)
-(what a user can change *after* signup) and [PRODUCT-DECISIONS.md](../decisions/PRODUCT-DECISIONS.md)
-(product/pricing decisions). Security model lives in [firestore.rules](../../firestore.rules);
-the reusable framework is the **`user-creation`** skill.
+Part of the [documentation index](../INDEX.md).
 
-> Decisions locked in the 2026-06-24 founder interview. This doc **wins** over any
-> stale planning note for account-creation behavior. Limits/pricing come from
-> [PRICING.md](../decisions/PRICING.md); tiers are `free` (UI label **Starter**), `pro`, `premium`
-> — the internal key is always `free`, never `starter`.
+How an account is born in CryptoIdea: registration and consent, the server-authoritative user document, the validation that enforces its shape, and the mandatory plan gate that unlocks a user's data. Companion to [USER-SETTINGS.md](USER-SETTINGS.md) (what a user can change after signup); the security boundary is [firestore.rules](../../firestore.rules), summarized in [SECURITY.md](../security/SECURITY.md); layering rules live in [ARCHITECTURE.md](../decisions/ARCHITECTURE.md).
 
----
+Tiers are `free` (UI label **Starter**), `pro`, and `premium`. The internal key is always `free`, never `starter`. Limits and pricing come from [PRICING.md](../decisions/PRICING.md).
 
-## 1. Locked decisions (creation)
+## The signup flow
 
-| # | Decision | Choice | Why |
-|---|---|---|---|
-| C1 | **Consent at signup** | Terms **required** + Privacy **required** + marketing **opt-in (default off)** | GDPR-demonstrable, granular, standard. Records survive disputes. |
-| C2 | **Email verification** | **Soft nudge + gate sensitive ops** — explore freely, resendable banner, verify required before money/PII ops | Low onboarding friction; protects what matters. Password sign-ups start unverified, so first profile create is never blocked. |
-| C3 | **Password policy** | Fix the error message now (`6`→`8`); enforce server-side via **Identity Platform require-mode** at go-live | Client checks are bypassable; backend policy is the real boundary, but staging it keeps this increment small. |
-| C4 | **Atomic onboarding write** | **Sequenced two-write create**: profile (`portfolioCount:0`), then a batch (default portfolio + counter→1) | A literal single batch is impossible: the counter rule needs the parent user doc to pre-exist (`getAfter==get+1`) and Firestore forbids two writes to one doc per batch. This is the rules-compatible equivalent; a failed 2nd step leaves a user with no portfolio (recoverable), never a corrupt half-state. |
-| C5 | **Plan picker** | Add **"Skip for now / Explore Starter"** | Starter is already the default; don't force a choice before value is shown. |
-| C6 | **Abuse prevention** ◑ | ~~App Check enforcement + `beforeCreate` blocking function = go-live checklist~~ — **`beforeCreate` BUILT 2026-07-24** (ADMIN-0); App Check remains console-only go-live config | The signups switch is now a real server gate (no Auth account is created when it is off). App Check still needs Blaze + console config, so the app stays demo-grade against bot signups while signups are legitimately open. |
-| C7 | **Server-side input validation** | Trim + bounds-check name/email in `registerUser`, backed by a `validUserData()` **rules** create constraint | Client validation alone is bypassable via a crafted request. |
+The register form ([src/components/Login.jsx](../../src/components/Login.jsx)) collects a name, email, password, two required consent checkboxes (Terms + Privacy) and one optional marketing opt-in (default off), then calls `registerUser(email, password, name, consent)` in [src/api/firebase-auth.js](../../src/api/firebase-auth.js).
 
----
-
-## 2. The flow (target state)
-
-```
+```text
 Register form (Login.jsx)
-  ├─ name        → /^[A-Za-z\s]{2,30}$/  (client)         ┐ both layers
-  ├─ email       → RFC-ish + Firebase format check        │ must pass
-  ├─ password    → 8+  Aa1 + special  (client)            ┘
-  ├─ ☑ I agree to the Terms of Service        (required)
-  ├─ ☑ I have read the Privacy Policy          (required)
-  └─ ☐ Email me product updates & offers       (optional, default off)
-        │
-        ▼  handleAuth() → registerUser(email, password, name, consent)
+  ├─ name        → letters/spaces, 2–30  (client)
+  ├─ email       → format check + Firebase Auth format check
+  ├─ password    → 8+ with upper/lower/digit/special  (client)
+  ├─ [x] I agree to the Terms of Service        (required)
+  ├─ [x] I have read the Privacy Policy          (required)
+  └─ [ ] Email me product updates & offers       (optional, default off)
+        |
+        v  registerUser(email, password, name, consent)
   createUserWithEmailAndPassword
   updateProfile({ displayName: name })
   sendEmailVerification               (non-fatal)
-  ── (1) profile write ───────────────────────────────────
-   set users/{uid}      { profile + consent + settings, portfolioCount:0 }
-  ── (2) ONE writeBatch (counter rule needs the parent to exist first) ──
-   set users/{uid}/portfolios/default { name:"My Portfolio", coinCount:0 }
-   update users/{uid}.portfolioCount: increment(1)   → 1
-  ─────────────────────────────────────────────────────────
-        │
-        ▼  Plan picker (Starter default)  ──[Skip for now]──► Portfolio
-        ▼  Soft "verify your email" banner until emailVerified
+  set users/{uid}  { profile + consent + settings, portfolioCount: 0 }
+        |
+        v  mandatory plan gate  --[choose Starter]-->  chooseFreePlan
+        v  soft "verify your email" banner until emailVerified
 ```
 
-Current code: [src/api/firebase-auth.js](../../src/api/firebase-auth.js) `registerUser`,
-[src/components/Login.jsx](../../src/components/Login.jsx) register form + plan picker,
-[src/hooks/useAuthSession.js](../../src/hooks/useAuthSession.js) post-login load,
-[src/CryptoIdea.jsx](../../src/CryptoIdea.jsx) `handleAuth` + `saveProfile`.
+Registration writes only the user profile document. It does **not** create a portfolio — the default portfolio is created server-side the moment a plan choice is recorded (see the onboard gate below). Post-login load lives in [src/hooks/useAuthSession.js](../../src/hooks/useAuthSession.js); `handleAuth` and `saveProfile` live in [src/CryptoIdea.jsx](../../src/CryptoIdea.jsx).
 
----
+## The user document at creation
 
-## 3. The user document at creation
-
-`users/{uid}` — everything written at signup. Server-authoritative fields
-(`tier`, `subscription`, `deleted*`, `premiumLimits`) are **never** owner-writable.
+`users/{uid}` holds everything written at signup. Server-authoritative fields (`tier`, `subscription`, `deleted*`, `premiumLimits`, `planChosen`) are never owner-writable — they are set only by Admin-SDK callables or the PayPal webhook.
 
 ```jsonc
 {
-  // ── identity (owner-editable name; email mirrors Auth) ──
-  "name": "Ada Lovelace",          // string, 2–50 (rules) / 2–30 (client UX)
-  "email": "ada@example.com",
-  "joined": "<serverTimestamp>",   // server-only after create
+  // identity (owner-editable name; email mirrors Auth)
+  "name": "Example Name",          // string, 2–50 (rules) / 2–30 (client UX)
+  "email": "user@example.com",
+  "joined": "<serverTimestamp>",   // pinned to request.time on create; immutable after
+  "lastLogin": "<timestamp>",      // owner-writable; refreshed on sign-in
 
-  // ── plan (server-authoritative; rules force 'free' on create) ──
+  // plan (server-authoritative; rules force 'free' on create)
   "tier": "free",
-  "portfolioCount": 0,             // → 1 in the same batch
+  "portfolioCount": 0,
 
-  // ── consent record (mandatory acceptances; C1) ──
+  // consent record (mandatory acceptances — a record, not a toggle)
   "consent": {
-    "termsVersion": "2026-06-24",
-    "termsAcceptedAt": "2026-06-24T10:00:00.000Z",
-    "privacyVersion": "2026-06-24",
-    "privacyAcceptedAt": "2026-06-24T10:00:00.000Z"
+    "termsVersion": "<version>",
+    "termsAcceptedAt": "<ISO timestamp>",
+    "privacyVersion": "<version>",
+    "privacyAcceptedAt": "<ISO timestamp>"
   },
 
-  // ── preferences + withdrawable consents (closed, validated map) ──
-  // Canonical schema in USER-SETTINGS.md §4. Marketing/analytics live here
-  // because GDPR Art. 7(3) requires withdrawal to be as easy as opt-in.
+  // preferences + withdrawable consents (closed, validated map)
+  // Canonical schema in USER-SETTINGS.md. Marketing/analytics live here because
+  // GDPR Art. 7(3) requires withdrawal to be as easy as opt-in.
   "settings": {
-    "theme": "light",             // 'light' | 'dark' | 'system'  (WIRED)
-    "currency": "usd",            // validated; formatting deferred
+    "theme": "light",             // 'light' | 'dark' | 'system'
+    "currency": "usd",            // validated; display formatting deferred
     "emailDigest": false,
     "emailMarketing": false,      // == the signup marketing opt-in
     "consentAnalytics": false,
-    "updatedAt": "2026-06-24T10:00:00.000Z"
+    "updatedAt": "<ISO timestamp>"
   }
 }
 ```
 
-> **Removed orphan:** the old registration wrote `settings:{currency,theme}` that
-> nothing read. We keep `settings` but as a **closed, rules-validated** map that the
-> Appearance/Notifications/Privacy tabs actually use (see USER-SETTINGS.md).
+The create allowlist in `firestore.rules` accepts exactly these keys: `email`, `name`, `tier`, `joined`, `lastLogin`, `portfolioCount`, `settings`, `consent`. Any other key — including `subscription`, `billingCycle`, `premiumLimits`, `deleted`, `deletedAt`, and `planChosen` — is rejected by the closed-shape `hasOnly` constraint, so no privileged field can be self-seeded.
 
----
+## Validation — three layers
 
-## 4. Validation — three layers
-
-Defense in depth: a crafted request that skips the UI still hits the rules.
+Defense in depth: a crafted request that skips the UI still hits the rules. Every constraint below is enforced today.
 
 | Field | Client (Login/CryptoIdea) | Server — `registerUser` | Server — `firestore.rules` |
 |---|---|---|---|
-| **name** | `/^[A-Za-z\s]{2,30}$/`, trimmed | trim + re-check 2–30 letters/spaces | `validUserData`: `name is string && size 2..50` |
-| **email** | format regex + required | Firebase Auth format check | (stored copy) non-empty string |
-| **password** | 8+ upper/lower/digit/special | Firebase floor (go-live: Identity Platform policy) | n/a (lives in Auth, not Firestore) |
-| **consent** | both boxes required to enable submit | passed through to the batch | `validConsent`: closed map, string fields ≤ caps |
+| **name** | letters/spaces, 2–30, trimmed | trim + re-check | `validUserData`: string, size 2–50 |
+| **email** | format regex + required | Firebase Auth format check | allowlisted key only — no format/length check in rules |
+| **password** | 8+ upper/lower/digit/special | Firebase Auth floor | n/a (lives in Auth, not Firestore) |
+| **consent** | both boxes required to submit | passed through to the write | `validConsent`: closed map, string fields ≤ caps |
 | **settings** | defaults only at signup | written from defaults | `validSettings`: closed map, typed, enum/size caps |
-| **tier** | n/a | hard-coded `'free'` | `request.resource.data.tier == 'free'` |
-| **portfolioCount** | n/a | `0` then `increment(1)` | `== 0` on create |
+| **tier** | n/a | hard-coded `'free'` | `tier == 'free'` on create |
+| **portfolioCount** | n/a | `0` | `== 0` on create |
+| **joined** | n/a | server timestamp | `== request.time` when present |
 
-### Rules to add (in the existing `validLearnProgress`/`validJournal` style)
+The rules functions that enforce this:
 
-```
-// users/{uid} — create
-allow create: if isOwner(userId)
-              && request.resource.data.tier == 'free'
-              && request.resource.data.get('portfolioCount', 0) == 0
-              && validUserData(request.resource.data)
-              && (!('consent'  in request.resource.data) || validConsent(request.resource.data.consent))
-              && (!('settings' in request.resource.data) || validSettings(request.resource.data.settings));
+- `validUserData(d)` — `name` is a string of size 2–50.
+- `validConsent(c)` — a closed map keyed only by `termsVersion`, `termsAcceptedAt`, `privacyVersion`, `privacyAcceptedAt`, each a string within its size cap.
+- `validSettings(s)` — a closed map keyed only by `theme`, `currency`, `emailDigest`, `emailMarketing`, `consentAnalytics`, `updatedAt`, each optional but type/enum/size checked when present. `planChosen` is deliberately excluded, so a client cannot smuggle the data gate into `settings`.
 
-function validUserData(d) {
-  return d.name is string && d.name.size() >= 2 && d.name.size() <= 50;
-}
-function validConsent(c) {
-  return c is map
-         && c.keys().hasOnly(['termsVersion','termsAcceptedAt','privacyVersion','privacyAcceptedAt'])
-         && c.termsVersion is string && c.termsVersion.size() <= 20
-         && c.termsAcceptedAt is string && c.termsAcceptedAt.size() <= 40
-         && c.privacyVersion is string && c.privacyVersion.size() <= 20
-         && c.privacyAcceptedAt is string && c.privacyAcceptedAt.size() <= 40;
-}
-// validSettings — defined canonically in USER-SETTINGS.md §4 (shared with the
-// owner-update rule). Keep ONE copy in firestore.rules.
-```
+The owner-**update** rule uses a closed-shape allowlist on the changed keys — an owner may only touch `name`, `settings`, `consent`, `portfolioCount`, and `lastLogin`, with the same `validUserData`/`validSettings`/`validConsent` checks applied when present, and `portfolioCount` allowed to move by at most +1. Cover every branch with `npm run test:rules`.
 
-The owner-**update** rule must keep blocking server-only keys and now also shape-check
-`name`/`consent`/`settings` when present — full version in [USER-SETTINGS.md](USER-SETTINGS.md) §5.
-Cover every branch with `npm run test:rules`.
+## The onboard gate
 
----
+`planChosen` is a server-only top-level user field that gates all app data. In `firestore.rules`, `isChosen(userId)` returns true when `planChosen == true` **or** the user's `tier` is not `free`, and every owner branch of `portfolios`, `coins`, `transactions`, and `learn` requires it. A signed-in user (or a bot holding their token) who has not recorded a plan choice is denied every data path — read and write — until the gate is cleared. Admin branches are not gated, so staff can manage any account regardless of onboarding state. The user document itself stays readable and writable so onboarding, logout, delete, and the gate UI still work.
 
-## 5. Email verification policy (C2)
+The flag is set only server-side:
 
-- **Sent** at registration (already happens, non-fatal). Add a `verifyEmail()` resend
-  in `firebase-auth.js` (`sendEmailVerification(auth.currentUser)`).
-- **Surfaced**: `useAuthSession` reads `fbUser.emailVerified`; if `false`, the app shows
-  a dismissible **"Verify your email — [Resend]"** banner on Portfolio. Never blocks the app.
-- **Enforced where it matters** — because `tier`, payment, `exportMyData`, and
-  `deleteMyAccount` are **server-side callables**, the gate lives *there*:
-  `if (!context.auth.token.email_verified) throw ...` before upgrade-intent and data export.
-  In `firestore.rules`, add an `emailVerified()` helper for any *client-written* sensitive
-  field added later; today the client writes only its own low-stakes data + preferences,
-  which stay ungated so onboarding isn't broken (password sign-ups start unverified).
+- The **free path** is the `chooseFreePlan` callable ([functions/index.js](../../functions/index.js)): authenticated, per-uid budget-limited, idempotent, and audited. It sets `planChosen: true` and calls `ensureDefaultPortfolio`.
+- The **paid path** is the PayPal webhook (and the emulator-only `devSetMyTier`), which records `planChosen: true` alongside a non-free `tier` and calls `ensureDefaultPortfolio`.
 
-> Rationale (Firebase): `request.auth.uid` proves token possession, not mailbox
-> ownership. Gate money/tier/PII on `request.auth.token.email_verified`; keep
-> low-stakes self-data ungated. Sources in §9.
+`ensureDefaultPortfolio(uid)` runs in a Firestore transaction: if the user has no portfolio documents it creates the `default` portfolio (`My Portfolio`, `coinCount: 0`) and sets `portfolioCount` to 1; otherwise it reconciles `portfolioCount` to the real count. The transaction makes the read-then-create atomic, so a client watching its own document the instant `isChosen` flips true cannot race in a second portfolio past the free cap.
 
----
+On the client, `useAuthSession` reads the server `planChosen` flag into the session user. For a not-yet-chosen free user it skips the portfolio load and live listener entirely (the rules would deny those reads) and lets the plan gate render; when the user chooses, the gate's reload picks up the server-created default. The plan chooser is non-dismissible while a choice is still required (no close button, scrim, or Esc).
 
-## 6. Abuse prevention (C6 — go-live)
+## Email verification policy
 
-`maintenance` is still a **client-only gate** (`CryptoIdea.jsx`). **`signupsEnabled` is no longer**
-— see item 2. Remaining before public launch:
+Email verification is a soft nudge, never a hard block on first use:
 
-1. **App Check** — set `VITE_RECAPTCHA_SITE_KEY` at build; enable enforcement in the
-   Firebase console for Auth + Firestore (web = reCAPTCHA v3). Init already exists in
-   `firebase.config.js`. **Console-only — do not wire `guards.appCheckOk` into the callables**
-   (GO-LIVE-AUDIT H1: callable App Check is enforced platform-side, so a code check duplicates it
-   and adds a second lockout surface).
-2. ✅ **`beforeCreate` blocking function — BUILT 2026-07-24 (ADMIN-0).** `exports.beforeCreateUser`
-   enforces `signupsEnabled` **server-side**; verified on the emulator that a paused signup creates
-   **no Auth account**. It **fails open** on an unreadable config (a Firestore blip must not kill the
-   funnel) and the Admin SDK is exempt, so seeding/admin-created users still work. ⚠️ **Deploying it
-   requires Identity Platform.** *Not* built into it, deliberately: per-IP rate limiting and a
-   disposable-domain blocklist — each would be a second refusal reason, and Firebase gives the client
-   no way to tell refusals apart, so the honest client message would need reworking first
-   (a tripwire test fails the build if a second refusal path is added; see `ERRORS.md` §A6).
-3. Until App Check ships, **the app is still demo-grade against mass registration** — a bot can
-   create accounts freely whenever signups are legitimately open.
+- **Sent** at registration via `sendEmailVerification` (non-fatal if it fails), with a resend available from the app.
+- **Surfaced**: `useAuthSession` reads `fbUser.emailVerified`; when false, the app shows a dismissible "Verify your email — Resend" banner and never blocks the app. Password sign-ups start unverified, so the first profile create is never gated on it.
+- **Enforced where it matters**: because tier changes, payment, `exportMyData`, and `deleteMyAccount` are server-side callables, the mailbox-ownership check belongs there (`context.auth.token.email_verified`), not in the client. Low-stakes self-data and preference writes stay ungated so onboarding is not broken.
 
----
+The rationale is standard for Firebase Auth: `request.auth.uid` proves token possession, not mailbox ownership, so money/tier/PII operations gate on `email_verified` while low-stakes self-data stays open.
 
-## 7. Tier at creation
+## Abuse prevention
 
-Every account starts **`free`/Starter** — enforced by the rules create constraint
-(`tier == 'free'`), not just the client. Paid tiers are granted only server-side
-(admin `setUserTier` or the PayPal webhook). There is **no** path for a user to
-self-assign a paid tier. See [USER-SETTINGS.md](USER-SETTINGS.md) §6 for tier behavior
-*after* creation (upgrade/downgrade, custom limits, AI allowance).
+- **Signups switch** — `config/app.flags.signupsEnabled` is enforced server-side by the `beforeCreateUser` blocking function ([functions/index.js](../../functions/index.js)). It runs inside account creation, so a scripted or stale client cannot create an account while signups are paused. It reads `config/app` fresh (not through the cached config) and **fails open**: an unreadable config allows the signup, so a storage blip cannot silently kill the signup funnel. The pure decision is unit-tested in [functions/signup-gate.js](../../functions/signup-gate.js). The Admin SDK is exempt, so seeding and admin-created users are unaffected. Deploying a blocking function requires Identity Platform on the project.
+- **App Check** — go-live console configuration, not code: set `VITE_RECAPTCHA_SITE_KEY` at build time and enable App Check enforcement (web = reCAPTCHA v3) for Auth and Firestore in the Firebase console. Callable App Check is enforced platform-side, so it is intentionally not wired into the callables in code. Until App Check enforcement is enabled, the app is demo-grade against mass registration.
+- **Deferred**: disposable-email / domain blocklists and per-IP rate limiting. Firebase gives the client no way to distinguish refusal reasons, so adding a second refusal path would require reworking the honest client message first.
 
----
+## Tier at creation
 
-## 8. Gaps → status
+Every account starts on `free`/Starter, enforced by the rules create constraint (`tier == 'free'`), not just the client. Paid tiers are granted only server-side (the admin `setUserTier` callable or the PayPal webhook); there is no path for a user to self-assign a paid tier. Tier behavior after creation — upgrade, downgrade, custom limits, and the AI allowance — is covered in [USER-SETTINGS.md](USER-SETTINGS.md).
 
-From the gap audit (creation slice). Status: **Now** = this increment · **Go-live** =
-launch checklist · **Deferred** = backlog.
+## Best practices applied
 
-| Gap | Sev | Fix | Status |
-|---|---|---|---|
-| Verification sent but never checked/resendable | High | §5 banner + `verifyEmail()` resend + callable gate | **Now** |
-| No Terms/Privacy/marketing consent capture | High | §1 C1, §3 consent record + `validConsent` | **Now** |
-| Password error says "6" but rule is "8" | Low | Align message in `firebase-auth.js` | **Now** |
-| Non-atomic onboarding write (portfolio can be orphaned) | Low | §2 single `writeBatch` | **Now** |
-| No server-side name/email validation | Med | §4 `registerUser` + `validUserData` | **Now** |
-| No profile-shape rules (any name length, any settings) | Med | §4 `validUserData`/`validConsent`/`validSettings` | **Now** |
-| Plan picker forces a choice | Low | §1 C5 "Skip for now" | **Now** |
-| No App Check (`beforeCreate` + server signups gate ✅ BUILT 2026-07-24) | High | §6 | **Go-live** |
-| No 2FA/MFA (users or admins) | Med | Identity Platform TOTP enrollment | **Go-live** |
-| Disposable-email / domain policy | Low | `beforeCreate` allow/deny list | **Deferred** |
-
----
-
-## 9. Best practices applied (with sources)
-
-- **Granular, demonstrable consent; withdrawal as easy as opt-in** (GDPR Art. 7(3)) —
-  separate mandatory acceptance records from withdrawable marketing/analytics toggles.
-  <https://secureprivacy.ai/blog/first-party-data-collection-compliance-gdpr-ccpa-2025>
-- **`email_verified` gating belongs in the rules/callable layer, not the client; don't
-  hard-block first profile create** (password sign-ups start unverified).
-  <https://firebase.google.com/docs/rules/rules-and-auth>
-- **Server-enforced password policy** (Identity Platform require-mode, `minLength ≥ 8`,
-  mirror client with `validatePassword`). <https://docs.cloud.google.com/identity-platform/docs/password-policy>
-- **Closed-shape profile rules** (`keys().hasOnly`, typed fields, size caps) prevent
-  self-privilege-escalation — the single most common Firebase rules bug.
-  <https://firebase.google.com/docs/firestore/security/rules-fields>
-- **Atomic multi-doc writes** via `writeBatch`. <https://firebase.google.com/docs/firestore/manage-data/transactions>
-
----
-
-## 10. Build order & Definition of Done
-
-Ship as small, test-guarded increments (AGILE.md). Suggested order:
-
-1. **Rules + validation** — `validUserData`/`validConsent`/`validSettings`, atomic
-   create constraint. `npm run test:rules` green first (TDD).
-2. **`registerUser`** — accept `consent`, single `writeBatch`, server-side name/email
-   trim+check, fix the password message. Add `verifyEmail()`.
-3. **Register form** — Terms/Privacy required checkboxes + marketing opt-in; pass consent.
-4. **Onboarding polish** — "Skip for now" on the plan picker; email-verify banner +
-   resend wired via `useAuthSession`.
-5. **Go-live checklist** — App Check enforcement, `beforeCreate`, MFA (separate, documented).
-
-**DoD per increment:** KISS + secure, `npm run test:unit`/`test:rules` green, no secret
-shipped, rules verified in the emulator, committed with a clear message, this doc updated
-if behavior changed.
+- Granular, demonstrable consent with withdrawal as easy as opt-in (GDPR Art. 7(3)): mandatory acceptance records are stored separately from the withdrawable marketing/analytics toggles.
+- `email_verified` gating lives in the rules/callable layer, not the client, and never hard-blocks the first profile create.
+- Closed-shape profile rules (`keys().hasOnly`, typed fields, size caps) prevent self-privilege-escalation, the most common Firebase rules bug.

@@ -22,6 +22,6 @@ export function esc(v) {
 // One CSV line from an array of cells.
 export const row = (cells) => cells.map(esc).join(",");
 
-// Excel on Windows reads a UTF-8 file as the local codepage unless it sees a BOM,
+// Many spreadsheet apps read a UTF-8 file as the local codepage unless it sees a BOM,
 // which mangles every non-ASCII character. Prefix downloads with this.
 export const CSV_BOM = "﻿";

@@ -1,9 +1,9 @@
 # JIRA WORKFLOW — bugs, regression tests & test-result sync
 
-> How Crypto Idea uses Jira project **CRYP** as an agent-readable backlog: every bug becomes a
+> How CryptoIdea uses Jira project **CRYP** as an agent-readable backlog: every bug becomes a
 > **failing test first**, every fixed bug leaves a permanent regression test behind, and test results
 > can be reported back onto the ticket. Canonical for the test↔ticket convention and the Jira gotchas.
-> Established 2026-07-21 (CRYP-1).
+> Established with CRYP-1.
 >
 > **This doc is the bug loop.** For the planning side — the Epic→Story hierarchy, how to write each
 > work-item type, Components, Versions/Releases, and portfolio presentation — see the sibling
@@ -26,7 +26,7 @@ inside the same "no secrets in git" rule as everything else (`.githooks/pre-comm
 - **There is no delete-issue tool.** Issues can be created, edited, commented and transitioned only.
   Anything filed is permanent (closable, not removable) — so don't file throwaway tickets.
 
-## 2 · Project shape (verified live, 2026-07-21) ✅
+## 2 · Project shape (verified live) ✅
 
 CRYP is a **team-managed** ("next-gen") software project, which changes what fields exist:
 
@@ -153,7 +153,7 @@ The mapper also exists so nobody reads the artifact by hand — a full run is ~1
 
 ## 8 · Useful JQL
 
-```
+```text
 project = CRYP AND statusCategory != Done                       # open work
 project = CRYP AND type = Bug AND statusCategory != Done         # open bugs
 project = CRYP AND status = "In Progress"                        # what's being worked
@@ -175,8 +175,8 @@ clean board. Cross-check a suspicious "no results" against a query you know retu
   including seeded user emails and live email-verification links; stack traces carry absolute local
   paths. Comment the test name, its file basename, and the first line of the failure — nothing more.
 - **The suites have a documented flake** — a *different* test fails on different runs of unchanged
-  code. Run-by-run table: [`GO-LIVE-AUDIT.md`](../product/GO-LIVE-AUDIT.md) **§3b** (measured
-  2026-07-20); standing item: [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) **§FLAKE** ("the test suites
+  code. Run-by-run table: [`GO-LIVE-AUDIT.md`](../product/GO-LIVE-AUDIT.md) **§3b**; standing item:
+  [`NEXT-STEPS.md`](../product/NEXT-STEPS.md) **§FLAKE** ("the test suites
   are flaky — 'green' is not currently trustworthy"). Require **two consecutive failures of the same
   test** before reporting it as real.
 - **Bash timeouts.** The unit suite runs ~170 s; the tool's 120 s default kills it and destroys the exit
@@ -211,4 +211,4 @@ Its output is a dated report — `docs/testing/bug-hunts/BUG-HUNT-<YYYY-MM-DD>.m
 
 *Append to this doc when a Jira convention or trap changes — it is the canonical record for the
 test↔ticket workflow. Bug diagnoses themselves belong in [`ERRORS.md`](ERRORS.md); what tests should
-assert belongs in the `tdd-testing` skill.*
+assert belongs in the `tdd-testing` skill. See also the [docs hub](../INDEX.md).*

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CoinGeckoCredit } from "./CoinGeckoCredit.jsx";
 import { useApp } from "../hooks/app-context.js";
 import { fmtP, fmtPct } from "../utils/format.js";
 import { cleanFunnel, thesisError, THESIS_MAX } from "../utils/journal.js";
@@ -108,7 +109,7 @@ export function Search() {
         </>
       )}
 
-      <div className="disclaimer">Prices via CoinGecko · Not financial advice</div>
+      <div className="disclaimer"><CoinGeckoCredit /> · Not financial advice</div>
 
       {journalFor && (
         // R15-2: shared centered-card Modal (text-entry form → no scrim-tap-close).

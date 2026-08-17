@@ -6,16 +6,18 @@
 // so it is exhaustively unit-testable against a fake db with no emulator. PR-E1 ships
 // INERT: no callable meters against these yet (that is PR-E2).
 //
-// Model economics are FOUNDER-LOCKED: generation = Sonnet 5 ($3 / $15 per Mtok in/out),
-// judge = Haiku 4.5 ($1 / $5). ONE app-wide cap lives at config/app.ai.monthlyCapCents
-// (default 5000 = $50), metered on a server-only aiBudget/{YYYY-MM} doc (rules deny all
-// client access — a client-writable meter could be zeroed to defeat the whole cap).
+// Model economics: the generation model and the (cheaper) judge model are priced per million
+// tokens. ONE app-wide cap lives at config/app.ai.monthlyCapCents (default 5000 = $50), metered
+// on a server-only aiBudget/{YYYY-MM} doc (rules deny all client access — a client-writable
+// meter could be zeroed to defeat the whole cap). The model ids themselves are admin config
+// (config/app.ai.generationModel / judgeModel); these default rates match those models — if you
+// paste a differently-priced model, adjust the numbers here so the cost estimate stays honest.
 
-// USD per million tokens (input / output), founder-locked.
-const SONNET5_RATES = { inputPerMtok: 3, outputPerMtok: 15 };
-const HAIKU45_RATES = { inputPerMtok: 1, outputPerMtok: 5 };
+// USD per million tokens (input / output).
+const GEN_RATES = { inputPerMtok: 3, outputPerMtok: 15 };
+const JUDGE_RATES = { inputPerMtok: 1, outputPerMtok: 5 };
 
-// Anthropic usage → whole cents, rounded UP (charge conservatively — never undercount
+// Provider token usage → whole cents, rounded UP (charge conservatively — never undercount
 // spend against the cap). Missing/garbage usage or a non-finite result is 0, never NaN;
 // a call that produced nothing is free.
 function costCents(usage, rates) {
@@ -91,13 +93,13 @@ const EST_GEN_OUTPUT_MAX = 1024;   // == researchAsk generation buildMessagesReq
 const EST_JUDGE_INPUT_MAX = 2000;  // ~candidate text handed to the judge, worst case
 const EST_JUDGE_OUTPUT_MAX = 16;   // == researchAsk judge buildMessagesRequest maxTokens
 
-// The worst-case per-request cost = (maxRegens+1) attempts, each a Sonnet generation + a Haiku
-// judge. maxRegens defaults to validate-output's MAX_REGENS (2 → 1 initial + 2 regens). Reuses
+// The worst-case per-request cost = (maxRegens+1) attempts, each one generation + one judge
+// call. maxRegens defaults to validate-output's MAX_REGENS (2 → 1 initial + 2 regens). Reuses
 // the REAL costCents (same round-UP as the actual charge) so the estimate can never undercount.
 // genMax = ceil(2.136¢) = 3, judgeMax = ceil(0.208¢) = 1 → default 3 × (3+1) = 12¢.
 function reservationMaxCents({ maxRegens = 2 } = {}) {
-  const genMax = costCents({ input_tokens: EST_GEN_INPUT_MAX, output_tokens: EST_GEN_OUTPUT_MAX }, SONNET5_RATES);
-  const judgeMax = costCents({ input_tokens: EST_JUDGE_INPUT_MAX, output_tokens: EST_JUDGE_OUTPUT_MAX }, HAIKU45_RATES);
+  const genMax = costCents({ input_tokens: EST_GEN_INPUT_MAX, output_tokens: EST_GEN_OUTPUT_MAX }, GEN_RATES);
+  const judgeMax = costCents({ input_tokens: EST_JUDGE_INPUT_MAX, output_tokens: EST_JUDGE_OUTPUT_MAX }, JUDGE_RATES);
   const attempts = (Number(maxRegens) || 0) + 1;
   return attempts * (genMax + judgeMax);
 }
@@ -125,8 +127,8 @@ async function reserveMonthCents(db, { estCents, capCents, now = Date.now() } = 
 }
 
 module.exports = {
-  SONNET5_RATES,
-  HAIKU45_RATES,
+  GEN_RATES,
+  JUDGE_RATES,
   costCents,
   monthKey,
   readMonthSpendCents,

@@ -1,14 +1,11 @@
-# ISOLATION.md — user-data & admin separation: the guarantee, the audit, the hardening plan (§ISO)
+# Data isolation
 
-**Date:** 2026-07-07 · **Status of the guarantee: VERIFIED SOUND (live).** Hardening items below are
-✅ **BUILT 2026-07-07** (ISO-1 rules + ISO-2 regression suite + ISO-3 erasure hygiene [folded into DI-2]
-+ ISO-5 storage.rules); **ISO-4 is the go-live infra** (least-privilege SA + PITR/backup docs; the
-suspend/revoke half shipped in R31-6/DI-6). · Founder decisions **ISO-D1…D4** locked (§3).
-**How audited:** the `secure-by-design` skill checklist + a 22-agent adversarial workflow (6 map
-dimensions → live cross-tenant/admin-access probes on the running emulator → completeness critic).
-**36 candidate findings → 10 confirmed (all defense-in-depth; NONE a live cross-tenant breach) + 5
-critic adds; 14 refuted.** Full machine-readable inventory:
-[`docs/planning/isolation-audit-findings.json`](../planning/isolation-audit-findings.json).
+Part of **[SECURITY.md](SECURITY.md)** — return to the security map.
+
+How one user's data is walled off from another's, and how admin access is separated from user access.
+The guarantee is enforced by `firestore.rules` and the guard-first callables, and proven by a
+cross-tenant probe suite in `npm run test:rules` / `npm run test:integration` — logical per-uid
+isolation, never a physical per-user database.
 
 ---
 
@@ -91,7 +88,7 @@ subtrees, rules as the wall. **Decision ISO-D1: keep logical, harden + prove it*
   cross-tenant tests), **closed** per-user document shape (no privileged-by-default fields), and
   **complete** erasure reach — not a physical re-architecture.
 
-## 3 · Founder decisions (2026-07-07)
+## 3 · Founder decisions
 
 | # | Decision |
 |---|----------|
@@ -176,3 +173,7 @@ updated.
 - The **closed-shape rule (G1)** is the structural fix behind the `secure-by-design` "re-audit who can
   write a field the server starts trusting" lesson — shipping it now means future features can't
   accidentally trust an owner-writable profile field.
+
+---
+
+See also → [docs/INDEX.md](../INDEX.md)

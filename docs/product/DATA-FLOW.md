@@ -1,90 +1,95 @@
 # Data-Flow Traces
 
-> Generated 2026-06-16. Exact ordered file-by-file traces for three core actions, across the
-> layers: component → hook → api → backend → Firestore/rules. "Idea" = a coin in a portfolio.
-> File order and function names are verified against the code; a few line numbers are approximate.
+Part of [System Architecture](../decisions/ARCHITECTURE.md) — the runtime data-flow detail.
 
----
+Ordered, file-by-file traces for the three core user actions, across the layers component → hook → api → backend → Firestore/rules. "Idea" = a coin held in a portfolio. Traces are verified against `src/api/firebase-database.js`, the live sync watchers, and the `/api` handlers in `functions/index.js`.
 
 ## 1. User adds a new idea (coin + first buy)
 
-**Files touched, in order:**
-`Search.jsx` → `useCoinSearch.js` → `coingecko.js` → `functions/index.js` (search) → `CryptoIdea.jsx` (`addCoin`) → `firebase-database.js` (`addCoin`) → `firestore.rules` → *(then the entry)* → `Detail.jsx` → `AddEntry.jsx` → `CryptoIdea.jsx` (`addEntry`) → `firebase-database.js` (`addTransaction`) → `firestore.rules`
+Files touched, in order:
 
-### Sub-flow A — search & select the coin
-1. `components/Search.jsx` — user types; `setSq(query)` into context.
-2. `CryptoIdea.jsx` → `useCoinSearch(sq)` invoked.
-3. `hooks/useCoinSearch.js` — instant local match against `TOP_COINS` (offline), then **debounce 300 ms** for live results.
-4. `api/coingecko.js` → `searchCoins(q)` → `GET /api/search?q=…` (same-origin proxy).
-5. `functions/index.js` (`api` handler, `search` action) — `getUniverse()` reads the Firestore `cache/universe` doc (or fetches CoinGecko if stale), filters ~3,000 coins, returns top 25.
-6. `useCoinSearch.js` — merges live results with local list (deduped) → renders in `Search.jsx`.
-7. User taps **+ Add** → `addCoin(coin)` from context.
+- `components/Search.jsx` → `hooks/useCoinSearch.js` → `api/coingecko.js` → `functions/index.js` (`search`) → `CryptoIdea.jsx` (`addCoin`) → `api/firebase-database.js` (`addCoin`) → `firestore.rules`
+- then the entry: `components/Detail.jsx` → `components/AddEntry.jsx` → `CryptoIdea.jsx` (`addEntry`) → `api/firebase-database.js` (`addTransaction`) → `firestore.rules`
+
+### Sub-flow A — search and select the coin
+
+1. `components/Search.jsx` — the user types; the query flows into context.
+2. `CryptoIdea.jsx` calls `useCoinSearch(query)`.
+3. `hooks/useCoinSearch.js` — instant local match against `TOP_COINS` (offline), then a 300 ms debounce before live results.
+4. `api/coingecko.js` `searchCoins(q)` → `GET /api/search?q=…` (same-origin proxy; returns `null` on error, never throws).
+5. `functions/index.js` (`api` handler, `search` action) — `getUniverse()` reads the Firestore `cache/universe` doc (refreshing from CoinGecko if stale), filters the ~3,000 coins by id/name/symbol, sorts by rank, and returns the top 25. Sends `Cache-Control: public, max-age=300`.
+6. `hooks/useCoinSearch.js` — merges live results with the local list (deduped) → rendered in `components/Search.jsx`.
+7. The user taps to add → `addCoin(coin)` from context.
 
 ### Write #1 — the coin
-> **Moving to a server-owned callable (CRYP-108 · B3).** **PR-1 (landed)** added the `addCoinGuarded` callable + locked the rules; **PR-2 (pending)** rewires the client below to call it. The steps describe the client path as it stands today; the note after each names the PR-1/PR-2 state.
-8. `CryptoIdea.jsx` `addCoin()` — guards: not already held, `portfolio.length < maxCoins`, `user.uid` exists → calls `dbAddCoin(uid, activePortId, {...})`.
-9. `api/firebase-database.js` `addCoin()` — **`runTransaction`** (not `writeBatch`): read the coin doc → if it already exists return `already-exists`, else `set` the coin doc at `users/{uid}/portfolios/{pid}/coins/{coinId}` (`txCount:0`) **+** `increment(coinCount)` on the parent portfolio. **PR-2 replaces this direct write with a call to the `addCoinGuarded` callable**, which runs the same transaction server-side under the Admin SDK.
+> **Moving to a server-owned callable (CRYP-108 · B3).** **PR-1 (landed)** added the `addCoinGuarded` callable + locked the rules (coin `create` → `if false`); **PR-2 (pending)** rewires the client below to call it. The steps describe the client path as it stands today.
+8. `CryptoIdea.jsx` `addCoin()` — guards (not already held, under the coin cap, `user.uid` present) → calls `api/firebase-database.js` `addCoin(uid, activePortId, coinData, journal, limit)`. An optional `journal` (thesis) is written on the coin when the user fills the Buy-Journal prompt.
+9. `api/firebase-database.js` `addCoin()` — runs a `runTransaction` (DI-3 guard): if the coin doc already exists it returns `already-exists` (never overwrites the journal, never inflates the counter); otherwise it `set`s the coin doc at `users/{uid}/portfolios/{pid}/coins/{coinId}` with `txCount:0` and `increment`s the parent portfolio's `coinCount`. On `permission-denied` it calls `classifyLimitDenied()` — a fresh server re-read that returns the REAL reason (`limit` / `missing-target` / `invalid-or-denied`). **PR-2 replaces this direct write with a call to the `addCoinGuarded` callable**, which runs the same transaction server-side under the Admin SDK.
 10. `firestore.rules` — **since PR-1, coin `create` is `allow create: if false`**: clients can no longer create coin docs directly. The server-owned `addCoinGuarded` callable is the sole writer and re-derives `isOwner`/`isChosen` + `validCoinData`/`validJournal` field validation (coin metadata is clamped; a >2000-char journal note is **rejected** as `invalid-argument`, not truncated) + the tier coin-cap (`min(config, 1000)`, #20 clamp) itself. **Until PR-2 rewires the client, the direct write above is denied by the new rule** — the two PRs deploy together. (Coin `update`/`delete` rules are unchanged.)
-11. `CryptoIdea.jsx` — **optimistic** `setPortfolio([...p, coin])`, `setScreen("portfolio")`, clear search.
+11. `CryptoIdea.jsx` — optimistic local update, navigates back to the portfolio, clears the search.
 
 ### Sub-flow B — first buy entry
-12. `components/Detail.jsx` — tap **+ Buy** → presets type/price (autofilled via `getHistoricalPrice`)/date → `setScreen("addEntry")`.
-13. `components/AddEntry.jsx` — amount/price/date inputs; date change re-autofills historical price; submit disabled until amount+price present → `addEntry()`.
-14. `CryptoIdea.jsx` `addEntry()` — guards: `txCount < maxTxPerCoin`, sell-validation if selling, `user.uid` → `dbAddTransaction(uid, pid, coinId, txData)`.
-15. `api/firebase-database.js` `addTransaction()` — `writeBatch`: `set` tx doc at `…/coins/{coinId}/transactions/{txId}` **+** `increment(txCount)` on the coin → `commit()`, returns new `id`.
-16. `firestore.rules` — `transactions` create rule: `isOwner` + `validTransactionData()` (type∈buy/sell, amount>0, price≥0) + coin `txCount` +1 + `txCount <= maxTx`.
-17. `CryptoIdea.jsx` — optimistic update of `portfolio`/`sel` with returned id → `setScreen("detail")`.
 
-> Note: the transaction write still goes **directly to Firestore**. The **coin** write is moving to the `addCoinGuarded` Cloud Function (CRYP-108 · B3 — PR-1 landed the callable + rules lockdown, PR-2 rewires the client), after which the coin-cap is enforced server-side in the callable instead of by rules; the transaction cap is still enforced twice (client guard **and** security rules). `addTransactionGuarded` is a later PR.
+> Note: the transaction write still goes **directly to Firestore** (only the **coin** write moves server-side in CRYP-108 · B3; `addTransactionGuarded` is a later PR). The transaction cap is enforced twice (client guard **and** security rules).
+12. `components/Detail.jsx` — tap to buy → presets type/price (auto-filled from history)/date → opens the AddEntry screen.
+13. `components/AddEntry.jsx` — amount/price/date inputs; a date change re-auto-fills the historical price; Submit is disabled until amount and price are finite and positive → `addEntry()`.
+14. `CryptoIdea.jsx` `addEntry()` — guards (`txCount` under the per-coin cap, sell-validation when selling, `user.uid` present, not offline) → `api/firebase-database.js` `addTransaction(uid, pid, coinId, txData, limit)`.
+15. `api/firebase-database.js` `addTransaction()` — a `writeBatch`: `set`s the tx doc at `…/coins/{coinId}/transactions/{txId}` and `increment`s the coin's `txCount` → `commit()`, returns the new id. On `permission-denied` it runs `classifyLimitDenied()` on the coin's `txCount`.
+16. `firestore.rules` — the `transactions` create rule: `isOwner` + `isChosen` + `validTransactionData()` (type ∈ buy/sell, amount > 0, price ≥ 0) + coin `txCount` moved by +1 + `txCount <= maxTx`.
+17. `CryptoIdea.jsx` — optimistic update with the returned id → returns to the Detail screen.
 
----
+Submission writes directly to Firestore (no Cloud Function). Only the search step touches the backend. Limits are enforced twice — a client guard and the security rules. Deletes never decrement the counters client-side (a decrement is forbidden by `counterNoForge` in `firestore.rules`); the count is left fail-safe-high and reconciled by a trusted server callable.
 
 ## 2. User views their portfolio
 
-**Files touched, in order:**
-`main.jsx` → `CryptoIdea.jsx` → `useAuthSession.js` → `firebase-auth.js` (`onAuthChange`) → `firebase-database.js` (`getPortfolios` → `getCoins`/`getCoinsMeta` → transactions for the ACTIVE portfolio only) → `firestore.rules` → `usePortfolios.js` → `CryptoIdea.jsx` (ctx) → `Portfolio.jsx` → `PortfolioBar.jsx`
+Files touched, in order:
 
-1. `src/main.jsx` — Router lazy-loads the app bundle; `<Suspense fallback={<Loading/>}>` shows the spinner.
-2. `CryptoIdea.jsx` mounts — `screen="loading"`; `usePortfolios()` seeds a default in-memory portfolio; `useAuthSession()` wired with collaborators (`setScreen`/`setPortfolios`/`setActivePortId`/`checkSubscriptionStatus`/`saveProfile`) via a ref.
-3. `hooks/useAuthSession.js` — mount effect subscribes via `onAuthChange()`.
+- `main.jsx` → `CryptoIdea.jsx` → `hooks/useAuthSession.js` → `api/firebase-auth.js` (`onAuthChange`) → `api/firebase-database.js` (`getUserProfile` → `getPortfolios` → `getCoins`/`getCoinsMeta`) → `firestore.rules` → `hooks/usePortfolios.js` → `CryptoIdea.jsx` (ctx) → `components/Portfolio.jsx` → `components/PortfolioBar.jsx`
+
+1. `src/main.jsx` — the router lazy-loads the app bundle; `<Suspense fallback={<Loading/>}>` shows the spinner.
+2. `CryptoIdea.jsx` mounts — `screen="loading"`; `usePortfolios()` seeds a default in-memory portfolio; `useAuthSession(...)` is wired with injected collaborators (`setScreen`, `setPortfolios`, `setActivePortId`, `checkSubscriptionStatus`, `saveProfile`, `onSignedOut`, `setPortfoliosError`, `onLiveSyncError`) held in a ref.
+3. `hooks/useAuthSession.js` — the mount effect subscribes via `onAuthChange()`.
 4. `api/firebase-auth.js` `onAuthChange()` — wraps `onAuthStateChanged`; fires with the signed-in user.
-5. `useAuthSession.js` callback — reads non-sensitive profile from local storage, assembles `baseUser`, calls `loadPortfolios(uid)`.
-6. `useAuthSession.js` `loadPortfolios()` → `api/firebase-database.js` `getPortfolios(uid)` — **read** `users/{uid}/portfolios` `orderBy("order")`.
-   → `firestore.rules`: portfolios `read` allowed if `isOwner`.
-7. **Lazy load (PLAN-LIMITS-MAX Part B, #12):** `loadPortfolios` reads the saved `ci-active-port` first, then the **ACTIVE** portfolio → `firebase-database.js` `getCoins(uid, pid)` — **read** `…/coins`; then for each coin, **read** `…/coins/{coinId}/transactions` `orderBy("date","desc")` → mapped onto `coin.entries` (`txLoaded:true`). Every **OTHER** portfolio → `getCoinsMeta(uid, pid)` — **read** `…/coins` + the persisted `txCount` only, **no transaction reads** (`entries:[]`, `txLoaded:false`); its transactions load on first switch via `watchCoins`. This bounds a multi-portfolio account's app-open read cost to the active portfolio's transactions.
-   → `firestore.rules`: coins + transactions `read` allowed if `isOwner`.
-8. `useAuthSession.js` — `setPortfolios(loaded)`; set `activePortId` to the saved active (or first portfolio); `setUser(checkSubscriptionStatus(baseUser))`; `setScreen("portfolio")`; `setDataLoaded(true)`.
-9. `hooks/usePortfolios.js` — derives the **active** `portfolio` (`portfolios.find(id===activePortId).coins`).
-10. `CryptoIdea.jsx` — computes `tv` (total value = Σ holdings × `prices[id].usd`), `totalBuys`, `tpnl`/`tpp`; builds `ctx`; (`useLivePrices` kicks off — see flow 3).
-11. `components/Portfolio.jsx` — `useApp()` reads ctx; renders header (total value / invested / P&L / live status) and the asset list (per-coin holdings, price, 24h change, swipe edit/delete).
-12. `components/PortfolioBar.jsx` — renders the switcher if >1 portfolio or Pro; tapping a tab `setActivePortId(p.id)` → re-derive & re-render. **Part B:** switching to a lazy-loaded portfolio subscribes `watchCoins`, which reads its transactions and flips `txLoaded:true`; until they arrive `Portfolio.jsx` shows a "Loading…" placeholder + "—" (never a wrong/zero P&L).
+5. `useAuthSession.js` callback — reads the non-authoritative local cache (`ci-profile-{uid}`: settings + last-known tier) AND `api/firebase-database.js` `getUserProfile(uid)` for the server-authoritative fields (`tier`, `subscription`, `planChosen`, `deleted`/`deletedAt`, `settings`, `premiumLimits`); the server wins. `getUserProfile` retries a transient post-sign-in `permission-denied` and re-reads a partial (`tier`-less) doc. It assembles `baseUser`.
+6. `useAuthSession.js` — the ONBOARD-GATE check: a user who has not recorded a plan choice (`planChosen !== true` AND `tier === "free"`) has no readable data (`isChosen` in `firestore.rules` denies every portfolio read), so the load and live listener are skipped and the plan gate renders. Otherwise it calls `loadPortfolios(uid)`.
+7. `loadPortfolios()` → `api/firebase-database.js` `getPortfolios(uid)` — reads `users/{uid}/portfolios` `orderBy("order")` (retries a transient failure; a hard failure raises the "Couldn't load / Retry" screen via `setPortfoliosError`, never the phantom default). Rules: portfolios `read` if `isOwner`.
+8. Lazy load (PLAN-LIMITS-MAX Part B): it reads the saved `ci-active-port` first, loads only the ACTIVE portfolio FULL → `getCoins(uid, pid)` (reads `…/coins`, then each coin's `…/coins/{coinId}/transactions` `orderBy("date","desc")` onto `coin.entries`, `txLoaded:true`), and loads every OTHER portfolio META-ONLY → `getCoinsMeta(uid, pid)` (coins + persisted `txCount`, zero transaction reads, `entries:[]`, `txLoaded:false`). A saved `coinOrder` is carried through. This bounds the app-open read cost to the active portfolio's transactions. Rules: coins + transactions `read` if `isOwner`.
+9. `useAuthSession.js` — `setPortfolios(loaded)`; sets `activePortId` to the saved active (or the first portfolio); subscribes `watchPortfolios(uid, …)` to keep the portfolio LIST live across devices (an `onError` surfaces a toast). If the account has zero portfolio docs it self-heals by recreating the default via `createPortfolio`.
+10. `CryptoIdea.jsx` — `checkSubscriptionStatus(baseUser)` applies any expiry/grace downgrade; `setUser(checked)`; `setScreen("portfolio")`; `setDataLoaded(true)`.
+11. `hooks/usePortfolios.js` — derives the active `portfolio` (the coins of `portfolios.find(id === activePortId)`).
+12. `CryptoIdea.jsx` — computes total value (Σ holdings × `prices[id].usd`), invested, and P&L; builds `ctx`; `useLivePrices` kicks off (see flow 3); a `watchCoins` effect keeps the ACTIVE portfolio's coins + transactions live (re-reading only changed coins), flipping `txLoaded:true` when they arrive; a `watchUserDoc` effect keeps the server-authoritative user doc (tier/subscription/settings/premiumLimits/deleted) live so an admin or sweep change reaches an open session without a reload.
+13. `components/Portfolio.jsx` — reads ctx via `useApp()`; renders the value card (invested / 24h / assets), the live status, and the asset grid. A whole-card tap opens the Detail screen; the coin icon opens the CoinInfo overlay (Edit/Delete live on Detail — swipe is retired).
+14. `components/PortfolioBar.jsx` — renders the switcher when there is more than one portfolio (or a paid tier); tapping a tab sets `activePortId` → re-derive and re-render. Switching to a lazily-loaded portfolio subscribes `watchCoins`, which reads its transactions and flips `txLoaded:true`; until they arrive the value card shows a "Loading…" placeholder (never a wrong or zero P&L).
 
-> State path: `screen` loading→portfolio · `user` null→object · `portfolios` default→Firestore data · `dataLoaded` false→true. **Reads at open:** portfolios + coins for every portfolio, but **transactions for the ACTIVE portfolio only** (Part B lazy-load — non-active portfolios read their `txCount` metadata only, deferring transactions to first switch); all gated by the same `isOwner` rule.
-
----
+State path: `screen` loading→portfolio · `user` null→object · `portfolios` default→Firestore data · `dataLoaded` false→true. Reads at open: portfolios + coins for every portfolio, but transactions for the ACTIVE portfolio only (Part B lazy-load); all gated by the same `isOwner` + `isChosen` rules.
 
 ## 3. Prices auto-refresh
 
-**Files touched, in order:**
-`useLivePrices.js` → `CryptoIdea.jsx` → `coingecko.js` → `functions/index.js` (`prices` action → `getUniverse`/`refreshUniverse` → on-demand fold) → Firestore `cache/universe` → back to `useLivePrices.js` → `CryptoIdea.jsx` (ctx) → `StatusDot.jsx` + `Portfolio.jsx`/`Detail.jsx`
+Files touched, in order:
 
-1. `hooks/useLivePrices.js` (mount) — seeds **mock prices** from `TOP_COINS` so the UI isn't empty; `setApi("demo")`.
+- `hooks/useLivePrices.js` → `CryptoIdea.jsx` → `api/coingecko.js` → `functions/index.js` (`prices` → `getUniverse`/`refreshUniverse` → on-demand fold) → Firestore `cache/universe` → back to `useLivePrices.js` → `CryptoIdea.jsx` (ctx) → `components/StatusDot.jsx` + `components/Portfolio.jsx`/`components/Detail.jsx`
+
+1. `hooks/useLivePrices.js` (mount) — seeds mock prices from `TOP_COINS` so the UI is never empty; marks the source `demo`.
 2. `CryptoIdea.jsx` — `const {prices, api} = useLivePrices(portfolio)`; `api` flows into ctx.
-3. `useLivePrices.js` (effect, dep `[portfolio]`) — builds `ids = portfolio.map(c=>c.id).join(",")`; calls `f()` **immediately**, then `setInterval(f, 60000)` — **60 s poll**.
-4. `useLivePrices.js` `f()` → `api/coingecko.js` `fetchPrices(ids)` → `GET /api/prices?ids=…` (returns `null` on error, no throw).
-5. `functions/index.js` (`api` handler, `prices` action) — caps ids (≤500); `getUniverse()`.
-6. `functions/index.js` `getUniverse()` — reads Firestore `cache/universe`; if older than **5-min TTL**, calls `refreshUniverse()` (else serves cache, even stale on failure).
-7. `functions/index.js` `refreshUniverse()` — `fetch` CoinGecko `/coins/markets` (up to ~3,000 coins, metadata + price). A complete refresh **replaces** `cache/universe` (prunes delisted coins); a partial one (429) **merges** so the universe never shrinks.
-8. Handler builds response from the universe cache. A coin is served from cache only if its price is **fresh** (`HOT_TTL` = 5 min — i.e. hot top-~1,250 coins, refreshed by `refreshPrices`); a stale long-tail coin or a missing coin → `stale[]`.
-9. **Stale/off-list coins:** `stale[]` → one `fetch` CoinGecko `/simple/price` → merge into response **+** fold the fresh price back into `cache/universe` (metadata preserved; price-only off-list entries are skipped by search/coinlist and pruned by the daily refresh). Flat cost by distinct coins held, not user count.
-10. Handler sets `Cache-Control: public, max-age=120` (browser caches 2 min) → `res.json(out)`.
-11. `coingecko.js` — parses response, returns `{ id: {usd, usd_24h_change, usd_market_cap}, … }`.
-12. `useLivePrices.js` — `if (d) { setPrices(p => ({...p, ...d})); setApi("live") }` (merge keeps prior, **demo→live** flips here).
-13. `CryptoIdea.jsx` — re-renders; recomputes `tv`/`tpnl`; updates ctx.
-14. `components/StatusDot.jsx` — reads `api`; green pulsing **LIVE** vs yellow **OFFLINE**.
-15. `components/Portfolio.jsx` / `Detail.jsx` — re-render with fresh prices & 24h change.
-16. **Loop:** every 60 s → back to step 4.
+3. `useLivePrices.js` (effect, dep `[portfolio]`) — builds `ids = portfolio.map(c => c.id).join(",")`; calls the fetch immediately, then `setInterval(f, 60000)` (a 60 s poll).
+4. `useLivePrices.js` → `api/coingecko.js` `fetchPrices(ids)` → `GET /api/prices?ids=…` (returns `null` on error, never throws).
+5. `functions/index.js` (`api` handler, `prices` action) — caps ids at 500; `getUniverse()`.
+6. `functions/index.js` `getUniverse()` — reads Firestore `cache/universe`; if older than the 5-min TTL it calls `refreshUniverse()` (else serves cache, even stale on upstream failure). CoinGecko is only ever reached through `cgFetch()`, the single choke point where the `marketData` kill-switch is enforced.
+7. `functions/index.js` `refreshUniverse()` — fetches CoinGecko `/coins/markets` (up to ~3,000 coins, metadata + price). A complete refresh replaces `cache/universe` (pruning delisted coins); a partial one (429) merges so the universe never shrinks.
+8. The handler builds the response from the universe cache. A coin is served from cache only if its price is fresh (`HOT_TTL` = 5 min — the hot top-~1,250 refreshed by `refreshPrices`); a stale long-tail or missing coin is pushed to `stale[]`. An id NOT in the universe is ignored (denial-of-wallet guard) — never fetched.
+9. Stale/off-list coins: `stale[]` → one CoinGecko `/simple/price` fetch → merged into the response AND folded back into `cache/universe` (metadata preserved; price-only off-list entries are skipped by search/coinlist and pruned by the daily refresh). Cost is flat by distinct coins held, not by user count.
+10. The handler sets `Cache-Control: public, max-age=120` (a 2-min browser/CDN cache) → `res.json(out)`. Each coin carries `{ usd, usd_24h_change, usd_market_cap, usd_24h_vol, circulating, usd_market_cap_rank }`.
+11. `api/coingecko.js` `fetchPrices` — returns the parsed response object as-is (`{ id: { usd, … }, … }`) or `null`.
+12. `useLivePrices.js` — on data, merges into `prices` (keeping prior entries) and flips the source `demo → live`.
+13. `CryptoIdea.jsx` — re-renders; recomputes total value and P&L; updates ctx.
+14. `components/StatusDot.jsx` — reads the source; green pulsing LIVE vs yellow OFFLINE.
+15. `components/Portfolio.jsx` / `components/Detail.jsx` — re-render with fresh prices and 24h change.
+16. Loop: every 60 s → back to step 4.
 
-> Caching makes upstream cost flat regardless of user count: one shared server-side
-> `cache/universe` doc (5-min freshness) + browser CDN (2 min). Scheduled pub/sub
-> functions (`refreshPrices` every 5 min, `refreshUniverseDaily` daily) warm it in prod.
+Caching makes upstream cost flat regardless of user count: one shared server-side `cache/universe` doc (5-min freshness) plus the browser/CDN cache (2 min). Scheduled pub/sub functions (`refreshPrices` every 5 min, `refreshUniverseDaily` daily) warm it in production.
+
+## See also
+
+- [System Architecture](../decisions/ARCHITECTURE.md) — the canonical system shape (ARCH-1…ARCH-17).
+- [Security model](../security/SECURITY.md) — the rules boundary, IDOR/denial-of-wallet guards, and secret flow this trace relies on.
+- [Docs index](../INDEX.md) — the documentation hub.

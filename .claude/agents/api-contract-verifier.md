@@ -26,7 +26,7 @@ callables + `/api` handlers in `functions/**`. Read-only.
   real value** the code can return; flag a bare `^\S*$` (too loose) but accept the
   control-char-exclusion form. Cite `file:line`.
 
-## What to check (from API-SECURITY.md §4 / §5 + the 42Crunch traps)
+## What to check (from API-SECURITY.md §4 / §5 + the API-contract security-audit traps)
 
 For each callable/endpoint the diff added or changed in `functions/**`:
 - **Operation exists** in `openapi.json` and matches the real path/name.
@@ -42,7 +42,7 @@ For each callable/endpoint the diff added or changed in `functions/**`:
   public (or vice-versa).
 - **OAS 3.0 form:** nullable is `"type":"x","nullable":true` — **not**
   `"type":["x","null"]` or a `oneOf` null branch (those score `structureInvalid` in
-  42c-ast). `DETAILS_MAX` (500) must match `AuditEntry.details.maxLength`.
+  a strict OpenAPI structural audit). `DETAILS_MAX` (500) must match `AuditEntry.details.maxLength`.
 - **Secrets never in the contract** as values (only set-flags / booleans).
 
 ## Method

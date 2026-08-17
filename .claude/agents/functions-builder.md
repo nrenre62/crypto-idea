@@ -41,7 +41,7 @@ scheduled jobs, and the matching `openapi.json` contract. Scope: `functions/**` 
   keys (`guards.unknownKeys`) — mirror the `additionalProperties:false` in
   `openapi.json`.
 - **`keep()` secret idiom.** Secrets are returned as booleans only
-  (`secretSet`/`apiKeySet`/…); `saveConfig` uses `keep(incoming,current)` so a blank
+  (`secretSet`/`smtpPassSet`/…); `saveConfig` uses `keep(incoming,current)` so a blank
   field preserves the saved value. Never return or log a secret value; never add a
   secret to the public `/api/config` projection or the client bundle.
 - **`cgFetch()` is the single CoinGecko choke point** (the `marketData` kill-switch

@@ -39,14 +39,14 @@ describe("config-diff.diffConfig", () => {
 
   // ── the security-critical cases ─────────────────────────────────────────────
   it("NEVER writes a secret value — a changed secret records only (changed)", () => {
-    const before = { coingecko: "OLD-CG-KEY", paypal: { secret: "OLD-PP" }, email: { apiKey: "OLD-MAIL" }, ai: { anthropicKey: "OLD-AI" } };
-    const after  = { coingecko: "NEW-CG-KEY", paypal: { secret: "NEW-PP" }, email: { apiKey: "NEW-MAIL" }, ai: { anthropicKey: "NEW-AI" } };
+    const before = { coingecko: "OLD-CG-KEY", paypal: { secret: "OLD-PP" }, email: { smtpPass: "OLD-MAIL" }, ai: { providerKey: "OLD-AI" } };
+    const after  = { coingecko: "NEW-CG-KEY", paypal: { secret: "NEW-PP" }, email: { smtpPass: "NEW-MAIL" }, ai: { providerKey: "NEW-AI" } };
     const out = diffConfig(before, after);
     expect(out).toEqual([
       "coingecko: (changed)",
       "paypal.secret: (changed)",
-      "email.apiKey: (changed)",
-      "ai.anthropicKey: (changed)",
+      "email.smtpPass: (changed)",
+      "ai.providerKey: (changed)",
     ]);
     const joined = out.join(" ");
     for (const v of ["OLD-CG-KEY", "NEW-CG-KEY", "OLD-PP", "NEW-PP", "OLD-MAIL", "NEW-MAIL", "OLD-AI", "NEW-AI"]) {
@@ -91,9 +91,9 @@ describe("config-diff.diffConfig", () => {
     // The first save writes "" for a key the stored doc doesn't have at all. undefined → ""
     // is not a rotation, and logging "(changed)" would raise a false security signal —
     // made worse by secrets sorting first. Observed for real on a first save 2026-07-24.
-    expect(diffConfig({}, { coingecko: "", paypal: { secret: "" }, ai: { anthropicKey: "" } })).toEqual([]);
+    expect(diffConfig({}, { coingecko: "", paypal: { secret: "" }, ai: { providerKey: "" } })).toEqual([]);
     expect(diffConfig({ coingecko: "" }, { coingecko: "" })).toEqual([]);
-    expect(diffConfig({ email: {} }, { email: { apiKey: "" } })).toEqual([]);
+    expect(diffConfig({ email: {} }, { email: { smtpPass: "" } })).toEqual([]);
   });
 
   it("STILL reports a real rotation, and a real clearing", () => {
@@ -169,9 +169,9 @@ describe("config-diff.formatConfigDiff", () => {
     // security-relevant "an API key was set" lines would be the ones truncated away —
     // the log would then be silent about exactly the change that matters most.
     const noise = Array.from({ length: 60 }, (_, i) => `plans.pro.field${i}: 0 → ${i}`);
-    const out = formatConfigDiff([...noise, "ai.anthropicKey: (changed)", "coingecko: (changed)"]);
-    expect(out.startsWith("ai.anthropicKey: (changed), coingecko: (changed)")).toBe(true);
-    expect(out).toContain("ai.anthropicKey: (changed)");
+    const out = formatConfigDiff([...noise, "ai.providerKey: (changed)", "coingecko: (changed)"]);
+    expect(out.startsWith("ai.providerKey: (changed), coingecko: (changed)")).toBe(true);
+    expect(out).toContain("ai.providerKey: (changed)");
     expect(out).toContain("coingecko: (changed)");
     expect(out.length).toBeLessThanOrEqual(DETAILS_MAX);
   });

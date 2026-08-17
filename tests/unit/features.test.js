@@ -175,19 +175,17 @@ describe("enforcement cannot be bypassed (functions/index.js)", () => {
     expect(body).toMatch(/"checkout"/);
   });
 
-  /* aiResearch is a RESERVED switch: the Wave-B AI proxy does not exist yet, so
-     there is genuinely nothing to enforce today — and saying otherwise would be
-     the "0% churn vs. collecting" lie in a different costume. What this guards is
-     that the proxy cannot be BORN ungated: the moment an Anthropic call appears in
-     functions/index.js, the switch check must appear with it. Until then the
-     assertion is simply that the endpoint does not exist. */
-  it("a future Anthropic call cannot ship without the aiResearch switch", () => {
-    const usesAnthropic = /api\.anthropic\.com/.test(SRC);
-    if (!usesAnthropic) {
-      expect(usesAnthropic).toBe(false);   // reserved, not built — nothing to gate yet
+  /* The Wave-B AI proxy cannot ship ungated: wherever a provider generation call
+     appears in functions/index.js (callProvider(...)), the aiResearch switch check
+     must appear with it. The proxy is built (inert until go-live), so the provider
+     call IS present today and the gate check must be too. */
+  it("a provider call cannot ship without the aiResearch switch", () => {
+    const callsProvider = /callProvider\s*\(/.test(SRC);
+    if (!callsProvider) {
+      expect(callsProvider).toBe(false);   // reserved, not built — nothing to gate yet
       return;
     }
-    expect(SRC, "the AI proxy must check featureEnabled(cfg, \"aiResearch\") before calling Anthropic")
+    expect(SRC, "the AI proxy must check featureEnabled(cfg, \"aiResearch\") before calling the provider")
       .toMatch(/aiResearch/);
   });
 });

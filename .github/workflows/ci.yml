@@ -112,12 +112,13 @@ jobs:
         run: npm ci --prefix functions
 
       - name: Integration tests (live callables over HTTP)
-        # ANTHROPIC_BASE points the Wave-B AI proxy (functions/ai-anthropic.js, read at
-        # module load) at a LOCAL stub instead of the real, network-blocked api.anthropic.com.
-        # `firebase emulators:exec` runs the emulator AND the test in ONE process tree that
-        # inherits this env, so the emulator's proxy and the in-test withStub() server agree on
-        # the same origin — the researchAsk happy/safety cases (PR-E2) drive the stub and pass.
-        # Must match the withStub() fallback in tests/functions-callable.test.js.
+        # AI_PROVIDER_BASE points the Wave-B AI proxy (functions/ai-provider.js) at a LOCAL stub
+        # instead of a real, network-blocked provider endpoint. `firebase emulators:exec` runs the
+        # emulator AND the test in ONE process tree that inherits this env, so the emulator's proxy
+        # and the in-test withStub() server agree on the same origin. The researchAsk tests also set
+        # ai.baseUrl in admin config to the same origin (the production path), so the stub is reached
+        # even without this env — but keep it so the two always agree. Must match the withStub()
+        # fallback in tests/functions-callable.test.js.
         env:
-          ANTHROPIC_BASE: http://127.0.0.1:8791
+          AI_PROVIDER_BASE: http://127.0.0.1:8791
         run: npm run test:integration

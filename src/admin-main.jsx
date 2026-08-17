@@ -25,6 +25,11 @@ import AdminDashboard from "./components/admin-dashboard.jsx";
 import { CiTurtle } from "./components/ui.jsx"; // shared turtle overlay for the "C" tile
 import SettingsPwReset from "./components/SettingsPwReset.jsx"; // ADMIN-6 PR2: emailed reset page
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx"; // H8: no white screen on a render throw
+import { initClientSentry } from "./observability-client.js"; // client error reporting + measurement
+
+// Install global error/rejection handlers + tracing early (fire-and-forget). No-op if
+// it can't load. The admin app is a separate bundle, so it needs its own init call.
+initClientSentry();
 
 // ADMIN-UI-1 (2026-07-25): the sign-in / denied / loading screens are now on the
 // .ci-app paper design (green logo tile), replacing the old off-brand purple

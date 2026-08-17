@@ -1,13 +1,13 @@
 /**
  * CRYP-106 (Plan B PR-E3) — Part B: prove the Portfolio Pulse is SEVERED from AI.
  *
- * usePulse currently calls askClaude whenever enabled (= !empty && aiChrome). This file
+ * usePulse currently calls askAI whenever enabled (= !empty && aiChrome). This file
  * mocks AI_PROXY_LIVE = TRUE (so aiChrome would be true) with a non-empty book, which on
- * the current tree makes usePulse hit askClaude. After PR-E3 usePulse is deterministic by
- * construction (no askClaude import, no AI branch): it returns pulseLines(pulseFacts())
+ * the current tree makes usePulse hit askAI. After PR-E3 usePulse is deterministic by
+ * construction (no askAI import, no AI branch): it returns pulseLines(pulseFacts())
  * unconditionally and never touches the AI seam.
  *
- * (g) THE CRUX — mount alone must call askClaude ZERO times even with the flag mocked
+ * (g) THE CRUX — mount alone must call askAI ZERO times even with the flag mocked
  *     true (RED today: usePulse calls it once).
  * (h) the Pulse card shows the deterministic summary text, not the AI text (RED today:
  *     the card renders the mocked AI text).
@@ -18,10 +18,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Flag mocked TRUE — the crux: even so, Pulse must not call AI.
 vi.mock('../../src/features/research/api/ai-status.js', () => ({ AI_PROXY_LIVE: true }));
 
-// A resolved sentinel so that IF the current code wires askClaude into the Pulse it
+// A resolved sentinel so that IF the current code wires askAI into the Pulse it
 // renders a distinctive string we can assert is ABSENT (and never a null → text.split crash).
 vi.mock('../../src/features/research/api/ai-client.js', () => ({
-  askClaude: vi.fn(() => Promise.resolve('AI_SENTINEL_MUST_NOT_RENDER_IN_PULSE')),
+  askAI: vi.fn(() => Promise.resolve('AI_SENTINEL_MUST_NOT_RENDER_IN_PULSE')),
 }));
 
 // No network from usePrices' history/price derivation.
@@ -33,7 +33,7 @@ vi.mock('../../src/api/coingecko.js', () => ({
 }));
 
 import ResearchTab from '../../src/features/research/components/ResearchTab.jsx';
-import { askClaude } from '../../src/features/research/api/ai-client.js';
+import { askAI } from '../../src/features/research/api/ai-client.js';
 
 const COINS = [
   { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', entries: [{ id: 'e1', type: 'buy', amount: 0.5, priceAtBuy: 40000, date: '2025-01-01' }] },
@@ -61,10 +61,10 @@ const settledPulse = async (container) => {
 describe('Research Pulse — severed from AI even when the proxy flag is true (PR-E3)', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('CRYP-106: Pulse never calls askClaude on mount even with AI_PROXY_LIVE mocked true', async () => {
+  it('CRYP-106: Pulse never calls askAI on mount even with AI_PROXY_LIVE mocked true', async () => {
     const { container } = renderTab({ chatEnabled: true });
     await settledPulse(container);
-    expect(askClaude).toHaveBeenCalledTimes(0);
+    expect(askAI).toHaveBeenCalledTimes(0);
   });
 
   it('CRYP-106: the Pulse shows the deterministic summary, not AI-produced text', async () => {
