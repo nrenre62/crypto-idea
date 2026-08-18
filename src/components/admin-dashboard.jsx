@@ -1316,8 +1316,8 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                       AND the Research sub-nav menu (Overview-only). Same saveFeature→saveConfig
                       path the incident switches use. */}
                   <CtrlRow icon={SI.ai} label="AI research chat" sub="Default OFF at launch. Off = the Research tab shows only the deterministic Overview — the Coins section, the Ask chat and the Research menu are all hidden for every user; when live AI ships it also stops the server AI proxy.">
-                    <Switch checked={controls.features.aiResearch !== false}
-                            onChange={async () => { const r = await saveFeature("aiResearch", !(controls.features.aiResearch !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
+                    <Switch checked={controls.features.aiResearch === true}
+                            onChange={async () => { const r = await saveFeature("aiResearch", !(controls.features.aiResearch === true)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
                   </CtrlRow>
                   <label className="acct-label">AI provider API key{setFlags.providerKey ? " · saved ✓" : ""}</label>
                   <input className="field-input" type="password" value={keys.providerKey}
