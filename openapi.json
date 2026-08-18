@@ -6085,7 +6085,7 @@
           },
           "aiResearch": {
             "type": "boolean",
-            "description": "Reserved for the Wave-B AI proxy. No runtime enforcement point exists yet."
+            "description": "AI research surface. Default-OFF (CRYP-112): absent/unreadable config resolves this to false on both ends. Off = the Research tab shows the deterministic Overview only (Coins sub-view, Ask chat, per-coin Ask button and sub-nav hidden) and the researchAsk callable refuses fail-closed; also gates the Wave-B AI proxy when it ships."
           }
         },
         "additionalProperties": false

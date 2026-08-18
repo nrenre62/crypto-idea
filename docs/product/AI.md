@@ -4,10 +4,10 @@ Part of [Product decisions](../decisions/PRODUCT-DECISIONS.md) — the AI clause
 
 ## Current state: AI is off
 
-CryptoIdea ships and runs with no live AI. The Research tab renders a deterministic, data-driven summary on every surface, and that summary is presented as the real feature — not a broken or degraded one.
+CryptoIdea ships and runs with no live AI. The Research tab renders a deterministic, data-driven summary on every surface, and that summary is presented as the real feature — not a broken or degraded one. **The whole AI surface is off by default at launch (CRYP-112):** the `aiResearch` kill-switch is default-OFF, so a fresh or unconfigured deploy hides AI with no admin action.
 
 - No live model is wired. There is no active server proxy holding a provider key, and the client never calls the AI API. The go-live seam `AI_PROXY_LIVE` (in `src/features/research/api/ai-status.js`) is `false`, so every AI-only ornament — a generating label, a Regenerate button, an "AI-generated" disclaimer — stays hidden.
-- The Research → Ask chat and the per-coin "Ask AI" button are gated by the `aiResearch` admin kill-switch, evaluated client-side. When it is off, both the chat tab and the button are hidden and a stale chat selection falls back to Overview.
+- The whole AI surface is gated by the `aiResearch` admin kill-switch (default-OFF, fail-closed, evaluated client-side and mirrored server-side). When it is off the Research tab shows the deterministic **Overview only** — the Ask chat, the per-coin "Ask AI" button, the Coins sub-view and the sub-nav are all hidden, and any stale non-Overview selection falls back to Overview. Setting `aiResearch:true` restores the full surface.
 
 ## What the Research tab does without AI
 
@@ -15,8 +15,8 @@ Everything the tab shows is computed deterministically from your own portfolio n
 
 - Portfolio Pulse — a multi-signal summary built by `usePulse` over the pure `utils/pulse.js` layer: value and performance, unrealized P&L against cost basis, return attribution naming the net-direction top contributor, top-two concentration with effective-N, a "This week" 7-day volatility and drawdown line, and a diversification nudge.
 - Daily Brief — an honest 24h digest from `briefFacts` (biggest gainer and biggest decliner, with a near-zero rule so a flat day is not mislabeled as movement).
-- Ask — when the kill-switch permits it, `useAsk` renders the same built-in, data-driven answers rather than a live model response.
-- Coins — per-holding cards with a 7-day sparkline, cost / now / P&L, and the conviction-signal pills.
+- Ask — part of the `aiResearch`-gated surface: only present when the switch is on (default-OFF), and even then `useAsk` renders the same built-in, data-driven answers rather than a live model response until `AI_PROXY_LIVE` flips.
+- Coins — per-holding cards with a 7-day sparkline, cost / now / P&L, and the conviction-signal pills; also part of the `aiResearch`-gated surface, so it is hidden when the switch is off (default) and the tab shows Overview only.
 
 ## The hard product rule: research, never advice
 

@@ -12,6 +12,36 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## RESEARCH-AI-OFF-LAUNCH. Ship the `aiResearch` kill-switch DEFAULT-OFF + Overview-only Research  (✅ BUILT 2026-08-18 · branch `claude/research-ai-off-launch` · CRYP-112 · PR pending)
+
+**Founder-approved decision:** the AI research surface ships **off by default at launch**. The
+`aiResearch` kill-switch flips from default-ON to **per-flag default-OFF**, and turning it off now
+hides the **whole** AI surface, not just the Ask chat.
+
+**Done:**
+- **Per-flag default-OFF (both ends mirror).** `functions/features.js` gains
+  `DEFAULTS = {marketData:true, checkout:true, aiResearch:false}`: a *present* key still honours the
+  `!== false` rule, an *absent* key takes its per-flag default. This is a **deliberate, documented
+  exception** to the ADMIN-2 "on unless exactly `false`" (default-ON) idiom — for `aiResearch` ONLY
+  (its fail-safe is "hidden" for an as-yet-unbuilt feature; `marketData`/`checkout`/`signupsEnabled`
+  keep default-ON so a working/paid feature stays alive). The client mirrors the server default
+  (`CryptoIdea.jsx`, `useAdminDashboard.js`, `Research.jsx` all read `aiResearch === true`), so the
+  two ends can't disagree (ADMIN-2 preserved).
+- **Overview-only when off.** `ResearchTab.jsx` hides the **Coins sub-view, the Ask chat, the
+  per-coin "Ask AI" button AND the Research sub-nav** — the deterministic Overview is the only view;
+  any stale non-Overview selection falls back to Overview.
+- **Rename.** The derivation/prop `chatEnabled` → `aiEnabled` (read fail-closed as
+  `site.features.aiResearch === true`); `aiChrome = aiEnabled && AI_PROXY_LIVE` (shape unchanged).
+- **Reversible.** Setting `aiResearch:true` restores the full surface with no code change.
+
+**Docs:** canonical [`AI.md`](AI.md) + [`API-SECURITY.md`](../security/API-SECURITY.md) ADMIN-2 +
+[`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) + [`ARCHITECTURE.md`](../decisions/ARCHITECTURE.md)
+(ARCH-12/ARCH-15) + `CLAUDE.md` + `openapi.json` + the reviewer skills; ERRORS.md §C1 refreshed. The
+historical AI-CHAT-SWITCH entries below (§AI-CHAT-SWITCH, §RESEARCH-NO-AI, §BL-AI) describe the old
+default-ON `chatEnabled` behavior and are left as historical record — **superseded by CRYP-112**.
+
+---
+
 ## OSS-CLEANUP. Company-name-free shipped frontend + hyperlinked in-app CoinGecko attribution  (✅ BUILT 2026-08-15 · branch master-6mrr02 · founder ask 2026-08-15 · follow-up to LANDING-OSS)
 
 **Founder ask (2026-08-15):** audit the whole React app / codebase for company names — Apple tokens,
@@ -4333,6 +4363,10 @@ verified live on the emulator). Original spec below.
 ---
 
 ## AI-CHAT-SWITCH. Owner switch to hide + disable the Research "Ask" chat (client-side)  (✅ BUILT 2026-08-08 · `bfdbdf0` · via the Agent Factory · BUILD-LOOP #13 · CRYP-93 · PR 4a of 3)
+
+> **⏭ Superseded by CRYP-112 (§RESEARCH-AI-OFF-LAUNCH):** `aiResearch` is now **default-OFF** and gates the
+> **whole** AI surface (Overview-only), and the `chatEnabled` derivation below was renamed `aiEnabled`
+> (read `=== true`). The account below is left as historical record of the original default-ON `chatEnabled`.
 
 > **✅ BUILT 2026-08-08 (PR 4a of 3 · CRYP-93 · commit `bfdbdf0`).** The `aiResearch` kill-switch now has its
 > first client effect: OFF hides the Research → **Ask** chat tab **and** the per-coin "Ask AI about …" button,

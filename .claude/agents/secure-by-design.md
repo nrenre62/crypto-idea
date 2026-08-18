@@ -208,11 +208,21 @@ change **must be verified with `npm run test:rules`** — say so in your report.
   rules claim checks, `requireFreshAuth` (**default ON**), the deliberate
   paused-signup throw.
 - **Fail-OPEN (deliberately):** `beforeCreateUser`/`signup-gate` (unreadable
-  config → ALLOW, so a Firestore blip can't kill signups), feature kill-switches
-  (ON unless config is exactly `false`), `requireMfa` (**default OFF** until
-  Identity Platform exists). A diff that flips one of these the wrong way — e.g.
-  makes an *authorization* gate fail-open, or makes a kill-switch default-off — is
-  a finding. Match the documented direction.
+  config → ALLOW, so a Firestore blip can't kill signups), the `marketData` /
+  `checkout` / `signupsEnabled` kill-switches (ON unless config is exactly
+  `false`, so an absent/unreadable config keeps a working, cost-bearing feature
+  alive), `requireMfa` (**default OFF** until Identity Platform exists). A diff
+  that flips one of these the wrong way — e.g. makes an *authorization* gate
+  fail-open, or makes one of these kill-switches default-off — is a finding.
+- **Deliberate default-OFF exception — `aiResearch` ONLY (CRYP-112):** per-flag
+  `DEFAULTS = {marketData:true, checkout:true, aiResearch:false}` in
+  `functions/features.js`; a present key still honours the `!== false` rule, an
+  absent key takes its default. `aiResearch` gates an as-yet-unbuilt feature
+  whose fail-SAFE state is "hidden" (the app degrades to a fully-working non-AI
+  product), so a fresh/unconfigured/unreadable config resolves it OFF, mirrored
+  on BOTH ends (`CryptoIdea.jsx` reads `=== true`). This is a founder-approved,
+  documented exception — do NOT flag `aiResearch` defaulting off as a bug. The
+  fail-OPEN rule above still governs `marketData`/`checkout`/`signupsEnabled`.
 
 ---
 

@@ -107,8 +107,9 @@ wins in a conflict) is **bold**.
 ### Research tab / AI seam (`askAI`, `AI_PROXY_LIVE`, `researchAsk` proxy, fail-closed validator)
 - Canonical: **`src/features/research/api/ai-status.js`** (`AI_PROXY_LIVE` — the single live/inert flag) · **`openapi.json`** (`/researchAsk` contract)
 - Code (client): `src/features/research/api/ai-client.js` (`askAI` — throws while the flag is false, else calls `researchAsk`; sends ONLY `{ question }`) · `src/features/research/hooks/{usePulse,useAsk}.js` (Pulse is severed from AI; Ask rides `askAI`) · `src/features/research/components/{Pulse,OverviewView,ResearchTab}.jsx` · `src/features/research/styles/research-tab.css` (`.ai-status`/`aiChrome` ornaments)
-- Code (server): `functions/{ai-proxy,ai-context,ai-provider,ai-cost,validate-output}.js` · `functions/index.js` (`researchAsk` `onCall`)
-- Docs: `CLAUDE.md` (Research tab §) · `README.md` (Research paragraph) · [`NEXT-STEPS.md`](product/NEXT-STEPS.md) §Plan B PR-E · [`ERRORS.md`](testing/ERRORS.md) C1 · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) (admin AI key + monthly cap) · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) (AI tier) · [`SECURITY.md`](security/SECURITY.md) (AI inert) · [`PRICING.md`](decisions/PRICING.md) §4 (AI budget) · [`ARCHITECTURE.md`](decisions/ARCHITECTURE.md) ARCH-12 · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) (conviction engine)
+- Code (server): `functions/{ai-proxy,ai-context,ai-provider,ai-cost,validate-output}.js` · `functions/features.js` (the `aiResearch` kill-switch + its per-flag `DEFAULTS` — default-OFF, CRYP-112) · `functions/index.js` (`researchAsk` `onCall`)
+- Docs: **[`AI.md`](product/AI.md)** (AI state — off today, default-OFF at launch) · `CLAUDE.md` (Research tab § + Operational safety net ADMIN-2) · `README.md` (Research paragraph) · [`NEXT-STEPS.md`](product/NEXT-STEPS.md) §Plan B PR-E + §RESEARCH-AI-OFF-LAUNCH · [`ERRORS.md`](testing/ERRORS.md) C1 · [`API-SECURITY.md`](security/API-SECURITY.md) (ADMIN-2 kill-switch idiom + the aiResearch default-OFF exception) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) (admin AI key + monthly cap + kill-switches) · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) (AI tier) · [`SECURITY.md`](security/SECURITY.md) (AI inert) · [`PRICING.md`](decisions/PRICING.md) §4 (AI budget) · [`ARCHITECTURE.md`](decisions/ARCHITECTURE.md) ARCH-12/ARCH-15 · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) (conviction engine)
+- Reviewer skills (kill-switch fail-direction / default-OFF exception): `.claude/agents/secure-by-design.md` (fail-open vs fail-closed) · `.claude/agents/functions-builder.md` (kill-switches fail SAFE)
 
 ### Billing / PayPal (subscription lifecycle, webhook)
 - Docs: **[`BILLING.md`](decisions/BILLING.md)** · [`PRICING.md`](decisions/PRICING.md) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) D5/D6 · [`GO-LIVE-AUDIT.md`](product/GO-LIVE-AUDIT.md) · [`NEXT-STEPS.md`](product/NEXT-STEPS.md) §4 · `openapi.json` · `functions/.env.example` (PayPal deploy env-var contract: plan IDs + `PAYPAL_ENV`)
@@ -121,6 +122,12 @@ wins in a conflict) is **bold**.
 ### Admin panel
 - Docs: **[`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md)**
 - Code: `src/components/admin-dashboard.jsx` · `src/hooks/useAdminDashboard.js` · `admin.html` + `src/admin-main.jsx` (separate admin app) · `functions/index.js` (admin callables) · `firestore.rules` (`isAdmin`)
+
+### Feature kill-switches / config-flag defaults (ADMIN-2 · `config/app.flags.features`)
+- Canonical: **`functions/features.js`** (`FEATURES` map + per-flag `DEFAULTS` — `marketData`/`checkout` default-ON, `aiResearch` default-OFF per CRYP-112; the fail-direction idiom)
+- Code (client mirrors): `src/CryptoIdea.jsx` (runtime `site.features` default) · `src/hooks/useAdminDashboard.js` (admin toggles) · `src/features/research/Research.jsx` (`aiEnabled`)
+- Docs: `CLAUDE.md` (Operational safety net ADMIN-2) · [`API-SECURITY.md`](security/API-SECURITY.md) (kill-switch idiom + aiResearch default-OFF exception) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) (per-feature kill-switches) · [`ARCHITECTURE.md`](decisions/ARCHITECTURE.md) ARCH-15 · `openapi.json` (`Features` schema)
+- Reviewer skills (get the fail-direction right — includes the aiResearch default-OFF carve-out): `.claude/agents/secure-by-design.md` · `.claude/agents/functions-builder.md`
 
 ### API / Cloud Functions
 - Docs: **`openapi.json`** (the complete contract) · [`API-SECURITY.md`](security/API-SECURITY.md) · `README.md` (Cloud Functions + CoinGecko proxy sections) · [`DATA-FLOW.md`](product/DATA-FLOW.md)
