@@ -1989,7 +1989,8 @@ exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
 
   // 3) App-Check gate. Read config/app FRESH (as researchAsk does), then honour the top-level
   // config/app.appCheckEnforce flag (default OFF → no-op, so local/emulator works tokenless). The
-  // ONLY appCheckOk call site (CLAUDE.md); saveConfig's {merge:true} preserves the top-level flag.
+  // One of exactly TWO appCheckOk call sites (addCoinGuarded + addTransactionGuarded — CLAUDE.md);
+  // saveConfig's {merge:true} preserves the top-level flag.
   let cfg = {};
   try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* default: not enforced */ }
   const appCheck = guards.appCheckOk(context, { enforce: cfg.appCheckEnforce === true });
