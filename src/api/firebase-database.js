@@ -373,28 +373,45 @@ export async function removeCoin(uid, portfolioId, coinId) {
 // TRANSACTIONS (within a coin)
 // ════════════════════════════════════════
 
-// Add a transaction (buy or sell) — atomically bumps the coin's txCount.
+// Add a transaction (buy or sell) via the server-owned addTransactionGuarded callable (CRYP-110/111):
+// the tx write, the txCount bump, validTransactionData and the per-coin tx cap all moved SERVER-side
+// (client tx `create` is now `if false` in firestore.rules). The client just forwards
+// { portfolioId, coinId, tx } — never the uid (the server acts on context.auth.uid) and never the
+// tier `limit` (the server re-derives the cap). On failure we map the client HttpsError
+// (code + details.reason) back to the EXISTING { success, code, reason, id } data-layer contract
+// (res.data.txId → id), so the app's honest-toast layer (utils/errors.js) is unchanged. There is
+// no already-exists branch — the tx doc uses an auto-id, so the server never throws it.
 export async function addTransaction(uid, portfolioId, coinId, txData, limit = null) {
+  // server acts on context.auth.uid + re-derives the cap (CRYP-110); kept for signature compat
+  void uid; void limit;
   try {
-    const ref = doc(
-      collection(db, "users", uid, "portfolios", portfolioId, "coins", coinId, "transactions")
-    );
-    const batch = writeBatch(db);
-    batch.set(ref, {
-      type: txData.type || "buy",     // "buy" or "sell"
-      amount: txData.amount,           // number of coins
-      priceAtBuy: txData.priceAtBuy,   // price per coin at time of tx
-      date: txData.date,               // ISO datetime string
-      createdAt: serverTimestamp()
+    const call = httpsCallable(functions, "addTransactionGuarded");
+    const res = await call({
+      portfolioId,
+      coinId,
+      tx: {
+        type: txData.type || "buy",     // "buy" or "sell"
+        amount: txData.amount,           // number of coins
+        priceAtBuy: txData.priceAtBuy,   // price per coin at time of tx
+        date: txData.date,               // ISO datetime string
+      },
     });
-    batch.update(doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId), { txCount: increment(1) });
-    await batch.commit();
-    return { success: true, id: ref.id };
-  } catch (error) {
-    const res = { success: false, error: error.message, code: error.code };
-    if (error.code === "permission-denied")
-      res.reason = await classifyLimitDenied(doc(db, "users", uid, "portfolios", portfolioId, "coins", coinId), "txCount", limit);
-    return res;
+    return { success: true, id: res.data?.txId, txCount: res.data?.txCount };
+  } catch (err) {
+    // A client Cloud Functions error prefixes `code` with `functions/…`; strip it back to the
+    // bare Firestore-style code the contract uses.
+    const raw = err.code || "";
+    const code = raw.startsWith("functions/") ? raw.slice("functions/".length) : raw;
+    // Prefer the server's explicit reason. When absent, map on the code — and NEVER guess
+    // 'limit' from a bare failed-precondition/invalid-argument (the DI-1 false-limit invariant):
+    // an unclassified data/precondition failure is 'invalid-or-denied', not a plan cap.
+    let reason = err.details?.reason;
+    if (reason === undefined) {
+      if (code === "resource-exhausted") reason = "rate-limited";
+      else if (code === "unauthenticated") reason = undefined; // auth lapse — apiErrorMessage keys off `code`
+      else reason = "invalid-or-denied";
+    }
+    return { success: false, code, reason, error: err.message };
   }
 }
 

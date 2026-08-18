@@ -87,7 +87,7 @@ crypto-idea/
 ## `src/api/` — backend-access layer
 
 - `firebase.config.js` / `firebase.admin.config.js` — SDK init for the user app and the isolated admin app.
-- `firebase-database.js` — portfolio/coin/transaction CRUD with atomic counters (`writeBatch` + `increment`) and the live-sync watchers.
+- `firebase-database.js` — portfolio CRUD + coin/tx deletes use `writeBatch` + `increment`; coin/tx *creates* route through the guarded callables (`addCoinGuarded` / `addTransactionGuarded`). Plus the atomic counters and the live-sync watchers.
 - `firebase-auth.js` — auth wrappers (register/login/logout/reset/watch).
 - `admin.js` / `admin-auth.js` — admin-callable wrappers and admin login/re-auth/role reads.
 - `billing.js` — subscription callable wrappers (create/cancel/schedule/resubscribe).

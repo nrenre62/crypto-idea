@@ -3046,7 +3046,7 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
   Check gate**; the client write path routes through it. Closes #20's rate-limit + the write-path App
   Check. Integration throttle test (rapid adds → `resource-exhausted`). **DONE = PR-1 (server) + PR-2
   (client rewire); the transaction analogue `addTransactionGuarded` is CRYP-110 (PR-tx-1 server+rules
-  BUILT · PR-tx-2 client rewire next).**
+  BUILT · PR-tx-2 client rewire BUILT (CRYP-111)).**
   - **✅ PR-1 BUILT (2026-08-17 · CRYP-108 · branch `claude/b3a-add-coin-guarded-server`):** the
     SERVER side + rules lockdown. `exports.addCoinGuarded` (`functions/index.js`) now OWNS the coin
     write — an Admin-SDK `runTransaction` that sets the coin doc + `increment(coinCount)` and
@@ -3089,12 +3089,17 @@ validator wired + App Check + rate limit) → B3 → B4 (the gated body-swap) �
     daily cap → isChosen/tier/cap → transaction; acts on `context.auth.uid` only (no IDOR); no `writeAudit`
     (high-frequency); no `already-exists` case (auto-id can't collide). The cap NUMBERS are unchanged (free
     300 / pro 1000 / premium 2000) — this PR changes enforcement location only.
-  - **⏳ PR-tx-2 (next — the CRYP-109 analogue):** rewire `src/api/firebase-database.js addTransaction` to call
-    `httpsCallable(functions, "addTransactionGuarded")({portfolioId, coinId, tx})` and map the callable's
-    `HttpsError` (via a server-set `details.reason`) back to the app's `{success, code, reason}` contract
-    (incl. the `rate-limited` throttle reason). **Deploy-ordering constraint:** the rules `create: if false`
-    flip must ship **with-or-after PR-tx-2, never standalone** — deploying the rules lockdown before the
-    client routes through the callable would break every buy/sell.
+  - **✅ PR-tx-2 BUILT (2026-08-18 · CRYP-111 · branch `claude/b3d-add-tx-client-rewire`):** the CRYP-109
+    analogue — rewired `src/api/firebase-database.js addTransaction` to call
+    `httpsCallable(functions, "addTransactionGuarded")({portfolioId, coinId, tx})` instead of writing Firestore
+    directly, mapping the callable's `HttpsError` (via a server-set `details.reason`) back to the app's
+    `{success, code, reason, id}` contract (`res.data.txId → id`) — incl. the **`rate-limited`** throttle reason
+    for `resource-exhausted` (a distinct "too fast" toast via `apiErrorMessage`, separate from the plan-cap
+    upgrade toast); `CryptoIdea.jsx addEntry` gained the matching `rate-limited` throttle-toast branch (no
+    counter self-heal on the throttle path). It no longer runs a `writeBatch` or maps `permission-denied` via
+    `classifyLimitDenied` (that helper stays for `createPortfolio`). No `firestore.rules`/functions change (tx
+    `create` stays `if false`). **Deploy-ordering constraint now satisfied:** the rules `create: if false` flip
+    ships **together with this CRYP-111 client PR** — the tx-add path is now server-owned end-to-end.
 - [ ] **B4 · 0b-swap:** swap the `ai-client.js` body to call `researchAsk` (keep the *resolve-string /
   reject* contract so the hooks' offline fallback survives). **LAST step, gated on A9 + B2 green.**
   Lights up Pulse AND Ask at once. Decide the validator's return contract first (throw → offline note,
@@ -3187,7 +3192,9 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
   reason}` mapping incl. the new `rate-limited` throttle reason. **✅ The transaction analogue
   `addTransactionGuarded` PR-tx-1 (server + rules `create: if false` + 500ms cooldown + 500/uid/day + the
   2nd flag-gated App-Check site) is BUILT (CRYP-110, 2026-08-18); PR-tx-2 (client `addTransaction` rewire)
-  is next — deploy its rules flip with-or-after PR-tx-2, never standalone.** See §0 Wave B B3.
+  is BUILT (CRYP-111, 2026-08-18) — `HttpsError`→`{success, code, reason, id}` mapping incl. the
+  `rate-limited` throttle reason; deploy-order note now satisfied (rules `create: if false` ships with the
+  client PR).** See §0 Wave B B3.
 - [ ] **B4** swap `ai-client.js` body → `researchAsk` (gated on A9 + B2 green); lights up Pulse + Ask and
   **flips the AI "coming soon" label → the real metered number** (D13).
 - [ ] **B5–B7/B8** per-coin `convictionCache` + `getConviction` (on-demand, TTL by tier), Pulse per-user

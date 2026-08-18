@@ -896,6 +896,10 @@ export default function CryptoIdea(){
       const txData={type:eTxType,amount:parseFloat(eAmt),priceAtBuy:parseFloat(ePrice),date:eDate};
       const res=await dbAddTransaction(user.uid,activePortId,sel.id,txData,maxTxPerCoin);
       if(!res.success){
+        // CRYP-111: the server addTransactionGuarded 0.5s cooldown / 500-per-day cap → a TRANSIENT
+        // throttle, not a plan cap. Honest "too fast" toast (copy lives in apiErrorMessage's
+        // rate-limited branch); do NOT fire the counter self-heal (cap path only).
+        if(res.reason==="rate-limited"){failToast(res);return}
         if(res.reason==="limit"){reconcileCounters("You've reached this coin's transaction limit — upgrade for more.");return}
         failToast(res,"Couldn't add transaction. Check your connection.","You've reached this coin's transaction limit — upgrade for more.");return}
       const en={id:res.id,...txData,createdAt:Date.now()};
