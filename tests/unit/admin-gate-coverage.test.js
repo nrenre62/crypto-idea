@@ -98,6 +98,10 @@ const UNGATED_BY_DESIGN = new Set([
   "addCoinGuarded",  // CRYP-108 (B3, PR-1) — server-owned coin write; acts on context.auth.uid only (no
                      // body uid / no IDOR), cooldown + per-uid daily add budget + isChosen + re-derived cap
 
+  "addTransactionGuarded",  // CRYP-110 (B3, PR-tx-1) — server-owned transaction write; MIRRORS
+                            // addCoinGuarded: acts on context.auth.uid only (no body uid / no IDOR),
+                            // cooldown + per-uid daily add budget + isChosen + re-derived tx cap
+
   "devSetMyTier",    // emulator-gated dev helper (R17)
   "setAdminClaim",   // removed — the body throws permission-denied unconditionally
 ]);

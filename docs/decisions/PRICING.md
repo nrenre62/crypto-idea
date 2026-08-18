@@ -4,7 +4,7 @@ The canonical record of what CryptoIdea charges and why — tiers, prices, resou
 
 Part of [Product decisions](PRODUCT-DECISIONS.md) — this spoke covers pricing; the billing mechanism (subscription lifecycle, webhook, secrets, go-live) lives in [BILLING.md](BILLING.md).
 
-Prices and limits come from the admin-editable `config/app.plans` document with a built-in `DEFAULT_PLANS` fallback; resource limits are enforced server-side — portfolios + tx by [`firestore.rules`](../../firestore.rules), the coin cap by the `addCoinGuarded` callable. Paid plans ship OFF behind the `paidPlansEnabled` master switch until launch.
+Prices and limits come from the admin-editable `config/app.plans` document with a built-in `DEFAULT_PLANS` fallback; resource limits are enforced server-side — portfolios by [`firestore.rules`](../../firestore.rules), the coin cap by the `addCoinGuarded` callable, and the tx cap by the `addTransactionGuarded` callable. Paid plans ship OFF behind the `paidPlansEnabled` master switch until launch.
 
 ## 1. The plan at a glance
 
@@ -16,7 +16,7 @@ Prices and limits come from the admin-editable `config/app.plans` document with 
 
 The "Live AI" column is presented to users as an approximate analyses-per-day figure. Internally each tier enforces a monthly dollar-cost ceiling (`aiMonthlyCents` in `config/app.plans`), because token usage — not call count — drives AI cost. See [section 4](#4-budget-unit-monthly-dollar-cost-ceiling).
 
-Portfolio + transaction limits are enforced server-side by [`firestore.rules`](../../firestore.rules), which reads `config/app.plans` via `get()` and falls back to the built-in defaults; the coin cap moved to the `addCoinGuarded` callable (coin `create` is `if false` in the rules — see §2.5). Limits stay editable from the admin panel's Plans & Pricing card — they are not hard-coded into the app.
+Portfolio limits are enforced server-side by [`firestore.rules`](../../firestore.rules), which reads `config/app.plans` via `get()` and falls back to the built-in defaults; the coin cap moved to the `addCoinGuarded` callable (coin `create` is `if false` in the rules — see §2.5), and as of CRYP-110 the transaction cap moved to the `addTransactionGuarded` callable too (tx `create` is `if false` in the rules). Limits stay editable from the admin panel's Plans & Pricing card — they are not hard-coded into the app.
 
 ## 2. Why these numbers
 
@@ -129,8 +129,9 @@ Premium's wedge is not capacity — every tracker offers more portfolios and coi
 - AI budget ledger: [`functions/ai-cost.js`](../../functions/ai-cost.js)
 - Admin UI: [`src/components/admin-dashboard.jsx`](../../src/components/admin-dashboard.jsx) — Plans & Pricing card, Revenue card
 - Hook state: [`src/hooks/useAdminDashboard.js`](../../src/hooks/useAdminDashboard.js) — `DEFAULT_PLANS`
-- Rules enforcement (portfolios + tx): [`firestore.rules`](../../firestore.rules) — `configuredLimit`, `maxPortfolios`, `maxTx`
+- Rules enforcement (portfolios): [`firestore.rules`](../../firestore.rules) — `configuredLimit`, `maxPortfolios`
 - Coin cap: [`functions/coin-limits.js`](../../functions/coin-limits.js) — `coinCapFor` (`min(config, 1000)`), enforced in `addCoinGuarded`
+- Tx cap: [`functions/tx-limits.js`](../../functions/tx-limits.js) — `txCapFor` (`min(config, 1000000)`), enforced in `addTransactionGuarded`
 - Landing: [`index.html`](../../index.html) — plan-price cards and `/api/config` fetch
 - In-app billing screen: [`src/components/Login.jsx`](../../src/components/Login.jsx)
 - Product-direction record: [PRODUCT-DECISIONS.md](PRODUCT-DECISIONS.md)
