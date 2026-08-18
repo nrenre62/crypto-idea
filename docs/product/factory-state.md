@@ -40,11 +40,11 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## B3-tx-PR1 — Server-side guarded add-transaction write (addTransactionGuarded, Option A) (CRYP-110)
-- Phase: G2 (architect plan-of-record + consistency-sweep running)
-- Provenance: AD-HOC (founder G1 interview 2026-08-17 — the transaction analogue of the merged coin work). Founder-sequenced campaign; PR-tx-1 of 2 (server+rules), then PR-tx-2 (client). ≤~200 lines.
+- Phase: G2-approved (inner build loop — RED checkpoint running)
+- Provenance: AD-HOC (founder G1 interview 2026-08-17 — the transaction analogue of the merged coin work). Founder-sequenced campaign; PR-tx-1 of 2 (server+rules), then PR-tx-2 (client). ~295 prod lines (founder OK'd exceeding 200, cohesive security boundary can't split further).
 - G1 confirmed: yes (founder 2026-08-17: Option A callable-owns-tx-write + rules deny client tx-create; throttle = 0.5s cooldown + 500 tx/uid/day; reuse the same config/app.appCheckEnforce flag; 2 PRs; include details:{reason} in PR-tx-1 [coin lesson]; sell-vs-holdings stays a client UX pre-check)
-- G2 approved: no (architect plan running — AD-HOC so G2 is BLOCKING; present plan for founder yes before code)
-- Plan (files): TBD by architect — expected firestore.rules (tx create → if false) · functions/tx-limits.js (NEW, mirror coin-limits.js) · functions/index.js (addTransactionGuarded, 2nd appCheckOk site) · openapi.json (/addTransactionGuarded) · tests (firestore-rules tx-create-denied, functions-callable, tx-limits unit; data-layer tx-tests handled up front — seed via callable / migrate to PR-tx-2) · docs
+- G2 approved: yes (founder 2026-08-17 — size ~295 OK; App-Check becomes the 2nd appCheckOk call site [update "one call site" docs → "two"]; couple-vs-defer = 2 PRs [client add-tx briefly denied between PR-tx-1 and PR-tx-2, pre-launch]; KISS defaults: duplicate unsafePathSeg inline, callable returns {success,txId,txCount})
+- Plan (files): firestore.rules (tx create → if false; drop dead maxTx/coinRef) · functions/tx-limits.js (NEW, clone of coin-limits.js: txCapFor + TX_HARD_MAX=1e6 + TX_COOLDOWN_MS=500 + TX_DAILY_LIMIT=500) · functions/index.js (addTransactionGuarded, 2nd appCheckOk site) · openapi.json (/addTransactionGuarded) · tests/firestore-rules.test.js (tx-create-denied + rework 4 cap tests) · tests/functions-callable.test.js (addTransactionGuarded block, CI-only) · tests/unit/tx-limits.test.js (NEW) · tests/data-layer.test.js (seedTx helper, fix 3 tx tests) · docs (PRICING, DATA-FLOW, API-SECURITY, CLAUDE App-Check "two call sites", interview.md Tier-limits row, NEXT-STEPS, diagram)
 - Fix-round: 0 / 3
 - Open findings: none
 - Branch: claude/b3c-add-tx-guarded-server (off master afd476b)
