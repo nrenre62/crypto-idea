@@ -947,6 +947,83 @@
         ]
       }
     },
+    "/addTransactionGuarded": {
+      "post": {
+        "operationId": "addTransactionGuarded",
+        "summary": "Add a transaction to one of your coins — the server-owned transaction write (CRYP-110, B3)",
+        "description": "Callable. THE sole transaction-doc writer: client transaction CREATE is `if false` in firestore.rules, so this Admin-SDK callable owns it and re-derives the tier transaction cap + the isChosen onboarding gate server-side. A near one-to-one mirror of addCoinGuarded. Acts on context.auth.uid only — there is no body uid (no IDOR); a stray one is rejected by the deny-by-default input shape. Fail-closed gate order: auth → deny-by-default keys + portfolioId/coinId/tx validation → App-Check gate (config.appCheckEnforce flag, default off) → 500ms cooldown → 500/UTC-day count budget → isChosen + cap re-derivation → transaction (coin exists → newCount ≤ cap → set tx doc with an auto-id + increment txCount). The cooldown precedes the daily budget, so a throttled double-click burns no daily slot. There is no already-exists case — the tx doc uses an auto-id. Returns { success, txId, txCount }.",
+        "tags": [
+          "Account"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTransactionGuardedEnvelope"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The transaction was created; txCount is the coin's new transaction count and txId is the new auto-id doc id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddTransactionGuardedResultEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid-argument (unknown field, or a missing/invalid portfolioId/coinId/tx) / failed-precondition (App-Check enforced+missing, plan not chosen, coin not found, or the coin is at its transaction cap for the plan). For client disambiguation the error carries a fixed-enum details.reason (no user data): invalid-or-denied for validation/App-Check/not-chosen, missing-target for a missing coin, limit for the transaction cap. See the CallableError.details description below.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "resource-exhausted — the 500ms add cooldown or the 500/UTC-day add budget was tripped. Carries details.reason:'rate-limited'.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unexpected error — see the error body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CallableError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "FirebaseAuth": []
+          }
+        ]
+      }
+    },
     "/cancelSubscription": {
       "post": {
         "operationId": "cancelSubscription",
@@ -3600,7 +3677,7 @@
               "details": {
                 "type": "object",
                 "nullable": true,
-                "description": "Optional error-specific payload. For addCoinGuarded it carries a fixed-enum reason (no user data, no cap number) for client disambiguation: details.reason ∈ {limit, missing-target, invalid-or-denied, rate-limited, already-exists}. Other callables may omit details or carry their own shape."
+                "description": "Optional error-specific payload. The addCoinGuarded and addTransactionGuarded callables both carry a fixed-enum reason (no user data, no cap number) for client disambiguation, sharing this reason enum: details.reason ∈ {limit, missing-target, invalid-or-denied, rate-limited, already-exists} (addTransactionGuarded never returns already-exists — its tx doc uses an auto-id). Other callables may omit details or carry their own shape."
               }
             },
             "required": [
@@ -4554,6 +4631,108 @@
             "required": [
               "success",
               "coinCount"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddTransactionGuardedEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "portfolioId": {
+                "type": "string",
+                "description": "The caller's own portfolio holding the coin. Non-blank; the tx lands under context.auth.uid — never a body uid.",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "coinId": {
+                "type": "string",
+                "description": "The coin-doc id to add the transaction to (must already exist). Non-blank.",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "tx": {
+                "type": "object",
+                "description": "The transaction to add. Only these fields are persisted; a stray extra is dropped server-side.",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "buy",
+                      "sell"
+                    ]
+                  },
+                  "amount": {
+                    "type": "number",
+                    "description": "Units transacted; finite, > 0, ≤ 1e15.",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "priceAtBuy": {
+                    "type": "number",
+                    "description": "Unit price at the transaction; finite, ≥ 0, ≤ 1e9.",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  },
+                  "date": {
+                    "type": "string",
+                    "description": "The transaction date (client-formatted string).",
+                    "minLength": 1,
+                    "maxLength": 40
+                  }
+                },
+                "required": [
+                  "type",
+                  "amount",
+                  "priceAtBuy",
+                  "date"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "portfolioId",
+              "coinId",
+              "tx"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "AddTransactionGuardedResultEnvelope": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean",
+                "description": "True when the transaction was created."
+              },
+              "txId": {
+                "type": "string",
+                "description": "The new transaction's auto-generated doc id.",
+                "minLength": 1
+              },
+              "txCount": {
+                "type": "integer",
+                "description": "The coin's transaction count after the add.",
+                "minimum": 1,
+                "maximum": 1000000
+              }
+            },
+            "required": [
+              "success",
+              "txId",
+              "txCount"
             ],
             "additionalProperties": false
           }

@@ -52,6 +52,9 @@ const guards = require("./guards.js");   // ADMIN-SEC role gates (requireOwner/r
 // CRYP-108 (B3, PR-1): the pure coin-cap derivation + add-limiter constants the server-owned
 // addCoinGuarded callable enforces (client coin CREATE is now `if false` in firestore.rules).
 const { coinCapFor, ADD_COOLDOWN_MS, ADD_DAILY_LIMIT } = require("./coin-limits.js");
+// CRYP-110 (B3, PR-tx-1): the pure per-coin tx-cap derivation + add-tx limiter constants the
+// server-owned addTransactionGuarded callable enforces (client tx CREATE is now `if false`).
+const { txCapFor, TX_COOLDOWN_MS, TX_DAILY_LIMIT } = require("./tx-limits.js");
 const settingsAuth = require("./settings-auth.js");   // ADMIN-6 Settings-password crypto core
 const { sendMail } = require("./sendMail.js");         // ADMIN-6 PR2: outbound-email seam (lazy nodemailer)
 const billing = require("./billing.js");
@@ -2031,6 +2034,117 @@ exports.addCoinGuarded = functions.https.onCall(async (data, context) => {
   });
 
   return { success: true, coinCount: newCount };
+});
+
+// ─── CRYP-110 (B3, PR-tx-1): addTransactionGuarded — the SERVER-OWNED transaction write ──────
+// Client transaction CREATE is now `if false` in firestore.rules, so THIS Admin-SDK callable is the
+// sole transaction-doc writer. It re-derives the tier tx cap + the isChosen gate server-side, so
+// neither can be bypassed by a crafted client. A near one-to-one MIRROR of addCoinGuarded — same
+// fail-closed, gate-before-side-effect discipline; acts on context.auth.uid ONLY — never a body uid
+// (no IDOR; there is no `uid` field, and a stray one is rejected by the deny-by-default input shape).
+//
+// FAIL-CLOSED gate order (each maps to an HttpsError code):
+//   1 auth (unauthenticated) → 2 deny-by-default keys + portfolioId/coinId/tx validation
+//   (invalid-argument) → 3 App-Check gate (flag-gated, default OFF) → 4 500ms cooldown
+//   (resource-exhausted) → 5 500/UTC-day count budget (resource-exhausted) → 6 isChosen + cap
+//   re-derivation → 7 transaction: coin exists (failed-precondition, missing-target) → newCount ≤ cap
+//     (failed-precondition, DISTINCT from the rate-limit message) → set tx (auto-id) + increment txCount.
+// Request shape: { portfolioId, coinId, tx:{type,amount,priceAtBuy,date} }. Returns { success, txId, txCount }.
+// The cooldown is checked BEFORE the daily budget, so a throttled double-click burns no daily slot.
+// No `already-exists` case — the tx doc uses an auto-id, which can't collide. No writeAudit: a
+// high-frequency user action, like addCoinGuarded.
+exports.addTransactionGuarded = functions.https.onCall(async (data, context) => {
+  // 1) Auth. The caller is the ONLY subject — no body uid exists to target another user with.
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Sign in first.");
+  const uid = context.auth.uid;
+
+  // 2) Deny-by-default input shape (mirrors openapi.json additionalProperties:false) + validation.
+  // A stray key (e.g. a smuggled `uid`) is a 400; the message stays generic — it never echoes the
+  // caller's field name back.
+  assertNoUnknownKeys(data, ["portfolioId", "coinId", "tx"]);
+  // §7 path-segment safety: portfolioId + coinId become Firestore doc-path segments below
+  // (portfolios/{portfolioId} · coins/{coinId}). Reject a slash, any control char, or a bare
+  // "."/".." — a denylist, so legitimate CoinGecko ids ([a-z0-9-]) + Firestore push-ids stay valid.
+  // Duplicated inline (founder-OK'd) to keep the addCoinGuarded callable untouched. The message
+  // stays generic; it never echoes the offending value.
+  const unsafePathSeg = (s) => {
+    if (s === "." || s === "..") return true;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c === 47 || c < 32 || c === 127) return true; // "/" (47), control chars (<32), DEL (127)
+    }
+    return false;
+  };
+  const portfolioId = data && data.portfolioId;
+  if (typeof portfolioId !== "string" || portfolioId.trim() === "" || portfolioId.length > 128 ||
+      unsafePathSeg(portfolioId)) {
+    throw new functions.https.HttpsError("invalid-argument", "A portfolio is required.", { reason: "invalid-or-denied" });
+  }
+  const coinId = data && data.coinId;
+  if (typeof coinId !== "string" || coinId.trim() === "" || coinId.length > 128 || unsafePathSeg(coinId)) {
+    throw new functions.https.HttpsError("invalid-argument", "A coin is required.", { reason: "invalid-or-denied" });
+  }
+  const tx = data && data.tx;
+  if (!tx || typeof tx !== "object" || Array.isArray(tx) ||
+      (tx.type !== "buy" && tx.type !== "sell") ||
+      typeof tx.amount !== "number" || !Number.isFinite(tx.amount) || tx.amount <= 0 || tx.amount > 1e15 ||
+      typeof tx.priceAtBuy !== "number" || !Number.isFinite(tx.priceAtBuy) || tx.priceAtBuy < 0 || tx.priceAtBuy > 1e9 ||
+      typeof tx.date !== "string" || tx.date.length < 1 || tx.date.length > 40) {
+    throw new functions.https.HttpsError("invalid-argument", "A valid transaction is required.", { reason: "invalid-or-denied" });
+  }
+  // Build the stored tx from KNOWN fields only — a stray extra can't ride along.
+  const txDoc = {
+    type: tx.type,
+    amount: tx.amount,
+    priceAtBuy: tx.priceAtBuy,
+    date: tx.date,
+    createdAt: Date.now(),   // ms, not FieldValue.serverTimestamp() — matches ensureDefaultPortfolio
+  };
+
+  // 3) App-Check gate. Read config/app FRESH (as addCoinGuarded does), then honour the top-level
+  // config/app.appCheckEnforce flag (default OFF → no-op, so local/emulator works tokenless). The
+  // SAME flag + the intended 2nd appCheckOk call site (CLAUDE.md CRYP-108); saveConfig's {merge:true}
+  // preserves the top-level flag.
+  let cfg = {};
+  try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; } catch (e) { /* default: not enforced */ }
+  const appCheck = guards.appCheckOk(context, { enforce: cfg.appCheckEnforce === true });
+  if (!appCheck.ok) throw new functions.https.HttpsError("failed-precondition", "App verification failed. Please reload and try again.", { reason: "invalid-or-denied" });
+
+  // 4) Sliding 500ms cooldown — BEFORE the daily budget is consumed, so a throttled double-click
+  // burns no daily slot. A blocked attempt does not extend the window (guards.checkCooldown).
+  const cool = await checkCooldown(db, { uid, key: "addTx", cooldownMs: TX_COOLDOWN_MS });
+  if (!cool.allowed) throw new functions.https.HttpsError("resource-exhausted", "You're adding transactions too fast — please wait a moment and try again.", { reason: "rate-limited" });
+  // 5) Per-uid daily COUNT budget (500/UTC-day) — bounds a scripted add loop. Count-based, the same
+  // primitive the addCoin/createSubscription limiters use; a denied call consumes nothing.
+  const budget = await consumeDailyBudget(db, { uid, key: "addTx", limit: TX_DAILY_LIMIT });
+  if (!budget.allowed) throw new functions.https.HttpsError("resource-exhausted", "You've reached today's add-transaction limit — please try again tomorrow.", { reason: "rate-limited" });
+
+  // 6) Onboarding gate + cap re-derivation. isChosen mirrors firestore.rules: a recorded plan choice
+  // (planChosen) OR a paid tier. cap = the ONE source of truth (tx-limits.txCapFor) over the MERGED
+  // plans (so a raw config value ≥1e6 is clamped) + the caller's own premiumLimits override.
+  const userSnap = await db.collection("users").doc(uid).get();
+  const u = (userSnap.exists && userSnap.data()) || {};
+  const tier = u.tier || "free";
+  const isChosen = u.planChosen === true || tier !== "free";
+  if (!isChosen) throw new functions.https.HttpsError("failed-precondition", "Choose a plan before adding transactions.", { reason: "invalid-or-denied" });
+  const cap = txCapFor(tier, mergePlans(cfg.plans), u.premiumLimits || {});
+
+  // 7) The write, TRANSACTIONALLY: existence + cap + counter must be atomic so two concurrent adds
+  // can't both read newCount ≤ cap and both write past it. Reads before writes (Firestore rule).
+  const coinRef = db.collection("users").doc(uid).collection("portfolios").doc(portfolioId).collection("coins").doc(coinId);
+  const txRef = coinRef.collection("transactions").doc();   // auto-id — can't collide (no already-exists)
+  const newCount = await db.runTransaction(async (t) => {
+    const coinSnap = await t.get(coinRef);
+    if (!coinSnap.exists) throw new functions.https.HttpsError("failed-precondition", "That coin doesn't exist.", { reason: "missing-target" });
+    const n = (coinSnap.data().txCount || 0) + 1;
+    // Cap message is DISTINCT from the rate-limit one — a full transaction book is not a throttle.
+    if (n > cap) throw new functions.https.HttpsError("failed-precondition", `This coin is at its ${cap}-transaction limit for your plan.`, { reason: "limit" });
+    t.set(txRef, txDoc);
+    t.update(coinRef, { txCount: FieldValue.increment(1) });
+    return n;
+  });
+
+  return { success: true, txId: txRef.id, txCount: newCount };
 });
 
 // ─── Self-service (DI-3): recompute the caller's OWN aggregate counters from real docs ───
