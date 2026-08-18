@@ -1744,3 +1744,203 @@ test("CRYP-108: addCoinGuarded on a non-existent portfolio → failed-preconditi
     `a missing portfolio must carry details.reason:'missing-target': ${JSON.stringify(res.body)}`);
   void uid;
 });
+
+// ── CRYP-110 · addTransactionGuarded — the server-owned transaction write (B3, PR-tx-1) ──
+// A new `exports.addTransactionGuarded` onCall OWNS the transaction write (Admin SDK txn: set the
+// tx doc + increment(txCount) on the coin) so client transaction create can be flipped to
+// `if false` in firestore.rules (server-only). It is the ONLY tier that runs the callable BODY.
+// Gate order MIRRORS addCoinGuarded (each maps to an HttpsError code):
+//   auth (unauthenticated) → assertNoUnknownKeys(["portfolioId","coinId","tx"])
+//   (invalid-argument) → App-Check gate (flag-gated, default OFF) → 500ms cooldown
+//   guards.checkCooldown + 500/day guards.consumeDailyBudget (resource-exhausted) →
+//   isChosen / tier / cap re-derivation (failed-precondition) → transaction
+//   (coin exists → txCount < cap → set tx (auto-id) + increment txCount).
+//   Returns { success:true, txId, txCount }; acts on context.auth.uid only (no body-uid IDOR).
+//   No `already-exists` case — the tx doc uses an auto-id.
+//
+// CI-ONLY: the functions emulator can't boot in the authoring sandbox (egress policy), so these
+// are RED-by-404 today (the callable does not exist yet — the emulator 404s every call, so none
+// of the 200/400/401/429 status assertions land) and are verified on CI once the functions-builder
+// adds the body. Uses callAsSafe (a 404 body is plain text that callAs's r.json() would throw on).
+// The `tx` payload mirrors the app's transaction doc (type/amount/priceAtBuy/date — see
+// src/api/firebase-database.js addTransaction).
+
+// A chosen user + one portfolio + one coin seeded at a given txCount (Admin SDK, bypasses rules).
+async function seedAddTxUser(email, { tier = "free", planChosen = true, txCount = 0, portfolioId = "p1", coinId = "bitcoin" } = {}) {
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set(
+    { email, name: "AddTx", tier, portfolioCount: 1, ...(planChosen ? { planChosen: true } : {}) },
+    { merge: true },
+  );
+  const portRef = db.collection("users").doc(uid).collection("portfolios").doc(portfolioId);
+  await portRef.set({ name: "Main", coinCount: 1 });
+  await portRef.collection("coins").doc(coinId).set({ symbol: "BTC", name: "Bitcoin", txCount });
+  return uid;
+}
+// Clear the per-uid add-tx rate-limit docs (500ms cooldown + daily budget) so a follow-up call
+// in the SAME test reaches the transaction/cap gate instead of the cooldown. Keyed off the
+// documented rateLimits/${uid}__* convention (guards.rateDocPath), so it is independent of the
+// exact limiter key the callable chooses (same idiom as the coin suite's clearAddLimiter).
+async function clearTxLimiter(uid) {
+  const snap = await db.collection("rateLimits").get();
+  await Promise.all(snap.docs.filter((d) => d.id.startsWith(`${uid}__`)).map((d) => d.ref.delete()));
+}
+const addTxData = (portfolioId, coinId, tx) => ({
+  portfolioId, coinId, tx: { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00", ...(tx || {}) },
+});
+
+// AC-tx1 — RED ANCHOR (written first). checkCooldown + consumeDailyBudget sit BEFORE the write,
+// so a rapid second add is refused with resource-exhausted (429) carrying details.reason.
+test("CRYP-110: two addTransactionGuarded calls back-to-back trip the tx-limiter (resource-exhausted)", async () => {
+  const email = `addtx_rl_${stamp}@example.com`;
+  const uid = await seedAddTxUser(email, { txCount: 0 });
+  const token = await idTokenFor(email);
+
+  const first = await callAsSafe("addTransactionGuarded", token, addTxData("p1", "bitcoin"));
+  assert.strictEqual(first.status, 200, `the first tx should succeed: ${JSON.stringify(first.body)}`);
+  assert.strictEqual(first.body && first.body.result && first.body.result.success, true, "the first tx reports success");
+
+  // A second add IMMEDIATELY after (within the 500ms cooldown / under the daily cap) is refused.
+  const second = await callAsSafe("addTransactionGuarded", token, addTxData("p1", "bitcoin"));
+  assert.strictEqual(second.status, 429, `a rapid second tx must be rate-limited (429), got ${second.status}: ${JSON.stringify(second.body)}`);
+  assert.strictEqual(second.body && second.body.error && second.body.error.status, "RESOURCE_EXHAUSTED");
+  // The throw must carry details.reason so the client maps it to reason:'rate-limited' (distinct
+  // from the plan-cap upgrade toast — the addCoinGuarded/CRYP-109 mapping contract).
+  assert.strictEqual(
+    second.body && second.body.error && second.body.error.details && second.body.error.details.reason,
+    "rate-limited",
+    `the rate-limit HttpsError must carry details.reason:'rate-limited': ${JSON.stringify(second.body)}`,
+  );
+  void uid;
+});
+
+// AC-tx2 — no auth → unauthenticated (401).
+test("CRYP-110: addTransactionGuarded rejects an unauthenticated caller (unauthenticated)", async () => {
+  const noAuth = await fetch(callableUrl("addTransactionGuarded"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: addTxData("p1", "bitcoin") }),
+  });
+  assert.strictEqual(noAuth.status, 401, "an unauthenticated tx must be rejected");
+});
+
+// AC-tx3 — an extra top-level data key → invalid-argument (400), and the message must NOT echo it.
+test("CRYP-110: addTransactionGuarded rejects an unknown top-level data key without echoing it (invalid-argument)", async () => {
+  const email = `addtx_key_${stamp}@example.com`;
+  const uid = await seedAddTxUser(email, { txCount: 0 });
+  const token = await idTokenFor(email);
+  // The allow-list is exactly ["portfolioId","coinId","tx"] — a stray key is a 400.
+  const bad = await callAsSafe("addTransactionGuarded", token,
+    { portfolioId: "p1", coinId: "bitcoin", tx: { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" }, sneaky: 1 });
+  assert.strictEqual(bad.status, 400, `unknown key should be rejected: ${JSON.stringify(bad.body)}`);
+  assert.strictEqual(bad.body && bad.body.error && bad.body.error.status, "INVALID_ARGUMENT");
+  // The message stays generic — it must NOT reflect the caller's field name back.
+  assert.ok(!String((bad.body.error && bad.body.error.message) || "").includes("sneaky"),
+    "the error must not echo the offending key name");
+  void uid;
+});
+
+// AC-tx4 — one call creates exactly one transaction (txCount -> 1) and returns { success, txId,
+// txCount }. The tx doc uses an auto-id, so there is no already-exists case.
+test("CRYP-110: addTransactionGuarded creates exactly one transaction (txCount->1) and returns {success, txId, txCount}", async () => {
+  const email = `addtx_ok_${stamp}@example.com`;
+  const uid = await seedAddTxUser(email, { txCount: 0 });
+  const token = await idTokenFor(email);
+
+  const res = await callAsSafe("addTransactionGuarded", token, addTxData("p1", "bitcoin", { type: "buy", amount: 1.5, priceAtBuy: 40000, date: "2026-02-01T00:00" }));
+  assert.strictEqual(res.status, 200, `the tx add should succeed: ${JSON.stringify(res.body)}`);
+  const result = res.body && res.body.result;
+  assert.strictEqual(result && result.success, true, "the add reports success");
+  assert.strictEqual(result && result.txCount, 1, "txCount must be 1 after the first tx");
+  assert.ok(result && typeof result.txId === "string" && result.txId.length > 0, "an auto-id txId is returned");
+
+  const coinRef = db.collection("users").doc(uid).collection("portfolios").doc("p1").collection("coins").doc("bitcoin");
+  assert.strictEqual((await coinRef.collection("transactions").get()).size, 1, "exactly one transaction doc under the caller's coin");
+  assert.strictEqual((await coinRef.get()).data().txCount, 1, "the coin txCount is exactly 1");
+  const txDoc = (await coinRef.collection("transactions").doc(result.txId).get()).data();
+  assert.strictEqual(txDoc.type, "buy", "the tx type is persisted");
+  assert.strictEqual(txDoc.amount, 1.5, "the tx amount is persisted");
+  assert.strictEqual(txDoc.priceAtBuy, 40000, "the tx price is persisted");
+});
+
+// AC-tx5 — the callable RE-DERIVES the cap server-side. Free boundary: txCount 299 -> the 300th
+// add allowed; txCount 300 -> refused (failed-precondition + details.reason:'limit').
+test("CRYP-110: addTransactionGuarded enforces the tx cap — free at 299 adds the 300th, at 300 is refused (limit)", async () => {
+  // Free user one BELOW the 300-tx Starter cap: the 300th tx is allowed.
+  const okEmail = `addtx_free_ok_${stamp}@example.com`;
+  const okUid = await seedAddTxUser(okEmail, { tier: "free", txCount: 299 });
+  const okRes = await callAsSafe("addTransactionGuarded", await idTokenFor(okEmail), addTxData("p1", "bitcoin"));
+  assert.strictEqual(okRes.status, 200, `the 300th tx (free cap 300) must be allowed: ${JSON.stringify(okRes.body)}`);
+  assert.strictEqual(okRes.body && okRes.body.result && okRes.body.result.txCount, 300, "txCount reaches exactly 300");
+  void okUid;
+
+  // Free user AT the cap: the 301st tx is refused (failed-precondition + reason:'limit').
+  const fullEmail = `addtx_free_full_${stamp}@example.com`;
+  const fullUid = await seedAddTxUser(fullEmail, { tier: "free", txCount: 300 });
+  const fullRes = await callAsSafe("addTransactionGuarded", await idTokenFor(fullEmail), addTxData("p1", "bitcoin"));
+  assert.strictEqual(fullRes.status, 400, `at the 300-tx cap a further tx must be refused: ${JSON.stringify(fullRes.body)}`);
+  assert.strictEqual(fullRes.body && fullRes.body.error && fullRes.body.error.status, "FAILED_PRECONDITION");
+  // The cap refusal must carry details.reason:'limit' (the ONLY upgrade case) — never a fake guess.
+  assert.strictEqual(fullRes.body.error.details && fullRes.body.error.details.reason, "limit",
+    `the at-cap refusal must carry details.reason:'limit': ${JSON.stringify(fullRes.body)}`);
+  assert.strictEqual(
+    (await db.collection("users").doc(fullUid).collection("portfolios").doc("p1").collection("coins").doc("bitcoin").get()).data().txCount, 300,
+    "no tx written at the cap",
+  );
+});
+
+// AC-tx6 — a write to a coin that doesn't exist is failed-precondition (the transaction's
+// existence check), NEVER a fake cap/limit. GREEN once the callable ships (the existence check
+// lives in the transaction body); it 404s only in the authoring sandbox, so it's verified on CI.
+test("CRYP-110: addTransactionGuarded on a non-existent coin → failed-precondition (missing-target)", async () => {
+  const email = `addtx_nocoin_${stamp}@example.com`;
+  const uid = await seedAddTxUser(email, { txCount: 0 });
+  const token = await idTokenFor(email);
+  // The caller is chosen + under cap, so this reaches the transaction's coin-existence check.
+  const res = await callAsSafe("addTransactionGuarded", token, addTxData("p1", "no-such-coin"));
+  assert.strictEqual(res.status, 400, `a missing coin must be failed-precondition, not a fake limit: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body && res.body.error && res.body.error.status, "FAILED_PRECONDITION");
+  // A missing parent carries details.reason:'missing-target' so the client kicks the self-heal.
+  assert.strictEqual(res.body.error.details && res.body.error.details.reason, "missing-target",
+    `a missing coin must carry details.reason:'missing-target': ${JSON.stringify(res.body)}`);
+  void uid;
+});
+
+// AC-tx7 — the onboarding gate + no IDOR path. A not-chosen free user is refused
+// (failed-precondition, nothing written); once planChosen is recorded the add succeeds and the tx
+// lands under the CALLER's own uid. There is no body-uid to target another user with — a stray
+// `uid` key is rejected by the deny-by-default input shape (same mechanism as AC-tx3).
+test("CRYP-110: addTransactionGuarded gates on planChosen and acts on the caller's own uid (no body-uid IDOR)", async () => {
+  const email = `addtx_gate_${stamp}@example.com`;
+  // planChosen ABSENT + free tier → not chosen.
+  const uid = await seedAddTxUser(email, { tier: "free", planChosen: false, txCount: 0 });
+  const token = await idTokenFor(email);
+
+  // Not chosen → failed-precondition, and no tx is written.
+  const gated = await callAsSafe("addTransactionGuarded", token, addTxData("p1", "bitcoin"));
+  assert.strictEqual(gated.status, 400, `a not-chosen user must be refused: ${JSON.stringify(gated.body)}`);
+  assert.strictEqual(gated.body && gated.body.error && gated.body.error.status, "FAILED_PRECONDITION");
+  assert.strictEqual(
+    (await db.collection("users").doc(uid).collection("portfolios").doc("p1").collection("coins").doc("bitcoin").collection("transactions").get()).size, 0,
+    "no tx may be written while the plan gate is closed",
+  );
+
+  // Record the choice server-side; clear the tx-limiter so the retry isn't cooldown-blocked
+  // (isChosen is checked AFTER the cooldown/budget gates, so the refused call already stamped them).
+  await db.collection("users").doc(uid).set({ planChosen: true }, { merge: true });
+  await clearTxLimiter(uid);
+
+  const ok = await callAsSafe("addTransactionGuarded", token, addTxData("p1", "bitcoin"));
+  assert.strictEqual(ok.status, 200, `a chosen user's tx must succeed: ${JSON.stringify(ok.body)}`);
+  assert.strictEqual(
+    (await db.collection("users").doc(uid).collection("portfolios").doc("p1").collection("coins").doc("bitcoin").collection("transactions").get()).size, 1,
+    "exactly one tx under the caller's OWN uid/coin",
+  );
+
+  // A stray `uid` key (the would-be IDOR vector) is rejected by assertNoUnknownKeys, not honoured.
+  await clearTxLimiter(uid);
+  const idor = await callAsSafe("addTransactionGuarded", token,
+    { portfolioId: "p1", coinId: "bitcoin", tx: { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" }, uid: "victim" });
+  assert.strictEqual(idor.status, 400, `a stray uid key must be rejected: ${JSON.stringify(idor.body)}`);
+  assert.strictEqual(idor.body && idor.body.error && idor.body.error.status, "INVALID_ARGUMENT");
+});

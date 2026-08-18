@@ -17,7 +17,7 @@ import { registerUser, updateUserSettings } from "../src/api/firebase-auth.js";
 import { chooseFreePlan } from "../src/api/account.js";
 import {
   getPortfolios, createPortfolio, getCoins, getCoinsMeta, addCoin,
-  addTransaction, deleteTransaction, getUserProfile, updateCoinJournal,
+  deleteTransaction, getUserProfile, updateCoinJournal,
   getLearnProgress, saveLearnProgress, watchPortfolios, watchCoins, updatePortfolioName, updateCoinOrder,
 } from "../src/api/firebase-database.js";
 
@@ -59,6 +59,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // can't clear the server-only rateLimits docs (the way functions-callable.test.js's clearAddLimiter
 // does over the Admin SDK), so consecutive server seeds must space past it.
 const ADD_COOLDOWN_MS = 2000;
+
+// CRYP-110 (B3, PR-tx-1): client transaction CREATE is now server-only (firestore.rules `if false`),
+// so the data layer can no longer write a transaction directly — transactions are created ONLY by
+// the addTransactionGuarded callable (Admin SDK txn: set the tx doc + increment(txCount)). Seed a tx
+// THROUGH that callable so the retained client-path tests below (delete round-trip, counter-forge,
+// watchCoins txCount bump — none of which PR-tx-1 changes) still have transactions to act on. It
+// SLEEPS past the 500ms tx-cooldown FIRST so consecutive seeds for the same uid aren't throttled
+// (a client can't clear the server-only rateLimits docs). Returns { success, txId, txCount }.
+const TX_COOLDOWN_MS = 500;   // functions/tx-limits.js TX_COOLDOWN_MS — the sliding add-tx cooldown
+async function seedTx(portfolioId, coinId, tx) {
+  await sleep(TX_COOLDOWN_MS + 150);
+  const res = await httpsCallable(functions, "addTransactionGuarded")({ portfolioId, coinId, tx });
+  return res.data;   // { success:true, txId, txCount }
+}
 
 const email = `tester_${Date.now()}@example.com`;
 const pass = "Aa1!aaaa";
@@ -202,13 +216,13 @@ test("CRYP-109: two back-to-back client addCoin calls — the 2nd trips the call
 test("API-SECURITY (counter-forge): deleting a tx does NOT decrement txCount client-side; 2nd delete is 'not-found'", async () => {
   // The client can no longer decrement a tier counter (firestore.rules counterNoForge closes a
   // paywall bypass), so deletes leave the count FAIL-SAFE-high and it's reconciled server-side.
-  const add = await addTransaction(uid, "default", "coin1", { type: "buy", amount: 1, priceAtBuy: 50, date: "2026-02-01T00:00" }, 300);
-  assert.ok(add.success, "add tx: " + JSON.stringify(add));
+  const seed = await seedTx("default", "coin1", { type: "buy", amount: 1, priceAtBuy: 50, date: "2026-02-01T00:00" });
+  assert.ok(seed.success, "seed tx via addTransactionGuarded: " + JSON.stringify(seed));
   const txCountAfterAdd = (await getCoins(uid, "default")).coins.find((c) => c.id === "coin1").txCount;
 
-  const del1 = await deleteTransaction(uid, "default", "coin1", add.id);
+  const del1 = await deleteTransaction(uid, "default", "coin1", seed.txId);
   assert.ok(del1.success, "first delete ok (the tx doc is removed even though the counter is untouched)");
-  const del2 = await deleteTransaction(uid, "default", "coin1", add.id);
+  const del2 = await deleteTransaction(uid, "default", "coin1", seed.txId);
   assert.equal(del2.success, false);
   assert.equal(del2.reason, "not-found", "second delete is not-found: " + JSON.stringify(del2));
 
@@ -232,16 +246,16 @@ test("PLAN-LIMITS-MAX Part B: getCoinsMeta reads coins + txCount but NOT their t
 });
 
 test("transactions: add then delete, and they round-trip via getCoins", async () => {
-  const add = await addTransaction(uid, "default", "coin0", {
+  const seed = await seedTx("default", "coin0", {
     type: "buy", amount: 1, priceAtBuy: 100, date: "2024-01-01T00:00",
   });
-  assert.ok(add.success, "add transaction should succeed: " + JSON.stringify(add));
+  assert.ok(seed.success, "add transaction via addTransactionGuarded should succeed: " + JSON.stringify(seed));
 
   const coins = await getCoins(uid, "default");
   const coin0 = coins.coins.find((c) => c.id === "coin0");
   assert.equal(coin0.entries.length, 1, "coin0 should have 1 transaction");
 
-  const del = await deleteTransaction(uid, "default", "coin0", add.id);
+  const del = await deleteTransaction(uid, "default", "coin0", seed.txId);
   assert.ok(del.success, "delete transaction should succeed");
 });
 
@@ -356,8 +370,8 @@ test("C-A3: watchCoins surfaces a transaction added after subscribing (txCount b
   const seen = [];
   const unsub = watchCoins(uid, "default", (coins) => seen.push(coins));
   try {
-    const tx = await addTransaction(uid, "default", target.id, { type: "buy", amount: 1, priceAtBuy: 2000, date: "2026-07-01T00:00" });
-    assert.ok(tx.success, "addTransaction: " + JSON.stringify(tx));
+    const seed = await seedTx("default", target.id, { type: "buy", amount: 1, priceAtBuy: 2000, date: "2026-07-01T00:00" });
+    assert.ok(seed.success, "seedTx via addTransactionGuarded: " + JSON.stringify(seed));
     const ok = await waitUntil(() => seen.some((cs) => cs.some((x) => x.id === target.id && (x.entries || []).length === baseCount + 1)));
     assert.ok(ok, "the txCount bump should re-surface the coin WITH the new transaction");
   } finally { unsub(); }

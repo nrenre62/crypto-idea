@@ -473,19 +473,44 @@ test("CRYP-108: a client can NEVER create a coin directly — coin create is ser
   await assertFails(create.commit());
 });
 
+// ── CRYP-110 (B3, PR-tx-1): transaction CREATE is now SERVER-ONLY ──
+// The addTransactionGuarded callable (Admin SDK) OWNS the transaction write + the txCount
+// increment, and the firestore.rules transaction `create` rule is flipped to `if false`.
+// So NO client may create a transaction directly — even a perfectly-formed batch (valid tx
+// data, correct counter math txCount 0 -> 1, well under the free 300 cap, a recorded plan
+// choice, own uid) is denied. This is the SINGLE client-tx-create rules test; the per-tier
+// cap VALUES it used to prove live in the addTransactionGuarded integration tests
+// (tests/functions-callable.test.js) + the tx-limits unit tests (tests/unit/tx-limits.test.js).
+// RED before the impl: this exact batch SUCCEEDS today (the create path is not yet closed),
+// so assertFails throws — red for the right reason.
+test("CRYP-110: a client can NEVER create a transaction directly — tx create is server-only", async () => {
+  await seed(async (db) => {
+    await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0 });
+  });
+  const db = aliceDb();
+  // A flawless client tx create (txCount 0 -> 1, within the free cap of 300) is STILL denied.
+  const create = writeBatch(db);
+  create.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t1"), { type: "buy", amount: 1.5, priceAtBuy: 40000, date: "2026-01-01T00:00" });
+  create.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
+  await assertFails(create.commit());
+});
+
 // ── PLAN-LIMITS-MAX (#12): the new ceilings, boundary-tested (Nth ok / N+1th denied) ──
 // Counters are seeded just below each ceiling (the file's existing pattern) rather than
 // creating N real docs. Each "allowed at the new ceiling" assertion is RED against the old
 // limit it replaces; each "denied past it" proves the enforced cap.
 
-test("PLAN-LIMITS-MAX: Starter caps at 3 portfolios / 300 tx", async () => {
-  // CRYP-108: the 30-coin Starter cap is now enforced by the addCoinGuarded callable (client
-  // coin create is server-only), so its coin arm moved to the addCoinGuarded integration +
-  // coin-limits unit tests. The portfolio + tx caps stay client-enforced and are unchanged here.
+test("CRYP-110: Starter caps at 3 portfolios; tx-create is server-only now (PLAN-LIMITS-MAX portfolio cap kept)", async () => {
+  // CRYP-108: the 30-coin Starter cap is enforced by the addCoinGuarded callable (client coin
+  // create is server-only). CRYP-110: the 300-tx Starter cap likewise moved to the
+  // addTransactionGuarded callable (client TX create is now server-only too), so its tx arm
+  // moved to the addTransactionGuarded integration + tx-limits unit tests. The PORTFOLIO cap
+  // stays client-enforced by firestore.rules and is unchanged here.
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 2, planChosen: true });
-    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 29 });
-    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 299 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 1 });
   });
   const db = aliceDb();
   // 3rd portfolio (count 2 -> 3): at the new free limit of 3 -> allowed (denied at old 1).
@@ -498,44 +523,22 @@ test("PLAN-LIMITS-MAX: Starter caps at 3 portfolios / 300 tx", async () => {
   p4.set(doc(db, "users", "alice", "portfolios", "p4"), { name: "Four", coinCount: 0 });
   p4.update(doc(db, "users", "alice"), { portfolioCount: increment(1) });
   await assertFails(p4.commit());
-  // 300th tx on btc (txCount 299 -> 300): at the new free tx limit of 300 -> allowed (denied at old 50).
-  const t300 = writeBatch(db);
-  t300.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t300"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
-  t300.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
-  await assertSucceeds(t300.commit());
-  // 301st tx (txCount 300 -> 301): exceeds 300 -> rejected.
-  const t301 = writeBatch(db);
-  t301.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t301"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
-  t301.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
-  await assertFails(t301.commit());
 });
 
-test("PLAN-LIMITS-MAX: Pro caps at 1,000 tx per coin (lowered from 2,000)", async () => {
-  await seed(async (db) => {
-    await setDoc(doc(db, "users", "bob"), { tier: "pro", portfolioCount: 1 });
-    await setDoc(doc(db, "users", "bob", "portfolios", "p1"), { name: "P", coinCount: 1 });
-    await setDoc(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 999 });
-  });
-  const db = bobDb();
-  // 1000th tx (txCount 999 -> 1000): at the new pro tx limit -> allowed.
-  const ok = writeBatch(db);
-  ok.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc", "transactions", "t1000"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
-  ok.update(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
-  await assertSucceeds(ok.commit());
-  // 1001st tx (txCount 1000 -> 1001): exceeds 1,000 -> rejected (was ALLOWED at the old pro limit of 2,000).
-  const over = writeBatch(db);
-  over.set(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc", "transactions", "t1001"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
-  over.update(doc(db, "users", "bob", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
-  await assertFails(over.commit());
-});
+// CRYP-110: the "Pro caps at 1,000 tx per coin" rules test was DELETED — it was tx-cap-only,
+// and client tx create is server-only now (addTransactionGuarded owns it), so the Pro tx cap is
+// derived + enforced by the callable. Its coverage moved to tx-limits.test.js (txCapFor: pro ->
+// 1000, clamped to 1,000,000) + the addTransactionGuarded integration cap tests.
 
-test("PLAN-LIMITS-MAX: Premium caps at 15 portfolios / 2,000 tx (tx lowered)", async () => {
+test("CRYP-110: Premium caps at 15 portfolios; tx-create is server-only now (PLAN-LIMITS-MAX portfolio cap kept)", async () => {
   // CRYP-108: the 200-coin Premium cap moved to the addCoinGuarded integration + coin-limits
-  // unit tests (client coin create is server-only). Portfolio + tx caps stay client-enforced.
+  // unit tests (client coin create is server-only). CRYP-110: the 2,000-tx Premium cap likewise
+  // moved to the addTransactionGuarded callable (client TX create is server-only now), so its tx
+  // arm moved to the addTransactionGuarded integration + tx-limits unit tests. The PORTFOLIO cap
+  // stays client-enforced here.
   await seed(async (db) => {
     await setDoc(doc(db, "users", "carol"), { tier: "premium", portfolioCount: 15 });
-    await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 199 });
-    await setDoc(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 1999 });
+    await setDoc(doc(db, "users", "carol", "portfolios", "p1"), { name: "P", coinCount: 1 });
   });
   const db = carolDb();
   // 16th portfolio (count 15 -> 16): exceeds the premium limit of 15 -> rejected.
@@ -543,16 +546,6 @@ test("PLAN-LIMITS-MAX: Premium caps at 15 portfolios / 2,000 tx (tx lowered)", a
   p16.set(doc(db, "users", "carol", "portfolios", "p16"), { name: "Sixteen", coinCount: 0 });
   p16.update(doc(db, "users", "carol"), { portfolioCount: increment(1) });
   await assertFails(p16.commit());
-  // 2000th tx on btc (txCount 1999 -> 2000): at the new premium tx limit -> allowed.
-  const t2000 = writeBatch(db);
-  t2000.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc", "transactions", "t2000"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
-  t2000.update(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
-  await assertSucceeds(t2000.commit());
-  // 2001st tx (txCount 2000 -> 2001): exceeds 2,000 -> rejected (was ALLOWED at old premium 5,000).
-  const t2001 = writeBatch(db);
-  t2001.set(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc", "transactions", "t2001"), { type: "buy", amount: 1, priceAtBuy: 100, date: "2026-01-01T00:00" });
-  t2001.update(doc(db, "users", "carol", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
-  await assertFails(t2001.commit());
 });
 
 // CRYP-108: the two premium `premiumLimits` coin-cap rules tests (the per-user override is
@@ -621,23 +614,24 @@ test("coin journal funnel (#27): valid funnel accepted on update, no-funnel stil
   await assertFails(updateDoc(coin, { journal: { ...base, smuggled: "junk" } }));
 });
 
-test("transaction create enforces amount/price/date bounds", async () => {
+test("CRYP-110: transaction UPDATE enforces amount/price/date bounds (validTransactionData stays live on update)", async () => {
+  // CRYP-110: client transaction CREATE is server-only now (addTransactionGuarded owns it), so
+  // validTransactionData is exercised on the UPDATE path — the live edit surface
+  // (updateTransaction). The seeded tx is written via the rules-disabled seed; the owner may
+  // edit it within bounds and is rejected out of bounds. (The create-side bounds coverage moved
+  // to the addTransactionGuarded integration tests.)
   await seed(async (db) => {
     await setDoc(doc(db, "users", "alice"), { tier: "free", portfolioCount: 1, planChosen: true });
     await setDoc(doc(db, "users", "alice", "portfolios", "p1"), { name: "P", coinCount: 1 });
-    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 0 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { symbol: "BTC", name: "Bitcoin", txCount: 1 });
+    await setDoc(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t1"), { type: "buy", amount: 1.5, priceAtBuy: 40000, date: "2024-01-15T10:00" });
   });
   const db = aliceDb();
-  // Valid transaction: txCount 0 -> 1
-  const ok = writeBatch(db);
-  ok.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t1"), { type: "buy", amount: 1.5, priceAtBuy: 40000, date: "2024-01-15T10:00" });
-  ok.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
-  await assertSucceeds(ok.commit());
-  // Absurd amount (> 1e15) -> rejected by validTransactionData
-  const bad = writeBatch(db);
-  bad.set(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t2"), { type: "buy", amount: 1e308, priceAtBuy: 1, date: "2024-01-15T10:00" });
-  bad.update(doc(db, "users", "alice", "portfolios", "p1", "coins", "btc"), { txCount: increment(1) });
-  await assertFails(bad.commit());
+  const tx = doc(db, "users", "alice", "portfolios", "p1", "coins", "btc", "transactions", "t1");
+  // A valid in-bounds edit (correct a typo'd amount/price/date) -> allowed.
+  await assertSucceeds(updateDoc(tx, { type: "sell", amount: 2, priceAtBuy: 41000, date: "2024-01-16T10:00" }));
+  // Absurd amount (> 1e15) -> rejected by validTransactionData.
+  await assertFails(updateDoc(tx, { type: "buy", amount: 1e308, priceAtBuy: 1, date: "2024-01-15T10:00" }));
 });
 
 test("learn progress: owner reads/writes a valid doc; strangers + malformed are rejected (#23)", async () => {
