@@ -40,18 +40,19 @@ a fresh context resumes **exactly where it left off**.
 ## In-flight items
 
 ## B3-tx-PR1 — Server-side guarded add-transaction write (addTransactionGuarded, Option A) (CRYP-110)
-- Phase: G2-approved (inner build loop — RED checkpoint running)
+- Phase: built (awaiting G3 merge)
 - Provenance: AD-HOC (founder G1 interview 2026-08-17 — the transaction analogue of the merged coin work). Founder-sequenced campaign; PR-tx-1 of 2 (server+rules), then PR-tx-2 (client). ~295 prod lines (founder OK'd exceeding 200, cohesive security boundary can't split further).
 - G1 confirmed: yes (founder 2026-08-17: Option A callable-owns-tx-write + rules deny client tx-create; throttle = 0.5s cooldown + 500 tx/uid/day; reuse the same config/app.appCheckEnforce flag; 2 PRs; include details:{reason} in PR-tx-1 [coin lesson]; sell-vs-holdings stays a client UX pre-check)
 - G2 approved: yes (founder 2026-08-17 — size ~295 OK; App-Check becomes the 2nd appCheckOk call site [update "one call site" docs → "two"]; couple-vs-defer = 2 PRs [client add-tx briefly denied between PR-tx-1 and PR-tx-2, pre-launch]; KISS defaults: duplicate unsafePathSeg inline, callable returns {success,txId,txCount})
 - Plan (files): firestore.rules (tx create → if false; drop dead maxTx/coinRef) · functions/tx-limits.js (NEW, clone of coin-limits.js: txCapFor + TX_HARD_MAX=1e6 + TX_COOLDOWN_MS=500 + TX_DAILY_LIMIT=500) · functions/index.js (addTransactionGuarded, 2nd appCheckOk site) · openapi.json (/addTransactionGuarded) · tests/firestore-rules.test.js (tx-create-denied + rework 4 cap tests) · tests/functions-callable.test.js (addTransactionGuarded block, CI-only) · tests/unit/tx-limits.test.js (NEW) · tests/data-layer.test.js (seedTx helper, fix 3 tx tests) · docs (PRICING, DATA-FLOW, API-SECURITY, CLAUDE App-Check "two call sites", interview.md Tier-limits row, NEXT-STEPS, diagram)
-- Fix-round: 0 / 3
-- Open findings: none
+- Fix-round: 0 / 3 (green first pass — 3 reviewers clean)
+- Open findings: none (2 LOW from secure-by-design folded: appCheckOk "two call sites" comment+docs done; deploy-order = accepted 2-PR split, recorded)
+- Reviews: api-contract IN-SYNC · test-tier unit 1251/1251 + rules 49/49 GREEN, integration GREEN on CI (push run #297 `fa3ab8d` all jobs success) · secure-by-design SAFE (0 High/0 Med) · simplifier no-op
 - Branch: claude/b3c-add-tx-guarded-server (off master afd476b)
-- Built: no
+- Built: yes (finalize commit — server+rules `f21b6da`, comment `fa3ab8d`, docs+diagram this commit)
 - Merged: no
-- Agents this item: 2 (architect, consistency-sweep)
-- Updated: 2026-08-17
+- Agents this item: 9 (architect, consistency-sweep×2, test-author, functions-builder, test-tier-verifier, secure-by-design, api-contract-verifier, simplifier, docs-scribe)
+- Updated: 2026-08-18
 
 ## JOURNAL-POLISH — Journal/thesis type-scale + floating coin header + honest disclaimers (CRYP-105)
 - Phase: built (awaiting G3 merge)

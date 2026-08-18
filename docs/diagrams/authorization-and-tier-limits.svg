@@ -47,16 +47,16 @@
   <text x="572" y="172" font-size="11" font-weight="700" fill="var(--color-text-info,#2c7fb8)">premium</text>
   <text x="860" y="172" font-size="11" text-anchor="end" fill="var(--color-text-secondary,#6b6b6b)">15 / 200 / 2,000</text>
   <line x1="572" y1="184" x2="860" y2="184" stroke="var(--color-border-tertiary,#e2e2e2)" stroke-width="1"/>
-  <text x="572" y="204" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">Portfolios + tx: rules read config/app.plans via</text>
+  <text x="572" y="204" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">Portfolios: rules read config/app.plans via</text>
   <text x="572" y="218" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">get()/exists() → the ENFORCED ceiling; config lowers,</text>
   <text x="572" y="232" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">never raises past the hard-max clamp.</text>
-  <text x="572" y="246" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">COINS moved server-side (CRYP-108): coin create is</text>
-  <text x="572" y="260" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">if false; addCoinGuarded enforces coins + #20 (≤1,000).</text>
+  <text x="572" y="246" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">COINS + TX moved server-side (CRYP-108/110): create is</text>
+  <text x="572" y="260" font-size="9.5" fill="var(--color-text-secondary,#6b6b6b)">if false; addCoin/addTransactionGuarded enforce the caps.</text>
   <rect x="24" y="384" width="852" height="118" rx="10" fill="var(--color-background-primary,#fff)" stroke="var(--color-border-secondary,#d0d0d0)" stroke-width="1.3"/>
   <text x="40" y="406" font-size="11.5" font-weight="700" fill="var(--color-text-primary,#1a1a1a)">Invariants the rules guarantee</text>
   <text x="40" y="426" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• No self-upgrade: an owner can't change their own tier (only an admin can) — no paying-for-free Pro.</text>
   <text x="40" y="444" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Counters can't be smuggled: a single write moves a counter by at most ±1, so a limit can't be bypassed by resetting it.</text>
   <text x="40" y="462" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• config/app and audit are fully locked (read,write:false) — only Cloud Functions (Admin SDK) touch them.</text>
   <text x="40" y="480" font-size="11" fill="var(--color-text-secondary,#6b6b6b)">• Validation bounds type, SIZE and RANGE (e.g. name ≤ 64 chars, amount ≤ 1e15) — type-only checks are a storage/abuse vector.</text>
-  <text x="40" y="495" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: firestore.rules (portfolios/tx) + functions/coin-limits.js + addCoinGuarded (coins) · limits: useUpgrade.js + DEFAULT_PLANS</text>
+  <text x="40" y="495" font-size="9" fill="var(--color-text-secondary,#6b6b6b)">Source: firestore.rules (portfolios) + functions/{coin,tx}-limits.js + addCoin/addTransactionGuarded · limits: useUpgrade.js + DEFAULT_PLANS</text>
 </svg>
