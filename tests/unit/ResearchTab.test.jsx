@@ -1,19 +1,21 @@
 /**
- * CRYP-93 — Research tab AI-honesty gate (PR 4a of BUILD-LOOP #13).
+ * CRYP-93 / CRYP-112 — Research tab AI-honesty gate.
  *
- * The Research feature gains a client gate off the published site flag
- * `site.features.aiResearch` plus the build constant AI_PROXY_LIVE (false today):
- *   • chatEnabled = !(aiResearch === false)  → the "Ask" chat tab + per-coin
- *     "Ask AI about …" button render only when true.
- *   • aiChrome    = chatEnabled && AI_PROXY_LIVE (always false today) → the Pulse
- *     card's AI ornaments (gradient label, Regenerate button, "AI-generated"
- *     disclaimer) and whether askAI is ever called.
+ * The Research feature gates on the published site flag `site.features.aiResearch`
+ * (now DEFAULT-OFF, CRYP-112) plus the build constant AI_PROXY_LIVE (false today).
+ * CRYP-112 renames the ResearchTab prop `chatEnabled` → `aiEnabled` (fail-closed
+ * default false) and widens the gate: when AI is OFF the ENTIRE sub-nav is suppressed
+ * — Overview is the only view, and the Coins sub-view, the Ask chat AND the sub-nav
+ * menu are all hidden.
+ *   • aiEnabled = (aiResearch === true)  → the sub-nav (.seg), the Coins + Ask tabs
+ *     and the per-coin "Ask AI about …" button render only when true.
+ *   • aiChrome  = aiEnabled && AI_PROXY_LIVE (always false today) → the Pulse card's
+ *     AI ornaments and whether askAI is ever called.
  *
  * These render <ResearchTab> directly (it takes everything as props — no app
- * providers needed) with a non-empty holdings fixture. They must FAIL on the
- * current tree (TABS always has 'ask'; CoinCard always renders the button; Pulse
- * always shows the gradient label + Regenerate + the offline apology; usePulse is
- * called with enabled=!empty so askAI runs) and PASS once the gate ships.
+ * providers needed) with a non-empty holdings fixture. The CRYP-112 / AI-off cases
+ * must FAIL on the current tree (its prop is still `chatEnabled`, default true, so the
+ * sub-nav + Coins + Ask always render) and PASS once the renamed fail-closed gate ships.
  */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -55,26 +57,49 @@ const renderTab = (over = {}) => render(<ResearchTab {...baseProps} {...over} />
 describe("Research tab — AI honesty gate", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("CRYP-93: hides the Ask tab and per-coin Ask button when aiResearch is off", async () => {
-    renderTab({ chatEnabled: false });
+  // CRYP-112 — with AI off the ENTIRE Research sub-nav is suppressed: only the
+  // deterministic Overview renders. The Coins sub-view, the Ask chat, AND the sub-nav
+  // menu are all gone. RED today: the current tree ignores `aiEnabled` (its prop is still
+  // `chatEnabled`, default true), so the `.seg` sub-nav + Coins + Ask still render.
+  it("CRYP-112: with AI off the whole sub-nav is gone — only Overview renders (no Coins, no Ask)", async () => {
+    const { container } = renderTab({ aiEnabled: false });
     await screen.findByText("Research");                    // header rendered
 
-    // No "Ask" chat tab in the sub-nav.
+    // The whole sub-nav (.segwrap > .seg) is suppressed, not just the Ask tab.
+    expect(container.querySelector(".seg")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Coins" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ask" })).toBeNull();
+
+    // Coins + Ask views never mount…
+    expect(screen.queryByText("Your coins")).toBeNull();           // CoinsView heading
+    expect(screen.queryByText("Ask about your portfolio")).toBeNull();
+
+    // …and the deterministic Overview IS shown (Pulse + the CRYP-99 notes area).
+    expect(await screen.findByText("Portfolio Pulse")).toBeInTheDocument();
+    expect(screen.getByText("A note on your portfolio")).toBeInTheDocument();
+  });
+
+  it("CRYP-93: with AI off the Ask chat tab and AskView are hidden (no sub-nav to click)", async () => {
+    // OFF case — must NOT click Coins (the sub-nav is gone once AI is off).
+    renderTab({ aiEnabled: false });
+    await screen.findByText("Research");                    // header rendered
+
+    // No "Ask" chat tab in the sub-nav (and no sub-nav at all).
     expect(screen.queryByRole("button", { name: "Ask" })).toBeNull();
     // No AskView content anywhere in the tree.
     expect(screen.queryByText("Ask about your portfolio")).toBeNull();
-
-    // …and no "Ask AI about …" button on any coin card.
-    fireEvent.click(screen.getByRole("button", { name: "Coins" }));
-    expect(await screen.findByText("Bitcoin")).toBeInTheDocument();   // Coins view mounted
+    // The per-coin "Ask AI about …" button is unreachable — Coins never renders when AI is off.
+    expect(screen.queryByRole("button", { name: "Coins" })).toBeNull();
     expect(screen.queryByText(/Ask AI about/i)).toBeNull();
   });
 
-  it("CRYP-93: keeps the Ask tab and per-coin Ask button when aiResearch is on", async () => {
-    renderTab({ chatEnabled: true });
+  it("CRYP-93: with AI on, all three sub-nav tabs render and each coin card shows its Ask button", async () => {
+    renderTab({ aiEnabled: true });
     await screen.findByText("Research");
 
-    // The Ask chat tab is present…
+    // All three sub-nav tabs are present…
+    expect(screen.getByRole("button", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Coins" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask" })).toBeInTheDocument();
     // …and a coin card's "Ask AI about …" button is present.
     fireEvent.click(screen.getByRole("button", { name: "Coins" }));
@@ -82,16 +107,16 @@ describe("Research tab — AI honesty gate", () => {
     expect(screen.getByText(/Ask AI about Bitcoin/i)).toBeInTheDocument();
   });
 
-  it("CRYP-93: a live flip to aiResearch-off falls a stale Ask selection back to Overview", async () => {
-    const { rerender } = renderTab({ chatEnabled: true });
+  it("CRYP-93: a live flip to AI-off falls a stale Coins/Ask selection back to Overview", async () => {
+    const { rerender } = renderTab({ aiEnabled: true });
     await screen.findByText("Research");
 
     // Activate the Ask tab.
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
     expect(await screen.findByText("Ask about your portfolio")).toBeInTheDocument();
 
-    // Flag flips off → the tab bar drops 'ask' and the view falls back to Overview.
-    rerender(<ResearchTab {...baseProps} chatEnabled={false} />);
+    // Flag flips off → the sub-nav is suppressed and the view falls back to Overview.
+    rerender(<ResearchTab {...baseProps} aiEnabled={false} />);
     expect(screen.queryByText("Ask about your portfolio")).toBeNull();          // AskView gone
     expect(screen.getByText("A note on your portfolio")).toBeInTheDocument();    // Overview shown (CRYP-99 notes area)
   });
@@ -119,7 +144,7 @@ describe("Research tab — AI honesty gate", () => {
   });
 
   it("CRYP-93: askAI is never called on a mounted Research tab (proxy not live)", async () => {
-    renderTab({ chatEnabled: true });
+    renderTab({ aiEnabled: true });
     // Let the mount effects (usePulse) settle.
     await screen.findByText("Portfolio Pulse");
     await waitFor(() => expect(screen.getByText("Portfolio Pulse")).toBeInTheDocument());
@@ -131,7 +156,7 @@ describe("Research tab — AI honesty gate", () => {
   // works today via the reject-fallback and must keep working post-PR-E3, proving
   // the refactor doesn't break the one remaining askAI caller (useAsk).
   it("CRYP-106: the per-coin Ask button routes through the useAsk→askAI seam exactly once", async () => {
-    renderTab({ chatEnabled: true });
+    renderTab({ aiEnabled: true });
     await screen.findByText("Research");
 
     // Open Coins and click the fixture coin's Ask button.

@@ -988,6 +988,10 @@ describe("admin-dashboard", () => {
      belongs in the reserved AI settings screen next to the provider key — not in the
      incident row where it reads as a live control. */
   it("CRYP-93: the AI research chat toggle lives on the AI settings screen, not App Controls", async () => {
+    // CRYP-112: aiResearch now ships DEFAULT-OFF, so seed it explicitly ON here — this
+    // case tests toggling the switch OFF (→ saves aiResearch:false), which requires it
+    // to START on. Green under both the old default-ON and the new default-OFF behaviour.
+    getAdminConfig.mockResolvedValueOnce({ flags: { maintenance: false, signupsEnabled: true, features: { marketData: true, checkout: true, aiResearch: true } } });
     render(<AdminDashboard />);
     await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
@@ -1012,6 +1016,28 @@ describe("admin-dashboard", () => {
     const flags = saveConfig.mock.calls[saveConfig.mock.calls.length - 1][0].flags;
     expect(flags.features).toHaveProperty("aiResearch");
     expect(flags.features.aiResearch).toBe(false);
+  });
+
+  /* ── CRYP-112 · aiResearch ships DEFAULT-OFF ──
+     A fresh / unconfigured deploy (the incident switches configured, but aiResearch never
+     set) must render the AI-research chat switch UNCHECKED with no admin action — the panel
+     reflects the real default-OFF state. RED today: the hook reads a missing aiResearch as
+     ON (ff.aiResearch !== false), so the toggle starts CHECKED. */
+  it("CRYP-112: the AI research chat switch is OFF by default for a config that never set aiResearch", async () => {
+    getAdminConfig.mockResolvedValueOnce({ flags: { maintenance: false, signupsEnabled: true, features: { marketData: true, checkout: true } } });
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+
+    // Drill into the AI settings screen where the toggle lives (same path as CRYP-93 above).
+    fireEvent.click(screen.getByText("AI", { selector: ".sr-label" }));
+    const row = await screen.findByText(/AI research chat/i);
+    const container = row.closest(".settings-row") || row.closest(".adm-scr") || row.parentElement;
+    const toggle = container.querySelector('input[role="switch"]');
+    expect(toggle, "the AI research chat row should carry a switch").toBeTruthy();
+
+    // Default-OFF: an aiResearch that was never configured renders the switch UNCHECKED.
+    expect(toggle.checked).toBe(false);
   });
 
   /* ── CRYP-101 · LAUNCH-FREE Part B — the paidPlansEnabled master toggle ──
