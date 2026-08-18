@@ -14,24 +14,26 @@ import {
  *   • it fails to fire (spend keeps flowing during an incident), and
  *   • it fires on its own (a config read blips and the product goes dark).
  */
-describe("featureEnabled — default ON, only an explicit false disables", () => {
-  it("is ON when there is no config at all", () => {
+describe("featureEnabled — per-flag defaults, only an explicit false flips an ON default", () => {
+  it("defaults per-flag when there is no config at all (marketData/checkout ON, aiResearch OFF)", () => {
     // Fresh project, or a Firestore read that threw and left us with {}. Taking the
-    // product down because we couldn't READ the switch would be a self-inflicted
-    // outage — the exact opposite of what a safety net is for.
-    for (const name of FEATURE_NAMES) {
-      expect(featureEnabled(null, name), name).toBe(true);
-      expect(featureEnabled(undefined, name), name).toBe(true);
-      expect(featureEnabled({}, name), name).toBe(true);
-      expect(featureEnabled({ flags: {} }, name), name).toBe(true);
-      expect(featureEnabled({ flags: { features: {} } }, name), name).toBe(true);
+    // market-data / checkout surfaces down because we couldn't READ the switch would be
+    // a self-inflicted outage — so those stay ON. aiResearch is the deliberate exception
+    // (CRYP-112): it ships DEFAULT-OFF, so a fresh / unconfigured deploy hides AI with no
+    // admin action. Only an explicit value can move a switch off its per-flag default.
+    for (const cfg of [null, undefined, {}, { flags: {} }, { flags: { features: {} } }]) {
+      expect(featureEnabled(cfg, "marketData"), String(cfg)).toBe(true);
+      expect(featureEnabled(cfg, "checkout"), String(cfg)).toBe(true);
+      expect(featureEnabled(cfg, "aiResearch"), String(cfg)).toBe(false);
     }
   });
 
-  it("is ON for a config written before this feature existed", () => {
+  it("keeps marketData/checkout ON for a config written before these switches existed; aiResearch stays OFF", () => {
     // Every deployed config/app doc today has flags but no flags.features.
     const legacy = { flags: { maintenance: false, signupsEnabled: true } };
-    for (const name of FEATURE_NAMES) expect(featureEnabled(legacy, name), name).toBe(true);
+    expect(featureEnabled(legacy, "marketData")).toBe(true);
+    expect(featureEnabled(legacy, "checkout")).toBe(true);
+    expect(featureEnabled(legacy, "aiResearch")).toBe(false);
   });
 
   it("is OFF only for an exact `false`", () => {
@@ -46,7 +48,7 @@ describe("featureEnabled — default ON, only an explicit false disables", () =>
     const cfg = { flags: { features: { marketData: false } } };
     expect(featureEnabled(cfg, "marketData")).toBe(false);
     expect(featureEnabled(cfg, "checkout")).toBe(true);
-    expect(featureEnabled(cfg, "aiResearch")).toBe(true);
+    expect(featureEnabled(cfg, "aiResearch")).toBe(false);   // unset → default OFF (CRYP-112)
   });
 
   it("an undeclared switch name reads as ON, never as OFF", () => {
@@ -78,14 +80,15 @@ describe("sanitizeFeatures — what actually gets written to config/app", () => 
     expect(out.bogus).toBeUndefined();
   });
 
-  it("coerces to booleans and defaults a missing switch to ON", () => {
+  it("coerces to booleans and defaults a missing switch to its per-flag default", () => {
     const out = sanitizeFeatures({ marketData: false });
-    expect(out).toEqual({ marketData: false, checkout: true, aiResearch: true });
+    // checkout defaults ON; aiResearch defaults OFF (CRYP-112).
+    expect(out).toEqual({ marketData: false, checkout: true, aiResearch: false });
   });
 
-  it("survives junk input without disabling anything", () => {
+  it("survives junk input, keeping each switch at its default (marketData/checkout ON, aiResearch OFF)", () => {
     for (const junk of [null, undefined, 0, "", "off"]) {
-      expect(sanitizeFeatures(junk), String(junk)).toEqual({ marketData: true, checkout: true, aiResearch: true });
+      expect(sanitizeFeatures(junk), String(junk)).toEqual({ marketData: true, checkout: true, aiResearch: false });
     }
   });
 });
@@ -101,8 +104,8 @@ describe("mergeFeatures — an omitted switch is KEPT, never silently re-enabled
     // post `flags` with no `features` key. Under plain sanitize that reads as
     // "everything ON", so flipping maintenance mid-incident would quietly restart
     // the spend you had just killed.
-    expect(mergeFeatures(undefined, off)).toEqual({ marketData: false, checkout: false, aiResearch: true });
-    expect(mergeFeatures(null, off)).toEqual({ marketData: false, checkout: false, aiResearch: true });
+    expect(mergeFeatures(undefined, off)).toEqual({ marketData: false, checkout: false, aiResearch: false });
+    expect(mergeFeatures(null, off)).toEqual({ marketData: false, checkout: false, aiResearch: false });
   });
 
   it("keeps switches a PARTIAL payload doesn't mention", () => {
@@ -112,7 +115,17 @@ describe("mergeFeatures — an omitted switch is KEPT, never silently re-enabled
 
   it("still lets a switch be turned back on — explicitly", () => {
     expect(mergeFeatures({ marketData: true }, off))
-      .toEqual({ marketData: true, checkout: false, aiResearch: true });
+      .toEqual({ marketData: true, checkout: false, aiResearch: false });
+  });
+
+  // CRYP-112 — aiResearch ships DEFAULT-OFF, so the KEEP-semantics merge must NEVER
+  // resurrect it to ON when the incoming payload omits it. The exact booby trap: the
+  // instant maintenance/signups toggles post `flags` with no `features`, and an empty /
+  // partial stored config must still leave aiResearch OFF (a fresh deploy hides AI with
+  // no admin action) — this fails today because sanitizeFeatures defaults it ON.
+  it("CRYP-112: a fresh/empty existing config never resurrects aiResearch to ON when the payload omits it", () => {
+    expect(mergeFeatures({}, {})).toEqual({ marketData: true, checkout: true, aiResearch: false });
+    expect(mergeFeatures({ marketData: false }, {})).toEqual({ marketData: false, checkout: true, aiResearch: false });
   });
 
   it("drops undeclared keys, like sanitizeFeatures", () => {
@@ -120,15 +133,17 @@ describe("mergeFeatures — an omitted switch is KEPT, never silently re-enabled
     expect(Object.keys(out).sort()).toEqual([...FEATURE_NAMES].sort());
   });
 
-  it("starts from all-ON when nothing is stored yet", () => {
-    expect(mergeFeatures(undefined, undefined)).toEqual({ marketData: true, checkout: true, aiResearch: true });
-    expect(mergeFeatures({ checkout: false }, {})).toEqual({ marketData: true, checkout: false, aiResearch: true });
+  it("starts from the per-flag defaults when nothing is stored yet (aiResearch OFF)", () => {
+    expect(mergeFeatures(undefined, undefined)).toEqual({ marketData: true, checkout: true, aiResearch: false });
+    expect(mergeFeatures({ checkout: false }, {})).toEqual({ marketData: true, checkout: false, aiResearch: false });
   });
 });
 
 describe("disabledFeatures — what the status strip reports", () => {
-  it("is empty when everything is up", () => {
-    expect(disabledFeatures({})).toEqual([]);
+  it("lists aiResearch OFF by default, with market data + checkout up (CRYP-112)", () => {
+    // aiResearch ships DEFAULT-OFF, so a fresh config reports it disabled with no admin
+    // action; marketData/checkout stay up. (Was: "empty when everything is up".)
+    expect(disabledFeatures({})).toEqual(["aiResearch"]);
   });
   it("lists exactly the switched-off ones", () => {
     expect(disabledFeatures({ flags: { features: { marketData: false, aiResearch: false } } }).sort())

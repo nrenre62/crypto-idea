@@ -39,18 +39,18 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-## B3-tx-PR2 — Client addTransaction rewired through addTransactionGuarded (CRYP-111)
-- Phase: G2-approved (inner build loop — client rewire; RED checkpoint next)
-- Provenance: PLANNED (the client half of the founder-approved B3 2-PR split; CRYP-110 PR-tx-1 merged #101 `1a567da`). The CRYP-109 analogue for transactions; G1 interview skipped (founder pre-approved the split), Story CRYP-111 filed + In Progress.
-- G1 confirmed: yes (folded into CRYP-110's founder G1/G2 2026-08-17 — "4. Yes 2 PR"; client add-tx briefly denied between PR-tx-1 and PR-tx-2, pre-launch, accepted)
-- G2 approved: yes (same founder decision; scope = client-only mirror of CRYP-109, no rules/functions/openapi change)
-- Plan (files): src/api/firebase-database.js (addTransaction → httpsCallable addTransactionGuarded; map code+details.reason → {success,code,reason,id}; res.data.txId→id; no already-exists branch) · src/CryptoIdea.jsx (addEntry rate-limited toast branch before the limit cap-reconcile) · tests/unit/add-tx-mapping.test.js (NEW, clone of add-coin-mapping) · docs (interview.md client-seam note lands, DATA-FLOW client seam wired, NEXT-STEPS, factory-state/runs)
+## RESEARCH-AI-OFF — Research Overview-only + aiResearch default-OFF (CRYP-112)
+- Phase: G2-approved (inner build loop — RED checkpoint next)
+- Provenance: AD-HOC (founder redirect 2026-08-18 — deferred B5; "launch without AI, hide the AI-dependent Research surfaces"). G1 interview DONE (6 decisions locked), G2 architect plan approved ("1.ok 2. Ok go").
+- G1 confirmed: yes (founder 2026-08-18 — reuse aiResearch · hide ENTIRE Coins section · keep "Research · BETA" · SHIP DEFAULT OFF · no orphaned entry points · update admin copy)
+- G2 approved: yes (architect plan approved + both impl calls: rename chatEnabled→aiEnabled, fail-closed ===true parsers)
+- Plan (files): functions/features.js (per-flag DEFAULTS {marketData:T,checkout:T,aiResearch:F}; route featureEnabled/sanitizeFeatures/mergeFeatures unset-case through it; comment + FEATURES.aiResearch string) · src/CryptoIdea.jsx (:102 init false, :210 parser ===true) · src/hooks/useAdminDashboard.js (:186 init false, :233 parser ===true) · src/features/research/Research.jsx (aiEnabled = ===true) · src/features/research/components/ResearchTab.jsx (prop rename + default false; tabs=[overview]/suppress .segwrap/active→overview when off) · src/components/admin-dashboard.jsx (:1316 copy) · tests (features.test.js updates, ResearchTab.test.jsx new+rewrite, CryptoIdea.walkthrough.test.jsx setup, admin-dashboard.test.jsx new) · docs sweep (CLAUDE ADMIN-2/Research, features.js comments, API-SECURITY, AI.md, CACHE-POLICY C7, CODEBASE-MAP, NEXT-STEPS, README)
 - Fix-round: 0 / 3
 - Open findings: none
-- Branch: claude/b3d-add-tx-client-rewire (off master 1a567da)
+- Branch: claude/research-ai-off-launch (off origin/master 71ec041)
 - Built: no
 - Merged: no
-- Agents this item: 0 (orchestrator building directly — precise mirror of merged CRYP-109; reviewers spawned at stage 3)
+- Agents this item: 2 so far (spec-drafter G1, architect G2; builders/reviewers spawned at stages 1–3)
 - Updated: 2026-08-18
 
 ## JOURNAL-POLISH — Journal/thesis type-scale + floating coin header + honest disclaimers (CRYP-105)
@@ -67,4 +67,4 @@ a fresh context resumes **exactly where it left off**.
 - Agents this item: 11 (architect, test-author, client-builder, test-tier×2, secure-by-design, design-consistency, simplifier, consistency-sweep, docs-scribe, integrator)
 - Updated: 2026-08-12
 
-*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101); **FLOATING-HEADER** PR #60 `1edbef2` (CRYP-102); **#11 ADMIN-SEP** PR1 #61 `e10a92c` (CRYP-103a) + PR2 #62 `9528f59` (CRYP-103b) — Story CRYP-103 Done; **#12 PLAN-LIMITS-MAX** PR1 #64 `061e5a4` (Part A) + PR2 #65 `d5dc32d` (Part B) — Story CRYP-104 Done; **PR-E (Wave-B live-AI foundation)** — PR-E3 #87 `04cd129` (CRYP-106) + PR-E2.5 #88 `e38103d` (CRYP-107); **B3 coins** — PR-1 #99 `e3a16e6` (CRYP-108 — addCoinGuarded server + rules lockdown; resolved a merge with master's #90–#98 overhaul) + PR-2 #100 `afd476b` (CRYP-109 — client rewired through the callable); Story CRYP-108 + CRYP-109 Done. **B3 transactions** — PR-tx-1 #101 `1a567da` (CRYP-110 — addTransactionGuarded server + rules lockdown); Story CRYP-110 Done. **B3-tx-PR2** (CRYP-111 — client addTransaction rewire) now in flight. Run rows in `factory-runs.md`.)*
+*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101); **FLOATING-HEADER** PR #60 `1edbef2` (CRYP-102); **#11 ADMIN-SEP** PR1 #61 `e10a92c` (CRYP-103a) + PR2 #62 `9528f59` (CRYP-103b) — Story CRYP-103 Done; **#12 PLAN-LIMITS-MAX** PR1 #64 `061e5a4` (Part A) + PR2 #65 `d5dc32d` (Part B) — Story CRYP-104 Done; **PR-E (Wave-B live-AI foundation)** — PR-E3 #87 `04cd129` (CRYP-106) + PR-E2.5 #88 `e38103d` (CRYP-107); **B3 coins** — PR-1 #99 `e3a16e6` (CRYP-108 — addCoinGuarded server + rules lockdown; resolved a merge with master's #90–#98 overhaul) + PR-2 #100 `afd476b` (CRYP-109 — client rewired through the callable); Story CRYP-108 + CRYP-109 Done. **B3 transactions** — PR-tx-1 #101 `1a567da` (CRYP-110 — addTransactionGuarded server + rules lockdown); Story CRYP-110 Done. PR-tx-2 #102 `71ec041` (CRYP-111 — client addTransaction rewire); Story CRYP-111 Done — **B3 fully complete (CRYP-108/109/110/111).** **RESEARCH-AI-OFF** (CRYP-112 — Research Overview-only + aiResearch default-OFF) now in flight. Run rows in `factory-runs.md`.)*

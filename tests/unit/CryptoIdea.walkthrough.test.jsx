@@ -85,6 +85,7 @@ vi.mock("../../src/api/account.js", async (importOriginal) => {
 
 import { onAuthChange } from "../../src/api/firebase-auth.js";
 import { getPortfolios, getCoins, getUserProfile, addTransaction } from "../../src/api/firebase-database.js";
+import { fetchSiteConfig } from "../../src/api/config.js";
 import { db } from "../../src/utils/storage.js";
 import CryptoIdea from "../../src/CryptoIdea.jsx";
 import { PLAN_BENEFITS } from "../../src/components/Login.jsx";
@@ -123,15 +124,21 @@ describe("User walkthrough — all functions", () => {
     expect(screen.getAllByText("BETA").length).toBeGreaterThan(0);
   });
 
-  it("3. Research tab: renders without crashing", async () => {
+  // CRYP-112 — the launch default: fetchSiteConfig is mocked to null (top of file), so
+  // the client's flipped initial state governs → aiResearch DEFAULT-OFF → Research shows
+  // ONLY the deterministic Overview (the Coins sub-view, the Ask chat AND the sub-nav menu
+  // are hidden). RED today: the initial state still defaults aiResearch ON, so all three
+  // sub-nav tabs render.
+  it("3. Research tab: with AI off (launch default) only Overview renders — no Coins/Ask", async () => {
     loginAs();
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
     tab("Research");
-    // Research sub-nav (Overview/Coins/Ask) appears once the tab mounts.
-    expect(await screen.findByText("Overview")).toBeInTheDocument();
-    expect(screen.getByText("Coins")).toBeInTheDocument();
-    expect(screen.getByText("Ask")).toBeInTheDocument();
+    // The deterministic Overview mounts (its notes area renders)…
+    expect(await screen.findByText("A note on your portfolio")).toBeInTheDocument();
+    // …but the sub-nav (Coins/Ask tabs) is suppressed while AI is off.
+    expect(screen.queryByRole("button", { name: "Coins" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ask" })).toBeNull();
   });
 
   it("4. Journal tab: empty state + design shell", async () => {
@@ -190,6 +197,10 @@ describe("User walkthrough — all functions", () => {
 
   it("7. Real holding (seeded): Portfolio value, Research conviction pills, coin detail", async () => {
     loginAs();
+    // CRYP-112: this journey exercises the AI-gated Research → Coins view, so turn AI
+    // explicitly ON for it (aiResearch DEFAULT-OFF now hides the whole sub-nav). Honest
+    // setup for an AI-gated view — not a weakening.
+    fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: true } });
     // Seed one portfolio with a held coin (a real buy transaction -> amount > 0).
     getPortfolios.mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] });
     getCoins.mockResolvedValue({
@@ -693,6 +704,9 @@ describe("User walkthrough — all functions", () => {
   // ── #1 THE MOAT — one journey proving Journal → conviction signals → Learn connect ──
   it("MOAT: a thesis written at buy-time reaches Research's signals, and Learn teaches the framework", async () => {
     loginAs();
+    // CRYP-112: this journey clicks Research → Coins (an AI-gated view), so turn AI
+    // explicitly ON (aiResearch DEFAULT-OFF now hides the whole sub-nav). Honest setup.
+    fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: true } });
     addTransaction.mockResolvedValueOnce({ success: true, id: "t1" });
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);

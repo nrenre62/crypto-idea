@@ -41,7 +41,7 @@ avoid the ones that were never going to make it, and hold the rest with convicti
 
 - **Track a portfolio** — multiple portfolios, live prices (via a cached CoinGecko proxy), cost basis, and real P&L.
 - **Write & review theses** — a "why you bought it / what would change your mind" journal on every coin, with an intact / review / challenged status you revisit over time.
-- **Research your holdings** — a Research tab with conviction signals, allocation and concentration, a risk read, and honest deterministic summaries built from *your own* numbers.
+- **Research your holdings** — a Research tab with allocation and concentration, a risk read, and honest deterministic summaries built from *your own* numbers. (Conviction signals and the per-coin Coins view live on the AI surface, which ships **off by default** behind the `aiResearch` admin switch — an admin can turn it on.)
 - **Learn** — a built-in library of investing lessons with XP, streaks, and quiz-gated progress.
 - **Free DCA calculator** — a dollar-cost-averaging backtest on the landing page, no login required.
 - **Install it** — it's a PWA: installable, works on phone and desktop from one responsive layout, light/dark.

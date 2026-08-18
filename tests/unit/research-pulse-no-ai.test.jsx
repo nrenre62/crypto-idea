@@ -62,13 +62,13 @@ describe('Research Pulse — severed from AI even when the proxy flag is true (P
   beforeEach(() => vi.clearAllMocks());
 
   it('CRYP-106: Pulse never calls askAI on mount even with AI_PROXY_LIVE mocked true', async () => {
-    const { container } = renderTab({ chatEnabled: true });
+    const { container } = renderTab({ aiEnabled: true });
     await settledPulse(container);
     expect(askAI).toHaveBeenCalledTimes(0);
   });
 
   it('CRYP-106: the Pulse shows the deterministic summary, not AI-produced text', async () => {
-    const { container } = renderTab({ chatEnabled: true });
+    const { container } = renderTab({ aiEnabled: true });
     await settledPulse(container);
     const txt = container.querySelector('.pulse-text').textContent;
     // Deterministic R-A line (utils/pulse.js) for the default 30d timeframe.

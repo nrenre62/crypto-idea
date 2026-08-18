@@ -35,20 +35,22 @@ const TABS = [
 // Props:
 //   coins       — the active portfolio's coin objects (with their `entries`).
 //   livePrices  — the app's live price map: { [id]: { usd, usd_24h_change, ... } }.
-//   chatEnabled — CRYP-93: false hides the Ask chat tab + per-coin "Ask AI" button
-//                 (the aiResearch kill-switch). Defaults on so nothing else regresses.
-export default function ResearchTab({ coins, livePrices, api, plan, onAccount, coinOrder, onReorder, pricesPaused = false, chatEnabled = true }) {
+//   aiEnabled   — CRYP-112: the aiResearch kill-switch (DEFAULT OFF at launch). false
+//                 hides the ENTIRE AI surface — the Ask chat, the per-coin "Ask AI"
+//                 button, the whole Coins sub-view AND the sub-nav menu (Overview-only).
+//                 Fail-closed default false so a missing flag never flashes AI.
+export default function ResearchTab({ coins, livePrices, api, plan, onAccount, coinOrder, onReorder, pricesPaused = false, aiEnabled = false }) {
   const [tab, setTab] = useState('overview');
   const [tf, setTf] = useState('30d');
 
   // CRYP-106: with the Pulse severed from AI, aiChrome's sole remaining job is the
   // tab-level "AI-generated" disclaimer copy (it refers to the Ask answers). It stays
-  // false until the server proxy ships (AI_PROXY_LIVE), even when the chat tab is shown.
-  const aiChrome = chatEnabled && AI_PROXY_LIVE;
-  // The chat tab drops out of the sub-nav when chat is off…
-  const tabs = chatEnabled ? TABS : TABS.filter((t) => t.id !== 'ask');
-  // …and a stale 'ask' selection (e.g. a live flag flip) falls back to Overview.
-  const active = tab === 'ask' && !chatEnabled ? 'overview' : tab;
+  // false until the server proxy ships (AI_PROXY_LIVE), even when AI is enabled.
+  const aiChrome = aiEnabled && AI_PROXY_LIVE;
+  // CRYP-112: with AI off the whole sub-nav is suppressed — Overview is the only view…
+  const tabs = aiEnabled ? TABS : [TABS[0]];
+  // …and ANY stale non-overview selection (e.g. a live flag flip) falls back to Overview.
+  const active = aiEnabled ? tab : 'overview';
 
   const { holdings, source } = useHoldings(coins);
   const empty = source === 'empty';
@@ -76,20 +78,22 @@ export default function ResearchTab({ coins, livePrices, api, plan, onAccount, c
           </div>
         </div>
 
-        <div className="segwrap">
-          <div className="seg">
-            {tabs.map((t) => (
-              <button key={t.id} className={t.id === active ? 'active' : ''} onClick={() => setTab(t.id)}>{t.label}</button>
-            ))}
+        {aiEnabled && (
+          <div className="segwrap">
+            <div className="seg">
+              {tabs.map((t) => (
+                <button key={t.id} className={t.id === active ? 'active' : ''} onClick={() => setTab(t.id)}>{t.label}</button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="pad">
         {active === 'overview' && (
           <OverviewView portfolio={portfolio} empty={empty} pulse={pulse} tf={tf} onTf={setTf} onShare={onShare} />
         )}
-        {active === 'coins' && <CoinsView holdings={portfolio.holdings} coinOrder={coinOrder} onReorder={onReorder} empty={empty} onAsk={chatEnabled ? askAboutCoin : undefined} />}
+        {active === 'coins' && <CoinsView holdings={portfolio.holdings} coinOrder={coinOrder} onReorder={onReorder} empty={empty} onAsk={aiEnabled ? askAboutCoin : undefined} />}
         {active === 'ask' && <AskView messages={ask.messages} busy={ask.busy} onSend={ask.send} />}
 
         <p className="disclaimer">

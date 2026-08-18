@@ -1310,12 +1310,14 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
               {/* ── AI (reserved — live AI ships at go-live) ── */}
               {settingsView === "ai" && (<>
                   <div className="card-sub">Reserved — live AI ships at go-live. The AI provider API key powers the server-side <code>researchAsk</code> proxy (validator-first — never called from the browser). The provider is swappable: paste the API key, the generation and judge model ids, and (optionally) the API base URL below, then save. It all stays in the locked config doc until the proxy ships. The AI-research chat switch below is live TODAY.</div>
-                  {/* CRYP-93: the AI-research chat kill-switch lives here (moved from App Controls).
-                      Off = hides the Research → Ask chat for all users now, via the same
-                      saveFeature→saveConfig path the incident switches use. */}
-                  <CtrlRow icon={SI.ai} label="AI research chat" sub="Off = hides the Research → Ask chat for all users now; when live AI ships it also stops the server AI proxy.">
-                    <Switch checked={controls.features.aiResearch !== false}
-                            onChange={async () => { const r = await saveFeature("aiResearch", !(controls.features.aiResearch !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
+                  {/* CRYP-93 / CRYP-112: the AI-research kill-switch lives here (moved from App
+                      Controls). It ships DEFAULT OFF at launch and gates the WHOLE Research AI
+                      surface — off hides the Ask chat, the per-coin Ask button, the Coins section
+                      AND the Research sub-nav menu (Overview-only). Same saveFeature→saveConfig
+                      path the incident switches use. */}
+                  <CtrlRow icon={SI.ai} label="AI research chat" sub="Default OFF at launch. Off = the Research tab shows only the deterministic Overview — the Coins section, the Ask chat and the Research menu are all hidden for every user; when live AI ships it also stops the server AI proxy.">
+                    <Switch checked={controls.features.aiResearch === true}
+                            onChange={async () => { const r = await saveFeature("aiResearch", !(controls.features.aiResearch === true)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
                   </CtrlRow>
                   <label className="acct-label">AI provider API key{setFlags.providerKey ? " · saved ✓" : ""}</label>
                   <input className="field-input" type="password" value={keys.providerKey}
