@@ -12,9 +12,11 @@ export default function Research() {
   // ADMIN-2: the marketData kill-switch, threaded in as a prop like the other header
   // inputs — ResearchTab stays self-contained and context-free by design.
   const pricesPaused = !!(site && site.features && site.features.marketData === false);
-  // CRYP-93: the AI-research kill-switch also hides the Research → Ask chat client-side.
-  // Same !== false idiom as the server (default-ON: a missing/unreadable flag keeps chat).
-  const chatEnabled = !(site && site.features && site.features.aiResearch === false);
+  // CRYP-112: the aiResearch kill-switch is DEFAULT-OFF and gates the WHOLE AI surface
+  // (the Ask chat, the per-coin Ask button, the Coins sub-view AND the sub-nav menu —
+  // Overview-only when off). Fail-closed read: only an explicit `true` enables AI, so a
+  // missing/unreadable flag hides AI rather than flashing it.
+  const aiEnabled = !!(site && site.features && site.features.aiResearch === true);
   // R4-4: thread the live/plan header pills + the Account route into the (otherwise
   // self-contained) feature so its header matches the other tabs.
   // R32: also thread the active portfolio's custom coin order + its persister.
@@ -26,7 +28,7 @@ export default function Research() {
       plan={plan}
       onAccount={() => setScreen("account")}
       pricesPaused={pricesPaused}
-      chatEnabled={chatEnabled}
+      aiEnabled={aiEnabled}
       coinOrder={coinOrder}
       onReorder={updateCoinOrder}
     />

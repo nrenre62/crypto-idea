@@ -962,7 +962,10 @@ describe("admin-dashboard", () => {
     // would let the server's per-key merge be the only thing standing between a
     // maintenance toggle and silently re-enabling everything else.
     const flags = saveConfig.mock.calls[saveConfig.mock.calls.length - 1][0].flags;
-    expect(flags.features).toEqual({ marketData: false, checkout: true, aiResearch: true });
+    // CRYP-112: the default mock config is {} (aiResearch never set), so aiResearch reads
+    // its default-OFF and is carried as false — the WHOLE map is still saved, and flipping
+    // marketData no longer silently persists aiResearch back ON.
+    expect(flags.features).toEqual({ marketData: false, checkout: true, aiResearch: false });
     // DI-1 verify-then-toast: the strip is re-read before success is announced.
     await waitFor(() => expect(getSystemStatus).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByText("marketData DISABLED")).toBeInTheDocument());

@@ -98,8 +98,10 @@ export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
   // Public config from /api/config. ADMIN-2: `features` defaults to all-ON for the same
   // reason the server does — if the config fetch fails we must degrade to a WORKING app,
-  // never to one that looks deliberately switched off.
-  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,paidPlansEnabled:true,plans:null,announcement:null,features:{marketData:true,checkout:true,aiResearch:true}});
+  // never to one that looks deliberately switched off. CRYP-112 EXCEPTION: aiResearch
+  // defaults OFF (fail-closed) so a fresh/unconfigured deploy hides the AI surface and
+  // there's no flash of AI-visible before /api/config loads (marketData/checkout stay ON).
+  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,paidPlansEnabled:true,plans:null,announcement:null,features:{marketData:true,checkout:true,aiResearch:false}});
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
   const[authPass,setAuthPass]=useState("");
@@ -199,15 +201,19 @@ export default function CryptoIdea(){
   },[]);
 
   // Public app flags (maintenance / signups / ADMIN-2 feature switches) set by an
-  // admin — read once on load. Each switch is ON unless the server says exactly false,
-  // matching functions/features.js so client and server can't disagree about a missing key.
+  // admin — read once on load. marketData/checkout are ON unless the server says exactly
+  // false, matching functions/features.js so client and server can't disagree about a
+  // missing key. CRYP-112: aiResearch is the fail-closed exception — OFF unless the server
+  // says exactly true (default-OFF at launch), matching the flipped server default.
   useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,
     // CRYP-101 (LAUNCH-FREE Part B): paid plans are ON unless the server says exactly
     // false — a missing key must read as "sales enabled", mirroring the server default.
     paidPlansEnabled:d.paidPlansEnabled!==false,plans:d.plans||null,
     // ADMIN-5: the server sends `announcement` only when it's active (else null).
     announcement:d.announcement||null,
-    features:{marketData:(d.features||{}).marketData!==false,checkout:(d.features||{}).checkout!==false,aiResearch:(d.features||{}).aiResearch!==false}})})},[]);
+    // CRYP-112: aiResearch reads === true (fail-closed, default OFF) — only an explicit
+    // true enables AI; a missing key hides it. marketData/checkout keep the !== false rule.
+    features:{marketData:(d.features||{}).marketData!==false,checkout:(d.features||{}).checkout!==false,aiResearch:(d.features||{}).aiResearch===true}})})},[]);
 
   // Auth watch + profile auto-save now live in useAuthSession (above).
 

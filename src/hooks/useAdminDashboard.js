@@ -183,7 +183,10 @@ export function useAdminDashboard() {
   // maintenance/signups, NOT a flags.features switch). It rides along on the same
   // `flags: controls` save path, so it can't be dropped by another flags save. ON by
   // default (mirrors the server), so an untouched config never reads as "sales off".
-  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, requireAdminMfa: false, features: { marketData: true, checkout: true, aiResearch: true } });
+  // CRYP-112: aiResearch is DEFAULT-OFF (also the dev-fallback display when getAdminConfig
+  // throws) — a fresh/unconfigured deploy shows the switch UNCHECKED, matching the flipped
+  // server + client defaults. marketData/checkout stay optimistically ON.
+  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, requireAdminMfa: false, features: { marketData: true, checkout: true, aiResearch: false } });
   // Arming step for the 2FA switch. Turning it ON can lock every admin out of the
   // panel (including out of this switch), so it is deliberately NOT one tap.
   const [mfaWarn, setMfaWarn] = useState(false);
@@ -228,9 +231,13 @@ export function useAdminDashboard() {
         // ADMIN-0: OFF unless the server says exactly true — mirrors guards.requireMfa,
         // so the switch can never show "protected" for a config that isn't.
         requireAdminMfa: !!(d.flags && d.flags.requireAdminMfa === true),
-        // ON unless the server says exactly false — same rule as functions/features.js,
-        // so a config that predates the switches doesn't render as "everything off".
-        features: { marketData: ff.marketData !== false, checkout: ff.checkout !== false, aiResearch: ff.aiResearch !== false } });
+        // marketData/checkout: ON unless the server says exactly false — same rule as
+        // functions/features.js, so a config that predates the switches doesn't render as
+        // "everything off". CRYP-112: aiResearch is the fail-closed exception — ON only when
+        // set EXACTLY true (default OFF), mirroring functions/features.js DEFAULTS and the
+        // CryptoIdea.jsx runtime mirror, so an unconfigured aiResearch reads OFF everywhere
+        // and flipping an unrelated switch can never silently persist it back ON.
+        features: { marketData: ff.marketData !== false, checkout: ff.checkout !== false, aiResearch: ff.aiResearch === true } });
       setAnalytics({ ga4: d.analytics?.ga4 || "", plausible: d.analytics?.plausible || "" });
       setLegal({ termlyUuid: d.legal?.termlyUuid || "", termlyPrivacyId: d.legal?.termlyPrivacyId || "", termlyTermsId: d.legal?.termlyTermsId || "", cookieBanner: !!(d.legal && d.legal.cookieBanner) });
       if (d.plans) setPlans(d.plans);
