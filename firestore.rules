@@ -191,12 +191,13 @@ service cloud.firestore {
       return want < hardMax ? want : hardMax;
     }
     // PLAN-LIMITS-MAX (#12): Starter 3/30/300 · Pro 6/100/1000 · Premium 15/200/2000.
-    // Defaults are (free, pro, premium, hardMax). The coins cap is NO LONGER rule-enforced —
-    // it moved server-side to the addCoinGuarded callable (CRYP-108, B3), which re-derives the
-    // tier cap + the #20 min(config,1000) clamp; client coin create is `if false`. Only
-    // maxPortfolios + maxTx remain rule-enforced here. Prices are unchanged (elsewhere).
+    // Defaults are (free, pro, premium, hardMax). Neither the coins cap NOR the transactions
+    // cap is rule-enforced any longer — both moved server-side to their guarded callables:
+    // the coins cap to addCoinGuarded (CRYP-108, B3) and the tx cap to addTransactionGuarded
+    // (CRYP-110, B3), each re-deriving the tier cap + the #20 min(config, hardMax) clamp;
+    // client coin AND transaction create are both `if false`. Only maxPortfolios remains
+    // rule-enforced here. Prices are unchanged (elsewhere).
     function maxPortfolios(userId) { return configuredLimit(userId, 'portfolios', 3, 6, 15, 100000); }
-    function maxTx(userId)         { return configuredLimit(userId, 'transactions', 300, 1000, 2000, 1000000); }
 
     // API-SECURITY (2026-07-08): a client-writable counter that GATES a tier limit must never be
     // allowed to move DOWN by a client write. The old rule permitted ±1, but a standalone
@@ -340,17 +341,11 @@ service cloud.firestore {
 
           // ─── Transactions ───
           match /transactions/{txId} {
-            function coinRef() {
-              return /databases/$(database)/documents/users/$(userId)/portfolios/$(portfolioId)/coins/$(coinId);
-            }
-
             allow read: if (isOwner(userId) && isChosen(userId)) || isAdmin();
 
-            allow create: if isOwner(userId)
-                          && isChosen(userId)
-                          && validTransactionData()
-                          && getAfter(coinRef()).data.txCount == get(coinRef()).data.get('txCount', 0) + 1
-                          && getAfter(coinRef()).data.txCount <= maxTx(userId);
+            // server-owned: transaction docs are created ONLY by the addTransactionGuarded callable (Admin SDK),
+            // which re-derives the tier tx-cap + isChosen + validTransactionData server-side (CRYP-110, B3).
+            allow create: if false;
 
             allow update: if (isOwner(userId) && isChosen(userId) && validTransactionData()) || isAdminOwner();
 
