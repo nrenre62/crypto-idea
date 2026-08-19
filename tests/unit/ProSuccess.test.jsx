@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /**
@@ -9,10 +9,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const h = vi.hoisted(() => ({ state: { status: "waiting", tier: null } }));
 vi.mock("../../src/hooks/useProSuccess.js", () => ({ useProSuccess: () => h.state }));
 
+// CRYP-113: the page must read the public site config to know whether payments are on.
+// Default to payments-ON so every PR-B/PR-C3b confirmation test below renders normally;
+// the CRYP-113 test overrides it to payments-OFF to assert the redirect.
+const cfg = vi.hoisted(() => ({ value: { paidPlansEnabled: true } }));
+vi.mock("../../src/api/config.js", () => ({ fetchSiteConfig: vi.fn(() => Promise.resolve(cfg.value)) }));
+
 import ProSuccess from "../../src/components/pro-success.jsx";
 
 describe("ProSuccess page (PR-B G4)", () => {
-  beforeEach(() => { h.state = { status: "waiting", tier: null }; });
+  beforeEach(() => { h.state = { status: "waiting", tier: null }; cfg.value = { paidPlansEnabled: true }; });
 
   it("shows a 'confirming' state while the webhook is still pending — never a premature success", () => {
     h.state = { status: "waiting", tier: null };
@@ -66,5 +72,35 @@ describe("ProSuccess page (PR-B G4)", () => {
     render(<ProSuccess />);
     expect(screen.getByText(/premium continues/i)).toBeInTheDocument();
     expect(screen.queryByText(/pro starts when your premium period ends/i)).toBeNull();
+  });
+
+  // ── CRYP-113 · payments OFF by default ──
+  // /pro-success is a PayPal-return page — it has no reason to exist when payments are off.
+  // With paidPlansEnabled false (the launch default), routing here must REDIRECT to /app
+  // rather than render a purchase confirmation (even for a — impossible — "confirmed" state).
+  // RED today: ProSuccess reads no config and never redirects, so it renders "You're on Pro."
+  it("CRYP-113: with payments OFF, the pro-success page redirects to /app instead of confirming a purchase", async () => {
+    h.state = { status: "confirmed", tier: "pro" };   // absent the gate this renders "You're on Pro."
+    cfg.value = { maintenance: false, signupsEnabled: true, paidPlansEnabled: false, plans: null, features: { marketData: true, checkout: false, aiResearch: false } };
+    const origLocation = window.location;
+    const assignSpy = vi.fn(), replaceSpy = vi.fn();
+    // jsdom's window.location.assign/replace aren't spyable (non-configurable), so swap the
+    // whole location for a stub that records navigation (the PR-B/PR-C redirect test pattern).
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign: assignSpy, replace: replaceSpy, href: "http://localhost/pro-success", origin: "http://localhost" },
+    });
+    try {
+      render(<ProSuccess />);
+      // It must navigate away to /app (either assign or replace) once the config resolves…
+      await waitFor(() => {
+        const urls = [...assignSpy.mock.calls, ...replaceSpy.mock.calls].map((a) => String(a[0]));
+        expect(urls.some((u) => /\/app$/.test(u)), "must redirect to /app when payments are off").toBe(true);
+      });
+      // …and must NOT claim the purchase.
+      expect(screen.queryByText(/You're on/i)).toBeNull();
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: origLocation });
+    }
   });
 });
