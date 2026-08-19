@@ -385,8 +385,11 @@ test("CRYP-113: createSubscription proceeds past the paid gate ONLY when paidPla
   const uid = await makeUser(email, null);
   await db.collection("users").doc(uid).set({ email, name: "PaidOn", tier: "free", portfolioCount: 1 });
   const token = await idTokenFor(email);
-  // Only an explicit true enables paid plans now.
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: true } }, { merge: true });
+  // Only an explicit true enables paid plans now. CRYP-113 ALSO flips `checkout` to
+  // default-OFF, so reaching the checkout stage past the paid gate needs BOTH gates open:
+  // enable checkout explicitly too, else createSubscription refuses at the (now default-off)
+  // checkout kill-switch instead of proving it cleared the paid gate.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: true } } }, { merge: true });
 
   const res = await callAs("createSubscription", token, { plan: "pro" });
   const msg = String((res.body.error && res.body.error.message) || "");
