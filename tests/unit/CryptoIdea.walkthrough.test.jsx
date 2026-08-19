@@ -533,6 +533,9 @@ describe("User walkthrough — all functions", () => {
 
   it("R29-3/DI-4: a lapsed Premium→Pro lands on Starter and KEEPS the over-limit data (no trim)", async () => {
     loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
+    // CRYP-113: payments default OFF now suppresses the re-checkout prompt; this test
+    // exercises the LEGACY paid re-checkout/decline, so turn paid mode explicitly ON.
+    fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: false } });
     getPortfolios.mockResolvedValue({ success: true,
       portfolios: [{ id: "p1", name: "Main" }, { id: "p2", name: "Alt" }] });
     render(<CryptoIdea />);
@@ -714,6 +717,9 @@ describe("User walkthrough — all functions", () => {
     //    only; today it also saveProfiles → two writes → RED).
     it("declineProRecheckout clears via the server and no longer writes the profile cache itself", async () => {
       loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
+      // CRYP-113: payments default OFF now suppresses the re-checkout prompt; this test
+      // exercises the LEGACY paid re-checkout/decline, so turn paid mode explicitly ON.
+      fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: false } });
       getPortfolios.mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] });
       render(<CryptoIdea />);
       expect(await screen.findByText(/Your Premium period has ended/i)).toBeInTheDocument();

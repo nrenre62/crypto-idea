@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { useProSuccess } from "../hooks/useProSuccess.js";
+import { fetchSiteConfig } from "../api/config.js";
 import { PLAN_BENEFITS } from "../data/plan-benefits.js";
 import { c } from "../utils/theme.js";
 
@@ -28,6 +30,22 @@ function Shell({ children }) {
 
 export default function ProSuccess() {
   const { status, tier } = useProSuccess();
+  // CRYP-113 (payments OFF by default): /pro-success is a PayPal-return page — it has no
+  // reason to exist when payments are off. Read the public site config; when paidPlansEnabled
+  // isn't explicitly true (the launch default) — or the config can't be read — redirect to
+  // /app and render NOTHING rather than confirm a purchase. Fail-closed: only the explicit
+  // `paidPlansEnabled === true` keeps the page; anything else (off / missing / error) leaves.
+  const [redirecting, setRedirecting] = useState(false);
+  useEffect(() => {
+    let live = true;
+    const leave = () => { if (!live) return; setRedirecting(true); window.location.assign("/app"); };
+    fetchSiteConfig().then(d => { if (d && d.paidPlansEnabled === true) return; leave(); }).catch(leave);
+    return () => { live = false; };
+  }, []);
+  // Payments off (or config unreadable): the redirect is in flight — render nothing so the
+  // purchase confirmation never shows (jsdom won't unmount on assign; this hides it too).
+  if (redirecting) return null;
+
   // A confirmed purchase, OR a fast-webhook timeout that already resolved to a paid tier.
   const paidTier = (status === "confirmed" || status === "timeout") && TIER_LABEL[tier] ? tier : null;
 

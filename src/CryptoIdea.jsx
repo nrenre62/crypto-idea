@@ -98,10 +98,11 @@ export default function CryptoIdea(){
   const[screen,setScreen]=useState("loading");
   // Public config from /api/config. ADMIN-2: `features` defaults to all-ON for the same
   // reason the server does — if the config fetch fails we must degrade to a WORKING app,
-  // never to one that looks deliberately switched off. CRYP-112 EXCEPTION: aiResearch
-  // defaults OFF (fail-closed) so a fresh/unconfigured deploy hides the AI surface and
-  // there's no flash of AI-visible before /api/config loads (marketData/checkout stay ON).
-  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,paidPlansEnabled:true,plans:null,announcement:null,features:{marketData:true,checkout:true,aiResearch:false}});
+  // never to one that looks deliberately switched off. CRYP-112/CRYP-113 EXCEPTIONS:
+  // aiResearch AND checkout AND paidPlansEnabled default OFF (fail-closed) so a fresh/
+  // unconfigured deploy launches free — no flash of AI or paid/checkout UI before
+  // /api/config loads (only marketData stays default-ON).
+  const[site,setSite]=useState({maintenance:false,signupsEnabled:true,paidPlansEnabled:false,plans:null,announcement:null,features:{marketData:true,checkout:false,aiResearch:false}});
   const[authMode,setAuthMode]=useState("login");
   const[authEmail,setAuthEmail]=useState("");
   const[authPass,setAuthPass]=useState("");
@@ -201,19 +202,22 @@ export default function CryptoIdea(){
   },[]);
 
   // Public app flags (maintenance / signups / ADMIN-2 feature switches) set by an
-  // admin — read once on load. marketData/checkout are ON unless the server says exactly
-  // false, matching functions/features.js so client and server can't disagree about a
-  // missing key. CRYP-112: aiResearch is the fail-closed exception — OFF unless the server
-  // says exactly true (default-OFF at launch), matching the flipped server default.
+  // admin — read once on load. marketData is ON unless the server says exactly false,
+  // matching functions/features.js so client and server can't disagree about a missing
+  // key. CRYP-112/CRYP-113: aiResearch AND checkout are the fail-closed exceptions — OFF
+  // unless the server says exactly true (default-OFF at launch), matching the flipped
+  // server defaults.
   useEffect(()=>{fetchSiteConfig().then(d=>{if(d)setSite({maintenance:!!d.maintenance,signupsEnabled:d.signupsEnabled!==false,
-    // CRYP-101 (LAUNCH-FREE Part B): paid plans are ON unless the server says exactly
-    // false — a missing key must read as "sales enabled", mirroring the server default.
-    paidPlansEnabled:d.paidPlansEnabled!==false,plans:d.plans||null,
+    // CRYP-113 (LAUNCH-FREE Part B): paid plans are OFF unless the server says exactly
+    // true — a missing key must read as "sales off" (default-OFF launch), mirroring the
+    // flipped server default.
+    paidPlansEnabled:d.paidPlansEnabled===true,plans:d.plans||null,
     // ADMIN-5: the server sends `announcement` only when it's active (else null).
     announcement:d.announcement||null,
-    // CRYP-112: aiResearch reads === true (fail-closed, default OFF) — only an explicit
-    // true enables AI; a missing key hides it. marketData/checkout keep the !== false rule.
-    features:{marketData:(d.features||{}).marketData!==false,checkout:(d.features||{}).checkout!==false,aiResearch:(d.features||{}).aiResearch===true}})})},[]);
+    // CRYP-112/CRYP-113: aiResearch AND checkout read === true (fail-closed, default OFF)
+    // — only an explicit true enables them; a missing key hides them. marketData keeps
+    // the !== false rule.
+    features:{marketData:(d.features||{}).marketData!==false,checkout:(d.features||{}).checkout===true,aiResearch:(d.features||{}).aiResearch===true}})})},[]);
 
   // Auth watch + profile auto-save now live in useAuthSession (above).
 
@@ -661,7 +665,10 @@ export default function CryptoIdea(){
   // lands directly on Pro via the server sweep at period end and NEVER needs the manual
   // re-checkout. This stays only as a fallback for a LEGACY marker (cancelled + downgradeTo:pro
   // with NO scheduledPro) written before PR-C2.
-  const recheckoutDue=!!(user&&(user.tier||"free")==="free"&&user.subscription&&user.subscription.cancelled&&user.subscription.downgradeTo==="pro"&&!(user.subscription.scheduledNext||user.subscription.scheduledPro));
+  // CRYP-113: suppress the paid re-checkout when payments are off (default-OFF launch) — a
+  // lingering cancelled-Pro marker must NOT surface the "Approve Pro payment" prompt when there
+  // is no checkout to approve. site.paidPlansEnabled is a strict boolean after the parser change.
+  const recheckoutDue=!!(site.paidPlansEnabled===true&&user&&(user.tier||"free")==="free"&&user.subscription&&user.subscription.cancelled&&user.subscription.downgradeTo==="pro"&&!(user.subscription.scheduledNext||user.subscription.scheduledPro));
   const declineProRecheckout=async()=>{
     // DI-4 (D3): no trim — over-limit data is KEPT and grey-locked, never deleted.
     const updated={...user,subscription:null};

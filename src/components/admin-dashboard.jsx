@@ -1187,8 +1187,8 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                             onChange={async () => { const r = await saveFeature("marketData", !(controls.features.marketData !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
                   </CtrlRow>
                   <CtrlRow icon={SI.plans} label="New subscriptions" sub="Off = the checkout callable refuses and the paid plan cards read “Temporarily unavailable”.">
-                    <Switch checked={controls.features.checkout !== false}
-                            onChange={async () => { const r = await saveFeature("checkout", !(controls.features.checkout !== false)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
+                    <Switch checked={controls.features.checkout === true}
+                            onChange={async () => { const r = await saveFeature("checkout", !(controls.features.checkout === true)); pushToast(r.msg, r.ok ? "ok" : "err"); }} />
                   </CtrlRow>
                   {/* CRYP-93: the AI-research chat toggle MOVED to the AI settings screen —
                       App Controls is for the two incident switches that gate something live
@@ -1285,10 +1285,11 @@ export default function AdminDashboard({ email, onSignOut } = {}) {
                   {/* CRYP-101 (LAUNCH-FREE Part B): the paidPlansEnabled master switch. OFF puts
                       the whole site in free-launch mode — Starter-only, no plan chooser and no
                       new subscriptions (server-enforced; the checkout switch stays as the finer
-                      control). Rides the saveControls→saveConfig path so a flags save can't drop it. */}
+                      control). CRYP-113: DEFAULT-OFF now — an unconfigured deploy reads UNCHECKED.
+                      Rides the saveControls→saveConfig path so a flags save can't drop it. */}
                   <CtrlRow icon={SI.plans} label="Paid plans" sub="OFF = free launch · Starter-only · no new subscriptions">
-                    <Switch checked={controls.paidPlansEnabled !== false}
-                            onChange={() => saveControls({ ...controls, paidPlansEnabled: !(controls.paidPlansEnabled !== false) })} />
+                    <Switch checked={controls.paidPlansEnabled === true}
+                            onChange={() => saveControls({ ...controls, paidPlansEnabled: !(controls.paidPlansEnabled === true) })} />
                   </CtrlRow>
                   {["free","pro","premium"].map(t => (
                     <div key={t} className="plan-block">

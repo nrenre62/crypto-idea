@@ -569,7 +569,7 @@ exports.createSubscription = functions.https.onCall(async (data, context) => {
   // paidPlansEnabled=false takes precedence regardless of the checkout flag, and
   // before any cooldown/PayPal work so a paused call does nothing.
   let paidCfg = {};
-  try { const s = await db.doc("config/app").get(); paidCfg = (s.exists && s.data()) || {}; } catch (e) { /* default-ON below */ }
+  try { const s = await db.doc("config/app").get(); paidCfg = (s.exists && s.data()) || {}; } catch (e) { /* default-OFF below (fail-closed) */ }
   if (!paidPlansOn(paidCfg)) {
     throw new functions.https.HttpsError("failed-precondition", "New subscriptions are paused right now.");
   }
@@ -647,7 +647,7 @@ exports.scheduleProDowngrade = functions.https.onCall(async (data, context) => {
   // Read config/app FRESH (not the 60s cache) and BEFORE the checkout kill-switch, so
   // paidPlansEnabled=false takes precedence regardless of the checkout flag.
   let paidCfg = {};
-  try { const s = await db.doc("config/app").get(); paidCfg = (s.exists && s.data()) || {}; } catch (e) { /* default-ON below */ }
+  try { const s = await db.doc("config/app").get(); paidCfg = (s.exists && s.data()) || {}; } catch (e) { /* default-OFF below (fail-closed) */ }
   if (!paidPlansOn(paidCfg)) {
     throw new functions.https.HttpsError("failed-precondition", "New subscriptions are paused right now.");
   }
@@ -700,7 +700,7 @@ exports.resubscribePremium = functions.https.onCall(async (data, context) => {
   // (not the 60s cache) and BEFORE the checkout kill-switch, so paidPlansEnabled=false takes
   // precedence regardless of the checkout flag.
   let paidCfg = {};
-  try { const s = await db.doc("config/app").get(); paidCfg = (s.exists && s.data()) || {}; } catch (e) { /* default-ON below */ }
+  try { const s = await db.doc("config/app").get(); paidCfg = (s.exists && s.data()) || {}; } catch (e) { /* default-OFF below (fail-closed) */ }
   if (!paidPlansOn(paidCfg)) {
     throw new functions.https.HttpsError("failed-precondition", "New subscriptions are paused right now.");
   }
@@ -2502,8 +2502,9 @@ exports.getSystemStatus = functions.https.onCall(async (data, context) => {
     features: featureFlags.readFeatures(cfg),
     maintenance: !!(cfg.flags && cfg.flags.maintenance),
     signupsEnabled: !(cfg.flags && cfg.flags.signupsEnabled === false),
-    // CRYP-101: launch-free switch on the Overview strip — ON unless exactly false.
-    paidPlansEnabled: !(cfg.flags && cfg.flags.paidPlansEnabled === false),
+    // CRYP-101 / CRYP-113: launch-free switch on the Overview strip — default-OFF
+    // (ON only when config says exactly true).
+    paidPlansEnabled: paidPlansOn(cfg),
     // `at: null` is the honest reading for a job that has never completed — the
     // client renders "never", never a reassuring blank.
     jobs: SCHEDULED_JOBS.map(({ name, everyMs }) => {
@@ -2544,7 +2545,7 @@ exports.getAdminConfig = functions.https.onCall(async (data, context) => {
     // ADMIN-0: requireAdminMfa is OFF unless config says exactly true — nothing can
     // satisfy the gate until Identity Platform MFA is enabled, so an absent flag
     // must not read as "on".
-    flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false, requireAdminMfa: fl.requireAdminMfa === true, paidPlansEnabled: fl.paidPlansEnabled !== false, features: featureFlags.readFeatures(cfg) },
+    flags: { maintenance: !!fl.maintenance, signupsEnabled: fl.signupsEnabled !== false, requireAdminMfa: fl.requireAdminMfa === true, paidPlansEnabled: fl.paidPlansEnabled === true, features: featureFlags.readFeatures(cfg) },
     plans: mergePlans(cfg.plans),
     // ADMIN-2: the DSN itself is a secret-ish endpoint URL, so it follows the same
     // rule as every other key — the form learns only whether one is configured.
@@ -2615,11 +2616,13 @@ exports.saveConfig = functions.https.onCall(async (data, context) => {
   // value; stored-absent ⇒ false.
   const exFlags = existing.flags || {};
   const requireAdminMfa = "requireAdminMfa" in f ? f.requireAdminMfa === true : exFlags.requireAdminMfa === true;
-  // CRYP-101: same per-key KEEP rule as requireAdminMfa above — a server-side safety
-  // net for ANY caller that posts `flags` without paidPlansEnabled. Re-defaulting an
-  // omitted field would silently switch launch-free mode back off. Absent ⇒ KEEP the
-  // stored value; stored-absent ⇒ default-ON (true).
-  const paidPlansEnabled = "paidPlansEnabled" in f ? f.paidPlansEnabled !== false : exFlags.paidPlansEnabled !== false;
+  // CRYP-101 / CRYP-113: same per-key KEEP rule as requireAdminMfa above — a
+  // server-side safety net for ANY caller that posts `flags` without paidPlansEnabled.
+  // Re-defaulting an omitted field would silently flip launch-free mode. Present ⇒ ON
+  // only on exact true (a stored `true` is KEPT true, a stored/incoming `false` stays
+  // false); ABSENT ⇒ KEEP the stored value, which for a fresh config (stored-absent)
+  // resolves OFF (undefined === true → false) so a fresh deploy launches free.
+  const paidPlansEnabled = "paidPlansEnabled" in f ? f.paidPlansEnabled === true : exFlags.paidPlansEnabled === true;
   const flags = { maintenance: !!f.maintenance, signupsEnabled: f.signupsEnabled !== false, requireAdminMfa, paidPlansEnabled, features: featureFlags.mergeFeatures(f.features, exFlags.features) };
   const an = (data && data.analytics) || existing.analytics || {};
   const lg = (data && data.legal) || existing.legal || {};
@@ -2916,8 +2919,10 @@ async function featuresNow() {
   if (_features && (Date.now() - _featuresAt) < FEATURES_TTL) return _features;
   let cfg = {};
   try { const s = await db.doc("config/app").get(); cfg = (s.exists && s.data()) || {}; }
-  // A failed read must NOT read as "everything off" — featureFlags defaults every
-  // switch to ON precisely so a Firestore blip can't take the product down.
+  // A failed read must NOT read as "everything off" — featureFlags applies its
+  // per-flag DEFAULTS (marketData ON so a Firestore blip can't take the product down;
+  // checkout/aiResearch default-OFF, hidden at launch) precisely so a blip degrades
+  // to the intended launch-safe state rather than an unknown one.
   catch (e) { return _features || featureFlags.readFeatures({}); }
   _features = featureFlags.readFeatures(cfg);
   _featuresAt = Date.now();
@@ -3427,10 +3432,11 @@ exports.api = functions
       res.json({
         maintenance: !!fl.maintenance,
         signupsEnabled: fl.signupsEnabled !== false,
-        // CRYP-101: launch-free switch — non-secret, default-true. The client reads
-        // it to drive the launch-free UI; the server still enforces it in
-        // createSubscription, so this is presentation, never the control.
-        paidPlansEnabled: fl.paidPlansEnabled !== false,
+        // CRYP-101 / CRYP-113: launch-free switch — non-secret, default-OFF (ON only
+        // when config says exactly true). The client reads it to drive the launch-free
+        // UI; the server still enforces it in createSubscription, so this is
+        // presentation, never the control.
+        paidPlansEnabled: paidPlansOn(d),
         // ADMIN-2: the per-feature switches. Published so the UI can be HONEST about
         // what is off (frozen prices say "paused", not a stale "● LIVE" badge) — the
         // server enforces them regardless, so this is presentation, never the control.
