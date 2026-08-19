@@ -181,12 +181,13 @@ export function useAdminDashboard() {
   // as already-protected when it isn't.
   // CRYP-101 (LAUNCH-FREE Part B): paidPlansEnabled is a top-level flag (peer of
   // maintenance/signups, NOT a flags.features switch). It rides along on the same
-  // `flags: controls` save path, so it can't be dropped by another flags save. ON by
-  // default (mirrors the server), so an untouched config never reads as "sales off".
-  // CRYP-112: aiResearch is DEFAULT-OFF (also the dev-fallback display when getAdminConfig
-  // throws) — a fresh/unconfigured deploy shows the switch UNCHECKED, matching the flipped
-  // server + client defaults. marketData/checkout stay optimistically ON.
-  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, requireAdminMfa: false, features: { marketData: true, checkout: true, aiResearch: false } });
+  // `flags: controls` save path, so it can't be dropped by another flags save.
+  // CRYP-113: DEFAULT-OFF now (mirrors the flipped server), so a fresh/unconfigured deploy
+  // shows the switch UNCHECKED — a launch-free default, not "sales on".
+  // CRYP-112/CRYP-113: aiResearch AND checkout are DEFAULT-OFF (also the dev-fallback display
+  // when getAdminConfig throws) — a fresh/unconfigured deploy shows those switches UNCHECKED,
+  // matching the flipped server + client defaults. Only marketData stays optimistically ON.
+  const [controls, setControls] = useState({ maintenance: false, signupsEnabled: true, paidPlansEnabled: false, requireAdminMfa: false, features: { marketData: true, checkout: false, aiResearch: false } });
   // Arming step for the 2FA switch. Turning it ON can lock every admin out of the
   // panel (including out of this switch), so it is deliberately NOT one tap.
   const [mfaWarn, setMfaWarn] = useState(false);
@@ -225,19 +226,20 @@ export function useAdminDashboard() {
       setSetFlags({ coingecko: !!d.coingeckoSet, paypalSecret: !!(d.paypal && d.paypal.secretSet), smtpPass: !!(d.email && d.email.smtpPassSet), providerKey: !!(d.ai && d.ai.providerKeySet), sentryDsn: !!(d.sentry && d.sentry.dsnSet) });
       const ff = (d.flags && d.flags.features) || {};
       setControls({ maintenance: !!(d.flags && d.flags.maintenance), signupsEnabled: !(d.flags && d.flags.signupsEnabled === false),
-        // CRYP-101: ON unless the server says exactly false — a missing key reads as
-        // "paid plans enabled", matching the server + client (/api/config) default.
-        paidPlansEnabled: !(d.flags && d.flags.paidPlansEnabled === false),
+        // CRYP-113: OFF unless the server says exactly true — a missing key reads as
+        // "paid plans off" (default-OFF launch), matching the flipped server + client
+        // (/api/config) default.
+        paidPlansEnabled: !!(d.flags && d.flags.paidPlansEnabled === true),
         // ADMIN-0: OFF unless the server says exactly true — mirrors guards.requireMfa,
         // so the switch can never show "protected" for a config that isn't.
         requireAdminMfa: !!(d.flags && d.flags.requireAdminMfa === true),
-        // marketData/checkout: ON unless the server says exactly false — same rule as
-        // functions/features.js, so a config that predates the switches doesn't render as
-        // "everything off". CRYP-112: aiResearch is the fail-closed exception — ON only when
-        // set EXACTLY true (default OFF), mirroring functions/features.js DEFAULTS and the
-        // CryptoIdea.jsx runtime mirror, so an unconfigured aiResearch reads OFF everywhere
-        // and flipping an unrelated switch can never silently persist it back ON.
-        features: { marketData: ff.marketData !== false, checkout: ff.checkout !== false, aiResearch: ff.aiResearch === true } });
+        // marketData: ON unless the server says exactly false — same rule as
+        // functions/features.js, so a config that predates the switch doesn't render as
+        // "off". CRYP-112/CRYP-113: aiResearch AND checkout are the fail-closed exceptions —
+        // ON only when set EXACTLY true (default OFF), mirroring functions/features.js DEFAULTS
+        // and the CryptoIdea.jsx runtime mirror, so an unconfigured aiResearch/checkout reads
+        // OFF everywhere and flipping an unrelated switch can never silently persist it back ON.
+        features: { marketData: ff.marketData !== false, checkout: ff.checkout === true, aiResearch: ff.aiResearch === true } });
       setAnalytics({ ga4: d.analytics?.ga4 || "", plausible: d.analytics?.plausible || "" });
       setLegal({ termlyUuid: d.legal?.termlyUuid || "", termlyPrivacyId: d.legal?.termlyPrivacyId || "", termlyTermsId: d.legal?.termlyTermsId || "", cookieBanner: !!(d.legal && d.legal.cookieBanner) });
       if (d.plans) setPlans(d.plans);

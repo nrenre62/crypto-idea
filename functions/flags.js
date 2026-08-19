@@ -9,15 +9,17 @@
 // Pure module: no Firestore, no network — so the rule below is unit-testable with
 // no emulator (tests/unit/flags.test.js).
 //
-// A switch is ON unless config says EXACTLY false. Default-ON is deliberate and
-// load-bearing: config/app can be missing (fresh project), unreadable (a transient
-// Firestore error), or simply predate this flag — and in every one of those cases
-// the right answer is "paid plans available", never "silently kill the revenue
-// funnel". Launch-free mode may only ever engage because a human deliberately
-// flipped it. Same !== false idiom signupsEnabled and the feature kill-switches
-// use, for the same reason — a garbage/truthy value is not a deliberate flip.
+// Paid plans are OFF unless config says EXACTLY true (CRYP-113). Default-OFF is
+// deliberate and load-bearing, and the fail-OPEN rationale is deliberately REVERSED
+// here: there are ZERO paid users pre-launch and the app is launching free, so a
+// config/app that is missing (fresh project), unreadable (a transient Firestore
+// error), or simply predates this flag must all resolve to "no payments", never
+// "silently open the revenue funnel". Existing post-launch subscribers are untouched
+// — their manage/cancel is tier-gated, not flag-gated. Paid mode may only ever engage
+// because a human deliberately set the flag to true; a garbage/truthy value is not a
+// deliberate flip, so only an exact boolean true counts.
 function paidPlansOn(cfg) {
-  return !(cfg && cfg.flags && cfg.flags.paidPlansEnabled === false);
+  return !!(cfg && cfg.flags && cfg.flags.paidPlansEnabled === true);
 }
 
 module.exports = { paidPlansOn };

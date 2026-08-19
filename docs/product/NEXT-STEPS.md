@@ -12,6 +12,46 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## PAYMENTS-OFF-BY-DEFAULT. Ship `paidPlansEnabled` + `checkout` DEFAULT-OFF — free launch, no payment access  (✅ BUILT 2026-08-19 · branch `claude/payments-off-by-default` · CRYP-113 · PR pending)
+
+**Founder-approved decision:** the app launches **free with no payment access**. The launch-free
+master switch `paidPlansEnabled` (top-level flag) AND the `checkout` feature kill-switch both flip
+from default-ON to **default-OFF**, so a fresh/unreadable config resolves to "paid plans off" on
+both ends without any admin action. One plan (Starter). Fully reversible.
+
+**Done:**
+- **Both flags default-OFF, both ends.** `paidPlansEnabled` is a deliberate exception to the
+  top-level "default-ON `!== false`" idiom — `functions/flags.js` `paidPlansOn` is now `=== true`, so
+  `createSubscription`/`scheduleProDowngrade`/`resubscribePremium` refuse with `failed-precondition`
+  unless the flag is exactly `true`. `checkout` JOINS the CRYP-112 `aiResearch` default-OFF exception
+  in `functions/features.js` `DEFAULTS = {marketData:true, checkout:false, aiResearch:false}`; only
+  `marketData` stays default-ON. The server mirror, the client mirror, and the admin toggle all read
+  the new defaults.
+- **Reversible.** Set the flag(s) to exactly `true` to re-enable — no code change.
+- **Existing subscribers untouched.** Tier, the running PayPal subscription, and cancel/downgrade/
+  manage all stay (those gate on `tier`, not the flag).
+
+**Docs:** canonical [`BILLING.md`](../decisions/BILLING.md) §3.7 + [`API-SECURITY.md`](../security/API-SECURITY.md)
+(kill-switch idiom + launch-free switch) + [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md)
++ [`ARCHITECTURE.md`](../decisions/ARCHITECTURE.md) ARCH-15 + `CLAUDE.md` (CRYP-101 + ADMIN-2) +
+`openapi.json` + [`interview.md`](../interview.md) + the reviewer skills. The historical CRYP-101
+(§LAUNCH-FREE) as-built record is left intact — it documents the original default-ON behavior,
+**superseded here by CRYP-113**.
+
+**CRYP-113 deferred follow-ups** (documented, non-blocking — from the reviews):
+1. **Kill-switch idiom parity (client).** `src/components/Account.jsx` (`paidPlansOn = …!== false`) and
+   `src/components/Login.jsx` (`checkoutOff`/`paidPlansOff` via `=== false`) still use the old
+   default-ON idiom. **Non-exploitable** — the server enforces the gate and the client always feeds a
+   strict boolean today. Aligning them to fail-closed `=== true` requires updating the absent-key tests
+   (`Account.test.jsx` 3 paid-CTA cases + `Login.test.jsx`) to seed paid mode explicitly. **Deferred.**
+2. **Onboard-gate pre-fetch race.** `src/CryptoIdea.jsx` initializes `paidPlansEnabled:false`, so the
+   `chooseFree()` auto-resolve effect can fire in the sub-second before `/api/config` resolves. **Fails
+   SAFE** (lands on free) and is moot at launch (payments off). When payments are re-enabled, gate the
+   auto-resolve on a config-loaded flag so it can't auto-record Starter before config confirms paid
+   mode. **Deferred.**
+
+---
+
 ## RESEARCH-AI-OFF-LAUNCH. Ship the `aiResearch` kill-switch DEFAULT-OFF + Overview-only Research  (✅ BUILT 2026-08-18 · branch `claude/research-ai-off-launch` · CRYP-112 · PR pending)
 
 **Founder-approved decision:** the AI research surface ships **off by default at launch**. The

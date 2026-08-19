@@ -962,10 +962,10 @@ describe("admin-dashboard", () => {
     // would let the server's per-key merge be the only thing standing between a
     // maintenance toggle and silently re-enabling everything else.
     const flags = saveConfig.mock.calls[saveConfig.mock.calls.length - 1][0].flags;
-    // CRYP-112: the default mock config is {} (aiResearch never set), so aiResearch reads
-    // its default-OFF and is carried as false — the WHOLE map is still saved, and flipping
-    // marketData no longer silently persists aiResearch back ON.
-    expect(flags.features).toEqual({ marketData: false, checkout: true, aiResearch: false });
+    // CRYP-112/CRYP-113: the default mock config is {} (checkout + aiResearch never set),
+    // so both read their default-OFF and are carried as false — the WHOLE map is still
+    // saved, and flipping marketData no longer silently persists checkout/aiResearch back ON.
+    expect(flags.features).toEqual({ marketData: false, checkout: false, aiResearch: false });
     // DI-1 verify-then-toast: the strip is re-read before success is announced.
     await waitFor(() => expect(getSystemStatus).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByText("marketData DISABLED")).toBeInTheDocument());
@@ -973,6 +973,11 @@ describe("admin-dashboard", () => {
 
   it("ADMIN-2: a failed switch save reverts the toggle and reports the error", async () => {
     saveConfig.mockRejectedValueOnce(new Error("permission-denied"));
+    // CRYP-113: checkout ("New subscriptions") now ships DEFAULT-OFF, so seed it explicitly
+    // ON — this case flips it OFF then asserts it snaps back ON after the failed save.
+    // saveFeature reverts via local state (setControls(prev)), not a config re-read, so a
+    // single seeded mount read is enough; prev already carries the ON state.
+    getAdminConfig.mockResolvedValueOnce({ flags: { features: { marketData: true, checkout: true } } });
     render(<AdminDashboard />);
     await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
@@ -1066,6 +1071,42 @@ describe("admin-dashboard", () => {
     fireEvent.click(toggle);
     await waitFor(() => expect(saveConfig).toHaveBeenCalled());
     expect(saveConfig.mock.calls.at(-1)[0].flags.paidPlansEnabled).toBe(false);
+  });
+
+  /* ── CRYP-113 · payments OFF by default ──
+     paidPlansEnabled is now DEFAULT-OFF (mirror of the CRYP-112 aiResearch default-OFF
+     test above): a config that configured the incident switches but NEVER set
+     paidPlansEnabled must render the master toggle UNCHECKED with no admin action. RED
+     today: the hook reads a missing paidPlansEnabled as ON (!(… === false)), so the
+     toggle starts CHECKED. */
+  it("CRYP-113: the paidPlansEnabled master toggle is OFF by default for a config that never set it", async () => {
+    getAdminConfig.mockResolvedValueOnce({ flags: { maintenance: false, signupsEnabled: true } });
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Plans & pricing/i }));
+
+    const label = await screen.findByText(/Paid plans/i);
+    const row = label.closest(".settings-row") || label.closest(".plan-block") || label.parentElement;
+    const toggle = row.querySelector('input[role="switch"]');
+    expect(toggle, "the Plans & pricing screen must render a paidPlansEnabled master toggle").toBeTruthy();
+    // Default-OFF: a paidPlansEnabled that was never configured renders the switch UNCHECKED.
+    expect(toggle.checked).toBe(false);
+  });
+
+  /* ── CRYP-113 · checkout ("New subscriptions") OFF by default ──
+     The checkout kill-switch joins the default-OFF group. An unconfigured config ({} —
+     the default mock) must render the App-Controls "New subscriptions" toggle UNCHECKED.
+     RED today: the hook reads a missing checkout as ON (ff.checkout !== false), so the
+     toggle starts CHECKED. */
+  it("CRYP-113: the New-subscriptions (checkout) toggle is OFF by default for an unconfigured config", async () => {
+    getAdminConfig.mockResolvedValueOnce({});
+    render(<AdminDashboard />);
+    await waitFor(() => expect(getAdminConfig).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+    const row = await screen.findByText("New subscriptions");
+    const toggle = row.closest(".settings-row").querySelector('input[role="switch"]');
+    expect(toggle.checked).toBe(false);
   });
 
   /* ── ADMIN-0 · admin 2FA switch ─────────────────────────────────────────────

@@ -20,24 +20,25 @@ const FEATURES = {
 
 const NAMES = Object.keys(FEATURES);
 
-// Per-flag default state (CRYP-112). A switch is honored when its key is present
-// in config; when the key is ABSENT the answer is this default.
-const DEFAULTS = { marketData: true, checkout: true, aiResearch: false };
+// Per-flag default state (CRYP-112 / CRYP-113). A switch is honored when its key is
+// present in config; when the key is ABSENT the answer is this default.
+const DEFAULTS = { marketData: true, checkout: false, aiResearch: false };
 
 // A present switch is ON unless config says EXACTLY false; an ABSENT switch takes
 // its per-flag DEFAULT.
 //
-// marketData and checkout are default-ON, and that is load-bearing. config/app can
-// be missing (fresh project), unreadable (a transient Firestore error), or simply
-// predate these switches — and in each of those cases the correct answer for a
-// working, cost-bearing feature is "carry on", not "silently take the product down".
-// Those kill-switches only ever fire because somebody deliberately flipped them.
-// (Contrast signupsEnabled, which uses the same fail-ON idiom for the same reason.)
+// marketData is default-ON, and that is load-bearing. config/app can be missing (fresh
+// project), unreadable (a transient Firestore error), or simply predate these switches
+// — and in each of those cases the correct answer for a working, cost-bearing feature
+// is "carry on serving market data", not "silently take the product down". That
+// kill-switch only ever fires because somebody deliberately flipped it. (Contrast
+// signupsEnabled, which uses the same fail-ON idiom for the same reason.)
 //
-// aiResearch is the deliberate launch exception: it defaults OFF. It gates an
-// as-yet-unbuilt feature whose fail-SAFE state is "hidden", and the app degrades to
-// a fully working non-AI product when it's off — so an unconfigured / fresh deploy
-// hides AI with no admin action. The client MIRRORS this per-flag default, so the
+// checkout (CRYP-113) and aiResearch (CRYP-112) are the deliberate launch exceptions:
+// both default OFF. The app ships FREE + no-AI, so their fail-SAFE state is "hidden /
+// no new subscriptions", and the app degrades to a fully working free non-AI product
+// when they're off — an unconfigured / fresh deploy launches free (no checkout) and
+// hides AI with no admin action. The client MIRRORS these per-flag defaults, so the
 // two ends can't disagree (ADMIN-2). Only an explicit value moves a switch off its
 // default; an undeclared name (not in DEFAULTS) still reads as ON.
 function featureEnabled(cfg, name) {

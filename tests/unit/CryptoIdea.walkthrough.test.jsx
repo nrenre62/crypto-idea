@@ -283,6 +283,10 @@ describe("User walkthrough — all functions", () => {
     window.matchMedia = mmDesktop;
     try {
       loginAs();
+      // CRYP-113: payments now ship OFF by default (fetchSiteConfig is mocked null, so the
+      // flipped client initial governs → paidPlansEnabled:false, which hides the upgrade flow).
+      // This is a PAID-flow test, so turn paid mode explicitly ON — honest setup, not a weakening.
+      fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: false } });
       render(<CryptoIdea />);
       await screen.findByText(/My Assets/i);
       fireEvent.click(screen.getByText("STARTER"));            // → Account (origin)
@@ -306,6 +310,8 @@ describe("User walkthrough — all functions", () => {
     window.matchMedia = mmDesktop;
     try {
       loginAs();
+      // CRYP-113: paid-flow test — payments default OFF now, so turn paid mode explicitly ON.
+      fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: false } });
       render(<CryptoIdea />);
       await screen.findByText(/My Assets/i);
       fireEvent.click(screen.getByText("STARTER"));
@@ -322,6 +328,8 @@ describe("User walkthrough — all functions", () => {
 
   it("R27-3: mobile — the plan flow stays the full-screen overlay (no Modal card)", async () => {
     loginAs();
+    // CRYP-113: paid-flow test — payments default OFF now, so turn paid mode explicitly ON.
+    fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: false } });
     render(<CryptoIdea />);
     await screen.findByText(/My Assets/i);
     fireEvent.click(screen.getByText("STARTER"));
@@ -525,6 +533,9 @@ describe("User walkthrough — all functions", () => {
 
   it("R29-3/DI-4: a lapsed Premium→Pro lands on Starter and KEEPS the over-limit data (no trim)", async () => {
     loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
+    // CRYP-113: payments default OFF now suppresses the re-checkout prompt; this test
+    // exercises the LEGACY paid re-checkout/decline, so turn paid mode explicitly ON.
+    fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: false } });
     getPortfolios.mockResolvedValue({ success: true,
       portfolios: [{ id: "p1", name: "Main" }, { id: "p2", name: "Alt" }] });
     render(<CryptoIdea />);
@@ -546,6 +557,9 @@ describe("User walkthrough — all functions", () => {
 
   it("R29-3: approving the re-checkout routes into the real Pro billing flow and lands on Pro", async () => {
     loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
+    // CRYP-113: payments default OFF now, which suppresses the re-checkout prompt. This
+    // test exercises the LEGACY paid re-checkout, so turn paid mode explicitly ON.
+    fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: false } });
     render(<CryptoIdea />);
     expect(await screen.findByText(/Your Premium period has ended/i)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Approve Pro payment"));
@@ -556,6 +570,22 @@ describe("User walkthrough — all functions", () => {
     expect(await screen.findByText(/Welcome to/, {}, { timeout: 3500 })).toBeInTheDocument();
     // The marker was replaced by an ACTIVE Pro subscription — the popup never returns.
     expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
+  });
+
+  // CRYP-113 — with payments OFF, the R29 re-checkout prompt (recheckoutDue && paidPlansOn)
+  // is suppressed even when a lingering cancelled-Pro marker would otherwise set recheckoutDue.
+  // fetchSiteConfig is mocked null (top of file), so the flipped client default governs →
+  // paidPlansEnabled:false. The lapsed Premium still lands on Starter, but the "Approve Pro
+  // payment" popup must NOT appear. RED today: the initial paidPlansEnabled defaults ON and
+  // recheckoutDue consults no payments flag, so the popup shows.
+  it("CRYP-113: with payments off, a lingering cancelled-Pro marker does NOT show the Approve-Pro re-checkout prompt", async () => {
+    loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
+    render(<CryptoIdea />);
+    // The lapsed Premium still lands on Starter…
+    expect(await screen.findByText("STARTER")).toBeInTheDocument();
+    // …but with payments off the re-checkout popup is suppressed.
+    expect(screen.queryByText(/Your Premium period has ended/i)).toBeNull();
+    expect(screen.queryByText("Approve Pro payment")).toBeNull();
   });
 
   it("BL-1/U12: a payment failure past the 7-day grace lands on Starter (no re-checkout popup)", async () => {
@@ -687,6 +717,9 @@ describe("User walkthrough — all functions", () => {
     //    only; today it also saveProfiles → two writes → RED).
     it("declineProRecheckout clears via the server and no longer writes the profile cache itself", async () => {
       loginPremium(premiumSub({ endDate: "2026-06-01", cancelled: true, downgradeTo: "pro" }));
+      // CRYP-113: payments default OFF now suppresses the re-checkout prompt; this test
+      // exercises the LEGACY paid re-checkout/decline, so turn paid mode explicitly ON.
+      fetchSiteConfig.mockResolvedValueOnce({ maintenance: false, signupsEnabled: true, paidPlansEnabled: true, plans: null, announcement: null, features: { marketData: true, checkout: true, aiResearch: false } });
       getPortfolios.mockResolvedValue({ success: true, portfolios: [{ id: "p1", name: "Main" }] });
       render(<CryptoIdea />);
       expect(await screen.findByText(/Your Premium period has ended/i)).toBeInTheDocument();

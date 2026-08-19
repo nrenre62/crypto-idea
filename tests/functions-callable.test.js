@@ -320,8 +320,10 @@ test("chooseFreePlan: rejects an unknown field and requires auth", async () => {
 });
 
 // ── CRYP-101: LAUNCH-FREE Part B — the paidPlansEnabled top-level flag ──
-// A config/app.flags.paidPlansEnabled switch (default ON; OFF only on exact false)
-// that pauses NEW paid subscriptions and drives the launch-free UI. It gates the
+// CRYP-113: payments ship OFF by default — a config/app.flags.paidPlansEnabled switch
+// (default OFF; ON only on exact true) that pauses NEW paid subscriptions and drives the
+// launch-free UI. An absent key, a config that predates the flag, or an unreadable config
+// all read OFF; only an explicit true enables paid plans. It gates the
 // createSubscription callable BODY (the only tier that runs it), is published on
 // /api/config, and must survive a flags save that omits it (per-key KEEP). It must
 // NOT touch existing paying customers or their manage/cancel path.
@@ -354,18 +356,45 @@ test("CRYP-101: createSubscription refuses when paidPlansEnabled=false (paused, 
   assert.strictEqual(after.billingCycle, undefined, "no billing cycle may be recorded");
 });
 
-test("CRYP-101: createSubscription proceeds past the paid gate when paidPlansEnabled is absent (default ON)", async () => {
+test("CRYP-101: createSubscription refuses when paidPlansEnabled is ABSENT (CRYP-113 default OFF — paused, nothing written)", async () => {
+  const email = `paidabsent_${stamp}@example.com`;
+  const uid = await makeUser(email, null);
+  await db.collection("users").doc(uid).set({ email, name: "PaidAbsent", tier: "free", portfolioCount: 1 });
+  const token = await idTokenFor(email);
+  // CRYP-113: a MISSING key now reads OFF (default-OFF), so a fresh / unconfigured deploy
+  // is paused with no admin action — the inverse of the old default-ON behaviour.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete() } }, { merge: true });
+
+  const res = await callAs("createSubscription", token, { plan: "pro" });
+  assert.strictEqual(res.status, 400, `expected failed-precondition (400), got ${res.status}: ${JSON.stringify(res.body)}`);
+  assert.strictEqual(res.body.error && res.body.error.status, "FAILED_PRECONDITION");
+  assert.match(
+    String(res.body.error && res.body.error.message),
+    /paused/i,
+    "an absent paidPlansEnabled must refuse with the launch-free 'paused' message (default OFF)",
+  );
+  // No side effects: no tier change, no subscription, no billing cycle.
+  const after = await userDoc(uid);
+  assert.strictEqual(after.tier, "free", "tier must be untouched");
+  assert.strictEqual(after.subscription, undefined, "no subscription may be created");
+  assert.strictEqual(after.billingCycle, undefined, "no billing cycle may be recorded");
+});
+
+test("CRYP-113: createSubscription proceeds past the paid gate ONLY when paidPlansEnabled is explicitly true", async () => {
   const email = `paidon_${stamp}@example.com`;
   const uid = await makeUser(email, null);
   await db.collection("users").doc(uid).set({ email, name: "PaidOn", tier: "free", portfolioCount: 1 });
   const token = await idTokenFor(email);
-  // Absent key → default ON (paid plans available).
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete() } }, { merge: true });
+  // Only an explicit true enables paid plans now. CRYP-113 ALSO flips `checkout` to
+  // default-OFF, so reaching the checkout stage past the paid gate needs BOTH gates open:
+  // enable checkout explicitly too, else createSubscription refuses at the (now default-off)
+  // checkout kill-switch instead of proving it cleared the paid gate.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: true } } }, { merge: true });
 
   const res = await callAs("createSubscription", token, { plan: "pro" });
   const msg = String((res.body.error && res.body.error.message) || "");
   // It must NOT be blocked by the launch-free pause…
-  assert.ok(!/paused/i.test(msg), `must not be paused when the flag is absent; got ${JSON.stringify(res.body)}`);
+  assert.ok(!/paused/i.test(msg), `must not be paused when the flag is true; got ${JSON.stringify(res.body)}`);
   // …it reaches a LATER checkout stage instead (no PayPal env here → "Plan not configured").
   assert.ok(
     res.status === 200 || /plan not configured|paypal|approval|token/i.test(msg),
@@ -405,18 +434,23 @@ test("CRYP-101: an existing paid user is untouched when paidPlansEnabled=false; 
   assert.strictEqual(after.tier, "pro", "tier stays pro after manage/cancel");
 });
 
-test("CRYP-101: /api/config publishes paidPlansEnabled (absent → true, explicit false → false)", async () => {
+test("CRYP-101: /api/config publishes paidPlansEnabled (absent → false, explicit false → false, explicit true → true)", async () => {
   const apiConfigUrl = `http://127.0.0.1:${FN_PORT}/${PROJECT}/us-central1/api/config`;
 
-  // Absent key → default ON.
+  // CRYP-113: absent key → default OFF (a fresh/unconfigured deploy publishes paused).
   await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete() } }, { merge: true });
   let cfg = await fetch(apiConfigUrl).then((r) => r.json());
-  assert.strictEqual(cfg.paidPlansEnabled, true, `absent flag must publish true, got ${JSON.stringify(cfg.paidPlansEnabled)}`);
+  assert.strictEqual(cfg.paidPlansEnabled, false, `absent flag must publish false (default OFF), got ${JSON.stringify(cfg.paidPlansEnabled)}`);
 
   // Explicit false → OFF.
   await db.doc("config/app").set({ flags: { paidPlansEnabled: false } }, { merge: true });
   cfg = await fetch(apiConfigUrl).then((r) => r.json());
   assert.strictEqual(cfg.paidPlansEnabled, false, `explicit false must publish false, got ${JSON.stringify(cfg.paidPlansEnabled)}`);
+
+  // Explicit true → ON (only an explicit true enables paid plans now).
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true } }, { merge: true });
+  cfg = await fetch(apiConfigUrl).then((r) => r.json());
+  assert.strictEqual(cfg.paidPlansEnabled, true, `explicit true must publish true, got ${JSON.stringify(cfg.paidPlansEnabled)}`);
 });
 
 test("CRYP-101: saveConfig KEEPS a stored paidPlansEnabled=false when a flags payload omits it", async () => {
@@ -429,7 +463,21 @@ test("CRYP-101: saveConfig KEEPS a stored paidPlansEnabled=false when a flags pa
   const stored = (await db.doc("config/app").get()).data();
   assert.strictEqual(
     stored.flags.paidPlansEnabled, false,
-    "an omitted paidPlansEnabled must be KEPT (per-key merge), not silently reset to default-true",
+    "an omitted paidPlansEnabled must be KEPT (per-key merge), not silently flipped",
+  );
+});
+
+test("CRYP-113: saveConfig KEEPS a stored paidPlansEnabled=true when a flags payload omits it", async () => {
+  const ownerToken = await idTokenFor(OWNER_EMAIL);
+  // Paid mode explicitly enabled and stored.
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true } }, { merge: true });
+  // An App-Controls maintenance toggle posts `flags` WITHOUT paidPlansEnabled.
+  const res = await callAs("saveConfig", ownerToken, { flags: { maintenance: false, signupsEnabled: true } });
+  assert.strictEqual(res.status, 200, `saveConfig failed: ${JSON.stringify(res.body)}`);
+  const stored = (await db.doc("config/app").get()).data();
+  assert.strictEqual(
+    stored.flags.paidPlansEnabled, true,
+    "an omitted paidPlansEnabled=true must be KEPT (per-key merge), not reset to the CRYP-113 default-off",
   );
 });
 
@@ -496,7 +544,7 @@ test("PR-C2: scheduleProDowngrade rejects unauthenticated callers and unknown da
   );
   const token = await idTokenFor(email);
   // Everything ON so we exercise the input gates, not the switches.
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: true } } }, { merge: true });
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: true } } }, { merge: true });
 
   // Unauthenticated → 401.
   const noAuth = await fetch(callableUrl("scheduleProDowngrade"), {
@@ -540,7 +588,7 @@ test("PR-C2: scheduleProDowngrade is unavailable when the checkout kill-switch i
   );
   const token = await idTokenFor(email);
   // Paid plans ON, but the checkout kill-switch is off.
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: false } } }, { merge: true });
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: false } } }, { merge: true });
 
   const res = await callAsSafe("scheduleProDowngrade", token, { billing: "monthly" });
   assert.strictEqual(res.status, 400, `expected failed-precondition (400), got ${res.status}: ${JSON.stringify(res.body)}`);
@@ -550,7 +598,7 @@ test("PR-C2: scheduleProDowngrade is unavailable when the checkout kill-switch i
 
 test("PR-C2: scheduleProDowngrade refuses a non-premium caller, and an already-scheduled premium caller", async () => {
   // Everything ON so we reach the premium/already-scheduled gates.
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: true } } }, { merge: true });
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: true } } }, { merge: true });
 
   // A free-tier caller cannot schedule a Pro downgrade — there is no premium to downgrade FROM.
   const freeEmail = `c2_free_${stamp}@example.com`;
@@ -587,7 +635,7 @@ test("PR-C2: an authorized premium caller reaches PAST the gates (schedule writt
   );
   const token = await idTokenFor(email);
   // Everything ON, no existing schedule → the call must pass every gate.
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: true } } }, { merge: true });
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: true } } }, { merge: true });
 
   const res = await callAsSafe("scheduleProDowngrade", token, { billing: "monthly" });
   const msg = String((res.body && res.body.error && res.body.error.message) || "");
@@ -718,7 +766,7 @@ test("PR-C3b-server: resubscribePremium rejects unauthenticated callers and unkn
   const uid = await seedCancelledPremium(email, "C3b");
   const token = await idTokenFor(email);
   // Everything ON so we exercise the input gates, not the switches.
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: true } } }, { merge: true });
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: true } } }, { merge: true });
 
   // Unauthenticated → 401.
   const noAuth = await fetch(callableUrl("resubscribePremium"), {
@@ -755,7 +803,7 @@ test("PR-C3b-server: resubscribePremium is unavailable when the checkout kill-sw
   await seedCancelledPremium(email, "C3bC");
   const token = await idTokenFor(email);
   // Paid plans ON, but the checkout kill-switch is off.
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: false } } }, { merge: true });
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: false } } }, { merge: true });
 
   const res = await callAsSafe("resubscribePremium", token, { billing: "monthly" });
   assert.strictEqual(res.status, 400, `expected failed-precondition (400), got ${res.status}: ${JSON.stringify(res.body)}`);
@@ -765,7 +813,7 @@ test("PR-C3b-server: resubscribePremium is unavailable when the checkout kill-sw
 
 test("PR-C3b-server: resubscribePremium refuses a non-premium, a non-cancelled premium, and a premium with a still-pending scheduledNext", async () => {
   // Everything ON so we reach the precondition gates.
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: true } } }, { merge: true });
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: true } } }, { merge: true });
 
   // (a) a free caller — there is no Premium to re-subscribe.
   const freeEmail = `c3b_free_${stamp}@example.com`;
@@ -810,7 +858,7 @@ test("PR-C3b-server: an eligible cancelled-Premium caller reaches PAST the gates
   const uid = await seedCancelledPremium(email, "C3bOK");
   const token = await idTokenFor(email);
   // Everything ON, no pending schedule → the call must pass every gate.
-  await db.doc("config/app").set({ flags: { paidPlansEnabled: FieldValue.delete(), features: { checkout: true } } }, { merge: true });
+  await db.doc("config/app").set({ flags: { paidPlansEnabled: true, features: { checkout: true } } }, { merge: true });
 
   const res = await callAsSafe("resubscribePremium", token, { billing: "monthly" });
   const msg = String((res.body && res.body.error && res.body.error.message) || "");

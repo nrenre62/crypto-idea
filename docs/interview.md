@@ -124,7 +124,7 @@ wins in a conflict) is **bold**.
 - Code: `src/components/admin-dashboard.jsx` · `src/hooks/useAdminDashboard.js` · `admin.html` + `src/admin-main.jsx` (separate admin app) · `functions/index.js` (admin callables) · `firestore.rules` (`isAdmin`)
 
 ### Feature kill-switches / config-flag defaults (ADMIN-2 · `config/app.flags.features`)
-- Canonical: **`functions/features.js`** (`FEATURES` map + per-flag `DEFAULTS` — `marketData`/`checkout` default-ON, `aiResearch` default-OFF per CRYP-112; the fail-direction idiom)
+- Canonical: **`functions/features.js`** (`FEATURES` map + per-flag `DEFAULTS` — `marketData` default-ON; `checkout` default-OFF per CRYP-113; `aiResearch` default-OFF per CRYP-112; the fail-direction idiom)
 - Code (client mirrors): `src/CryptoIdea.jsx` (runtime `site.features` default) · `src/hooks/useAdminDashboard.js` (admin toggles) · `src/features/research/Research.jsx` (`aiEnabled`)
 - Docs: `CLAUDE.md` (Operational safety net ADMIN-2) · [`API-SECURITY.md`](security/API-SECURITY.md) (kill-switch idiom + aiResearch default-OFF exception) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) (per-feature kill-switches) · [`ARCHITECTURE.md`](decisions/ARCHITECTURE.md) ARCH-15 · `openapi.json` (`Features` schema)
 - Reviewer skills (get the fail-direction right — includes the aiResearch default-OFF carve-out): `.claude/agents/secure-by-design.md` · `.claude/agents/functions-builder.md`
