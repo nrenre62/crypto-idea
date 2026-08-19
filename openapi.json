@@ -3953,7 +3953,7 @@
           },
           "paidPlansEnabled": {
             "type": "boolean",
-            "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Non-secret, default true; only false when config says exactly false. Drives the launch-free UI; the server still enforces it in createSubscription, so this is presentation, never the control."
+            "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Non-secret, default false (CRYP-113); true only when config says exactly true. Drives the launch-free UI; the server still enforces it in createSubscription, so this is presentation, never the control."
           },
           "plans": {
             "$ref": "#/components/schemas/Plans"
@@ -5661,7 +5661,7 @@
                   },
                   "paidPlansEnabled": {
                     "type": "boolean",
-                    "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Default true; only false when config says exactly false. On a save, an omitted key KEEPS the stored value (per-key merge)."
+                    "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Default false (CRYP-113); true only when config says exactly true. On a save, an omitted key KEEPS the stored value (per-key merge)."
                   },
                   "features": {
                     "$ref": "#/components/schemas/FeatureFlags"
@@ -5882,7 +5882,7 @@
                   },
                   "paidPlansEnabled": {
                     "type": "boolean",
-                    "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Default true; only false when config says exactly false. On a save, an omitted key KEEPS the stored value (per-key merge) — the instant maintenance/signups toggles post flags without it and must not reset launch-free mode."
+                    "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Default false (CRYP-113); true only when config says exactly true. On a save, an omitted key KEEPS the stored value (per-key merge) — the instant maintenance/signups toggles post flags without it and must not reset launch-free mode."
                   },
                   "features": {
                     "$ref": "#/components/schemas/FeatureFlags"
@@ -6081,7 +6081,7 @@
           },
           "checkout": {
             "type": "boolean",
-            "description": "New PayPal subscriptions. Off = createSubscription refuses with failed-precondition."
+            "description": "New PayPal subscriptions. Off = createSubscription refuses with failed-precondition. Default-OFF (CRYP-113): absent/unreadable config resolves this to false on both ends (joins aiResearch as a default-OFF exception)."
           },
           "aiResearch": {
             "type": "boolean",
@@ -6148,7 +6148,7 @@
               },
               "paidPlansEnabled": {
                 "type": "boolean",
-                "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available — ON unless config says exactly false. Surfaced on the admin Overview strip."
+                "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available — default false (CRYP-113); true only when config says exactly true. Surfaced on the admin Overview strip."
               },
               "jobs": {
                 "type": "array",

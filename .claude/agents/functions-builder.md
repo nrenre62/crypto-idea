@@ -54,12 +54,13 @@ scheduled jobs, and the matching `openapi.json` contract. Scope: `functions/**` 
 - **Webhook: signature-verified + idempotent** on `webhookEvents/{id}`, with the
   marker **rolled back on a processing failure** so retries reprocess; a
   cancellation never drops the tier immediately.
-- **Kill-switches fail SAFE** (`marketData`/`checkout` are ON unless config is
-  exactly `false`); the signup gate fails OPEN (unreadable config → allow). Get
-  the fail direction right. **Exception (CRYP-112):** `aiResearch` is per-flag
-  **default-OFF** (`DEFAULTS` in `functions/features.js`) — an absent key hides an
-  as-yet-unbuilt feature (fail-SAFE = hidden), mirrored on the client; don't
-  "fix" it back to default-ON.
+- **Kill-switches fail SAFE** (`marketData` is ON unless config is exactly
+  `false`); the signup gate fails OPEN (unreadable config → allow). Get the fail
+  direction right. **Exceptions (CRYP-112 / CRYP-113):** `aiResearch` AND `checkout`
+  are per-flag **default-OFF** (`DEFAULTS = {marketData:true, checkout:false, aiResearch:false}`
+  in `functions/features.js`) — an absent key hides the as-yet-unbuilt AI surface /
+  keeps the free launch payment-free, mirrored on the client (reads `=== true`);
+  don't "fix" either back to default-ON.
 
 ## Method
 
