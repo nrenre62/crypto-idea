@@ -91,8 +91,12 @@ describe("CryptoIdea (smoke)", () => {
       return () => {};
     });
     render(<CryptoIdea />);
-    // The forced picker renders (every card actionable); the load-error dead-end does not.
-    expect(await screen.findByText("Choose Starter")).toBeInTheDocument();
+    // CRYP-113: payments ship OFF by default (fetchSiteConfig mocked null → the flipped
+    // client default governs → paidPlansEnabled:false), so a forced not-chosen user
+    // auto-resolves to Starter (the only plan) and the modal shows the "setting up"
+    // placeholder — NOT the picker, and crucially NOT the portfolio-load-error dead-end
+    // this test guards against (the onboard gate must still win over portfoliosError).
+    expect(await screen.findByText(/Setting up your account/i)).toBeInTheDocument();
     expect(screen.queryByText("Couldn't load your portfolios")).toBeNull();
   });
 
