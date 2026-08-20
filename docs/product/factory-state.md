@@ -39,20 +39,6 @@ a fresh context resumes **exactly where it left off**.
 
 ## In-flight items
 
-## PAYMENTS-OFF — paidPlansEnabled + checkout default-OFF (free-only launch) (CRYP-113)
-- Phase: G2-approved (inner build loop — RED checkpoint next)
-- Provenance: AD-HOC (founder 2026-08-18 — "I want also the payment gate OFF even as default"). G1 interview DONE (locked), G2 architect plan approved ("G").
-- G1 confirmed: yes (founder 2026-08-18 — paidPlansEnabled default-OFF · checkout default-OFF · reversible flag-gated (keep payment code + admin toggles, admin-only) · one plan Starter · no payment access by any route · gate both stragglers)
-- G2 approved: yes (architect plan + gate the two stragglers /pro-success + R29 prompt when off)
-- Plan (files): functions/flags.js (paidPlansOn → ===true + comment) · functions/features.js (DEFAULTS.checkout=false + comment) · functions/index.js (:2506/:2547/:3433 reads + :2622 saveConfig merge → ===true; fail-direction comments :572/:650/:703/:2919) · src/CryptoIdea.jsx (init paidPlansEnabled:false + checkout:false; parsers :211/:216 ===true; /pro-success gate) · src/hooks/useAdminDashboard.js (:189 init + :230/:240 parsers ===true) · src/components/admin-dashboard.jsx (:1190/:1290 toggle displays ===true) · R29 recheckoutDue && paidPlansOn · tests (flags.test.js, features.test.js, admin-dashboard.test.jsx new+flip, 4 walkthrough re-seed, functions-callable.test.js integration re-seed CI-only) · docs sweep (flags.js/features.js comments, CLAUDE CRYP-101/ADMIN-2, BILLING §3.7, API-SECURITY, BACKEND-ADMIN-DECISIONS, ARCHITECTURE, openapi 5 descs, README, NEXT-STEPS, interview.md, secure-by-design.md + functions-builder.md checkout exception)
-- Fix-round: 0 / 3
-- Open findings: none
-- Branch: claude/payments-off-by-default (off origin/master 428624b)
-- Built: no
-- Merged: no
-- Agents this item: 1 so far (architect G2; builders/reviewers spawned at stages 1–3)
-- Updated: 2026-08-18
-
 ## JOURNAL-POLISH — Journal/thesis type-scale + floating coin header + honest disclaimers (CRYP-105)
 - Phase: built (awaiting G3 merge)
 - Provenance: PLANNED (🟩 GREEN locked plan in NEXT-STEPS §JOURNAL-POLISH; G1 interview skipped, Story CRYP-105 filed + In Progress)
@@ -67,4 +53,4 @@ a fresh context resumes **exactly where it left off**.
 - Agents this item: 11 (architect, test-author, client-builder, test-tier×2, secure-by-design, design-consistency, simplifier, consistency-sweep, docs-scribe, integrator)
 - Updated: 2026-08-12
 
-*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101); **FLOATING-HEADER** PR #60 `1edbef2` (CRYP-102); **#11 ADMIN-SEP** PR1 #61 `e10a92c` (CRYP-103a) + PR2 #62 `9528f59` (CRYP-103b) — Story CRYP-103 Done; **#12 PLAN-LIMITS-MAX** PR1 #64 `061e5a4` (Part A) + PR2 #65 `d5dc32d` (Part B) — Story CRYP-104 Done; **PR-E (Wave-B live-AI foundation)** — PR-E3 #87 `04cd129` (CRYP-106) + PR-E2.5 #88 `e38103d` (CRYP-107); **B3 coins** — PR-1 #99 `e3a16e6` (CRYP-108 — addCoinGuarded server + rules lockdown; resolved a merge with master's #90–#98 overhaul) + PR-2 #100 `afd476b` (CRYP-109 — client rewired through the callable); Story CRYP-108 + CRYP-109 Done. **B3 transactions** — PR-tx-1 #101 `1a567da` (CRYP-110 — addTransactionGuarded server + rules lockdown); Story CRYP-110 Done. PR-tx-2 #102 `71ec041` (CRYP-111 — client addTransaction rewire); Story CRYP-111 Done — **B3 fully complete (CRYP-108/109/110/111).** PR #103 `428624b` (CRYP-112 — Research Overview-only + aiResearch default-OFF); Story CRYP-112 Done. **PAYMENTS-OFF** (CRYP-113 — paidPlansEnabled + checkout default-OFF, free-only launch) now in flight. Run rows in `factory-runs.md`.)*
+*(Recently merged: item 4 — 4a PR #46 `bfdbdf0` (CRYP-93) · 4b PR #50 `9e2bbb3` (CRYP-95) · 4c PR #53 `907085c` (CRYP-97); **#14 ARCHITECTURE-DOC** PR #56 `0fbe36b` (CRYP-100) + ledger PR #57 `17f9865`; **#10 LAUNCH-FREE Part B** PR #58 `92b68d4` (CRYP-101); **FLOATING-HEADER** PR #60 `1edbef2` (CRYP-102); **#11 ADMIN-SEP** PR1 #61 `e10a92c` (CRYP-103a) + PR2 #62 `9528f59` (CRYP-103b) — Story CRYP-103 Done; **#12 PLAN-LIMITS-MAX** PR1 #64 `061e5a4` (Part A) + PR2 #65 `d5dc32d` (Part B) — Story CRYP-104 Done; **PR-E (Wave-B live-AI foundation)** — PR-E3 #87 `04cd129` (CRYP-106) + PR-E2.5 #88 `e38103d` (CRYP-107); **B3 coins** — PR-1 #99 `e3a16e6` (CRYP-108 — addCoinGuarded server + rules lockdown; resolved a merge with master's #90–#98 overhaul) + PR-2 #100 `afd476b` (CRYP-109 — client rewired through the callable); Story CRYP-108 + CRYP-109 Done. **B3 transactions** — PR-tx-1 #101 `1a567da` (CRYP-110 — addTransactionGuarded server + rules lockdown); Story CRYP-110 Done. PR-tx-2 #102 `71ec041` (CRYP-111 — client addTransaction rewire); Story CRYP-111 Done — **B3 fully complete (CRYP-108/109/110/111).** PR #103 `428624b` (CRYP-112 — Research Overview-only + aiResearch default-OFF); Story CRYP-112 Done. PR #104 `b2ae064` (CRYP-113 — paidPlansEnabled + checkout default-OFF, free-only launch); Story CRYP-113 Done. Run rows in `factory-runs.md`. (CRYP-114 — go-live-audit refresh + privacy jurisdiction placeholder — is a direct doc task, not tracked here.))*

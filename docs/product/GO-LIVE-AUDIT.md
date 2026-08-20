@@ -10,6 +10,8 @@ For the billing flow and PayPal go-live steps referenced below, see [billing](..
 
 Everything here needs console access, a Google account, a card, or a decision — none of it can be committed to the repo.
 
+**Launch shape (CRYP-112/113):** the app ships **free** (`paidPlansEnabled` + the `checkout` kill-switch default-OFF) and with **AI off** (`aiResearch` default-OFF) by default, mirrored fail-closed on both ends — so a fresh, unconfigured deploy launches Starter-only with no billing/checkout/payment pages and no AI surface, no admin action needed. **PayPal billing (Phase 6) and live AI are therefore post-launch, not launch blockers**; the list below is the free-launch critical path. Both are reversible later by setting the flags to exactly `true`.
+
 - Enable Firestore point-in-time recovery (PITR) and a daily backup schedule.
 - Set the Termly Privacy and Terms document IDs in admin Settings.
 - Provision a real Firebase project on the Blaze plan, with a billing budget, a `prod` alias, and two bootstrapped owner admins.
@@ -45,13 +47,20 @@ Fill in the `[OPERATOR NAME]` / `[CONTACT EMAIL]` / `[JURISDICTION]` placeholder
 
 ## App Check and error visibility
 
-- App Check enforcement is enabled in the Console; for callables it applies platform-side before the handler runs. Order matters: set `VITE_RECAPTCHA_SITE_KEY`, build, deploy, watch unverified requests fall toward zero, and only then enforce. Reversed, it locks out every user. **Scoped code exception (CRYP-108, founder 2026-08-17):** `addCoinGuarded` is the ONE callable that also calls `guards.appCheckOk` in code, flag-gated by `config/app.appCheckEnforce` (**default OFF → no-op**) so the code flag can mirror the console switch on the high-frequency coin write; leave it off until the console step above is done, then optionally flip it on. Every other callable stays console-only.
+- App Check enforcement is enabled in the Console; for callables it applies platform-side before the handler runs. Order matters: set `VITE_RECAPTCHA_SITE_KEY`, build, deploy, watch unverified requests fall toward zero, and only then enforce. Reversed, it locks out every user. **Scoped code exception (CRYP-108/CRYP-110, founder 2026-08-17):** `addCoinGuarded` and `addTransactionGuarded` are the two callables that also call `guards.appCheckOk` in code, flag-gated by `config/app.appCheckEnforce` (**default OFF → no-op**) so the code flag can mirror the console switch on the two high-frequency writes (coin + transaction); leave it off until the console step above is done, then optionally flip it on. Every other callable stays console-only.
 - After deploy, use the payment provider's "Send test event" and confirm a document lands in `webhookEvents` — a wrong webhook ID makes every event 401 silently, and the ID differs between sandbox and live.
 - One Cloud Logging alert covers the schedulers and webhook. Filter on platform labels so it cannot rot:
 
   ```text
   resource.labels.function_name=("refreshPrices" OR "refreshUniverseDaily" OR "purgeOldAudit" OR "captureDailyStats" OR "purgeExpiredTrash" OR "enforceSubscriptionPeriods" OR "paypalWebhook") AND severity>=ERROR
   ```
+
+## In-repo items to land before launch
+
+The rest of this runbook is console/deploy-time; two code-side items are still worth landing in the repo before the first real users:
+
+- **React error boundary (item).** Wrap the app shell in a top-level `<ErrorBoundary>` so a client render error shows a recoverable screen with a reload, not a blank page.
+- **Test isolation (the test).** Raise `testTimeout` and cap `maxThreads` in the Vitest config so a loaded-machine run cannot produce a false red (the FLAKE note in `NEXT-STEPS.md`) — so a green suite is trustworthy before launch.
 
 ## Scheduled functions
 
@@ -120,7 +129,9 @@ Register no accounts — not even a throwaway — until PITR is on. The two owne
 3. Watch unverified requests until near zero.
 4. Only then enable enforcement for Functions, Firestore, and Auth, one service at a time.
 
-### Phase 6 — PayPal (paid tiers only)
+### Phase 6 — PayPal (paid tiers only — skipped at the free launch)
+
+**Deferred.** The app ships free (`paidPlansEnabled` default-OFF, CRYP-113), so new subscriptions are blocked server-side and there is no checkout to test. Do this phase only when you re-enable paid plans (set `paidPlansEnabled` and `checkout` to exactly `true`).
 
 1. Create four subscription plans in the live dashboard → IDs into `functions/.env` → redeploy.
 2. Register the webhook at the exact region-prefixed URL the CLI printed.
