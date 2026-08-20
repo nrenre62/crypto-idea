@@ -55,12 +55,12 @@ Fill in the `[OPERATOR NAME]` / `[CONTACT EMAIL]` / `[JURISDICTION]` placeholder
   resource.labels.function_name=("refreshPrices" OR "refreshUniverseDaily" OR "purgeOldAudit" OR "captureDailyStats" OR "purgeExpiredTrash" OR "enforceSubscriptionPeriods" OR "paypalWebhook") AND severity>=ERROR
   ```
 
-## In-repo items to land before launch
+## In-repo items before launch
 
-The rest of this runbook is console/deploy-time; two code-side items are still worth landing in the repo before the first real users:
+The rest of this runbook is console/deploy-time. One code-side item remains:
 
-- **React error boundary (item).** Wrap the app shell in a top-level `<ErrorBoundary>` so a client render error shows a recoverable screen with a reload, not a blank page.
-- **Test isolation (the test).** Raise `testTimeout` and cap `maxThreads` in the Vitest config so a loaded-machine run cannot produce a false red (the FLAKE note in `NEXT-STEPS.md`) — so a green suite is trustworthy before launch.
+- **React error boundary — DONE.** A top-level `<ErrorBoundary>` (`src/components/ErrorBoundary.jsx`, go-live item H8) already wraps both React roots (`main.jsx`, `admin-main.jsx`): a render crash shows a recoverable **Reload** screen (dark-mode-safe as of CRYP-115) instead of a blank page, and reports to Sentry. Nothing left to do.
+- **Test isolation (the test)** — still worth landing: raise `testTimeout` and cap `maxThreads` in the Vitest config so a loaded-machine run cannot produce a false red (the FLAKE note in `NEXT-STEPS.md`), so a green suite is trustworthy before launch.
 
 ## Scheduled functions
 
