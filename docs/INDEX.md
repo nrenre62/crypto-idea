@@ -35,7 +35,8 @@ CONTRIBUTING.
 - [USER-CREATION](product/USER-CREATION.md) · [USER-SETTINGS](product/USER-SETTINGS.md) — accounts and settings.
 - [USER-BENEFITS](product/USER-BENEFITS.md) — what each tier gives a user.
 - [DATA-INTEGRITY](product/DATA-INTEGRITY.md) — the counter/consistency safeguards.
-- [GO-LIVE-AUDIT](product/GO-LIVE-AUDIT.md) — the deploy runbook and remaining launch steps.
+- [GO-LIVE-AUDIT](product/GO-LIVE-AUDIT.md) — the deploy runbook and remaining launch steps (rationale + detail).
+- [LAUNCH](product/LAUNCH.md) — the condensed, tickable launch checklist (do-it-in-order).
 - [LEGAL](product/LEGAL.md) — disclaimer, privacy/terms posture.
 
 ## Design
