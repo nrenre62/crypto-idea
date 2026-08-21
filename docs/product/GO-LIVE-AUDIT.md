@@ -2,6 +2,8 @@
 
 The present-tense runbook for taking CryptoIdea from local emulators to a real Firebase project. It lists only the launch work that still requires a project, a console, or a paid plan — the code-side hardening is already in the repo.
 
+For a condensed, tickable, copy-paste version of these steps in order, see [LAUNCH](LAUNCH.md); this file is the rationale and detail behind each step.
+
 Part of [security model](../security/SECURITY.md) — the deploy-time controls this runbook enables.
 
 For the billing flow and PayPal go-live steps referenced below, see [billing](../decisions/BILLING.md).
