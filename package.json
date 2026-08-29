@@ -19,8 +19,8 @@
     "test:integration:solo": "firebase emulators:exec --only auth,firestore,functions --project demo-crypto-idea --config firebase.solo.json \"node --test --test-force-exit tests/data-layer.test.js tests/functions-callable.test.js\""
   },
   "dependencies": {
-    "@sentry/browser": "^10.70.0",
-    "firebase": "^12.17.0",
+    "@sentry/browser": "^10.71.0",
+    "firebase": "^12.18.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
