@@ -35,7 +35,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "firebase-tools": "^15.25.1",
     "jsdom": "^30.0.1",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "terser": "^5.49.1",
     "vite": "^8.2.0",
     "vitest": "^4.1.8"
