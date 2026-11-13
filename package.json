@@ -33,7 +33,7 @@
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^6.0.5",
-    "firebase-tools": "^15.25.1",
+    "firebase-tools": "^15.36.0",
     "jsdom": "^30.0.1",
     "sharp": "^0.35.3",
     "terser": "^5.49.1",
