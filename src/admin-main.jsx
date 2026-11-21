@@ -19,7 +19,7 @@ import "./styles/app.css";
 import "./styles/admin-settings.css";
 // R31-1: the admin app authenticates on its OWN named Firebase instance (adminAuth),
 // isolated from the user app's session — signing in/out here can never end a user's
-// session in another tab (fixes ERRORS §A5). See api/firebase.admin.config.js.
+// session in another tab (fixes BUGS.md BUG-005). See api/firebase.admin.config.js.
 import { onAdminAuthChange, adminLogin, adminLogout, adminAuth, adminResetPassword } from "./api/admin-auth.js";
 import AdminDashboard from "./components/admin-dashboard.jsx";
 import { CiTurtle } from "./components/ui.jsx"; // shared turtle overlay for the "C" tile

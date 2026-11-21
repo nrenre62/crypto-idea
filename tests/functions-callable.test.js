@@ -10,7 +10,7 @@
  * a TypeError -> INTERNAL *after* `admin.auth().updateUser()` had already re-enabled the
  * account. The user could sign in again, but `suspendedAt` was never cleared and the R31-6
  * paid-time extension never ran, so a suspended paying customer silently lost the frozen
- * days. See ERRORS.md C6 and tests/unit/functions-runtime-safety.test.js (the source guard).
+ * days. See BUGS.md BUG-039 and tests/unit/functions-runtime-safety.test.js (the source guard).
  *
  * Run with:  npm run test:integration   (needs the auth + firestore + functions emulators)
  */

@@ -84,12 +84,13 @@ Inspect the change first (`git diff --stat`, `git status --short`), then:
   tiers you did NOT run and why — don't imply full coverage you didn't execute.
 
 **Single test** (reproduce one case): the repo marks tests by putting the key in
-the `it()` title (`it("CRYP-42: …")`). Note the **trailing colon** — `-t` is an
-unanchored substring match, so `-t "CRYP-1"` also selects CRYP-10/15; the colon
+the `it()` title (`it("BUG-042: …")`, see [`BUGS.md`](../../docs/testing/BUGS.md) /
+[`/fix-bug`](../commands/fix-bug.md)). Note the **trailing colon** — `-t` is an
+unanchored substring match, so `-t "BUG-04"` also selects BUG-040…049; the colon
 makes it exact.
-- unit: `npx vitest run -t "CRYP-42:"`
+- unit: `npx vitest run -t "BUG-042:"`
 - rules/integration: the name filter goes **inside** the quoted child command:
-  `firebase emulators:exec --only firestore --project demo-crypto-idea --config firebase.solo.json "node --test --test-name-pattern 'CRYP-42:' tests/firestore-rules.test.js"`.
+  `firebase emulators:exec --only firestore --project demo-crypto-idea --config firebase.solo.json "node --test --test-name-pattern 'BUG-042:' tests/firestore-rules.test.js"`.
   ⚠️ `npm run test:rules:solo -- --test-name-pattern …` does **NOT** work — the
   extra args land on `emulators:exec`, not the inner `node --test`. Spell out the
   full form.
@@ -111,7 +112,7 @@ The suites are documented flaky (`NEXT-STEPS.md` §FLAKE, `GO-LIVE-AUDIT.md` §3
 - **Never bypass the pre-push hook** (`.githooks/pre-push` reruns the unit suite)
   and never `--no-verify`. The fix for a flaky gate is to re-run / fix the flake,
   not to route around it.
-- Do not report a flake onto a bug ticket as if it were the change's failure.
+- Do not report a flake onto the BUGS.md entry as if it were the change's failure.
 
 ---
 

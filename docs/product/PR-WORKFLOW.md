@@ -2,9 +2,9 @@
 
 **Canonical standard for every pull request in this repo** — hand-written or produced by the
 Agent Factory. Distilled from the founder's research note *"PR Explained"* and adapted
-to this repo's real conventions (Jira project **CRYP**, `claude/…` feature branches, the
-server-side CI in `.github/workflows/ci.yml`). Sibling to [`AGILE.md`](AGILE.md) and
-[`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md); see also the [docs hub](../INDEX.md).
+to this repo's real conventions (the [`NEXT-STEPS.md`](NEXT-STEPS.md) backlog, the
+[`BUGS.md`](../testing/BUGS.md) bug log, `claude/…` feature branches, the server-side CI in
+`.github/workflows/ci.yml`). Sibling to [`AGILE.md`](AGILE.md); see also the [docs hub](../INDEX.md).
 
 > **North star.** A PR is a reviewable proposal to merge one branch into `master`, and its whole
 > point is the reviewer's experience. Make each PR **small, single-purpose, and self-explanatory**
@@ -12,8 +12,8 @@ server-side CI in `.github/workflows/ci.yml`). Sibling to [`AGILE.md`](AGILE.md)
 
 ## The rule in one line
 
-**One PR = one task = one Jira card.** Branch (`claude/…`) → Conventional-Commit commits → push →
-open a PR that fills the template and links the ticket → self-review the diff → CI green → **squash-
+**One PR = one task = one backlog item** (a `NEXT-STEPS` key or a `BUG-NNN`). Branch (`claude/…`) → Conventional-Commit commits → push →
+open a PR that fills the template and names the backlog item → self-review the diff → CI green → **squash-
 merge → delete branch.** Keep it under **~200 changed lines**; split if it grows.
 
 **Every planning session opens a NEW PR (founder rule).** A new plan → a fresh branch off
@@ -37,10 +37,10 @@ Follow-up or corrective work restarts the branch from the latest `master` and op
 ## 2. Title — a Conventional-Commit line
 
 One concise line describing *what the change does*, prefixed with the Conventional-Commit type, with
-the Jira key in parentheses. After a squash-merge, `git log` on `master` reads like a changelog.
+the backlog key (`NEXT-STEPS` key or `BUG-NNN`) in parentheses. After a squash-merge, `git log` on `master` reads like a changelog.
 
-- ✅ `fix(portfolio): prevent NaN in total when a holding has no price (CRYP-142)`
-- ✅ `feat(journal): add CSV export of theses (CRYP-88)`
+- ✅ `fix(portfolio): prevent NaN in total when a holding has no price (BUG-042)`
+- ✅ `feat(search): add cached trending list (DP-6)`
 - ❌ `Fix bug` · `update` · `changes`
 
 Types: `feat` · `fix` · `chore` (deps/maintenance) · `docs` · `refactor` (no behavior change) ·
@@ -51,8 +51,8 @@ behavior change.
 
 Every PR body fills [`.github/pull_request_template.md`](../../.github/pull_request_template.md):
 
-1. **Why** — the context and the problem. Link the ticket: `Jira: CRYP-___`, and `Closes #___`
-   for the GitHub issue (see §7).
+1. **Why** — the context and the problem. Name the backlog item (`NEXT-STEPS` key or `BUG-NNN`),
+   and `Closes #___` if a GitHub issue exists (see §7).
 2. **What changed** — a bullet list of the specific changes.
 3. **How I tested it** — the exact tiers/steps you ran and the result (`test:unit` / `test:rules` /
    `test:integration`, a build, a manual click-through). Be specific; "tested" alone says nothing.
@@ -90,15 +90,14 @@ backed by the read-only reviewer agents (`secure-by-design` / `design-consistenc
 **Never merge with a red or pending Checks tab.** A red CI is a real failure — fix it and push,
 don't merge around it.
 
-## 7. Linking issues & tickets
+## 7. Linking the backlog item & issues
 
-- **Jira (CRYP):** put the key in the PR title and body. The Jira/GitHub integration links them for
-  traceability; Jira does **not** auto-close from GitHub keywords — the ticket is transitioned in
-  Jira (see [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md)).
-- **GitHub issues:** open a GitHub issue per task and close it from the PR with `Closes #NN`
+- **Backlog item:** put the `NEXT-STEPS` key or `BUG-NNN` in the PR title and body. When a bug is
+  fixed, mark it resolved in [`BUGS.md`](../testing/BUGS.md); a backlog item is ticked in
+  [`NEXT-STEPS.md`](NEXT-STEPS.md).
+- **GitHub issues (optional):** if a GitHub issue exists, close it from the PR with `Closes #NN`
   (keywords: `close/closes/closed`, `fix/fixes/fixed`, `resolve/resolves/resolved`) — these
-  auto-close the issue when the PR merges into `master`, leaving the issue-to-PR trail. Use the
-  Jira key for the tracker of record and the GitHub issue for the public history.
+  auto-close the issue when the PR merges into `master`, leaving the issue-to-PR trail.
 
 ## 8. Merge — Squash and merge, then delete the branch
 
@@ -131,6 +130,6 @@ The factory ([`AGENT-FACTORY.md`](AGENT-FACTORY.md)) **opens a PR per component 
 **G3** (founder standing decision — this supersedes the old "no PR unless asked"). The
 flow: `integrator` commits with a Conventional-Commit message + the `Co-Authored-By` trailer and
 pushes to the `claude/…` branch (step 16); at **G3** the orchestrator **opens the PR** — title per §2,
-body filling the template per §3, the CRYP key + `Closes #` per §7 — presents the PR link + diff +
+body filling the template per §3, the `NEXT-STEPS` key or `BUG-NNN` + `Closes #` if a GitHub issue exists, per §7 — presents the PR link + diff +
 green verdict, and asks the founder (plain chat) to approve the **squash-merge**. The founder still
 decides the merge; only the *opening* of the PR is now automatic.

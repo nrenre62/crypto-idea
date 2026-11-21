@@ -13,7 +13,10 @@ All notable changes to CryptoIdea are documented here. The format follows
 >
 > The development history below was **reconstructed from git history and the CRYP backlog** — it is not a
 > set of tagged releases (there were none) and not a faked timeline; it's honest project history grouped
-> by feature area. The full scheme lives in [`JIRA-PLAYBOOK.md`](docs/testing/JIRA-PLAYBOOK.md) §4.2.
+> by feature area. The version lives in `package.json` + `functions/package.json` (kept in step with the
+> release); `0.x.y` would mean "initial development", but the first deploy goes straight to `1.0.0-beta`,
+> which becomes `1.0.0` once stable (optionally through `1.0.0-rc.N`). Never record a version that did
+> not deploy.
 
 ## [1.0.0-beta] — target 2026-10-01 (first Firebase release, in progress)
 

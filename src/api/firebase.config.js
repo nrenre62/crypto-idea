@@ -50,7 +50,7 @@ if (!useReal && !isDev) {
 // The resolved config + dev flag are exported so the SEPARATE admin app
 // (firebase.admin.config.js) can spin up its OWN named Firebase instance from the
 // same values — a distinct Auth persistence namespace, so the admin tab can never
-// see or sign out the user app's session (R31-1 / ERRORS §A5). Single source of truth.
+// see or sign out the user app's session (R31-1 / BUGS.md BUG-005). Single source of truth.
 export const firebaseConfig = useReal ? realConfig : demoConfig;
 export { isDev };
 export const recaptchaKey = env.VITE_RECAPTCHA_SITE_KEY;

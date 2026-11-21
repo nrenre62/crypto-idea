@@ -1,6 +1,6 @@
 ---
 description: Run the CORRECT test tier(s) for the current change and report GREEN / RED / INCONCLUSIVE honestly (knows :solo, timeouts, the flake)
-argument-hint: "[optional: a tier (unit|rules|integration), a CRYP key, or a target — defaults to auto-routing the working change]"
+argument-hint: "[optional: a tier (unit|rules|integration), a BUG-NNN marker (e.g. BUG-042 or R26), or a target — defaults to auto-routing the working change]"
 ---
 
 Verify tests for: ${ARGUMENTS:-the current working change}
@@ -39,6 +39,6 @@ INCONCLUSIVE**.
 
 A freshly added `.claude/agents/*.md` registers on the **next** session. Until
 then, run the tiers inline per the routing in `.claude/agents/test-tier-verifier.md`
-(and `.claude/commands/jira-fix.md` step 6): route by what changed, prefer `:solo`
+(and `.claude/commands/fix-bug.md`): route by what changed, prefer `:solo`
 if a stack is up, timeout ≥300000 ms, and classify GREEN/RED/INCONCLUSIVE
 honestly.

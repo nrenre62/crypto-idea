@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { apiErrorMessage, isSignupBlockedError, SIGNUPS_PAUSED_MSG } from "../../src/utils/errors.js";
 
-// apiErrorMessage (DI-1 "verify-then-toast", ERRORS.md §A4): a failed data-layer result
+// apiErrorMessage (DI-1 "verify-then-toast", BUGS.md BUG-004): a failed data-layer result
 // carries an error `code` (Firestore) AND — for the three write paths — a classified
 // `reason`. The limit/upgrade message fires ONLY on reason:'limit' (a SERVER-confirmed
 // cap), never on a blind permission-denied guess (that was the founder's false "coin

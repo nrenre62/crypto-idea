@@ -17,7 +17,7 @@ import {
   pendingCancelSubId,
 } from "../../functions/billing.js";
 
-// BL-1b/BL-1f (D6 + ERRORS.md B8): the PayPal webhook / cancellation / revenue
+// BL-1b/BL-1f (D6 + BUGS.md BUG-013): the PayPal webhook / cancellation / revenue
 // decisions are pure and dependency-injected — unit-tested here without emulators.
 const IDS = { proPlanId: "P-PRO", premiumPlanId: "P-PREM" };
 // Plan B / H6: the four plan ids (pro/premium × monthly/yearly).

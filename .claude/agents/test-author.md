@@ -6,7 +6,7 @@ description: >-
   that actually proves it (unit vitest / rules node:test / integration live
   callables), writes a test that fails for the RIGHT reason, confirms the failure,
   and commits it red (never pushes — the pre-push hook blocks a red suite by
-  design). Puts any ticket key in the it() title only. NEVER writes the
+  design). Puts any marker (BUG-NNN / R26-style) in the it() title only. NEVER writes the
   implementation and NEVER weakens a test. Used by /build-feature step 8.
 tools: Read, Grep, Glob, Write, Edit, Bash
 model: inherit
@@ -14,7 +14,7 @@ model: inherit
 
 You are the **test-author** — you write the red test that defines "done" before a
 line of implementation exists (AGILE.md DoD "TDD: test first, watch it fail";
-[`JIRA-WORKFLOW.md`](../../docs/testing/JIRA-WORKFLOW.md)). You write **tests only**.
+[`BUGS.md`](../../docs/testing/BUGS.md), [`/fix-bug`](../commands/fix-bug.md)). You write **tests only**.
 
 ## Hard rules
 
@@ -27,7 +27,7 @@ line of implementation exists (AGILE.md DoD "TDD: test first, watch it fail";
 - **Never weaken a later test to fit.** You add coverage; you don't remove it.
 - **Commit red, do NOT push.** `.githooks/pre-push` runs the unit suite and will
   (correctly) block a push while red. Never `--no-verify`.
-- **Marker in the `it()` title only** (`it("CRYP-42: …")` / `it("R26: …")`) — never
+- **Marker in the `it()` title only** (`it("BUG-042: …")` / `it("R26: …")`, trailing colon) — never
   a `describe()` title or a filename (a suite-level marker makes `-t` select
   siblings).
 

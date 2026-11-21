@@ -6,7 +6,7 @@
  * key derived from (apiKey + app name); the DEFAULT app is shared across every tab
  * on the origin. So if the admin tab used the default app, signing in/out there —
  * or its "you're not an admin, sign out" guard — would clobber the user app's own
- * session in another tab. That was the single mechanism behind ERRORS §A5 (empty
+ * session in another tab. That was the single mechanism behind BUGS.md BUG-005 (empty
  * "Welcome,", the plan popup flipping full-screen after ~1 min, the un-suspend
  * logout loop, and the ~1-min logout after an upgrade).
  *

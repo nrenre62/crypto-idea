@@ -133,7 +133,7 @@ A self-contained feature module (its own `components/hooks/utils/api/styles`) re
 - `check-brand.js` — brand guard (enforces the one-word `CryptoIdea` spelling; logo/font presence).
 - `check-env.js` — env sanity check.
 - `dev-stack.js` — `start:all` lifecycle (emulators + Vite; auto-imports/re-exports `./emulator-data`).
-- `jira-test-map.js` — maps CRYP-keyed tests back to their tickets.
+- `jira-test-map.js` — kept utility: maps a vitest JSON run to pass/fail per historical `CRYP-NNN` test id (no command wires it now).
 - Ops/backup PowerShell scripts (`*.ps1`) and `brand/` assets round out the folder.
 
 ## `tests/`
