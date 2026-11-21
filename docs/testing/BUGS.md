@@ -51,6 +51,7 @@ Back to the hub: [TESTING.md](TESTING.md)
 | BUG-037 | 2026-11-21 | Stress test claims "higher-beta amplify" at exactly −50% | ❌ Not resolved |
 | BUG-038 | 2026-11-21 | Daily Brief always shows ▲ even when down | ❌ Not resolved |
 | BUG-039 | 2026-07-18 | Un-suspend returned INTERNAL | ✅ Resolved |
+| BUG-040 | 2026-11-21 | Mock "upcoming" catalysts expired with the calendar | ✅ Resolved |
 
 ---
 
@@ -326,6 +327,13 @@ Back to the hub: [TESTING.md](TESTING.md)
 - **The bug:** Un-suspending a user from the admin panel failed with INTERNAL.
 - **What happened:** The admin restore/un-suspend action errored in the emulator, so a suspended user could not be restored.
 - **Description:** The callable used `admin.firestore.FieldValue`, which is undefined in the functions emulator (the namespace is proxied). Fixed with the modular `FieldValue` import; guarded by `tests/unit/functions-runtime-safety.test.js` and a live callable test in `tests/functions-callable.test.js`. Severity: High.
+
+## BUG-040 · Mock "upcoming" catalysts expired with the calendar
+- **Date:** 2026-11-21
+- **Status:** ✅ Resolved
+- **The bug:** The demo conviction data used fixed future dates for its "upcoming" catalysts.
+- **What happened:** CI failed in `tests/unit/CoinCard.test.jsx` ("a major coin shows four healthy pills + an upcoming catalyst"): "Protocol upgrade" (2026-09-01) had passed, so the catalyst auto-expiry correctly hid it.
+- **Description:** `src/features/research/data/mock-conviction.js` now builds the upcoming catalyst dates relative to today (`daysFromNow(60)` / `daysFromNow(90)`); the deliberately-stale unlock stays a fixed past date. Severity: Low (demo data only; it hid a real test case).
 
 ---
 
