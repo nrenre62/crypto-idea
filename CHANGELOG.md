@@ -69,6 +69,11 @@ the go-live checklist plus a polish pass across the app and the docs.
 ### Security
 - App Check enforcement in production (CRYP-89).
 - Final pre-launch security checklist sign-off (CRYP-90).
+- Dependency security update (NPM-AUDIT): `npm audit fix` in both packages + nodemailer 9 → 10
+  (API-compatible for `sendMail.js`). `functions/`: 14 → 0 vulnerabilities (incl. critical
+  proxy-addr IP spoofing, body-parser/qs/busboy DoS, nodemailer recipient parsing). Root: 45 → 16,
+  none critical; the 4 left in production code are Firestore's pinned `@grpc/grpc-js ~1.9` (no upstream
+  fix yet, not in the browser bundle) and the rest are dev-only `firebase-tools` internals.
 
 ### Docs / legal
 - Privacy policy + terms of service finalized (CRYP-87).
