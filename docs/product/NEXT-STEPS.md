@@ -12,6 +12,20 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## REMOVE-JIRA. Jira process removed; one simple bug log  (✅ 2026-11-21 · branch `claude/remove-jira` · docs/config only)
+
+2026-11-21 · REMOVE-JIRA: Jira process removed; ERRORS.md → BUGS.md (BUG-001…039); /log-bug, /fix-bug,
+/bug-hunt replace the jira-* commands; jira-test-map.js kept.
+
+- Bugs live in [`BUGS.md`](../testing/BUGS.md) — one section per bug (date · bug · what happened ·
+  description · resolved or not). Old ERRORS ids map to BUG-001…019; the 2026-11-21 persona-test
+  findings F1–F19 are BUG-020…038. The by-design notes keep their C-ids at the end of BUGS.md.
+- One PR = one task = one backlog item (a NEXT-STEPS key or a `BUG-NNN`). New bug tests carry
+  `BUG-NNN:` in the `it()` title; historical `CRYP-NNN` ids stay as they are.
+- `scripts/jira-test-map.js` + its unit test are kept unchanged as a utility.
+
+---
+
 ## PAYMENTS-OFF-BY-DEFAULT. Ship `paidPlansEnabled` + `checkout` DEFAULT-OFF — free launch, no payment access  (✅ BUILT 2026-08-19 · branch `claude/payments-off-by-default` · CRYP-113 · PR pending)
 
 **Founder-approved decision:** the app launches **free with no payment access**. The launch-free
@@ -76,7 +90,7 @@ hides the **whole** AI surface, not just the Ask chat.
 
 **Docs:** canonical [`AI.md`](AI.md) + [`API-SECURITY.md`](../security/API-SECURITY.md) ADMIN-2 +
 [`BACKEND-ADMIN-DECISIONS.md`](../decisions/BACKEND-ADMIN-DECISIONS.md) + [`ARCHITECTURE.md`](../decisions/ARCHITECTURE.md)
-(ARCH-12/ARCH-15) + `CLAUDE.md` + `openapi.json` + the reviewer skills; ERRORS.md §C1 refreshed. The
+(ARCH-12/ARCH-15) + `CLAUDE.md` + `openapi.json` + the reviewer skills; BUGS.md C1 refreshed. The
 historical AI-CHAT-SWITCH entries below (§AI-CHAT-SWITCH, §RESEARCH-NO-AI, §BL-AI) describe the old
 default-ON `chatEnabled` behavior and are left as historical record — **superseded by CRYP-112**.
 
@@ -310,7 +324,7 @@ running the loop interviews before building unless a plan already exists.
   the build proceeds).
 - **AD-HOC** — a free-text "build / design / fix this **now**" from chat, or a `NEXT-STEPS` **stub with
   no plan** → **G1 interview MANDATORY, no exceptions**; **G2 blocking** (no code before the yes). A bug
-  is interviewed **before** `/jira-bug` → `/jira-fix`.
+  is interviewed **before** `/log-bug` → `/fix-bug`.
 - **No trivial carve-out for build/design/fix** — even a one-liner is interviewed. The one-line-heads-up
   path survives only for a **pure doc typo / copy / comment** (not a build/design/fix).
 - Enforced at **any** entry point, not just `/build-feature`.
@@ -333,7 +347,7 @@ founder's *hands*, never the *decisions* or the interview). Founder interview 20
 api-contract-verifier, simplifier, docs-scribe, integrator, fix-controller, orchestrator). Build
 order in AGENT-FACTORY.md §6: orchestrator + fix-controller first, then the gate-assist agents,
 then test-author, the builders, docs-scribe + integrator, and the stage-6 quality reviewers.
-Local-first, no new deps; each agent built to the `jira-*` bar and validated before it's trusted in
+Local-first, no new deps; each agent built to the bar of the bug commands (originally the `jira-*` commands) and validated before it's trusted in
 the line.
 
 **Status ✅ ROSTER BUILT 2026-08-03:** all 12 exist — 11 subagents in `.claude/agents/`
@@ -378,6 +392,8 @@ repo settings.
 
 ## JIRA-PLAYBOOK. Full-project Jira planning standard + factory G1 Story wiring  (✅ BUILT 2026-08-07 · Track A, docs/config only)
 
+> **Superseded 2026-11-21:** Jira removed; bugs now live in [`docs/testing/BUGS.md`](../testing/BUGS.md). The text below is history.
+
 Founder research note *"Jira workflow"* → a repo-canonical **planning** playbook, closing the gap that
 the repo's Jira docs were **bug-only** while the live CRYP board had already grown into a **9-Epic /
 79-Story roadmap** (the docs literally said "ignore Epic"). Interview decisions locked (2026-08-07):
@@ -387,7 +403,7 @@ Factory **G1** (no new slash-commands) · (3) adopt **Components** (surfaces) ·
 `claude/…` branches. Founder scoped this to **Track A (repo docs)** — the live-board mutations
 (create components/versions, tag issues, delete the CRYP-84 duplicate) are **Track B, deferred**.
 
-- **New:** [`JIRA-PLAYBOOK.md`](../testing/JIRA-PLAYBOOK.md) (hierarchy · Epic/Story/Task/Bug templates
+- **New:** `JIRA-PLAYBOOK.md` (removed 2026-11-21) (hierarchy · Epic/Story/Task/Bug templates
   with Given/When/Then AC · Kanban WIP=1 · Components §4.1 · Versions §4.2 · labels · the Rovo-MCP
   **OAuth-not-token** correction · portfolio-presentation arc) + root **`CHANGELOG.md`** (Keep-a-Changelog,
   seeded from the backlog, honestly framed as reconstructed-from-git).
@@ -409,10 +425,10 @@ Factory **G1** (no new slash-commands) · (3) adopt **Components** (surfaces) ·
     nothing else carries a product version (the SW stamp, Sentry, HTML entries, and manifest do not; the
     web-manifest spec has no version field). **Dependency** versions were left untouched — only the
     project's own version fields changed.
-- **Duplicate flagged for founder cleanup (Jira UI — no delete tool over the connection):** **CRYP-84**
-  (Story) re-files the work of **CRYP-1 + CRYP-2** (Tasks) — delete CRYP-84, keep the two Tasks.
-- **Track B (deferred, founder's go):** create the 9 Components + the `v0.x`/`v1.0` Versions via the
-  Rovo MCP and tag the Done stories; founder deletes CRYP-84 + any unclear Epics in the Jira UI.
+- ~~**Duplicate flagged for founder cleanup (Jira UI):** **CRYP-84** re-files the work of **CRYP-1 + CRYP-2**.~~
+  **Closed 2026-11-21 — obsolete (Jira removed).**
+- ~~**Track B (deferred):** create Components + Versions in Jira, tag stories, delete CRYP-84 + unclear Epics.~~
+  **Closed 2026-11-21 — obsolete (Jira removed).**
 
 ---
 
@@ -810,8 +826,8 @@ free accounts fully" + "build locally, hand off App Check/deploy"). As-built:
   `functions/billing.js`; `src/api/billing.js` gains `scheduleProDowngrade`; the client reinstates the
   real "Approve your Pro payment" step, "Keep my plan" is **fail-closed** (never `cancelled:false`) and
   routes to an honest "Re-subscribe to Premium" CTA, and `/pro-success` gains a "Pro starts when Premium
-  ends" scheduled state. Restores the `FUNCTIONS_EMULATOR` dev-split (ERRORS.md §C8 resolved for this
-  path). The security review's four findings are closed (ERRORS.md §C9); ships with paid plans OFF.
+  ends" scheduled state. Restores the `FUNCTIONS_EMULATOR` dev-split (BUGS.md C8 resolved for this
+  path). The security review's four findings are closed (BUGS.md C9); ships with paid plans OFF.
   **PR-C3a** (the **marker-first reconciliation** fix — closes PR-C2 residual #1, the [MED] fail-open
   window) **done (2026-08-13,** branch `claude/plan-b-pr-c3a-marker-reconcile`, `c58751e` red →
   `3a08d1a` impl → `f0525e0`/`9091f6f` hardening**):** `scheduleProDowngrade` now writes the
@@ -2663,7 +2679,7 @@ session**. Full record incl. what changed vs the written plan:
 `TDD-SKILL-UPDATE.md` **§10** (planning doc, since removed).
 
 **Applied to `tdd-testing` (185→254 lines):** four tiers (+**Callables** — the
-[`ERRORS.md`](../testing/ERRORS.md) C6 class) + the mocks-never-run-the-server-body gotcha ·
+[`BUGS.md`](../testing/BUGS.md) C6 class) + the mocks-never-run-the-server-body gotcha ·
 deny-checklist rules bullet · claim-truthiness near-misses · counter-decrease deny · error
 classification · idempotency redelivery+rollback tests · injected-`db` fake · source-matrix
 **merged** into the parallel-session bullet (not duplicated) · retrying-assertion replaces the
@@ -2776,9 +2792,12 @@ Cloud Functions table, CoinGecko constants, links).
 
 ## JIRA. Jira-backed bug tracking + regression-test loop  (✅ BUILT 2026-07-21 — CRYP-1)
 
+> **Superseded 2026-11-21:** Jira removed; bugs now live in [`docs/testing/BUGS.md`](../testing/BUGS.md)
+> (`/log-bug`, `/fix-bug`, `/bug-hunt`). The text below is history; `scripts/jira-test-map.js` is kept.
+
 Bugs are tracked in Jira project **CRYP** (`cryptoidea.atlassian.net`) through the user-level Rovo MCP
 connection — **no Jira API token exists in this repo**, and none should be added. Canonical:
-[`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md); bound from [`CLAUDE.md`](../../CLAUDE.md) → Conventions
+`JIRA-WORKFLOW.md` (removed 2026-11-21); bound from [`CLAUDE.md`](../../CLAUDE.md) → Conventions
 and [`AGILE.md`](AGILE.md) → Testing conventions; consistency-map row added to
 [`interview.md`](../interview.md). The point of the whole thing: **every fixed bug leaves a permanent
 regression test behind**, and the red test is committed *before* the fix so the diff proves the code
@@ -2792,7 +2811,7 @@ scale/plan-limit probe (20–100% fill per tier, counter-seeded boundaries) → 
 per-tab data-flow & privacy audit → flake-filtered verification → a dated report under
 `docs/testing/bug-hunts/`. **Reports only, never fixes**: confirmed findings are proposed as Jira Bugs
 and filed after an explicit yes; each fix the user approves then runs per-ticket through `/jira-fix` and
-lands in `ERRORS.md` + the consistency-map docs).
+lands in `ERRORS.md` (now `BUGS.md`) + the consistency-map docs).
 Plus `scripts/jira-test-map.js` — a pure vitest-JSON → `CRYP-key → pass/fail` mapper (TDD'd via
 `tests/unit/jira-test-map.test.js`), which exists because a full run's artifact is ~190 KB on one line.
 
@@ -2815,18 +2834,16 @@ the full suite; raw test stdout carries seeded emails + verification links so Ji
 to the first failure line; and the documented suite flake (**§FLAKE** below, run log in
 [`GO-LIVE-AUDIT.md`](GO-LIVE-AUDIT.md) §3b) means a red must repeat twice before it is reported onto a ticket.
 
-- [ ] **JIRA-1 · Exercise the loop on a real bug.** `/jira-fix` is built and its Jira calls are proven,
-      but it hasn't yet driven a genuine bug red→green end-to-end. Next real bug goes through it.
-- [ ] **JIRA-2 · Decide whether `In Review` earns its column.** The board has four states; a solo dev
-      likely wants three. Leave unused or remove.
-- [ ] **JIRA-3 · Run the first `/jira-bug-hunt` end-to-end.** The command is built (CRYP-2) but no hunt
-      has produced a report yet — first run proves the probe specs against the live emulator and seeds
-      `docs/testing/bug-hunts/`.
+- [x] ~~**JIRA-1 · Exercise the loop on a real bug.**~~ Closed 2026-11-21 — obsolete (Jira removed);
+      the next real bug goes through `/fix-bug` instead.
+- [x] ~~**JIRA-2 · Decide whether `In Review` earns its column.**~~ Closed 2026-11-21 — obsolete (Jira removed).
+- [x] ~~**JIRA-3 · Run the first `/jira-bug-hunt` end-to-end.**~~ Closed 2026-11-21 — obsolete (Jira removed);
+      the equivalent is the first `/bug-hunt` run.
 
 ## DI. Data integrity & honest errors — 2026-07-07 founder bug + audit  (✅ BUILT 2026-07-07)
 
 Canonical spec + locked decisions D1–D7: [`DATA-INTEGRITY.md`](DATA-INTEGRITY.md) · diagnosis:
-[`ERRORS.md`](../testing/ERRORS.md) §A4 · full inventory:
+[`BUGS.md`](../testing/BUGS.md) BUG-004 · full inventory:
 [DATA-INTEGRITY.md](DATA-INTEGRITY.md).
 Trigger: the false **"You've reached this portfolio's coin limit"** toast on a 2-coin Starter
 account (a >2000-char Buy-Journal thesis denied by `validJournal`, mislabeled as a limit).
@@ -2866,13 +2883,13 @@ Everything below is local-first (emulator-verifiable now; no Blaze needed).
 ## R31. Onboarding choice · downgrade select-flow · admin trash-delete · suspension freeze  (✅ BUILT 2026-07-07 — live PayPal calls verify at go-live)
 
 Canonical spec + decisions R31-D1…D4: [`DESIGN.md`](../design/DESIGN.md) "Round 31" · bug diagnosis:
-[`ERRORS.md`](../testing/ERRORS.md) §A5 (admin tab kills non-admin sessions — explains the empty "Welcome,", the
+[`BUGS.md`](../testing/BUGS.md) BUG-005 (admin tab kills non-admin sessions — explains the empty "Welcome,", the
 popup→full-screen flip, and the post-un-suspend logout loop; **local-testing gotcha: keep the admin tab
 closed while testing user logins until R31-1 lands**). Pairs with §DI; build R31-1 first.
 
 - [x] **R31-1 Isolate admin auth** — own Firebase app instance/persistence for `admin-main.jsx`; "not an
       admin" denied screen instead of auto-signout; user app clears the plan-flow overlay on session death
-      + `showPlan && user` render guard. **Also fixes R31-7** (logout ~1 min after upgrade = the same §A5
+      + `showPlan && user` render guard. **Also fixes R31-7** (logout ~1 min after upgrade = the same BUG-005
       admin-tab kill; DoD adds: upgrade to Pro AND Premium, wait 2+ min with /admin CLOSED, session
       persists — escalate to a dedicated diagnosis only if it survives with the admin tab closed).
 - [x] **R31-2 Forced new-user plan choice (R31-D1)** — no pre-chosen plan / no CURRENT badge until an
@@ -3234,7 +3251,7 @@ signups, admin 2FA. This section is the **build order** for those decisions; it 
 - [x] **Quick admin fixes** — ✅ `lookupUser` returns `tierBeforeFailure`+`premiumLimits`+`emailVerified`
   (+`billingCycle`); premium custom-limit-`0` respected (`!=null`, mirrors the rules' `.get(key, default)`);
   admin Overview shows an explicit "Couldn't load stats" error instead of a $0 dashboard.
-- [x] **R29 billing follow-ups (ERRORS.md B8)** — ✅ `functions/billing.js` (pure, 22 tests):
+- [x] **R29 billing follow-ups (BUGS.md BUG-013)** — ✅ `functions/billing.js` (pure, 22 tests):
   `plan_id`→tier on ACTIVATED (Premium lands as premium); SALE.COMPLETED never sets tier blindly (only
   restores `tierBeforeFailure` on recovery); CANCELLED/SUSPENDED mark the sub (endDate =
   `next_billing_time`) with **no immediate tier drop**; `cancelSubscription` marks
@@ -3893,9 +3910,9 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
   **client tier > DB tier** — a local/demo upgrade the server never persists; users can't write their own
   `tier`). **Fix (part 1 — the message):** new pure mapper `src/utils/errors.js` `apiErrorMessage`; data layer
   returns `code: error.code`; the ~10 CRUD toasts now show an honest plan-limit/auth/connection message
-  (§A1+§A2 fixed together). Verified end-to-end on the emulator (free@ at cap → plan-limit message); 277 unit
+  (BUG-001+BUG-002 fixed together). Verified end-to-end on the emulator (free@ at cap → plan-limit message); 277 unit
   green, build clean. **Part 2** (client tier ↔ DB tier sync) stays operational (admin/seed locally; PayPal
-  webhook at go-live). Full write-up in [ERRORS.md](../testing/ERRORS.md) §A1 + §A2.
+  webhook at go-live). Full write-up in [BUGS.md](../testing/BUGS.md) BUG-001 + BUG-002.
 - [x] **Round 4 — founder follow-up — ✅ ALL BUILT 2026-06-29** — full spec + as-built notes in
   [DESIGN.md](../design/DESIGN.md) "Round 4". Decisions honored (header tags = all 5 tabs · delete warning =
   only when the coin has transactions · simple Cancel/Delete-anyway popup · warn about transactions + thesis,
@@ -3963,7 +3980,7 @@ cached `/api/trending`. Same design mobile + desktop; holds in dark mode. Built 
 
 **✅ §DP DESIGN PASS 2 — COMPLETE (2026-06-29).** Every phase shipped (DP-1…DP-12 · Round 2 · Round 3 ·
 §J · Round 4 + follow-up · DP-6 · DP-7). Whole app aligned to the founder mockups, verified light + dark,
-mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
+mobile + desktop. (Backend B-PORT also fixed — BUGS.md BUG-001/BUG-002.)
 
 - [x] **Round 7 — card consistency aligned to the Research _Portfolio Pulse_ card — ✅ BUILT 2026-06-30 (`3e9d1f1`)**
   (founder follow-up; full spec in [DESIGN.md](../design/DESIGN.md) "Round 7"; **supersedes Round 5**). Grounded
@@ -4038,7 +4055,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   Build R11-1 → R11-2 → R11-3 → R11-Q on "go".
 - [x] **Round 12 — delete-coin confirm leaks across navigation · auto-disarm the "Remove" pill — 📋 PLAN ONLY
   (2026-07-01)** (founder screenshot + repro; full spec [DESIGN.md](../design/DESIGN.md) "Round 12"; bug in
-  [ERRORS.md](../testing/ERRORS.md) §A3). **Behavioural/error fix.** Repro: arm delete on a **no-transaction** coin (shows
+  [BUGS.md](../testing/BUGS.md) BUG-003). **Behavioural/error fix.** Repro: arm delete on a **no-transaction** coin (shows
   the "Remove" pill) → leave it → tap **+ Buy** and add a transaction → return to the coin → the "Delete {coin}?
   This coin has 1 buy/sell transaction…" **warning modal pops unbidden**. Root cause: `confirmDel` is **app-level**
   state (`CryptoIdea.jsx:129`, via ctx `:616`) so the armed flag survives navigation — `startAddTx` (`:497`), the
@@ -4103,7 +4120,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   `.pos-stats` share `top` across the row. *(The same message's Account "Starter/Pro/Premium" + "1/1" darker-in-light
   ask is already **Round 11 R11-1** — not duplicated.)*
 - [x] **Round 17 — FIX Pro/Premium can't add a portfolio (tier never reaches the DB) — FUNCTIONAL, ✅ BUILT
-  2026-07-01** (founder; full spec [DESIGN.md](../design/DESIGN.md) "Round 17"; bug [ERRORS.md](../testing/ERRORS.md) §A1
+  2026-07-01** (founder; full spec [DESIGN.md](../design/DESIGN.md) "Round 17"; bug [BUGS.md](../testing/BUGS.md) BUG-001
   part 2). Root cause: demo upgrade sets `user.tier` + `saveProfile`→**localStorage** (`CryptoIdea.jsx:183`), never
   Firestore; the rule reads the DB `users/{uid}.tier` (still `free`, cap 1) → `permission-denied` → plan-limit
   message, even though Pro 3 / Premium 15 caps already exist. Decision locked (AskUserQuestion): **dev-only
@@ -4298,7 +4315,7 @@ mobile + desktop. (Backend B-PORT also fixed — ERRORS.md §A1/§A2.)
   pending flexibility** — "Keep my plan" (un-cancel) + Premium can switch the pending target; **(4)** the
   R28 picker stays locked (downgrades only in Plan & billing). **R29-1** chooser · **R29-2** pending
   actions · **R29-3** re-checkout flip (dueDowngrade stays pure) · **R29-4** drop dead `downgradeFree`.
-  Adjacent go-live gaps logged (ERRORS.md B8 + §BL-1): webhook hardcodes `tier:"pro"` for the PREMIUM plan
+  Adjacent go-live gaps logged (BUGS.md BUG-013 + §BL-1): webhook hardcodes `tier:"pro"` for the PREMIUM plan
   id; `cancelSubscription` sets free immediately. Build R29-1 → R29-2 → R29-3 → R29-4 on "go".
 
 **DoD per phase:** adjust the screen's tests first · `npm run test:unit` green · `npm run build` clean ·
@@ -4660,7 +4677,7 @@ largest / top-two allocation % · `mega` = `risk.megaAlloc` (% in mega-cap/top-r
 > identity against `computePortfolio.perf` — and selects the **net-direction** top contributor. The literal
 > max-|contrib| rule rendered a sign-inverted "drove about **−500%**" on offsetting (≥3-coin) books where the
 > biggest position moves *opposite* the net (a drag), so it names the real driver and keeps the share positive
-> (F1/F2, caught in review — never shipped, so no ERRORS.md entry).
+> (F1/F2, caught in review — never shipped, so no BUGS.md entry).
 >
 > **Accepted low-priority caveats (documented from the adversarial review, NOT fixed in 4c):** (1) the 7-day value
 > reconstruction **tail-aligns sparklines by index**, so independently-refreshed per-coin histories can be ~1 day
@@ -5159,7 +5176,7 @@ deploy. Both PRs (Part A + Part B) must merge before the limits ship.
 >
 > **Staged, not queued.** Finished + approved (2026-08-04 interview). NOT in the BUILD-LOOP ledger.
 > Gate: 🔶 **bug-class** → failing-test-first (a red `it("CRYP-XX: …")` committed as a checkpoint,
-> then the fix), per [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md). Blast radius: LOW (one pure
+> then the fix), per [`BUGS.md`](../testing/BUGS.md). Blast radius: LOW (one pure
 > helper + one guard in `CryptoIdea.jsx` + tests). **No `firestore.rules`, no backend, no new dep, no
 > `test:rules`.** Same family as **TX-SAFE** (Parts A/B) → this is effectively **TX-SAFE Part C**.
 
@@ -5203,9 +5220,8 @@ exposure. Record it as such (defense-in-depth: the existing per-doc rule bounds 
    through the same function (single source of truth for the invariant).
 2. **Existing corrupt data = prevent-new only (KISS).** No migration. Already-over-sold coins stay until the
    user edits/deletes to fix them; the misleading P/L note self-corrects once the transactions are valid.
-3. **Track as a CRYP Jira bug + failing-test-first.** ⚠️ The Rovo/Jira MCP was **disconnected** when this
-   was staged (2026-08-04, non-interactive session) — file via `/jira-bug` in an interactive session (or
-   once the MCP reconnects); until then **this section is the spec**. The build starts with the red
+3. **Track as a bug + failing-test-first.** **This section is the spec** (bugs now live in
+   [`BUGS.md`](../testing/BUGS.md)). The build starts with the red
    reproduction test committed as a checkpoint (`it("CRYP-XX: editing a buy below the sold amount is
    rejected")`), never weakened to pass.
 
@@ -5255,13 +5271,12 @@ exposure. Record it as such (defense-in-depth: the existing per-doc rule bounds 
 | 11 | cross-device stale-state oversell | **accepted** as client-side only (self-corrects on reload); the guard + findings 7/8 neutralize the visible symptom | — (decision) |
 | 12 | future-dated tx accepted | `isFutureTx` rejects a date after today in `addEntry`; date input carries `max` | `tx.js` · `CryptoIdea.jsx` · `AddEntry.jsx` |
 
-**Tests:** `tests/unit/tx.test.js` (firstOverSoldSell + isFutureTx) · `tests/unit/pnl.test.js` (realizedProceeds clamp + unknown-vs-worthless) · `tests/unit/AddEntry.test.jsx` (date `max`) · `tests/unit/Detail.test.jsx` + `tests/unit/CoinInfo.test.jsx` (muted "—") · `tests/unit/CryptoIdea.walkthrough.test.jsx` (edit-buy exploit blocked end-to-end, no db write). Unit 982/982; build clean. Logged in [`ERRORS.md`](../testing/ERRORS.md) §A11.
+**Tests:** `tests/unit/tx.test.js` (firstOverSoldSell + isFutureTx) · `tests/unit/pnl.test.js` (realizedProceeds clamp + unknown-vs-worthless) · `tests/unit/AddEntry.test.jsx` (date `max`) · `tests/unit/Detail.test.jsx` + `tests/unit/CoinInfo.test.jsx` (muted "—") · `tests/unit/CryptoIdea.walkthrough.test.jsx` (edit-buy exploit blocked end-to-end, no db write). Unit 982/982; build clean. Logged in [`BUGS.md`](../testing/BUGS.md) BUG-019.
 
 ### Definition of Done
 - test:unit + build green. Emulator browser-verify (if the stack runs): reproduce the exploit → blocked with
   the date message; delete the sell → the buy then edits fine.
-- CRYP ticket filed (or intent recorded here if the MCP is down); the failing test is committed **red first**
-  per [`JIRA-WORKFLOW.md`](../testing/JIRA-WORKFLOW.md).
+- Bug recorded (here; now [`BUGS.md`](../testing/BUGS.md)); the failing test is committed **red first**.
 - Staged, not queued: no BUILD-LOOP row until founder says go.
 
 ### Cross-links
@@ -5866,7 +5881,7 @@ is really the frontend model layer (already conceded).
 3. **`src/features/research/components/OverviewView.jsx`** — the G1 NaN guard (functional; `DARK-FIX-NaN`).
 4. **`tests/unit/`** — a test asserting the diversification note never renders "NaN" (G1); if any snapshot/style
    test pins the old Sell/toggle look, update it to the new values (never weaken a test).
-5. **[`DESIGN.md`](../design/DESIGN.md)** — log this as the next DP round (the four fixes + G1–G7); **[`ERRORS.md`](../testing/ERRORS.md)** — add the NaN-diversification entry.
+5. **[`DESIGN.md`](../design/DESIGN.md)** — log this as the next DP round (the four fixes + G1–G7); **[`BUGS.md`](../testing/BUGS.md)** — add the NaN-diversification entry.
 6. **CLAUDE.md** design-follow-on note — one line that this round shipped (keep the doc current).
 
 ### Acceptance / Definition of Done
@@ -5890,7 +5905,7 @@ sell); **Q2=yes** folded `.tx-btn.sell`/`.tx-badge.sell`/`.kv-v.kv-sell` onto th
 "three reds" drift). **DARK-FIX-NaN (functional, own commit `0fbac77`, red-first `ca291bb`):** the
 diversification note's `NaN%` fixed **OverviewView-local** — top-two computed from `portfolio.holdings`
 behind a `Number.isFinite` guard (both themes; the bug was never dark-only). Logged as
-**[`DESIGN.md`](../design/DESIGN.md) Round 34** + **[`ERRORS.md`](../testing/ERRORS.md) §A9**
+**[`DESIGN.md`](../design/DESIGN.md) Round 34** + **[`BUGS.md`](../testing/BUGS.md) BUG-017**
 (renumbered from the mis-assigned A6 — A6 was already the blocked-signup entry cross-referenced by
 `USER-CREATION.md`) + a one-line CLAUDE.md design-follow-on note. **fix-round-1 (`376e771`)** consolidated
 the Research-card white border into `app.css` to drop a fragile equal-specificity cross-file cascade tie.
@@ -6045,7 +6060,7 @@ co-change CoinInfo. Consider adding a DESIGN-PASS / design-system consistency-ma
 4. **`src/components/CoinInfo.jsx`** — A2 (Unrealised P/L minus sign), A4 (`||` → `??`), A1 if it renders a floor+cents split.
 5. **`src/components/AddEntry.jsx`** — A5 (NaN-safe total + Submit disabled when invalid).
 6. **`src/styles/app.css`** — only if A3 needs a minimal neutral `.chg-pill.muted` (no new hex).
-7. **`tests/unit/`** — assertions for each fix where testable (money split; a missing-price pill is not red; AddEntry total never "NaN" + Submit disabled on a lone "."). **[`ERRORS.md`](../testing/ERRORS.md)** — add the A1 rounding entry.
+7. **`tests/unit/`** — assertions for each fix where testable (money split; a missing-price pill is not red; AddEntry total never "NaN" + Submit disabled on a lone "."). **[`BUGS.md`](../testing/BUGS.md)** — add the A1 rounding entry.
 8. **CLAUDE.md** — one line noting the Portfolio number-display correctness round shipped.
 
 ### Acceptance / Definition of Done
@@ -6063,7 +6078,7 @@ A1), routed through the Portfolio total + asset cards; real `−` (U+2212) on lo
 `Detail.jsx`/`CoinInfo.jsx` (A2); neutral "muted" pill (—) on a missing 24h datum, with a dark-block contrast
 override in `app.css` (A3); `CoinInfo.jsx` `||`→`??` so a genuine live `0` isn't overwritten by mock (A4);
 `AddEntry.jsx` shows no `$NaN` and disables Submit unless amount/price are finite `>0` (A5); neutral empty-book
-gain (`totalBuys===0` → "—", not green +$0.00 — A6). Client-only; two dark-safe `app.css` rules; ERRORS.md §A7
+gain (`totalBuys===0` → "—", not green +$0.00 — A6). Client-only; two dark-safe `app.css` rules; BUGS.md BUG-015
 records the A1 rounding bug. `npm run test:unit` **951/951**, build clean. The one deliberately-deferred piece —
 the app-vs-Research **formatter divergence** — was split out per the founder's G1 (1a narrow scope) decision into
 its own backlog item **§FORMATTER-UNIFY** (below).

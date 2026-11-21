@@ -38,12 +38,12 @@
 const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
 // Sentinels via the modular subpath — `admin.firestore.FieldValue` is undefined inside the
-// functions emulator (the namespace is proxied), so the namespace form throws there. See ERRORS.md C3.
+// functions emulator (the namespace is proxied), so the namespace form throws there. See BUGS.md (Not bugs C3).
 const { getAuth } = require("firebase-admin/auth");
 // firebase-admin v13+ REMOVED the namespaced admin.auth()/admin.firestore() accessors from the
 // root export (they throw "admin.auth is not a function" on v13/v14); the modular subpaths below
 // resolve on BOTH v12 and v14. FieldValue must also come from the subpath — admin.firestore.FieldValue
-// is undefined inside the functions emulator (the namespace is proxied). See ERRORS.md A8 (+ C3).
+// is undefined inside the functions emulator (the namespace is proxied). See BUGS.md BUG-016 (+ Not bugs C3).
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 // BL-1a/BL-1b: shared security guards (per-uid limiter / cooldown / App Check gate)
 // and the pure PayPal-billing decision logic — both dependency-injected + unit-tested.

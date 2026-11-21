@@ -15,10 +15,10 @@ at once, not just the one file that was mentioned.
 
 ## The flow — interview → plan → new PR (always)
 
-**Interview** (plain-chat numbered questions — you answer on your **own time**, no time limit; **never** the `AskUserQuestion` tool) **+ find the gaps** → write a **Plan** → **ask "any change / edit?"** and iterate until you approve → on your OK, fill the **[PR template](../.github/pull_request_template.md)** → open a **NEW PR** on a new branch off the latest `master` **+ file / link the Jira CRYP ticket** (see [`PR-WORKFLOW.md`](product/PR-WORKFLOW.md) · [`JIRA-PLAYBOOK.md`](testing/JIRA-PLAYBOOK.md)).
+**Interview** (plain-chat numbered questions — you answer on your **own time**, no time limit; **never** the `AskUserQuestion` tool) **+ find the gaps** → write a **Plan** → **ask "any change / edit?"** and iterate until you approve → on your OK, fill the **[PR template](../.github/pull_request_template.md)** → open a **NEW PR** on a new branch off the latest `master` **titled with the plan's NEXT-STEPS key (or BUG-NNN)** (see [`PR-WORKFLOW.md`](product/PR-WORKFLOW.md)).
 
 This one loop covers **building a plan, fixing a bug, or fixing anything** substantive —
-**plan + interview = always · find the gaps = always · one plan = one new PR + one Jira card.**
+**plan + interview = always · find the gaps = always · one plan = one new PR + one backlog item.**
 Never skip the interview or the gap-hunt; never push to `master`; never reuse or rewrite an old (merged / closed) PR.
 
 **Ad-hoc "build / design / fix this now" from chat enters this loop at the interview — it never goes
@@ -70,11 +70,11 @@ unsure which bucket a change is in, treat it as substantive and interview.**
 6. **Verify.** Run the relevant tests/build; report the real result, including any failures.
 7. **Commit to NEXT-STEPS.** Log every plan/decision in [`docs/product/NEXT-STEPS.md`](product/NEXT-STEPS.md)
    — even deferred ones — so nothing is lost.
-8. **Ship it — a NEW PR + a Jira card.** Commit (Conventional-Commit + trailers) on a **new branch
+8. **Ship it — a NEW PR.** Commit (Conventional-Commit + trailers) on a **new branch
    off the latest `master`**, push, and **open a NEW PR** that fills the
    [PR template](../.github/pull_request_template.md) — **never** push to `master`, **never** reuse or
-   rewrite an old (merged / closed) PR. **File / link the Jira CRYP ticket** in the PR (see
-   [`PR-WORKFLOW.md`](product/PR-WORKFLOW.md) · [`JIRA-PLAYBOOK.md`](testing/JIRA-PLAYBOOK.md)). Update
+   rewrite an old (merged / closed) PR. **Title it with the plan's NEXT-STEPS key (or BUG-NNN)** (see
+   [`PR-WORKFLOW.md`](product/PR-WORKFLOW.md)). Update
    memory/skills with any reusable pattern or preference that emerged.
 
 ## On errors
@@ -108,7 +108,7 @@ wins in a conflict) is **bold**.
 - Canonical: **`src/features/research/api/ai-status.js`** (`AI_PROXY_LIVE` — the single live/inert flag) · **`openapi.json`** (`/researchAsk` contract)
 - Code (client): `src/features/research/api/ai-client.js` (`askAI` — throws while the flag is false, else calls `researchAsk`; sends ONLY `{ question }`) · `src/features/research/hooks/{usePulse,useAsk}.js` (Pulse is severed from AI; Ask rides `askAI`) · `src/features/research/components/{Pulse,OverviewView,ResearchTab}.jsx` · `src/features/research/styles/research-tab.css` (`.ai-status`/`aiChrome` ornaments)
 - Code (server): `functions/{ai-proxy,ai-context,ai-provider,ai-cost,validate-output}.js` · `functions/features.js` (the `aiResearch` kill-switch + its per-flag `DEFAULTS` — default-OFF, CRYP-112) · `functions/index.js` (`researchAsk` `onCall`)
-- Docs: **[`AI.md`](product/AI.md)** (AI state — off today, default-OFF at launch) · `CLAUDE.md` (Research tab § + Operational safety net ADMIN-2) · `README.md` (Research paragraph) · [`NEXT-STEPS.md`](product/NEXT-STEPS.md) §Plan B PR-E + §RESEARCH-AI-OFF-LAUNCH · [`ERRORS.md`](testing/ERRORS.md) C1 · [`API-SECURITY.md`](security/API-SECURITY.md) (ADMIN-2 kill-switch idiom + the aiResearch default-OFF exception) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) (admin AI key + monthly cap + kill-switches) · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) (AI tier) · [`SECURITY.md`](security/SECURITY.md) (AI inert) · [`PRICING.md`](decisions/PRICING.md) §4 (AI budget) · [`ARCHITECTURE.md`](decisions/ARCHITECTURE.md) ARCH-12/ARCH-15 · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) (conviction engine)
+- Docs: **[`AI.md`](product/AI.md)** (AI state — off today, default-OFF at launch) · `CLAUDE.md` (Research tab § + Operational safety net ADMIN-2) · `README.md` (Research paragraph) · [`NEXT-STEPS.md`](product/NEXT-STEPS.md) §Plan B PR-E + §RESEARCH-AI-OFF-LAUNCH · [`BUGS.md`](testing/BUGS.md) C1 · [`API-SECURITY.md`](security/API-SECURITY.md) (ADMIN-2 kill-switch idiom + the aiResearch default-OFF exception) · [`BACKEND-ADMIN-DECISIONS.md`](decisions/BACKEND-ADMIN-DECISIONS.md) (admin AI key + monthly cap + kill-switches) · [`CACHE-POLICY.md`](decisions/CACHE-POLICY.md) (AI tier) · [`SECURITY.md`](security/SECURITY.md) (AI inert) · [`PRICING.md`](decisions/PRICING.md) §4 (AI budget) · [`ARCHITECTURE.md`](decisions/ARCHITECTURE.md) ARCH-12/ARCH-15 · [`PRODUCT-DECISIONS.md`](decisions/PRODUCT-DECISIONS.md) (conviction engine)
 - Reviewer skills (kill-switch fail-direction / default-OFF exception): `.claude/agents/secure-by-design.md` (fail-open vs fail-closed) · `.claude/agents/functions-builder.md` (kill-switches fail SAFE)
 
 ### Billing / PayPal (subscription lifecycle, webhook)
@@ -145,10 +145,10 @@ wins in a conflict) is **bold**.
 - Docs: **[`ARCHITECTURE.md`](decisions/ARCHITECTURE.md)** · [`src/ARCHITECTURE.md`](../src/ARCHITECTURE.md) · [`CODEBASE-MAP.md`](product/CODEBASE-MAP.md) · [`docs/diagrams/frontend-layered-architecture.svg`](diagrams/frontend-layered-architecture.svg)
 - Code: `src/{api,hooks,components,utils}/` · `src/features/research/` · `functions/index.js` (+ helper modules) · `vite.config.js` · `index.html`/`app.html`/`admin.html`
 
-### Testing & issue tracking (Jira CRYP, test ↔ ticket traceability)
-- Docs: **[`JIRA-WORKFLOW.md`](testing/JIRA-WORKFLOW.md)** (bug loop) · **[`JIRA-PLAYBOOK.md`](testing/JIRA-PLAYBOOK.md)** (hierarchy / templates / Components / Versions / presentation) · [`AGILE.md`](product/AGILE.md) (Definition of Done + testing conventions) · [`ERRORS.md`](testing/ERRORS.md) · `README.md` (Tests + "How I built this") · `CHANGELOG.md` · `CLAUDE.md` (Conventions) · [`TESTING.md`](testing/TESTING.md) (test reports + hunts)
-- Commands / agents: `.claude/commands/jira-bug.md` · `.claude/commands/jira-fix.md` (uses `claude/…` branches) · `.claude/commands/jira-test-sync.md` · `.claude/commands/jira-bug-hunt.md` · `.claude/commands/build-feature.md` + `.claude/agents/spec-drafter.md` (G1 files a CRYP Story)
-- Code/config: `scripts/jira-test-map.js` + `tests/unit/jira-test-map.test.js` · `package.json` (test scripts) · `.githooks/pre-push` · `.gitignore` (`.tmp/`)
+### Testing & bug tracking (BUG-NNN, test ↔ bug traceability)
+- Docs: **[`TESTING.md`](testing/TESTING.md)** (hub — tiers + the bug rules) · **[`BUGS.md`](testing/BUGS.md)** (the bug log) · [`AGILE.md`](product/AGILE.md) (Definition of Done + testing conventions) · `README.md` (Tests + "How I built this") · `CHANGELOG.md` · `CLAUDE.md` (Conventions)
+- Commands / agents: `.claude/commands/log-bug.md` · `.claude/commands/fix-bug.md` (uses `claude/…` branches) · `.claude/commands/bug-hunt.md` · `.claude/agents/test-tier-verifier.md` · `.claude/commands/build-feature.md`
+- Code/config: `package.json` (test scripts) · `.githooks/pre-push` · `.gitignore` (`.tmp/`) · kept utility: `scripts/jira-test-map.js` + `tests/unit/jira-test-map.test.js` (maps `CRYP-`keyed test results)
 
 ### Branding / logo (the CryptoIdea mark — tile + wordmark)
 - Canonical: **`index.html` `.brand`/`.mark`** (source of truth — tile 28/r8/glyph 16, body-font wordmark 18px/600/−.01em; tile green `#0b6b4f`; hover `rotate(-6deg) scale(1.06)`)

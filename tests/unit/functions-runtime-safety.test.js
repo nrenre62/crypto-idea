@@ -23,7 +23,7 @@ import { dirname, resolve } from "node:path";
  * tests/functions-callable.test.js (`npm run test:integration`).
  *
  * Correct form: `const { FieldValue } = require("firebase-admin/firestore")`, which
- * resolves identically in the emulator and in deployed functions. See ERRORS.md C3/C6.
+ * resolves identically in the emulator and in deployed functions. See BUGS.md BUG-039 + Not bugs C3.
  */
 const here = dirname(fileURLToPath(import.meta.url));
 const SRC = readFileSync(resolve(here, "../../functions/index.js"), "utf8");
@@ -75,7 +75,7 @@ describe("functions/index.js — Firestore sentinel access", () => {
  * 12 -> 14). The modular subpaths (getAuth from "firebase-admin/auth", getFirestore from
  * "firebase-admin/firestore", applicationDefault from "firebase-admin/app") resolve on BOTH
  * v12 and v14, so this guard keeps every functions/ file on them. Pure source scan — no
- * firebase-admin install or emulator needed, so it runs in the unit tier. See ERRORS.md A8.
+ * firebase-admin install or emulator needed, so it runs in the unit tier. See BUGS.md BUG-016.
  */
 describe("firebase-admin — modular API only (no v13+ removed accessors)", () => {
   const strip = (s) =>

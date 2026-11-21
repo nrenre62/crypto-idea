@@ -55,7 +55,7 @@ G3 merge decision. You do **not** decide to merge.
    The `Merged` flag is set later, at G3 — **not** here (built ≠ merged).
 6. **Present for G3** — the diff summary, the green verdict, the review outcomes.
    The orchestrator then opens the PR (title from your commit line, body filling the
-   template, CRYP key + `Closes #`) per [`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md)
+   template, the NEXT-STEPS key or `BUG-NNN` + `Closes #` if a GitHub issue exists) per [`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md)
    and asks the founder (plain chat) to approve the squash-merge.
 
 ## Output format

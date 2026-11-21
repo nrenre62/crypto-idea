@@ -176,7 +176,7 @@ site or run your own copy. Full statement: [LEGAL.md](docs/product/LEGAL.md).
 | Legal / privacy / disclaimer | [LEGAL.md](docs/product/LEGAL.md) |
 | Going live | [GO-LIVE-AUDIT.md](docs/product/GO-LIVE-AUDIT.md) |
 | Design system | [DESIGN.md](docs/design/DESIGN.md) · [RESPONSIVE-DESIGN.md](docs/design/RESPONSIVE-DESIGN.md) |
-| Testing | [TESTING.md](docs/testing/TESTING.md) · [ERRORS.md](docs/testing/ERRORS.md) |
+| Testing | [TESTING.md](docs/testing/TESTING.md) · [BUGS.md](docs/testing/BUGS.md) |
 
 ## License
 

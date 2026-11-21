@@ -1,5 +1,5 @@
 /**
- * Pure PayPal-billing decision logic (BL-1b / BL-1f · D6 + ERRORS.md B8) — CommonJS,
+ * Pure PayPal-billing decision logic (BL-1b / BL-1f · D6 + BUGS.md BUG-013) — CommonJS,
  * no firebase imports. index.js wires these into the webhook / callables / the daily
  * sweep; tests/unit/billing.test.js pins every branch without an emulator.
  *

@@ -36,7 +36,7 @@ export function Login({ popup }) {
   // R31-1: only render the plan picker/upgrade flow for a LIVE session. If the
   // session died mid-flow (e.g. a token revoke), `showPlan` may still be true for a
   // tick before the overlay is cleared — without this guard the picker would paint
-  // "Welcome, " with an empty name (ERRORS §A5). No user → fall through to the login form.
+  // "Welcome, " with an empty name (BUGS.md BUG-005). No user → fall through to the login form.
   // ONBOARD-GATE: also render the picker when the user is FORCED (!planChosen) even if showPlan
   // is false — a re-login un-chosen user reaches the gate overlay (CryptoIdea derives it from
   // forcedPlan, not just showPlan), so Login must match or it'd paint the login FORM in the gate.

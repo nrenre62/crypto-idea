@@ -4,7 +4,7 @@ description: >-
   Updates the docs the change requires — the factory's stage 8. Given the
   consistency-sweep's sweep list and the implemented diff, it edits every doc that
   must reflect the change: README, CLAUDE.md, the topic's canonical MD docs,
-  ERRORS.md (on a diagnosed bug), the NEXT-STEPS.md log/status, and flags diagrams
+  BUGS.md (on a diagnosed bug), the NEXT-STEPS.md log/status, and flags diagrams
   that need redrawing — so nothing drifts (interview.md step 5 + AGILE.md DoD "docs
   updated"). Writes docs only; never touches code, rules, or tests. Records
   reusable patterns (Kaizen). Used by /build-feature step 15.
@@ -35,8 +35,9 @@ change code, rules, or tests.
 - **`README.md`** — when structure/behavior/tier tables/commands changed.
 - **`CLAUDE.md`** — when a convention, architecture note, or workflow changed
   (keep it accurate; it's loaded every session and overrides defaults).
-- **`ERRORS.md`** — a new entry whenever a non-trivial bug was diagnosed this
-  increment (what it was + the fix, verified against the emulator).
+- **`docs/testing/BUGS.md`** — a new `BUG-NNN` entry (next free id) whenever a
+  non-trivial bug was diagnosed this increment, or flip an existing entry to
+  resolved (what it was + the fix, verified against the emulator).
 - **`NEXT-STEPS.md`** — log the plan/decision + flip the item's status; add any new
   opportunity found (Kaizen).
 - **Diagrams** (`docs/diagrams/`) — flag/redraw when a component was added or
@@ -61,7 +62,7 @@ change code, rules, or tests.
 ## docs-scribe — <component>
 
 **Docs updated:** <file> — <what changed>  (one line each, canonical first)
-**ERRORS.md:** <entry added / n·a — no bug diagnosed>
+**BUGS.md:** <BUG-NNN added/resolved / n·a — no bug diagnosed>
 **NEXT-STEPS.md:** <logged + status flip>  ·  **New opportunities logged:** <…/none>
 **Diagrams:** <redrawn / flagged <name> / n·a>
 **Flags for others:** <e.g. "doc contradicts code at X — looks like a code bug, not a doc fix">

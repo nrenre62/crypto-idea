@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Crypto Idea API",
-    "description": "Complete HTTP surface of the Crypto Idea backend (Firebase Cloud Functions v1 + Firestore security rules).\n\nThree kinds of endpoint are documented:\n\n1. **Public REST** (`/api/*`) — the `api` HTTP function. No authentication. Serves cached CoinGecko market data to the landing DCA calculator and the app, plus the public app config and the landing email-capture form. In production these are also reachable at `https://<your-domain>/api/*` via a Firebase Hosting rewrite (`firebase.json`).\n\n2. **Callable functions** — Firebase `onCall` functions. The Firebase SDK POSTs `{\"data\": <input>}` and receives `{\"result\": <output>}`; on error it returns a non-2xx status with `{\"error\": {\"message\", \"status\", \"details\"}}`. Every callable verifies the caller's Firebase ID token server-side and acts on `context.auth.uid` — never a uid taken from the request body (no IDOR by design). **Admin** callables additionally require the verified `{admin:true}` custom claim, which now also carries a role: `manager` (account management, granted by an owner from the Admin access tab) or `owner` (minted ONLY by `functions/scripts/set-admin.js --role=owner`). The owner-only callables (`getAdminConfig`, `saveConfig`, `setManagerRole`) additionally require a password re-auth within the last ~600s (step-up).\n\n3. **PayPal webhook** (`/paypalWebhook`) — the only inbound write not gated by a Firebase user login; it is authenticated instead by PayPal's webhook signature (documented as the `PayPalWebhookSignature` scheme). Every event is cryptographically verified against PayPal's verify-webhook-signature API before it is trusted.\n\nSecurity model summary: Firestore rules are the authorization boundary (owner-only data, closed-shape user doc, users cannot write their own `tier`/`subscription`/`premiumLimits`/`deleted`). Secrets (CoinGecko / PayPal / SMTP / AI provider keys) live only in the server-side locked `config/app` Firestore doc or environment variables; they are never returned to a client and never shipped in the browser bundle.",
+    "description": "HTTP surface of the CryptoIdea backend (Firebase Cloud Functions + Firestore rules).\n\n1. **Public REST** (`/api/*`) — no auth; cached market data, public config, landing email capture.\n\n2. **Callables** — Firebase `onCall`: POST `{\"data\": …}`, get `{\"result\": …}` or `{\"error\": {message, status, details}}`. Each verifies the ID token and acts on `context.auth.uid` only. Admin callables also need the `{admin:true}` claim with role `manager` or `owner`.\n\n3. **PayPal webhook** (`/paypalWebhook`) — authenticated by PayPal's webhook signature.\n\nSecrets stay server-side and are never returned to a client.",
     "version": "1.0.0-beta",
     "contact": {
       "name": "Crypto Idea"
@@ -11,7 +11,7 @@
   "servers": [
     {
       "url": "https://us-central1-YOUR_PROJECT.cloudfunctions.net",
-      "description": "Production — Cloud Functions base (replace YOUR_PROJECT at go-live). REST is also served at https://<your-domain>/api/* via the Hosting rewrite. Local development uses the Firebase emulator at localhost:5001/<project>/us-central1 (localhost-only, no TLS — never network-exposed); it is intentionally not listed as a server URL here so the documented contract stays HTTPS-only. See README."
+      "description": "Production Cloud Functions base (replace YOUR_PROJECT). REST is also served at https://<your-domain>/api/*."
     }
   ],
   "tags": [
@@ -41,7 +41,7 @@
     },
     {
       "name": "Admin",
-      "description": "Admin-only operations. Require the verified {admin:true} custom claim in one of two roles: `manager` (read + account management) or `owner` (Settings, manager grants, permanent erasure — plus a step-up password re-auth). Owners are protected by IDENTITY: they can never be deleted, trashed, demoted or self-deleted, and a manager may not act on an owner at all; the MIN_ADMINS count is only a secondary floor. firestore.rules matches — any admin may READ users, but the blanket update/delete branches are owner-only. Kept in the PRIVATE repo."
+      "description": "Admin-only. Requires the {admin:true} claim with role `manager` (read + account management) or `owner` (Settings, manager grants, erasure). Owners can never be deleted, trashed or demoted, and managers cannot act on owners."
     },
     {
       "name": "Webhook",
@@ -197,7 +197,7 @@
       "get": {
         "operationId": "getCoinList",
         "summary": "Full coin list (metadata + last price) for the landing DCA calculator",
-        "description": "The whole cached universe (id/symbol/name/icon/rank + last price + 24h change), fetched ONCE by the landing page and served from the CDN for a day, so thousands of visitors add ~0 function calls. Public.",
+        "description": "The whole cached coin universe (id/symbol/name/icon/rank + price + 24h change). Public, CDN-cached for a day.",
         "tags": [
           "MarketData"
         ],
@@ -293,7 +293,7 @@
       "get": {
         "operationId": "getPublicConfig",
         "summary": "Public app configuration",
-        "description": "Non-secret app config the client reads on load: maintenance flag, signups on/off, plan prices/limits, analytics IDs, legal (Termly) IDs. NEVER includes API keys or any secret. Public, short CDN cache (max-age 60s).",
+        "description": "Non-secret app config: maintenance, signups, plans, feature flags, analytics and legal IDs. Never includes secrets. Public, CDN-cached 60s.",
         "tags": [
           "Config"
         ],
@@ -413,7 +413,7 @@
       "post": {
         "operationId": "subscribeEmail",
         "summary": "Landing-page email capture (public write)",
-        "description": "The only public unauthenticated write. Emails the captured address to the site owner over SMTP (provider-agnostic — configured in admin Settings; no provider is hardcoded and no key reaches the client). Protected by a strict per-IP budget (5/min), a honeypot field, and (at go-live) App Check/reCAPTCHA.",
+        "description": "Public landing email capture; emails the address to the site owner over SMTP. Rate-limited to 5/min per IP, with a honeypot field.",
         "tags": [
           "Subscribe"
         ],
@@ -516,7 +516,7 @@
       "post": {
         "operationId": "createSubscription",
         "summary": "Start a PayPal subscription checkout for the signed-in user",
-        "description": "Callable. Creates a PayPal subscription for `context.auth.uid` and returns the approval URL. The PayPal plan is selected server-side from the requested tier × billing cycle (H6: pro/premium × monthly/yearly), so a yearly buyer is charged the yearly plan. Guards against re-buying the current tier and against duplicate submissions (60s per-uid cooldown).",
+        "description": "Callable. Creates a PayPal subscription for the caller (tier × billing cycle chosen server-side) and returns the approval URL. Refused when paid plans or checkout are off, for the current tier, or within a 60s cooldown.",
         "tags": [
           "Billing"
         ],
@@ -602,8 +602,8 @@
     "/scheduleProDowngrade": {
       "post": {
         "operationId": "scheduleProDowngrade",
-        "summary": "Schedule a future-start Pro downgrade for a Premium user (Plan B PR-C2)",
-        "description": "Callable. A Premium user schedules a REAL future-start PayPal Pro subscription that first-charges when Premium ends (start_time == the premium period end), so the account lands directly on Pro with a real payment — no early tier drop, no double-charge. Server-authoritative + fail-closed: paused by the paidPlansEnabled master switch (which takes precedence over the checkout kill-switch); refuses a non-premium or already-scheduled caller; 60s per-uid cooldown. Acts on context.auth.uid only. Returns the PayPal approval URL (the client redirects); the schedule is PENDING until the scheduled sub's ACTIVATED webhook confirms payment.",
+        "summary": "Schedule a future-start Pro downgrade for a Premium user",
+        "description": "Callable. Premium user only. Creates a future-start PayPal Pro subscription that first charges when Premium ends; returns the approval URL. Refused when paid plans are off, if already scheduled, or within a 60s cooldown.",
         "tags": [
           "Billing"
         ],
@@ -689,8 +689,8 @@
     "/resubscribePremium": {
       "post": {
         "operationId": "resubscribePremium",
-        "summary": "Seamless future-start Premium re-subscribe for a cancelled-Premium user (Plan B PR-C3b-server)",
-        "description": "Callable. A CANCELLED-Premium user schedules a REAL future-start PayPal Premium subscription that first-charges when the current period ends, so Premium continues seamlessly with a real payment — no early tier drop, no double-charge. Shares one engine with scheduleProDowngrade; the marker is tier-carrying (subscription.scheduledNext.tier == \"premium\"). Server-authoritative + fail-closed: paused by the paidPlansEnabled master switch (which takes precedence over the checkout kill-switch); refuses a non-premium, a non-cancelled premium, or a caller who still has a pending scheduledNext downgrade (founder rule: re-subscribe requires a prior \"Keep my plan\" — the scheduled downgrade is NOT auto-cancelled); 60s per-uid cooldown. Acts on context.auth.uid only. Returns the PayPal approval URL (the client redirects); the schedule is PENDING until the scheduled sub's ACTIVATED webhook confirms payment.",
+        "summary": "Future-start Premium re-subscribe for a cancelled-Premium user",
+        "description": "Callable. Cancelled-Premium user only. Creates a future-start PayPal Premium subscription that continues at period end; returns the approval URL. Refused when paid plans are off, a downgrade is pending, or within a 60s cooldown.",
         "tags": [
           "Billing"
         ],
@@ -776,8 +776,8 @@
     "/researchAsk": {
       "post": {
         "operationId": "researchAsk",
-        "summary": "Wave-B AI research proxy — ask about your own holdings (Plan B PR-E2)",
-        "description": "Callable. A signed-in user asks a question about THEIR OWN portfolio. The server builds a safety allowlist from the caller's own coin docs, generates via the configured generation model, and runs the fail-closed validate-output.js naming/advice/price wall plus the configured judge model on every candidate BEFORE any text reaches the client — so it NEVER returns financial advice, buy/sell/hold recommendations, price targets, allocation percentages or aggregate scores. Meters the actual token cost into the app-wide monthly aiBudget ledger. Fail-closed gate order: auth → question validation (non-blank, ≤500) + deny-by-default keys → aiResearch kill-switch (fresh config) → AI provider key + models present → per-uid daily budget → app-wide monthly $-cap. Acts on context.auth.uid only (no IDOR). Returns { answer, fellBack } — a fail-closed fallback is answer:\"\" / fellBack:true.",
+        "summary": "AI research — ask about your own holdings",
+        "description": "Callable. Answers a question (≤500 chars) about the caller's own portfolio. Output is validated server-side and never contains advice, price targets or allocations. Needs aiResearch on; per-user daily and app-wide monthly budgets. Returns { answer, fellBack }.",
         "tags": [
           "Research"
         ],
@@ -863,8 +863,8 @@
     "/addCoinGuarded": {
       "post": {
         "operationId": "addCoinGuarded",
-        "summary": "Add a coin to one of your portfolios — the server-owned coin write (CRYP-108, B3)",
-        "description": "Callable. THE sole coin-doc writer: client coin CREATE is `if false` in firestore.rules, so this Admin-SDK callable owns it and re-derives the tier coin cap + the #20 min(config,1000) clamp + the isChosen onboarding gate server-side. Acts on context.auth.uid only — there is no body uid (no IDOR); a stray one is rejected by the deny-by-default input shape. Fail-closed gate order: auth → deny-by-default keys + coin/journal validation → App-Check gate (config.appCheckEnforce flag, default off) → 2s cooldown → 100/UTC-day count budget → isChosen + cap re-derivation → transaction (portfolio exists → coin not already present → newCount ≤ cap → set coin + increment coinCount). The cooldown precedes the daily budget, so a throttled double-click burns no daily slot. Returns { success, coinCount }.",
+        "summary": "Add a coin to one of your portfolios (B3)",
+        "description": "Callable. The only way to create a coin doc. Enforces the plan coin cap and onboarding gate server-side, a 2s cooldown and 100 adds/UTC day. Acts on context.auth.uid only. Returns { success, coinCount }.",
         "tags": [
           "Account"
         ],
@@ -890,7 +890,7 @@
             }
           },
           "400": {
-            "description": "invalid-argument (unknown field, or a missing/invalid portfolioId/coin/journal — incl. an over-2000-char journal prose field) / failed-precondition (App-Check enforced+missing, plan not chosen, portfolio not found, or the portfolio is at its coin cap for the plan). For client disambiguation the error carries a fixed-enum details.reason (no user data): invalid-or-denied for validation/App-Check/not-chosen, missing-target for a missing portfolio, limit for the coin cap. See the CallableError.details description below.",
+            "description": "invalid-argument (bad or unknown field, journal field over 2000 chars) / failed-precondition (plan not chosen, portfolio not found, or coin cap reached). details.reason: invalid-or-denied, missing-target or limit.",
             "content": {
               "application/json": {
                 "schema": {
@@ -950,8 +950,8 @@
     "/addTransactionGuarded": {
       "post": {
         "operationId": "addTransactionGuarded",
-        "summary": "Add a transaction to one of your coins — the server-owned transaction write (CRYP-110, B3)",
-        "description": "Callable. THE sole transaction-doc writer: client transaction CREATE is `if false` in firestore.rules, so this Admin-SDK callable owns it and re-derives the tier transaction cap + the isChosen onboarding gate server-side. A near one-to-one mirror of addCoinGuarded. Acts on context.auth.uid only — there is no body uid (no IDOR); a stray one is rejected by the deny-by-default input shape. Fail-closed gate order: auth → deny-by-default keys + portfolioId/coinId/tx validation → App-Check gate (config.appCheckEnforce flag, default off) → 500ms cooldown → 500/UTC-day count budget → isChosen + cap re-derivation → transaction (coin exists → newCount ≤ cap → set tx doc with an auto-id + increment txCount). The cooldown precedes the daily budget, so a throttled double-click burns no daily slot. There is no already-exists case — the tx doc uses an auto-id. Returns { success, txId, txCount }.",
+        "summary": "Add a transaction to one of your coins (B3)",
+        "description": "Callable. The only way to create a transaction doc. Enforces the plan transaction cap and onboarding gate server-side, a 500ms cooldown and 500 adds/UTC day. Acts on context.auth.uid only. Returns { success, txId, txCount }.",
         "tags": [
           "Account"
         ],
@@ -977,7 +977,7 @@
             }
           },
           "400": {
-            "description": "invalid-argument (unknown field, or a missing/invalid portfolioId/coinId/tx) / failed-precondition (App-Check enforced+missing, plan not chosen, coin not found, or the coin is at its transaction cap for the plan). For client disambiguation the error carries a fixed-enum details.reason (no user data): invalid-or-denied for validation/App-Check/not-chosen, missing-target for a missing coin, limit for the transaction cap. See the CallableError.details description below.",
+            "description": "invalid-argument (bad or unknown field) / failed-precondition (plan not chosen, coin not found, or transaction cap reached). details.reason: invalid-or-denied, missing-target or limit.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1095,7 +1095,7 @@
       "post": {
         "operationId": "reactivateSubscription",
         "summary": "Un-cancel a pending downgrade (\"Keep my plan\")",
-        "description": "Callable. Clears the caller's own cancellation marker so the paid tier continues. PR-C2 security fix: on a scheduled-Pro downgrade the Premium sub was already cancelled at schedule time, so this reverts to a fail-closed cancel-to-free marker (access to period end, then the sweep drops it) and cancels the scheduled Pro sub — it never reinstates the terminally-cancelled Premium sub.",
+        "description": "Callable. Clears the caller's cancellation marker so the paid tier continues. After a scheduled Pro downgrade it cancels the scheduled Pro sub and access ends at period end instead.",
         "tags": [
           "Billing"
         ],
@@ -1209,7 +1209,7 @@
       "post": {
         "operationId": "deleteMyAccount",
         "summary": "Soft-delete the signed-in user's own account (GDPR/CCPA)",
-        "description": "Callable. Marks the caller's account as trashed (recoverable for 30 days) and cancels billing. An OWNER can never self-delete (transfer ownership with `scripts/set-admin.js` first); any other admin who is one of the last 2 admins is refused.",
+        "description": "Callable. Moves the caller's account to the 30-day trash and cancels billing. Owners cannot self-delete.",
         "tags": [
           "Account"
         ],
@@ -1534,7 +1534,7 @@
       "post": {
         "operationId": "devSetMyTier",
         "summary": "[EMULATOR ONLY] Set the caller's own tier for local testing",
-        "description": "Callable. HARD-gated to the emulator (`FUNCTIONS_EMULATOR === 'true'`); refuses with permission-denied in production. Lets a developer exercise Pro/Premium caps locally where no PayPal webhook exists. Not a production endpoint.",
+        "description": "Callable. Emulator only (permission-denied in production). Sets the caller's tier for local testing.",
         "tags": [
           "Account"
         ],
@@ -1601,7 +1601,7 @@
       "post": {
         "operationId": "getStats",
         "summary": "Aggregate usage & revenue stats (admin)",
-        "description": "Callable, any admin role. Returns aggregate counts and revenue — no personal data or holdings. Also returns `activeOwners` (owners who are not disabled) so the panel can warn about a single point of failure while it is still fixable.",
+        "description": "Callable, any admin. Aggregate counts and revenue (no personal data), plus `activeOwners`.",
         "tags": [
           "Admin"
         ],
@@ -1668,7 +1668,7 @@
       "post": {
         "operationId": "listUsers",
         "summary": "Full users list — operational data only (admin)",
-        "description": "Callable, any admin role. Merges Auth + profile (tier, disabled, admin, role, portfolioCount, joined, deleted). ADMIN-SEP (CRYP-103): accounts holding the `{ admin: true }` claim (owners AND managers) are EXCLUDED — an admin never appears as a normal user, and the exclusion also removes them from the count, CSV and bulk surfaces this array feeds; the admin roster is the owner-only /listAdmins. `role` is \"\" for plain users. Never returns holdings. Capped at 5000.",
+        "description": "Callable, any admin. Non-admin users with tier, status, role, portfolioCount, joined and deleted. Admins are excluded (ADMIN-SEP; see /listAdmins). No holdings. Capped at 5000.",
         "tags": [
           "Admin"
         ],
@@ -1735,7 +1735,7 @@
       "post": {
         "operationId": "listAdmins",
         "summary": "Admin roster — owners + managers (owner only)",
-        "description": "Callable, OWNER only (no step-up: a read, not a claim mutation). Enumerates every Auth account holding the `{ admin: true }` custom claim — owners AND managers — keyed off the CLAIM, not `role`, so a legacy no-role admin still appears with role \"\". Returns operational identity only (uid, email, role, disabled, lastSignInTime); never a secret, never holdings. This is the counterpart to /listUsers excluding admins.",
+        "description": "Callable, owner only. Every account with the {admin:true} claim: uid, email, role, disabled, lastSignInTime. No secrets or holdings.",
         "tags": [
           "Admin"
         ],
@@ -2129,7 +2129,7 @@
       "post": {
         "operationId": "deleteUser",
         "summary": "Hard-delete a user + all their data (owner, GDPR erasure)",
-        "description": "Callable, owner-only. Recursively deletes Firestore data and the Auth account. Owners are un-deletable by identity; self-target is refused; the minimum-admin-count floor is kept only as a secondary backstop.",
+        "description": "Callable, owner only. Permanently deletes a user's Firestore data and Auth account. Owners and the caller cannot be deleted.",
         "tags": [
           "Admin"
         ],
@@ -2465,7 +2465,7 @@
       "post": {
         "operationId": "viewUserAsAdmin",
         "summary": "Read-only 'view as' snapshot of a user (owner)",
-        "description": "ADMIN-5. Owner-only. Returns a READ-ONLY snapshot of the target user's data (profile, billing status, portfolios → coins → journal theses → capped transactions, and learn counts) for support. A non-empty `reason` is REQUIRED and is stored in the audit log; the server NEVER mints a token or acts as the user. Reads are bounded (portfolios/coins/transactions each capped) and the response flags when it truncated.",
+        "description": "Callable, owner only. Read-only, bounded snapshot of a user's data for support. A `reason` is required and audited. Never acts as the user.",
         "tags": [
           "Admin"
         ],
@@ -2518,7 +2518,7 @@
       "post": {
         "operationId": "getUserNote",
         "summary": "Read a user's private admin note (admin)",
-        "description": "ADMIN-5. Any admin may read the server-only `adminNotes/{uid}` note for a user. Never exposed to the user or the client bundle.",
+        "description": "Callable, any admin. Reads the private admin note for a user.",
         "tags": [
           "Admin"
         ],
@@ -2565,7 +2565,7 @@
       "post": {
         "operationId": "saveUserNote",
         "summary": "Save a user's private admin note (manager/owner)",
-        "description": "ADMIN-5. A manager or owner writes the server-only `adminNotes/{uid}` note (≤4000 chars). The note CONTENT never enters the audit log — only that a note changed, so it can hold sensitive support context.",
+        "description": "Callable, manager or owner. Writes a private admin note for a user (≤4000 chars). The note content is not audited.",
         "tags": [
           "Admin"
         ],
@@ -2613,7 +2613,7 @@
       "post": {
         "operationId": "setManagerRole",
         "summary": "Grant / revoke the manager role (owner, step-up)",
-        "description": "Callable, owner-only, and only with a password re-auth within the last ~600s. Grants or revokes the MANAGER role on another user by email; revoking clears the claim entirely and revokes the target's refresh tokens. Owner targets are refused in both directions (owners can only be minted by `functions/scripts/set-admin.js --role=owner`), as is the caller's own account. Replaces the removed `setAdminClaim`, which any admin could call to promote anyone.",
+        "description": "Callable, owner only, with a password re-auth in the last ~600s. Grants or revokes the manager role by email; revoking also signs the target out. Owners and the caller cannot be targeted.",
         "tags": [
           "Admin"
         ],
@@ -2775,7 +2775,7 @@
     "/listWebhookEvents": {
       "post": {
         "operationId": "listWebhookEvents",
-        "summary": "Read the recent PayPal webhook-processing ledger (admin, read-only — ADMIN-1)",
+        "summary": "Read the recent PayPal webhook-processing ledger (admin, read-only)",
         "tags": [
           "Admin"
         ],
@@ -2842,7 +2842,7 @@
       "post": {
         "operationId": "getAdminConfig",
         "summary": "Read saved app config to pre-fill Settings (owner + Settings-password unlock)",
-        "description": "Callable, owner-only, and behind the ADMIN-6 Settings-password unlock (`assertSettingsUnlocked`). Once a Settings password is set (`config/app.settingsAuth`), the caller must hold a live server-tracked unlock (`unlockSettings`, ~10 min) or the call fails `settings-locked`. Before any Settings password is set it falls back to the pre-ADMIN-6 step-up re-auth (recent password re-auth, `config/app.flags.stepUpReauth`, default on). Secrets are returned as boolean set-flags ONLY (e.g. `secretSet`, `providerKeySet`, and `settingsAuth.set`) — the secret values and the scrypt hash never leave the server.",
+        "description": "Callable, owner only, behind the Settings-password unlock (or a recent re-auth if no Settings password is set). Secrets are returned only as set-flags.",
         "tags": [
           "Admin"
         ],
@@ -2909,7 +2909,7 @@
       "post": {
         "operationId": "saveConfig",
         "summary": "Save app config / API keys (owner + Settings-password unlock)",
-        "description": "Callable, owner-only, and behind the ADMIN-6 Settings-password unlock (`assertSettingsUnlocked`; a live `unlockSettings` within ~10 min once a Settings password is set, else the step-up re-auth bootstrap). Writes the locked `config/app` doc. A blank secret field keeps the saved value (`keep()` idiom); secrets are never echoed back. `settingsAuth` is NOT written here (owned by the set/change/reset callables) — the `{merge:true}` write preserves it. Clients can never read `config/app` (Firestore rules deny all access).",
+        "description": "Callable, owner only, behind the Settings-password unlock. Writes the server-only app config. A blank secret field keeps the saved value; secrets are never echoed.",
         "tags": [
           "Admin"
         ],
@@ -2975,8 +2975,8 @@
     "/setSettingsPassword": {
       "post": {
         "operationId": "setSettingsPassword",
-        "summary": "Set or change the owner-only Settings password (ADMIN-6)",
-        "description": "Callable, owner-only. Sets the SECOND lock on the Settings screen (scrypt-hashed server-side; the plaintext is never stored or echoed). Setting the FIRST password requires a recent login re-auth (step-up); changing an existing one requires the current password or a live unlock. On success a fresh ~10-min unlock is granted. The event is audited (`setSettingsPassword`) but the password never is.",
+        "summary": "Set or change the owner-only Settings password",
+        "description": "Callable, owner only. Sets or changes the Settings password (hashed server-side). First set needs a recent re-auth; a change needs the current password or a live unlock. Grants a ~10-min unlock.",
         "tags": [
           "Admin"
         ],
@@ -3052,8 +3052,8 @@
     "/unlockSettings": {
       "post": {
         "operationId": "unlockSettings",
-        "summary": "Unlock the Settings screen with the Settings password (ADMIN-6)",
-        "description": "Callable, owner-only. Verifies the Settings password server-side (constant-time) and, on success, writes the short-lived server-tracked unlock (`settingsUnlock/{uid}`, ~10 min) that `getAdminConfig`/`saveConfig` require. Rate-limited per-uid/day to bound guessing; only FAILED attempts are audited (`settingsUnlockFailed`).",
+        "summary": "Unlock the Settings screen with the Settings password",
+        "description": "Callable, owner only. Checks the Settings password and grants a ~10-min unlock. Rate-limited per user per day; failed attempts are audited.",
         "tags": [
           "Admin"
         ],
@@ -3129,8 +3129,8 @@
     "/requestSettingsPwReset": {
       "post": {
         "operationId": "requestSettingsPwReset",
-        "summary": "Email a Settings-password reset link (ADMIN-6 PR2)",
-        "description": "Callable, owner-only. The recovery path for a forgotten Settings password. Generates a single-use token, stores it HASHED (only the sha256 is persisted; the raw token exists only in the email), and mails the link to the OWNER'S OWN verified address (`context.auth.token.email` — never a body value, so the reset can't be redirected). Fails `failed-precondition` when no Settings password is set to reset. Per-uid/day rate-limited. In dev / without SMTP configured the link is logged, not sent.",
+        "summary": "Email a Settings-password reset link",
+        "description": "Callable, owner only. Emails a single-use reset link to the caller's own verified address. failed-precondition if no Settings password is set. Rate-limited per day.",
         "tags": [
           "Admin"
         ],
@@ -3216,8 +3216,8 @@
     "/completeSettingsPwReset": {
       "post": {
         "operationId": "completeSettingsPwReset",
-        "summary": "Complete a Settings-password reset with the emailed token (ADMIN-6 PR2)",
-        "description": "Callable, owner-only. Redeems the single-use reset token (looked up by its hash) and installs the new password in one transaction, so a token can be redeemed at most once. The token is bound to the uid that requested it — a different owner can't redeem it. Fails `permission-denied` when the link is invalid, used, expired, or belongs to a different account; `invalid-argument` when the new password fails the strength floor (min 12 incl. upper+lower+number). On success a fresh ~10-min unlock is granted. The event is audited (`settingsPwResetCompleted`) but the password never is.",
+        "summary": "Complete a Settings-password reset with the emailed token",
+        "description": "Callable, owner only. Redeems the single-use reset token and sets the new password (min 12, upper+lower+number). Grants a ~10-min unlock.",
         "tags": [
           "Admin"
         ],
@@ -3304,7 +3304,7 @@
       "post": {
         "operationId": "paypalWebhook",
         "summary": "Inbound PayPal subscription webhook (signature-verified)",
-        "description": "PayPal posts subscription lifecycle events here. Every event is cryptographically verified against PayPal's verify-webhook-signature API BEFORE any DB write; unverified events are rejected. Idempotent (each event id processed once). Not called by clients.",
+        "description": "PayPal subscription events. Each is signature-verified before any write; idempotent per event id. Not called by clients.",
         "tags": [
           "Webhook"
         ],
@@ -3422,7 +3422,7 @@
     "/listDailyStats": {
       "post": {
         "operationId": "listDailyStats",
-        "summary": "Read the daily growth-metric snapshots, oldest first (admin — ADMIN-4)",
+        "summary": "Read the daily growth-metric snapshots, oldest first (admin)",
         "tags": [
           "Admin"
         ],
@@ -3488,7 +3488,7 @@
     "/captureStatsSnapshot": {
       "post": {
         "operationId": "captureStatsSnapshot",
-        "summary": "Write today's growth snapshot on demand; idempotent per UTC day (OWNER only — ADMIN-4)",
+        "summary": "Write today's growth snapshot on demand; idempotent per UTC day (owner only)",
         "tags": [
           "Admin"
         ],
@@ -3554,7 +3554,7 @@
     "/getSystemStatus": {
       "post": {
         "operationId": "getSystemStatus",
-        "summary": "Read kill-switch states, cron heartbeats and cache ages (admin — ADMIN-2)",
+        "summary": "Read kill-switch states, cron heartbeats and cache ages (admin)",
         "tags": [
           "Admin"
         ],
@@ -3631,13 +3631,13 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "The signed-in user's Firebase ID token. The Firebase callable SDK sends it as `Authorization: Bearer <idToken>`; the function verifies it server-side and reads `context.auth.uid`. Admin operations additionally require the verified `{admin:true}` custom claim on that token, plus the `role` it carries (`owner` or `manager`). Owner-only operations may additionally require a step-up password re-auth within the last ~600s (`setManagerRole`, and the pre-password bootstrap for Settings — server flag `config/app.flags.stepUpReauth`, default on) OR the ADMIN-6 Settings-password unlock (`getAdminConfig`/`saveConfig`, once a Settings password is set). See each operation's description."
+        "description": "Firebase ID token as `Authorization: Bearer <idToken>`. Admin operations also need the {admin:true} claim and a role; some owner operations need a recent re-auth or the Settings unlock."
       },
       "PayPalWebhookSignature": {
         "type": "apiKey",
         "in": "header",
         "name": "paypal-transmission-sig",
-        "description": "PayPal's webhook transmission signature. Every event is cryptographically verified against PayPal's verify-webhook-signature API (using all five paypal-* headers) BEFORE it is trusted; unverified events are rejected. This documents that the webhook is authenticated (not public), even though it is not a bearer/OAuth flow."
+        "description": "PayPal webhook signature (paypal-* headers), verified with PayPal before the event is trusted."
       }
     },
     "schemas": {
@@ -3677,7 +3677,7 @@
               "details": {
                 "type": "object",
                 "nullable": true,
-                "description": "Optional error-specific payload. The addCoinGuarded and addTransactionGuarded callables both carry a fixed-enum reason (no user data, no cap number) for client disambiguation, sharing this reason enum: details.reason ∈ {limit, missing-target, invalid-or-denied, rate-limited, already-exists} (addTransactionGuarded never returns already-exists — its tx doc uses an auto-id). Other callables may omit details or carry their own shape."
+                "description": "Optional. addCoinGuarded and addTransactionGuarded set details.reason: limit, missing-target, invalid-or-denied, rate-limited or already-exists (coins only)."
               }
             },
             "required": [
@@ -3953,7 +3953,7 @@
           },
           "paidPlansEnabled": {
             "type": "boolean",
-            "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Non-secret, default false (CRYP-113); true only when config says exactly true. Drives the launch-free UI; the server still enforces it in createSubscription, so this is presentation, never the control."
+            "description": "Whether new paid subscriptions are available (LAUNCH-FREE). Default false; true only when set to exactly true. Enforced server-side too."
           },
           "plans": {
             "$ref": "#/components/schemas/Plans"
@@ -3968,7 +3968,7 @@
             "$ref": "#/components/schemas/FeatureFlags"
           },
           "announcement": {
-            "description": "ADMIN-5: the site announcement banner, present (with text + level) ONLY while active, otherwise null. A drafted-but-inactive banner is never published here.",
+            "description": "The active site announcement ({text, level}), or null.",
             "nullable": true,
             "type": "object",
             "properties": {
@@ -3982,7 +3982,7 @@
       },
       "Announcement": {
         "type": "object",
-        "description": "ADMIN-5: the site announcement banner draft, as returned by getAdminConfig and accepted by saveConfig. `active` is forced false when text is empty.",
+        "description": "Site announcement banner. `active` is forced false when text is empty.",
         "properties": {
           "text": { "type": "string", "maxLength": 300, "pattern": "^[^\\u0000-\\u001F\\u007F]*$" },
           "level": { "type": "string", "enum": ["info", "warning", "critical"] },
@@ -3992,7 +3992,7 @@
       },
       "UserSnapshot": {
         "type": "object",
-        "description": "ADMIN-5: the READ-ONLY 'view as' snapshot returned by viewUserAsAdmin. Bounded (portfolios/coins/transactions capped) — the `truncated` flags say when there is more. Caps match functions/index.js: VIEW_MAX_PORTFOLIOS=20, VIEW_MAX_COINS=150 (total across portfolios), VIEW_MAX_TX_PER_COIN=50.",
+        "description": "Read-only snapshot returned by viewUserAsAdmin. Capped at 20 portfolios, 150 coins and 50 transactions per coin; `truncated` flags say when more exists.",
         "properties": {
           "uid": { "type": "string", "maxLength": 128, "pattern": "^[A-Za-z0-9_-]*$" },
           "email": { "type": "string", "maxLength": 254, "pattern": "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$" },
@@ -4130,7 +4130,7 @@
       },
       "SetSettingsPasswordEnvelope": {
         "type": "object",
-        "description": "ADMIN-6: set or change the owner-only Settings password.",
+        "description": "Set or change the owner-only Settings password.",
         "properties": {
           "data": {
             "type": "object",
@@ -4160,7 +4160,7 @@
       },
       "UnlockSettingsEnvelope": {
         "type": "object",
-        "description": "ADMIN-6: unlock the Settings screen with the Settings password.",
+        "description": "Unlock the Settings screen with the Settings password.",
         "properties": {
           "data": {
             "type": "object",
@@ -4210,7 +4210,7 @@
       },
       "CompleteSettingsPwResetEnvelope": {
         "type": "object",
-        "description": "ADMIN-6 PR2: redeem an emailed Settings-password reset token and set the new password.",
+        "description": "Redeem an emailed reset token and set the new Settings password.",
         "properties": {
           "data": {
             "type": "object",
@@ -4550,7 +4550,7 @@
               "journal": {
                 "type": "object",
                 "nullable": true,
-                "description": "Optional investment-thesis journal stored on the coin. Free-text fields are clamped ≤2000 and status is coerced to the enum server-side (re-enforcing the retired validJournal rule).",
+                "description": "Optional thesis journal stored on the coin. Text fields ≤2000 chars; status is coerced to the enum.",
                 "properties": {
                   "thesis": {
                     "type": "string",
@@ -4578,7 +4578,7 @@
                   },
                   "funnel": {
                     "type": "object",
-                    "description": "Optional manual-research findings (#27); each field clamped ≤2000.",
+                    "description": "Optional manual-research findings; each field ≤2000 chars.",
                     "properties": {
                       "dilution": {
                         "type": "string",
@@ -5107,7 +5107,7 @@
       },
       "AdminEntry": {
         "type": "object",
-        "description": "One admin in the ADMIN-SEP roster — operational identity only, never a secret.",
+        "description": "One admin account — operational identity only, never a secret.",
         "properties": {
           "uid": {
             "type": "string",
@@ -5485,13 +5485,13 @@
           },
           "details": {
             "type": "string",
-            "description": "Free-text summary of the action. For saveConfig this is a field-level diff (old → new); secret values are never included, only '(changed)'. Bounded server-side to this maxLength (functions/config-diff.js DETAILS_MAX). ROLE-DEPENDENT: Settings is owner-only behind a step-up re-auth, so for a saveConfig entry a non-owner caller receives 'settings changed — details are visible to owners only' instead of the diff (functions/config-diff.js auditDetailsFor).",
+            "description": "Summary of the action. For saveConfig, a field diff with secrets shown only as '(changed)'; non-owners see a placeholder instead of the diff.",
             "maxLength": 500,
             "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
           },
           "ip": {
             "type": "string",
-            "description": "ADMIN-3: source IP the action came from, derived spoof-resistantly from X-Forwarded-For (functions/net-utils.js auditIp). Empty string when no origin is available — e.g. entries written before this field shipped, or under the functions emulator, whose synthetic request carries no address.",
+            "description": "Source IP of the action, or empty when unknown (e.g. under the emulator).",
             "maxLength": 45,
             "pattern": "^[0-9A-Fa-f:.]*$"
           },
@@ -5641,7 +5641,7 @@
                   },
                   "smtpPassSet": {
                     "type": "boolean",
-                    "description": "ADMIN-6 PR2. Whether an SMTP password is stored — the value is NEVER returned to a client."
+                    "description": "Whether an SMTP password is stored. The value is never returned."
                   }
                 },
                 "additionalProperties": false
@@ -5657,11 +5657,11 @@
                   },
                   "requireAdminMfa": {
                     "type": "boolean",
-                    "description": "ADMIN-0. Require a second sign-in factor on EVERY admin callable. Defaults false and is only true when config says exactly true — nothing can satisfy the gate until Identity Platform MFA is enabled. Admin-only: deliberately NOT exposed on the public /api/config. On a save, an omitted key KEEPS the stored value."
+                    "description": "Require a second sign-in factor on every admin callable. Default false. Admin-only, not on /api/config. Omitted on save = keep."
                   },
                   "paidPlansEnabled": {
                     "type": "boolean",
-                    "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Default false (CRYP-113); true only when config says exactly true. On a save, an omitted key KEEPS the stored value (per-key merge)."
+                    "description": "Whether new paid subscriptions are available (LAUNCH-FREE). Default false; true only when set to exactly true. Omitted on save = keep."
                   },
                   "features": {
                     "$ref": "#/components/schemas/FeatureFlags"
@@ -5713,7 +5713,7 @@
               },
               "settingsAuth": {
                 "type": "object",
-                "description": "ADMIN-6. Whether a Settings password is set, and when it last changed — the scrypt hash/salt NEVER leave the server.",
+                "description": "Whether a Settings password is set and when it last changed. The hash never leaves the server.",
                 "properties": {
                   "set": {
                     "type": "boolean"
@@ -5743,7 +5743,7 @@
                   }
                 },
                 "additionalProperties": false,
-                "description": "ADMIN-2. Only whether a DSN is stored — the value is never returned to a client."
+                "description": "Whether a Sentry DSN is stored. The value is never returned."
               },
               "announcement": {
                 "$ref": "#/components/schemas/Announcement"
@@ -5816,13 +5816,13 @@
                     "format": "password",
                     "maxLength": 512,
                     "pattern": "^[\\x21-\\x7E]*$",
-                    "description": "ADMIN-2 Sentry DSN. keep()-guarded: blank KEEPS the stored value."
+                    "description": "Sentry DSN. Blank keeps the stored value."
                   },
                   "aiMonthlyCapCents": {
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 100000000,
-                    "description": "Plan B PR-E1. The app-wide monthly Wave-B AI spend cap in whole cents (default 5000 = $50). NOT a secret. KEEP-on-omit: an absent value preserves the stored cap; a present value is clamped to a non-negative integer."
+                    "description": "App-wide monthly AI spend cap in cents (default 5000 = $50). Not a secret. Omitted = keep; clamped to a non-negative integer."
                   }
                 },
                 "additionalProperties": false
@@ -5862,7 +5862,7 @@
                     "format": "password",
                     "maxLength": 512,
                     "pattern": "^[\\x21-\\x7E]*$",
-                    "description": "ADMIN-6 PR2 SMTP password. keep()-guarded: blank KEEPS the stored value; never echoed back."
+                    "description": "SMTP password. Blank keeps the stored value; never echoed back."
                   }
                 },
                 "additionalProperties": false
@@ -5878,11 +5878,11 @@
                   },
                   "requireAdminMfa": {
                     "type": "boolean",
-                    "description": "ADMIN-0. Require a second sign-in factor on EVERY admin callable. Defaults false and is only true when config says exactly true — nothing can satisfy the gate until Identity Platform MFA is enabled. Admin-only: deliberately NOT exposed on the public /api/config. On a save, an omitted key KEEPS the stored value."
+                    "description": "Require a second sign-in factor on every admin callable. Default false. Admin-only, not on /api/config. Omitted on save = keep."
                   },
                   "paidPlansEnabled": {
                     "type": "boolean",
-                    "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available. Default false (CRYP-113); true only when config says exactly true. On a save, an omitted key KEEPS the stored value (per-key merge) — the instant maintenance/signups toggles post flags without it and must not reset launch-free mode."
+                    "description": "Whether new paid subscriptions are available (LAUNCH-FREE). Default false; true only when set to exactly true. Omitted on save = keep."
                   },
                   "features": {
                     "$ref": "#/components/schemas/FeatureFlags"
@@ -5951,7 +5951,7 @@
       },
       "DailyStat": {
         "type": "object",
-        "description": "One UTC day of aggregate growth metrics (statsDaily/{YYYY-MM-DD}). Aggregate only — contains no uid, email or other personal data, which is why the series is retained indefinitely with no erasure path.",
+        "description": "One UTC day of aggregate growth metrics. No personal data.",
         "properties": {
           "date": {
             "type": "string",
@@ -5991,7 +5991,7 @@
           },
           "signups24h": {
             "type": "integer",
-            "description": "Accounts created in the 24h before this capture, counted from the Auth record creationTime (server-set). A missed scheduled run leaves that window uncounted — the window is fixed, not cumulative."
+            "description": "Accounts created in the 24h before this capture (from Auth creationTime)."
           },
           "grossRevenue": {
             "type": "number",
@@ -6073,7 +6073,7 @@
       },
       "FeatureFlags": {
         "type": "object",
-        "description": "ADMIN-2 per-feature kill-switches. Each is TRUE unless explicitly false — a missing key or an unreadable config must never read as 'switched off'.",
+        "description": "Per-feature kill-switches. marketData is on unless set to false; checkout and aiResearch are off unless set to true.",
         "properties": {
           "marketData": {
             "type": "boolean",
@@ -6081,11 +6081,11 @@
           },
           "checkout": {
             "type": "boolean",
-            "description": "New PayPal subscriptions. Off = createSubscription refuses with failed-precondition. Default-OFF (CRYP-113): absent/unreadable config resolves this to false on both ends (joins aiResearch as a default-OFF exception)."
+            "description": "New PayPal subscriptions. Off = createSubscription refuses with failed-precondition. Default false (PAYMENTS-OFF-BY-DEFAULT)."
           },
           "aiResearch": {
             "type": "boolean",
-            "description": "AI research surface. Default-OFF (CRYP-112): absent/unreadable config resolves this to false on both ends. Off = the Research tab shows the deterministic Overview only (Coins sub-view, Ask chat, per-coin Ask button and sub-nav hidden) and the researchAsk callable refuses fail-closed; also gates the Wave-B AI proxy when it ships."
+            "description": "AI research. Off = Research shows the Overview only and researchAsk refuses. Default false (RESEARCH-AI-OFF-LAUNCH)."
           }
         },
         "additionalProperties": false
@@ -6148,7 +6148,7 @@
               },
               "paidPlansEnabled": {
                 "type": "boolean",
-                "description": "CRYP-101 (LAUNCH-FREE). Whether NEW paid subscriptions are available — default false (CRYP-113); true only when config says exactly true. Surfaced on the admin Overview strip."
+                "description": "Whether new paid subscriptions are available (LAUNCH-FREE). Default false; true only when set to exactly true."
               },
               "jobs": {
                 "type": "array",

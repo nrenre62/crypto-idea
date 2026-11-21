@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { mapJiraResults, JIRA_KEY_RE } from "../../scripts/jira-test-map.js";
 
 // scripts/jira-test-map.js turns a vitest JSON artifact into a
-// "Jira issue key -> did its tests pass?" map, so /jira-test-sync can report a
-// result onto a ticket WITHOUT the 190 KB single-line JSON blob ever being read
+// "CRYP-NNN test id -> did its tests pass?" map (a kept standalone utility), so a
+// result can be reported WITHOUT the 190 KB single-line JSON blob ever being read
 // by hand. The behaviour locked here is mostly about refusing to lie:
 //
 //  - a run that executed ZERO tests is INCONCLUSIVE, never GREEN (a port clash

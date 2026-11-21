@@ -58,5 +58,5 @@ npm-debug.log*
 .Spotlight-V100
 .Trashes
 
-# Local test-report artifacts (vitest JSON for the Jira test-sync command)
+# Local test-report artifacts + bug-hunt probe scripts (vitest JSON, scripts/jira-test-map.js input)
 .tmp/

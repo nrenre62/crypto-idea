@@ -10,7 +10,7 @@
  *   'invalid-or-denied'→ rejected for some other reason (bad/oversized data)
  *
  * The limit/upgrade message therefore fires ONLY on `reason:'limit'` — never on a blind guess
- * (ERRORS.md §A4, superseding the §A1/§A2 "permission-denied ⇒ limit" mapping).
+ * (BUGS.md BUG-004, superseding the BUG-001/BUG-002 "permission-denied ⇒ limit" mapping).
  *
  * @param res       the failed result ({ success:false, code?, reason? })
  * @param fallback  message for a genuine connection/unknown error (no reason classified)

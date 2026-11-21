@@ -1,13 +1,12 @@
 /**
- * Maps a vitest JSON artifact onto Jira issue keys, so `/jira-test-sync` can say
- * "CRYP-42's test passed" without anyone reading the raw artifact — a full-suite
- * run produces ~190 KB on a SINGLE line, which is unreadable by hand and far too
- * large to page through when deciding what to post onto a ticket.
+ * Kept standalone utility (no command wires it since the Jira process was removed,
+ * 2026-11-21). Maps a vitest JSON artifact onto the historical CRYP-NNN test ids,
+ * so you can say "CRYP-42's test passed" without reading the raw artifact — a
+ * full-suite run produces ~190 KB on a SINGLE line, which is unreadable by hand.
  *
  * This file is deliberately a PURE PARSER: it does not run tests, does not shell
- * out, and never talks to Jira. Running the suite is already solved by the
- * existing npm scripts, and every Jira write goes through the authenticated
- * Atlassian MCP connection (so no API token has to exist in this repo).
+ * out, and talks to no external service. Running the suite is already solved by
+ * the existing npm scripts.
  *
  * The three-state verdict is the whole point. "No failures" is NOT the same as
  * "everything passed":

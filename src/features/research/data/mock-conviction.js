@@ -16,6 +16,12 @@ function hash(s) {
   return Math.abs(h);
 }
 
+// An "upcoming" catalyst date N days from today (YYYY-MM-DD). BUG-040: these were fixed
+// literals, so once the calendar passed them the auto-expiry (#11) correctly hid them and
+// the demo (and its tests) silently lost the "upcoming catalyst" case. Relative dates keep
+// it upcoming forever; the deliberately-stale unlock below stays a fixed past date.
+const daysFromNow = (n) => new Date(Date.now() + n * 24 * 3600 * 1000).toISOString().slice(0, 10);
+
 // Canonical evidence shapes. The "sources" are illustrative names — the point is the
 // cross-check pattern (how many sources, agreeing or conflicting) that the reducer grades.
 const PROFILES = [
@@ -27,7 +33,7 @@ const PROFILES = [
       team: [{ source: "docs", verdict: "healthy" }, { source: "media", verdict: "healthy" }],
       community: [{ source: "media", verdict: "healthy" }, { source: "forum", verdict: "healthy" }],
     },
-    catalysts: [{ label: "Protocol upgrade", date: "2026-09-01" }],
+    catalysts: [{ label: "Protocol upgrade", date: daysFromNow(60) }],
   },
   // 1 — mixed bag: a conflict (🟡), a thin axis (⬛), a corroborated problem (🔴),
   //     and a stale unlock that should auto-expire.
@@ -58,7 +64,7 @@ const PROFILES = [
       team: [{ source: "docs", verdict: "healthy" }, { source: "media", verdict: "healthy" }],
       community: [{ source: "forum", verdict: "mixed" }, { source: "media", verdict: "mixed" }],
     },
-    catalysts: [{ label: "Mainnet milestone", date: "2026-10-15" }],
+    catalysts: [{ label: "Mainnet milestone", date: daysFromNow(90) }],
   },
 ];
 

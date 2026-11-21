@@ -39,11 +39,10 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
   G3, step 17) following [`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md). Scope the increment to
   **~200 changed lines** (a handful of files) at G2; if the plan is clearly larger, split it into
   sequenced components rather than one sprawling PR.
-- **One CRYP Story per component.** At G1 close (step 5) the orchestrator files a CRYP **Story** for the
-  component and threads its key through the run — `test-author` markers, the commit + PR title, and a
-  transition to **Done** at merge ([`JIRA-PLAYBOOK.md`](../../docs/testing/JIRA-PLAYBOOK.md) §6.1). A
-  component that instead originates from a **bug** reuses its existing Bug ticket via
-  [`/jira-fix`](jira-fix.md) — don't open a second ticket for it.
+- **One backlog key per component.** The component's key is its `NEXT-STEPS` item key (or its
+  `BUG-NNN` from [`BUGS.md`](../../docs/testing/BUGS.md)); thread it through the run — `test-author`
+  markers, the commit + PR title. A component that originates from a **bug** goes through
+  [`/fix-bug`](fix-bug.md) and reuses its existing `BUG-NNN`.
 - **One component at a time, then auto-advance.** Fully finish one backlog item (through G3) before
   starting the next — never build two at once. But when a component is done, **continue straight to the
   next queued item without a separate "shall I continue?" stop** (founder rule 2026-08-04: "build items
@@ -79,7 +78,7 @@ never two at once. Read AGENT-FACTORY.md once at the start if you need the full 
 3.5. **Classify provenance — PLANNED vs AD-HOC (decides whether G1 is interviewed).** Resolve the
    argument. If it's a `NEXT-STEPS` key, open the item and check whether it carries a **written/locked
    plan** — a real plan block **or** the 🟩 GREEN "locked decisions" marker. **PLANNED** = that plan
-   exists → skip the G1 interview (step 5), keep G1's Story filing, and run G2 as a **non-blocking
+   exists → skip the G1 interview (step 5) and run G2 as a **non-blocking
    plan-of-record**. **AD-HOC** = a free-text description **or** a `NEXT-STEPS` **stub with no plan** →
    the G1 interview is **mandatory** (step 5) and G2 is a **blocking** gate. Record the provenance in
    `factory-state.md` alongside the phase, so a restart knows whether G1 was skipped-by-plan or
@@ -105,15 +104,11 @@ below. This changes no step numbers — G1 still begins at step 4.
    criteria. Wait for typed answers. Iterate until the **goal + acceptance criteria are confirmed by
    the founder.** For a **PLANNED** run (a `NEXT-STEPS` item carrying a written/locked plan or the 🟩
    GREEN "locked decisions" marker), the written plan **is** G1 — confirm it in one line and skip
-   re-interviewing. **Still file the CRYP Story below either way.**
-   - **File the CRYP Story (G1 close).** Once the goal + AC are confirmed, file a **Story** in project
-     **CRYP** via the Rovo MCP (`createJiraIssue`, `issueTypeName: "Story"`, `contentFormat: "markdown"`)
-     using the [`JIRA-PLAYBOOK.md`](../../docs/testing/JIRA-PLAYBOOK.md) §3.2 shape — the confirmed
-     acceptance criteria become its **Given/When/Then**, tagged with the tier that proves each. Set its
-     Epic / Component / Fix Version where known. **Record the returned key in `factory-state.md`** and
-     thread it downstream (test markers, commit + PR title). If the item is a **bug** (entering via
-     `/jira-fix`), skip this — its Bug ticket already exists. If the Rovo write is unavailable, say so
-     and proceed with a `CRYP-?` placeholder rather than blocking the build.
+   re-interviewing.
+   - **Write down the goal + acceptance criteria (G1 close).** Once confirmed, write the goal and the
+     acceptance criteria as **Given/When/Then** (each tagged with the test tier that proves it) into
+     the `NEXT-STEPS` item, and carry them into the PR body. **Record the item key in
+     `factory-state.md`** and thread it downstream (test markers, commit + PR title).
 
 ## 🧑 G2 — Plan approval (founder decides) — its own step, NEVER skipped
 
@@ -186,7 +181,7 @@ below. This changes no step numbers — G1 still begins at step 4.
     A clean simplification or a one-file sweep fix is **not** exempt. (A docs-only route-back needs no
     re-verify.)
 15. **Docs.** Spawn **`docs-scribe`** to update every doc the sweep names (README / CLAUDE.md /
-    ERRORS.md on a diagnosed bug / the topic's MD docs / the `NEXT-STEPS.md` log / diagrams) per the
+    BUGS.md on a diagnosed bug / the topic's MD docs / the `NEXT-STEPS.md` log / diagrams) per the
     DoD.
 16. **Integrate.** Spawn **`integrator`** to commit (message convention + `Co-Authored-By` trailer)
     and push to the feature branch. It records `Built` + the commit in `factory-state.md` and appends
@@ -198,15 +193,12 @@ below. This changes no step numbers — G1 still begins at step 4.
 
 17. **Open the PR, then present for merge in plain chat.** Open a PR per component **by default**
     (founder standing decision 2026-08-06) following [`PR-WORKFLOW.md`](../../docs/product/PR-WORKFLOW.md):
-    base `master`, title = the integrator's Conventional-Commit line (with the CRYP key), body filling
+    base `master`, title = the integrator's Conventional-Commit line (with the backlog key), body filling
     [`.github/pull_request_template.md`](../../.github/pull_request_template.md) (Why / What changed /
     How tested / Screenshots for UI / Checklist) + `Closes #` for the GitHub issue. Then summarize what
     shipped, the green test verdict, the review outcomes, and the diff, and ask the founder to approve the
     **squash-merge**. Only the *opening* is automatic — **do not merge without the explicit yes**, and
-    confirm the CI Checks are green before merging. **On merge, transition the component's CRYP Story to
-    Done** (`getTransitionsForJiraIssue` → `transitionJiraIssue`, matched by name — never a hardcoded id)
-    and set its Fix Version to the current release ([`JIRA-PLAYBOOK.md`](../../docs/testing/JIRA-PLAYBOOK.md)
-    §6.1).
+    confirm the CI Checks are green before merging.
 
 ## ⚙️ Outer loop
 

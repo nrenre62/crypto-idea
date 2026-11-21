@@ -157,7 +157,7 @@ export default function CryptoIdea(){
   const[newPortName,setNewPortName]=useState("");
   // R31-1: one place to tear down any open plan/upgrade/downgrade overlay. Called
   // when a session ends (so a dead session never shows the picker with an empty name
-  // or a full-screen flip — ERRORS §A5) and on explicit logout.
+  // or a full-screen flip — BUGS.md BUG-005) and on explicit logout.
   const resetPlanOverlay=()=>{setShowPlan(false);setUpgradeFlow(null);setUpgradeStep("billing");setShowWelcome(null);setDowngradeTo(null);setShowDowngradeChooser(false)};
   // Auth session: owns user/dataLoaded + the auth-watch & profile-save effects.
   // Collaborators are passed as thin wrappers so functions defined lower in this

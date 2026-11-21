@@ -47,8 +47,7 @@ CONTRIBUTING.
 ## Testing
 
 - [TESTING](testing/TESTING.md) — the three test tiers (the hub). Links:
-- [ERRORS](testing/ERRORS.md) — the catalog of diagnosed errors and fixes.
-- [JIRA-WORKFLOW](testing/JIRA-WORKFLOW.md) · [JIRA-PLAYBOOK](testing/JIRA-PLAYBOOK.md) — the bug workflow and ticket templates.
+- [BUGS](testing/BUGS.md) — the bug log (BUG-001, BUG-002, …): date, what happened, status.
 
 ## Process & delivery
 
