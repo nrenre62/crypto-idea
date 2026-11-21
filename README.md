@@ -32,7 +32,7 @@ The goal is simple: **make better decisions and protect your capital.** Understa
 avoid the ones that were never going to make it, and hold the rest with conviction.
 
 <div align="center">
-<img src="docs/screenshots/research-card.png" alt="In-app research card: the four conviction signals — Dev, Founders, Team, Community — graded on each holding" width="440" />
+<img src="docs/screenshots/thesis-prompt.png" alt="In-app thesis prompt: before Bitcoin enters the portfolio, the app asks why you are buying it and what would change your mind — answered here with an example thesis" width="440" />
 </div>
 
 ## What you can do
