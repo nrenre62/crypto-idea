@@ -148,45 +148,28 @@ h1 em{font-style:italic;color:var(--accent)}
 .hero-cta{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .hero-note{font-size:13px;color:var(--ink-faint);margin-top:16px}
 
-/* Hero app card — a faithful slice of the in-app Research › Your coins view */
+/* Hero app card — frames the REAL in-app thesis prompt screenshot (Journal · Before you buy) */
 .app-card{background:var(--paper-3);border:1px solid var(--line);border-radius:24px;
   box-shadow:var(--shadow-lg);padding:16px;position:relative;overflow:hidden;
   animation:float 7s ease-in-out infinite}
 .app-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;
   background:linear-gradient(90deg,var(--accent),#3f7df0)}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+/* Thesis screenshot window: a fixed-height viewport that scrolls through the real prompt */
+.thesis-card{margin:0;--ts-h:540px}
+.ts-window{height:var(--ts-h);overflow:hidden;border-radius:18px;background:var(--paper-2);
+  border:1px solid var(--line);box-shadow:var(--shadow-sm);outline:none}
+.ts-window:focus-visible{box-shadow:0 0 0 3px var(--accent-soft),var(--shadow-sm)}
+.ts-img{display:block;width:100%;height:auto;animation:ts-scroll 26s ease-in-out infinite}
+.ts-window:hover .ts-img,.ts-window:focus .ts-img{animation-play-state:paused}
+@keyframes ts-scroll{0%,12%{transform:translateY(0)}46%,58%{transform:translateY(calc(-100% + var(--ts-h)))}92%,100%{transform:translateY(0)}}
+.ts-cap{font-size:12px;color:var(--ink-faint);text-align:center;margin:12px 6px 2px;line-height:1.45}
+@media(max-width:560px){.thesis-card{--ts-h:460px}}
 .ac-head{display:flex;align-items:center;justify-content:space-between;margin:4px 6px 14px}
 .ac-tab{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint)}
-.ac-live{font-size:12px;color:var(--ink-faint);font-weight:500;display:flex;align-items:center;gap:6px}
-.live-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);position:relative}
-.live-dot::after{content:"";position:absolute;inset:-3px;border-radius:50%;
-  background:var(--accent);opacity:.35;animation:pulse 2.2s ease infinite}
-@keyframes pulse{0%{transform:scale(.8);opacity:.45}70%,100%{transform:scale(2.2);opacity:0}}
 .coin-ic{border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:none}
-/* Real conviction coin card */
-.coin-card{background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:15px;box-shadow:var(--shadow-sm)}
-.coin-card + .coin-card{margin-top:11px}
-.cc-top{display:flex;align-items:center;gap:11px}
-.cc-id{flex:1;min-width:0}
 .cc-name{font-weight:600;font-size:14.5px}
 .cc-meta{font-size:11.5px;color:var(--ink-faint)}
-.cc-right{text-align:right}
-.cc-val{font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
-.cc-chg{font-size:11.5px;font-weight:600}
-.cc-chg.up{color:var(--accent)} .cc-chg.dn{color:var(--warn)}
-.cc-chev{margin-left:4px;color:var(--ink-faint);flex:none;transition:transform .3s var(--ease)}
-.coin-card.open .cc-chev{transform:rotate(180deg)}
-.cc-expand{padding-top:14px;margin-top:14px;border-top:1px solid var(--line)}
-.cc-sec-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
-.sig-detail{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
-.sig-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.45}
-.sig-row .sig-dot{width:7px;height:7px;border-radius:50%;flex:none;margin-top:4px}
-.sig-row .sig-text{color:var(--ink-soft)}
-.sig-row .sig-text strong{color:var(--ink);font-weight:600}
-.cc-thesis{font-size:12px;color:var(--ink-soft);line-height:1.55;margin-bottom:11px;font-style:italic}
-.cc-review{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:8px 14px}
-.cc-conv{display:flex;gap:5px;flex-wrap:wrap;margin-top:11px}
-.cc-verdict{font-size:12px;color:var(--ink-soft);font-style:italic;margin-top:10px;line-height:1.45}
 /* conviction pills (shared with the Conviction feature section) */
 .pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;display:inline-flex;align-items:center;gap:5px}
 .pill .sd{width:5px;height:5px;border-radius:50%}
@@ -194,10 +177,6 @@ h1 em{font-style:italic;color:var(--accent)}
 .pill-a{background:var(--sa-s);color:#956c00} .pill-a .sd{background:var(--sa)}
 .pill-r{background:var(--sr-s);color:var(--sr)} .pill-r .sd{background:var(--sr)}
 .pill-n{background:var(--paper-3);color:var(--ink-soft);border:1px solid var(--line)} .pill-n .sd{background:var(--ink-faint)}
-/* conviction card meta — matches the in-app CoinCard: a sentiment line + an "as of" note */
-.cc-sent{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-top:11px}
-.cc-sent .sd{width:6px;height:6px;border-radius:50%;background:var(--sg)}
-.cc-asof{font-size:11px;color:var(--ink-faint);margin-top:11px;line-height:1.45}
 .ac-example{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);background:var(--paper);border:1px solid var(--line);padding:3px 8px;border-radius:999px}
 /* CoinGecko attribution — API Terms §4.3 requires it near the data it credits */
 .cg-attr{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:12px}
@@ -428,11 +407,12 @@ footer small{font-size:13px;color:var(--ink-faint)}
   .hero-cta .btn{width:100%}
 }
 @media(prefers-reduced-motion:reduce){
+  .ts-img{animation:none}.ts-window{overflow-y:auto}
   .reveal{opacity:1;transform:none;transition:none}
   html{scroll-behavior:auto}
   .app-card{animation:none}
   .spark-line path.draw{animation:none;stroke-dashoffset:0}
-  .hook-tag .dot::after,.live-dot::after{animation:none}
+  .hook-tag .dot::after{animation:none}
 }
 </style>
 </head>
@@ -474,64 +454,22 @@ footer small{font-size:13px;color:var(--ink-faint)}
       <p class="hero-note reveal">Free &amp; open source &nbsp;·&nbsp; Your data stays yours &nbsp;·&nbsp; Mobile &amp; web</p>
     </div>
 
-    <!-- App card #1: the in-app Research › Your coins conviction pop-up. States and axes
-         match src/features/research: Dev/Founders/Team/Community graded Healthy / Mixed /
-         Problem / Insufficient. Illustrative example data (marked below). No AI. -->
-    <div class="app-card reveal" aria-hidden="true">
+    <!-- Hero card: a REAL screenshot of the in-app "Before you add …" thesis prompt (Search → + Add,
+         src/components/Search.jsx), answered with an example Bitcoin thesis. Captured from the running
+         app at 2x (public/landing/). The window slowly scrolls through all five answers (paused on
+         hover/focus); under prefers-reduced-motion it is static and scrolls by hand. Re-capture the
+         image if the prompt's design changes. -->
+    <figure class="app-card thesis-card reveal">
       <div class="ac-head">
-        <span class="ac-tab">Research · Your coins</span>
+        <span class="ac-tab">Journal · Before you buy</span>
         <span class="ac-example">Example</span>
       </div>
-      <div class="coin-card open">
-        <div class="cc-top">
-          <div class="coin-ic" style="background:#f7931a;width:38px;height:38px;font-size:14px">₿</div>
-          <div class="cc-id">
-            <div class="cc-name">Bitcoin</div>
-            <div class="cc-meta">0.12 BTC</div>
-          </div>
-          <div class="cc-right">
-            <div class="cc-val">$12,420</div>
-            <div class="cc-chg up">+0.4% · 30%</div>
-          </div>
-          <svg class="cc-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg>
-        </div>
-        <div class="cc-sent"><span class="sd"></span>Sentiment: Positive</div>
-        <div class="cc-conv">
-          <span class="pill pill-g"><span class="sd"></span>Dev · Healthy</span>
-          <span class="pill pill-n"><span class="sd"></span>Founders · no coverage</span>
-          <span class="pill pill-g"><span class="sd"></span>Team · Healthy</span>
-          <span class="pill pill-g"><span class="sd"></span>Community · Healthy</span>
-        </div>
-        <div class="cc-asof">Conviction signals as of yesterday · these cover research steps 1–2; you apply 3–5.</div>
-        <div class="cc-verdict">Bitcoin is 30% of your portfolio and moved +0.4% today.</div>
-        <div class="cc-expand">
-          <div class="cc-sec-label">Your position</div>
-          <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.6">Avg cost $58,200 &nbsp;·&nbsp; Now $62,100 &nbsp;·&nbsp; P/L <strong style="color:var(--accent)">+6.7%</strong> &nbsp;·&nbsp; 30d <strong style="color:var(--accent)">+9.1%</strong></div>
-        </div>
+      <div class="ts-window" tabindex="0">
+        <img class="ts-img" src="/landing/thesis-prompt-bitcoin@2x.png" width="440" height="1418" decoding="async"
+             alt="The CryptoIdea app's 'Before you add Bitcoin…' prompt, filled in as an example. Why are you buying this: a fixed 21M supply, the most secure network in crypto, and ETF and treasury demand checkable on-chain — a small position held for 5+ years. What would change your mind: a real security flaw, mining concentrating in a few hands, or bans on the main on-ramps — not a 50% drop alone. Manual research findings: no unlocks or team tokens, supply grows under 1% a year; volume spread across regulated exchanges and spot ETFs, organic not wash-traded; no native yield, held as savings.">
       </div>
-      <div class="coin-card">
-        <div class="cc-top">
-          <div class="coin-ic" style="background:#627eea;width:38px;height:38px;font-size:16px">Ξ</div>
-          <div class="cc-id">
-            <div class="cc-name">Ethereum</div>
-            <div class="cc-meta">2.4 ETH</div>
-          </div>
-          <div class="cc-right">
-            <div class="cc-val">$6,180</div>
-            <div class="cc-chg up">+1.2% · 15%</div>
-          </div>
-          <svg class="cc-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg>
-        </div>
-        <div class="cc-sent"><span class="sd"></span>Sentiment: Neutral</div>
-        <div class="cc-conv">
-          <span class="pill pill-g"><span class="sd"></span>Dev · Healthy</span>
-          <span class="pill pill-g"><span class="sd"></span>Founders · Healthy</span>
-          <span class="pill pill-g"><span class="sd"></span>Team · Healthy</span>
-          <span class="pill pill-a"><span class="sd"></span>Community · Mixed</span>
-        </div>
-        <div class="cc-asof">Illustrative example — every coin you hold gets its own four-signal read.</div>
-      </div>
-    </div>
+      <figcaption class="ts-cap">What the app asks the moment you add a coin — your answers stay with it.</figcaption>
+    </figure>
   </div>
 </section>
 

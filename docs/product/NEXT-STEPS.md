@@ -12,6 +12,17 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## LANDING-THESIS-HERO. Hero shows the real thesis prompt, not the Research card  (✅ 2026-11-21 · branch `claude/landing-thesis-hero` · landing only)
+
+2026-11-21 · LANDING-THESIS-HERO: the hero card ("Research · Your coins" conviction pills — a view hidden at launch)
+is replaced by a **real screenshot** of the in-app "Before you add Bitcoin…" prompt, captured at 2x from the running app
+with all five questions answered (why buying · what would change your mind · dilution · real volume · real yield).
+It sits in a fixed-height window that auto-scrolls through the answers (pause on hover/focus; static + hand-scroll
+under reduced motion). Asset: `public/landing/thesis-prompt-bitcoin@2x.png` (106 KB). The Research-card CSS was removed.
+Landing examples use only BTC (hero) + ETH (Journal card). Re-capture the screenshot if the prompt's design changes.
+
+---
+
 ## REMOVE-WIN-SCRIPTS. Windows backup + diagram-drift scripts removed  (✅ 2026-11-21 · branch `claude/remove-windows-scripts` · config only)
 
 2026-11-21 · REMOVE-WIN-SCRIPTS: deleted the four PowerShell scripts (`auto-backup-to-wd.ps1`,
