@@ -3,8 +3,7 @@
 # Founder decision (2026-07-20 skill interview): sessions HAVE finished red despite the
 # skill's wording, so the rule earned a hook; the full suite measured ~170s, too slow
 # per commit (the founder commits every change), so the gate sits on PUSH — commits stay
-# instant and nothing red leaves the machine. The only bypass is --no-verify, which the
-# Claude Code global guard (~/.claude/hooks/guard.ps1) also blocks.
+# instant and nothing red leaves the machine. The only bypass is --no-verify — never use it.
 #
 # Enable once per clone:  git config core.hooksPath .githooks
 set -eu
