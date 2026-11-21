@@ -1,7 +1,6 @@
 #!/bin/sh
 # Block commits that include secrets. This runs regardless of how the commit is
-# invoked (Claude Code, terminal, IDE). The only bypass is --no-verify, which the
-# Claude Code global guard (~/.claude/hooks/guard.ps1) also blocks.
+# invoked (Claude Code, terminal, IDE). The only bypass is --no-verify — never use it.
 #
 # Enable once per clone:  git config core.hooksPath .githooks
 # Keep patterns in sync with .gitignore.

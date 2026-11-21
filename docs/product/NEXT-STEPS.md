@@ -12,6 +12,17 @@ See also: [`AGILE.md`](AGILE.md) (how we work + Definition of Done),
 
 ---
 
+## REMOVE-WIN-SCRIPTS. Windows backup + diagram-drift scripts removed  (✅ 2026-11-21 · branch `claude/remove-windows-scripts` · config only)
+
+2026-11-21 · REMOVE-WIN-SCRIPTS: deleted the four PowerShell scripts (`auto-backup-to-wd.ps1`,
+`register-auto-backup-task.ps1`, `finish-backup-hook.ps1`, `diagram-drift.ps1`) and the two
+`.claude/settings.json` UserPromptSubmit hooks that ran the WD-drive backup and the diagram-drift check on
+every prompt (they pointed at another machine's path). No npm script, test or CI step used them. Backups are
+now the founder's own (git remote + their own tooling); diagrams are refreshed by hand with the
+`drawing-diagram` skill.
+
+---
+
 ## REMOVE-JIRA. Jira process removed; one simple bug log  (✅ 2026-11-21 · branch `claude/remove-jira` · docs/config only)
 
 2026-11-21 · REMOVE-JIRA: Jira process removed; ERRORS.md → BUGS.md (BUG-001…039); /log-bug, /fix-bug,
