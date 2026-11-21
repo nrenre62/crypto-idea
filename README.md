@@ -2,8 +2,6 @@
 
 <img src="public/brand/logo.png" alt="CryptoIdea logo" width="280" />
 
-# CryptoIdea
-
 **Write your thesis before you buy.** A crypto portfolio tracker + research journal that makes you
 justify every coin on fundamentals — so you invest with conviction, not hype.
 
@@ -14,7 +12,7 @@ justify every coin on fundamentals — so you invest with conviction, not hype.
 ![Firebase](https://img.shields.io/badge/Firebase-Hosting%20%2B%20Functions-ffca28)
 ![Node 22](https://img.shields.io/badge/Node-22-3c873a)
 
-<img src="docs/screenshots/landing.png" alt="CryptoIdea landing page — 'The only crypto app that asks why you're buying, before you buy'" width="880" />
+<img src="docs/screenshots/landing.png" alt="CryptoIdea landing page — 'The only crypto app that asks why you're buying, before you buy', beside the real in-app 'Before you add Bitcoin…' thesis prompt" width="880" />
 
 </div>
 
